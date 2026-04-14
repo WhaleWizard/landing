@@ -6,8 +6,8 @@ import { Lock, LogIn, Save, Plus, Trash2 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
 import { ADMIN_PASSWORD } from '../config';
+import ArticleEditor from '../components/ArticleEditor';
 
-// Функция транслитерации
 function transliterate(text: string): string {
   const map: Record<string, string> = {
     'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
@@ -40,7 +40,6 @@ export default function Admin() {
 
   const handleTitleChange = (title: string) => {
     if (!editingArticle) return;
-    // Если slug не был отредактирован вручную, генерируем новый из заголовка
     const newSlug = !slugManuallyEdited ? transliterate(title) : editingArticle.slug;
     setEditingArticle({
       ...editingArticle,
@@ -55,9 +54,14 @@ export default function Admin() {
     setEditingArticle({ ...editingArticle, slug });
   };
 
+  const handleContentChange = (html: string) => {
+    if (editingArticle) {
+      setEditingArticle({ ...editingArticle, content: html });
+    }
+  };
+
   const handleSave = async () => {
     if (!editingArticle) return;
-    // Валидация
     if (!editingArticle.title.trim()) {
       alert('Введите заголовок');
       return;
@@ -69,11 +73,9 @@ export default function Admin() {
 
     let updatedArticles = [...articles];
     if (editingArticle.id && editingArticle.id !== 0) {
-      // Обновление существующей статьи
       const index = updatedArticles.findIndex(a => a.id === editingArticle.id);
       if (index !== -1) updatedArticles[index] = editingArticle;
     } else {
-      // Новая статья
       const newId = Math.max(0, ...articles.map(a => a.id), 0) + 1;
       updatedArticles.push({ ...editingArticle, id: newId });
     }
@@ -84,7 +86,7 @@ export default function Admin() {
         alert('Сохранено!');
         setEditingArticle(null);
         setSlugManuallyEdited(false);
-        await refreshArticles(); // принудительно обновляем контекст
+        await refreshArticles();
       } else {
         alert('Ошибка сохранения. Проверьте консоль (F12)');
       }
@@ -176,7 +178,10 @@ export default function Admin() {
                 <div><label className="block text-sm font-medium mb-1">Краткое описание</label><textarea value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none resize-none" /></div>
                 <div><label className="block text-sm font-medium mb-1">URL обложки (картинка)</label><input type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none" /></div>
                 <div><label className="block text-sm font-medium mb-1">Slug (URL-адрес статьи)</label><input type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none" /><p className="text-xs text-muted-foreground mt-1">Автоматически из заголовка (если не трогать вручную). Только латиница, дефисы.</p></div>
-                <div><label className="block text-sm font-medium mb-1">Содержание (HTML)</label><textarea value={editingArticle.content} onChange={(e) => setEditingArticle({ ...editingArticle, content: e.target.value })} rows={12} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none font-mono text-sm" /><p className="text-xs text-muted-foreground mt-1">Можно вставлять HTML-теги (p, h2, strong, img и т.д.)</p></div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Содержание статьи</label>
+                  <ArticleEditor content={editingArticle.content} onChange={handleContentChange} />
+                </div>
                 <div className="flex gap-3">
                   <button onClick={handleSave} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition"><Save className="w-4 h-4" /> Сохранить</button>
                   <button onClick={() => setEditingArticle(null)} className="px-4 py-2 rounded-xl border border-primary/30 hover:bg-primary/10 transition">Отмена</button>
