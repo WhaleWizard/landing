@@ -3,27 +3,36 @@ import { useEffect } from 'react';
 interface SEOProps {
   title?: string;
   description?: string;
-  keywords?: string;
   image?: string;
   url?: string;
-  type?: string;
+  type?: 'website' | 'article';
 }
+
+const SITE_URL = 'https://whalewzrd.com';
+
+const toAbsoluteUrl = (path: string): string => {
+  if (!path) return SITE_URL;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return path.startsWith('/') ? `${SITE_URL}${path}` : `${SITE_URL}/${path}`;
+};
 
 export default function SEO({
   title = "Whale Wzrd | Performance-таргетолог",
-  description = "Увеличу поток клиентов через Google Ads и Meta Ads. Настройка рекламы, которая приносит результат с первого месяца. Бесплатная консультация.",
-  keywords = "таргетолог, google ads, meta ads, реклама, контекстная реклама, seo, продвижение",
+  description = "Настраиваю рекламу в Google Ads и Meta Ads, которая приводит первые заявки уже в период теста и масштабируется в прибыль. $2M+ рекламного бюджета в управлении • 500 000+ лидов. Средняя окупаемость — 240% (e-commerce и B2C). Беру на себя всё: стратегия, креативы, аналитика и оптимизация. Настройка google ads и Настройка Meta ads.",
   image = "/og-image.jpg",
-  url = "https://whalewzrd.com",
+  url = "/",
   type = "website",
 }: SEOProps) {
   const siteTitle = "Whale Wzrd";
   const fullTitle = title === siteTitle ? title : `${title} | ${siteTitle}`;
 
+  const absoluteUrl = toAbsoluteUrl(url);
+  const absoluteImage = toAbsoluteUrl(image);
+
   useEffect(() => {
     document.title = fullTitle;
 
-    const setMetaTag = (name: string, content: string, isProperty = false) => {
+    const setMeta = (name: string, content: string, isProperty = false) => {
       const selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
       let meta = document.querySelector(selector);
       if (!meta) {
@@ -35,21 +44,19 @@ export default function SEO({
       meta.setAttribute('content', content);
     };
 
-    setMetaTag('description', description);
-    setMetaTag('keywords', keywords);
-    setMetaTag('og:title', fullTitle, true);
-    setMetaTag('og:description', description, true);
-    setMetaTag('og:image', image, true);
-    setMetaTag('og:url', url, true);
-    setMetaTag('og:type', type, true);
-    setMetaTag('twitter:card', 'summary_large_image');
-    setMetaTag('twitter:title', fullTitle, true);
-    setMetaTag('twitter:description', description, true);
-    setMetaTag('twitter:image', image, true);
-    // перед setMetaTag('robots', 'index, follow') добавь:
-const existingRobots = document.querySelector('meta[name="robots"]');
-if (existingRobots) existingRobots.remove();
-    setMetaTag('robots', 'index, follow');
+    setMeta('description', description);
+    setMeta('robots', 'index, follow');
+
+    setMeta('og:title', fullTitle, true);
+    setMeta('og:description', description, true);
+    setMeta('og:image', absoluteImage, true);
+    setMeta('og:url', absoluteUrl, true);
+    setMeta('og:type', type, true);
+
+    setMeta('twitter:card', 'summary_large_image');
+    setMeta('twitter:title', fullTitle, true);
+    setMeta('twitter:description', description, true);
+    setMeta('twitter:image', absoluteImage, true);
 
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
@@ -57,8 +64,8 @@ if (existingRobots) existingRobots.remove();
       canonical.setAttribute('rel', 'canonical');
       document.head.appendChild(canonical);
     }
-    canonical.setAttribute('href', url);
-  }, [fullTitle, description, keywords, image, url, type]);
+    canonical.setAttribute('href', absoluteUrl);
+  }, [fullTitle, description, absoluteImage, absoluteUrl, type]);
 
   return null;
 }
