@@ -1,6 +1,17 @@
 {
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap.js" },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot"
+        }
+      ],
+      "destination": "/api/og?path=/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
