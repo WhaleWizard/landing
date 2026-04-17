@@ -8,7 +8,7 @@
       "zone": "functions"
     },
     {
-      "pattern": "/_functions/*",
+      "pattern": "/*",
       "zone": "functions"
     }
   ]
