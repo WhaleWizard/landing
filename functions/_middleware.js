@@ -5,19 +5,18 @@ export async function onRequest(context) {
   const userAgent = request.headers.get('user-agent') || '';
   const isBot = /Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot/i.test(userAgent);
 
-  // Не трогаем sitemap и статические файлы
-  if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/assets/')) {
+  // Пропускаем статические файлы и sitemap
+  if (url.pathname.startsWith('/assets/') || url.pathname === '/sitemap.xml') {
     return context.next();
   }
 
-  // Если бот – перенаправляем на функцию og.js с параметром path
+  // Боты → отдаём SEO-страницу через функцию og
   if (isBot) {
-    const path = url.pathname.slice(1); // убираем начальный слэш
-    const ogUrl = new URL(url.origin + '/og?path=' + encodeURIComponent(path));
-    const ogRequest = new Request(ogUrl, request);
-    return context.env.ASSETS.fetch(ogRequest);
+    const ogUrl = new URL('/og' + url.pathname + url.search, url.origin);
+    return context.env.ASSETS.fetch(ogUrl);
   }
 
-  // Обычные пользователи – отдаём index.html (SPA)
-  return context.next();
+  // Обычные пользователи → отдаём index.html (React-приложение)
+  const indexPath = new URL('/index.html', url.origin);
+  return context.env.ASSETS.fetch(indexPath);
 }
