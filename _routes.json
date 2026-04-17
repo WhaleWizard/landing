@@ -1,4 +1,0 @@
-"scripts": {
-  "build": "vite build && node scripts/generate-pages.js",
-  "dev": "vite"
-}
