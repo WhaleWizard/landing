@@ -5,9 +5,16 @@
 [functions]
   directory = "netlify/functions"
 
-# Все запросы сначала идут на функцию og.js
+# Только поисковые боты идут в функцию
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/og?path=:splat"
   status = 200
   force = true
+  conditions = { UserAgent = "Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot" }
+
+# Все остальные (обычные пользователи) получают React-приложение
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
