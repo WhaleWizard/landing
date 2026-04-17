@@ -1,5 +1,4 @@
-{
-  "version": 1,
-  "include": ["/*"],
-  "exclude": ["/assets/*", "/blog/*", "/services", "/calculator", "/roi-calculator", "/privacy-policy", "/offer", "/cookie-policy"]
+"scripts": {
+  "build": "vite build && node scripts/generate-pages.js",
+  "dev": "vite"
 }
