@@ -10,7 +10,7 @@
           "value": "Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot"
         }
       ],
-      "destination": "/dist-prerendered/:path*"
+      "destination": "/api/og?path=/:path*"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
