@@ -9,24 +9,30 @@ exports.handler = async (event) => {
   let image = 'https://whalewzrd.com/og-image.jpg';
   let url = SITE_URL;
   let type = 'website';
+  let contentHtml = '';
 
-  // Маршрутизация (твоя полная логика)
+  // --- Маршрутизация ---
   if (cleanPath === '' || cleanPath === 'index.html') {
     title = 'Whale Wzrd | Performance-таргетолог';
     description = 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.';
-  } else if (cleanPath === 'services') {
+  } 
+  else if (cleanPath === 'services') {
     title = 'Услуги таргетолога | Whale Wzrd';
     description = 'Настройка и ведение рекламы в Google Ads и Meta Ads. Стратегия, аналитика, запуск, оптимизация и масштабирование. Бесплатный аудит.';
-  } else if (cleanPath === 'calculator') {
+  } 
+  else if (cleanPath === 'calculator') {
     title = 'Калькулятор бюджета рекламы | Whale Wzrd';
     description = 'Рассчитайте примерную стоимость услуг по настройке Google Ads и Meta Ads. Укажите бюджет и цели – получите цену.';
-  } else if (cleanPath === 'roi-calculator') {
+  } 
+  else if (cleanPath === 'roi-calculator') {
     title = 'Калькулятор ROAS и ROMI | Whale Wzrd';
     description = 'Рассчитайте окупаемость рекламы в Google Ads и Meta Ads. Введите бюджет, средний чек, маржинальность и количество заказов.';
-  } else if (cleanPath === 'blog') {
+  } 
+  else if (cleanPath === 'blog') {
     title = 'Блог о маркетинге | Whale Wzrd';
     description = 'Экспертные статьи о таргетированной рекламе, стратегиях, аналитике и кейсах. Полезные материалы для роста бизнеса.';
-  } else if (cleanPath.startsWith('blog/')) {
+  } 
+  else if (cleanPath.startsWith('blog/')) {
     type = 'article';
     const slug = cleanPath.replace('blog/', '');
     try {
@@ -39,6 +45,9 @@ exports.handler = async (event) => {
         description = article.description;
         image = article.image;
         url = `${SITE_URL}/blog/${slug}`;
+        // Очищаем HTML и добавляем текст статьи для индексации (первые 1500 символов)
+        const plainText = article.content.replace(/<[^>]*>/g, '').slice(0, 1500);
+        contentHtml = `<div>${escapeHtml(plainText)}</div>`;
       } else {
         title = 'Статья не найдена | Whale Wzrd';
         description = 'Запрашиваемая статья не найдена.';
@@ -48,13 +57,16 @@ exports.handler = async (event) => {
       title = 'Блог | Whale Wzrd';
       description = 'Статьи о рекламе и маркетинге.';
     }
-  } else if (cleanPath === 'privacy-policy') {
+  } 
+  else if (cleanPath === 'privacy-policy') {
     title = 'Политика конфиденциальности | Whale Wzrd';
     description = 'Условия обработки персональных данных на сайте Whale Wzrd. Минимальный сбор данных, отсутствие ответственности за утечки.';
-  } else if (cleanPath === 'offer') {
+  } 
+  else if (cleanPath === 'offer') {
     title = 'Публичная оферта | Whale Wzrd';
     description = 'Официальный документ, регулирующий условия предоставления услуг по настройке и ведению рекламных кампаний.';
-  } else if (cleanPath === 'cookie-policy') {
+  } 
+  else if (cleanPath === 'cookie-policy') {
     title = 'Политика использования файлов cookie | Whale Wzrd';
     description = 'Управление cookie на сайте Whale Wzrd. Вы можете контролировать их использование.';
   }
@@ -78,6 +90,7 @@ exports.handler = async (event) => {
 <body>
   <h1>${escapeHtml(title)}</h1>
   <p>${escapeHtml(description)}</p>
+  ${contentHtml}
   <p>Пожалуйста, включите JavaScript, чтобы увидеть полную версию сайта.</p>
 </body>
 </html>`;
