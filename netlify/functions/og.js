@@ -1,16 +1,13 @@
 // netlify/functions/og.js
 exports.handler = async (event) => {
+  // 1. Получаем User-Agent и проверяем, является ли посетитель роботом
   const userAgent = event.headers['user-agent'] || '';
   const isBot = /Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot/i.test(userAgent);
 
-  // Если не бот – возвращаем index.html (React-приложение)
+  // 2. Если посетитель НЕ робот (обычный пользователь) -> отдаём React-приложение
   if (!isBot) {
-    // Здесь нужно вернуть содержимое вашего index.html
-    // Проще всего – перенаправить на реальный index.html
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'text/html' },
-      body: `<!DOCTYPE html>
+    // Это полный код твоего index.html, вставленный сюда.
+    const reactAppHtml = `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -23,11 +20,16 @@ exports.handler = async (event) => {
   <body>
     <div id="root"></div>
   </body>
-</html>`
+</html>`;
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: reactAppHtml,
     };
   }
 
-  // Для ботов – генерируем HTML с мета-тегами (ваша старая логика)
+  // 3. Если посетитель — робот -> генерируем SEO-страницу
+  // --- ТВОЙ СТАРЫЙ КОД ДЛЯ БОТОВ НАЧИНАЕТСЯ ЗДЕСЬ ---
   const path = event.queryStringParameters?.path || '';
   const cleanPath = path.replace(/^\/+/, '');
   const SITE_URL = 'https://whalewzrd.com';
@@ -39,9 +41,19 @@ exports.handler = async (event) => {
   let url = SITE_URL;
   let type = 'website';
 
-  // ... (ваша полная логика для статей, услуг и т.д.) ...
-  // (здесь должен быть весь ваш код из предыдущей версии og.js)
+  // ... (весь остальной твой код для обработки разных страниц: blog, services, calculator и т.д.) ...
+  // !!! ВАЖНО: Не забудь сюда вставить ВЕСЬ твой код, который был ниже, для обработки статей и других страниц.
+  // Например, вот часть для главной страницы, а для остальных нужно вставить твои условия.
+  if (cleanPath === '' || cleanPath === 'index.html') {
+    title = 'Whale Wzrd | Performance-таргетолог';
+    description = 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.';
+  } else if (cleanPath === 'blog') {
+    title = 'Блог о маркетинге | Whale Wzrd';
+    description = 'Экспертные статьи о таргетированной рекламе, стратегиях, аналитике и кейсах. Полезные материалы для роста бизнеса.';
+  }
+  // ... сюда нужно вставить твои условия для services, calculator, roi-calculator, blog/stati и т.д. ...
 
+  // Формируем SEO-страницу для бота
   const html = `<!DOCTYPE html>
 <html lang="ru">
 <head>
