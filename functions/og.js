@@ -5,16 +5,17 @@ export async function onRequest(context) {
   const userAgent = request.headers.get('user-agent') || '';
   const isBot = /Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot/i.test(userAgent);
 
-  // 1. Если это обычный пользователь (не бот) – отдаём React-приложение
+  // 1. Если обычный пользователь – отдаём React-приложение
   if (!isBot) {
     return env.ASSETS.fetch(request);
   }
 
-  // 2. Для ботов – генерируем SEO-страницу
+  // 2. Для ботов генерируем SEO-страницу
   const path = url.pathname.slice(1); // убираем начальный слеш
   const SITE_URL = 'https://whalewzrd.com';
   const BIN_URL = 'https://api.jsonbin.io/v3/b/69de47b136566621a8b15081/latest';
 
+  // Дефолтные мета-теги (главная)
   let title = 'Whale Wzrd | Performance-таргетолог';
   let description = 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.';
   let image = 'https://whalewzrd.com/og-image.jpg';
@@ -22,22 +23,27 @@ export async function onRequest(context) {
   let type = 'website';
   let contentHtml = '';
 
-  // Определяем, какую страницу запросил бот
+  // Определяем, какая страница запрошена
   if (path === '' || path === 'index.html') {
     // главная – оставляем дефолтные значения
-  } else if (path === 'services') {
+  } 
+  else if (path === 'services') {
     title = 'Услуги таргетолога | Whale Wzrd';
     description = 'Настройка и ведение рекламы в Google Ads и Meta Ads. Стратегия, аналитика, запуск, оптимизация и масштабирование. Бесплатный аудит.';
-  } else if (path === 'calculator') {
+  } 
+  else if (path === 'calculator') {
     title = 'Калькулятор бюджета рекламы | Whale Wzrd';
     description = 'Рассчитайте примерную стоимость услуг по настройке Google Ads и Meta Ads. Укажите бюджет и цели – получите цену.';
-  } else if (path === 'roi-calculator') {
+  } 
+  else if (path === 'roi-calculator') {
     title = 'Калькулятор ROAS и ROMI | Whale Wzrd';
     description = 'Рассчитайте окупаемость рекламы в Google Ads и Meta Ads. Введите бюджет, средний чек, маржинальность и количество заказов.';
-  } else if (path === 'blog') {
+  } 
+  else if (path === 'blog') {
     title = 'Блог о маркетинге | Whale Wzrd';
     description = 'Экспертные статьи о таргетированной рекламе, стратегиях, аналитике и кейсах. Полезные материалы для роста бизнеса.';
-  } else if (path.startsWith('blog/')) {
+  } 
+  else if (path.startsWith('blog/')) {
     type = 'article';
     const slug = path.replace('blog/', '');
     try {
@@ -50,7 +56,7 @@ export async function onRequest(context) {
         description = article.description;
         image = article.image;
         canonicalUrl = `${SITE_URL}/blog/${slug}`;
-        // Очищаем HTML и добавляем текст статьи для индексации (первые 1500 символов)
+        // Добавляем текст статьи для индексации
         const plainText = article.content.replace(/<[^>]*>/g, '').slice(0, 1500);
         contentHtml = `<div>${escapeHtml(plainText)}</div>`;
       } else {
@@ -62,13 +68,16 @@ export async function onRequest(context) {
       title = 'Блог | Whale Wzrd';
       description = 'Статьи о рекламе и маркетинге.';
     }
-  } else if (path === 'privacy-policy') {
+  } 
+  else if (path === 'privacy-policy') {
     title = 'Политика конфиденциальности | Whale Wzrd';
     description = 'Условия обработки персональных данных на сайте Whale Wzrd. Минимальный сбор данных, отсутствие ответственности за утечки.';
-  } else if (path === 'offer') {
+  } 
+  else if (path === 'offer') {
     title = 'Публичная оферта | Whale Wzrd';
     description = 'Официальный документ, регулирующий условия предоставления услуг по настройке и ведению рекламных кампаний.';
-  } else if (path === 'cookie-policy') {
+  } 
+  else if (path === 'cookie-policy') {
     title = 'Политика использования файлов cookie | Whale Wzrd';
     description = 'Управление cookie на сайте Whale Wzrd. Вы можете контролировать их использование.';
   }
