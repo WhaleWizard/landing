@@ -4,7 +4,8 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "vite build && npx revijs",
+    "build": "vite build",
+    "postbuild": "npx revijs",
     "dev": "vite"
   },
   "dependencies": {
