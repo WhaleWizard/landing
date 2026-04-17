@@ -5,16 +5,16 @@
 [functions]
   directory = "netlify/functions"
 
-# SPA редирект (для обычных пользователей)
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# Перенаправление ботов на функцию og
+# Сначала перенаправляем ботов на функцию
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/og?path=:splat"
   status = 200
   force = true
   conditions = { UserAgent = "Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot" }
+
+# Все остальные запросы (обычные пользователи) идут на index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
