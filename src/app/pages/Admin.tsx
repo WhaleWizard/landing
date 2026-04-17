@@ -7,6 +7,7 @@ import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
 import { ADMIN_PASSWORD } from '../config';
 import ArticleEditor from '../components/ArticleEditor';
+import SEO from '../components/SEO';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -110,6 +111,8 @@ export default function Admin() {
 
   if (!isAuthenticated) {
     return (
+      <>
+        <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md p-8 rounded-2xl bg-card/40 backdrop-blur-xl border border-primary/30 shadow-2xl">
           <div className="flex justify-center mb-6"><div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg"><Lock className="w-8 h-8 text-white" /></div></div>
@@ -121,10 +124,13 @@ export default function Admin() {
           </form>
         </motion.div>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+      <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
@@ -194,5 +200,6 @@ export default function Admin() {
         </div>
       </div>
     </div>
+    </>
   );
 }
