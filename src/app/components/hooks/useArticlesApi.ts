@@ -21,6 +21,18 @@ interface CacheData {
   timestamp: number;
 }
 
+
+const buildReadHeaders = (): HeadersInit => {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  const accessKey = import.meta.env.VITE_JSONBIN_ACCESS_KEY;
+
+  if (accessKey) {
+    headers['X-Access-Key'] = accessKey;
+  }
+
+  return headers;
+};
+
 export const fetchArticles = async (forceRefresh = false): Promise<Article[]> => {
   if (!forceRefresh) {
     const cached = localStorage.getItem(CACHE_KEY);
@@ -32,7 +44,10 @@ export const fetchArticles = async (forceRefresh = false): Promise<Article[]> =>
     }
   }
   try {
-    const res = await fetch(READ_ONLY_URL);
+    const res = await fetch(READ_ONLY_URL, {
+      headers: buildReadHeaders(),
+      cache: 'no-store',
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     const articles = json.record || [];

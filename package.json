@@ -4,9 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "generate": "node scripts/generate-pages.js",
-    "build": "npm run generate && vite build",
-    "dev": "vite"
+    "build": "npm run fetch:articles && vite build && npm run generate:pages",
+    "dev": "vite",
+    "generate:pages": "node scripts/generate-pages.js",
+    "fetch:articles": "node scripts/fetch-articles.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

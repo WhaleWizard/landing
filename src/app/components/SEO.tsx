@@ -6,6 +6,7 @@ interface SEOProps {
   image?: string;
   url?: string;
   type?: 'website' | 'article';
+  noIndex?: boolean;
 }
 
 const SITE_URL = 'https://whalewzrd.com';
@@ -22,6 +23,7 @@ export default function SEO({
   image = "/og-image.jpg",
   url = "/",
   type = "website",
+  noIndex = false,
 }: SEOProps) {
   const siteTitle = "Whale Wzrd";
   const fullTitle = title === siteTitle ? title : `${title} | ${siteTitle}`;
@@ -45,7 +47,7 @@ export default function SEO({
     };
 
     setMeta('description', description);
-    setMeta('robots', 'index, follow');
+    setMeta('robots', noIndex ? 'noindex, nofollow, noarchive' : 'index, follow');
 
     setMeta('og:title', fullTitle, true);
     setMeta('og:description', description, true);
@@ -65,7 +67,7 @@ export default function SEO({
       document.head.appendChild(canonical);
     }
     canonical.setAttribute('href', absoluteUrl);
-  }, [fullTitle, description, absoluteImage, absoluteUrl, type]);
+  }, [fullTitle, description, absoluteImage, absoluteUrl, type, noIndex]);
 
   return null;
 }
