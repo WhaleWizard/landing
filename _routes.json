@@ -1,5 +1,5 @@
 {
   "version": 1,
   "include": ["/*"],
-  "exclude": ["/assets/*"]
+  "exclude": ["/assets/*", "/blog/*", "/services", "/calculator", "/roi-calculator", "/privacy-policy", "/offer", "/cookie-policy"]
 }
