@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Правило для React Router (SPA)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Перенаправление поисковых ботов на api/og.js
+[[redirects]]
+  from = "/*"
+  to = "/api/og?path=:splat"
+  status = 200
+  force = true
+  conditions = { UserAgent = "Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot" }
