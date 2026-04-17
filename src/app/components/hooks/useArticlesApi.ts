@@ -1,4 +1,3 @@
-// src/app/components/hooks/useArticlesApi.ts
 import { BIN_ID, API_KEY, READ_ONLY_URL, ADMIN_PASSWORD } from '../../config';
 
 export interface Article {
@@ -21,7 +20,6 @@ interface CacheData {
   timestamp: number;
 }
 
-
 const buildReadHeaders = (): HeadersInit => {
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
   const accessKey = import.meta.env.VITE_JSONBIN_ACCESS_KEY;
@@ -33,41 +31,74 @@ const buildReadHeaders = (): HeadersInit => {
   return headers;
 };
 
+const readCache = (): CacheData | null => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+
+    const parsed = JSON.parse(cached);
+
+    if (!Array.isArray(parsed?.articles) || typeof parsed?.timestamp !== 'number') {
+      return null;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.warn('readCache error:', error);
+    return null;
+  }
+};
+
+const writeCache = (articles: Article[]) => {
+  try {
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({
+        articles,
+        timestamp: Date.now(),
+      })
+    );
+  } catch (error) {
+    console.warn('writeCache error:', error);
+  }
+};
+
 export const fetchArticles = async (forceRefresh = false): Promise<Article[]> => {
   if (!forceRefresh) {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      const data: CacheData = JSON.parse(cached);
-      if (Date.now() - data.timestamp < CACHE_EXPIRY) {
-        return data.articles;
-      }
+    const cached = readCache();
+    if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
+      return cached.articles;
     }
   }
+
   try {
     const res = await fetch(READ_ONLY_URL, {
       headers: buildReadHeaders(),
       cache: 'no-store',
     });
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
     const json = await res.json();
-    const articles = json.record || [];
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ articles, timestamp: Date.now() }));
+    const articles = Array.isArray(json?.record) ? json.record : [];
+
+    writeCache(articles);
+
     return articles;
   } catch (error) {
     console.error('fetchArticles error:', error);
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      const data: CacheData = JSON.parse(cached);
-      return data.articles;
-    }
-    return [];
+
+    const cached = readCache();
+    return cached?.articles || [];
   }
 };
 
 export const saveArticles = async (articles: Article[], password: string): Promise<boolean> => {
   if (password !== ADMIN_PASSWORD) throw new Error('Неверный пароль');
+
   const url = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
   console.log('Saving articles to jsonbin:', url);
+
   try {
     const res = await fetch(url, {
       method: 'PUT',
@@ -77,15 +108,20 @@ export const saveArticles = async (articles: Article[], password: string): Promi
       },
       body: JSON.stringify(articles),
     });
+
     if (!res.ok) {
       const errorText = await res.text();
       console.error('jsonbin response error:', errorText);
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
+
     const result = await res.json();
     console.log('Save successful:', result);
+
     localStorage.removeItem(CACHE_KEY);
+
     await fetchArticles(true);
+
     return true;
   } catch (error) {
     console.error('saveArticles error:', error);

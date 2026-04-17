@@ -9,7 +9,6 @@ const DIST_DIR = join(__dirname, '..', 'dist');
 const DATA_PATH = join(__dirname, '..', 'data', 'articles.json');
 
 const SITE_URL = (process.env.SITE_URL || 'https://whalewzrd.com').replace(/\/$/, '');
-
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
 const STATIC_ROUTES = ['/', '/blog', '/services', '/calculator', '/privacy-policy'];
@@ -108,7 +107,6 @@ function main() {
 
   const articles = normalizeArticles(loadArticles());
 
-  // home
   writeRoute(
     '/',
     html({
@@ -119,7 +117,6 @@ function main() {
     })
   );
 
-  // blog index
   writeRoute(
     '/blog',
     html({
@@ -132,7 +129,6 @@ function main() {
     })
   );
 
-  // articles
   for (const a of articles) {
     writeRoute(
       `/blog/${a.slug}`,
@@ -145,7 +141,6 @@ function main() {
     );
   }
 
-  // sitemap
   const routes = [
     ...STATIC_ROUTES,
     '/blog',
