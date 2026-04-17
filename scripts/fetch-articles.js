@@ -8,6 +8,7 @@ const __dirname = dirname(__filename);
 const DATA_DIR = join(__dirname, '..', 'data');
 const BUILD_OUTPUT_PATH = join(DATA_DIR, 'articles.build.json');
 const LOCAL_FALLBACK_PATH = join(DATA_DIR, 'articles.local.json');
+// Fallback chain: JSONBin -> previous build cache -> committed local fallback
 
 const JSONBIN_URL = process.env.JSONBIN_URL || 'https://api.jsonbin.io/v3/b/69de47b136566621a8b15081/latest';
 const STRICT_FETCH = process.env.STRICT_ARTICLES_FETCH === 'true';

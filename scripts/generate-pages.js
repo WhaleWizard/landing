@@ -8,6 +8,7 @@ const __dirname = dirname(__filename);
 const DIST_DIR = join(__dirname, '..', 'dist');
 const BUILD_DATA_PATH = join(__dirname, '..', 'data', 'articles.build.json');
 const LOCAL_FALLBACK_PATH = join(__dirname, '..', 'data', 'articles.local.json');
+// Reads articles from build cache first, then local fallback for deterministic SEO output
 const SITE_URL = (process.env.SITE_URL || 'https://whalewzrd.com').replace(/\/$/, '');
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
