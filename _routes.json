@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [],
+  "routes": [
+    {
+      "pattern": "/sitemap.xml",
+      "zone": "functions"
+    },
+    {
+      "pattern": "/_functions/*",
+      "zone": "functions"
+    }
+  ]
+}
