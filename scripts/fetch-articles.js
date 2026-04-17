@@ -1,36 +1,19 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {
+  DATA_DIR,
+  BUILD_ARTICLES_PATH,
+  LOCAL_ARTICLES_PATH,
+  JSONBIN_URL,
+  STRICT_FETCH,
+  RETRIES,
+  TIMEOUT_MS,
+  buildJsonBinHeaders,
+} from './config.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const DATA_DIR = join(__dirname, '..', 'data');
-const BUILD_OUTPUT_PATH = join(DATA_DIR, 'articles.build.json');
-const LOCAL_FALLBACK_PATH = join(DATA_DIR, 'articles.local.json');
 // Fallback chain: JSONBin -> previous build cache -> committed local fallback
-
-const JSONBIN_URL = process.env.JSONBIN_URL || 'https://api.jsonbin.io/v3/b/69de47b136566621a8b15081/latest';
-const STRICT_FETCH = process.env.STRICT_ARTICLES_FETCH === 'true';
-const RETRIES = Number(process.env.ARTICLES_FETCH_RETRIES || 3);
-const TIMEOUT_MS = Number(process.env.ARTICLES_FETCH_TIMEOUT_MS || 10000);
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-}
-
-function buildHeaders() {
-  const headers = { 'Content-Type': 'application/json' };
-
-  if (process.env.JSONBIN_MASTER_KEY) {
-    headers['X-Master-Key'] = process.env.JSONBIN_MASTER_KEY;
-  }
-
-  if (process.env.JSONBIN_ACCESS_KEY) {
-    headers['X-Access-Key'] = process.env.JSONBIN_ACCESS_KEY;
-  }
-
-  return headers;
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
@@ -62,7 +45,7 @@ function readArticlesFromFile(pathname) {
 function writeBuildArticles(articles, source) {
   ensureDataDir();
   writeFileSync(
-    BUILD_OUTPUT_PATH,
+    BUILD_ARTICLES_PATH,
     JSON.stringify(
       {
         source,
@@ -78,7 +61,7 @@ function writeBuildArticles(articles, source) {
 }
 
 async function fetchArticlesFromJsonBin() {
-  const headers = buildHeaders();
+  const headers = buildJsonBinHeaders();
   let lastError = null;
 
   for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
@@ -115,7 +98,7 @@ async function main() {
     console.log(`✅ Articles fetched from JSONBin: ${articles.length}`);
     return;
   } catch (error) {
-    const previousBuildArticles = readArticlesFromFile(BUILD_OUTPUT_PATH);
+    const previousBuildArticles = readArticlesFromFile(BUILD_ARTICLES_PATH);
     if (previousBuildArticles) {
       writeBuildArticles(previousBuildArticles, 'build-cache-fallback');
       console.warn('⚠️ JSONBin unavailable. Using previous build cache.');
@@ -123,7 +106,7 @@ async function main() {
       return;
     }
 
-    const localFallbackArticles = readArticlesFromFile(LOCAL_FALLBACK_PATH);
+    const localFallbackArticles = readArticlesFromFile(LOCAL_ARTICLES_PATH);
     if (localFallbackArticles) {
       writeBuildArticles(localFallbackArticles, 'local-fallback');
       console.warn('⚠️ JSONBin unavailable. Using local fallback data/articles.local.json');

@@ -1,18 +1,16 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import {
+  DIST_DIR,
+  BUILD_ARTICLES_PATH,
+  LOCAL_ARTICLES_PATH,
+  SITE_URL,
+  STATIC_ROUTES,
+} from './config.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const DIST_DIR = join(__dirname, '..', 'dist');
-const BUILD_DATA_PATH = join(__dirname, '..', 'data', 'articles.build.json');
-const LOCAL_FALLBACK_PATH = join(__dirname, '..', 'data', 'articles.local.json');
-// Reads articles from build cache first, then local fallback for deterministic SEO output
-const SITE_URL = (process.env.SITE_URL || 'https://whalewzrd.com').replace(/\/$/, '');
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
-const STATIC_ROUTES = ['/', '/blog', '/services', '/calculator', '/privacy-policy'];
+// Reads articles from build cache first, then local fallback for deterministic SEO output
 
 function ensureDir(pathname) {
   if (!existsSync(pathname)) mkdirSync(pathname, { recursive: true });
@@ -80,7 +78,7 @@ function readArticles(pathname) {
 }
 
 function loadArticles() {
-  return readArticles(BUILD_DATA_PATH) || readArticles(LOCAL_FALLBACK_PATH) || [];
+  return readArticles(BUILD_ARTICLES_PATH) || readArticles(LOCAL_ARTICLES_PATH) || [];
 }
 
 function normalizeArticles(rawArticles) {
