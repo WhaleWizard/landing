@@ -1,5 +1,5 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -7,7 +7,11 @@ const __dirname = dirname(__filename);
 
 const DATA_DIR = join(__dirname, '..', 'data');
 const OUTPUT_PATH = join(DATA_DIR, 'articles.json');
-const JSONBIN_URL = process.env.JSONBIN_URL || 'https://api.jsonbin.io/v3/b/69de47b136566621a8b15081/latest';
+
+const JSONBIN_URL =
+  process.env.JSONBIN_URL ||
+  'https://api.jsonbin.io/v3/b/69de47b136566621a8b15081/latest';
+
 const STRICT_FETCH = process.env.STRICT_ARTICLES_FETCH === 'true';
 const RETRIES = Number(process.env.ARTICLES_FETCH_RETRIES || 3);
 const TIMEOUT_MS = Number(process.env.ARTICLES_FETCH_TIMEOUT_MS || 10000);
@@ -33,6 +37,7 @@ function buildHeaders() {
 async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -57,6 +62,7 @@ function getCachedArticles() {
 
 function saveArticles(articles, source) {
   ensureDataDir();
+
   writeFileSync(
     OUTPUT_PATH,
     JSON.stringify(
@@ -67,9 +73,9 @@ function saveArticles(articles, source) {
         articles,
       },
       null,
-      2,
+      2
     ),
-    'utf8',
+    'utf8'
   );
 }
 
@@ -77,27 +83,21 @@ async function fetchArticlesFromJsonBin() {
   const headers = buildHeaders();
   let lastError = null;
 
-  for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
+  for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {
       const response = await fetchWithTimeout(
         JSONBIN_URL,
-        {
-          headers,
-          method: 'GET',
-        },
-        TIMEOUT_MS,
+        { headers, method: 'GET' },
+        TIMEOUT_MS
       );
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const payload = await response.json();
-      const articles = Array.isArray(payload?.record) ? payload.record : [];
-      return articles;
+      return Array.isArray(payload?.record) ? payload.record : [];
     } catch (error) {
       lastError = error;
-      console.warn(`⚠️ JSONBin fetch attempt ${attempt}/${RETRIES} failed.`);
+      console.warn(`⚠️ JSONBin attempt ${attempt}/${RETRIES} failed`);
       if (attempt < RETRIES) await sleep(300 * attempt);
     }
   }
@@ -109,6 +109,7 @@ async function main() {
   try {
     const articles = await fetchArticlesFromJsonBin();
     saveArticles(articles, 'jsonbin');
+
     console.log(`✅ Articles fetched: ${articles.length}`);
     return;
   } catch (error) {
@@ -116,21 +117,19 @@ async function main() {
 
     if (cached) {
       saveArticles(cached, 'cache-fallback');
-      console.warn('⚠️ JSONBin unavailable, using cached data/articles.json');
+      console.warn('⚠️ Using cached articles');
       console.warn(error);
       return;
     }
 
     if (STRICT_FETCH) {
-      console.error('❌ JSONBin unavailable and no cached articles.');
-      console.error(error);
+      console.error('❌ No articles available (strict mode)');
       process.exitCode = 1;
       return;
     }
 
     saveArticles([], 'empty-fallback');
-    console.warn('⚠️ JSONBin unavailable and no cache. Generated empty article list.');
-    console.warn(error);
+    console.warn('⚠️ Empty articles generated');
   }
 }
 
