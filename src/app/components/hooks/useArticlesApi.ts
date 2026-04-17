@@ -35,6 +35,7 @@ const readCache = (): CacheData | null => {
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (!cached) return null;
+
     const parsed = JSON.parse(cached);
 
     if (!Array.isArray(parsed?.articles) || typeof parsed?.timestamp !== 'number') {
@@ -50,7 +51,13 @@ const readCache = (): CacheData | null => {
 
 const writeCache = (articles: Article[]) => {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ articles, timestamp: Date.now() }));
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({
+        articles,
+        timestamp: Date.now(),
+      })
+    );
   } catch (error) {
     console.warn('writeCache error:', error);
   }
@@ -74,11 +81,13 @@ export const fetchArticles = async (forceRefresh = false): Promise<Article[]> =>
 
     const json = await res.json();
     const articles = Array.isArray(json?.record) ? json.record : [];
+
     writeCache(articles);
 
     return articles;
   } catch (error) {
     console.error('fetchArticles error:', error);
+
     const cached = readCache();
     return cached?.articles || [];
   }
@@ -86,6 +95,7 @@ export const fetchArticles = async (forceRefresh = false): Promise<Article[]> =>
 
 export const saveArticles = async (articles: Article[], password: string): Promise<boolean> => {
   if (password !== ADMIN_PASSWORD) throw new Error('Неверный пароль');
+
   const url = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
   console.log('Saving articles to jsonbin:', url);
 
@@ -107,8 +117,11 @@ export const saveArticles = async (articles: Article[], password: string): Promi
 
     const result = await res.json();
     console.log('Save successful:', result);
+
     localStorage.removeItem(CACHE_KEY);
+
     await fetchArticles(true);
+
     return true;
   } catch (error) {
     console.error('saveArticles error:', error);
