@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { viteSSG } from 'vite-plugin-ssg-spa'
 
 function figmaAssetResolver() {
   return {
@@ -21,10 +20,6 @@ export default defineConfig({
     figmaAssetResolver(),
     react(),
     tailwindcss(),
-    viteSSG({
-      autoCrawl: true,
-      excludePatterns: ['/admin', '/api'],
-    }),
   ],
   resolve: {
     alias: {
