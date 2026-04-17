@@ -1,5 +1,33 @@
 // netlify/functions/og.js
 exports.handler = async (event) => {
+  const userAgent = event.headers['user-agent'] || '';
+  const isBot = /Googlebot|YandexBot|Twitterbot|facebookexternalhit|TelegramBot|WhatsApp|Slackbot|Discordbot/i.test(userAgent);
+
+  // Если не бот – возвращаем index.html (React-приложение)
+  if (!isBot) {
+    // Здесь нужно вернуть содержимое вашего index.html
+    // Проще всего – перенаправить на реальный index.html
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Сайт Whale Wzrd</title>
+    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    <script type="module" crossorigin src="/assets/index-BeLNbxFj.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Cjo_GnTI.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`
+    };
+  }
+
+  // Для ботов – генерируем HTML с мета-тегами (ваша старая логика)
   const path = event.queryStringParameters?.path || '';
   const cleanPath = path.replace(/^\/+/, '');
   const SITE_URL = 'https://whalewzrd.com';
@@ -11,53 +39,8 @@ exports.handler = async (event) => {
   let url = SITE_URL;
   let type = 'website';
 
-  if (cleanPath === '' || cleanPath === 'index.html') {
-    title = 'Whale Wzrd | Performance-таргетолог';
-    description = 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.';
-  } else if (cleanPath === 'services') {
-    title = 'Услуги таргетолога | Whale Wzrd';
-    description = 'Настройка и ведение рекламы в Google Ads и Meta Ads. Стратегия, аналитика, запуск, оптимизация и масштабирование. Бесплатный аудит.';
-  } else if (cleanPath === 'calculator') {
-    title = 'Калькулятор бюджета рекламы | Whale Wzrd';
-    description = 'Рассчитайте примерную стоимость услуг по настройке Google Ads и Meta Ads. Укажите бюджет и цели – получите цену.';
-  } else if (cleanPath === 'roi-calculator') {
-    title = 'Калькулятор ROAS и ROMI | Whale Wzrd';
-    description = 'Рассчитайте окупаемость рекламы в Google Ads и Meta Ads. Введите бюджет, средний чек, маржинальность и количество заказов.';
-  } else if (cleanPath === 'blog') {
-    title = 'Блог о маркетинге | Whale Wzrd';
-    description = 'Экспертные статьи о таргетированной рекламе, стратегиях, аналитике и кейсах. Полезные материалы для роста бизнеса.';
-  } else if (cleanPath.startsWith('blog/')) {
-    type = 'article';
-    const slug = cleanPath.replace('blog/', '');
-    try {
-      const response = await fetch(BIN_URL);
-      const data = await response.json();
-      const articles = data.record || [];
-      const article = articles.find(a => a.slug === slug);
-      if (article) {
-        title = `${article.title} | Whale Wzrd`;
-        description = article.description;
-        image = article.image;
-        url = `${SITE_URL}/blog/${slug}`;
-      } else {
-        title = 'Статья не найдена | Whale Wzrd';
-        description = 'Запрашиваемая статья не найдена.';
-      }
-    } catch (err) {
-      console.error('Ошибка загрузки статьи:', err);
-      title = 'Блог | Whale Wzrd';
-      description = 'Статьи о рекламе и маркетинге.';
-    }
-  } else if (cleanPath === 'privacy-policy') {
-    title = 'Политика конфиденциальности | Whale Wzrd';
-    description = 'Условия обработки персональных данных на сайте Whale Wzrd. Минимальный сбор данных, отсутствие ответственности за утечки.';
-  } else if (cleanPath === 'offer') {
-    title = 'Публичная оферта | Whale Wzrd';
-    description = 'Официальный документ, регулирующий условия предоставления услуг по настройке и ведению рекламных кампаний.';
-  } else if (cleanPath === 'cookie-policy') {
-    title = 'Политика использования файлов cookie | Whale Wzrd';
-    description = 'Управление cookie на сайте Whale Wzrd. Вы можете контролировать их использование.';
-  }
+  // ... (ваша полная логика для статей, услуг и т.д.) ...
+  // (здесь должен быть весь ваш код из предыдущей версии og.js)
 
   const html = `<!DOCTYPE html>
 <html lang="ru">
