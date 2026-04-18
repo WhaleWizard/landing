@@ -1,11 +1,11 @@
 // src/app/pages/Admin.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { Lock, LogIn, Save, Plus, Trash2 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
-import { ADMIN_PASSWORD } from '../config';
+import { API_ROUTES } from '../config';
 import ArticleEditor from '../components/ArticleEditor';
 import SEO from '../components/SEO';
 
@@ -20,22 +20,52 @@ function transliterate(text: string): string {
   return text.toLowerCase().split('').map(ch => map[ch] || ch).join('').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
 
+async function verifyAdminPassword(password: string): Promise<boolean> {
+  const res = await fetch(API_ROUTES.adminArticles, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify({ password }),
+  });
+
+  if (!res.ok) return false;
+
+  const payload = await res.json().catch(() => ({}));
+  return Boolean(payload?.success);
+}
+
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const { articles, loading, refreshArticles, updateArticles } = useArticles();
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      setError('');
-    } else {
-      setError('Неверный пароль');
+    if (!password.trim()) {
+      setError('Введите пароль');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const ok = await verifyAdminPassword(password);
+      if (ok) {
+        setIsAuthenticated(true);
+        setError('');
+      } else {
+        setError('Неверный пароль');
+      }
+    } catch {
+      setError('Ошибка сети. Попробуйте еще раз.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -92,20 +122,26 @@ export default function Admin() {
         alert('Ошибка сохранения. Проверьте консоль (F12)');
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       console.error('Ошибка при сохранении:', err);
-      alert('Ошибка: ' + err.message);
+      alert('Ошибка: ' + message);
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Удалить статью?')) return;
     const updated = articles.filter(a => a.id !== id);
-    const success = await updateArticles(updated, password);
-    if (success) {
-      if (editingArticle?.id === id) setEditingArticle(null);
-      await refreshArticles();
-    } else {
-      alert('Ошибка удаления');
+    try {
+      const success = await updateArticles(updated, password);
+      if (success) {
+        if (editingArticle?.id === id) setEditingArticle(null);
+        await refreshArticles();
+      } else {
+        alert('Ошибка удаления');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      alert('Ошибка: ' + message);
     }
   };
 
@@ -120,7 +156,7 @@ export default function Admin() {
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-background/60 border border-border focus:border-primary outline-none transition-colors" autoFocus />
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition"><LogIn className="w-5 h-5" /> Войти</button>
+            <button type="submit" disabled={authLoading} className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition disabled:opacity-60"><LogIn className="w-5 h-5" /> {authLoading ? 'Проверка...' : 'Войти'}</button>
           </form>
         </motion.div>
       </div>
