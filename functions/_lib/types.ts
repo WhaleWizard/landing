@@ -21,4 +21,6 @@ export interface Env {
   JSONBIN_ACCESS_KEY?: string;
   ADMIN_PASSWORD: string;
   SITE_URL?: string;
+  INDEXNOW_KEY?: string;
+  INDEXNOW_ENDPOINT?: string;
 }

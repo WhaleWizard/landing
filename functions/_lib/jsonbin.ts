@@ -47,6 +47,30 @@ function extractTags(article: Partial<Article>): string[] {
   return [];
 }
 
+function didArticleChange(previous: Article | undefined, next: Article): boolean {
+  if (!previous) return true;
+
+  const fieldsToCompare: Array<keyof Article> = [
+    'title',
+    'description',
+    'content',
+    'category',
+    'readTime',
+    'date',
+    'image',
+    'seoTitle',
+    'seoDescription',
+  ];
+
+  if (fieldsToCompare.some((field) => String(previous[field] || '') !== String(next[field] || ''))) {
+    return true;
+  }
+
+  const prevTags = JSON.stringify(previous.tags || []);
+  const nextTags = JSON.stringify(next.tags || []);
+  return prevTags !== nextTags;
+}
+
 export function normalizeArticles(rawArticles: unknown[]): Article[] {
   const usedSlugs = new Set<string>();
 
@@ -81,8 +105,34 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       seoTitle: (article.seoTitle || article.title || `Статья ${index + 1}`).slice(0, 70),
       seoDescription,
       publishedAt: normalizeIsoDate(article.publishedAt, nowIso),
-      updatedAt: nowIso,
+      updatedAt: normalizeIsoDate(article.updatedAt, nowIso),
       tags: extractTags(article),
+    };
+  });
+}
+
+function applyFreshnessMetadata(normalized: Article[], previousArticles: Article[]): Article[] {
+  const previousBySlug = new Map(previousArticles.map((article) => [article.slug, article]));
+  const nowIso = new Date().toISOString();
+
+  return normalized.map((article) => {
+    const previous = previousBySlug.get(article.slug);
+    const publishedAt = previous?.publishedAt || previous?.updatedAt || article.publishedAt || nowIso;
+
+    if (!previous) {
+      return {
+        ...article,
+        publishedAt,
+        updatedAt: article.updatedAt || nowIso,
+      };
+    }
+
+    const changed = didArticleChange(previous, article);
+
+    return {
+      ...article,
+      publishedAt,
+      updatedAt: changed ? nowIso : (previous.updatedAt || previous.publishedAt || nowIso),
     };
   });
 }
@@ -91,7 +141,19 @@ function getJsonBinBase(env: Env): string {
   return `https://api.jsonbin.io/v3/b/${env.JSONBIN_BIN_ID}`;
 }
 
-function getJsonBinHeaders(env: Env): HeadersInit {
+function getJsonBinReadHeaders(env: Env): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (env.JSONBIN_ACCESS_KEY) {
+    headers['X-Access-Key'] = env.JSONBIN_ACCESS_KEY;
+  }
+
+  return headers;
+}
+
+function getJsonBinWriteHeaders(env: Env): HeadersInit {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'X-Master-Key': env.JSONBIN_MASTER_KEY,
@@ -107,7 +169,7 @@ function getJsonBinHeaders(env: Env): HeadersInit {
 export async function fetchArticlesFromJsonBin(env: Env): Promise<Article[]> {
   const response = await fetch(`${getJsonBinBase(env)}/latest`, {
     method: 'GET',
-    headers: getJsonBinHeaders(env),
+    headers: getJsonBinReadHeaders(env),
     cf: {
       cacheEverything: false,
       cacheTtl: 0,
@@ -123,13 +185,14 @@ export async function fetchArticlesFromJsonBin(env: Env): Promise<Article[]> {
   return normalizeArticles(articles);
 }
 
-export async function writeArticlesToJsonBin(env: Env, articles: Article[]): Promise<Article[]> {
+export async function writeArticlesToJsonBin(env: Env, articles: Article[], previousArticles: Article[] = []): Promise<Article[]> {
   const normalizedArticles = normalizeArticles(articles);
+  const freshnessSafeArticles = applyFreshnessMetadata(normalizedArticles, previousArticles);
 
   const response = await fetch(getJsonBinBase(env), {
     method: 'PUT',
-    headers: getJsonBinHeaders(env),
-    body: JSON.stringify(normalizedArticles),
+    headers: getJsonBinWriteHeaders(env),
+    body: JSON.stringify(freshnessSafeArticles),
   });
 
   if (!response.ok) {
@@ -137,5 +200,5 @@ export async function writeArticlesToJsonBin(env: Env, articles: Article[]): Pro
     throw new Error(`JSONBin write failed: HTTP ${response.status} ${errorText}`);
   }
 
-  return normalizedArticles;
+  return freshnessSafeArticles;
 }

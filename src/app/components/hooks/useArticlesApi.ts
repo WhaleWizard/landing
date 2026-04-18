@@ -1,4 +1,4 @@
-import { API_ROUTES } from '../../config';
+import { API_ROUTES, JSONBIN_PUBLIC_URL } from '../../config';
 
 export interface Article {
   id: number;
@@ -26,6 +26,22 @@ interface AdminUpdateResponse {
   articles: Article[];
 }
 
+async function fetchPublicJsonBinFallback(): Promise<Article[]> {
+  try {
+    const res = await fetch(JSONBIN_PUBLIC_URL, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json?.record) ? json.record : [];
+  } catch {
+    return [];
+  }
+}
+
 export const fetchArticles = async (): Promise<Article[]> => {
   try {
     const res = await fetch(API_ROUTES.articles, {
@@ -37,10 +53,13 @@ export const fetchArticles = async (): Promise<Article[]> => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const json = (await res.json()) as ArticlesResponse;
-    return Array.isArray(json?.articles) ? json.articles : [];
+    const primaryArticles = Array.isArray(json?.articles) ? json.articles : [];
+
+    if (primaryArticles.length > 0) return primaryArticles;
+    return fetchPublicJsonBinFallback();
   } catch (error) {
     console.error('fetchArticles error:', error);
-    return [];
+    return fetchPublicJsonBinFallback();
   }
 };
 

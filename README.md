@@ -17,6 +17,8 @@ Set these environment variables in Cloudflare Pages project settings:
 - `JSONBIN_ACCESS_KEY` (optional)
 - `ADMIN_PASSWORD`
 - `SITE_URL` (optional, defaults to current origin)
+- `INDEXNOW_KEY` (optional, for Bing/IndexNow instant URL notification)
+- `INDEXNOW_ENDPOINT` (optional, defaults to `https://api.indexnow.org/indexnow`)
 
 ## SEO endpoints
 

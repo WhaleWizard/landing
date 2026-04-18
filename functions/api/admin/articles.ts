@@ -24,30 +24,40 @@ async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Pro
   const targets = [
     `${siteUrl}/api/articles`,
     `${siteUrl}/sitemap.xml`,
+    `${siteUrl}/feed.xml`,
     ...articleSlugs.map((slug) => `${siteUrl}/blog/${slug}`),
   ];
 
   await Promise.all(targets.map((url) => deleteCacheByUrl(url)));
 }
 
+async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Article[]): Promise<void> {
+  if (!env.INDEXNOW_KEY) return;
 
-async function pingSearchEngines(siteUrl: string): Promise<void> {
-  const sitemapUrl = `${siteUrl}/sitemap.xml`;
-  const feedUrl = `${siteUrl}/feed.xml`;
-  const targets = [
-    `https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-    `https://www.google.com/ping?sitemap=${encodeURIComponent(feedUrl)}`,
-  ];
+  const endpoint = env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow';
+  const host = new URL(siteUrl).host;
+  const urls = updatedArticles.map((article) => `${siteUrl}/blog/${article.slug}`);
 
-  await Promise.allSettled(
-    targets.map((url) =>
-      fetch(url, {
-        method: 'GET',
-        cf: { cacheTtl: 0, cacheEverything: false },
-      }),
-    ),
-  );
+  if (urls.length === 0) return;
+
+  await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify({
+      host,
+      key: env.INDEXNOW_KEY,
+      keyLocation: `${siteUrl}/${env.INDEXNOW_KEY}.txt`,
+      urlList: urls.slice(0, 10000),
+    }),
+    cf: {
+      cacheEverything: false,
+      cacheTtl: 0,
+    },
+  });
 }
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request);
   if (rateLimited) return rateLimited;
@@ -102,11 +112,24 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const existing = await fetchArticlesFromJsonBin(env);
-    const updated = await writeArticlesToJsonBin(env, payload.articles);
+
+    if (existing.length > 0 && payload.articles.length === 0) {
+      return json(
+        { success: false, error: 'Refusing to overwrite non-empty blog with an empty payload' },
+        {
+          status: 400,
+          headers: { 'Cache-Control': CACHE_CONTROL.noStore },
+        },
+      );
+    }
+
+    const updated = await writeArticlesToJsonBin(env, payload.articles, existing);
 
     const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
     const siteUrl = getSiteUrl(env, request);
+
     waitUntil(invalidateSeoCaches(siteUrl, allSlugs));
+    waitUntil(notifyIndexNow(env, siteUrl, updated));
 
     return json(
       { success: true, articles: updated },
