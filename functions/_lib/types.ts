@@ -24,3 +24,4 @@ export interface Env {
   INDEXNOW_KEY?: string;
   INDEXNOW_ENDPOINT?: string;
 }
+

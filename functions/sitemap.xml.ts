@@ -20,7 +20,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const siteUrl = getSiteUrl(env, request);
     const articles = await fetchArticlesFromJsonBin(env);
     const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
-
     const articleDates = Object.fromEntries(
       articles.map((article) => [
         `/blog/${article.slug}`,
