@@ -63,6 +63,11 @@ function BlogPageComponent() {
 
   const goToBlogList = useCallback(() => navigate('/blog'), [navigate]);
 
+  const goToContact = useCallback(() => {
+    navigate('/');
+    setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, [navigate]);
+
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Загрузка...</div>;
 
   if (selectedArticle) {
@@ -81,16 +86,22 @@ function BlogPageComponent() {
             <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="relative max-w-4xl mx-auto px-4 sm:px-6">
-              <nav className="text-xs text-muted-foreground mb-6" aria-label="breadcrumb">
-                <button onClick={goHome} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Главная</button>
-                <span className="mx-2">›</span>
-                <button onClick={goToBlogList} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Блог</button>
-                <span className="mx-2">›</span>
-                <span className="text-foreground">{selectedArticle.title}</span>
-              </nav>
-              <div className="absolute top-0 right-0 z-20">
-                <button onClick={goHome} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button>
+              <div className="flex flex-col gap-3 mb-4 md:mb-0 md:block">
+                <nav className="text-xs text-muted-foreground" aria-label="breadcrumb">
+                  <button onClick={goHome} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Главная</button>
+                  <span className="mx-2">›</span>
+                  <button onClick={goToBlogList} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Блог</button>
+                  <span className="mx-2">›</span>
+                  <span className="text-foreground break-words">{selectedArticle.title}</span>
+                </nav>
+
+                <div className="md:absolute md:top-0 md:right-0 md:z-20">
+                  <button onClick={goHome} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none p-0">
+                    ← На главную
+                  </button>
+                </div>
               </div>
+
               <button onClick={goToBlogList} className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 bg-transparent border-none cursor-pointer">
                 <ArrowLeft className="w-4 h-4" /><span>Все статьи</span>
               </button>
@@ -132,7 +143,14 @@ function BlogPageComponent() {
             )}
 
             <div className="mt-12 pt-8 border-t border-border text-center">
-              <p className="text-muted-foreground">Понравилась статья? <button onClick={() => { navigate('/'); setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100); }} className="text-primary hover:underline cursor-pointer bg-transparent border-none">Закажите бесплатную консультацию</button></p>
+              <p className="text-muted-foreground mb-5">Понравилась статья?</p>
+              <button
+                onClick={goToContact}
+                className="group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+                <span className="relative text-sm md:text-base">Закажите бесплатную консультацию</span>
+              </button>
             </div>
           </motion.div>
         </section>
