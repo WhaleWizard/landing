@@ -24,12 +24,12 @@ async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Pro
   const targets = [
     `${siteUrl}/api/articles`,
     `${siteUrl}/sitemap.xml`,
-    `${siteUrl}/feed.xml`,
     ...articleSlugs.map((slug) => `${siteUrl}/blog/${slug}`),
   ];
 
   await Promise.all(targets.map((url) => deleteCacheByUrl(url)));
 }
+
 
 async function pingSearchEngines(siteUrl: string): Promise<void> {
   const sitemapUrl = `${siteUrl}/sitemap.xml`;
@@ -48,7 +48,6 @@ async function pingSearchEngines(siteUrl: string): Promise<void> {
     ),
   );
 }
-
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request);
   if (rateLimited) return rateLimited;
@@ -108,7 +107,6 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
     const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
     const siteUrl = getSiteUrl(env, request);
     waitUntil(invalidateSeoCaches(siteUrl, allSlugs));
-    waitUntil(pingSearchEngines(siteUrl));
 
     return json(
       { success: true, articles: updated },

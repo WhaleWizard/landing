@@ -28,7 +28,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     );
 
     const sitemap = renderSitemapXml(siteUrl, [...STATIC_ROUTES, ...articleRoutes], articleDates);
-
+    const sitemap = renderSitemapXml(siteUrl, [...STATIC_ROUTES, ...articleRoutes]);
     const response = xml(sitemap, {
       headers: {
         'Cache-Control': CACHE_CONTROL.sitemap,
