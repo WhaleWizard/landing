@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
-type BlockType = 'heading' | 'paragraph' | 'accent' | 'card' | 'quote' | 'spacer' | 'rawHtml';
+type BlockType = 'heading' | 'paragraph' | 'accent' | 'card' | 'quote' | 'image' | 'spacer' | 'rawHtml';
 
 type HeadingLevel = 2 | 3;
 
@@ -10,6 +10,8 @@ interface ContentBlock {
   type: BlockType;
   text?: string;
   level?: HeadingLevel;
+  imageUrl?: string;
+  imageAlt?: string;
   html?: string;
   space?: number;
 }
@@ -25,6 +27,7 @@ const BLOCK_LABELS: Record<BlockType, string> = {
   accent: 'Акцентный абзац',
   card: 'Полупрозрачная карточка',
   quote: 'Цитата',
+  image: 'Изображение',
   spacer: 'Отступ',
   rawHtml: 'HTML (fallback)',
 };
@@ -58,6 +61,12 @@ function blockToHtml(block: ContentBlock): string {
       return `<div data-ww-block="card" style="margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;">${escapeHtml(block.text || '')}</p></div>`;
     case 'quote':
       return `<blockquote data-ww-block="quote" style="margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;">${escapeHtml(block.text || '')}</blockquote>`;
+    case 'image': {
+      const src = String(block.imageUrl || '').trim();
+      if (!src) return '';
+      const alt = escapeHtml(block.imageAlt || '');
+      return `<figure data-ww-block="image" style="margin:1.25em 0;"><img src="${escapeHtml(src)}" alt="${alt}" loading="lazy" style="width:100%;height:auto;border-radius:1rem;border:1px solid rgba(255,255,255,.14);" />${alt ? `<figcaption style="margin-top:.55rem;opacity:.75;font-size:.9rem;line-height:1.5;">${alt}</figcaption>` : ''}</figure>`;
+    }
     case 'spacer': {
       const value = Math.min(120, Math.max(8, Number(block.space || 24)));
       return `<div data-ww-block="spacer" style="height:${value}px;"></div>`;
@@ -92,6 +101,14 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
   if (wwType === 'spacer') {
     const height = Number.parseInt(node.style.height || '24', 10);
     return { id: uid(), type: 'spacer', space: Number.isFinite(height) ? height : 24 };
+  }
+
+  if (wwType === 'image' || tag === 'img' || (tag === 'figure' && node.querySelector('img'))) {
+    const image = tag === 'img' ? node : node.querySelector('img');
+    const caption = tag === 'figure' ? node.querySelector('figcaption') : null;
+    const imageUrl = image?.getAttribute('src') || '';
+    const imageAlt = image?.getAttribute('alt') || caption?.textContent?.trim() || '';
+    return { id: uid(), type: 'image', imageUrl, imageAlt };
   }
 
   if (tag === 'h2' || tag === 'h3') {
@@ -132,6 +149,7 @@ function parseHtmlToBlocks(html: string): ContentBlock[] {
 
 function createBlock(type: BlockType): ContentBlock {
   if (type === 'heading') return { id: uid(), type, level: 2, text: '' };
+  if (type === 'image') return { id: uid(), type, imageUrl: '', imageAlt: '' };
   if (type === 'spacer') return { id: uid(), type, space: 24 };
   if (type === 'rawHtml') return { id: uid(), type, html: '<p>Новый HTML блок</p>' };
   return { id: uid(), type, text: '' };
@@ -139,6 +157,7 @@ function createBlock(type: BlockType): ContentBlock {
 
 function createBlockDraft(type: BlockType): Omit<ContentBlock, 'id'> {
   if (type === 'heading') return { type, level: 2, text: '' };
+  if (type === 'image') return { type, imageUrl: '', imageAlt: '' };
   if (type === 'spacer') return { type, space: 24 };
   if (type === 'rawHtml') return { type, html: '<p>Новый HTML блок</p>' };
   return { type, text: '' };
@@ -146,18 +165,22 @@ function createBlockDraft(type: BlockType): Omit<ContentBlock, 'id'> {
 
 export default function ArticleEditor({ content, onChange }: ArticleEditorProps) {
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => parseHtmlToBlocks(content));
-  const lastIncomingRef = useRef(content);
+  const isLocalSyncRef = useRef(false);
 
   useEffect(() => {
-    if (content === lastIncomingRef.current) return;
+    if (isLocalSyncRef.current) {
+      isLocalSyncRef.current = false;
+      return;
+    }
+
     setBlocks(parseHtmlToBlocks(content));
-    lastIncomingRef.current = content;
   }, [content]);
 
   const htmlOutput = useMemo(() => blocks.map(blockToHtml).join('\n'), [blocks]);
 
   useEffect(() => {
     if (htmlOutput === content) return;
+    isLocalSyncRef.current = true;
     onChange(htmlOutput);
   }, [htmlOutput, content, onChange]);
 
@@ -264,6 +287,28 @@ export default function ArticleEditor({ content, onChange }: ArticleEditorProps)
                 placeholder="Введите текст блока"
                 className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm resize-y"
               />
+            )}
+
+            {block.type === 'image' && (
+              <div className="space-y-2">
+                <input
+                  type="url"
+                  value={block.imageUrl || ''}
+                  onChange={(e) => updateBlock(block.id, { imageUrl: e.target.value })}
+                  placeholder="https://i.ibb.co/.../image.jpg"
+                  className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm"
+                />
+                <input
+                  type="text"
+                  value={block.imageAlt || ''}
+                  onChange={(e) => updateBlock(block.id, { imageAlt: e.target.value })}
+                  placeholder="Alt текст изображения"
+                  className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Для imgbb вставляйте прямую ссылку на изображение (обычно домен i.ibb.co).
+                </p>
+              </div>
             )}
 
             {block.type === 'spacer' && (
