@@ -34,7 +34,7 @@ function BlogPageComponent() {
 
   useEffect(() => {
     if (slug && !loading) {
-      const article = allArticles.find(a => a.slug === slug);
+      const article = allArticles.find((a) => a.slug === slug);
       if (article) setSelectedArticle(article);
       else navigate('/blog', { replace: true });
     } else {
