@@ -95,11 +95,6 @@ function BlogPageComponent() {
                   <span className="text-foreground break-words">{selectedArticle.title}</span>
                 </nav>
 
-                <div className="md:absolute md:top-0 md:right-0 md:z-20">
-                  <button onClick={goHome} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none p-0">
-                    ← На главную
-                  </button>
-                </div>
               </div>
 
               <button onClick={goToBlogList} className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 bg-transparent border-none cursor-pointer">
@@ -143,13 +138,13 @@ function BlogPageComponent() {
             )}
 
             <div className="mt-12 pt-8 border-t border-border text-center">
-              <p className="text-muted-foreground mb-5">Понравилась статья?</p>
+              <p className="text-muted-foreground mb-5">Понравилась статья? Остались вопросы?</p>
               <button
                 onClick={goToContact}
                 className="group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-                <span className="relative text-sm md:text-base">Закажите бесплатную консультацию</span>
+                <span className="relative text-sm md:text-base">Получи бесплатную консультацию</span>
               </button>
             </div>
           </motion.div>
@@ -166,7 +161,7 @@ function BlogPageComponent() {
           <div className="flex justify-end mb-4"><button onClick={goHome} className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
             <h1 className="text-4xl md:text-6xl font-bold">Блог о <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">маркетинге</span></h1>
-            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">Глубокие статьи о таргетированной рекламе, аналитике и стратегиях роста бизнеса</p>
+            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса</p>
           </motion.div>
           <div className="grid md:grid-cols-2 gap-6 md:gap-8">
             {allArticles.map((article, i) => (
