@@ -9,12 +9,17 @@ function getSiteUrl(env: Env, request: Request): string {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, next, waitUntil }) => {
+  const spaIndexRequest = new Request(new URL('/index.html', request.url).toString(), {
+    method: 'GET',
+    headers: request.headers,
+  });
+
   if (!isBotRequest(request)) {
-    return next();
+    return next(spaIndexRequest);
   }
 
   const slug = String(params.slug || '').trim();
-  if (!slug) return next();
+  if (!slug) return next(spaIndexRequest);
 
   const cacheKey = new Request(request.url, { method: 'GET' });
   const cached = await matchCache(cacheKey);
@@ -25,7 +30,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
     const article = articles.find((item) => item.slug === slug);
 
     if (!article) {
-      return next();
+      return next(spaIndexRequest);
     }
 
     const siteUrl = getSiteUrl(env, request);
@@ -41,6 +46,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
     waitUntil(putCache(cacheKey, response));
     return response;
   } catch {
-    return next();
+    return next(spaIndexRequest);
   }
 };
