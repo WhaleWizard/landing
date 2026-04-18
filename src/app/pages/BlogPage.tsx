@@ -149,6 +149,7 @@ function BlogPageComponent() {
                 className="group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+
                 <span className="relative text-sm md:text-base">Получи бесплатную консультацию</span>
               </button>
             </div>
