@@ -17,3 +17,9 @@ Set these environment variables in Cloudflare Pages project settings:
 - `JSONBIN_ACCESS_KEY` (optional)
 - `ADMIN_PASSWORD`
 - `SITE_URL` (optional, defaults to current origin)
+
+## SEO endpoints
+
+- `GET /sitemap.xml` — dynamic sitemap from JSONBin
+- `GET /feed.xml` — RSS feed for fast discovery
+- `GET /blog/:slug` — bot-aware SEO HTML on edge

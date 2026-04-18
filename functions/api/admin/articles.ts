@@ -30,6 +30,24 @@ async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Pro
   await Promise.all(targets.map((url) => deleteCacheByUrl(url)));
 }
 
+
+async function pingSearchEngines(siteUrl: string): Promise<void> {
+  const sitemapUrl = `${siteUrl}/sitemap.xml`;
+  const feedUrl = `${siteUrl}/feed.xml`;
+  const targets = [
+    `https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
+    `https://www.google.com/ping?sitemap=${encodeURIComponent(feedUrl)}`,
+  ];
+
+  await Promise.allSettled(
+    targets.map((url) =>
+      fetch(url, {
+        method: 'GET',
+        cf: { cacheTtl: 0, cacheEverything: false },
+      }),
+    ),
+  );
+}
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request);
   if (rateLimited) return rateLimited;

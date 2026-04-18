@@ -29,6 +29,24 @@ function sanitizeArticleContent(content: string): string {
     .replace(/javascript:/gi, '');
 }
 
+function normalizeIsoDate(raw: string | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return parsed.toISOString();
+}
+
+function extractTags(article: Partial<Article>): string[] {
+  if (Array.isArray(article.tags)) {
+    return article.tags
+      .map((tag) => String(tag).trim())
+      .filter(Boolean)
+      .slice(0, 12);
+  }
+
+  return [];
+}
+
 export function normalizeArticles(rawArticles: unknown[]): Article[] {
   const usedSlugs = new Set<string>();
 
@@ -45,7 +63,10 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
 
     usedSlugs.add(uniqueSlug);
 
+    const nowIso = new Date().toISOString();
     const safeContent = sanitizeArticleContent(article.content || '<p>Контент статьи отсутствует.</p>');
+    const fallbackDescription = stripHtml(article.description || safeContent).slice(0, 160);
+    const seoDescription = (article.seoDescription || fallbackDescription).slice(0, 170);
 
     return {
       id: Number(article.id || index + 1),
@@ -54,9 +75,14 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       category: article.category || 'Блог',
       readTime: article.readTime || '',
       date: article.date || new Date().toISOString().slice(0, 10),
-      description: stripHtml(article.description || safeContent).slice(0, 160),
+      description: fallbackDescription,
       content: safeContent,
       image: article.image || '/og-image.jpg',
+      seoTitle: (article.seoTitle || article.title || `Статья ${index + 1}`).slice(0, 70),
+      seoDescription,
+      publishedAt: normalizeIsoDate(article.publishedAt, nowIso),
+      updatedAt: nowIso,
+      tags: extractTags(article),
     };
   });
 }

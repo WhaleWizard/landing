@@ -8,6 +8,11 @@ export interface Article {
   description: string;
   content: string;
   image: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  publishedAt?: string;
+  updatedAt?: string;
+  tags?: string[];
 }
 
 export interface Env {

@@ -6,6 +6,19 @@ import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 
+function extractRelatedArticles(allArticles, currentArticle) {
+  if (!currentArticle) return [];
+
+  return allArticles
+    .filter((article) => article.slug !== currentArticle.slug)
+    .sort((a, b) => {
+      const byCategory = Number(b.category === currentArticle.category) - Number(a.category === currentArticle.category);
+      if (byCategory !== 0) return byCategory;
+      return a.title.localeCompare(b.title);
+    })
+    .slice(0, 3);
+}
+
 function BlogPageComponent() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -53,14 +66,28 @@ function BlogPageComponent() {
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Загрузка...</div>;
 
   if (selectedArticle) {
+    const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
+
     return (
       <>
-        <SEO title={selectedArticle.title} description={selectedArticle.description} url={`/blog/${selectedArticle.slug}`} type="article" />
+        <SEO
+          title={selectedArticle.seoTitle || selectedArticle.title}
+          description={selectedArticle.seoDescription || selectedArticle.description}
+          url={`/blog/${selectedArticle.slug}`}
+          type="article"
+        />
         <section ref={sectionRef} className="min-h-screen bg-background" style={{ contain: 'layout style paint' }}>
           <div className="relative overflow-hidden pt-16 pb-12 md:pt-24 md:pb-20">
             <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="relative max-w-4xl mx-auto px-4 sm:px-6">
+              <nav className="text-xs text-muted-foreground mb-6" aria-label="breadcrumb">
+                <button onClick={goHome} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Главная</button>
+                <span className="mx-2">›</span>
+                <button onClick={goToBlogList} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Блог</button>
+                <span className="mx-2">›</span>
+                <span className="text-foreground">{selectedArticle.title}</span>
+              </nav>
               <div className="absolute top-0 right-0 z-20">
                 <button onClick={goHome} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button>
               </div>
@@ -85,6 +112,25 @@ function BlogPageComponent() {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
             <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+
+            {relatedArticles.length > 0 && (
+              <aside className="mt-12 rounded-2xl border border-border bg-card/30 p-6">
+                <h2 className="text-xl font-semibold mb-4">Похожие статьи</h2>
+                <ul className="space-y-3">
+                  {relatedArticles.map((article) => (
+                    <li key={article.slug}>
+                      <button
+                        onClick={() => navigate(`/blog/${article.slug}`)}
+                        className="text-left bg-transparent border-none p-0 text-primary hover:underline cursor-pointer"
+                      >
+                        {article.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
+
             <div className="mt-12 pt-8 border-t border-border text-center">
               <p className="text-muted-foreground">Понравилась статья? <button onClick={() => { navigate('/'); setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100); }} className="text-primary hover:underline cursor-pointer bg-transparent border-none">Закажите бесплатную консультацию</button></p>
             </div>

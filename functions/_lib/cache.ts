@@ -1,6 +1,7 @@
 export const CACHE_CONTROL = {
   apiArticles: 'public, s-maxage=120, stale-while-revalidate=300',
   sitemap: 'public, s-maxage=300, stale-while-revalidate=600',
+  feed: 'public, s-maxage=300, stale-while-revalidate=600',
   botArticle: 'public, s-maxage=300, stale-while-revalidate=900',
   noStore: 'no-store',
 };
