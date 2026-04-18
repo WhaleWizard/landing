@@ -6,6 +6,19 @@ import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 
+function extractRelatedArticles(allArticles, currentArticle) {
+  if (!currentArticle) return [];
+
+  return allArticles
+    .filter((article) => article.slug !== currentArticle.slug)
+    .sort((a, b) => {
+      const byCategory = Number(b.category === currentArticle.category) - Number(a.category === currentArticle.category);
+      if (byCategory !== 0) return byCategory;
+      return a.title.localeCompare(b.title);
+    })
+    .slice(0, 3);
+}
+
 function BlogPageComponent() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -50,20 +63,45 @@ function BlogPageComponent() {
 
   const goToBlogList = useCallback(() => navigate('/blog'), [navigate]);
 
+  const goToContact = useCallback(() => {
+    navigate('/');
+    setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, [navigate]);
+
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Загрузка...</div>;
 
   if (selectedArticle) {
+    const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
+
     return (
       <>
-        <SEO title={selectedArticle.title} description={selectedArticle.description} url={`/blog/${selectedArticle.slug}`} type="article" />
+        <SEO
+          title={selectedArticle.seoTitle || selectedArticle.title}
+          description={selectedArticle.seoDescription || selectedArticle.description}
+          url={`/blog/${selectedArticle.slug}`}
+          type="article"
+        />
         <section ref={sectionRef} className="min-h-screen bg-background" style={{ contain: 'layout style paint' }}>
           <div className="relative overflow-hidden pt-16 pb-12 md:pt-24 md:pb-20">
             <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="relative max-w-4xl mx-auto px-4 sm:px-6">
-              <div className="absolute top-0 right-0 z-20">
-                <button onClick={goHome} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button>
+              <div className="flex flex-col gap-3 mb-4 md:mb-0 md:block">
+                <nav className="text-xs text-muted-foreground" aria-label="breadcrumb">
+                  <button onClick={goHome} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Главная</button>
+                  <span className="mx-2">›</span>
+                  <button onClick={goToBlogList} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Блог</button>
+                  <span className="mx-2">›</span>
+                  <span className="text-foreground break-words">{selectedArticle.title}</span>
+                </nav>
+
+                <div className="md:absolute md:top-0 md:right-0 md:z-20">
+                  <button onClick={goHome} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none p-0">
+                    ← На главную
+                  </button>
+                </div>
               </div>
+
               <button onClick={goToBlogList} className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 bg-transparent border-none cursor-pointer">
                 <ArrowLeft className="w-4 h-4" /><span>Все статьи</span>
               </button>
@@ -85,8 +123,34 @@ function BlogPageComponent() {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
             <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+
+            {relatedArticles.length > 0 && (
+              <aside className="mt-12 rounded-2xl border border-border bg-card/30 p-6">
+                <h2 className="text-xl font-semibold mb-4">Похожие статьи</h2>
+                <ul className="space-y-3">
+                  {relatedArticles.map((article) => (
+                    <li key={article.slug}>
+                      <button
+                        onClick={() => navigate(`/blog/${article.slug}`)}
+                        className="text-left bg-transparent border-none p-0 text-primary hover:underline cursor-pointer"
+                      >
+                        {article.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
+
             <div className="mt-12 pt-8 border-t border-border text-center">
-              <p className="text-muted-foreground">Понравилась статья? <button onClick={() => { navigate('/'); setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100); }} className="text-primary hover:underline cursor-pointer bg-transparent border-none">Закажите бесплатную консультацию</button></p>
+              <p className="text-muted-foreground mb-5">Понравилась статья?</p>
+              <button
+                onClick={goToContact}
+                className="group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+                <span className="relative text-sm md:text-base">Закажите бесплатную консультацию</span>
+              </button>
             </div>
           </motion.div>
         </section>
