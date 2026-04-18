@@ -20,6 +20,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const siteUrl = getSiteUrl(env, request);
     const articles = await fetchArticlesFromJsonBin(env);
     const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
+
     const articleDates = Object.fromEntries(
       articles.map((article) => [
         `/blog/${article.slug}`,
@@ -27,9 +28,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       ]),
     );
 
-    const sitemap = renderSitemapXml(siteUrl, [...STATIC_ROUTES, ...articleRoutes], articleDates);
+    const sitemapXml = renderSitemapXml(siteUrl, [...STATIC_ROUTES, ...articleRoutes], articleDates);
 
-    const response = xml(sitemap, {
+    const response = xml(sitemapXml, {
       headers: {
         'Cache-Control': CACHE_CONTROL.sitemap,
       },
