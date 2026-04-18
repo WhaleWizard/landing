@@ -2,7 +2,7 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Clock, BookOpen } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useRef, useEffect, memo } from 'react';
+import { useRef, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
 
@@ -23,6 +23,13 @@ function Blog() {
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
   }, []);
+
+  const openArticle = useCallback((slug: string) => {
+    navigate(`/blog/${slug}`);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    });
+  }, [navigate]);
 
   if (loading) return <div className="py-16 text-center text-muted-foreground">Загрузка статей...</div>;
 
@@ -46,7 +53,7 @@ function Blog() {
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background/60 via-background/30 to-transparent z-10 pointer-events-none" />
         <div ref={scrollContainerRef} className="flex gap-5 md:gap-7 overflow-x-auto scroll-smooth pb-8 px-4 md:px-8" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)', WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
           {articles.map((article) => (
-            <motion.div key={article.id} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} transition={{ duration: 0.3 }} onClick={() => navigate(`/blog/${article.slug}`)}>
+            <motion.div key={article.id} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
                 <div className="relative h-44 sm:h-48 md:h-56 overflow-hidden">
                   <ImageWithFallback src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />

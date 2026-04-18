@@ -1,0 +1,192 @@
+import type { Article } from './types';
+
+const BOT_UA_PATTERN = /(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebot|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|applebot|ia_archiver)/i;
+
+export function isBotRequest(request: Request): boolean {
+  const userAgent = request.headers.get('user-agent') || '';
+  return BOT_UA_PATTERN.test(userAgent);
+}
+
+function escapeHtml(value = ''): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function xmlEscape(value = ''): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function toAbsoluteUrl(siteUrl: string, path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('/')) return `${siteUrl}${path}`;
+  return `${siteUrl}/${path}`;
+}
+
+function articleJsonLd(siteUrl: string, article: Article): string {
+  const canonical = `${siteUrl}/blog/${article.slug}`;
+  const image = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
+
+  return JSON.stringify(
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: article.seoTitle || article.title,
+      description: article.seoDescription || article.description,
+      image: [image],
+      datePublished: article.publishedAt || article.updatedAt || article.date,
+      dateModified: article.updatedAt || article.publishedAt || article.date,
+      mainEntityOfPage: canonical,
+      author: {
+        '@type': 'Person',
+        name: 'Whale Wzrd',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Whale Wzrd',
+        logo: {
+          '@type': 'ImageObject',
+          url: `${siteUrl}/og-image.jpg`,
+        },
+      },
+      keywords: article.tags || [],
+      articleSection: article.category,
+    },
+    null,
+    0,
+  );
+}
+
+function breadcrumbJsonLd(siteUrl: string, article: Article): string {
+  return JSON.stringify(
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Главная',
+          item: `${siteUrl}/`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Блог',
+          item: `${siteUrl}/blog`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: article.title,
+          item: `${siteUrl}/blog/${article.slug}`,
+        },
+      ],
+    },
+    null,
+    0,
+  );
+}
+
+export function renderArticleHtml(siteUrl: string, article: Article): string {
+  const canonical = `${siteUrl}/blog/${article.slug}`;
+  const ogImage = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
+  const title = `${article.seoTitle || article.title} | Whale Wzrd`;
+  const description = article.seoDescription || article.description;
+
+  return `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${escapeHtml(canonical)}" />
+  <meta property="og:image" content="${escapeHtml(ogImage)}" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:image" content="${escapeHtml(ogImage)}" />
+  <link rel="canonical" href="${escapeHtml(canonical)}" />
+  <script type="application/ld+json">${articleJsonLd(siteUrl, article)}</script>
+  <script type="application/ld+json">${breadcrumbJsonLd(siteUrl, article)}</script>
+</head>
+<body>
+  <main>
+    <nav aria-label="breadcrumb">
+      <a href="/">Главная</a> › <a href="/blog">Блог</a> › <span>${escapeHtml(article.title)}</span>
+    </nav>
+    <article>
+      <header>
+        <h1>${escapeHtml(article.title)}</h1>
+        <p>${escapeHtml(description)}</p>
+        <p><strong>Категория:</strong> ${escapeHtml(article.category)} | <strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` | <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
+      </header>
+      <section>
+${article.content}
+      </section>
+    </article>
+  </main>
+</body>
+</html>`;
+}
+
+export function renderSitemapXml(siteUrl: string, routes: string[], articleDates: Record<string, string>): string {
+  const defaultLastmod = new Date().toISOString().slice(0, 10);
+
+  const urls = routes
+    .map((route) => {
+      const loc = xmlEscape(`${siteUrl}${route}`);
+      const lastmod = (articleDates[route] || defaultLastmod).slice(0, 10);
+      return `  <url><loc>${loc}</loc><lastmod>${lastmod}</lastmod></url>`;
+    })
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+}
+
+export function renderFeedXml(siteUrl: string, articles: Article[]): string {
+  const sorted = [...articles].sort((a, b) => {
+    const ad = new Date(a.updatedAt || a.publishedAt || 0).getTime();
+    const bd = new Date(b.updatedAt || b.publishedAt || 0).getTime();
+    return bd - ad;
+  });
+
+  const items = sorted
+    .slice(0, 100)
+    .map((article) => {
+      const link = `${siteUrl}/blog/${article.slug}`;
+      const pubDate = new Date(article.publishedAt || article.updatedAt || Date.now()).toUTCString();
+      const description = article.seoDescription || article.description;
+      return `<item>
+  <title>${xmlEscape(article.seoTitle || article.title)}</title>
+  <link>${xmlEscape(link)}</link>
+  <guid isPermaLink="true">${xmlEscape(link)}</guid>
+  <pubDate>${xmlEscape(pubDate)}</pubDate>
+  <description>${xmlEscape(description)}</description>
+</item>`;
+    })
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Whale Wzrd Blog</title>
+  <link>${xmlEscape(`${siteUrl}/blog`)}</link>
+  <description>Новые статьи Whale Wzrd</description>
+  <language>ru-RU</language>
+${items}
+</channel>
+</rss>`;
+}

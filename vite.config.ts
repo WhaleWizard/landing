@@ -26,5 +26,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router'],
+          motion: ['motion'],
+          ui: ['@mui/material', '@mui/icons-material'],
+          tiptap: ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-image'],
+        },
+      },
+    },
+  },
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })
