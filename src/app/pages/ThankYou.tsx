@@ -81,13 +81,13 @@ export default function ThankYou() {
           className="mt-8"
         >
           <a
-            href="https://t.me/whalewizard"
+            href="https://whalewzrd.com/blog"
             target="_blank"
             className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-lg shadow-primary/30 overflow-hidden transition-transform hover:scale-105"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
 
-            <span className="relative">Телеграм канал</span>
+            <span className="relative">Статьи и Кейсы</span>
             <ArrowRight className="w-4 h-4 relative group-hover:translate-x-1 transition-transform" />
           </a>
         </motion.div>
