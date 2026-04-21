@@ -19,9 +19,9 @@ Set these environment variables in Cloudflare Pages project settings:
 - `SITE_URL` (optional, defaults to current origin)
 - `INDEXNOW_KEY` (optional, for Bing/IndexNow instant URL notification)
 - `INDEXNOW_ENDPOINT` (optional, defaults to `https://api.indexnow.org/indexnow`)
-- `VITE_GTM_ID` (optional, Google Tag Manager container ID for client build)
-- `VITE_GA_MEASUREMENT_ID` (optional, GA4 Measurement ID for client build)
-- `VITE_YANDEX_METRIKA_ID` (optional, Yandex Metrika counter ID for client build)
+- `VITE_GTM_ID` (required in production, Google Tag Manager container ID for client build)
+- `VITE_GA_MEASUREMENT_ID` (required in production, GA4 Measurement ID for client build)
+- `VITE_YANDEX_METRIKA_ID` (required in production, Yandex Metrika counter ID for client build)
 - `VITE_META_PIXEL_ID` (optional, Meta Pixel ID for client build)
 - `VITE_TIKTOK_PIXEL_ID` (optional, TikTok Pixel ID for client build)
 

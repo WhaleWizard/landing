@@ -184,18 +184,19 @@ function env(name: string): string {
   return (value || '').trim();
 }
 
-function getYandexMetrikaId(): number {
-  const raw = env('VITE_YANDEX_METRIKA_ID') || '108699980';
+function getYandexMetrikaId(): number | null {
+  const raw = env('VITE_YANDEX_METRIKA_ID');
+  if (!raw) return null;
   const parsed = Number(raw);
-  return Number.isNaN(parsed) ? 108699980 : parsed;
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function getGoogleAnalyticsId(): string {
-  return env('VITE_GA_MEASUREMENT_ID') || 'G-ZV18R9DLVC';
+  return env('VITE_GA_MEASUREMENT_ID');
 }
 
 function getGoogleTagManagerId(): string {
-  return env('VITE_GTM_ID') || 'GTM-T88BWXVV';
+  return env('VITE_GTM_ID');
 }
 
 export async function ensureAnalyticsLoaded(): Promise<void> {
@@ -223,6 +224,8 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     } catch (error) {
       console.warn('[analytics] GTM load failed', error);
     }
+  } else if (!gtmId) {
+    console.warn('[analytics] VITE_GTM_ID is not set. GTM is disabled.');
   }
 
   if (gaId && !gaLoaded) {
@@ -239,9 +242,11 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     } catch (error) {
       console.warn('[analytics] Google Analytics load failed', error);
     }
+  } else if (!gaId) {
+    console.warn('[analytics] VITE_GA_MEASUREMENT_ID is not set. GA4 is disabled.');
   }
 
-  if (!ymLoaded) {
+  if (ymId && !ymLoaded) {
     try {
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
       const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
@@ -267,6 +272,8 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     } catch (error) {
       console.warn('[analytics] Yandex Metrika load failed', error);
     }
+  } else if (!ymId) {
+    console.warn('[analytics] VITE_YANDEX_METRIKA_ID is not set. Yandex Metrika is disabled.');
   }
 }
 
@@ -336,7 +343,7 @@ export function trackPageView(path: string): void {
     win.gtag('config', gaId, { page_path: path });
   }
 
-  if (win.ym) {
+  if (win.ym && ymId) {
     win.ym(ymId, 'hit', path);
   }
 
@@ -369,7 +376,7 @@ export function trackLead(): void {
     win.gtag('event', 'form_submit', { send_to: gaId });
   }
 
-  if (win.ym) {
+  if (win.ym && ymId) {
     win.ym(ymId, 'reachGoal', 'lead');
     win.ym(ymId, 'reachGoal', 'form_submit');
   }
@@ -397,7 +404,7 @@ export function trackThankYouConversion(): void {
     win.gtag('event', 'thank_you_page_view', { send_to: gaId });
   }
 
-  if (win.ym) {
+  if (win.ym && ymId) {
     win.ym(ymId, 'reachGoal', 'thank_you_page_view');
   }
 
