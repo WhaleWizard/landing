@@ -33,6 +33,6 @@ Set these environment variables in Cloudflare Pages project settings:
 
 ## Analytics events
 
-- Page view on route change: `virtual_pageview` (dataLayer), `gtag('config', ..., { page_path })`, `ym(..., 'hit', path)`
+- Page view on every route change (including future pages added to router): `virtual_pageview` (dataLayer), `gtag('config', ..., { page_path })`, `ym(..., 'hit', path)`
 - Lead form success: `generate_lead`, `form_submit`, `lead_submitted`
 - Thank-you page conversion: `thank_you_page_view`
