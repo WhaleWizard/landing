@@ -160,6 +160,7 @@ let ymLoaded = false;
 let metaLoaded = false;
 let ttLoaded = false;
 let gtmLoaded = false;
+let analyticsConfigLogged = false;
 
 function appendExternalScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -202,48 +203,70 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
   const ymId = getYandexMetrikaId();
   const gtmId = getGoogleTagManagerId();
 
+  if (!analyticsConfigLogged) {
+    console.info('[analytics] bootstrap config', {
+      gtmId,
+      gaId,
+      ymId,
+      hasDataLayer: Array.isArray((window as Window & { dataLayer?: unknown[] }).dataLayer),
+    });
+    analyticsConfigLogged = true;
+  }
+
   if (gtmId && !gtmLoaded) {
-    const win = window as Window & { dataLayer?: unknown[] };
-    win.dataLayer = win.dataLayer || [];
-    win.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
-    await appendExternalScript(`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`);
-    gtmLoaded = true;
+    try {
+      const win = window as Window & { dataLayer?: unknown[] };
+      win.dataLayer = win.dataLayer || [];
+      win.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+      await appendExternalScript(`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`);
+      gtmLoaded = true;
+    } catch (error) {
+      console.warn('[analytics] GTM load failed', error);
+    }
   }
 
   if (gaId && !gaLoaded) {
-    await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
-    (window as Window & { dataLayer?: unknown[] }).dataLayer = (window as Window & { dataLayer?: unknown[] }).dataLayer || [];
-    function gtag(...args: unknown[]) {
-      ((window as Window & { dataLayer: unknown[] }).dataLayer).push(args);
+    try {
+      await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
+      (window as Window & { dataLayer?: unknown[] }).dataLayer = (window as Window & { dataLayer?: unknown[] }).dataLayer || [];
+      function gtag(...args: unknown[]) {
+        ((window as Window & { dataLayer: unknown[] }).dataLayer).push(args);
+      }
+      (window as Window & { gtag?: (...args: unknown[]) => void }).gtag = gtag;
+      gtag('js', new Date());
+      gtag('config', gaId, { anonymize_ip: true, send_page_view: false });
+      gaLoaded = true;
+    } catch (error) {
+      console.warn('[analytics] Google Analytics load failed', error);
     }
-    (window as Window & { gtag?: (...args: unknown[]) => void }).gtag = gtag;
-    gtag('js', new Date());
-    gtag('config', gaId, { anonymize_ip: true, send_page_view: false });
-    gaLoaded = true;
   }
 
   if (!ymLoaded) {
-    await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
-    const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
-    win.dataLayer = win.dataLayer || [];
+    try {
+      await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
+      const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+      win.dataLayer = win.dataLayer || [];
 
-    if (!win.ym) {
-      win.ym = (...args: unknown[]) => {
-        ((win as unknown as { yandex_metrika_calls?: unknown[][] }).yandex_metrika_calls ||= []).push(args);
-      };
+      if (!win.ym) {
+        win.ym = (...args: unknown[]) => {
+          ((win as unknown as { yandex_metrika_calls?: unknown[][] }).yandex_metrika_calls ||= []).push(args);
+        };
+      }
+
+      win.ym(ymId, 'init', {
+        ssr: true,
+        webvisor: true,
+        clickmap: true,
+        ecommerce: 'dataLayer',
+        referrer: document.referrer,
+        url: location.href,
+        accurateTrackBounce: true,
+        trackLinks: true,
+      });
+      ymLoaded = true;
+    } catch (error) {
+      console.warn('[analytics] Yandex Metrika load failed', error);
     }
-
-    win.ym(ymId, 'init', {
-      ssr: true,
-      webvisor: true,
-      clickmap: true,
-      ecommerce: 'dataLayer',
-      referrer: document.referrer,
-      url: location.href,
-      accurateTrackBounce: true,
-      trackLinks: true,
-    });
-    ymLoaded = true;
   }
 }
 
@@ -343,16 +366,42 @@ export function trackLead(): void {
 
   if (win.gtag && gaId) {
     win.gtag('event', 'generate_lead', { send_to: gaId });
+    win.gtag('event', 'form_submit', { send_to: gaId });
   }
 
   if (win.ym) {
     win.ym(ymId, 'reachGoal', 'lead');
+    win.ym(ymId, 'reachGoal', 'form_submit');
   }
 
   if (Array.isArray(win.dataLayer)) {
     win.dataLayer.push({ event: 'lead_submitted' });
+    win.dataLayer.push({ event: 'form_submit' });
   }
 
   win.fbq?.('track', 'Lead');
   win.ttq?.track?.('SubmitForm');
+}
+
+export function trackThankYouConversion(): void {
+  const win = window as Window & {
+    gtag?: (...args: unknown[]) => void;
+    ym?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
+  };
+
+  const gaId = getGoogleAnalyticsId();
+  const ymId = getYandexMetrikaId();
+
+  if (win.gtag && gaId) {
+    win.gtag('event', 'thank_you_page_view', { send_to: gaId });
+  }
+
+  if (win.ym) {
+    win.ym(ymId, 'reachGoal', 'thank_you_page_view');
+  }
+
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'thank_you_page_view' });
+  }
 }
