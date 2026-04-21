@@ -5,6 +5,7 @@ import { Send, CheckCircle2, Loader2, DollarSign, Sparkles, TrendingUp, Zap, X, 
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
+import { trackLead } from '../consent/consent';
 
 const budgetOptions = [
   { value: '50-100k', label: 'до 1000 $', icon: Sparkles, color: 'from-primary/20 to-primary/10', bgGradient: 'rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1)' },
@@ -133,6 +134,7 @@ function ContactForm() {
       setTelegramUsername('');
       setContactMethod('telegram');
       setAgreed(false);
+      trackLead();
 
       setTimeout(() => setIsSubmitted(false), 5000);
       setTimeout(() => navigate('/thank-you'), 800);
