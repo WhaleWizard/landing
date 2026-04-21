@@ -31,6 +31,17 @@ function toAbsoluteUrl(siteUrl: string, path: string): string {
   return `${siteUrl}/${path}`;
 }
 
+function buildSeoTitle(article: Article): string {
+  if (article.seoTitle?.trim()) return article.seoTitle.trim();
+  return `${article.title} — ${article.category || 'Маркетинг'}`;
+}
+
+function buildSeoDescription(article: Article): string {
+  if (article.seoDescription?.trim()) return article.seoDescription.trim();
+  if (article.summary?.trim()) return article.summary.trim();
+  return article.description || 'Практическая статья о маркетинге и рекламе.';
+}
+
 function articleJsonLd(siteUrl: string, article: Article): string {
   const canonical = `${siteUrl}/blog/${article.slug}`;
   const image = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
@@ -39,8 +50,8 @@ function articleJsonLd(siteUrl: string, article: Article): string {
     {
       '@context': 'https://schema.org',
       '@type': 'Article',
-      headline: article.seoTitle || article.title,
-      description: article.seoDescription || article.description,
+      headline: buildSeoTitle(article),
+      description: buildSeoDescription(article),
       image: [image],
       datePublished: article.publishedAt || article.updatedAt || article.date,
       dateModified: article.updatedAt || article.publishedAt || article.date,
@@ -124,8 +135,8 @@ function faqJsonLd(article: Article): string | null {
 export function renderArticleHtml(siteUrl: string, article: Article): string {
   const canonical = `${siteUrl}/blog/${article.slug}`;
   const ogImage = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
-  const title = `${article.seoTitle || article.title} | Whale Wzrd`;
-  const description = article.seoDescription || article.description;
+  const title = `${buildSeoTitle(article)} | Whale Wzrd`;
+  const description = buildSeoDescription(article);
   const faqJson = faqJsonLd(article);
   const keyTakeaways = (article.keyTakeaways || []).filter(Boolean);
   const faqItems = (article.faq || []).filter((item) => item?.question && item?.answer);
@@ -181,7 +192,10 @@ export function renderSitemapXml(siteUrl: string, routes: string[], articleDates
     .map((route) => {
       const loc = xmlEscape(`${siteUrl}${route}`);
       const lastmod = (articleDates[route] || defaultLastmod).slice(0, 10);
-      return `  <url><loc>${loc}</loc><lastmod>${lastmod}</lastmod></url>`;
+      const isBlogArticle = route.startsWith('/blog/') && route !== '/blog';
+      const priority = isBlogArticle ? '0.8' : route === '/' ? '1.0' : '0.7';
+      const changefreq = isBlogArticle ? 'weekly' : route === '/' ? 'daily' : 'monthly';
+      return `  <url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
     })
     .join('\n');
 
@@ -200,7 +214,7 @@ export function renderFeedXml(siteUrl: string, articles: Article[]): string {
     .map((article) => {
       const link = `${siteUrl}/blog/${article.slug}`;
       const pubDate = new Date(article.publishedAt || article.updatedAt || Date.now()).toUTCString();
-      const description = article.seoDescription || article.description;
+      const description = buildSeoDescription(article);
       return `<item>
   <title>${xmlEscape(article.seoTitle || article.title)}</title>
   <link>${xmlEscape(link)}</link>

@@ -6,13 +6,42 @@ import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 
+function normalizeTokens(value = '') {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
+function buildArticleSeoTitle(article) {
+  if (article?.seoTitle?.trim()) return article.seoTitle.trim();
+  return `${article?.title || 'Статья'} — ${article?.category || 'Маркетинг'}`;
+}
+
+function buildArticleSeoDescription(article) {
+  if (article?.seoDescription?.trim()) return article.seoDescription.trim();
+  if (article?.summary?.trim()) return article.summary.trim();
+  return article?.description || 'Практическая статья о рекламе и маркетинге.';
+}
+
 function extractRelatedArticles(allArticles, currentArticle) {
   if (!currentArticle) return [];
+  const currentTags = new Set((currentArticle.tags || []).map((tag) => String(tag).toLowerCase()));
+  const currentTokens = new Set(normalizeTokens(`${currentArticle.title} ${currentArticle.description}`));
 
   return allArticles
     .filter((article) => article.slug !== currentArticle.slug)
     .sort((a, b) => {
-      const byCategory = Number(b.category === currentArticle.category) - Number(a.category === currentArticle.category);
+      const score = (article) => {
+        const sameCategory = Number(article.category === currentArticle.category) * 3;
+        const tagsScore = (article.tags || []).reduce((acc, tag) => acc + Number(currentTags.has(String(tag).toLowerCase())), 0);
+        const articleTokens = normalizeTokens(`${article.title} ${article.description}`);
+        const tokenScore = articleTokens.reduce((acc, token) => acc + Number(currentTokens.has(token)), 0);
+        return sameCategory + tagsScore * 2 + tokenScore;
+      };
+
+      const byCategory = score(b) - score(a);
       if (byCategory !== 0) return byCategory;
       return a.title.localeCompare(b.title);
     })
@@ -72,12 +101,14 @@ function BlogPageComponent() {
 
   if (selectedArticle) {
     const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
+    const seoTitle = buildArticleSeoTitle(selectedArticle);
+    const seoDescription = buildArticleSeoDescription(selectedArticle);
 
     return (
       <>
         <SEO
-          title={selectedArticle.seoTitle || selectedArticle.title}
-          description={selectedArticle.seoDescription || selectedArticle.description}
+          title={seoTitle}
+          description={seoDescription}
           url={`/blog/${selectedArticle.slug}`}
           type="article"
         />
@@ -107,7 +138,7 @@ function BlogPageComponent() {
                   <div className="flex items-center gap-1 text-muted-foreground"><Calendar className="w-4 h-4" /><span>{selectedArticle.date}</span></div>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">{selectedArticle.title}</h1>
-                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed border-l-4 border-primary/50 pl-4">{selectedArticle.description}</p>
+                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed border-l-4 border-primary/50 pl-4">{seoDescription}</p>
               </motion.div>
             </div>
           </div>

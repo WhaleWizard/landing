@@ -104,13 +104,22 @@ export default function Admin() {
       return;
     }
 
+    const normalizedArticle: Article = {
+      ...editingArticle,
+      summary: editingArticle.summary?.trim() || editingArticle.description?.trim() || '',
+      keyTakeaways: (editingArticle.keyTakeaways || []).map((item) => item.trim()).filter(Boolean),
+      faq: (editingArticle.faq || [])
+        .map((item) => ({ question: item.question.trim(), answer: item.answer.trim() }))
+        .filter((item) => item.question && item.answer),
+    };
+
     let updatedArticles = [...articles];
-    if (editingArticle.id && editingArticle.id !== 0) {
-      const index = updatedArticles.findIndex(a => a.id === editingArticle.id);
-      if (index !== -1) updatedArticles[index] = editingArticle;
+    if (normalizedArticle.id && normalizedArticle.id !== 0) {
+      const index = updatedArticles.findIndex(a => a.id === normalizedArticle.id);
+      if (index !== -1) updatedArticles[index] = normalizedArticle;
     } else {
       const newId = Math.max(0, ...articles.map(a => a.id), 0) + 1;
-      updatedArticles.push({ ...editingArticle, id: newId });
+      updatedArticles.push({ ...normalizedArticle, id: newId });
     }
 
     try {
