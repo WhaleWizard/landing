@@ -13,6 +13,12 @@ export interface Article {
   publishedAt?: string;
   updatedAt?: string;
   tags?: string[];
+  summary?: string;
+  keyTakeaways?: string[];
+  faq?: Array<{
+    question: string;
+    answer: string;
+  }>;
 }
 
 export interface Env {
