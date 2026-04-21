@@ -215,32 +215,32 @@ function Footer() {
               <span className="text-xs">Made with ❤️</span>
             </p>
 
-            <div className="flex gap-6">
-  <a href="/privacy-policy" className="hover:text-primary transition-colors relative group">
-    Политика конфиденциальности
-    <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-  </a>
-  <a href="/offer" className="hover:text-primary transition-colors relative group">
-    Публичная оферта
-    <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-  </a>
-  <a href="/cookie-policy" className="hover:text-primary transition-colors relative group">
-    Политика Cookie
-    <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-  </a>
-  <a href="/faq" className="hover:text-primary transition-colors relative group">
-    FAQ
-    <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-  </a>
-  <button
-    type="button"
-    onClick={openCookieSettings}
-    className="hover:text-primary transition-colors relative group text-left"
-  >
-    Настройки Cookie
-    <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-  </button>
-</div>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center md:justify-end">
+              <a href="/privacy-policy" className="hover:text-primary transition-colors relative group">
+                Политика конфиденциальности
+                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+              </a>
+              <a href="/offer" className="hover:text-primary transition-colors relative group">
+                Публичная оферта
+                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+              </a>
+              <a href="/cookie-policy" className="hover:text-primary transition-colors relative group">
+                Политика Cookie
+                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+              </a>
+              <a href="/faq" className="hover:text-primary transition-colors relative group">
+                FAQ
+                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+              </a>
+              <button
+                type="button"
+                onClick={openCookieSettings}
+                className="hover:text-primary transition-colors relative group text-left"
+              >
+                Настройки Cookie
+                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

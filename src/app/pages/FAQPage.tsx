@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { ArrowRight, HelpCircle, Search, Sparkles } from 'lucide-react';
 import SEO from '../components/SEO';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { trackFaqOpen } from '../consent/consent';
 
 interface FaqItem {
   question: string;
@@ -511,7 +512,7 @@ export default function FAQPage() {
 
           <div className="grid gap-3">
             {filteredFaqs.map((faq) => (
-              <Dialog key={faq.question}>
+              <Dialog key={faq.question} onOpenChange={(open) => open && trackFaqOpen(faq.question)}>
                 <DialogTrigger asChild>
                   <button className="w-full text-left rounded-2xl border border-border bg-card/40 hover:border-primary/40 transition-colors p-5 md:p-6">
                     <div className="flex items-start justify-between gap-4">
@@ -527,7 +528,7 @@ export default function FAQPage() {
                   </button>
                 </DialogTrigger>
 
-                <DialogContent className="sm:max-w-2xl border-border bg-background/95 backdrop-blur-xl">
+                <DialogContent className="sm:max-w-2xl border-border bg-background/95 backdrop-blur-xl max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="text-xl leading-snug">{faq.question}</DialogTitle>
                     <DialogDescription className="text-base text-foreground/90">{faq.answer}</DialogDescription>
