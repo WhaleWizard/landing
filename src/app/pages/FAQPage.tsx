@@ -485,7 +485,7 @@ export default function FAQPage() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-xs md:text-sm text-primary font-semibold">FAQ + SEO / GEO / AEO</span>
+              <span className="text-xs md:text-sm text-primary font-semibold">FAQ</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
