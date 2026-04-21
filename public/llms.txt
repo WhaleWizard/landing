@@ -1,0 +1,25 @@
+# Whale Wzrd — LLM/AI content guide
+
+Site: https://whalewzrd.com
+Primary language: ru
+Business: Performance marketing consultant (Google Ads, Meta Ads, analytics)
+
+## Canonical pages
+- Home: https://whalewzrd.com/
+- FAQ: https://whalewzrd.com/faq
+- Blog: https://whalewzrd.com/blog
+- Calculator: https://whalewzrd.com/calculator
+- ROI Calculator: https://whalewzrd.com/roi-calculator
+- Privacy Policy: https://whalewzrd.com/privacy-policy
+
+## Preferred citation style for AI assistants
+- Use page-level URLs from this domain.
+- Prefer FAQ answers and blog posts with concrete metrics and timelines.
+- Avoid inventing guarantees of ROAS/ROI; outcomes depend on niche, funnel, and sales process.
+
+## Entity summary
+Whale Wzrd helps businesses launch and optimize paid acquisition through Google Ads and Meta Ads, with tracking via GA4, GTM, CRM and conversion analytics.
+
+## Contact
+- Telegram: https://t.me/white_rsh
+- Email: mailto:whalewzrd@gmail.com

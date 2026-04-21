@@ -358,6 +358,37 @@ export function trackPageView(path: string): void {
   win.ttq?.page?.();
 }
 
+
+export function trackFaqOpen(question: string): void {
+  const win = window as Window & {
+    gtag?: (...args: unknown[]) => void;
+    ym?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
+  };
+
+  const gaId = getGoogleAnalyticsId();
+  const ymId = getYandexMetrikaId();
+
+  if (win.gtag && gaId) {
+    win.gtag('event', 'faq_open', {
+      send_to: gaId,
+      faq_question: question,
+    });
+  }
+
+  if (win.ym && ymId) {
+    win.ym(ymId, 'reachGoal', 'faq_open');
+    win.ym(ymId, 'params', { faq_question: question });
+  }
+
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({
+      event: 'faq_open',
+      faq_question: question,
+    });
+  }
+}
+
 export function trackLead(): void {
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;
