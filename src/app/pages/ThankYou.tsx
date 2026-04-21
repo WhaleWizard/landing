@@ -1,8 +1,14 @@
+import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Instagram, MessageCircle, Mail, Sparkles, ArrowRight } from 'lucide-react';
 import { Youtube } from 'lucide-react';
+import { trackThankYouConversion } from '../consent/consent';
 
 export default function ThankYou() {
+  useEffect(() => {
+    trackThankYouConversion();
+  }, []);
+
   const socialLinks = [
     {
       name: 'Instagram',
