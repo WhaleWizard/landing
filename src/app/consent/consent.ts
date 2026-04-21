@@ -162,6 +162,11 @@ let ttLoaded = false;
 let gtmLoaded = false;
 let analyticsConfigLogged = false;
 
+
+const DEFAULT_GTM_ID = 'GTM-T88BWXVV';
+const DEFAULT_GA_MEASUREMENT_ID = 'G-ZV18R9DLVC';
+const DEFAULT_YANDEX_METRIKA_ID = 108699980;
+
 function appendExternalScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${src}"]`);
@@ -186,17 +191,17 @@ function env(name: string): string {
 
 function getYandexMetrikaId(): number | null {
   const raw = env('VITE_YANDEX_METRIKA_ID');
-  if (!raw) return null;
+  if (!raw) return DEFAULT_YANDEX_METRIKA_ID;
   const parsed = Number(raw);
-  return Number.isNaN(parsed) ? null : parsed;
+  return Number.isNaN(parsed) ? DEFAULT_YANDEX_METRIKA_ID : parsed;
 }
 
 function getGoogleAnalyticsId(): string {
-  return env('VITE_GA_MEASUREMENT_ID');
+  return env('VITE_GA_MEASUREMENT_ID') || DEFAULT_GA_MEASUREMENT_ID;
 }
 
 function getGoogleTagManagerId(): string {
-  return env('VITE_GTM_ID');
+  return env('VITE_GTM_ID') || DEFAULT_GTM_ID;
 }
 
 export async function ensureAnalyticsLoaded(): Promise<void> {
@@ -224,8 +229,6 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     } catch (error) {
       console.warn('[analytics] GTM load failed', error);
     }
-  } else if (!gtmId) {
-    console.warn('[analytics] VITE_GTM_ID is not set. GTM is disabled.');
   }
 
   if (gaId && !gaLoaded) {
@@ -242,8 +245,6 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     } catch (error) {
       console.warn('[analytics] Google Analytics load failed', error);
     }
-  } else if (!gaId) {
-    console.warn('[analytics] VITE_GA_MEASUREMENT_ID is not set. GA4 is disabled.');
   }
 
   if (ymId && !ymLoaded) {
@@ -272,8 +273,6 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     } catch (error) {
       console.warn('[analytics] Yandex Metrika load failed', error);
     }
-  } else if (!ymId) {
-    console.warn('[analytics] VITE_YANDEX_METRIKA_ID is not set. Yandex Metrika is disabled.');
   }
 }
 
