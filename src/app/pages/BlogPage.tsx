@@ -6,13 +6,42 @@ import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 
+function normalizeTokens(value = '') {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
+function buildArticleSeoTitle(article) {
+  if (article?.seoTitle?.trim()) return article.seoTitle.trim();
+  return `${article?.title || 'Статья'} — ${article?.category || 'Маркетинг'}`;
+}
+
+function buildArticleSeoDescription(article) {
+  if (article?.seoDescription?.trim()) return article.seoDescription.trim();
+  if (article?.summary?.trim()) return article.summary.trim();
+  return article?.description || 'Практическая статья о рекламе и маркетинге.';
+}
+
 function extractRelatedArticles(allArticles, currentArticle) {
   if (!currentArticle) return [];
+  const currentTags = new Set((currentArticle.tags || []).map((tag) => String(tag).toLowerCase()));
+  const currentTokens = new Set(normalizeTokens(`${currentArticle.title} ${currentArticle.description}`));
 
   return allArticles
     .filter((article) => article.slug !== currentArticle.slug)
     .sort((a, b) => {
-      const byCategory = Number(b.category === currentArticle.category) - Number(a.category === currentArticle.category);
+      const score = (article) => {
+        const sameCategory = Number(article.category === currentArticle.category) * 3;
+        const tagsScore = (article.tags || []).reduce((acc, tag) => acc + Number(currentTags.has(String(tag).toLowerCase())), 0);
+        const articleTokens = normalizeTokens(`${article.title} ${article.description}`);
+        const tokenScore = articleTokens.reduce((acc, token) => acc + Number(currentTokens.has(token)), 0);
+        return sameCategory + tagsScore * 2 + tokenScore;
+      };
+
+      const byCategory = score(b) - score(a);
       if (byCategory !== 0) return byCategory;
       return a.title.localeCompare(b.title);
     })
@@ -72,12 +101,14 @@ function BlogPageComponent() {
 
   if (selectedArticle) {
     const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
+    const seoTitle = buildArticleSeoTitle(selectedArticle);
+    const seoDescription = buildArticleSeoDescription(selectedArticle);
 
     return (
       <>
         <SEO
-          title={selectedArticle.seoTitle || selectedArticle.title}
-          description={selectedArticle.seoDescription || selectedArticle.description}
+          title={seoTitle}
+          description={seoDescription}
           url={`/blog/${selectedArticle.slug}`}
           type="article"
         />
@@ -107,7 +138,7 @@ function BlogPageComponent() {
                   <div className="flex items-center gap-1 text-muted-foreground"><Calendar className="w-4 h-4" /><span>{selectedArticle.date}</span></div>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">{selectedArticle.title}</h1>
-                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed border-l-4 border-primary/50 pl-4">{selectedArticle.description}</p>
+                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed border-l-4 border-primary/50 pl-4">{seoDescription}</p>
               </motion.div>
             </div>
           </div>
@@ -117,7 +148,41 @@ function BlogPageComponent() {
             </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
+            {selectedArticle.summary && (
+              <aside className="mb-8 rounded-2xl border border-primary/30 bg-primary/10 p-5">
+                <h2 className="text-lg font-semibold mb-2">Краткий ответ</h2>
+                <p className="text-sm md:text-base text-foreground/90 leading-relaxed">{selectedArticle.summary}</p>
+              </aside>
+            )}
+
+            {Array.isArray(selectedArticle.keyTakeaways) && selectedArticle.keyTakeaways.length > 0 && (
+              <section className="mb-8 rounded-2xl border border-border bg-card/30 p-5">
+                <h2 className="text-lg font-semibold mb-3">Ключевые тезисы</h2>
+                <ul className="space-y-2 list-disc pl-5 text-sm md:text-base text-muted-foreground">
+                  {selectedArticle.keyTakeaways.map((point, index) => (
+                    <li key={`${point}-${index}`}>{point}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+
+            {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
+              <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">
+                <h2 className="text-xl font-semibold mb-4">FAQ</h2>
+                <div className="space-y-4">
+                  {selectedArticle.faq.map((item, index) => (
+                    <details key={`${item.question}-${index}`} className="group rounded-xl border border-border/70 bg-background/40 px-4 py-3">
+                      <summary className="cursor-pointer list-none font-medium text-foreground group-open:text-primary">
+                        {item.question}
+                      </summary>
+                      <p className="mt-2 text-sm md:text-base text-muted-foreground leading-relaxed">{item.answer}</p>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {relatedArticles.length > 0 && (
               <aside className="mt-12 rounded-2xl border border-border bg-card/30 p-6">

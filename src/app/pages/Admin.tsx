@@ -45,6 +45,8 @@ export default function Admin() {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const navigate = useNavigate();
+  const faqText = editingArticle?.faq?.map((item) => `${item.question}::${item.answer}`).join('\n') || '';
+  const takeawaysText = editingArticle?.keyTakeaways?.join('\n') || '';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,13 +104,22 @@ export default function Admin() {
       return;
     }
 
+    const normalizedArticle: Article = {
+      ...editingArticle,
+      summary: editingArticle.summary?.trim() || editingArticle.description?.trim() || '',
+      keyTakeaways: (editingArticle.keyTakeaways || []).map((item) => item.trim()).filter(Boolean),
+      faq: (editingArticle.faq || [])
+        .map((item) => ({ question: item.question.trim(), answer: item.answer.trim() }))
+        .filter((item) => item.question && item.answer),
+    };
+
     let updatedArticles = [...articles];
-    if (editingArticle.id && editingArticle.id !== 0) {
-      const index = updatedArticles.findIndex(a => a.id === editingArticle.id);
-      if (index !== -1) updatedArticles[index] = editingArticle;
+    if (normalizedArticle.id && normalizedArticle.id !== 0) {
+      const index = updatedArticles.findIndex(a => a.id === normalizedArticle.id);
+      if (index !== -1) updatedArticles[index] = normalizedArticle;
     } else {
       const newId = Math.max(0, ...articles.map(a => a.id), 0) + 1;
-      updatedArticles.push({ ...editingArticle, id: newId });
+      updatedArticles.push({ ...normalizedArticle, id: newId });
     }
 
     try {
@@ -186,6 +197,9 @@ export default function Admin() {
                   readTime: '5 мин',
                   date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
                   description: '',
+                  summary: '',
+                  keyTakeaways: [],
+                  faq: [],
                   content: '',
                   image: ''
                 });
@@ -218,6 +232,42 @@ export default function Admin() {
                 </div>
                 <div><label className="block text-sm font-medium mb-1">Дата</label><input type="text" value={editingArticle.date} onChange={(e) => setEditingArticle({ ...editingArticle, date: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none" /></div>
                 <div><label className="block text-sm font-medium mb-1">Краткое описание</label><textarea value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none resize-none" /></div>
+                <div><label className="block text-sm font-medium mb-1">TL;DR / Краткий ответ (AEO)</label><textarea value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none resize-none" /></div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Ключевые тезисы (по одному на строку)</label>
+                  <textarea
+                    value={takeawaysText}
+                    onChange={(e) => {
+                      const keyTakeaways = e.target.value
+                        .split('\n')
+                        .map((line) => line.trim())
+                        .filter(Boolean);
+                      setEditingArticle({ ...editingArticle, keyTakeaways });
+                    }}
+                    rows={4}
+                    className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">FAQ (формат: вопрос::ответ, каждая пара с новой строки)</label>
+                  <textarea
+                    value={faqText}
+                    onChange={(e) => {
+                      const faq = e.target.value
+                        .split('\n')
+                        .map((line) => line.trim())
+                        .filter(Boolean)
+                        .map((line) => {
+                          const [question, ...rest] = line.split('::');
+                          return { question: question?.trim() || '', answer: rest.join('::').trim() };
+                        })
+                        .filter((item) => item.question && item.answer);
+                      setEditingArticle({ ...editingArticle, faq });
+                    }}
+                    rows={5}
+                    className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none resize-none"
+                  />
+                </div>
                 <div><label className="block text-sm font-medium mb-1">URL обложки (картинка)</label><input type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none" /></div>
                 <div><label className="block text-sm font-medium mb-1">Slug (URL-адрес статьи)</label><input type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none" /><p className="text-xs text-muted-foreground mt-1">Автоматически из заголовка (если не трогать вручную). Только латиница, дефисы.</p></div>
                 <div>
