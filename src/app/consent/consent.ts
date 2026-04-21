@@ -160,6 +160,7 @@ let ymLoaded = false;
 let metaLoaded = false;
 let ttLoaded = false;
 let gtmLoaded = false;
+let analyticsConfigLogged = false;
 
 function appendExternalScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -201,6 +202,16 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
   const gtmId = getGoogleTagManagerId();
+
+  if (!analyticsConfigLogged) {
+    console.info('[analytics] bootstrap config', {
+      gtmId,
+      gaId,
+      ymId,
+      hasDataLayer: Array.isArray((window as Window & { dataLayer?: unknown[] }).dataLayer),
+    });
+    analyticsConfigLogged = true;
+  }
 
   if (gtmId && !gtmLoaded) {
     try {
