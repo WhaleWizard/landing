@@ -159,6 +159,7 @@ let gaLoaded = false;
 let ymLoaded = false;
 let metaLoaded = false;
 let ttLoaded = false;
+let gtmLoaded = false;
 
 function appendExternalScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -188,9 +189,22 @@ function getYandexMetrikaId(): number {
   return Number.isNaN(parsed) ? 108699980 : parsed;
 }
 
+function getGoogleTagManagerId(): string {
+  return env('VITE_GTM_ID') || 'GTM-T88BWXVV';
+}
+
 export async function ensureAnalyticsLoaded(): Promise<void> {
   const gaId = env('VITE_GA_MEASUREMENT_ID');
   const ymId = getYandexMetrikaId();
+  const gtmId = getGoogleTagManagerId();
+
+  if (gtmId && !gtmLoaded) {
+    const win = window as Window & { dataLayer?: unknown[] };
+    win.dataLayer = win.dataLayer || [];
+    win.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+    await appendExternalScript(`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`);
+    gtmLoaded = true;
+  }
 
   if (gaId && !gaLoaded) {
     await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
@@ -285,6 +299,7 @@ export function trackPageView(path: string): void {
     ym?: (...args: unknown[]) => void;
     fbq?: (...args: unknown[]) => void;
     ttq?: { page?: (...args: unknown[]) => void; track?: (...args: unknown[]) => void };
+    dataLayer?: unknown[];
   };
 
   const gaId = env('VITE_GA_MEASUREMENT_ID');
@@ -298,6 +313,14 @@ export function trackPageView(path: string): void {
     win.ym(ymId, 'hit', path);
   }
 
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({
+      event: 'virtual_pageview',
+      page_path: path,
+      page_location: window.location.href,
+    });
+  }
+
   win.fbq?.('track', 'PageView');
   win.ttq?.page?.();
 }
@@ -308,6 +331,7 @@ export function trackLead(): void {
     fbq?: (...args: unknown[]) => void;
     ttq?: { track?: (...args: unknown[]) => void };
     ym?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
   };
 
   const gaId = env('VITE_GA_MEASUREMENT_ID');
@@ -319,6 +343,10 @@ export function trackLead(): void {
 
   if (win.ym) {
     win.ym(ymId, 'reachGoal', 'lead');
+  }
+
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'lead_submitted' });
   }
 
   win.fbq?.('track', 'Lead');
