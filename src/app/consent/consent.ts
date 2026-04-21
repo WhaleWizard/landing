@@ -182,9 +182,15 @@ function env(name: string): string {
   return (value || '').trim();
 }
 
+function getYandexMetrikaId(): number {
+  const raw = env('VITE_YANDEX_METRIKA_ID') || '108699980';
+  const parsed = Number(raw);
+  return Number.isNaN(parsed) ? 108699980 : parsed;
+}
+
 export async function ensureAnalyticsLoaded(): Promise<void> {
   const gaId = env('VITE_GA_MEASUREMENT_ID');
-  const ymId = env('VITE_YANDEX_METRIKA_ID');
+  const ymId = getYandexMetrikaId();
 
   if (gaId && !gaLoaded) {
     await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
@@ -198,19 +204,28 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     gaLoaded = true;
   }
 
-  if (ymId && !ymLoaded) {
-    const id = Number(ymId);
-    if (!Number.isNaN(id)) {
-      await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
-      const win = window as Window & { ym?: (...args: unknown[]) => void };
-      if (!win.ym) {
-        win.ym = (...args: unknown[]) => {
-          ((win as unknown as { yandex_metrika_calls?: unknown[][] }).yandex_metrika_calls ||= []).push(args);
-        };
-      }
-      win.ym(id, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: false });
-      ymLoaded = true;
+  if (!ymLoaded) {
+    await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
+    const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+    win.dataLayer = win.dataLayer || [];
+
+    if (!win.ym) {
+      win.ym = (...args: unknown[]) => {
+        ((win as unknown as { yandex_metrika_calls?: unknown[][] }).yandex_metrika_calls ||= []).push(args);
+      };
     }
+
+    win.ym(ymId, 'init', {
+      ssr: true,
+      webvisor: true,
+      clickmap: true,
+      ecommerce: 'dataLayer',
+      referrer: document.referrer,
+      url: location.href,
+      accurateTrackBounce: true,
+      trackLinks: true,
+    });
+    ymLoaded = true;
   }
 }
 
@@ -273,13 +288,13 @@ export function trackPageView(path: string): void {
   };
 
   const gaId = env('VITE_GA_MEASUREMENT_ID');
-  const ymId = Number(env('VITE_YANDEX_METRIKA_ID'));
+  const ymId = getYandexMetrikaId();
 
   if (win.gtag && gaId) {
     win.gtag('config', gaId, { page_path: path });
   }
 
-  if (win.ym && !Number.isNaN(ymId)) {
+  if (win.ym) {
     win.ym(ymId, 'hit', path);
   }
 
@@ -296,13 +311,13 @@ export function trackLead(): void {
   };
 
   const gaId = env('VITE_GA_MEASUREMENT_ID');
-  const ymId = Number(env('VITE_YANDEX_METRIKA_ID'));
+  const ymId = getYandexMetrikaId();
 
   if (win.gtag && gaId) {
     win.gtag('event', 'generate_lead', { send_to: gaId });
   }
 
-  if (win.ym && !Number.isNaN(ymId)) {
+  if (win.ym) {
     win.ym(ymId, 'reachGoal', 'lead');
   }
 
