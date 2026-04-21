@@ -189,12 +189,16 @@ function getYandexMetrikaId(): number {
   return Number.isNaN(parsed) ? 108699980 : parsed;
 }
 
+function getGoogleAnalyticsId(): string {
+  return env('VITE_GA_MEASUREMENT_ID') || 'G-ZV18R9DLVC';
+}
+
 function getGoogleTagManagerId(): string {
   return env('VITE_GTM_ID') || 'GTM-T88BWXVV';
 }
 
 export async function ensureAnalyticsLoaded(): Promise<void> {
-  const gaId = env('VITE_GA_MEASUREMENT_ID');
+  const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
   const gtmId = getGoogleTagManagerId();
 
@@ -302,7 +306,7 @@ export function trackPageView(path: string): void {
     dataLayer?: unknown[];
   };
 
-  const gaId = env('VITE_GA_MEASUREMENT_ID');
+  const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
 
   if (win.gtag && gaId) {
@@ -334,7 +338,7 @@ export function trackLead(): void {
     dataLayer?: unknown[];
   };
 
-  const gaId = env('VITE_GA_MEASUREMENT_ID');
+  const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
 
   if (win.gtag && gaId) {
