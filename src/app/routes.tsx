@@ -10,6 +10,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const Offer = lazy(() => import('./pages/Offer'));
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
+const FAQPage = lazy(() => import('./pages/FAQPage'));
 
 function LazyWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -30,4 +31,5 @@ export const router = createBrowserRouter([
   { path: '/privacy-policy', element: <LazyWrapper><PrivacyPolicy /></LazyWrapper> },
   { path: '/offer', element: <LazyWrapper><Offer /></LazyWrapper> },
   { path: '/cookie-policy', element: <LazyWrapper><CookiePolicy /></LazyWrapper> },
+  { path: '/faq', element: <LazyWrapper><FAQPage /></LazyWrapper> },
 ]);

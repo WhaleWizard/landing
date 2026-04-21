@@ -28,6 +28,7 @@ function Navbar() {
     { label: 'Услуги', action: () => scrollToSection('services') },
     { label: 'Кейсы', action: () => scrollToSection('cases') },
     { label: 'Блог', action: () => navigate('/blog') },
+    { label: 'FAQ', action: () => navigate('/faq') },
     { label: 'Контакты', action: () => scrollToSection('social') },
     { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
   ];
