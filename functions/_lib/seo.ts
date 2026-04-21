@@ -96,11 +96,39 @@ function breadcrumbJsonLd(siteUrl: string, article: Article): string {
   );
 }
 
+function faqJsonLd(article: Article): string | null {
+  const items = (article.faq || [])
+    .filter((item) => item?.question && item?.answer)
+    .map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    }));
+
+  if (items.length === 0) return null;
+
+  return JSON.stringify(
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: items,
+    },
+    null,
+    0,
+  );
+}
+
 export function renderArticleHtml(siteUrl: string, article: Article): string {
   const canonical = `${siteUrl}/blog/${article.slug}`;
   const ogImage = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
   const title = `${article.seoTitle || article.title} | Whale Wzrd`;
   const description = article.seoDescription || article.description;
+  const faqJson = faqJsonLd(article);
+  const keyTakeaways = (article.keyTakeaways || []).filter(Boolean);
+  const faqItems = (article.faq || []).filter((item) => item?.question && item?.answer);
 
   return `<!doctype html>
 <html lang="ru">
@@ -121,6 +149,7 @@ export function renderArticleHtml(siteUrl: string, article: Article): string {
   <link rel="canonical" href="${escapeHtml(canonical)}" />
   <script type="application/ld+json">${articleJsonLd(siteUrl, article)}</script>
   <script type="application/ld+json">${breadcrumbJsonLd(siteUrl, article)}</script>
+  ${faqJson ? `<script type="application/ld+json">${faqJson}</script>` : ''}
 </head>
 <body>
   <main>
@@ -133,9 +162,12 @@ export function renderArticleHtml(siteUrl: string, article: Article): string {
         <p>${escapeHtml(description)}</p>
         <p><strong>Категория:</strong> ${escapeHtml(article.category)} | <strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` | <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
       </header>
+      ${article.summary ? `<aside><h2>Краткий ответ</h2><p>${escapeHtml(article.summary)}</p></aside>` : ''}
+      ${keyTakeaways.length > 0 ? `<section><h2>Ключевые тезисы</h2><ul>${keyTakeaways.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul></section>` : ''}
       <section>
 ${article.content}
       </section>
+      ${faqItems.length > 0 ? `<section><h2>FAQ</h2>${faqItems.map((item) => `<details><summary>${escapeHtml(item.question)}</summary><p>${escapeHtml(item.answer)}</p></details>`).join('')}</section>` : ''}
     </article>
   </main>
 </body>

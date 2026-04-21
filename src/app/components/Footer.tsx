@@ -1,6 +1,7 @@
 import { Mail, MessageSquare, ExternalLink, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { memo, useCallback } from 'react';
+import { openCookieSettings } from '../consent/consent';
 
 function Footer() {
   const scrollToSection = useCallback((id: string) => {
@@ -221,6 +222,14 @@ function Footer() {
     Политика Cookie
     <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
   </a>
+  <button
+    type="button"
+    onClick={openCookieSettings}
+    className="hover:text-primary transition-colors relative group text-left"
+  >
+    Настройки Cookie
+    <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+  </button>
 </div>
           </div>
         </motion.div>

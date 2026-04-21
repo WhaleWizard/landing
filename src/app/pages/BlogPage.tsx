@@ -117,7 +117,41 @@ function BlogPageComponent() {
             </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
+            {selectedArticle.summary && (
+              <aside className="mb-8 rounded-2xl border border-primary/30 bg-primary/10 p-5">
+                <h2 className="text-lg font-semibold mb-2">Краткий ответ</h2>
+                <p className="text-sm md:text-base text-foreground/90 leading-relaxed">{selectedArticle.summary}</p>
+              </aside>
+            )}
+
+            {Array.isArray(selectedArticle.keyTakeaways) && selectedArticle.keyTakeaways.length > 0 && (
+              <section className="mb-8 rounded-2xl border border-border bg-card/30 p-5">
+                <h2 className="text-lg font-semibold mb-3">Ключевые тезисы</h2>
+                <ul className="space-y-2 list-disc pl-5 text-sm md:text-base text-muted-foreground">
+                  {selectedArticle.keyTakeaways.map((point, index) => (
+                    <li key={`${point}-${index}`}>{point}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+
+            {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
+              <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">
+                <h2 className="text-xl font-semibold mb-4">FAQ</h2>
+                <div className="space-y-4">
+                  {selectedArticle.faq.map((item, index) => (
+                    <details key={`${item.question}-${index}`} className="group rounded-xl border border-border/70 bg-background/40 px-4 py-3">
+                      <summary className="cursor-pointer list-none font-medium text-foreground group-open:text-primary">
+                        {item.question}
+                      </summary>
+                      <p className="mt-2 text-sm md:text-base text-muted-foreground leading-relaxed">{item.answer}</p>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {relatedArticles.length > 0 && (
               <aside className="mt-12 rounded-2xl border border-border bg-card/30 p-6">
