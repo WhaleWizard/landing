@@ -135,6 +135,12 @@ function Footer() {
               </li>
 
               <li>
+                <a href="/marketing-glossary" className="hover:text-primary transition-colors">
+                  Словарь метрик
+                </a>
+              </li>
+
+              <li>
                 <button
                   onClick={() => scrollToSection('social')}
                   className="hover:text-primary transition-colors"
@@ -230,6 +236,10 @@ function Footer() {
               </a>
               <a href="/faq" className="hover:text-primary transition-colors relative group">
                 FAQ
+                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+              </a>
+              <a href="/marketing-glossary" className="hover:text-primary transition-colors relative group">
+                Словарь метрик
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
               <button
