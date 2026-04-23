@@ -11,16 +11,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   try {
     const articles = await fetchArticlesWithFallback(env, request);
 
+    const isEmpty = !Array.isArray(articles) || articles.length === 0;
     const response = json(
       { articles },
       {
         headers: {
-          'Cache-Control': CACHE_CONTROL.apiArticles,
+          'Cache-Control': isEmpty ? CACHE_CONTROL.noStore : CACHE_CONTROL.apiArticles,
         },
       },
     );
 
-    waitUntil(putCache(cacheKey, response));
+    if (!isEmpty) {
+      waitUntil(putCache(cacheKey, response));
+    }
     return response;
   } catch (error) {
     return json(

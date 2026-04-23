@@ -161,6 +161,8 @@ let metaLoaded = false;
 let ttLoaded = false;
 let gtmLoaded = false;
 let analyticsConfigLogged = false;
+let lastTrackedPath = '';
+let lastTrackedAt = 0;
 
 
 const DEFAULT_GTM_ID = 'GTM-T88BWXVV';
@@ -327,6 +329,11 @@ export async function ensureMarketingLoaded(): Promise<void> {
 }
 
 export function trackPageView(path: string): void {
+  const now = Date.now();
+  if (path === lastTrackedPath && now - lastTrackedAt < 1200) return;
+  lastTrackedPath = path;
+  lastTrackedAt = now;
+
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;
     ym?: (...args: unknown[]) => void;

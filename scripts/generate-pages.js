@@ -163,20 +163,6 @@ function renderStaticPages(assetLinks) {
   );
 
   writeRoute(
-    '/services',
-    htmlTemplate({
-      title: 'Услуги | Whale Wzrd',
-      description: 'Услуги по запуску и ведению рекламы в Google Ads и Meta Ads.',
-      canonicalPath: '/services',
-      assetLinks,
-      bodyHtml: `    <main>
-      <h1>Услуги</h1>
-      <p>Стратегия, настройка и рост рекламных кампаний.</p>
-    </main>`,
-    }),
-  );
-
-  writeRoute(
     '/calculator',
     htmlTemplate({
       title: 'Калькулятор рекламы | Whale Wzrd',

@@ -123,7 +123,7 @@ export default function Admin() {
       const idIndex = updatedArticles.findIndex((a) => a.id === normalizedArticle.id);
 
       if (idIndex !== -1) {
-        updatedArticles.push({ ...normalizedArticle, id: nextId() });
+        updatedArticles[idIndex] = { ...normalizedArticle, id: updatedArticles[idIndex].id };
       } else {
         updatedArticles.push(normalizedArticle);
       }
