@@ -238,6 +238,10 @@ function Footer() {
                 FAQ
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
+              <a href="/marketing-glossary" className="hover:text-primary transition-colors relative group">
+                Словарь метрик
+                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+              </a>
               <button
                 type="button"
                 onClick={openCookieSettings}
