@@ -34,6 +34,10 @@ interface AdminUpdateResponse {
   articles: Article[];
 }
 
+function asArticleArray(value: unknown): Article[] {
+  return Array.isArray(value) ? (value as Article[]) : [];
+}
+
 function saveLocalArticlesBackup(articles: Article[]): void {
   if (typeof window === 'undefined') return;
 
@@ -68,7 +72,7 @@ async function fetchLocalSeedFallback(): Promise<Article[]> {
 
     if (!res.ok) return [];
     const json = await res.json();
-    return Array.isArray(json?.articles) ? json.articles : [];
+    return asArticleArray(json?.articles);
   } catch {
     return [];
   }
@@ -84,10 +88,25 @@ async function fetchPublicJsonBinFallback(): Promise<Article[]> {
 
     if (!res.ok) return [];
     const json = await res.json();
-    return Array.isArray(json?.record) ? json.record : [];
+    return asArticleArray(json?.record);
   } catch {
     return [];
   }
+}
+
+async function resolveFallbackArticles(): Promise<Article[]> {
+  const localBackup = fetchLocalArticlesBackup();
+  if (localBackup.length > 0) return localBackup;
+
+  const publicFallback = await fetchPublicJsonBinFallback();
+  if (publicFallback.length > 0) {
+    saveLocalArticlesBackup(publicFallback);
+    return publicFallback;
+  }
+
+  const localSeed = await fetchLocalSeedFallback();
+  if (localSeed.length > 0) saveLocalArticlesBackup(localSeed);
+  return localSeed;
 }
 
 export const fetchArticles = async (): Promise<Article[]> => {
@@ -101,40 +120,17 @@ export const fetchArticles = async (): Promise<Article[]> => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const json = (await res.json()) as ArticlesResponse;
-    const primaryArticles = Array.isArray(json?.articles) ? json.articles : [];
+    const primaryArticles = asArticleArray(json?.articles);
 
     if (primaryArticles.length > 0) {
       saveLocalArticlesBackup(primaryArticles);
       return primaryArticles;
     }
 
-    const localBackup = fetchLocalArticlesBackup();
-    if (localBackup.length > 0) return localBackup;
-
-    const publicFallback = await fetchPublicJsonBinFallback();
-    if (publicFallback.length > 0) {
-      saveLocalArticlesBackup(publicFallback);
-      return publicFallback;
-    }
-
-    const localSeed = await fetchLocalSeedFallback();
-    if (localSeed.length > 0) saveLocalArticlesBackup(localSeed);
-    return localSeed;
+    return resolveFallbackArticles();
   } catch (error) {
     console.error('fetchArticles error:', error);
-
-    const localBackup = fetchLocalArticlesBackup();
-    if (localBackup.length > 0) return localBackup;
-
-    const publicFallback = await fetchPublicJsonBinFallback();
-    if (publicFallback.length > 0) {
-      saveLocalArticlesBackup(publicFallback);
-      return publicFallback;
-    }
-
-    const localSeed = await fetchLocalSeedFallback();
-    if (localSeed.length > 0) saveLocalArticlesBackup(localSeed);
-    return localSeed;
+    return resolveFallbackArticles();
   }
 };
 
