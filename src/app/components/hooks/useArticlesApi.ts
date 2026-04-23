@@ -34,13 +34,26 @@ interface AdminUpdateResponse {
   articles: Article[];
 }
 
+function articleIdentityKey(article: Article, index: number): string {
+  const slug = String(article?.slug || '').trim();
+  if (slug) return `slug:${slug}`;
+
+  const id = Number(article?.id);
+  if (Number.isFinite(id) && id > 0) return `id:${id}`;
+
+  const title = String(article?.title || '').trim().toLowerCase();
+  if (title) return `title:${title}`;
+
+  return `index:${index}`;
+}
+
 function dedupeBySlug(articles: Article[]): Article[] {
   const map = new Map<string, Article>();
+  const source = Array.isArray(articles) ? articles : [];
 
-  for (const article of Array.isArray(articles) ? articles : []) {
-    if (!article?.slug) continue;
-    map.set(article.slug, article);
-  }
+  source.forEach((article, index) => {
+    map.set(articleIdentityKey(article, index), article);
+  });
 
   return Array.from(map.values());
 }
@@ -113,13 +126,18 @@ async function resolveFallbackArticles(): Promise<Article[]> {
     fetchPublicJsonBinFallback(),
   ]);
 
-  const candidates = [localBackup, localSeed, publicFallback].map(dedupeBySlug);
-  const best = candidates.reduce<Article[]>((current, candidate) => {
-    return candidate.length > current.length ? candidate : current;
-  }, []);
+  const mergedMap = new Map<string, Article>();
+  const candidates = [publicFallback, localSeed, localBackup].map(dedupeBySlug);
 
-  if (best.length > 0) saveLocalArticlesBackup(best);
-  return best;
+  candidates.forEach((candidate) => {
+    candidate.forEach((article, index) => {
+      mergedMap.set(articleIdentityKey(article, index), article);
+    });
+  });
+
+  const merged = Array.from(mergedMap.values());
+  if (merged.length > 0) saveLocalArticlesBackup(merged);
+  return merged;
 }
 
 export const fetchArticles = async (): Promise<Article[]> => {
