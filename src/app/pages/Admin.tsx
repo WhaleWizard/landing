@@ -49,6 +49,17 @@ export default function Admin() {
   const faqText = editingArticle?.faq?.map((item) => `${item.question}::${item.answer}`).join('\n') || '';
   const takeawaysText = editingArticle?.keyTakeaways?.join('\n') || '';
 
+  const refreshHealth = async () => {
+    try {
+      const res = await fetch(`/api/health/content?_=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const payload = await res.json().catch(() => null) as { source?: string } | null;
+      if (payload?.source) setSourceLabel(payload.source);
+    } catch {
+      // noop
+    }
+  };
+
   useEffect(() => {
     if (!isAuthenticated) return;
     void refreshHealth();
@@ -318,13 +329,3 @@ export default function Admin() {
     </>
   );
 }
-  const refreshHealth = async () => {
-    try {
-      const res = await fetch(`/api/health/content?_=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const payload = await res.json().catch(() => null) as { source?: string } | null;
-      if (payload?.source) setSourceLabel(payload.source);
-    } catch {
-      // noop
-    }
-  };
