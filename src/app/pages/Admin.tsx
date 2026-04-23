@@ -1,5 +1,5 @@
 // src/app/pages/Admin.tsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { Lock, LogIn, Save, Plus, Trash2 } from 'lucide-react';
@@ -41,12 +41,29 @@ export default function Admin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const { articles, loading, refreshArticles, updateArticles } = useArticles();
+  const { articles, loading, forceRefreshArticles, updateArticles } = useArticles();
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [sourceLabel, setSourceLabel] = useState<string>('unknown');
   const navigate = useNavigate();
   const faqText = editingArticle?.faq?.map((item) => `${item.question}::${item.answer}`).join('\n') || '';
   const takeawaysText = editingArticle?.keyTakeaways?.join('\n') || '';
+
+  const refreshHealth = async () => {
+    try {
+      const res = await fetch(`/api/health/content?_=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const payload = await res.json().catch(() => null) as { source?: string } | null;
+      if (payload?.source) setSourceLabel(payload.source);
+    } catch {
+      // noop
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void refreshHealth();
+  }, [isAuthenticated]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +154,8 @@ export default function Admin() {
         alert('Сохранено!');
         setEditingArticle(null);
         setSlugManuallyEdited(false);
-        await refreshArticles();
+        await forceRefreshArticles();
+        await refreshHealth();
       } else {
         alert('Ошибка сохранения. Проверьте консоль (F12)');
       }
@@ -155,7 +173,8 @@ export default function Admin() {
       const success = await updateArticles(updated, password);
       if (success) {
         if (editingArticle?.slug === slug) setEditingArticle(null);
-        await refreshArticles();
+        await forceRefreshArticles();
+        await refreshHealth();
       } else {
         alert('Ошибка удаления');
       }
@@ -191,7 +210,19 @@ export default function Admin() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Управление статьями</h1>
-          <button onClick={() => navigate('/')} className="text-sm text-muted-foreground hover:text-primary transition">← На главную</button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs px-2 py-1 rounded-full bg-primary/15 text-primary border border-primary/25">Источник: {sourceLabel}</span>
+            <button
+              onClick={async () => {
+                await forceRefreshArticles();
+                await refreshHealth();
+              }}
+              className="text-sm text-muted-foreground hover:text-primary transition"
+            >
+              Обновить из API (no-cache)
+            </button>
+            <button onClick={() => navigate('/')} className="text-sm text-muted-foreground hover:text-primary transition">← На главную</button>
+          </div>
         </div>
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 bg-card/40 backdrop-blur-sm border border-border rounded-2xl p-4 h-fit">

@@ -140,9 +140,13 @@ async function resolveFallbackArticles(): Promise<Article[]> {
   return merged;
 }
 
-export const fetchArticles = async (): Promise<Article[]> => {
+export const fetchArticles = async (options?: { bypassCache?: boolean }): Promise<Article[]> => {
   try {
-    const res = await fetch(API_ROUTES.articles, {
+    const endpoint = options?.bypassCache
+      ? `${API_ROUTES.articles}${API_ROUTES.articles.includes('?') ? '&' : '?'}_=${Date.now()}`
+      : API_ROUTES.articles;
+
+    const res = await fetch(endpoint, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
