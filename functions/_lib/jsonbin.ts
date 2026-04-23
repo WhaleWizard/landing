@@ -79,6 +79,8 @@ function didArticleChange(previous: Article | undefined, next: Article): boolean
 
 export function normalizeArticles(rawArticles: unknown[]): Article[] {
   const usedSlugs = new Set<string>();
+  const usedIds = new Set<number>();
+  let nextGeneratedId = 1;
 
   return rawArticles.map((rawArticle, index) => {
     const article = (rawArticle ?? {}) as Partial<Article>;
@@ -98,8 +100,16 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
     const fallbackDescription = stripHtml(article.description || safeContent).slice(0, 160);
     const seoDescription = (article.seoDescription || fallbackDescription).slice(0, 170);
 
+    const rawId = Number(article.id);
+    let safeId = Number.isInteger(rawId) && rawId > 0 ? rawId : index + 1;
+    while (usedIds.has(safeId) || safeId <= 0) {
+      safeId = Math.max(nextGeneratedId, safeId + 1);
+    }
+    usedIds.add(safeId);
+    nextGeneratedId = Math.max(nextGeneratedId, safeId + 1);
+
     return {
-      id: Number(article.id || index + 1),
+      id: safeId,
       slug: uniqueSlug,
       title: article.title || `Статья ${index + 1}`,
       category: article.category || 'Блог',

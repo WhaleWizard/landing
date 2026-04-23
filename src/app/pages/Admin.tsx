@@ -115,7 +115,7 @@ export default function Admin() {
 
     let updatedArticles = [...articles];
     if (normalizedArticle.id && normalizedArticle.id !== 0) {
-      const index = updatedArticles.findIndex(a => a.id === normalizedArticle.id);
+      const index = updatedArticles.findIndex(a => a.slug === normalizedArticle.slug || a.id === normalizedArticle.id);
       if (index !== -1) updatedArticles[index] = normalizedArticle;
     } else {
       const newId = Math.max(0, ...articles.map(a => a.id), 0) + 1;
@@ -139,13 +139,13 @@ export default function Admin() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (slug: string) => {
     if (!confirm('Удалить статью?')) return;
-    const updated = articles.filter(a => a.id !== id);
+    const updated = articles.filter(a => a.slug !== slug);
     try {
       const success = await updateArticles(updated, password);
       if (success) {
-        if (editingArticle?.id === id) setEditingArticle(null);
+        if (editingArticle?.slug === slug) setEditingArticle(null);
         await refreshArticles();
       } else {
         alert('Ошибка удаления');
@@ -209,7 +209,7 @@ export default function Admin() {
             {loading && <p className="text-muted-foreground text-sm">Загрузка...</p>}
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
               {articles.map(article => (
-                <div key={article.id} className="flex items-center gap-2 p-2 rounded-xl bg-background/50 border border-border hover:border-primary/50 transition">
+                <div key={article.slug} className="flex items-center gap-2 p-2 rounded-xl bg-background/50 border border-border hover:border-primary/50 transition">
                   <button onClick={() => {
                     setEditingArticle(article);
                     setSlugManuallyEdited(false);
@@ -217,7 +217,7 @@ export default function Admin() {
                     <div className="font-medium truncate">{article.title}</div>
                     <div className="text-xs text-muted-foreground truncate">{article.slug}</div>
                   </button>
-                  <button onClick={() => handleDelete(article.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
             </div>
