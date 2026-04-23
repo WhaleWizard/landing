@@ -15,6 +15,9 @@ Set these environment variables in Cloudflare Pages project settings:
 - `JSONBIN_BIN_ID`
 - `JSONBIN_MASTER_KEY`
 - `JSONBIN_ACCESS_KEY` (optional)
+- `JSONBIN_BACKUP_BIN_ID` (optional, second bin for fallback read/write)
+- `JSONBIN_BACKUP_MASTER_KEY` (optional, defaults to `JSONBIN_MASTER_KEY`)
+- `JSONBIN_BACKUP_ACCESS_KEY` (optional, defaults to `JSONBIN_ACCESS_KEY`)
 - `ADMIN_PASSWORD`
 - `SITE_URL` (optional, defaults to current origin)
 - `INDEXNOW_KEY` (optional, for Bing/IndexNow instant URL notification)
