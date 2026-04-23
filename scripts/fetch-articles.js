@@ -11,6 +11,7 @@ import {
 } from './config.js';
 
 // Fallback chain: JSONBin -> previous build cache -> committed local fallback
+const CI_STRICT_FALLBACK = process.env.CI === 'true' && process.env.ALLOW_FALLBACK_BUILD !== 'true';
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -105,6 +106,10 @@ async function main() {
       writeBuildArticles(previousBuildArticles, 'build-cache-fallback');
       console.warn('⚠️ JSONBin unavailable. Using previous build cache.');
       console.warn(error);
+      if (CI_STRICT_FALLBACK) {
+        console.error('❌ CI strict mode: fallback content is not allowed. Set ALLOW_FALLBACK_BUILD=true to override.');
+        process.exitCode = 1;
+      }
       return;
     }
 
@@ -113,6 +118,10 @@ async function main() {
       writeBuildArticles(localFallbackArticles, 'local-fallback');
       console.warn('⚠️ JSONBin unavailable. Using local fallback data/articles.local.json');
       console.warn(error);
+      if (CI_STRICT_FALLBACK) {
+        console.error('❌ CI strict mode: fallback content is not allowed. Set ALLOW_FALLBACK_BUILD=true to override.');
+        process.exitCode = 1;
+      }
       return;
     }
 
