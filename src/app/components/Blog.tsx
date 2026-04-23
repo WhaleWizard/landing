@@ -15,10 +15,19 @@ function Blog() {
     const container = scrollContainerRef.current;
     if (!container) return;
     const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        container.scrollLeft += e.deltaY;
-      }
+      if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+      const maxScrollLeft = container.scrollWidth - container.clientWidth;
+      if (maxScrollLeft <= 0) return;
+
+      const nextScrollLeft = container.scrollLeft + e.deltaY;
+      const isAtStart = container.scrollLeft <= 0;
+      const isAtEnd = container.scrollLeft >= maxScrollLeft;
+
+      if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
+
+      e.preventDefault();
+      container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
     };
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
