@@ -29,7 +29,6 @@ function Navbar() {
     { label: 'Кейсы', action: () => scrollToSection('cases') },
     { label: 'Блог', action: () => navigate('/blog') },
     { label: 'FAQ', action: () => navigate('/faq') },
-    { label: 'Словарь', action: () => navigate('/marketing-glossary') },
     { label: 'Контакты', action: () => scrollToSection('social') },
     { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
   ];
