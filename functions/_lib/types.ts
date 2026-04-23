@@ -25,6 +25,9 @@ export interface Env {
   JSONBIN_BIN_ID: string;
   JSONBIN_MASTER_KEY: string;
   JSONBIN_ACCESS_KEY?: string;
+  JSONBIN_BACKUP_BIN_ID?: string;
+  JSONBIN_BACKUP_MASTER_KEY?: string;
+  JSONBIN_BACKUP_ACCESS_KEY?: string;
   ADMIN_PASSWORD: string;
   SITE_URL?: string;
   INDEXNOW_KEY?: string;
