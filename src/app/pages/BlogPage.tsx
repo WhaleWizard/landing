@@ -196,12 +196,14 @@ function BlogPageComponent() {
                 <ul className="space-y-3">
                   {relatedArticles.map((article) => (
                     <li key={article.slug}>
-                      <button
+                      <motion.button
+                        whileHover={{ x: 4 }}
+                        transition={{ type: 'spring', stiffness: 320, damping: 24 }}
                         onClick={() => navigate(`/blog/${article.slug}`)}
                         className="text-left bg-transparent border-none p-0 text-primary hover:underline cursor-pointer"
                       >
                         {article.title}
-                      </button>
+                      </motion.button>
                     </li>
                   ))}
                 </ul>

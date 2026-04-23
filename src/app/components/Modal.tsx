@@ -75,6 +75,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
             onClick={onClose}
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
           />
@@ -82,6 +83,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28, mass: 0.8 }}
             ref={modalRef}
             role="dialog"
             aria-modal="true"
@@ -92,9 +94,15 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
               <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {title}
               </h2>
-              <button onClick={onClose} className="p-1 rounded-full hover:bg-primary/10 transition-colors">
+              <motion.button
+                whileHover={{ rotate: 90 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                onClick={onClose}
+                className="p-1 rounded-full hover:bg-primary/10 transition-colors"
+              >
                 <X className="w-5 h-5 text-muted-foreground" />
-              </button>
+              </motion.button>
             </div>
             {/* Добавляем класс для кастомного скроллбара */}
             <div className="p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto modal-scroll">
