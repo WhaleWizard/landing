@@ -1,5 +1,5 @@
 import { CACHE_CONTROL, matchCache, putCache } from '../_lib/cache';
-import { fetchArticlesFromJsonBin } from '../_lib/jsonbin';
+import { fetchArticlesWithFallback } from '../_lib/articles';
 import { json } from '../_lib/http';
 import type { Env } from '../_lib/types';
 
@@ -9,7 +9,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   if (cached) return cached;
 
   try {
-    const articles = await fetchArticlesFromJsonBin(env);
+    const articles = await fetchArticlesWithFallback(env, request);
 
     const response = json(
       { articles },
