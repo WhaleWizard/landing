@@ -6,6 +6,7 @@ interface ArticlesContextType {
   articles: Article[];
   loading: boolean;
   refreshArticles: () => Promise<void>;
+  forceRefreshArticles: () => Promise<void>;
   updateArticles: (newArticles: Article[], password: string) => Promise<boolean>;
 }
 
@@ -36,6 +37,13 @@ export const ArticlesProvider = ({ children }: Props) => {
     await loadArticles();
   };
 
+  const forceRefreshArticles = async () => {
+    setLoading(true);
+    const data = await fetchArticles({ bypassCache: true });
+    setArticles(data);
+    setLoading(false);
+  };
+
   const updateArticles = async (newArticles: Article[], password: string) => {
     const success = await saveArticles(newArticles, password);
     if (success) {
@@ -49,7 +57,7 @@ export const ArticlesProvider = ({ children }: Props) => {
   }, []);
 
   return (
-    <ArticlesContext.Provider value={{ articles, loading, refreshArticles, updateArticles }}>
+    <ArticlesContext.Provider value={{ articles, loading, refreshArticles, forceRefreshArticles, updateArticles }}>
       {children}
     </ArticlesContext.Provider>
   );

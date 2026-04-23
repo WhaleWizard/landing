@@ -192,15 +192,15 @@ function Footer() {
               </li>
 
               <li>
-                <a
-                  href="#"
+                <button
+                  onClick={() => scrollToSection('cases')}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
                 >
                   <div className="w-8 h-8 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
                     <ExternalLink className="w-4 h-4" />
                   </div>
                   Портфолио
-                </a>
+                </button>
               </li>
             </ul>
           </motion.div>
