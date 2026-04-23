@@ -80,7 +80,9 @@ async function fetchArticlesFromJsonBin() {
       }
 
       const payload = await response.json();
-      return Array.isArray(payload?.record) ? payload.record : [];
+      if (Array.isArray(payload?.record)) return payload.record;
+      if (Array.isArray(payload?.record?.articles)) return payload.record.articles;
+      return [];
     } catch (error) {
       lastError = error;
       console.warn(`⚠️ JSONBin fetch attempt ${attempt}/${RETRIES} failed.`);

@@ -217,8 +217,10 @@ async function fetchArticlesFromConfig(config: JsonBinConfig): Promise<Article[]
     throw new Error(`JSONBin read failed for ${config.binId}: HTTP ${response.status}`);
   }
 
-  const payload = (await response.json()) as { record?: unknown[] };
-  const articles = Array.isArray(payload?.record) ? payload.record : [];
+  const payload = (await response.json()) as { record?: unknown[] | { articles?: unknown[] } };
+  const articles = Array.isArray(payload?.record)
+    ? payload.record
+    : (Array.isArray(payload?.record?.articles) ? payload.record.articles : []);
   return normalizeArticles(articles);
 }
 

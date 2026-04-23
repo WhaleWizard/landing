@@ -99,7 +99,8 @@ async function fetchPublicJsonBinFallback(): Promise<Article[]> {
 
     if (!res.ok) return [];
     const json = await res.json();
-    return asArticleArray(json?.record);
+    if (Array.isArray(json?.record)) return asArticleArray(json.record);
+    return asArticleArray(json?.record?.articles);
   } catch {
     return [];
   }
