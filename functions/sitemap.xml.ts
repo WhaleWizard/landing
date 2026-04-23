@@ -1,5 +1,5 @@
 import { CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
-import { fetchArticlesFromJsonBin } from './_lib/jsonbin';
+import { fetchArticlesWithFallback } from './_lib/articles';
 import { renderSitemapXml } from './_lib/seo';
 import { xml } from './_lib/http';
 import type { Env } from './_lib/types';
@@ -18,7 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const siteUrl = getSiteUrl(env, request);
-    const articles = await fetchArticlesFromJsonBin(env);
+    const articles = await fetchArticlesWithFallback(env, request);
     const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
     const articleDates = Object.fromEntries(
       articles.map((article) => [
