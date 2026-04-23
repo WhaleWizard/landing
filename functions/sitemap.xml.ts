@@ -1,10 +1,10 @@
 import { CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
-import { fetchArticlesFromJsonBin } from './_lib/jsonbin';
+import { fetchArticlesWithFallback } from './_lib/articles';
 import { renderSitemapXml } from './_lib/seo';
 import { xml } from './_lib/http';
 import type { Env } from './_lib/types';
 
-const STATIC_ROUTES = ['/', '/blog', '/faq', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy'];
+const STATIC_ROUTES = ['/', '/blog', '/faq', '/marketing-glossary', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy'];
 
 function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');
@@ -18,7 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const siteUrl = getSiteUrl(env, request);
-    const articles = await fetchArticlesFromJsonBin(env);
+    const articles = await fetchArticlesWithFallback(env, request);
     const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
     const articleDates = Object.fromEntries(
       articles.map((article) => [
