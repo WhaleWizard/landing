@@ -55,6 +55,7 @@ function BlogPageComponent() {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const contentRef = useRef(null);
   const sectionRef = useRef(null);
+  const articleTitleRef = useRef<HTMLHeadingElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
 
   useEffect(() => {
@@ -70,6 +71,11 @@ function BlogPageComponent() {
       setSelectedArticle(null);
     }
   }, [slug, allArticles, loading, navigate]);
+
+  useEffect(() => {
+    if (!selectedArticle) return;
+    articleTitleRef.current?.focus({ preventScroll: true });
+  }, [selectedArticle]);
 
   useEffect(() => {
     if (!contentRef.current || !selectedArticle) return;
@@ -137,7 +143,7 @@ function BlogPageComponent() {
                   <div className="flex items-center gap-1 text-muted-foreground"><Clock className="w-4 h-4" /><span>{selectedArticle.readTime}</span></div>
                   <div className="flex items-center gap-1 text-muted-foreground"><Calendar className="w-4 h-4" /><span>{selectedArticle.date}</span></div>
                 </div>
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">{selectedArticle.title}</h1>
+                <h1 ref={articleTitleRef} tabIndex={-1} className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent focus:outline-none">{selectedArticle.title}</h1>
                 <p className="text-lg md:text-xl text-muted-foreground leading-relaxed border-l-4 border-primary/50 pl-4">{seoDescription}</p>
               </motion.div>
             </div>
