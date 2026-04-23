@@ -32,6 +32,22 @@ interface AdminUpdateResponse {
   articles: Article[];
 }
 
+async function fetchLocalSeedFallback(): Promise<Article[]> {
+  try {
+    const res = await fetch('/articles.seed.json', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json?.articles) ? json.articles : [];
+  } catch {
+    return [];
+  }
+}
+
 async function fetchPublicJsonBinFallback(): Promise<Article[]> {
   try {
     const res = await fetch(JSONBIN_PUBLIC_URL, {
@@ -62,10 +78,18 @@ export const fetchArticles = async (): Promise<Article[]> => {
     const primaryArticles = Array.isArray(json?.articles) ? json.articles : [];
 
     if (primaryArticles.length > 0) return primaryArticles;
-    return fetchPublicJsonBinFallback();
+
+    const publicFallback = await fetchPublicJsonBinFallback();
+    if (publicFallback.length > 0) return publicFallback;
+
+    return fetchLocalSeedFallback();
   } catch (error) {
     console.error('fetchArticles error:', error);
-    return fetchPublicJsonBinFallback();
+
+    const publicFallback = await fetchPublicJsonBinFallback();
+    if (publicFallback.length > 0) return publicFallback;
+
+    return fetchLocalSeedFallback();
   }
 };
 
