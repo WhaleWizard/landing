@@ -1,11 +1,12 @@
 import { useState, useCallback, memo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence, useInView } from 'motion/react';
-import { Send, CheckCircle2, Loader2, DollarSign, Sparkles, TrendingUp, Zap, X, MessageCircle, Phone } from 'lucide-react';
+import { Send, CheckCircle2, Loader2, DollarSign, Sparkles, TrendingUp, Zap, MessageCircle, Phone } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { trackLead } from '../consent/consent';
+import Modal from './Modal';
 
 const budgetOptions = [
   { value: '50-100k', label: 'до 1000 $', icon: Sparkles, color: 'from-primary/20 to-primary/10', bgGradient: 'rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1)' },
@@ -30,114 +31,6 @@ const useTouchDevice = () => {
   }, []);
   return isTouch;
 };
-
-// Компонент модального окна (добавлен will-change)
-function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const lastActiveElementRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollbarCompensation = window.innerWidth - document.documentElement.clientWidth;
-
-    lastActiveElementRef.current = document.activeElement as HTMLElement;
-    document.body.style.overflow = 'hidden';
-    if (scrollbarCompensation > 0) {
-      document.body.style.paddingRight = `${scrollbarCompensation}px`;
-    }
-
-    const modalNode = modalRef.current;
-    const focusableElements = modalNode?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    focusableElements?.[0]?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (event.key !== 'Tab' || !modalNode) return;
-
-      const nodes = modalNode.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (!nodes.length) return;
-
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
-      lastActiveElementRef.current?.focus();
-    };
-  }, [isOpen, onClose]);
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 28, mass: 0.8 }}
-            style={{ willChange: 'transform, opacity' }}
-            ref={modalRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[calc(100dvh-2rem)] md:max-h-[85vh] bg-card border border-primary/30 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
-          >
-            <div className="flex justify-between items-center p-4 border-b border-border">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">{title}</h2>
-              <motion.button
-                whileHover={{ rotate: 90 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                onClick={onClose}
-                className="p-1 rounded-full hover:bg-primary/10 transition-colors"
-              >
-                <X className="w-5 h-5 text-muted-foreground" />
-              </motion.button>
-            </div>
-            <div className="p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto prose prose-invert prose-sm max-w-none">
-              {children}
-            </div>
-            <div className="p-4 border-t border-border flex justify-end">
-              <Button onClick={onClose} variant="outline" className="border-primary/30">Закрыть</Button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
 
 function ContactForm() {
   const [formData, setFormData] = useState({
@@ -486,7 +379,13 @@ function ContactForm() {
       </div>
 
       {/* Модальные окна с полными текстами (без изменений) */}
-      <Modal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} title="Политика конфиденциальности">
+      <Modal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        title="Политика конфиденциальности"
+        dialogClassName="max-w-4xl"
+        bodyClassName="prose prose-invert prose-sm max-w-none"
+      >
         <div className="space-y-4">
           <p>Настоящая Политика конфиденциальности описывает, как сайт <strong>Whale Wzrd</strong> (далее – «Мы», «Сайт») обрабатывает информацию, которую вы предоставляете при использовании сайта <a href="https://whalewzrd.com" target="_blank" rel="noopener noreferrer">https://whalewzrd.com</a>. Мы не собираем, не храним и не передаём персональные данные, за исключением минимальной информации, необходимой для работы формы обратной связи.</p>
           <h3>1. Какие данные мы собираем</h3>
@@ -516,7 +415,13 @@ function ContactForm() {
         </div>
       </Modal>
 
-      <Modal isOpen={showOfferModal} onClose={() => setShowOfferModal(false)} title="Публичная оферта">
+      <Modal
+        isOpen={showOfferModal}
+        onClose={() => setShowOfferModal(false)}
+        title="Публичная оферта"
+        dialogClassName="max-w-4xl"
+        bodyClassName="prose prose-invert prose-sm max-w-none"
+      >
         <div className="space-y-4">
           <p>Настоящий документ является официальной публичной офертой (далее – «Оферта») Индивидуального предпринимателя <strong>Whale Wzrd</strong> (далее – «Исполнитель»), адресованная любому лицу (далее – «Заказчик»), о заключении договора на оказание информационно-консультационных услуг и услуг по настройке, ведению и оптимизации рекламных кампаний в системах <strong>Google Ads</strong> и <strong>Meta Ads</strong> (далее – «Услуги»).</p>
           <h3>1. Термины и определения</h3>

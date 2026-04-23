@@ -95,7 +95,7 @@ function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.16 }}
             className="fixed inset-0 z-40 md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           >
@@ -104,7 +104,7 @@ function Navbar() {
               initial={{ y: 16, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 12, opacity: 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               className="relative h-full flex flex-col items-center justify-center space-y-8"
               onClick={(e) => e.stopPropagation()}
             >
@@ -116,7 +116,7 @@ function Navbar() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 6 }}
-                  transition={{ delay: idx * 0.04, duration: 0.22 }}
+                  transition={{ delay: idx * 0.03, duration: 0.18 }}
                   whileHover={{ scale: 1.05 }}
                 >
                   {item.label}
@@ -127,7 +127,7 @@ function Navbar() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
-                transition={{ delay: 0.2, duration: 0.22 }}
+                transition={{ delay: 0.14, duration: 0.18 }}
               >
                 <Button
                   onClick={() => {

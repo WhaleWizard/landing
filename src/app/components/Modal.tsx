@@ -7,9 +7,11 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  dialogClassName?: string;
+  bodyClassName?: string;
 }
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, dialogClassName, bodyClassName }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
 
@@ -88,7 +90,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-2xl max-h-[calc(100dvh-2rem)] md:max-h-[85vh] bg-card border border-primary/30 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-2xl max-h-[calc(100dvh-2rem)] md:max-h-[85vh] bg-card border border-primary/30 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col ${dialogClassName ?? ''}`}
           >
             <div className="flex justify-between items-center p-4 border-b border-border">
               <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -105,7 +107,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
               </motion.button>
             </div>
             {/* Добавляем класс для кастомного скроллбара */}
-            <div className="p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto modal-scroll">
+            <div className={`p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto modal-scroll ${bodyClassName ?? ''}`}>
               {children}
             </div>
             <div className="p-4 border-t border-border flex justify-end">
