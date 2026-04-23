@@ -34,6 +34,30 @@ interface AdminUpdateResponse {
   articles: Article[];
 }
 
+function articleIdentityKey(article: Article, index: number): string {
+  const slug = String(article?.slug || '').trim();
+  if (slug) return `slug:${slug}`;
+
+  const id = Number(article?.id);
+  if (Number.isFinite(id) && id > 0) return `id:${id}`;
+
+  const title = String(article?.title || '').trim().toLowerCase();
+  if (title) return `title:${title}`;
+
+  return `index:${index}`;
+}
+
+function dedupeBySlug(articles: Article[]): Article[] {
+  const map = new Map<string, Article>();
+  const source = Array.isArray(articles) ? articles : [];
+
+  source.forEach((article, index) => {
+    map.set(articleIdentityKey(article, index), article);
+  });
+
+  return Array.from(map.values());
+}
+
 function asArticleArray(value: unknown): Article[] {
   return Array.isArray(value) ? (value as Article[]) : [];
 }
@@ -88,7 +112,8 @@ async function fetchPublicJsonBinFallback(): Promise<Article[]> {
 
     if (!res.ok) return [];
     const json = await res.json();
-    return asArticleArray(json?.record);
+    if (Array.isArray(json?.record)) return asArticleArray(json.record);
+    return asArticleArray(json?.record?.articles);
   } catch {
     return [];
   }
@@ -96,17 +121,23 @@ async function fetchPublicJsonBinFallback(): Promise<Article[]> {
 
 async function resolveFallbackArticles(): Promise<Article[]> {
   const localBackup = fetchLocalArticlesBackup();
-  if (localBackup.length > 0) return localBackup;
+  const [localSeed, publicFallback] = await Promise.all([
+    fetchLocalSeedFallback(),
+    fetchPublicJsonBinFallback(),
+  ]);
 
-  const publicFallback = await fetchPublicJsonBinFallback();
-  if (publicFallback.length > 0) {
-    saveLocalArticlesBackup(publicFallback);
-    return publicFallback;
-  }
+  const mergedMap = new Map<string, Article>();
+  const candidates = [publicFallback, localSeed, localBackup].map(dedupeBySlug);
 
-  const localSeed = await fetchLocalSeedFallback();
-  if (localSeed.length > 0) saveLocalArticlesBackup(localSeed);
-  return localSeed;
+  candidates.forEach((candidate) => {
+    candidate.forEach((article, index) => {
+      mergedMap.set(articleIdentityKey(article, index), article);
+    });
+  });
+
+  const merged = Array.from(mergedMap.values());
+  if (merged.length > 0) saveLocalArticlesBackup(merged);
+  return merged;
 }
 
 export const fetchArticles = async (): Promise<Article[]> => {
@@ -115,12 +146,13 @@ export const fetchArticles = async (): Promise<Article[]> => {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
+      cache: 'no-store',
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const json = (await res.json()) as ArticlesResponse;
-    const primaryArticles = asArticleArray(json?.articles);
+    const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
     if (primaryArticles.length > 0) {
       saveLocalArticlesBackup(primaryArticles);

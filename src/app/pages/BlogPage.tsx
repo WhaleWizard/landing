@@ -230,7 +230,7 @@ function BlogPageComponent() {
           </motion.div>
           <div className="grid md:grid-cols-2 gap-6 md:gap-8">
             {allArticles.map((article, i) => (
-              <motion.div key={article.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`/blog/${article.slug}`)}>
+              <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`/blog/${article.slug}`)}>
                 <div className="p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{article.category}</span>
