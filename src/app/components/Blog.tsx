@@ -1,6 +1,6 @@
 // src/app/components/Blog.tsx
 import { motion } from 'motion/react';
-import { ArrowRight, Clock, BookOpen } from 'lucide-react';
+import { ArrowRight, Clock, BookOpen, MoveHorizontal } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useRef, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
@@ -15,10 +15,19 @@ function Blog() {
     const container = scrollContainerRef.current;
     if (!container) return;
     const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        container.scrollLeft += e.deltaY;
-      }
+      if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+      const maxScrollLeft = container.scrollWidth - container.clientWidth;
+      if (maxScrollLeft <= 0) return;
+
+      const nextScrollLeft = container.scrollLeft + e.deltaY;
+      const isAtStart = container.scrollLeft <= 0;
+      const isAtEnd = container.scrollLeft >= maxScrollLeft;
+
+      if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
+
+      e.preventDefault();
+      container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
     };
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
@@ -49,11 +58,27 @@ function Blog() {
         </motion.div>
       </div>
       <div className="relative w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          whileInView={{ opacity: 0.8, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.35 }}
+          className="flex justify-center pb-3 md:pb-4"
+        >
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-background/40 backdrop-blur-sm">
+            <MoveHorizontal className="w-3.5 h-3.5 text-primary" />
+            <motion.div
+              className="h-1.5 w-10 rounded-full bg-gradient-to-r from-primary/30 via-primary/80 to-primary/30"
+              animate={{ x: [-4, 4, -4] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </div>
+        </motion.div>
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background/60 via-background/30 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background/60 via-background/30 to-transparent z-10 pointer-events-none" />
         <div ref={scrollContainerRef} className="flex gap-5 md:gap-7 overflow-x-auto scroll-smooth pb-8 px-4 md:px-8" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)', WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
           {articles.map((article) => (
-            <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
+            <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
                 <div className="relative h-44 sm:h-48 md:h-56 overflow-hidden">
                   <ImageWithFallback src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
@@ -89,11 +114,11 @@ function Blog() {
         .overflow-x-auto:active { cursor: grabbing; }
       `}</style>
       <div className="relative mt-14 md:mt-20 flex justify-center">
-        <button
-          type="button"
-          onClick={() => navigate('/blog')}
-          className="group relative inline-flex items-center justify-center gap-3 px-10 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
-        >
+          <button
+            type="button"
+            onClick={() => navigate('/blog')}
+            className="group relative inline-flex items-center justify-center gap-3 px-10 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
           <span className="relative text-sm md:text-base lg:text-lg">Перейти ко всем статьям</span>
           <ArrowRight className="w-4 h-4 md:w-5 md:h-5 relative group-hover:translate-x-1 transition-transform" />

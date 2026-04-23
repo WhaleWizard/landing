@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 
 function Navbar() {
@@ -89,36 +89,62 @@ function Navbar() {
       </nav>
 
       {/* Мобильное меню */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
-          <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
-          <div className="relative h-full flex flex-col items-center justify-center space-y-8" onClick={(e) => e.stopPropagation()}>
-            {navItems.map((item, idx) => (
-              <motion.button
-                key={idx}
-                onClick={item.action}
-                className="text-2xl text-foreground/80 hover:text-primary transition-colors relative group"
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-              >
-                {item.label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-              </motion.button>
-            ))}
-            <Button
-              onClick={() => {
-                scrollToSection('contact');
-                setIsMobileMenuOpen(false);
-              }}
-              size="lg"
-              className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            className="fixed inset-0 z-40 md:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
+            <motion.div
+              initial={{ y: 16, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 12, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative h-full flex flex-col items-center justify-center space-y-8"
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-              <span className="relative">Получить консультацию</span>
-            </Button>
-          </div>
-        </div>
-      )}
+              {navItems.map((item, idx) => (
+                <motion.button
+                  key={idx}
+                  onClick={item.action}
+                  className="text-2xl text-foreground/80 hover:text-primary transition-colors relative group"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ delay: idx * 0.03, duration: 0.18 }}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  {item.label}
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
+                </motion.button>
+              ))}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ delay: 0.14, duration: 0.18 }}
+              >
+                <Button
+                  onClick={() => {
+                    scrollToSection('contact');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  size="lg"
+                  className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                  <span className="relative">Получить консультацию</span>
+                </Button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -108,7 +108,7 @@ export default function CalculatorButtons() {
         <div className="md:hidden relative">
           <div
             ref={scrollContainerRef}
-            className="flex gap-4 overflow-x-auto scroll-smooth pb-4 -mx-4 px-4"
+            className="flex gap-4 overflow-x-auto scroll-smooth pb-5 -mx-4 px-4"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)',
@@ -121,8 +121,9 @@ export default function CalculatorButtons() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4 }}
-              className="flex-shrink-0 w-[280px] group relative overflow-hidden rounded-2xl bg-card/40 backdrop-blur-md border border-primary/20 hover:border-primary/50 transition-all duration-300 p-5 text-left"
+              transition={{ duration: 0.35 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-shrink-0 w-[292px] group relative overflow-hidden rounded-2xl bg-card/40 backdrop-blur-md border border-primary/20 hover:border-primary/50 transition-all duration-300 p-[22px] text-left"
             >
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center mb-3">
                 <Calculator className="w-6 h-6 text-primary" />
@@ -140,8 +141,9 @@ export default function CalculatorButtons() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="flex-shrink-0 w-[280px] group relative overflow-hidden rounded-2xl bg-card/40 backdrop-blur-md border border-accent/20 hover:border-accent/50 transition-all duration-300 p-5 text-left"
+              transition={{ duration: 0.35, delay: 0.08 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-shrink-0 w-[292px] group relative overflow-hidden rounded-2xl bg-card/40 backdrop-blur-md border border-accent/20 hover:border-accent/50 transition-all duration-300 p-[22px] text-left"
             >
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-secondary/20 border border-accent/30 flex items-center justify-center mb-3">
                 <TrendingUp className="w-6 h-6 text-accent" />
