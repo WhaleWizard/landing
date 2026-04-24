@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
+import RouteSkeleton from '../components/RouteSkeleton';
 
 function normalizeTokens(value = '') {
   return String(value)
@@ -103,7 +104,7 @@ function BlogPageComponent() {
     setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100);
   }, [navigate]);
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Загрузка...</div>;
+  if (loading) return <RouteSkeleton />;
 
   if (selectedArticle) {
     const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);

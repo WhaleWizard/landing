@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { lazy, Suspense } from 'react';
 import Home from './pages/Home';
+import RouteSkeleton from './components/RouteSkeleton';
 
 const ThankYou = lazy(() => import('./pages/ThankYou'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
@@ -15,7 +16,7 @@ const MarketingGlossaryPage = lazy(() => import('./pages/MarketingGlossaryPage')
 
 function LazyWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Загрузка...</div>}>
+    <Suspense fallback={<RouteSkeleton />}>
       {children}
     </Suspense>
   );
