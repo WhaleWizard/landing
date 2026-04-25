@@ -1,0 +1,168 @@
+/*
+  Scoped blog/article readability theme.
+  Safety: every selector starts with [data-blog-ui="true"] so non-blog pages are not affected.
+*/
+[data-blog-ui='true'] {
+  --blog-bg: #121212;
+  --blog-bg-alt: #1a1a1a;
+  --blog-text: #ececf0;
+  --blog-heading: #f0f0f5;
+  --blog-muted: #b8b8bf;
+  --blog-link: #8ab4f8;
+  --blog-border: rgba(255, 255, 255, 0.08);
+  --blog-border-strong: rgba(255, 255, 255, 0.12);
+  --blog-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+  color: var(--blog-text);
+  background: radial-gradient(circle at top left, #171720 0%, var(--blog-bg) 45%, #0f0f10 100%);
+}
+
+/* Blog list scope only. */
+[data-blog-ui='true'].blog-page--list .blog-list-grid {
+  align-items: stretch;
+}
+
+/* Blog cards scope only. */
+[data-blog-ui='true'] .blog-card {
+  background: linear-gradient(180deg, rgba(26, 26, 26, 0.92), rgba(18, 18, 18, 0.96));
+  border-color: var(--blog-border);
+  box-shadow: var(--blog-shadow);
+}
+
+[data-blog-ui='true'] .blog-card h2 {
+  color: var(--blog-heading);
+  line-height: 1.35;
+}
+
+[data-blog-ui='true'] .blog-card p {
+  color: var(--blog-muted);
+  line-height: 1.65;
+}
+
+/* Article content width and readable typography, isolated by class inside blog route only. */
+[data-blog-ui='true'] .blog-reading-wrap {
+  max-width: 760px;
+}
+
+[data-blog-ui='true'] .blog-article-content {
+  color: var(--blog-text);
+  letter-spacing: 0.01em;
+  line-height: 1.68;
+  font-size: clamp(1rem, 0.97rem + 0.2vw, 1.075rem);
+}
+
+[data-blog-ui='true'] .blog-article-content :where(h1, h2, h3, h4) {
+  color: var(--blog-heading);
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  margin-top: 1.75em;
+  margin-bottom: 0.75em;
+}
+
+[data-blog-ui='true'] .blog-article-content :where(p, li) {
+  color: var(--blog-text);
+  margin-top: 0.9em;
+  margin-bottom: 0.9em;
+}
+
+[data-blog-ui='true'] .blog-article-content a {
+  color: var(--blog-link);
+  text-decoration-color: color-mix(in oklab, var(--blog-link), #fff 12%);
+  text-underline-offset: 0.18em;
+}
+
+[data-blog-ui='true'] .blog-article-content a:hover {
+  text-decoration-thickness: 2px;
+}
+
+[data-blog-ui='true'] .blog-article-content :where(blockquote) {
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 3px solid var(--blog-border-strong);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  color: #d7d7df;
+}
+
+[data-blog-ui='true'] .blog-article-content :where(hr) {
+  border-color: var(--blog-border);
+}
+
+[data-blog-ui='true'] .blog-article-content :where(img, video, iframe) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 14px;
+}
+
+[data-blog-ui='true'] .blog-article-content :where(pre, code) {
+  background: #0f1014;
+  border: 1px solid var(--blog-border);
+}
+
+[data-blog-ui='true'] .blog-article-content :where(table) {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+[data-blog-ui='true'] .blog-article-content :where(th, td) {
+  border: 1px solid var(--blog-border);
+  padding: 0.6rem 0.75rem;
+  white-space: nowrap;
+}
+
+/* Touch target helper for blog buttons/interactive UI only. */
+[data-blog-ui='true'] .blog-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 768px) {
+  [data-blog-ui='true'].blog-page {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  [data-blog-ui='true'].blog-page--list .blog-list-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  [data-blog-ui='true'] .blog-card {
+    border-radius: 16px;
+    padding: 18px;
+  }
+
+  [data-blog-ui='true'] .blog-article-content {
+    font-size: 16px;
+    line-height: 1.66;
+  }
+
+  [data-blog-ui='true'] .blog-article-content :where(h1) {
+    font-size: clamp(1.75rem, 6vw, 2.2rem);
+  }
+
+  [data-blog-ui='true'] .blog-article-content :where(h2) {
+    font-size: clamp(1.35rem, 5vw, 1.8rem);
+  }
+}
+
+@media (max-width: 480px) {
+  [data-blog-ui='true'].blog-page {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 64px !important;
+  }
+
+  [data-blog-ui='true'] .blog-card {
+    padding: 16px;
+  }
+
+  [data-blog-ui='true'] .blog-article-content :where(p, li, blockquote) {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  [data-blog-ui='true'] .blog-article-content :where(h2, h3) {
+    margin-top: 1.9rem;
+  }
+}
