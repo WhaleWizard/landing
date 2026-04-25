@@ -11,7 +11,11 @@ import {
 } from './config.js';
 
 // Fallback chain: JSONBin -> previous build cache -> committed local fallback
-const CI_STRICT_FALLBACK = process.env.CI === 'true' && process.env.ALLOW_FALLBACK_BUILD !== 'true';
+// Strict mode is opt-in to avoid failing deploys when JSONBin is temporarily unavailable.
+const CI_STRICT_FALLBACK =
+  process.env.CI === 'true' &&
+  process.env.REQUIRE_FRESH_ARTICLES === 'true' &&
+  process.env.ALLOW_FALLBACK_BUILD !== 'true';
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -108,6 +112,7 @@ async function main() {
       console.warn(error);
       if (CI_STRICT_FALLBACK) {
         console.error('❌ CI strict mode: fallback content is not allowed. Set ALLOW_FALLBACK_BUILD=true to override.');
+        console.error('ℹ️ To enforce fresh content explicitly, set REQUIRE_FRESH_ARTICLES=true in CI.');
         process.exitCode = 1;
       }
       return;
@@ -120,6 +125,7 @@ async function main() {
       console.warn(error);
       if (CI_STRICT_FALLBACK) {
         console.error('❌ CI strict mode: fallback content is not allowed. Set ALLOW_FALLBACK_BUILD=true to override.');
+        console.error('ℹ️ To enforce fresh content explicitly, set REQUIRE_FRESH_ARTICLES=true in CI.');
         process.exitCode = 1;
       }
       return;
