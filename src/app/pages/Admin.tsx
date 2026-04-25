@@ -189,7 +189,7 @@ export default function Admin() {
       <>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md p-8 rounded-2xl bg-card/40 backdrop-blur-xl border border-primary/30 shadow-2xl">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md p-8 rounded-2xl bg-card/88 backdrop-blur-xl border border-border shadow-[var(--elevation-raised)]">
           <div className="flex justify-center mb-6"><div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg"><Lock className="w-8 h-8 text-white" /></div></div>
           <h2 className="text-2xl font-bold text-center mb-6">Вход в админку</h2>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -209,23 +209,23 @@ export default function Admin() {
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Управление статьями</h1>
+          <h1 className="text-3xl font-semibold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Управление статьями</h1>
           <div className="flex items-center gap-3">
-            <span className="text-xs px-2 py-1 rounded-full bg-primary/15 text-primary border border-primary/25">Источник: {sourceLabel}</span>
+            <span className="text-xs px-2 py-1 rounded-full bg-muted/60 text-foreground border border-border/80">Источник: {sourceLabel}</span>
             <button
               onClick={async () => {
                 await forceRefreshArticles();
                 await refreshHealth();
               }}
-              className="text-sm text-muted-foreground hover:text-primary transition"
+              className="text-sm text-muted-foreground hover:text-foreground transition"
             >
               Обновить из API (no-cache)
             </button>
-            <button onClick={() => navigate('/')} className="text-sm text-muted-foreground hover:text-primary transition">← На главную</button>
+            <button onClick={() => navigate('/')} className="text-sm text-muted-foreground hover:text-foreground transition">← На главную</button>
           </div>
         </div>
         <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 bg-card/40 backdrop-blur-sm border border-border rounded-2xl p-4 h-fit">
+          <div className="lg:col-span-1 bg-card/88 backdrop-blur-sm border border-border/90 rounded-2xl p-4 h-fit shadow-[var(--elevation-surface)]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-semibold">Статьи</h2>
               <button onClick={() => {
@@ -249,7 +249,7 @@ export default function Admin() {
             {loading && <p className="text-muted-foreground text-sm">Загрузка...</p>}
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
               {articles.map(article => (
-                <div key={article.slug} className="flex items-center gap-2 p-2 rounded-xl bg-background/50 border border-border hover:border-primary/50 transition">
+                <div key={article.slug} className="flex items-center gap-2 p-2 rounded-xl bg-background/60 border border-border/80 hover:border-primary/45 hover:bg-muted/35 transition">
                   <button onClick={() => {
                     setEditingArticle(article);
                     setSlugManuallyEdited(false);
@@ -262,7 +262,7 @@ export default function Admin() {
               ))}
             </div>
           </div>
-          <div className="lg:col-span-2 bg-card/40 backdrop-blur-sm border border-border rounded-2xl p-6">
+          <div className="lg:col-span-2 bg-card/88 backdrop-blur-sm border border-border/90 rounded-2xl p-6 shadow-[var(--elevation-surface)]">
             {editingArticle ? (
               <div className="space-y-4">
                 <div><label className="block text-sm font-medium mb-1">Заголовок</label><input type="text" value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border focus:border-primary outline-none" /></div>

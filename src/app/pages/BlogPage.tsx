@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 import RouteSkeleton from '../components/RouteSkeleton';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 function normalizeTokens(value = '') {
   return String(value)
@@ -110,6 +111,7 @@ function BlogPageComponent() {
     const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
     const seoTitle = buildArticleSeoTitle(selectedArticle);
     const seoDescription = buildArticleSeoDescription(selectedArticle);
+    const safeArticleContent = sanitizeHtml(selectedArticle.content || '');
 
     return (
       <>
@@ -144,14 +146,14 @@ function BlogPageComponent() {
                   <div className="flex items-center gap-1 text-muted-foreground"><Clock className="w-4 h-4" /><span>{selectedArticle.readTime}</span></div>
                   <div className="flex items-center gap-1 text-muted-foreground"><Calendar className="w-4 h-4" /><span>{selectedArticle.date}</span></div>
                 </div>
-                <h1 ref={articleTitleRef} tabIndex={-1} className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent focus:outline-none">{selectedArticle.title}</h1>
-                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed border-l-4 border-primary/50 pl-4">{seoDescription}</p>
+                <h1 ref={articleTitleRef} tabIndex={-1} className="text-balance-premium text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/75 bg-clip-text text-transparent focus:outline-none">{selectedArticle.title}</h1>
+                <p className="max-w-[68ch] text-lg md:text-xl text-muted-foreground leading-relaxed border-l-4 border-primary/40 pl-4">{seoDescription}</p>
               </motion.div>
             </div>
           </div>
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
             <div className="rounded-2xl overflow-hidden border border-border shadow-2xl">
-              <img src={selectedArticle.image} alt={selectedArticle.title} loading="eager" fetchpriority="high" className="w-full h-auto object-cover max-h-[500px]" />
+              <img src={selectedArticle.image} alt={selectedArticle.title} loading="eager" fetchpriority="high" decoding="async" className="w-full h-auto object-cover max-h-[500px]" />
             </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
@@ -173,7 +175,7 @@ function BlogPageComponent() {
               </section>
             )}
 
-            <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+            <div ref={contentRef} className="reading-prose prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: safeArticleContent }} />
 
             {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
               <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">
@@ -234,19 +236,19 @@ function BlogPageComponent() {
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-end mb-4"><button onClick={goHome} className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
-            <h1 className="text-4xl md:text-6xl font-bold">Блог о <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">маркетинге</span></h1>
+            <h1 className="text-balance-premium text-4xl md:text-6xl font-bold">Блог о <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">маркетинге</span></h1>
             <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса</p>
           </motion.div>
           <div className="grid md:grid-cols-2 gap-6 md:gap-8">
             {allArticles.map((article, i) => (
               <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`/blog/${article.slug}`)}>
-                <div className="p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
+                <div className="premium-glass p-5 md:p-6 rounded-2xl hover:border-primary/45 transition-all duration-300 hover:shadow-[var(--elevation-raised)] h-full flex flex-col">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{article.category}</span>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground"><Clock className="w-3 h-3" />{article.readTime}</div>
                   </div>
-                  <h2 className="text-xl md:text-2xl font-bold group-hover:text-primary transition-colors line-clamp-2">{article.title}</h2>
-                  <p className="text-muted-foreground mt-3 text-sm leading-relaxed line-clamp-3 flex-1">{article.description}</p>
+                  <h2 className="text-balance-premium text-xl md:text-2xl font-semibold group-hover:text-primary transition-colors line-clamp-2">{article.title}</h2>
+                  <p className="max-w-[58ch] text-muted-foreground mt-3 text-sm leading-relaxed line-clamp-3 flex-1">{article.description}</p>
                   <div className="mt-5 flex items-center gap-2 text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                     <span>Читать статью</span><ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>

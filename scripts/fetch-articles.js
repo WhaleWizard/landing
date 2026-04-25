@@ -11,7 +11,9 @@ import {
 } from './config.js';
 
 // Fallback chain: JSONBin -> previous build cache -> committed local fallback
-const CI_STRICT_FALLBACK = process.env.CI === 'true' && process.env.ALLOW_FALLBACK_BUILD !== 'true';
+// Strict CI behavior is now opt-in to avoid hard-failing Cloudflare Pages builds
+// when JSONBin is temporarily unavailable.
+const CI_STRICT_FALLBACK = process.env.CI_STRICT_FALLBACK === 'true' && process.env.ALLOW_FALLBACK_BUILD !== 'true';
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });

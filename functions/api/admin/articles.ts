@@ -14,6 +14,11 @@ interface UpdatePayload {
   articles?: Article[];
 }
 
+const MAX_ARTICLES = 500;
+const MAX_CONTENT_LENGTH = 120_000;
+const MAX_TEXT_LENGTH = 2_000;
+const ALLOWED_INDEXNOW_HOSTS = new Set(['api.indexnow.org']);
+
 function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');
   const { origin } = new URL(request.url);
@@ -35,12 +40,21 @@ async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Articl
   if (!env.INDEXNOW_KEY) return;
 
   const endpoint = env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow';
+  let parsedEndpoint: URL;
+  try {
+    parsedEndpoint = new URL(endpoint);
+  } catch {
+    return;
+  }
+  if (parsedEndpoint.protocol !== 'https:' || !ALLOWED_INDEXNOW_HOSTS.has(parsedEndpoint.host)) {
+    return;
+  }
   const host = new URL(siteUrl).host;
   const urls = updatedArticles.map((article) => `${siteUrl}/blog/${article.slug}`);
 
   if (urls.length === 0) return;
 
-  await fetch(endpoint, {
+  await fetch(parsedEndpoint.toString(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
@@ -56,6 +70,20 @@ async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Articl
       cacheTtl: 0,
     },
   });
+}
+
+function isValidArticlePayload(article: Article): boolean {
+  if (!article) return false;
+  if (String(article.title || '').trim().length === 0) return false;
+  if (String(article.slug || '').trim().length === 0) return false;
+  if (String(article.content || '').length > MAX_CONTENT_LENGTH) return false;
+  if (String(article.description || '').length > MAX_TEXT_LENGTH) return false;
+  if (String(article.seoTitle || '').length > 120) return false;
+  if (String(article.seoDescription || '').length > 220) return false;
+  if ((article.tags || []).length > 20) return false;
+  if ((article.keyTakeaways || []).length > 20) return false;
+  if ((article.faq || []).length > 20) return false;
+  return true;
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -103,6 +131,24 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   if (!Array.isArray(payload?.articles)) {
     return json(
       { success: false, error: 'Invalid payload: articles[] required' },
+      {
+        status: 400,
+        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
+      },
+    );
+  }
+  if (payload.articles.length > MAX_ARTICLES) {
+    return json(
+      { success: false, error: `Too many articles. Limit is ${MAX_ARTICLES}` },
+      {
+        status: 400,
+        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
+      },
+    );
+  }
+  if (!payload.articles.every((article) => isValidArticlePayload(article as Article))) {
+    return json(
+      { success: false, error: 'Invalid article payload: check required fields and size limits' },
       {
         status: 400,
         headers: { 'Cache-Control': CACHE_CONTROL.noStore },

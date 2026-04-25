@@ -17,6 +17,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { trackLead } from '../consent/consent';
 import Modal from './Modal';
+import { API_ROUTES } from '../config';
 
 const budgetOptions = [
   {
@@ -108,13 +109,10 @@ function ContactForm() {
       setIsSubmitting(true);
 
       try {
-        const proxyUrl =
-          'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
-
-        await fetch(proxyUrl, {
+        const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
-          mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
           body: JSON.stringify({
             name: formData.name,
             email: formData.email,
@@ -125,6 +123,10 @@ function ContactForm() {
             telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
           }),
         });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => null);
+          throw new Error(payload?.error || `HTTP ${res.status}`);
+        }
 
         setIsSubmitted(true);
         setFormData({
@@ -143,6 +145,8 @@ function ContactForm() {
         setTimeout(() => navigate('/thank-you'), 800);
       } catch (error) {
         console.error(error);
+        const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
+        alert(message);
       } finally {
         setIsSubmitting(false);
       }

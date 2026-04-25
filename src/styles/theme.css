@@ -212,6 +212,68 @@
     background-size: 220% 100%;
     animation: premium-skeleton-shimmer 1.6s var(--motion-ease-premium) infinite;
   }
+
+  .text-balance-premium {
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+
+  .reading-prose {
+    max-width: 72ch;
+    font-size: clamp(1.01rem, 0.28vw + 0.96rem, 1.12rem);
+    line-height: 1.86;
+    color: color-mix(in srgb, var(--foreground) 92%, var(--muted-foreground) 8%);
+    letter-spacing: 0.003em;
+  }
+
+  .reading-prose h2,
+  .reading-prose h3 {
+    text-wrap: balance;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin-top: 1.45em;
+    margin-bottom: 0.55em;
+  }
+
+  .reading-prose p {
+    margin-bottom: 1.04em;
+  }
+
+  .reading-prose ul,
+  .reading-prose ol {
+    margin: 1em 0 1.15em;
+    padding-inline-start: 1.2em;
+  }
+
+  .reading-prose a {
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.17em;
+  }
+
+  .reading-prose img {
+    border-radius: calc(var(--radius) + 2px);
+    border: 1px solid color-mix(in srgb, var(--border) 72%, transparent 28%);
+  }
+
+  .premium-glass {
+    background: linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--card) 90%, white 10%),
+      color-mix(in srgb, var(--card) 96%, transparent 4%)
+    );
+    backdrop-filter: blur(10px);
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent 10%);
+    box-shadow: var(--elevation-surface);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @keyframes premium-skeleton-shimmer {

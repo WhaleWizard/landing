@@ -1,4 +1,5 @@
 import type { Article, Env } from './types';
+import { sanitizeArticleHtml } from './sanitize';
 
 interface JsonBinConfig {
   binId: string;
@@ -25,14 +26,6 @@ function stripHtml(html = ''): string {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function sanitizeArticleContent(content: string): string {
-  return String(content || '')
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/on\w+\s*=\s*'[^']*'/gi, '')
-    .replace(/javascript:/gi, '');
 }
 
 function normalizeIsoDate(raw: string | undefined, fallback: string): string {
@@ -96,7 +89,7 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
     usedSlugs.add(uniqueSlug);
 
     const nowIso = new Date().toISOString();
-    const safeContent = sanitizeArticleContent(article.content || '<p>Контент статьи отсутствует.</p>');
+    const safeContent = sanitizeArticleHtml(article.content || '<p>Контент статьи отсутствует.</p>');
     const fallbackDescription = stripHtml(article.description || safeContent).slice(0, 160);
     const seoDescription = (article.seoDescription || fallbackDescription).slice(0, 170);
 
