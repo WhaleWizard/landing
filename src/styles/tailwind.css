@@ -1,5 +1,6 @@
 @import 'tailwindcss' source(none);
 @source '../**/*.{js,ts,jsx,tsx}';
+@source inline("bg-gradient-to-r from-primary/20 to-accent/20 p-6 rounded-2xl border border-primary/30 shadow-lg my-6 text-xl font-bold text-primary mb-2 text-muted-foreground w-full h-8 my-8 text-lg md:text-xl from-primary to-accent bg-clip-text text-transparent");
 
 @import 'tw-animate-css';
 
