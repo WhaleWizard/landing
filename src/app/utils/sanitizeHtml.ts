@@ -11,6 +11,15 @@ const ALLOWED_ATTRS = new Set([
   'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'id', 'stop-color',
 ]);
 
+const SVG_TAG_CANONICAL: Record<string, string> = {
+  lineargradient: 'linearGradient',
+};
+
+const SVG_ATTR_CANONICAL: Record<string, string> = {
+  viewbox: 'viewBox',
+  preserveaspectratio: 'preserveAspectRatio',
+};
+
 function stripUnsafeProtocols(value: string): string {
   const normalized = String(value || '').trim();
   if (!normalized) return '';
@@ -37,8 +46,10 @@ export function sanitizeHtml(input: string): string {
   html = html.replace(/<embed[\s\S]*?<\/embed>/gi, '');
 
   html = html.replace(/<([a-z0-9-]+)([^>]*)>/gi, (full, tagName: string, attrs: string) => {
-    const tag = String(tagName || '').toLowerCase();
+    const rawTag = String(tagName || '');
+    const tag = rawTag.toLowerCase();
     if (!ALLOWED_TAGS.includes(tag)) return '';
+    const normalizedTag = SVG_TAG_CANONICAL[tag] || tag;
 
     const safeAttrs: string[] = [];
     const attrRegex = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
@@ -49,6 +60,7 @@ export function sanitizeHtml(input: string): string {
       const rawValue = match[2] ?? match[3] ?? match[4] ?? '';
       if (!rawName || rawName.startsWith('on')) continue;
       if (!ALLOWED_ATTRS.has(rawName)) continue;
+      const normalizedAttr = SVG_ATTR_CANONICAL[rawName] || rawName;
 
       const sanitizedValue = stripUnsafeProtocols(rawValue);
       if (!sanitizedValue && (rawName === 'href' || rawName === 'src')) continue;
@@ -59,19 +71,19 @@ export function sanitizeHtml(input: string): string {
         continue;
       }
 
-      safeAttrs.push(`${rawName}="${sanitizedValue.replace(/"/g, '&quot;')}"`);
+      safeAttrs.push(`${normalizedAttr}="${sanitizedValue.replace(/"/g, '&quot;')}"`);
     }
 
     if (tag === 'a' && !safeAttrs.some((part) => part.startsWith('rel='))) {
       safeAttrs.push('rel="noopener noreferrer nofollow"');
     }
 
-    return `<${tag}${safeAttrs.length > 0 ? ` ${safeAttrs.join(' ')}` : ''}>`;
+    return `<${normalizedTag}${safeAttrs.length > 0 ? ` ${safeAttrs.join(' ')}` : ''}>`;
   });
 
   return html.replace(/<\/([a-z0-9-]+)>/gi, (full, tagName: string) => {
     const tag = String(tagName || '').toLowerCase();
     if (!ALLOWED_TAGS.includes(tag)) return '';
-    return `</${tag}>`;
+    return `</${SVG_TAG_CANONICAL[tag] || tag}>`;
   });
 }
