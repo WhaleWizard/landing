@@ -1,10 +1,130 @@
-# Whale Wzrd — LLM/AI content guide
+# Whale Wzrd — LLM Context Pack (for AI assistants)
 
 Site: https://www.whalewzrd.com
-Primary language: ru
-Business: Performance marketing consultant (Google Ads, Meta Ads, analytics)
+Primary language: Russian (ru)
+Secondary language style: concise English terms are acceptable (ROI, CPL, ROAS, funnel, creative)
+Business type: Personal brand website of a performance marketer / paid acquisition consultant
 
-## Canonical pages
+## 1) What this site is
+Whale Wzrd is a lead-generation and authority website for a performance marketing specialist focused on:
+- Google Ads
+- Meta Ads (Facebook/Instagram)
+- Analytics (GA4, GTM, Yandex Metrika, pixel/CAPI)
+- Conversion optimization and scaling
+
+Main goal of the site: convert traffic into consultation requests and qualified leads.
+Secondary goals: demonstrate expertise via cases and blog content, educate potential clients, pre-qualify prospects by budget and business maturity.
+
+## 2) Core audience
+Typical visitors:
+- SMB owners and founders
+- eCommerce projects
+- B2C service businesses
+- info-business / online education projects
+
+Typical pains:
+- unstable lead flow
+- expensive or low-quality leads
+- poor tracking / attribution
+- unclear payback from ads
+- no system for scaling results
+
+## 3) Positioning and tone
+Positioning:
+- data-driven performance approach
+- practical and business-oriented communication
+- focus on economics of acquisition, not vanity metrics
+
+Tone of voice:
+- expert but clear, no fluff
+- confident, but without unrealistic promises
+- result-oriented and transparent
+
+Important: never promise guaranteed revenue/ROAS/ROI. Always mention dependence on niche, offer, funnel quality, sales process, and budget.
+
+## 4) Offer structure represented on the website
+Service blocks include:
+- Google Ads setup and management (Search, YouTube, Shopping, retargeting)
+- Meta Ads setup and management (FB/IG acquisition, retargeting, lookalikes)
+- analytics infrastructure (tracking, events, attribution)
+- ongoing optimization and scaling
+
+Process narrative used on the site:
+1. Strategy and research
+2. Analytics and tracking infrastructure
+3. Campaign launch and active management
+4. Optimization and scaling
+
+## 5) Social proof and business signals (as presented on site)
+Site messaging includes signals such as:
+- 150+ cases
+- $2M+ ad spend managed
+- 500k+ leads (stated in hero narrative)
+- multiple case categories (concierge, eCommerce, info products, B2C services)
+
+Use such metrics carefully:
+- describe as “according to website claims/case summaries” when needed
+- avoid reframing as universal guaranteed outcomes
+
+## 6) Main conversion actions
+Primary CTA intent:
+- request growth strategy
+- submit contact form for free consultation / audit
+
+Lead form captures:
+- name
+- email
+- phone
+- budget range
+- message
+- preferred contact method (Telegram/WhatsApp)
+
+## 7) Site sections and routes (for AI navigation context)
+- / — Home (hero, services, cases, testimonials, blog preview, contact form)
+- /blog — article list
+- /blog/:slug — article page
+- /calculator — budget/marketing calculator page
+- /roi-calculator — ROI calculator page
+- /faq — FAQ page
+- /marketing-glossary — glossary page
+- /thank-you — post-conversion page
+- /privacy-policy, /cookie-policy, /offer — legal pages
+
+## 8) Content policy for AI-generated text about this site
+When generating copy, strategy docs, prompts, or page content:
+- keep focus on paid acquisition and measurable outcomes
+- use concrete, practical recommendations
+- include tracking/analytics considerations by default
+- maintain Russian-first copy style unless requested otherwise
+- include CTA toward consultation when context is commercial
+
+Avoid:
+- hype language with no mechanism
+- fake case data
+- legal/medical/financial claims not related to marketing scope
+- absolute promises (e.g., “guaranteed x3 ROAS in 2 weeks”)
+
+## 9) Prompting defaults for assistants
+If user asks for content without extra details, assume:
+- target geo: user-specified; if unknown, ask
+- acquisition channels: Google Ads + Meta Ads
+- KPI stack: CPL, CAC, conversion rate, payback period, qualified lead rate
+- deliverable style: actionable checklist + next steps
+
+## 10) Reusable prompt templates (for ChatGPT/LLM)
+Template A — landing block copy:
+"Ты маркетинг-стратег для сайта Whale Wzrd. Напиши [тип блока] для аудитории [ниша], с фокусом на [KPI], в тоне экспертно и без завышенных обещаний. Добавь 3-5 конкретных выгод, 2 CTA и короткий блок про аналитику (GA4/GTM/пиксели)."
+
+Template B — ad strategy draft:
+"Собери черновик performance-стратегии для клиента [ниша/оффер/гео/средний чек]. Каналы: Google Ads + Meta Ads. Дай структуру: гипотезы, воронка, трекинг, план тестов на 30 дней, KPI, риски и критерии масштабирования."
+
+Template C — blog SEO brief:
+"Сделай SEO-бриф для статьи блога Whale Wzrd на тему [тема]. Нужны: search intent, H1-H3 структура, FAQ, ключевые тезисы, лид-магнит CTA в конце, и блок 'что отслеживать в аналитике'."
+
+Template D — audit response:
+"Проведи mini-аудит рекламной системы для [тип бизнеса] по данным: [вставить данные]. Выдай: 10 проблем по приоритету, быстрые wins за 7 дней, план на 30 дней, и прогноз влияния на CPL/CAC без гарантий." 
+
+## 11) Canonical URLs
 - Home: https://www.whalewzrd.com/
 - FAQ: https://www.whalewzrd.com/faq
 - Blog: https://www.whalewzrd.com/blog
@@ -12,14 +132,6 @@ Business: Performance marketing consultant (Google Ads, Meta Ads, analytics)
 - ROI Calculator: https://www.whalewzrd.com/roi-calculator
 - Privacy Policy: https://www.whalewzrd.com/privacy-policy
 
-## Preferred citation style for AI assistants
-- Use page-level URLs from this domain.
-- Prefer FAQ answers and blog posts with concrete metrics and timelines.
-- Avoid inventing guarantees of ROAS/ROI; outcomes depend on niche, funnel, and sales process.
-
-## Entity summary
-Whale Wzrd helps businesses launch and optimize paid acquisition through Google Ads and Meta Ads, with tracking via GA4, GTM, CRM and conversion analytics.
-
-## Contact
+## 12) Contact
 - Telegram: https://t.me/white_rsh
 - Email: mailto:whalewzrd@gmail.com
