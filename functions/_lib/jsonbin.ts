@@ -46,6 +46,25 @@ function extractTags(article: Partial<Article>): string[] {
   return [];
 }
 
+function extractKeyTakeaways(article: Partial<Article>): string[] {
+  if (!Array.isArray(article.keyTakeaways)) return [];
+  return article.keyTakeaways
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function extractFaq(article: Partial<Article>): Array<{ question: string; answer: string }> {
+  if (!Array.isArray(article.faq)) return [];
+  return article.faq
+    .map((item) => ({
+      question: String(item?.question || '').trim(),
+      answer: String(item?.answer || '').trim(),
+    }))
+    .filter((item) => item.question && item.answer)
+    .slice(0, 20);
+}
+
 function didArticleChange(previous: Article | undefined, next: Article): boolean {
   if (!previous) return true;
 
@@ -67,7 +86,15 @@ function didArticleChange(previous: Article | undefined, next: Article): boolean
 
   const prevTags = JSON.stringify(previous.tags || []);
   const nextTags = JSON.stringify(next.tags || []);
-  return prevTags !== nextTags;
+  if (prevTags !== nextTags) return true;
+
+  const prevTakeaways = JSON.stringify(previous.keyTakeaways || []);
+  const nextTakeaways = JSON.stringify(next.keyTakeaways || []);
+  if (prevTakeaways !== nextTakeaways) return true;
+
+  const prevFaq = JSON.stringify(previous.faq || []);
+  const nextFaq = JSON.stringify(next.faq || []);
+  return prevFaq !== nextFaq;
 }
 
 export function normalizeArticles(rawArticles: unknown[]): Article[] {
@@ -92,6 +119,7 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
     const safeContent = sanitizeArticleHtml(article.content || '<p>Контент статьи отсутствует.</p>');
     const fallbackDescription = stripHtml(article.description || safeContent).slice(0, 160);
     const seoDescription = (article.seoDescription || fallbackDescription).slice(0, 170);
+    const summary = String(article.summary || fallbackDescription).trim().slice(0, 350);
 
     const rawId = Number(article.id);
     let safeId = Number.isInteger(rawId) && rawId > 0 ? rawId : index + 1;
@@ -116,6 +144,9 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       publishedAt: normalizeIsoDate(article.publishedAt, nowIso),
       updatedAt: normalizeIsoDate(article.updatedAt, nowIso),
       tags: extractTags(article),
+      summary,
+      keyTakeaways: extractKeyTakeaways(article),
+      faq: extractFaq(article),
     };
   });
 }
