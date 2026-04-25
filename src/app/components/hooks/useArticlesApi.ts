@@ -191,22 +191,9 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
     if (primaryArticles.length > 0) {
-      const localBackup = dedupeBySlug(fetchLocalArticlesBackup());
-      const mergedPrimary = new Map<string, Article>();
-
-      localBackup.forEach((article, index) => {
-        mergedPrimary.set(articleIdentityKey(article, index), article);
-      });
-
-      primaryArticles.forEach((article, index) => {
-        const key = articleIdentityKey(article, index);
-        const preferred = pickPreferredArticle(mergedPrimary.get(key), article);
-        mergedPrimary.set(key, preferred);
-      });
-
-      const safePrimary = Array.from(mergedPrimary.values());
-      saveLocalArticlesBackup(safePrimary);
-      return safePrimary;
+      // API is source-of-truth: do not merge with stale local backup when primary responds.
+      saveLocalArticlesBackup(primaryArticles);
+      return primaryArticles;
     }
 
     return resolveFallbackArticles();
@@ -216,7 +203,7 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
   }
 };
 
-export const saveArticles = async (articles: Article[], password: string): Promise<boolean> => {
+export const saveArticles = async (articles: Article[], password: string): Promise<AdminUpdateResponse> => {
   try {
     const res = await fetch(API_ROUTES.adminArticles, {
       method: 'PUT',
@@ -237,9 +224,12 @@ export const saveArticles = async (articles: Article[], password: string): Promi
 
     const result = (await res.json()) as AdminUpdateResponse;
     if (result?.success) {
-      saveLocalArticlesBackup(Array.isArray(result.articles) ? result.articles : articles);
+      const savedArticles = Array.isArray(result.articles) ? result.articles : articles;
+      saveLocalArticlesBackup(savedArticles);
+      return { success: true, articles: savedArticles };
     }
-    return Boolean(result?.success);
+
+    return { success: false, articles: [] };
   } catch (error) {
     console.error('saveArticles error:', error);
     throw error;

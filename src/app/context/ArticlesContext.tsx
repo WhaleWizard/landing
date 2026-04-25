@@ -45,11 +45,11 @@ export const ArticlesProvider = ({ children }: Props) => {
   };
 
   const updateArticles = async (newArticles: Article[], password: string) => {
-    const success = await saveArticles(newArticles, password);
-    if (success) {
-      setArticles(newArticles);
+    const result = await saveArticles(newArticles, password);
+    if (result.success) {
+      setArticles(result.articles);
     }
-    return success;
+    return result.success;
   };
 
   useEffect(() => {
