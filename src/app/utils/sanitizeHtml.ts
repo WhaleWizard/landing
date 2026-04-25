@@ -7,6 +7,7 @@ const ALLOWED_TAGS = [
   'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
   'details', 'summary', 'aside', 'section', 'div', 'span',
   'video', 'source', 'iframe',
+  'button', 'form', 'input', 'label', 'textarea', 'select', 'option',
   'svg', 'defs', 'lineargradient', 'stop', 'path',
 ];
 
@@ -17,6 +18,9 @@ const ALLOWED_ATTRS = new Set([
   'colspan', 'rowspan', 'scope',
   'srcset', 'sizes',
   'type', 'controls', 'autoplay', 'loop', 'muted', 'playsinline', 'poster', 'preload',
+  'name', 'value', 'placeholder', 'for', 'disabled', 'checked', 'selected',
+  'rows', 'cols', 'maxlength', 'minlength', 'min', 'max', 'step',
+  'method', 'action',
   'allow', 'allowfullscreen', 'frameborder', 'sandbox', 'referrerpolicy',
   'viewbox', 'preserveaspectratio', 'd', 'fill', 'stroke', 'stroke-width',
   'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
@@ -91,7 +95,7 @@ export function sanitizeHtml(input: string): string {
       const normalizedAttr = SVG_ATTR_CANONICAL[rawName] || rawName;
 
       const sanitizedValue = stripUnsafeProtocols(rawValue);
-      if (!sanitizedValue && (rawName === 'href' || rawName === 'src')) continue;
+      if (!sanitizedValue && (rawName === 'href' || rawName === 'src' || rawName === 'action')) continue;
       if (rawName === 'target' && sanitizedValue !== '_blank') continue;
       if (tag === 'iframe' && rawName === 'src' && !isSafeIframeSrc(sanitizedValue)) continue;
 

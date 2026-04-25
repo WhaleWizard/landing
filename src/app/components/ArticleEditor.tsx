@@ -143,7 +143,7 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
 }
 
 function parseHtmlToBlocks(html: string): ContentBlock[] {
-  const source = sanitizeHtml(String(html || '').trim());
+  const source = String(html || '').trim();
   if (!source) {
     return [{ id: uid(), type: 'paragraph', text: '' }];
   }
