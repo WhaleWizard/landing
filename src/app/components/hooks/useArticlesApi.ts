@@ -62,6 +62,46 @@ function asArticleArray(value: unknown): Article[] {
   return Array.isArray(value) ? (value as Article[]) : [];
 }
 
+function toTimestamp(article: Article | undefined): number {
+  const value = String(article?.updatedAt || article?.publishedAt || '').trim();
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function pickFresherArticle(primary: Article, backup: Article): Article {
+  const primaryTs = toTimestamp(primary);
+  const backupTs = toTimestamp(backup);
+
+  if (backupTs > primaryTs) return backup;
+  if (primaryTs > backupTs) return primary;
+
+  const primaryContentSize = String(primary?.content || '').length;
+  const backupContentSize = String(backup?.content || '').length;
+  if (backupContentSize > primaryContentSize) return backup;
+  return primary;
+}
+
+function mergeArticlesPreferFresh(primary: Article[], backup: Article[]): Article[] {
+  const merged = new Map<string, Article>();
+
+  dedupeBySlug(primary).forEach((article, index) => {
+    merged.set(articleIdentityKey(article, index), article);
+  });
+
+  dedupeBySlug(backup).forEach((article, index) => {
+    const key = articleIdentityKey(article, index);
+    const current = merged.get(key);
+    if (!current) {
+      merged.set(key, article);
+      return;
+    }
+    merged.set(key, pickFresherArticle(current, article));
+  });
+
+  return Array.from(merged.values());
+}
+
 function saveLocalArticlesBackup(articles: Article[]): void {
   if (typeof window === 'undefined') return;
 
@@ -157,10 +197,12 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
 
     const json = (await res.json()) as ArticlesResponse;
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
+    const localBackup = dedupeBySlug(fetchLocalArticlesBackup());
 
     if (primaryArticles.length > 0) {
-      saveLocalArticlesBackup(primaryArticles);
-      return primaryArticles;
+      const merged = mergeArticlesPreferFresh(primaryArticles, localBackup);
+      saveLocalArticlesBackup(merged);
+      return merged;
     }
 
     return resolveFallbackArticles();

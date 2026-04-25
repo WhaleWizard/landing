@@ -92,6 +92,12 @@
   border-radius: 14px;
 }
 
+/* Keep decorative SVG separators visually thin even when stretched. */
+[data-blog-ui='true'] .blog-article-content svg path {
+  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
+}
+
 [data-blog-ui='true'] .blog-article-content :where(pre, code) {
   background: #0f1014;
   border: 1px solid var(--blog-border);
