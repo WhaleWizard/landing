@@ -184,6 +184,15 @@ export default function Admin() {
     };
 
     let updatedArticles = [...articles];
+    const conflictingArticle = updatedArticles.find((article) => (
+      article.slug === normalizedArticle.slug && article.id !== normalizedArticle.id
+    ));
+
+    if (conflictingArticle) {
+      alert(`Slug "${normalizedArticle.slug}" уже используется в статье "${conflictingArticle.title}". Выберите уникальный slug.`);
+      return;
+    }
+
     const nextId = () => Math.max(0, ...updatedArticles.map((a) => a.id), 0) + 1;
     const slugIndex = updatedArticles.findIndex((a) => a.slug === normalizedArticle.slug);
 
