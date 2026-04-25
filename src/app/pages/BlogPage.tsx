@@ -65,6 +65,13 @@ function BlogPageComponent() {
   }, [slug]);
 
   useEffect(() => {
+    document.body.dataset.blogRoute = slug ? 'article' : 'list';
+    return () => {
+      delete document.body.dataset.blogRoute;
+    };
+  }, [slug]);
+
+  useEffect(() => {
     if (slug && !loading) {
       const article = allArticles.find((a) => a.slug === slug);
       if (article) setSelectedArticle(article);
@@ -121,7 +128,12 @@ function BlogPageComponent() {
           url={`/blog/${selectedArticle.slug}`}
           type="article"
         />
-        <section ref={sectionRef} className="min-h-screen bg-background" style={{ contain: 'layout style paint' }}>
+        <section
+          ref={sectionRef}
+          data-blog-ui="true"
+          className="blog-page blog-page--article min-h-screen bg-background"
+          style={{ contain: 'layout style paint' }}
+        >
           <div className="relative overflow-hidden pt-16 pb-12 md:pt-24 md:pb-20">
             <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
@@ -137,7 +149,7 @@ function BlogPageComponent() {
 
               </div>
 
-              <button onClick={goToBlogList} className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 bg-transparent border-none cursor-pointer">
+              <button onClick={goToBlogList} className="blog-touch-target inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 bg-transparent border-none cursor-pointer">
                 <ArrowLeft className="w-4 h-4" /><span>Все статьи</span>
               </button>
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-5">
@@ -156,7 +168,7 @@ function BlogPageComponent() {
               <img src={selectedArticle.image} alt={selectedArticle.title} loading="eager" fetchpriority="high" className="w-full h-auto object-cover max-h-[500px]" />
             </div>
           </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap max-w-3xl mx-auto px-4 sm:px-6 pb-20">
             {selectedArticle.summary && (
               <aside className="mb-8 rounded-2xl border border-primary/30 bg-primary/10 p-5">
                 <h2 className="text-lg font-semibold mb-2">Краткий ответ</h2>
@@ -175,7 +187,11 @@ function BlogPageComponent() {
               </section>
             )}
 
-            <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: safeArticleContent }} />
+            <div
+              ref={contentRef}
+              className="blog-article-content prose prose-lg max-w-none"
+              dangerouslySetInnerHTML={{ __html: safeArticleContent }}
+            />
 
             {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
               <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">
@@ -183,7 +199,7 @@ function BlogPageComponent() {
                 <div className="space-y-4">
                   {selectedArticle.faq.map((item, index) => (
                     <details key={`${item.question}-${index}`} className="group rounded-xl border border-border/70 bg-background/40 px-4 py-3">
-                      <summary className="cursor-pointer list-none font-medium text-foreground group-open:text-primary">
+                      <summary className="blog-touch-target cursor-pointer list-none font-medium text-foreground group-open:text-primary">
                         {item.question}
                       </summary>
                       <p className="mt-2 text-sm md:text-base text-muted-foreground leading-relaxed">{item.answer}</p>
@@ -217,7 +233,7 @@ function BlogPageComponent() {
               <p className="text-muted-foreground mb-5">Понравилась статья? Остались вопросы?</p>
               <button
                 onClick={goToContact}
-                className="group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                className="blog-touch-target group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
                 <span className="relative text-sm md:text-base">Получи бесплатную консультацию</span>
@@ -232,17 +248,21 @@ function BlogPageComponent() {
   return (
     <>
       <SEO title="Блог о маркетинге" description="Экспертные статьи о таргетированной рекламе" />
-      <section className="min-h-screen bg-background py-20 px-4 sm:px-6" style={{ contain: 'layout style paint' }}>
+      <section
+        data-blog-ui="true"
+        className="blog-page blog-page--list min-h-screen bg-background py-20 px-4 sm:px-6"
+        style={{ contain: 'layout style paint' }}
+      >
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-end mb-4"><button onClick={goHome} className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
             <h1 className="text-4xl md:text-6xl font-bold">Блог о <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">маркетинге</span></h1>
             <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса</p>
           </motion.div>
-          <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+          <div className="blog-list-grid grid md:grid-cols-2 gap-6 md:gap-8">
             {allArticles.map((article, i) => (
               <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`/blog/${article.slug}`)}>
-                <div className="p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
+                <div className="blog-card p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{article.category}</span>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground"><Clock className="w-3 h-3" />{article.readTime}</div>
