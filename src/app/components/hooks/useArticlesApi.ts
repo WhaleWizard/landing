@@ -62,6 +62,36 @@ function asArticleArray(value: unknown): Article[] {
   return Array.isArray(value) ? (value as Article[]) : [];
 }
 
+function asIsoTimestamp(value?: string): number {
+  if (!value) return 0;
+  const ts = Date.parse(value);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function articleRecencyScore(article?: Article): number {
+  if (!article) return 0;
+  return Math.max(
+    asIsoTimestamp(article.updatedAt),
+    asIsoTimestamp(article.publishedAt),
+  );
+}
+
+function pickPreferredArticle(current: Article | undefined, incoming: Article): Article {
+  if (!current) return incoming;
+
+  const currentScore = articleRecencyScore(current);
+  const incomingScore = articleRecencyScore(incoming);
+
+  if (incomingScore > currentScore) return incoming;
+  if (incomingScore < currentScore) return current;
+
+  const currentContentLength = String(current.content || '').length;
+  const incomingContentLength = String(incoming.content || '').length;
+  if (incomingContentLength > currentContentLength) return incoming;
+
+  return current;
+}
+
 function saveLocalArticlesBackup(articles: Article[]): void {
   if (typeof window === 'undefined') return;
 
@@ -127,11 +157,13 @@ async function resolveFallbackArticles(): Promise<Article[]> {
   ]);
 
   const mergedMap = new Map<string, Article>();
-  const candidates = [localBackup, localSeed, publicFallback].map(dedupeBySlug);
+  const candidates = [publicFallback, localSeed, localBackup].map(dedupeBySlug);
 
   candidates.forEach((candidate) => {
     candidate.forEach((article, index) => {
-      mergedMap.set(articleIdentityKey(article, index), article);
+      const key = articleIdentityKey(article, index);
+      const preferred = pickPreferredArticle(mergedMap.get(key), article);
+      mergedMap.set(key, preferred);
     });
   });
 
@@ -159,8 +191,22 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
     if (primaryArticles.length > 0) {
-      saveLocalArticlesBackup(primaryArticles);
-      return primaryArticles;
+      const localBackup = dedupeBySlug(fetchLocalArticlesBackup());
+      const mergedPrimary = new Map<string, Article>();
+
+      localBackup.forEach((article, index) => {
+        mergedPrimary.set(articleIdentityKey(article, index), article);
+      });
+
+      primaryArticles.forEach((article, index) => {
+        const key = articleIdentityKey(article, index);
+        const preferred = pickPreferredArticle(mergedPrimary.get(key), article);
+        mergedPrimary.set(key, preferred);
+      });
+
+      const safePrimary = Array.from(mergedPrimary.values());
+      saveLocalArticlesBackup(safePrimary);
+      return safePrimary;
     }
 
     return resolveFallbackArticles();
