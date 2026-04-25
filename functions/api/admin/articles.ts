@@ -25,7 +25,13 @@ function getSiteUrl(env: Env, request: Request): string {
   return origin.replace(/\/$/, '');
 }
 
-async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Promise<void> {
+interface CacheInvalidationReport {
+  targets: string[];
+  successful: string[];
+  failed: string[];
+}
+
+async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Promise<CacheInvalidationReport> {
   const targets = [
     `${siteUrl}/api/articles`,
     `${siteUrl}/sitemap.xml`,
@@ -33,7 +39,20 @@ async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Pro
     ...articleSlugs.map((slug) => `${siteUrl}/blog/${slug}`),
   ];
 
-  await Promise.all(targets.map((url) => deleteCacheByUrl(url)));
+  const settled = await Promise.allSettled(targets.map((url) => deleteCacheByUrl(url)));
+  const successful: string[] = [];
+  const failed: string[] = [];
+
+  settled.forEach((result, index) => {
+    if (result.status === 'fulfilled') successful.push(targets[index]);
+    else failed.push(targets[index]);
+  });
+
+  return {
+    targets,
+    successful,
+    failed,
+  };
 }
 
 async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Article[]): Promise<void> {
@@ -174,11 +193,23 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
     const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
     const siteUrl = getSiteUrl(env, request);
 
-    waitUntil(invalidateSeoCaches(siteUrl, allSlugs));
+    const invalidationPromise = invalidateSeoCaches(siteUrl, allSlugs);
+    waitUntil(invalidationPromise.then(() => undefined));
     waitUntil(notifyIndexNow(env, siteUrl, updated));
 
+    const invalidationReport = await invalidationPromise;
+
     return json(
-      { success: true, articles: updated },
+      {
+        success: true,
+        articles: updated,
+        cacheInvalidationAttempted: true,
+        siteUrlUsed: siteUrl,
+        requestOrigin: new URL(request.url).origin.replace(/\/$/, ''),
+        invalidatedPathsCount: invalidationReport.successful.length,
+        invalidationTargetsCount: invalidationReport.targets.length,
+        invalidationFailedCount: invalidationReport.failed.length,
+      },
       {
         headers: {
           'Cache-Control': CACHE_CONTROL.noStore,
