@@ -189,7 +189,7 @@ function BlogPageComponent() {
 
             <div
               ref={contentRef}
-              className="blog-article-content prose prose-lg max-w-none"
+              className="blog-article-content max-w-none"
               dangerouslySetInnerHTML={{ __html: safeArticleContent }}
             />
 

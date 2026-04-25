@@ -4,9 +4,13 @@ import { json } from '../_lib/http';
 import type { Env } from '../_lib/types';
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+  const url = new URL(request.url);
+  const bypassCache = url.searchParams.has('_') || url.searchParams.get('cache') === 'no-store';
   const cacheKey = new Request(request.url, { method: 'GET' });
-  const cached = await matchCache(cacheKey);
-  if (cached) return cached;
+  if (!bypassCache) {
+    const cached = await matchCache(cacheKey);
+    if (cached) return cached;
+  }
 
   try {
     const articles = await fetchArticlesWithFallback(env, request);
@@ -21,7 +25,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       },
     );
 
-    if (!isEmpty) {
+    if (!isEmpty && !bypassCache) {
       waitUntil(putCache(cacheKey, response));
     }
     return response;

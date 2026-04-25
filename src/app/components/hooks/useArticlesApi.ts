@@ -32,6 +32,12 @@ interface ArticlesResponse {
 interface AdminUpdateResponse {
   success: boolean;
   articles: Article[];
+  cacheInvalidationAttempted?: boolean;
+  siteUrlUsed?: string;
+  requestOrigin?: string;
+  invalidatedPathsCount?: number;
+  invalidationTargetsCount?: number;
+  invalidationFailedCount?: number;
 }
 
 function articleIdentityKey(article: Article, index: number): string {
@@ -150,16 +156,22 @@ async function fetchPublicJsonBinFallback(): Promise<Article[]> {
 }
 
 async function resolveFallbackArticles(): Promise<Article[]> {
-  const localBackup = fetchLocalArticlesBackup();
+  const localBackup = dedupeBySlug(fetchLocalArticlesBackup());
   const [localSeed, publicFallback] = await Promise.all([
-    fetchLocalSeedFallback(),
-    fetchPublicJsonBinFallback(),
+    fetchLocalSeedFallback().then(dedupeBySlug),
+    fetchPublicJsonBinFallback().then(dedupeBySlug),
   ]);
 
-  const mergedMap = new Map<string, Article>();
-  const candidates = [publicFallback, localSeed, localBackup].map(dedupeBySlug);
+  // Prefer a single freshest non-empty fallback source to avoid mixing stale and current datasets.
+  const preferredSource = [publicFallback, localSeed, localBackup].find((source) => source.length > 0) || [];
+  if (preferredSource.length > 0) {
+    saveLocalArticlesBackup(preferredSource);
+    return preferredSource;
+  }
 
-  candidates.forEach((candidate) => {
+  // Last-resort merge for rare edge-cases where all sources are tiny/partial.
+  const mergedMap = new Map<string, Article>();
+  [publicFallback, localSeed, localBackup].forEach((candidate) => {
     candidate.forEach((article, index) => {
       const key = articleIdentityKey(article, index);
       const preferred = pickPreferredArticle(mergedMap.get(key), article);

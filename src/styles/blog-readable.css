@@ -64,6 +64,19 @@
   margin-bottom: 0.9em;
 }
 
+[data-blog-ui='true'] .blog-article-content :where(ul, ol) {
+  margin: 1.1em 0;
+  padding-left: 1.35em;
+}
+
+[data-blog-ui='true'] .blog-article-content ul {
+  list-style: disc;
+}
+
+[data-blog-ui='true'] .blog-article-content ol {
+  list-style: decimal;
+}
+
 [data-blog-ui='true'] .blog-article-content a {
   color: var(--blog-link);
   text-decoration-color: color-mix(in oklab, var(--blog-link), #fff 12%);
