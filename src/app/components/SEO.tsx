@@ -9,7 +9,7 @@ interface SEOProps {
   noIndex?: boolean;
 }
 
-const SITE_URL = ((import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_SITE_URL || 'https://www.whalewzrd.com').replace(/\/$/, '');
+const SITE_URL = 'https://www.whalewzrd.com';
 
 const toAbsoluteUrl = (path: string): string => {
   if (!path) return SITE_URL;
