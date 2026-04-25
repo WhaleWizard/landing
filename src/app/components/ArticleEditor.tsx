@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 type BlockType = 'heading' | 'paragraph' | 'accent' | 'card' | 'quote' | 'image' | 'spacer' | 'rawHtml';
 
@@ -132,7 +133,7 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
 }
 
 function parseHtmlToBlocks(html: string): ContentBlock[] {
-  const source = String(html || '').trim();
+  const source = sanitizeHtml(String(html || '').trim());
   if (!source) {
     return [{ id: uid(), type: 'paragraph', text: '' }];
   }
@@ -176,7 +177,7 @@ export default function ArticleEditor({ content, onChange }: ArticleEditorProps)
     setBlocks(parseHtmlToBlocks(content));
   }, [content]);
 
-  const htmlOutput = useMemo(() => blocks.map(blockToHtml).join('\n'), [blocks]);
+  const htmlOutput = useMemo(() => sanitizeHtml(blocks.map(blockToHtml).join('\n')), [blocks]);
 
   useEffect(() => {
     if (htmlOutput === content) return;
