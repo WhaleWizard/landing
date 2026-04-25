@@ -32,6 +32,34 @@ function toAbsoluteUrl(siteUrl: string, path: string): string {
   return `${siteUrl}/${path}`;
 }
 
+function toIsoDate(value?: string): string | null {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const direct = new Date(raw);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct.toISOString().slice(0, 10);
+  }
+
+  const ddmmyyyy = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, dd, mm, yyyy] = ddmmyyyy;
+    const parsed = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}T00:00:00Z`);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  }
+
+  return null;
+}
+
+function resolveArticleDate(article: Article): string | null {
+  return (
+    toIsoDate(article.updatedAt) ||
+    toIsoDate(article.publishedAt) ||
+    toIsoDate(article.date)
+  );
+}
+
 function buildSeoTitle(article: Article): string {
   if (article.seoTitle?.trim()) return article.seoTitle.trim();
   return `${article.title} — ${article.category || 'Маркетинг'}`;
@@ -46,6 +74,7 @@ function buildSeoDescription(article: Article): string {
 function articleJsonLd(siteUrl: string, article: Article): string {
   const canonical = `${siteUrl}/blog/${article.slug}`;
   const image = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
+  const resolvedDate = resolveArticleDate(article);
 
   return JSON.stringify(
     {
@@ -54,8 +83,12 @@ function articleJsonLd(siteUrl: string, article: Article): string {
       headline: buildSeoTitle(article),
       description: buildSeoDescription(article),
       image: [image],
-      datePublished: article.publishedAt || article.updatedAt || article.date,
-      dateModified: article.updatedAt || article.publishedAt || article.date,
+      ...(resolvedDate
+        ? {
+            datePublished: resolvedDate,
+            dateModified: resolvedDate,
+          }
+        : {}),
       mainEntityOfPage: canonical,
       author: {
         '@type': 'Person',
@@ -193,7 +226,7 @@ export function renderSitemapXml(siteUrl: string, routes: string[], articleDates
   const urls = routes
     .map((route) => {
       const loc = xmlEscape(`${siteUrl}${route}`);
-      const lastmod = (articleDates[route] || defaultLastmod).slice(0, 10);
+      const lastmod = toIsoDate(articleDates[route]) || defaultLastmod;
       const isBlogArticle = route.startsWith('/blog/') && route !== '/blog';
       const priority = isBlogArticle ? '0.8' : route === '/' ? '1.0' : '0.7';
       const changefreq = isBlogArticle ? 'weekly' : route === '/' ? 'daily' : 'monthly';
@@ -215,7 +248,8 @@ export function renderFeedXml(siteUrl: string, articles: Article[]): string {
     .slice(0, 100)
     .map((article) => {
       const link = `${siteUrl}/blog/${article.slug}`;
-      const pubDate = new Date(article.publishedAt || article.updatedAt || Date.now()).toUTCString();
+      const isoDate = resolveArticleDate(article);
+      const pubDate = isoDate ? new Date(`${isoDate}T00:00:00Z`).toUTCString() : new Date().toUTCString();
       const description = buildSeoDescription(article);
       return `<item>
   <title>${xmlEscape(article.seoTitle || article.title)}</title>
