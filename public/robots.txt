@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 Disallow: /admin
-Sitemap: https://whalewzrd.com/sitemap.xml
+Sitemap: https://www.whalewzrd.com/sitemap.xml
