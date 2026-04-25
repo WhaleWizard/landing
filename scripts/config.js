@@ -11,7 +11,7 @@ export const DIST_DIR = join(ROOT_DIR, 'dist');
 export const BUILD_ARTICLES_PATH = join(DATA_DIR, 'articles.build.json');
 export const LOCAL_ARTICLES_PATH = join(DATA_DIR, 'articles.local.json');
 
-export const SITE_URL = (process.env.SITE_URL || 'https://whalewzrd.com').replace(/\/$/, '');
+export const SITE_URL = (process.env.SITE_URL || 'https://www.whalewzrd.com').replace(/\/$/, '');
 export const JSONBIN_URL = process.env.JSONBIN_URL || 'https://api.jsonbin.io/v3/b/69de47b136566621a8b15081/latest';
 
 export const STRICT_FETCH = process.env.STRICT_ARTICLES_FETCH === 'true';

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Instagram, MessageCircle, Mail, Sparkles, ArrowRight } from 'lucide-react';
 import { Youtube } from 'lucide-react';
 import { trackThankYouConversion } from '../consent/consent';
+import SEO from '../components/SEO';
 
 export default function ThankYou() {
   useEffect(() => {
@@ -37,7 +38,14 @@ export default function ThankYou() {
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
+    <>
+      <SEO
+        title="Спасибо за заявку"
+        description="Страница подтверждения отправки заявки."
+        url="/thank-you"
+        noIndex
+      />
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
 
       {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-primary/10 blur-[140px]" />
@@ -87,8 +95,7 @@ export default function ThankYou() {
           className="mt-8"
         >
           <a
-            href="https://whalewzrd.com/blog"
-            target="_blank"
+            href="https://www.whalewzrd.com/blog"
             className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-lg shadow-primary/30 overflow-hidden transition-transform hover:scale-105"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
@@ -139,6 +146,7 @@ export default function ThankYou() {
         </motion.p>
 
       </div>
-    </section>
+      </section>
+    </>
   );
 }
