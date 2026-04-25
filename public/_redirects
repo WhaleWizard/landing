@@ -1,5 +1,8 @@
 # Keep static data files accessible (do not rewrite to SPA index)
 /articles.seed.json /articles.seed.json 200
 
+# Canonical host redirect (avoid duplicate www/non-www indexing)
+https://whalewzrd.com/* https://www.whalewzrd.com/:splat 301!
+
 # Cloudflare Pages SPA fallback for non-generated routes
 /* /index.html 200
