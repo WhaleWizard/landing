@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { Lock, LogIn, Save, Plus, Trash2 } from 'lucide-react';
+import { Lock, LogIn, Save, Plus, Trash2, Sun, Moon } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
 import { API_ROUTES } from '../config';
@@ -37,15 +37,42 @@ async function verifyAdminPassword(password: string): Promise<boolean> {
 }
 
 export default function Admin() {
+  const [adminThemeMode, setAdminThemeMode] = useState<'light' | 'dark'>('light');
+  const themeVars: React.CSSProperties = adminThemeMode === 'dark'
+    ? {
+      '--adm-bg': '#10141e',
+      '--adm-fg': '#e8ecf4',
+      '--adm-card': '#161c2a',
+      '--adm-muted': '#212a3c',
+      '--adm-border': 'rgba(135, 147, 180, 0.28)',
+      '--adm-primary': '#8f83ff',
+      '--adm-primary-strong': '#7f72ff',
+      '--adm-danger': '#ff7f9e',
+      '--adm-shadow': '0 14px 30px -20px rgba(0, 0, 0, 0.58)',
+      '--adm-ring': 'rgba(143, 131, 255, 0.35)',
+    } as React.CSSProperties
+    : {
+      '--adm-bg': '#f6f7fb',
+      '--adm-fg': '#1a2030',
+      '--adm-card': '#ffffff',
+      '--adm-muted': '#eef1f8',
+      '--adm-border': '#d8deec',
+      '--adm-primary': '#6d5efc',
+      '--adm-primary-strong': '#5e50f0',
+      '--adm-danger': '#e0567a',
+      '--adm-shadow': '0 14px 30px -20px rgba(41, 56, 102, 0.28)',
+      '--adm-ring': 'rgba(109, 94, 252, 0.28)',
+    } as React.CSSProperties;
+
   const adminTheme = {
-    page: 'min-h-screen bg-[hsl(228_25%_97%)] text-[hsl(228_20%_20%)]',
-    glassPanel: 'bg-[hsl(0_0%_100%/0.76)] backdrop-blur-xl border border-[hsl(225_26%_86%/0.9)] shadow-[0_12px_30px_-18px_hsl(228_35%_45%/0.45)]',
+    page: 'min-h-screen bg-[var(--adm-bg)] text-[var(--adm-fg)] [letter-spacing:0.01em] transition-colors duration-300',
+    glassPanel: 'bg-[color-mix(in_oklab,var(--adm-card)_88%,transparent)] backdrop-blur-xl border border-[var(--adm-border)] shadow-[var(--adm-shadow)]',
     card: 'rounded-2xl',
-    input: 'w-full px-4 py-2.5 rounded-xl border border-[hsl(225_23%_84%)] bg-[hsl(220_30%_99%)] text-[hsl(228_24%_24%)] placeholder:text-[hsl(226_10%_58%)] focus:outline-none focus:ring-2 focus:ring-[hsl(248_83%_66%/0.28)] focus:border-[hsl(248_83%_66%/0.68)] transition-all duration-200',
-    subtleButton: 'text-sm text-[hsl(225_12%_43%)] hover:text-[hsl(248_64%_52%)] transition-colors duration-200',
-    primaryButton: 'py-3 rounded-xl bg-gradient-to-r from-[hsl(248_78%_64%)] to-[hsl(265_75%_68%)] text-white font-semibold flex items-center justify-center gap-2 hover:brightness-[1.03] active:brightness-95 disabled:opacity-60 transition-all duration-200 shadow-[0_12px_24px_-16px_hsl(250_70%_48%)]',
-    secondaryButton: 'px-4 py-2.5 rounded-xl border border-[hsl(226_20%_82%)] bg-[hsl(0_0%_100%/0.65)] hover:bg-[hsl(230_33%_98%)] transition-all duration-200 text-[hsl(226_20%_33%)]',
-    sectionTitle: 'text-sm font-semibold tracking-[0.01em] text-[hsl(226_25%_28%)]',
+    input: 'w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[color-mix(in_oklab,var(--adm-card)_92%,transparent)] text-[var(--adm-fg)] placeholder:text-[color-mix(in_oklab,var(--adm-fg)_54%,transparent)] [line-height:1.55] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--adm-ring)] focus-visible:border-[var(--adm-primary)] transition-all duration-200',
+    subtleButton: 'text-sm text-[color-mix(in_oklab,var(--adm-fg)_68%,transparent)] hover:text-[var(--adm-primary)] transition-colors duration-200',
+    primaryButton: 'py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:brightness-[1.04] active:brightness-95 disabled:opacity-60 transition-all duration-200 shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--adm-primary)_78%,transparent)]',
+    secondaryButton: 'px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[color-mix(in_oklab,var(--adm-card)_86%,transparent)] hover:bg-[color-mix(in_oklab,var(--adm-muted)_46%,transparent)] transition-all duration-200 text-[color-mix(in_oklab,var(--adm-fg)_88%,transparent)]',
+    sectionTitle: 'text-sm font-semibold text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]',
   } as const;
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -75,6 +102,21 @@ export default function Admin() {
     if (!isAuthenticated) return;
     void refreshHealth();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('ww-admin-theme');
+    if (storedTheme === 'light' || storedTheme === 'dark') {
+      setAdminThemeMode(storedTheme);
+      return;
+    }
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    setAdminThemeMode(prefersDark ? 'dark' : 'light');
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('ww-admin-theme', adminThemeMode);
+    window.dispatchEvent(new CustomEvent('ww-theme-change', { detail: { theme: adminThemeMode, scope: 'admin' } }));
+  }, [adminThemeMode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,14 +241,19 @@ export default function Admin() {
     return (
       <>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-      <div className={`${adminTheme.page} flex items-center justify-center p-4`}>
+      <div style={themeVars} className={`${adminTheme.page} flex items-center justify-center p-4`}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`w-full max-w-md p-8 ${adminTheme.card} ${adminTheme.glassPanel}`}>
-          <div className="flex justify-center mb-6"><div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[hsl(248_78%_64%)] to-[hsl(265_74%_68%)] flex items-center justify-center shadow-[0_14px_26px_-18px_hsl(252_80%_40%)]"><Lock className="w-8 h-8 text-white" /></div></div>
-          <h2 className="text-2xl font-semibold text-center mb-2 text-[hsl(225_30%_24%)]" style={{ textWrap: 'balance' }}>Вход в админку</h2>
-          <p className="text-center text-sm text-[hsl(225_10%_46%)] mb-6 max-w-[28ch] mx-auto leading-relaxed">Безопасный вход в CMS для управления контентом.</p>
+          <div className="flex justify-between items-center mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--adm-primary)] to-[var(--adm-primary-strong)] flex items-center justify-center shadow-[var(--adm-shadow)]"><Lock className="w-8 h-8 text-white" /></div>
+            <button type="button" onClick={() => setAdminThemeMode((prev) => prev === 'dark' ? 'light' : 'dark')} className={adminTheme.secondaryButton} aria-label="Сменить тему">
+              {adminThemeMode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          </div>
+          <h2 className="text-2xl font-semibold text-center mb-2 text-[var(--adm-fg)]" style={{ textWrap: 'balance' }}>Вход в админку</h2>
+          <p className="text-center text-sm text-[color-mix(in_oklab,var(--adm-fg)_70%,transparent)] mb-6 max-w-[28ch] mx-auto leading-relaxed">Безопасный вход в CMS для управления контентом.</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} className={adminTheme.input} autoFocus />
-            {error && <p className="text-[hsl(0_62%_48%)] text-sm text-center">{error}</p>}
+            {error && <p className="text-[var(--adm-danger)] text-sm text-center">{error}</p>}
             <button type="submit" disabled={authLoading} className={`w-full ${adminTheme.primaryButton}`}><LogIn className="w-5 h-5" /> {authLoading ? 'Проверка...' : 'Войти'}</button>
           </form>
         </motion.div>
@@ -218,12 +265,15 @@ export default function Admin() {
   return (
     <>
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-    <div className={`${adminTheme.page} py-12 px-4`}>
+    <div style={themeVars} className={`${adminTheme.page} py-12 px-4`}>
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-          <h1 className="text-3xl font-semibold bg-gradient-to-r from-[hsl(248_73%_59%)] to-[hsl(265_66%_62%)] bg-clip-text text-transparent leading-tight max-w-[20ch]" style={{ textWrap: 'balance' }}>Управление статьями</h1>
+          <h1 className="text-3xl font-semibold bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent leading-tight max-w-[20ch]" style={{ textWrap: 'balance' }}>Управление статьями</h1>
           <div className="flex items-center gap-3">
-            <span className="text-xs px-2.5 py-1.5 rounded-full bg-[hsl(248_85%_64%/0.12)] text-[hsl(248_52%_43%)] border border-[hsl(248_68%_60%/0.25)]">Источник: {sourceLabel}</span>
+            <button type="button" onClick={() => setAdminThemeMode((prev) => prev === 'dark' ? 'light' : 'dark')} className={adminTheme.secondaryButton} aria-label="Сменить тему">
+              {adminThemeMode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <span className="text-xs px-2.5 py-1.5 rounded-full bg-[color-mix(in_oklab,var(--adm-primary)_16%,transparent)] text-[var(--adm-primary)] border border-[color-mix(in_oklab,var(--adm-primary)_28%,transparent)]">Источник: {sourceLabel}</span>
             <button
               onClick={async () => {
                 await forceRefreshArticles();
@@ -256,20 +306,20 @@ export default function Admin() {
                   image: ''
                 });
                 setSlugManuallyEdited(false);
-              }} className="p-2 rounded-lg bg-[hsl(248_86%_66%/0.14)] text-[hsl(248_50%_46%)] hover:bg-[hsl(248_86%_66%/0.22)] transition-all duration-200"><Plus className="w-4 h-4" /></button>
+              }} className="p-2 rounded-lg bg-[color-mix(in_oklab,var(--adm-primary)_16%,transparent)] text-[var(--adm-primary)] hover:bg-[color-mix(in_oklab,var(--adm-primary)_24%,transparent)] transition-all duration-200"><Plus className="w-4 h-4" /></button>
             </div>
-            {loading && <p className="text-[hsl(226_9%_50%)] text-sm">Загрузка...</p>}
+            {loading && <p className="text-[color-mix(in_oklab,var(--adm-fg)_62%,transparent)] text-sm">Загрузка...</p>}
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
               {articles.map(article => (
-                <div key={article.slug} className="flex items-center gap-2 p-2.5 rounded-xl bg-[hsl(220_25%_98%/0.92)] border border-[hsl(227_20%_86%)] hover:border-[hsl(248_70%_64%/0.5)] transition-all duration-200">
+                <div key={article.slug} className="flex items-center gap-2 p-2.5 rounded-xl bg-[color-mix(in_oklab,var(--adm-card)_96%,transparent)] border border-[var(--adm-border)] hover:bg-[color-mix(in_oklab,var(--adm-muted)_35%,transparent)] transition-all duration-200">
                   <button onClick={() => {
                     setEditingArticle(article);
                     setSlugManuallyEdited(false);
                   }} className="flex-1 text-left truncate">
-                    <div className="font-medium truncate text-[hsl(227_24%_26%)]">{article.title}</div>
-                    <div className="text-xs text-[hsl(225_8%_50%)] truncate">{article.slug}</div>
+                    <div className="font-medium truncate text-[var(--adm-fg)]">{article.title}</div>
+                    <div className="text-xs text-[color-mix(in_oklab,var(--adm-fg)_58%,transparent)] truncate">{article.slug}</div>
                   </button>
-                  <button onClick={() => handleDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[hsl(0_74%_54%/0.14)] text-[hsl(0_65%_56%)] transition-colors duration-200"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[color-mix(in_oklab,var(--adm-danger)_18%,transparent)] text-[var(--adm-danger)] transition-colors duration-200"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
             </div>
@@ -277,16 +327,16 @@ export default function Admin() {
           <div className={`lg:col-span-2 p-6 ${adminTheme.card} ${adminTheme.glassPanel}`}>
             {editingArticle ? (
               <div className="space-y-4">
-                <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Заголовок</label><input type="text" value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className={adminTheme.input} /></div>
+                <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Заголовок</label><input type="text" value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className={adminTheme.input} /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Категория</label><input type="text" value={editingArticle.category} onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })} className={adminTheme.input} /></div>
-                  <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Время чтения</label><input type="text" value={editingArticle.readTime} onChange={(e) => setEditingArticle({ ...editingArticle, readTime: e.target.value })} className={adminTheme.input} /></div>
+                  <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Категория</label><input type="text" value={editingArticle.category} onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })} className={adminTheme.input} /></div>
+                  <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Время чтения</label><input type="text" value={editingArticle.readTime} onChange={(e) => setEditingArticle({ ...editingArticle, readTime: e.target.value })} className={adminTheme.input} /></div>
                 </div>
-                <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Дата</label><input type="text" value={editingArticle.date} onChange={(e) => setEditingArticle({ ...editingArticle, date: e.target.value })} className={adminTheme.input} /></div>
-                <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Краткое описание</label><textarea value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className={`${adminTheme.input} resize-y leading-relaxed max-w-full`} /></div>
-                <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">TL;DR / Краткий ответ (AEO)</label><textarea value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className={`${adminTheme.input} resize-y leading-relaxed max-w-full`} /></div>
+                <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Дата</label><input type="text" value={editingArticle.date} onChange={(e) => setEditingArticle({ ...editingArticle, date: e.target.value })} className={adminTheme.input} /></div>
+                <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Краткое описание</label><textarea value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className={`${adminTheme.input} resize-y leading-relaxed max-w-full`} /></div>
+                <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">TL;DR / Краткий ответ (AEO)</label><textarea value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className={`${adminTheme.input} resize-y leading-relaxed max-w-full`} /></div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Ключевые тезисы (по одному на строку)</label>
+                  <label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Ключевые тезисы (по одному на строку)</label>
                   <textarea
                     value={takeawaysText}
                     onChange={(e) => {
@@ -301,7 +351,7 @@ export default function Admin() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">FAQ (формат: вопрос::ответ, каждая пара с новой строки)</label>
+                  <label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">FAQ (формат: вопрос::ответ, каждая пара с новой строки)</label>
                   <textarea
                     value={faqText}
                     onChange={(e) => {
@@ -320,10 +370,10 @@ export default function Admin() {
                     className={`${adminTheme.input} resize-y leading-relaxed max-w-full`}
                   />
                 </div>
-                <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">URL обложки (картинка)</label><input type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className={adminTheme.input} /></div>
-                <div><label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Slug (URL-адрес статьи)</label><input type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className={adminTheme.input} /><p className="text-xs text-[hsl(225_10%_46%)] mt-1.5 max-w-[72ch] leading-relaxed">Автоматически из заголовка (если не трогать вручную). Только латиница и дефисы.</p></div>
+                <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">URL обложки (картинка)</label><input type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className={adminTheme.input} /></div>
+                <div><label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Slug (URL-адрес статьи)</label><input type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className={adminTheme.input} /><p className="text-xs text-[color-mix(in_oklab,var(--adm-fg)_66%,transparent)] mt-1.5 max-w-[72ch] leading-relaxed">Автоматически из заголовка (если не трогать вручную). Только латиница и дефисы.</p></div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5 text-[hsl(226_25%_28%)]">Содержание статьи</label>
+                  <label className="block text-sm font-medium mb-1.5 text-[color-mix(in_oklab,var(--adm-fg)_90%,transparent)]">Содержание статьи</label>
                   <ArticleEditor content={editingArticle.content} onChange={handleContentChange} />
                 </div>
                 <div className="flex gap-3">
@@ -332,7 +382,7 @@ export default function Admin() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-[hsl(225_10%_48%)] leading-relaxed max-w-[34ch] mx-auto">Выберите статью из списка или создайте новую</div>
+              <div className="text-center py-12 text-[color-mix(in_oklab,var(--adm-fg)_66%,transparent)] leading-relaxed max-w-[34ch] mx-auto">Выберите статью из списка или создайте новую</div>
             )}
           </div>
         </div>
