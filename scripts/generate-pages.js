@@ -148,47 +148,80 @@ function writeRoute(route, html) {
 }
 
 function renderStaticPages(assetLinks) {
-  writeRoute(
-    '/',
-    htmlTemplate({
+  const staticPages = [
+    {
+      route: '/',
       title: 'Whale Wzrd | Performance-маркетинг',
       description: 'Настройка и ведение рекламы в Google Ads и Meta Ads.',
-      canonicalPath: '/',
-      assetLinks,
-      bodyHtml: `    <main>
-      <h1>Performance-маркетинг</h1>
-      <p>Запуск, оптимизация и масштабирование рекламных кампаний.</p>
-    </main>`,
-    }),
-  );
-
-  writeRoute(
-    '/calculator',
-    htmlTemplate({
+      h1: 'Performance-маркетинг',
+      lead: 'Запуск, оптимизация и масштабирование рекламных кампаний.',
+    },
+    {
+      route: '/calculator',
       title: 'Калькулятор рекламы | Whale Wzrd',
       description: 'Калькулятор бюджета и стоимости рекламных работ.',
-      canonicalPath: '/calculator',
-      assetLinks,
-      bodyHtml: `    <main>
-      <h1>Калькулятор</h1>
-      <p>Оценка бюджета и стоимости работ.</p>
-    </main>`,
-    }),
-  );
-
-  writeRoute(
-    '/privacy-policy',
-    htmlTemplate({
+      h1: 'Калькулятор рекламы',
+      lead: 'Оценка бюджета и стоимости работ.',
+    },
+    {
+      route: '/roi-calculator',
+      title: 'Калькулятор ROAS и ROMI | Whale Wzrd',
+      description: 'Расчёт окупаемости рекламы по ключевым метрикам.',
+      h1: 'Калькулятор ROAS и ROMI',
+      lead: 'Прогноз окупаемости рекламных кампаний и unit-экономики.',
+    },
+    {
+      route: '/faq',
+      title: 'FAQ по рекламе | Whale Wzrd',
+      description: 'Ответы по бюджетам, срокам, аналитике и масштабированию.',
+      h1: 'FAQ по рекламе',
+      lead: 'Практические ответы по Google Ads, Meta Ads, GEO и AEO.',
+    },
+    {
+      route: '/marketing-glossary',
+      title: 'Словарь маркетинговых метрик | Whale Wzrd',
+      description: 'Справочник терминов по SEO, AEO, GEO, аналитике и рекламе.',
+      h1: 'Словарь маркетинговых метрик',
+      lead: 'База терминов с простыми объяснениями и формулами.',
+    },
+    {
+      route: '/privacy-policy',
       title: 'Политика конфиденциальности | Whale Wzrd',
       description: 'Правила обработки персональных данных.',
-      canonicalPath: '/privacy-policy',
-      assetLinks,
-      bodyHtml: `    <main>
-      <h1>Политика конфиденциальности</h1>
-      <p>Условия обработки персональных данных.</p>
+      h1: 'Политика конфиденциальности',
+      lead: 'Условия обработки персональных данных.',
+    },
+    {
+      route: '/offer',
+      title: 'Публичная оферта | Whale Wzrd',
+      description: 'Условия предоставления услуг и порядок взаимодействия.',
+      h1: 'Публичная оферта',
+      lead: 'Официальные условия оказания услуг.',
+    },
+    {
+      route: '/cookie-policy',
+      title: 'Политика cookie | Whale Wzrd',
+      description: 'Информация о cookie и управлении согласиями.',
+      h1: 'Политика cookie',
+      lead: 'Правила использования cookie и аналитических технологий.',
+    },
+  ];
+
+  for (const page of staticPages) {
+    writeRoute(
+      page.route,
+      htmlTemplate({
+        title: page.title,
+        description: page.description,
+        canonicalPath: page.route,
+        assetLinks,
+        bodyHtml: `    <main>
+      <h1>${escapeHtml(page.h1)}</h1>
+      <p>${escapeHtml(page.lead)}</p>
     </main>`,
-    }),
-  );
+      }),
+    );
+  }
 }
 
 function renderBlogPages(articles, assetLinks) {

@@ -18,7 +18,19 @@ export const STRICT_FETCH = process.env.STRICT_ARTICLES_FETCH === 'true';
 export const RETRIES = Number(process.env.ARTICLES_FETCH_RETRIES || 3);
 export const TIMEOUT_MS = Number(process.env.ARTICLES_FETCH_TIMEOUT_MS || 10000);
 
-export const STATIC_ROUTES = ['/', '/blog', '/calculator', '/privacy-policy'];
+export const STATIC_ROUTES = [
+  '/',
+  '/blog',
+  '/faq',
+  '/marketing-glossary',
+  '/calculator',
+  '/roi-calculator',
+  '/privacy-policy',
+  '/offer',
+  '/cookie-policy',
+  '/feed.xml',
+  '/llms.txt',
+];
 
 export function buildJsonBinHeaders() {
   const headers = { 'Content-Type': 'application/json' };
