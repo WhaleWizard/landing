@@ -1,4 +1,5 @@
 import type { Article } from './types';
+import { sanitizeArticleHtml } from './sanitize';
 
 const BOT_UA_PATTERN = /(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebot|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|applebot|ia_archiver)/i;
 
@@ -140,6 +141,7 @@ export function renderArticleHtml(siteUrl: string, article: Article): string {
   const faqJson = faqJsonLd(article);
   const keyTakeaways = (article.keyTakeaways || []).filter(Boolean);
   const faqItems = (article.faq || []).filter((item) => item?.question && item?.answer);
+  const safeContent = sanitizeArticleHtml(article.content || '');
 
   return `<!doctype html>
 <html lang="ru">
@@ -176,7 +178,7 @@ export function renderArticleHtml(siteUrl: string, article: Article): string {
       ${article.summary ? `<aside><h2>Краткий ответ</h2><p>${escapeHtml(article.summary)}</p></aside>` : ''}
       ${keyTakeaways.length > 0 ? `<section><h2>Ключевые тезисы</h2><ul>${keyTakeaways.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul></section>` : ''}
       <section>
-${article.content}
+${safeContent}
       </section>
       ${faqItems.length > 0 ? `<section><h2>FAQ</h2>${faqItems.map((item) => `<details><summary>${escapeHtml(item.question)}</summary><p>${escapeHtml(item.answer)}</p></details>`).join('')}</section>` : ''}
     </article>

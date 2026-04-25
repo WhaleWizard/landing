@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 import RouteSkeleton from '../components/RouteSkeleton';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 function normalizeTokens(value = '') {
   return String(value)
@@ -110,6 +111,7 @@ function BlogPageComponent() {
     const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
     const seoTitle = buildArticleSeoTitle(selectedArticle);
     const seoDescription = buildArticleSeoDescription(selectedArticle);
+    const safeArticleContent = sanitizeHtml(selectedArticle.content || '');
 
     return (
       <>
@@ -173,7 +175,7 @@ function BlogPageComponent() {
               </section>
             )}
 
-            <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+            <div ref={contentRef} className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: safeArticleContent }} />
 
             {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
               <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">
