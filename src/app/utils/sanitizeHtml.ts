@@ -1,14 +1,25 @@
 const ALLOWED_TAGS = [
-  'p', 'br', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i',
-  'blockquote', 'a', 'img', 'figure', 'figcaption', 'details', 'summary',
-  'aside', 'section', 'div', 'span', 'svg', 'defs', 'lineargradient', 'stop', 'path',
+  'p', 'br', 'hr',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'ul', 'ol', 'li', 'strong', 'em', 'b', 'i',
+  'blockquote', 'pre', 'code',
+  'a', 'img', 'figure', 'figcaption',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+  'details', 'summary', 'aside', 'section', 'div', 'span',
+  'video', 'source', 'iframe',
+  'svg', 'defs', 'lineargradient', 'stop', 'path',
 ];
 
 const ALLOWED_ATTRS = new Set([
   'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading',
   'width', 'height', 'data-ww-block',
+  'id', 'role', 'aria-label',
+  'colspan', 'rowspan', 'scope',
+  'srcset', 'sizes',
+  'type', 'controls', 'autoplay', 'loop', 'muted', 'playsinline', 'poster', 'preload',
+  'allow', 'allowfullscreen', 'frameborder', 'sandbox', 'referrerpolicy',
   'viewbox', 'preserveaspectratio', 'd', 'fill', 'stroke', 'stroke-width',
-  'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'id', 'stop-color',
+  'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
 ]);
 
 const SVG_TAG_CANONICAL: Record<string, string> = {
@@ -29,6 +40,23 @@ function stripUnsafeProtocols(value: string): string {
   return normalized;
 }
 
+const SAFE_IFRAME_HOSTS = new Set([
+  'www.youtube.com',
+  'youtube.com',
+  'youtu.be',
+  'player.vimeo.com',
+  'vimeo.com',
+]);
+
+function isSafeIframeSrc(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && SAFE_IFRAME_HOSTS.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export function sanitizeHtml(input: string): string {
   let html = String(input || '')
     .replace(/className\s*=/g, 'class=')
@@ -41,7 +69,6 @@ export function sanitizeHtml(input: string): string {
 
   html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
   html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
-  html = html.replace(/<iframe[\s\S]*?<\/iframe>/gi, '');
   html = html.replace(/<object[\s\S]*?<\/object>/gi, '');
   html = html.replace(/<embed[\s\S]*?<\/embed>/gi, '');
 
@@ -66,6 +93,7 @@ export function sanitizeHtml(input: string): string {
       const sanitizedValue = stripUnsafeProtocols(rawValue);
       if (!sanitizedValue && (rawName === 'href' || rawName === 'src')) continue;
       if (rawName === 'target' && sanitizedValue !== '_blank') continue;
+      if (tag === 'iframe' && rawName === 'src' && !isSafeIframeSrc(sanitizedValue)) continue;
 
       if (rawName === 'rel') {
         safeAttrs.push(`rel="noopener noreferrer nofollow"`);
