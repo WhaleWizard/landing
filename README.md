@@ -22,6 +22,8 @@ Set these environment variables in Cloudflare Pages project settings:
 - `SITE_URL` (optional, defaults to current origin)
 - `INDEXNOW_KEY` (optional, for Bing/IndexNow instant URL notification)
 - `INDEXNOW_ENDPOINT` (optional, defaults to `https://api.indexnow.org/indexnow`)
+- `CI_STRICT_FALLBACK` (optional, default `false`; set `true` to fail CI build when JSONBin fallback is used)
+- `ALLOW_FALLBACK_BUILD` (optional; when `true`, allows fallback even if `CI_STRICT_FALLBACK=true`)
 - `VITE_GTM_ID` (optional override, defaults to `GTM-T88BWXVV`)
 - `VITE_GA_MEASUREMENT_ID` (optional override, defaults to `G-ZV18R9DLVC`)
 - `VITE_YANDEX_METRIKA_ID` (optional override, defaults to `108699980`)
