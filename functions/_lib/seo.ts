@@ -1,7 +1,7 @@
 import type { Article } from './types';
 import { sanitizeArticleHtml } from './sanitize';
 
-const BOT_UA_PATTERN = /(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebot|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|applebot|ia_archiver)/i;
+const BOT_UA_PATTERN = /(googlebot|googleother|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebot|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|applebot|ia_archiver|gptbot|chatgpt-user|ccbot|claudebot|anthropic-ai|perplexitybot|youbot|bytespider|cohere-ai|amazonbot)/i;
 
 export function isBotRequest(request: Request): boolean {
   const userAgent = request.headers.get('user-agent') || '';
