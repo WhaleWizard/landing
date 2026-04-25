@@ -9,7 +9,7 @@ interface SEOProps {
   noIndex?: boolean;
 }
 
-const SITE_URL = 'https://whalewzrd.com';
+const SITE_URL = 'https://www.whalewzrd.com';
 
 const toAbsoluteUrl = (path: string): string => {
   if (!path) return SITE_URL;

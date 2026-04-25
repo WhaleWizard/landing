@@ -50,7 +50,7 @@ function articleJsonLd(siteUrl: string, article: Article): string {
   return JSON.stringify(
     {
       '@context': 'https://schema.org',
-      '@type': 'Article',
+      '@type': 'BlogPosting',
       headline: buildSeoTitle(article),
       description: buildSeoDescription(article),
       image: [image],
