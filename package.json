@@ -7,7 +7,9 @@
     "build": "npm run fetch:articles && vite build && npm run generate:pages",
     "dev": "vite",
     "generate:pages": "node scripts/generate-pages.js",
-    "fetch:articles": "node scripts/fetch-articles.js"
+    "fetch:articles": "node scripts/fetch-articles.js",
+    "test": "npm run build",
+    "check": "npm run build"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

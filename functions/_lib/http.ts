@@ -22,7 +22,13 @@ export function xml(body: string, init: ResponseInit = {}): Response {
 }
 
 export function getClientIp(request: Request): string {
-  return request.headers.get('CF-Connecting-IP') ||
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    'unknown';
+  const cfIp = request.headers.get('CF-Connecting-IP');
+  if (cfIp) return cfIp;
+
+  const host = new URL(request.url).hostname;
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
+  }
+
+  return 'unknown';
 }

@@ -27,12 +27,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
     waitUntil(putCache(cacheKey, response));
     return response;
-  } catch (error) {
+  } catch {
     return xml('<!-- feed generation failed -->', {
       status: 502,
       headers: {
         'Cache-Control': CACHE_CONTROL.noStore,
-        'X-Error-Message': error instanceof Error ? error.message : 'unknown',
       },
     });
   }
