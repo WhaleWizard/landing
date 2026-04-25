@@ -154,7 +154,7 @@ export default function Admin() {
   const handleSlugChange = (slug: string) => {
     if (!editingArticle) return;
     setSlugManuallyEdited(true);
-    setEditingArticle({ ...editingArticle, slug });
+    setEditingArticle({ ...editingArticle, slug: transliterate(slug) });
   };
 
   const handleContentChange = (html: string) => {

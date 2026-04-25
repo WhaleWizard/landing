@@ -165,7 +165,19 @@ function BlogPageComponent() {
           </div>
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
             <div className="rounded-2xl overflow-hidden border border-border shadow-2xl">
-              <img src={selectedArticle.image} alt={selectedArticle.title} loading="eager" fetchpriority="high" className="w-full h-auto object-cover max-h-[500px]" />
+              <img
+                src={selectedArticle.image}
+                alt={selectedArticle.title}
+                loading="eager"
+                fetchpriority="high"
+                className="w-full h-auto object-cover max-h-[500px]"
+                onError={(event) => {
+                  const target = event.currentTarget;
+                  if (target.dataset.fallbackApplied === 'true') return;
+                  target.dataset.fallbackApplied = 'true';
+                  target.src = '/og-image.jpg';
+                }}
+              />
             </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap max-w-3xl mx-auto px-4 sm:px-6 pb-20">
@@ -259,23 +271,36 @@ function BlogPageComponent() {
             <h1 className="text-4xl md:text-6xl font-bold">Блог о <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">маркетинге</span></h1>
             <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса</p>
           </motion.div>
-          <div className="blog-list-grid grid md:grid-cols-2 gap-6 md:gap-8">
-            {allArticles.map((article, i) => (
-              <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`/blog/${article.slug}`)}>
-                <div className="blog-card p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{article.category}</span>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground"><Clock className="w-3 h-3" />{article.readTime}</div>
+          {allArticles.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card/70 p-8 text-center">
+              <h2 className="text-xl font-semibold mb-2">Статьи скоро появятся</h2>
+              <p className="text-muted-foreground mb-4">Сейчас блог временно пуст. Напишите нам — подскажем решение под ваш кейс.</p>
+              <button
+                onClick={goToContact}
+                className="blog-touch-target inline-flex items-center justify-center px-5 py-3 rounded-xl font-medium text-white bg-gradient-to-r from-primary to-accent hover:opacity-95 transition-opacity"
+              >
+                Связаться с нами
+              </button>
+            </div>
+          ) : (
+            <div className="blog-list-grid grid md:grid-cols-2 gap-6 md:gap-8">
+              {allArticles.map((article, i) => (
+                <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`/blog/${article.slug}`)}>
+                  <div className="blog-card p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{article.category}</span>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground"><Clock className="w-3 h-3" />{article.readTime}</div>
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-bold group-hover:text-primary transition-colors line-clamp-2">{article.title}</h2>
+                    <p className="text-muted-foreground mt-3 text-sm leading-relaxed line-clamp-3 flex-1">{article.description}</p>
+                    <div className="mt-5 flex items-center gap-2 text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span>Читать статью</span><ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </div>
-                  <h2 className="text-xl md:text-2xl font-bold group-hover:text-primary transition-colors line-clamp-2">{article.title}</h2>
-                  <p className="text-muted-foreground mt-3 text-sm leading-relaxed line-clamp-3 flex-1">{article.description}</p>
-                  <div className="mt-5 flex items-center gap-2 text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>Читать статью</span><ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </>
