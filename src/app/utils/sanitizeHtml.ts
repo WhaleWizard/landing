@@ -50,6 +50,7 @@ export function sanitizeHtml(input: string): string {
     const tag = rawTag.toLowerCase();
     if (!ALLOWED_TAGS.includes(tag)) return '';
     const normalizedTag = SVG_TAG_CANONICAL[tag] || tag;
+    const isSelfClosing = /\/\s*>$/.test(full);
 
     const safeAttrs: string[] = [];
     const attrRegex = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
@@ -78,7 +79,7 @@ export function sanitizeHtml(input: string): string {
       safeAttrs.push('rel="noopener noreferrer nofollow"');
     }
 
-    return `<${normalizedTag}${safeAttrs.length > 0 ? ` ${safeAttrs.join(' ')}` : ''}>`;
+    return `<${normalizedTag}${safeAttrs.length > 0 ? ` ${safeAttrs.join(' ')}` : ''}${isSelfClosing ? ' />' : '>'}`;
   });
 
   return html.replace(/<\/([a-z0-9-]+)>/gi, (full, tagName: string) => {
