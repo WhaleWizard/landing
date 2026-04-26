@@ -1,188 +1,254 @@
-# Weekly Audit — 2026-04-26
+# WEEKLY AUDIT — 2026-04-26
 
-## Scope and method
-- Reviewed frontend (`src/`), Cloudflare Pages Functions (`functions/`), build scripts (`scripts/`), and SEO/public assets (`public/`).
-- Compared against latest prior baseline in `docs/TECH_AUDIT_2026-04-25.md` and current git activity.
-- Executed runtime/build checks where possible (`npm run build`, `npm audit --json`).
+## Шапка
+- **Дата аудита:** 2026-04-26.
+- **Предыдущий аудит в `docs/audits/`:** `docs/audits/WEEKLY_AUDIT_2026-04-26.md` (предыдущая версия этого же weekly-файла, обновлена в рамках текущего прогона).
+- **База для сравнения динамики:** `docs/TECH_AUDIT_2026-04-25.md` + прошлый weekly.
+- **Окно изменений:** 2026-04-19 → 2026-04-26 (7 дней).
 
----
+### Краткий summary изменений
+За неделю проект активно менялся в зонах: контентный pipeline (JSONBin fallback + sync), SEO edge-логика, consent/analytics, UX/UI блога и админки, а также появились новые endpoint’ы (`/api/geo`, `/api/lead`, `/api/health/content`).
 
-## 1. БЕЗОПАСНОСТЬ
+Крупнейшие изменения по частоте правок:
+- `src/app/pages/BlogPage.tsx` (19 модификаций).
+- `src/app/components/hooks/useArticlesApi.ts` (18 модификаций).
+- `src/app/pages/Admin.tsx` (17 модификаций).
+- `functions/_lib/seo.ts`, `functions/_lib/types.ts`, `functions/sitemap.xml.ts`, `functions/_lib/jsonbin.ts` (10+ модификаций).
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| Админ-доступ построен на shared password без MFA, user-roles и audit trail | `/admin`, `functions/api/admin/articles.ts`, `functions/_lib/auth.ts` | 🔴 Критичная | Перейти на identity-based auth (Cloudflare Access/JWT/OAuth), добавить роли и журнал действий. |
-| Нет отдельной защиты от brute-force кроме общего IP rate-limit | `functions/_lib/rate-limit.ts`, `functions/api/admin/articles.ts` | 🟡 Средняя | Добавить отдельные лимиты по endpoint + progressive backoff + временную блокировку по fingerprint/ASN. |
-| `/api/lead` не rate-limited (уязвимость для spam/flood) | `functions/api/lead.ts` | 🔴 Критичная | Подключить `enforceRateLimit` + honeypot + CAPTCHA/Turnstile + server-side anti-abuse scoring. |
-| CORS явно не управляется; security headers не централизованы | `functions/_lib/http.ts`, `functions/_middleware.ts` | 🟡 Средняя | Ввести единый security middleware: CORS whitelist, `Vary`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. |
-| CSP не настроен ни на edge, ни через `_headers` | проект целиком (`public/_headers` отсутствует, в middleware не добавляется CSP) | 🔴 Критичная | Добавить строгий CSP (nonce/hash для inline), отчётный режим -> enforce; ограничить script-src только нужными доменами. |
-| Санитизация HTML основана на regex и разрешает `style`/сложные теги | `functions/_lib/sanitize.ts`, `src/app/utils/sanitizeHtml.ts` | 🔴 Критичная | Перейти на DOMPurify/OWASP sanitizer (на клиенте + server-side policy), удалить `style` и формы/инпуты из allowlist для blog content. |
-| Публичный BIN_ID зашит в клиентском конфиге | `src/app/config.ts` | ⚪ Низкая | Для read-only это допустимо, но лучше держать через edge proxy, чтобы не зависеть от внешней схемы JSONBin в клиенте. |
-| Наличие production console-логов с техническими деталями | `src/app/consent/consent.ts`, `src/app/components/hooks/useArticlesApi.ts`, `src/app/components/ContactForm.tsx` | ⚪ Низкая | Убрать или обернуть в debug-flag; исключить потенциальные диагностические утечки. |
-| Лиды отправляются во внешний Google Apps Script без подписи/верификации источника | `functions/api/lead.ts` | 🟡 Средняя | Добавить HMAC подпись запроса, rotateable secret, retry+DLQ, алерты на non-2xx. |
-| Контент хранится единым массивом статей (bulk overwrite риск) | `functions/api/admin/articles.ts`, `functions/_lib/jsonbin.ts` | 🟡 Средняя | Перейти на постатейное хранение (D1/KV), optimistic locking и версионирование. |
-
-**Выводы и рекомендации по разделу:**
-- Позитив: есть timing-safe compare, базовая валидация payload, защита от полного зануления блога, whitelist для IndexNow endpoint.
-- Главный риск недели: сочетание shared password + отсутствие CSP + отсутствие rate-limit на лид-API.
-- Приоритет: (1) закрыть `/api/lead` от abuse, (2) внедрить CSP/security headers, (3) заменить regex sanitizer.
+Новых runtime dependency за неделю не добавлено (изменены только npm scripts: `test`, `check`).
 
 ---
 
-## 2. ПРОИЗВОДИТЕЛЬНОСТЬ (Performance & Web Vitals)
+## Изменения за неделю
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| Крупный основной JS chunk (`index` ~240KB + `vendor` ~229KB pre-gzip) | артефакты `npm run build` | 🟡 Средняя | Ужесточить code-splitting, вынести тяжёлые секции home в lazy blocks, проверка unused deps. |
-| В `manualChunks` выделены MUI пакеты, но проект в основном на Radix/Tailwind (возможный избыточный вес) | `vite.config.ts`, `package.json` | 🟡 Средняя | Проверить фактическое использование MUI; удалить неиспользуемое или изолировать в админке. |
-| Много Motion-анимаций без глобальной стратегии `prefers-reduced-motion` | `src/app/components/ContactForm.tsx`, `src/app/pages/BlogPage.tsx`, др. | 🟡 Средняя | Ввести motion policy hook и отключение тяжёлых анимаций для reduced-motion. |
-| Нет подтверждённых Lighthouse/PSI метрик за неделю | не зафиксировано в репо | ⚪ Низкая | Добавить weekly Lighthouse CI (LCP/INP/CLS budget + regression gate). |
-| Edge-cache TTL для статей всего 120s → возможная нагрузка на JSONBin | `functions/_lib/cache.ts`, `functions/api/articles.ts` | ⚪ Низкая | Для стабильного контента повысить s-maxage (например 10–30 мин) + explicit purge после админ-сохранения (уже есть). |
-| Изображения в блоге без явных `width/height` (риск CLS) | `src/app/pages/BlogPage.tsx` | 🟡 Средняя | Добавить размеры/`aspect-ratio` и responsive `srcset`; подготовить WebP/AVIF. |
-| Нет явного контроля шрифтовой загрузки/подмножеств | `src/styles/fonts.css` | ⚪ Низкая | Субсетинг, `font-display: swap`, ограничение вариантов. |
+| Файл/группа | Тип | Влияние |
+|---|---|---|
+| `functions/api/lead.ts` | Добавлен | Новый lead endpoint; критично для anti-abuse и reliability интеграции с Google Apps Script. |
+| `functions/api/geo.ts`, `src/app/consent/consent.ts`, `src/app/components/cookie/CookieConsentManager.tsx` | Добавлен/модифицирован | Реализована consent-first geo-логика; влияет на legal compliance и загрузку трекеров. |
+| `functions/_middleware.ts`, `public/_redirects`, `public/robots.txt`, `functions/_lib/seo.ts` | Добавлен/модифицирован | Усилена canonical host-политика и SEO-каноникализация. |
+| `functions/_lib/sanitize.ts`, `src/app/utils/sanitizeHtml.ts`, `src/app/components/ArticleEditor.tsx` | Добавлен/модифицирован | Введена/расширена HTML sanitizer-логика для статей; зона security/контент-целостности. |
+| `functions/_lib/jsonbin.ts`, `functions/api/articles.ts`, `src/app/components/hooks/useArticlesApi.ts`, `data/articles.local.json`, `public/articles.seed.json` | Модифицирован/добавлен | Повышена отказоустойчивость получения статей (несколько fallback-источников). |
+| `functions/sitemap.xml.ts`, `functions/feed.xml.ts`, `functions/blog/[slug].ts`, `scripts/generate-pages.js` | Модифицирован | Улучшения SEO-инфраструктуры (sitemap/feed/бот-рендер/статические маршруты). |
+| `src/app/pages/FAQPage.tsx`, `src/app/pages/MarketingGlossaryPage.tsx`, `src/app/routes.tsx` | Добавлен/модифицирован | Новый SEO-контент и маршруты для расширения органического охвата. |
+| `src/app/pages/Admin.tsx`, `functions/api/admin/articles.ts` | Модифицирован | Улучшения UX и защит в админ-потоке, но модель bulk-overwrite остаётся. |
+| `package.json` | Модифицирован | Добавлены scripts `test`/`check`; dependency surface не сокращён. |
+| `docs/*` | Добавлен | Много отчётных документов; полезно для прозрачности, но дублирует артефакты анализа в репозитории. |
 
-**Выводы и рекомендации по разделу:**
-- Позитив: роуты (кроме Home) lazy-loaded, edge caching присутствует, build стабильно проходит.
-- Узкое место: размер главного бандла и анимации на слабых устройствах.
-- Следующий шаг: автоматизировать перф-мониторинг и ввести budget gates в CI.
-
----
-
-## 3. SEO И ИНДЕКСАЦИЯ
-
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| SPA-мета управляются client-side; только `/blog/:slug` имеет bot-aware HTML | `src/app/components/SEO.tsx`, `functions/blog/[slug].ts` | 🟡 Средняя | Для критичных страниц внедрить pre-render/SSR-like HTML последовательно. |
-| Нет hreflang (если планируется мультиязычность) | весь сайт | ⚪ Низкая | Добавить `hreflang` набор при запуске RU/EN зеркала. |
-| Canonical host редирект есть, но нет  trailing slash policy на уровне edge | `functions/_middleware.ts`, `public/_redirects` | ⚪ Низкая | Определить canonical policy для slash/no-slash и закрепить redirect rules. |
-| Сгенерированный sitemap lastmod для статических route — build date, не фактическая дата изменения | `scripts/generate-pages.js`, `functions/sitemap.xml.ts` | ⚪ Низкая | Для статических страниц брать timestamp из git/metadata. |
-| Нет автоматической проверки битых внутренних ссылок в контенте | blog content JSON | 🟡 Средняя | Добавить линк-чекер в CI по статьям и glossary/faq cross-links. |
-
-**Выводы и рекомендации по разделу:**
-- Позитив: robots/sitemap/feed присутствуют, blog bot-render с JSON-LD есть, canonical host фиксирован.
-- Риск: неполный SEO parity вне blog article route.
-- Приоритет: link-check + расширение предрендера для высокоценных landing pages.
+**Удалений существенных модулей не обнаружено** (в diff за период доминируют `A` и `M`, `D` отсутствуют).
 
 ---
 
-## 4. КОНТЕНТ И РЕДАКТОРСКИЙ WORKFLOW
+## 1) Безопасность
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| Workflow сохранения статей bulk-массивом → риск конкурентной перезаписи | `src/app/pages/Admin.tsx`, `functions/api/admin/articles.ts` | 🔴 Критичная | Ввести ревизии (ETag/version), постатейные операции, optimistic concurrency. |
-| Нет полноценной истории версий/rollback контента | JSONBin current model | 🟡 Средняя | Добавить журнал версий (D1 table или git-backed snapshots). |
-| Fallback-цепочка сложная, но может отдавать «самый свежий» источник без прозрачного статуса на UI | `src/app/components/hooks/useArticlesApi.ts` | ⚪ Низкая | Показывать источник данных в админке/мониторинге для нештатных сценариев. |
-| Размер массива статей пока ограничен 500, но рост = деградация update/read | `functions/api/admin/articles.ts` | 🟡 Средняя | План миграции на D1 (per-article rows, индексы по slug/date/category). |
-| Проверка полноты SEO-полей не обязательна (часть полей генерируется fallback-логикой) | `functions/_lib/jsonbin.ts` | ⚪ Низкая | Ввести редакторские «quality gates» (min length для title/description, required image). |
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| `POST /api/lead` не использует rate limit/бот-защиту и отправляет данные на внешний endpoint без origin proof | `functions/api/lead.ts` | 🔴 Критичная | Подключить `enforceRateLimit`, honeypot + Turnstile, HMAC подпись запроса во внешний скрипт, retry/DLQ. | Да |
+| Санитайзер остаётся regex-based с широким allowlist (`style`, `form`, `input`, `iframe`) | `functions/_lib/sanitize.ts`, `src/app/utils/sanitizeHtml.ts` | 🔴 Критичная | Перейти на DOMPurify/более строгий parser-based sanitizer; сократить allowlist до безопасного editorial HTML. | Да |
+| Нет централизованных security headers и CSP в edge middleware | `functions/_middleware.ts`, `public/_headers` (отсутствует) | 🔴 Критичная | Добавить CSP, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS через `_headers`/middleware. | Частично |
+| Shared password в админке без RBAC/MFA/audit trail | `src/app/pages/Admin.tsx`, `functions/api/admin/articles.ts` | 🟡 Средняя | Перейти на identity-based auth (Cloudflare Access/JWT), добавить журнал админ-действий. | Нет |
 
-**Выводы и рекомендации по разделу:**
-- Позитив: есть защита от пустого overwrite и нормализация slug/seo-полей.
-- Ключевая задача: перейти от monolithic массива к транзакционному контент-хранилищу.
+**Вывод/приоритет:** блокер №1 недели — hardening `api/lead` + CSP/security headers.
 
 ---
 
-## 5. АНАЛИТИКА И ТРЕКИНГ
+## 2) Производительность
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| Дефолтные ID аналитики/GTM захардкожены и могут случайно уйти в нецелевую среду | `src/app/consent/consent.ts` | 🟡 Средняя | Сделать env-only для production, fallback только для dev. |
-| Отладочный `console.info` в analytics bootstrap в проде | `src/app/consent/consent.ts` | ⚪ Низкая | Удалить или ограничить debug режимом. |
-| Возможные race-сценарии при одновременной загрузке GTM + GA (оба через googletagmanager.com) | `src/app/consent/consent.ts` | ⚪ Низкая | Явно документировать порядок и dedupe dataLayer init. |
-| Нет серверной валидации «consent state» при отправке лида (только клиентские события) | `src/app/components/ContactForm.tsx`, `functions/api/lead.ts` | ⚪ Низкая | Добавить consent-state атрибут в payload (без PII) для quality analytics. |
-| Потенциальный дубль событий lead (generate_lead + form_submit + dataLayer два события) | `src/app/consent/consent.ts` | ⚪ Низкая | Утвердить event taxonomy и mapping (single source for conversion). |
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| Крупные JS-чанки: `index` 240.38 kB, `vendor` 229.54 kB, `motion` 96.65 kB (pre-gzip) | Артефакты `npm run build` | 🟡 Средняя | Дополнительный code-splitting, deferred hydration тяжёлых секций, audit неиспользуемых UI библиотек. | Да |
+| CSS bundle 171.45 kB; накопление стилей после редизайна блога/админки | `src/styles/*.css` | 🟡 Средняя | Purge/сегментация стилей, исключить неиспользуемые utility-паттерны. | Да |
+| Не удалось получить Lighthouse автоматически (ограничение среды: нельзя скачать `lighthouse` из npm registry) | CI/локальное окружение | ⚪ Низкая | Добавить Lighthouse CI в pipeline с preinstalled бинарём/кэшом или запускать в GitHub Action runner. | Да |
+| В build fetch JSONBin падает 3 раза и всегда уходит в fallback (риск старого контента в статике) | `scripts/fetch-articles.js` + build лог | 🟡 Средняя | Добавить алерт, `STRICT_FETCH_ARTICLES=1` для protected branch, freshness SLA. | Да |
 
-**Выводы и рекомендации по разделу:**
-- Позитив: consent-first реализован, скрипты не грузятся до согласия/auto-region logic.
-- Рекомендация: стандартизировать event schema и убрать production debug traces.
+**Вывод/приоритет:** основная оптимизация — сократить `index/vendor/motion` и стабилизировать источник контента для build.
 
 ---
 
-## 6. ДОСТУПНОСТЬ (ACCESSIBILITY / A11Y)
+## 3) SEO
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| Во многих формах используются `<label>` без `htmlFor` + input без `id` | `src/app/components/ContactForm.tsx`, `src/app/pages/Admin.tsx` | 🟡 Средняя | Связать label/input через `htmlFor/id`, улучшить screen reader map. |
-| Ошибки формы показываются через `alert()` — poor a11y UX | `src/app/components/ContactForm.tsx` | 🟡 Средняя | Использовать inline aria-live region + полевые сообщения. |
-| Нет системной реализации reduced-motion для Motion-компонентов | компоненты с `motion` | 🟡 Средняя | Глобальный флаг `prefers-reduced-motion` + отключение pulse/parallax эффектов. |
-| Часть кликабельных элементов — styled buttons/links без явных focus-outline стратегий | Blog/Admin/Contact UI | ⚪ Низкая | Добавить consistent focus-visible token на все интерактивные элементы. |
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| Улучшен canonical host redirect, но нет явной policy для trailing slash и параметров URL | `functions/_middleware.ts`, `public/_redirects` | 🟡 Средняя | Добавить нормализацию slash/utm-параметров на edge и тест-кейсы canonicalization. | Да |
+| Генерация sitemap зависит от доступности контента во время build/fetch | `functions/sitemap.xml.ts`, `scripts/fetch-articles.js` | 🟡 Средняя | Вводить freshness-check и fail-fast в prod pipeline. | Да |
+| Отсутствует автоматический линк-чек внутренних ссылок в статьях | Контент JSON/articles | ⚪ Низкая | Добавить job `linkinator`/custom checker в CI. | Нет |
 
-**Выводы и рекомендации по разделу:**
-- Позитив: семантические `main/nav/article/section` используются во многих местах; есть aria-label в отдельных кнопках.
-- Приоритет: перевести validation UX формы на доступный паттерн и внедрить reduced-motion.
+**Вывод/приоритет:** SEO-инфраструктура выросла, но её надёжность всё ещё завязана на внешний JSONBin.
 
 ---
 
-## 7. UX/UI И КОНВЕРСИОННЫЕ ВОРОНКИ
+## 4) Контент и Workflow
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| ContactForm использует browser `alert` для ошибок и согласия — резкий UX | `src/app/components/ContactForm.tsx` | 🟡 Средняя | Inline error state, sticky summary ошибок, disable submit с подсказкой. |
-| На thank-you редирект выполняется таймером (800ms), возможен race при медленном рендере/трекерах | `src/app/components/ContactForm.tsx` | ⚪ Низкая | Перейти на deterministic navigation после successful submission + event queue flush. |
-| Возможны визуальные перегрузки от интенсивных glow/pulse эффектов на мобильных | Home/Blog/ThankYou/Contact sections | ⚪ Низкая | Упростить анимации на mobile breakpoint; урезать blur layers. |
-| Для блога нет поиска/фильтра и явной навигации по категориям | `src/app/pages/BlogPage.tsx` | ⚪ Низкая | Добавить lightweight search+chips categories для глубины контентного воронки. |
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| Админ-обновление контента всё ещё bulk-массивом (overwrite risk при concurrent editing) | `functions/api/admin/articles.ts`, `src/app/pages/Admin.tsx` | 🔴 Критичная | Перейти на постатейные операции + optimistic locking (version/etag). | Да |
+| Сложная цепочка fallback-источников затрудняет контроль source-of-truth | `src/app/components/hooks/useArticlesApi.ts`, `functions/_lib/jsonbin.ts`, `public/articles.seed.json`, `data/articles.local.json` | 🟡 Средняя | Ввести явный приоритет источников + статус источника в UI/admin/log. | Да |
+| Нет версионирования/rollback контента на уровне API | `functions/api/admin/articles.ts` | 🟡 Средняя | Добавить revision history (D1/KV/Git snapshots). | Нет |
 
-**Выводы и рекомендации по разделу:**
-- Позитив: базовый funnel (landing → submit → thank-you) реализован и сопровождается трекингом.
-- Ближайшее улучшение: повысить ясность ошибок формы и мобильный UX формы/блога.
+**Вывод/приоритет:** контент стал устойчивее к outage, но архитектурно усложнился; нужен контроль версий и конкуренции.
 
 ---
 
-## 8. ЗАВИСИМОСТИ И ИНФРАСТРУКТУРА
+## 5) Аналитика
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| `npm audit` не может выполняться без lockfile (`ENOLOCK`) | репозиторий (lockfile отсутствует) | 🟡 Средняя | Зафиксировать lockfile (`package-lock.json`), включить audit в CI. |
-| Потенциально избыточный dependency surface (MUI + Radix + множество UI libs) | `package.json` | 🟡 Средняя | Провести dep-pruning: удалить неиспользуемые пакеты, сократить attack surface и bundle size. |
-| Нет явного `_headers` файла для production security/cache policies | `public/` | 🟡 Средняя | Добавить `_headers` с CSP/HSTS/XFO/Referrer-Policy и cache stratification. |
-| Build зависит от внешнего JSONBin; при сетевых ошибках используется fallback (сработал в проверке) | `scripts/fetch-articles.js` | ⚪ Низкая | Для CI включать strict mode в protected branches + мониторинг свежести контента. |
-| Нет формализованной информации по Node version constraints | репозиторий (нет `.nvmrc`/engines) | ⚪ Низкая | Добавить `engines` в package.json + `.nvmrc` для воспроизводимости. |
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| В коде остались продовые default IDs GTM/GA/Yandex (риск ошибочного трекинга не в той среде) | `src/app/consent/consent.ts` | 🟡 Средняя | Сделать env-only для production; дефолты оставить только для dev/staging. | Да |
+| В прод-коде присутствуют `console.info`/`console.warn` диагностические логи аналитики | `src/app/consent/consent.ts` | ⚪ Низкая | Обернуть в debug-flag и выключить в production build. | Да |
+| Нет серверной привязки consent-state к lead submission telemetry | `src/app/components/ContactForm.tsx`, `functions/api/lead.ts` | ⚪ Низкая | Передавать агрегированный consent-state (без PII) в backend events. | Частично |
 
-**Выводы и рекомендации по разделу:**
-- Позитив: build pipeline устойчив к падению JSONBin (fallback работает).
-- Системный долг: отсутствие lockfile и слабая формализация инфраструктурных guardrails.
+**Вывод/приоритет:** consent-first реализован лучше, но прод-конфиг аналитики ещё требует env-дисциплины.
 
 ---
 
-## 9. ОБЩАЯ АРХИТЕКТУРА И ЭВОЛЮЦИЯ
+## 6) Доступность (A11y)
 
-| Проблема | Где находится | Критичность | Как исправить |
-|---|---|---|---|
-| Отклонение от целевой эволюции: контент всё ещё на JSONBin bulk-модели, не на D1 | `functions/_lib/jsonbin.ts`, `scripts/fetch-articles.js` | 🟡 Средняя | Зафиксировать roadmap миграции D1 (schema + dual-write + cutover). |
-| Дублирование sanitize-логики на client и edge | `functions/_lib/sanitize.ts`, `src/app/utils/sanitizeHtml.ts` | 🟡 Средняя | Вынести shared sanitizer policy в единый пакет/модуль. |
-| Частичное смешение ответственности (часть business/infra логики в UI слое) | `src/app/components/hooks/useArticlesApi.ts`, `src/app/pages/Admin.tsx` | ⚪ Низкая | Выделить сервисный слой и унифицировать error/result contracts. |
-| TypeScript strictness не зафиксирован (tsconfig отсутствует), присутствуют `any`-подобные зоны | репозиторий | 🟡 Средняя | Добавить `tsconfig` со strict-режимом и постепенно устранить implicit any. |
-| Масштабируемость под multi-author/A-B tests ограничена текущей CMS-моделью | `/admin`, bulk update API | 🟡 Средняя | Ввести роли авторов, draft/publish lifecycle, experiment flags. |
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| Ошибки формы по-прежнему частично завязаны на `alert`/неполноценные aria-live паттерны | `src/app/components/ContactForm.tsx` | 🟡 Средняя | Перевести на inline validation + `aria-live=polite/assertive`. | Да |
+| Не внедрена глобальная reduced-motion policy при активном использовании Motion | `src/app/components/*`, `src/app/pages/*` | 🟡 Средняя | Добавить `prefers-reduced-motion` hook и системно отключать тяжёлые эффекты. | Да |
+| После UI-изменений нет регулярного automated a11y-прогона | Проект целиком | ⚪ Низкая | Запускать axe/Lighthouse A11y в CI минимум на ключевых маршрутах. | Да |
 
-**Выводы и рекомендации по разделу:**
-- Позитив: архитектура остаётся понятной, контуры SEO/analytics/content разделены.
-- Главный стратегический долг: контентная платформа и strict typing governance.
+**Вывод/приоритет:** фокус на ContactForm + системный reduced-motion.
 
 ---
 
-## Сравнение с прошлым аудитом
-- За неделю изменения в репозитории были (по git history), поэтому это не «нулевая неделя».
-- Позитивная динамика относительно `docs/TECH_AUDIT_2026-04-25.md`:
-  - Сохраняется защита от пустого полного удаления статей и кеш-инвалидация после admin update.
-  - Build-процесс по-прежнему устойчив при недоступном JSONBin (fallback сработал в реальной проверке).
-- Без явной положительной динамики остались: CSP/security headers, lead anti-abuse, regex sanitizer, отсутствие lockfile.
+## 7) UX/UI
+
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| Много итераций UI (Blog/Admin/Modal), но нет формализованных визуальных regression checks | `src/app/pages/BlogPage.tsx`, `src/app/pages/Admin.tsx`, `src/app/components/Modal.tsx` | 🟡 Средняя | Подключить visual snapshot tests (Percy/Chromatic/Playwright screenshots). | Да |
+| Воронка lead остаётся чувствительной к нестабильности внешнего Apps Script endpoint | `src/app/components/ContactForm.tsx`, `functions/api/lead.ts` | 🟡 Средняя | Добавить user-facing retry/status UX + fallback канал связи. | Да |
+| Новые SEO-страницы (FAQ/Glossary) добавлены, но нет measurable KPI по конвертации из органики | `src/app/pages/FAQPage.tsx`, `src/app/pages/MarketingGlossaryPage.tsx` | ⚪ Низкая | Настроить события scroll-depth/CTA click и отдельные dashboard-срезы. | Да |
+
+**Вывод/приоритет:** UX улучшился визуально, но нужна операционализация quality и конверсий.
 
 ---
 
-## ИТОГОВЫЙ ВЫВОД
+## 8) Зависимости и инфраструктура
 
-### Top-5 критических проблем (немедленно)
-1. Отсутствие rate limiting/anti-bot на `/api/lead`.
-2. Нет CSP и централизованных security headers.
-3. Regex-based HTML sanitizer с широким allowlist.
-4. Shared-password админка без полноценной IAM-модели.
-5. Bulk overwrite контента без конкурентного контроля/версий.
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| Lockfile отсутствует (`npm audit`/reproducible installs ограничены) | Корень репозитория | 🟡 Средняя | Зафиксировать `package-lock.json`, включить audit/update policy. | Нет |
+| Dependency surface большой (MUI + Radix + прочие UI libs), но weekly не показал их сокращение | `package.json` | 🟡 Средняя | Сделать dep usage audit и убрать лишнее. | Да |
+| Нет `.nvmrc`/`engines` для стабилизации версии Node в CI/CD | Корень репозитория | ⚪ Низкая | Добавить `.nvmrc` + `engines` в `package.json`. | Нет |
 
-### Top-3 стратегических улучшения (среднесрочно)
-1. Миграция контента на D1 (постатейно, версии, rollback, multi-author).
-2. Введение CI quality gates: Lighthouse CI + link checker + npm audit (с lockfile).
-3. Архитектурная гигиена: strict TypeScript + единый shared sanitizer/security слой.
+**Вывод/приоритет:** нужно повышать воспроизводимость и управляемость dependency рисков.
 
-### Разделы с положительной динамикой
-- **Контентная устойчивость сборки** (fallback в build-пайплайне подтверждён).
-- **SEO-инфраструктура блога** (bot HTML + sitemap/feed остаются рабочими).
-- **Consent-first аналитика** (базовая модель блокировки трекеров до согласия сохранена).
+---
+
+## 9) Общая архитектура
+
+| Проблема | Где находится | Критичность | Как исправить | Связана с изменениями? |
+|---|---|---|---|---|
+| Архитектура контента всё ещё центрирована на JSONBin, D1-модель не внедрена | `functions/_lib/jsonbin.ts`, `scripts/fetch-articles.js`, `functions/api/admin/articles.ts` | 🟡 Средняя | Запланировать поэтапную миграцию в D1: schema, dual-write, cutover, rollback plan. | Да |
+| Санитизация дублируется в двух местах (edge + client), риск расхождения правил | `functions/_lib/sanitize.ts`, `src/app/utils/sanitizeHtml.ts` | 🟡 Средняя | Вынести shared sanitizer policy/module и единые тесты. | Да |
+| Рост fallback/SEO/analytics логики увеличил сложность без централизованной observability | `functions/*`, `scripts/*`, `src/app/consent/*` | ⚪ Низкая | Ввести health dashboard + structured logs + error budget для content pipeline. | Да |
+
+**Вывод/приоритет:** архитектура развивается быстро, но требует консолидации (content store + shared policies + observability).
+
+---
+
+## Метрики производительности
+
+### Build и размеры чанков (pre-gzip)
+Результаты `npm run build`:
+- `dist/assets/index-Cwu0mCOO.js` — **240.38 kB**
+- `dist/assets/vendor-BAMRqgRy.js` — **229.54 kB**
+- `dist/assets/motion-CdSdFQ7S.js` — **96.65 kB**
+- `dist/assets/Admin-B8ylYv9V.js` — **82.15 kB**
+- `dist/assets/FAQPage-DPq-bgqG.js` — **57.52 kB**
+- `dist/assets/MarketingGlossaryPage-D3HS3dHG.js` — **48.32 kB**
+- CSS `dist/assets/index-D_UuGjcM.css` — **171.45 kB**
+
+### Lighthouse
+Автозапуск не выполнен: `npx lighthouse` завершился ошибкой `npm E403` (нельзя скачать пакет в текущем окружении).
+
+**Нужен ручной прогон (цели):**
+- Performance ≥ 85
+- Accessibility ≥ 95
+- Best Practices ≥ 95
+- SEO ≥ 95
+- LCP < 2.5s, INP < 200ms, CLS < 0.1
+
+### Изображения и шрифты
+В репозитории не найдено крупных локальных image/font assets в `public/` и `src/`; основные риски производительности сейчас в JS/CSS, а не в медиа.
+
+---
+
+## Динамика (сравнение с прошлым аудитом)
+
+| Категория | Статус | Сравнение с прошлым аудитом |
+|---|---|---|
+| Canonical host/SEO redirect политика | Исправлена (частично) | Добавлен edge middleware redirect на `www` + согласованность canonical. |
+| Отказоустойчивость контента | Улучшена | Реализованы fallback-цепочки и seed-источники для статей. |
+| Consent-first аналитика | Улучшена | Добавлен geo endpoint и cookie consent manager; трекеры грузятся после согласия. |
+| `/api/lead` anti-abuse | Появилась новая критичная зона | Endpoint добавлен, но без rate-limit/turnstile/подписи. |
+| CSP/security headers | Осталась | По-прежнему нет централизованных заголовков и CSP policy. |
+| Regex sanitizer риск | Осталась | Код санитайзера расширен, но подход по-прежнему regex-based. |
+| Bulk overwrite контента | Осталась | Админ API всё ещё обновляет массив статей целиком. |
+
+**Итоговый тренд:** **умеренное улучшение**, но с появлением нового критичного риска в lead API.
+- Новые проблемы: **1 критичная** (`/api/lead` anti-abuse gap).
+- Закрытые/улучшенные области: **3** (canonical host, content resilience, consent-flow).
+- Устойчиво нерешённые: **3 ключевые** (CSP/headers, sanitizer, bulk content model).
+
+---
+
+## Сгенерированные задачи (GitHub Issues)
+
+- **[Security] Harden `/api/lead` against abuse and spoofing**  
+  Labels: `bug`, `security`, `backend`, `priority:high`  
+  Действия: добавить rate-limit, Turnstile/honeypot, HMAC подпись во внешний endpoint, retries/alerting.
+
+- **[Security] Add CSP and centralized security headers for Cloudflare Pages**  
+  Labels: `security`, `infrastructure`, `seo`, `priority:high`  
+  Действия: внедрить CSP + `_headers`/middleware policy, протестировать GTM/GA/Yandex allowlist.
+
+- **[Security/Content] Replace regex sanitizer with parser-based sanitizer policy**  
+  Labels: `security`, `content`, `backend`, `frontend`, `priority:high`  
+  Действия: внедрить DOMPurify-like policy, унифицировать edge/client sanitizer, покрыть тестами XSS payloads.
+
+- **[Architecture] Move admin article updates from bulk overwrite to versioned per-article writes**  
+  Labels: `architecture`, `backend`, `cms`, `priority:medium`  
+  Действия: добавить version field/ETag, PATCH per slug, conflict handling, rollback.
+
+- **[Performance] Reduce critical JS/CSS payload (index/vendor/motion + global CSS)**  
+  Labels: `performance`, `frontend`, `priority:medium`  
+  Действия: анализ зависимостей, route-level chunking, a11y-friendly motion policy, CSS pruning.
+
+### Готовые команды `gh issue create`
+```bash
+gh issue create --title "[Security] Harden /api/lead against abuse and spoofing" --label "bug,security,backend,priority:high" --body "Context: functions/api/lead.ts introduced this week without endpoint-specific anti-abuse controls.\n\nTasks:\n1) Add enforceRateLimit for POST /api/lead.\n2) Add Turnstile (or honeypot + server scoring).\n3) Add HMAC signature when forwarding payload to external Apps Script endpoint.\n4) Add retry/backoff + alerting for non-2xx responses.\n\nDoD:\n- Abuse attempts are throttled and logged.\n- Endpoint rejects unsigned or malformed forwarded payloads."
+
+gh issue create --title "[Security] Add CSP and centralized security headers for Cloudflare Pages" --label "security,infrastructure,seo,priority:high" --body "Context: no centralized CSP/security headers despite multiple external trackers.\n\nTasks:\n1) Add public/_headers and/or middleware header injection.\n2) Configure CSP script-src/connect-src/frame-src for GTM/GA/Yandex/Meta/TikTok domains.\n3) Add Referrer-Policy, X-Content-Type-Options, Permissions-Policy, HSTS.\n4) Run compatibility test on /, /blog/:slug, /admin."
+
+gh issue create --title "[Security/Content] Replace regex sanitizer with parser-based sanitizer policy" --label "security,content,backend,frontend,priority:high" --body "Context: sanitizer in functions/_lib/sanitize.ts and src/app/utils/sanitizeHtml.ts is regex-based and too permissive.\n\nTasks:\n1) Replace with parser-based sanitizer policy (shared module).\n2) Remove high-risk tags/attrs (style/form/input/unsafe iframe attrs) unless explicitly needed.\n3) Add unit tests for common XSS vectors and rich-content regression fixtures.\n4) Ensure identical policy on edge + client rendering."
+
+gh issue create --title "[Architecture] Move admin article updates to versioned per-article writes" --label "architecture,backend,cms,priority:medium" --body "Context: admin API still writes full articles array, high overwrite risk.\n\nTasks:\n1) Add per-article update endpoints (PATCH by slug/id).\n2) Add optimistic concurrency (version/etag).\n3) Add conflict response UX in Admin UI.\n4) Add revision history for rollback."
+
+gh issue create --title "[Performance] Reduce critical JS/CSS payload" --label "performance,frontend,priority:medium" --body "Context: build reports index/vendor/motion + CSS as primary payload contributors.\n\nTasks:\n1) Audit and remove unused dependencies/chunks.\n2) Add route-level lazy loading for non-critical blocks.\n3) Introduce reduced-motion policy and lighter animations for low-power devices.\n4) Add Lighthouse CI budgets for Performance/LCP/INP/CLS."
+```
+
+---
+
+## План действий на следующую неделю (3–5 задач)
+
+1. **Закрыть критический риск лид-формы.**  
+   Что сделать: hardening `functions/api/lead.ts` (rate limit + anti-bot + подпись).  
+   Ожидаемый эффект: снижение спама/фрода и отказов внешнего endpoint.
+
+2. **Внедрить CSP + security headers.**  
+   Что сделать: добавить `public/_headers` и/или расширить `functions/_middleware.ts`.  
+   Ожидаемый эффект: снижение XSS/инъекционных рисков, улучшение security posture.
+
+3. **Унифицировать и ужесточить санитизацию HTML.**  
+   Что сделать: заменить regex sanitizer в `functions/_lib/sanitize.ts` и `src/app/utils/sanitizeHtml.ts` на единый parser-based модуль.  
+   Ожидаемый эффект: меньше расхождений edge/client и меньше XSS-риск.
+
+4. **Снизить вес критических бандлов.**  
+   Что сделать: оптимизация `index/vendor/motion` и CSS (`src/styles/*`), ревизия dependency surface в `package.json`.  
+   Ожидаемый эффект: улучшение LCP/INP и user-perceived speed.
+
+5. **Подготовить migration plan JSONBin → D1.**  
+   Что сделать: blueprint для `functions/_lib/jsonbin.ts`/`functions/api/admin/articles.ts` с dual-write этапом.  
+   Ожидаемый эффект: контроль версий, более безопасный multi-editor workflow, меньше downtime-рисков.
