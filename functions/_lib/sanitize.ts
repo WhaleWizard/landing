@@ -1,12 +1,10 @@
-import { DOMPurify } from 'dompurify';
 import { parseHTML } from 'linkedom';
-import type { Env } from './types';
+import createDOMPurify from 'dompurify';
 
-// Создаём DOM-окружение один раз
+// Создаём DOM-окружение
 const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
-const purify = DOMPurify(document as any);
+const purify = createDOMPurify(document);
 
-// Конфигурация, идентичная текущим разрешённым тегам/атрибутам
 const CONFIG = {
   ALLOWED_TAGS: [
     'p', 'br', 'hr',
@@ -18,7 +16,7 @@ const CONFIG = {
     'details', 'summary', 'aside', 'section', 'div', 'span',
     'video', 'source', 'iframe',
     'button', 'form', 'input', 'label', 'textarea', 'select', 'option',
-    'svg', 'defs', 'linearGradient', 'stop', 'path', // обратите внимание на верблюжий регистр
+    'svg', 'defs', 'linearGradient', 'stop', 'path',
   ],
   ALLOWED_ATTR: [
     'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading',
@@ -35,13 +33,8 @@ const CONFIG = {
     'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
   ],
   ALLOWED_URI_REGEXP: /^(?:(?:https?|ftp):\/\/|data:image\/)/i,
-  ADD_TAGS: ['iframe'], // Разрешаем только безопасные iframe
-  ADD_ATTR: ['allowfullscreen', 'frameborder'],
-  WHOLE_DOCUMENT: false,
-  RETURN_TRUSTED_TYPE: true,
 };
 
-// Дополнительная проверка iframe (только YouTube/Vimeo)
 purify.addHook('uponSanitizeElement', (node, data) => {
   if (data.tagName === 'iframe') {
     const src = node.getAttribute('src') || '';
@@ -50,7 +43,7 @@ purify.addHook('uponSanitizeElement', (node, data) => {
     try {
       const url = new URL(src);
       isSafe = url.protocol === 'https:' && safeHosts.includes(url.hostname.toLowerCase());
-    } catch { /* остаётся false */ }
+    } catch { /* невалидный URL – удаляем */ }
     if (!isSafe) {
       node.remove();
     }
