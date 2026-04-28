@@ -290,18 +290,18 @@ export async function ensureMarketingLoaded(): Promise<void> {
   const metaId = getMetaPixelId();
   const tiktokId = getTiktokPixelId();
 
+  // Meta Pixel — создаём fbq правильно
   if (metaId && !metaLoaded) {
     const win = window as Window & { fbq?: (...args: unknown[]) => void; _fbq?: (...args: unknown[]) => void };
     if (!win.fbq) {
       const fbq = (...args: unknown[]) => {
-        // Стандартная обёртка Meta: либо callMethod, либо очередь
         (fbq as any).callMethod
           ? (fbq as any).callMethod.apply(fbq, args)
           : (fbq as any).queue.push(args);
       };
       (fbq as any).loaded = true;
       (fbq as any).version = '2.0';
-      (fbq as any).queue = []; // <-- обязательно создаём массив
+      (fbq as any).queue = []; // обязательно массив
       win.fbq = fbq;
       win._fbq = fbq;
     }
@@ -310,6 +310,7 @@ export async function ensureMarketingLoaded(): Promise<void> {
     metaLoaded = true;
   }
 
+  // TikTok Pixel — без изменений, если нужен
   if (tiktokId && !ttLoaded) {
     const win = window as Window & { ttq?: any };
     if (!win.ttq || typeof win.ttq.load !== 'function') {
