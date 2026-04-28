@@ -37,12 +37,15 @@ async function sendMetaConversionEvent(
   env: Env,
   request: Request
 ): Promise<void> {
+  console.log('[Meta CAPI] Function called. Checking token and pixel...');
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
   const testCode = env.META_CAPI_TEST_CODE;
 
+  console.log('[Meta CAPI] Token exists:', !!token, 'Pixel ID:', pixelId);
+
   if (!token || !pixelId) {
-    console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID');
+    console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping.');
     return;
   }
 
@@ -50,14 +53,12 @@ async function sendMetaConversionEvent(
   const clientIp = request.headers.get('CF-Connecting-IP') || '';
   const userAgent = request.headers.get('User-Agent') || '';
 
-  // Временно не хешируем, чтобы проверить базовую отправку
   const event = {
     event_name: 'Lead',
     event_time: eventTime,
     action_source: 'website',
     event_id: payload.event_id || undefined,
     user_data: {
-      // em и ph не передаём, чтобы избежать ошибки хеширования
       client_ip_address: clientIp,
       client_user_agent: userAgent,
     },
@@ -74,6 +75,8 @@ async function sendMetaConversionEvent(
     ...(testCode ? { test_event_code: testCode } : {}),
   });
 
+  console.log('[Meta CAPI] Sending event:', JSON.stringify(event));
+
   try {
     const response = await fetch(
       `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${token}`,
@@ -84,14 +87,16 @@ async function sendMetaConversionEvent(
       }
     );
 
+    const responseText = await response.text();
+    console.log('[Meta CAPI] Response status:', response.status, 'Body:', responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Meta CAPI] Lead event failed: ${response.status} ${errorText}`);
+      console.error(`[Meta CAPI] Lead event failed: ${response.status} ${responseText}`);
     } else {
       console.log('[Meta CAPI] Lead server event sent successfully');
     }
   } catch (error) {
-    console.error('[Meta CAPI] Error:', error);
+    console.error('[Meta CAPI] Network error:', error);
   }
 }
 
@@ -121,7 +126,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       );
     }
 
-    // Сразу вызываем sendMetaConversionEvent
+    console.log('[Lead] Submitted successfully. Calling Meta CAPI...');
     void sendMetaConversionEvent(normalized, env, request);
 
     return json(
