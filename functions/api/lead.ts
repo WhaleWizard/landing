@@ -10,6 +10,7 @@ interface LeadPayload {
   message?: string;
   contactMethod?: 'telegram' | 'whatsapp';
   telegramUsername?: string;
+  event_id?: string;
 }
 
 const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
@@ -27,17 +28,33 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     message: sanitizeText(payload.message || '', 4_000),
     contactMethod: payload.contactMethod === 'whatsapp' ? 'whatsapp' : 'telegram',
     telegramUsername: sanitizeText(payload.telegramUsername || '', 120),
+    event_id: sanitizeText(payload.event_id || '', 64),
   };
 }
 
 /**
- * Отправляет серверное событие Lead напрямую в Meta Conversions API (Graph API).
- * Требует Access Token.
+ * Хеширует строку алгоритмом SHA-256 и возвращает hex-строку.
  */
-async function sendMetaConversionEvent(payload: LeadPayload, env: Env, request: Request): Promise<void> {
+async function sha256(value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(value.toLowerCase().trim());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Отправляет серверное событие Lead напрямую в Meta Conversions API (Graph API)
+ * с дедупликацией по event_id и хешированием email/phone.
+ */
+async function sendMetaConversionEvent(
+  payload: LeadPayload,
+  env: Env,
+  request: Request
+): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
-  const testCode = env.META_CAPI_TEST_CODE; // необязательно, для тестов
+  const testCode = env.META_CAPI_TEST_CODE;
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
@@ -48,28 +65,35 @@ async function sendMetaConversionEvent(payload: LeadPayload, env: Env, request: 
   const clientIp = request.headers.get('CF-Connecting-IP') || '';
   const userAgent = request.headers.get('User-Agent') || '';
 
+  // Хешируем email и телефон, если они есть
+  const [hashedEmail, hashedPhone] = await Promise.all([
+    payload.email ? sha256(payload.email) : undefined,
+    payload.phone ? sha256(payload.phone) : undefined,
+  ]);
+
+  const event = {
+    event_name: 'Lead',
+    event_time: eventTime,
+    action_source: 'website',
+    event_id: payload.event_id || undefined,
+    user_data: {
+      em: hashedEmail ? [hashedEmail] : undefined,
+      ph: hashedPhone ? [hashedPhone] : undefined,
+      fn: payload.name ? [payload.name.split(' ')[0]] : undefined,
+      ln: payload.name ? [payload.name.split(' ').slice(1).join(' ')] : undefined,
+      client_ip_address: clientIp,
+      client_user_agent: userAgent,
+    },
+    custom_data: {
+      budget: payload.budget,
+      message: payload.message?.slice(0, 500),
+      contact_method: payload.contactMethod,
+    },
+    event_source_url: request.url,
+  };
+
   const body = JSON.stringify({
-    data: [
-      {
-        event_name: 'Lead',
-        event_time: eventTime,
-        action_source: 'website',
-        user_data: {
-          em: payload.email ? [payload.email] : undefined,
-          ph: payload.phone ? [payload.phone] : undefined,
-          fn: payload.name ? [payload.name.split(' ')[0]] : undefined,
-          ln: payload.name ? [payload.name.split(' ').slice(1).join(' ')] : undefined,
-          client_ip_address: clientIp,
-          client_user_agent: userAgent,
-        },
-        custom_data: {
-          budget: payload.budget,
-          message: payload.message?.slice(0, 500),
-          contact_method: payload.contactMethod,
-        },
-        event_source_url: request.url,
-      },
-    ],
+    data: [event],
     ...(testCode ? { test_event_code: testCode } : {}),
   });
 
