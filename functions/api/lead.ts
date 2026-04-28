@@ -30,7 +30,71 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
   };
 }
 
-export const onRequestPost: PagesFunction<Env> = async ({ request }) => {
+/**
+ * Отправляет серверное событие Lead напрямую в Meta Conversions API (Graph API).
+ * Требует Access Token.
+ */
+async function sendMetaConversionEvent(payload: LeadPayload, env: Env, request: Request): Promise<void> {
+  const token = env.META_CAPI_ACCESS_TOKEN;
+  const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
+  const testCode = env.META_CAPI_TEST_CODE; // необязательно, для тестов
+
+  if (!token || !pixelId) {
+    console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
+    return;
+  }
+
+  const eventTime = Math.floor(Date.now() / 1000);
+  const clientIp = request.headers.get('CF-Connecting-IP') || '';
+  const userAgent = request.headers.get('User-Agent') || '';
+
+  const body = JSON.stringify({
+    data: [
+      {
+        event_name: 'Lead',
+        event_time: eventTime,
+        action_source: 'website',
+        user_data: {
+          em: payload.email ? [payload.email] : undefined,
+          ph: payload.phone ? [payload.phone] : undefined,
+          fn: payload.name ? [payload.name.split(' ')[0]] : undefined,
+          ln: payload.name ? [payload.name.split(' ').slice(1).join(' ')] : undefined,
+          client_ip_address: clientIp,
+          client_user_agent: userAgent,
+        },
+        custom_data: {
+          budget: payload.budget,
+          message: payload.message?.slice(0, 500),
+          contact_method: payload.contactMethod,
+        },
+        event_source_url: request.url,
+      },
+    ],
+    ...(testCode ? { test_event_code: testCode } : {}),
+  });
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
+    } else {
+      console.log('[Meta CAPI] Lead server event sent successfully');
+    }
+  } catch (error) {
+    console.error('[Meta CAPI] Error sending Lead event:', error);
+  }
+}
+
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const payload = (await request.json().catch(() => ({}))) as LeadPayload;
   const normalized = normalizeLeadPayload(payload);
 
@@ -60,6 +124,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request }) => {
         { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
       );
     }
+
+    // Асинхронно отправляем серверное событие в Meta
+    void sendMetaConversionEvent(normalized, env, request);
 
     return json(
       { success: true },
