@@ -1,9 +1,8 @@
 import { parseHTML } from 'linkedom';
 import createDOMPurify from 'dompurify';
 
-// Создаём DOM-окружение
 const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
-const purify = createDOMPurify(document);
+const purify = createDOMPurify((document.defaultView)!);
 
 const CONFIG = {
   ALLOWED_TAGS: [
