@@ -1,6 +1,7 @@
 import { json } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
+import { enforceRateLimit } from '../_lib/rate-limit';
 
 interface LeadPayload {
   name?: string;
@@ -11,6 +12,7 @@ interface LeadPayload {
   contactMethod?: 'telegram' | 'whatsapp';
   telegramUsername?: string;
   event_id?: string;
+  hp_trap?: string;   // honeypot – боты заполняют, люди нет
 }
 
 const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
@@ -29,6 +31,7 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     contactMethod: payload.contactMethod === 'whatsapp' ? 'whatsapp' : 'telegram',
     telegramUsername: sanitizeText(payload.telegramUsername || '', 120),
     event_id: sanitizeText(payload.event_id || '', 64),
+    hp_trap: sanitizeText(payload.hp_trap || '', 10),
   };
 }
 
@@ -115,8 +118,20 @@ async function sendMetaConversionEvent(
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  // --- Rate limit ---
+  const rateLimited = await enforceRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   const payload = (await request.json().catch(() => ({}))) as LeadPayload;
   const normalized = normalizeLeadPayload(payload);
+
+  // --- Honeypot ---
+  if (normalized.hp_trap && normalized.hp_trap.length > 0) {
+    return json(
+      { success: true },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
 
   if (!normalized.name || !normalized.email) {
     return json(
