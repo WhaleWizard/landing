@@ -34,31 +34,24 @@ function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
   return result;
 }
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const payload = (await request.json().catch(() => ({}))) as PageViewPayload;
-
-  if (!payload.event_id) {
-    return json(
-      { success: false, error: 'event_id is required' },
-      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
-  }
-
+async function sendMetaPageView(
+  payload: PageViewPayload,
+  env: Env,
+  request: Request
+): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
 
   if (!token || !pixelId) {
-    return json(
-      { success: true, meta: { status: 'skipped', reason: 'missing token or pixel id' } },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
+    console.warn('[Meta CAPI] Missing token or pixel ID, skipping PageView');
+    return;
   }
 
   const eventTime = Math.floor(Date.now() / 1000);
   const clientIp = request.headers.get('CF-Connecting-IP') || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
-  const eventId = payload.event_id;
+  const eventId = payload.event_id || undefined;
 
   const { fbp, fbc } = getMetaCookies(request);
   const hashedExternalId = payload.external_id ? await sha256(payload.external_id) : undefined;
@@ -83,7 +76,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   });
 
   try {
-    const metaResponse = await fetch(
+    const response = await fetch(
       `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${token}`,
       {
         method: 'POST',
@@ -92,26 +85,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
     );
 
-    const metaText = await metaResponse.text();
-    console.log('[Meta CAPI] PageView response:', metaResponse.status, metaText);
-
-    return json(
-      {
-        success: true,
-        meta: {
-          status: metaResponse.status,
-          body: metaText,
-        },
-      },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
+    } else {
+      console.log('[Meta CAPI] PageView server event sent successfully');
+    }
   } catch (error) {
+    console.error('[Meta CAPI] Error sending PageView event:', error);
+  }
+}
+
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  const payload = (await request.json().catch(() => ({}))) as PageViewPayload;
+
+  if (!payload.event_id) {
     return json(
-      {
-        success: true,
-        meta: { status: 'network_error', body: String(error) },
-      },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+      { success: false, error: 'event_id is required' },
+      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
+
+  // Отправляем асинхронно, не замедляя клиентскую навигацию
+  void sendMetaPageView(payload, env, request);
+
+  return json(
+    { success: true },
+    { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
 };
