@@ -347,6 +347,8 @@ export function trackPageView(path: string): void {
   lastTrackedPath = path;
   lastTrackedAt = now;
 
+  const eventId = crypto.randomUUID(); // уникальный ID для дедупликации
+
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;
     ym?: (...args: unknown[]) => void;
@@ -374,8 +376,20 @@ export function trackPageView(path: string): void {
     });
   }
 
-  win.fbq?.('track', 'PageView');
+  // Браузерный PageView с eventID для дедупликации
+  win.fbq?.('track', 'PageView', { eventID: eventId });
   win.ttq?.page?.();
+
+  // Отправляем серверный PageView через наш API
+  fetch('/api/pageview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_id: eventId,
+      page_url: window.location.href,
+      referrer: document.referrer || undefined,
+    }),
+  }).catch((e) => console.warn('[PageView] Failed to send server event', e));
 }
 
 export function trackFaqOpen(question: string): void {
