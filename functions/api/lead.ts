@@ -32,21 +32,6 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
   };
 }
 
-/**
- * Хеширует строку алгоритмом SHA-256 и возвращает hex-строку.
- */
-async function sha256(value: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(value.toLowerCase().trim());
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-/**
- * Отправляет серверное событие Lead напрямую в Meta Conversions API (Graph API)
- * с дедупликацией по event_id и хешированием email/phone.
- */
 async function sendMetaConversionEvent(
   payload: LeadPayload,
   env: Env,
@@ -57,7 +42,7 @@ async function sendMetaConversionEvent(
   const testCode = env.META_CAPI_TEST_CODE;
 
   if (!token || !pixelId) {
-    console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
+    console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID');
     return;
   }
 
@@ -65,22 +50,14 @@ async function sendMetaConversionEvent(
   const clientIp = request.headers.get('CF-Connecting-IP') || '';
   const userAgent = request.headers.get('User-Agent') || '';
 
-  // Хешируем email и телефон, если они есть
-  const [hashedEmail, hashedPhone] = await Promise.all([
-    payload.email ? sha256(payload.email) : undefined,
-    payload.phone ? sha256(payload.phone) : undefined,
-  ]);
-
+  // Временно не хешируем, чтобы проверить базовую отправку
   const event = {
     event_name: 'Lead',
     event_time: eventTime,
     action_source: 'website',
     event_id: payload.event_id || undefined,
     user_data: {
-      em: hashedEmail ? [hashedEmail] : undefined,
-      ph: hashedPhone ? [hashedPhone] : undefined,
-      fn: payload.name ? [payload.name.split(' ')[0]] : undefined,
-      ln: payload.name ? [payload.name.split(' ').slice(1).join(' ')] : undefined,
+      // em и ph не передаём, чтобы избежать ошибки хеширования
       client_ip_address: clientIp,
       client_user_agent: userAgent,
     },
@@ -109,12 +86,12 @@ async function sendMetaConversionEvent(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
+      console.error(`[Meta CAPI] Lead event failed: ${response.status} ${errorText}`);
     } else {
       console.log('[Meta CAPI] Lead server event sent successfully');
     }
   } catch (error) {
-    console.error('[Meta CAPI] Error sending Lead event:', error);
+    console.error('[Meta CAPI] Error:', error);
   }
 }
 
@@ -132,24 +109,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const response = await fetch(DEFAULT_LEAD_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-      },
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(normalized),
-      cf: {
-        cacheEverything: false,
-        cacheTtl: 0,
-      },
+      cf: { cacheEverything: false, cacheTtl: 0 },
     });
 
     if (!response.ok) {
       return json(
-        { success: false, error: `Lead endpoint failed with HTTP ${response.status}` },
+        { success: false, error: `Lead endpoint failed: ${response.status}` },
         { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
       );
     }
 
-    // Асинхронно отправляем серверное событие в Meta
+    // Сразу вызываем sendMetaConversionEvent
     void sendMetaConversionEvent(normalized, env, request);
 
     return json(
