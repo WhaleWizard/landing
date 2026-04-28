@@ -6,7 +6,7 @@ interface PageViewPayload {
   event_id?: string;
   page_url?: string;
   referrer?: string;
-  external_id?: string; // опционально, если есть система идентификации
+  external_id?: string;
 }
 
 function sanitizeText(value: string, max: number): string {
@@ -21,9 +21,6 @@ async function sha256(value: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Извлекает значения кук _fbp и _fbc из заголовка Cookie запроса.
- */
 function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
   const cookieHeader = request.headers.get('Cookie') || '';
   const pairs = cookieHeader.split(';').map(p => p.trim());
@@ -37,29 +34,33 @@ function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
   return result;
 }
 
-async function sendMetaPageView(
-  payload: PageViewPayload,
-  env: Env,
-  request: Request
-): Promise<void> {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  const payload = (await request.json().catch(() => ({}))) as PageViewPayload;
+
+  if (!payload.event_id) {
+    return json(
+      { success: false, error: 'event_id is required' },
+      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
 
   if (!token || !pixelId) {
-    console.warn('[Meta CAPI] Missing token or pixel ID, skipping PageView');
-    return;
+    return json(
+      { success: true, meta: { status: 'skipped', reason: 'missing token or pixel id' } },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
   }
 
   const eventTime = Math.floor(Date.now() / 1000);
   const clientIp = request.headers.get('CF-Connecting-IP') || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
-  const eventId = payload.event_id || undefined;
+  const eventId = payload.event_id;
 
-  // Извлекаем Meta-куки из запроса (браузер присылает их на наш сервер)
   const { fbp, fbc } = getMetaCookies(request);
-
-  // Если клиент передал external_id, хешируем его
   const hashedExternalId = payload.external_id ? await sha256(payload.external_id) : undefined;
 
   const event = {
@@ -82,7 +83,7 @@ async function sendMetaPageView(
   });
 
   try {
-    const response = await fetch(
+    const metaResponse = await fetch(
       `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${token}`,
       {
         method: 'POST',
@@ -91,32 +92,26 @@ async function sendMetaPageView(
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
-    } else {
-      console.log('[Meta CAPI] PageView server event sent successfully');
-    }
-  } catch (error) {
-    console.error('[Meta CAPI] Error sending PageView event:', error);
-  }
-}
+    const metaText = await metaResponse.text();
+    console.log('[Meta CAPI] PageView response:', metaResponse.status, metaText);
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const payload = (await request.json().catch(() => ({}))) as PageViewPayload;
-
-  if (!payload.event_id) {
     return json(
-      { success: false, error: 'event_id is required' },
-      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+      {
+        success: true,
+        meta: {
+          status: metaResponse.status,
+          body: metaText,
+        },
+      },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  } catch (error) {
+    return json(
+      {
+        success: true,
+        meta: { status: 'network_error', body: String(error) },
+      },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
-
-  // Отправляем асинхронно, не замедляя клиентскую навигацию
-  void sendMetaPageView(payload, env, request);
-
-  return json(
-    { success: true },
-    { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-  );
 };
