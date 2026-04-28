@@ -408,7 +408,7 @@ export function trackFaqOpen(question: string): void {
   }
 }
 
-export function trackLead(): void {
+export function trackLead(eventId?: string): void {
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;
     fbq?: (...args: unknown[]) => void;
@@ -435,7 +435,12 @@ export function trackLead(): void {
     win.dataLayer.push({ event: 'form_submit' });
   }
 
-  win.fbq?.('track', 'Lead');
+  // Передаём eventID для дедупликации с серверным событием
+  if (eventId) {
+    win.fbq?.('track', 'Lead', { eventID: eventId });
+  } else {
+    win.fbq?.('track', 'Lead');
+  }
   win.ttq?.track?.('SubmitForm');
 }
 
