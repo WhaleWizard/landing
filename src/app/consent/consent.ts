@@ -164,10 +164,10 @@ let analyticsConfigLogged = false;
 let lastTrackedPath = '';
 let lastTrackedAt = 0;
 
-
 const DEFAULT_GTM_ID = 'GTM-T88BWXVV';
 const DEFAULT_GA_MEASUREMENT_ID = 'G-ZV18R9DLVC';
 const DEFAULT_YANDEX_METRIKA_ID = 108699980;
+const DEFAULT_META_PIXEL_ID = '926332213606723';
 
 function appendExternalScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -204,6 +204,14 @@ function getGoogleAnalyticsId(): string {
 
 function getGoogleTagManagerId(): string {
   return env('VITE_GTM_ID') || DEFAULT_GTM_ID;
+}
+
+function getMetaPixelId(): string {
+  return env('VITE_META_PIXEL_ID') || DEFAULT_META_PIXEL_ID;
+}
+
+function getTiktokPixelId(): string {
+  return env('VITE_TIKTOK_PIXEL_ID');
 }
 
 export async function ensureAnalyticsLoaded(): Promise<void> {
@@ -279,8 +287,8 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
 }
 
 export async function ensureMarketingLoaded(): Promise<void> {
-  const metaId = env('926332213606723');
-  const tiktokId = env('VITE_TIKTOK_PIXEL_ID');
+  const metaId = getMetaPixelId();
+  const tiktokId = getTiktokPixelId();
 
   if (metaId && !metaLoaded) {
     const win = window as Window & { fbq?: (...args: unknown[]) => void; _fbq?: (...args: unknown[]) => void };
@@ -364,7 +372,6 @@ export function trackPageView(path: string): void {
   win.fbq?.('track', 'PageView');
   win.ttq?.page?.();
 }
-
 
 export function trackFaqOpen(question: string): void {
   const win = window as Window & {
