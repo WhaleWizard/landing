@@ -80,6 +80,7 @@ function ContactForm() {
   });
   const [contactMethod, setContactMethod] = useState<'telegram' | 'whatsapp'>('telegram');
   const [telegramUsername, setTelegramUsername] = useState('');
+  const [hpTrap, setHpTrap] = useState(''); // honeypot
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -114,7 +115,6 @@ function ContactForm() {
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
           body: JSON.stringify({
             name: formData.name,
             email: formData.email,
@@ -124,6 +124,7 @@ function ContactForm() {
             contactMethod: contactMethod,
             telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
             event_id: eventId,
+            hp_trap: hpTrap,
           }),
         });
         if (!res.ok) {
@@ -132,14 +133,9 @@ function ContactForm() {
         }
 
         setIsSubmitted(true);
-        setFormData({
-          name: '',
-          email: '',
-          phone: '',
-          budget: '',
-          message: '',
-        });
+        setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
         setTelegramUsername('');
+        setHpTrap('');
         setContactMethod('telegram');
         setAgreed(false);
         trackLead(eventId);
@@ -154,7 +150,7 @@ function ContactForm() {
         setIsSubmitting(false);
       }
     },
-    [formData, navigate, agreed, contactMethod, telegramUsername],
+    [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap],
   );
 
   const handleSetTelegramUsername = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,6 +159,10 @@ function ContactForm() {
 
   const handleSetContactMethod = useCallback((method: 'telegram' | 'whatsapp') => {
     setContactMethod(method);
+  }, []);
+
+  const handleSetHpTrap = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setHpTrap(e.target.value);
   }, []);
 
   const radioHover = !isTouch ? { whileHover: { scale: 1.05 } } : {};
@@ -266,6 +266,20 @@ function ContactForm() {
                   </motion.div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Honeypot – невидимое поле для ботов */}
+                    <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+                      <label htmlFor="hp_trap">Оставьте пустым</label>
+                      <input
+                        type="text"
+                        id="hp_trap"
+                        name="hp_trap"
+                        value={hpTrap}
+                        onChange={handleSetHpTrap}
+                        tabIndex={-1}
+                        autoComplete="off"
+                      />
+                    </div>
+
                     {/* Имя */}
                     <div className="relative">
                       <label className="block text-sm mb-2 font-medium">Имя *</label>
@@ -545,7 +559,7 @@ function ContactForm() {
         </div>
       </div>
 
-      {/* Модальные окна */}
+      {/* Модальное окно Политики конфиденциальности */}
       <Modal
         isOpen={showPrivacyModal}
         onClose={() => setShowPrivacyModal(false)}
@@ -638,6 +652,7 @@ function ContactForm() {
         </div>
       </Modal>
 
+      {/* Модальное окно Публичной оферты */}
       <Modal
         isOpen={showOfferModal}
         onClose={() => setShowOfferModal(false)}
