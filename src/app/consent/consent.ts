@@ -279,7 +279,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
 }
 
 export async function ensureMarketingLoaded(): Promise<void> {
-  const metaId = env('VITE_META_PIXEL_ID');
+  const metaId = env('926332213606723');
   const tiktokId = env('VITE_TIKTOK_PIXEL_ID');
 
   if (metaId && !metaLoaded) {
