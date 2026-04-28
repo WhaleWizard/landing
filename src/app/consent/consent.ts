@@ -294,10 +294,14 @@ export async function ensureMarketingLoaded(): Promise<void> {
     const win = window as Window & { fbq?: (...args: unknown[]) => void; _fbq?: (...args: unknown[]) => void };
     if (!win.fbq) {
       const fbq = (...args: unknown[]) => {
-        ((fbq as unknown as { queue?: unknown[][] }).queue ||= []).push(args);
+        // Стандартная обёртка Meta: либо callMethod, либо очередь
+        (fbq as any).callMethod
+          ? (fbq as any).callMethod.apply(fbq, args)
+          : (fbq as any).queue.push(args);
       };
-      (fbq as unknown as { loaded?: boolean; version?: string; queue?: unknown[][] }).loaded = true;
-      (fbq as unknown as { version?: string }).version = '2.0';
+      (fbq as any).loaded = true;
+      (fbq as any).version = '2.0';
+      (fbq as any).queue = []; // <-- обязательно создаём массив
       win.fbq = fbq;
       win._fbq = fbq;
     }
