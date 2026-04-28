@@ -108,6 +108,8 @@ function ContactForm() {
       }
       setIsSubmitting(true);
 
+      const eventId = crypto.randomUUID();
+
       try {
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
@@ -121,6 +123,7 @@ function ContactForm() {
             message: formData.message,
             contactMethod: contactMethod,
             telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
+            event_id: eventId,
           }),
         });
         if (!res.ok) {
@@ -139,7 +142,7 @@ function ContactForm() {
         setTelegramUsername('');
         setContactMethod('telegram');
         setAgreed(false);
-        trackLead();
+        trackLead(eventId);
 
         setTimeout(() => setIsSubmitted(false), 5000);
         setTimeout(() => navigate('/thank-you'), 800);
