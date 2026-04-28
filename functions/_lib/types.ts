@@ -32,4 +32,10 @@ export interface Env {
   SITE_URL?: string;
   INDEXNOW_KEY?: string;
   INDEXNOW_ENDPOINT?: string;
+  // Meta Conversions API (серверная отправка событий)
+  META_CAPI_ACCESS_TOKEN?: string;
+  META_CAPI_TEST_CODE?: string;
+  // ID пикселей Meta и TikTok (опционально, могут использоваться в edge-функциях)
+  VITE_META_PIXEL_ID?: string;
+  VITE_TIKTOK_PIXEL_ID?: string;
 }
