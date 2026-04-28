@@ -6,6 +6,7 @@ interface PageViewPayload {
   event_id?: string;
   page_url?: string;
   referrer?: string;
+  external_id?: string; // опционально, если есть система идентификации
 }
 
 function sanitizeText(value: string, max: number): string {
@@ -18,6 +19,22 @@ async function sha256(value: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Извлекает значения кук _fbp и _fbc из заголовка Cookie запроса.
+ */
+function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
+  const cookieHeader = request.headers.get('Cookie') || '';
+  const pairs = cookieHeader.split(';').map(p => p.trim());
+  const result: { fbp?: string; fbc?: string } = {};
+  for (const pair of pairs) {
+    const [key, ...rest] = pair.split('=');
+    const value = rest.join('=');
+    if (key === '_fbp') result.fbp = decodeURIComponent(value);
+    else if (key === '_fbc') result.fbc = decodeURIComponent(value);
+  }
+  return result;
 }
 
 async function sendMetaPageView(
@@ -39,7 +56,12 @@ async function sendMetaPageView(
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
   const eventId = payload.event_id || undefined;
 
-  // Для PageView обычно достаточно IP и User-Agent; если есть fbp/fbc из cookie, можно извлечь
+  // Извлекаем Meta-куки из запроса (браузер присылает их на наш сервер)
+  const { fbp, fbc } = getMetaCookies(request);
+
+  // Если клиент передал external_id, хешируем его
+  const hashedExternalId = payload.external_id ? await sha256(payload.external_id) : undefined;
+
   const event = {
     event_name: 'PageView',
     event_time: eventTime,
@@ -48,6 +70,9 @@ async function sendMetaPageView(
     user_data: {
       client_ip_address: clientIp,
       client_user_agent: userAgent,
+      fbp: fbp || undefined,
+      fbc: fbc || undefined,
+      external_id: hashedExternalId ? [hashedExternalId] : undefined,
     },
     event_source_url: eventSourceUrl,
   };
@@ -80,7 +105,6 @@ async function sendMetaPageView(
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const payload = (await request.json().catch(() => ({}))) as PageViewPayload;
 
-  // Простая валидация: event_id обязателен для дедупликации
   if (!payload.event_id) {
     return json(
       { success: false, error: 'event_id is required' },
@@ -88,7 +112,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
   }
 
-  // Отправляем асинхронно, чтобы не замедлять клиент
+  // Отправляем асинхронно, не замедляя клиентскую навигацию
   void sendMetaPageView(payload, env, request);
 
   return json(
