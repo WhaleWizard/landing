@@ -40,6 +40,80 @@ async function sha256(value: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function sendMetaConversionEvent(
+  payload: LeadPayload,
+  env: Env,
+  request: Request
+): Promise<void> {
+  const token = env.META_CAPI_ACCESS_TOKEN;
+  const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
+
+  if (!token || !pixelId) {
+    console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
+    return;
+  }
+
+  const eventTime = Math.floor(Date.now() / 1000);
+  const clientIp = request.headers.get('CF-Connecting-IP') || '';
+  const userAgent = request.headers.get('User-Agent') || '';
+
+  const nameParts = (payload.name || '').trim().split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  const [hashedEmail, hashedPhone, hashedFn, hashedLn] = await Promise.all([
+    payload.email ? sha256(payload.email) : undefined,
+    payload.phone ? sha256(payload.phone) : undefined,
+    firstName ? sha256(firstName) : undefined,
+    lastName ? sha256(lastName) : undefined,
+  ]);
+
+  const event = {
+    event_name: 'Lead',
+    event_time: eventTime,
+    action_source: 'website',
+    event_id: payload.event_id || undefined,
+    user_data: {
+      em: hashedEmail ? [hashedEmail] : undefined,
+      ph: hashedPhone ? [hashedPhone] : undefined,
+      fn: hashedFn ? [hashedFn] : undefined,
+      ln: hashedLn ? [hashedLn] : undefined,
+      client_ip_address: clientIp,
+      client_user_agent: userAgent,
+    },
+    custom_data: {
+      budget: payload.budget,
+      message: payload.message?.slice(0, 500),
+      contact_method: payload.contactMethod,
+    },
+    event_source_url: request.url,
+  };
+
+  const body = JSON.stringify({
+    data: [event],
+  });
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
+    } else {
+      console.log('[Meta CAPI] Lead server event sent successfully');
+    }
+  } catch (error) {
+    console.error('[Meta CAPI] Error sending Lead event:', error);
+  }
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const payload = (await request.json().catch(() => ({}))) as LeadPayload;
   const normalized = normalizeLeadPayload(payload);
@@ -51,111 +125,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
   }
 
-  // 1. Отправка в Google Apps Script
   try {
-    const leadResponse = await fetch(DEFAULT_LEAD_ENDPOINT, {
+    const response = await fetch(DEFAULT_LEAD_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(normalized),
       cf: { cacheEverything: false, cacheTtl: 0 },
     });
 
-    if (!leadResponse.ok) {
+    if (!response.ok) {
       return json(
-        { success: false, error: `Lead endpoint failed with HTTP ${leadResponse.status}` },
+        { success: false, error: `Lead endpoint failed with HTTP ${response.status}` },
         { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
       );
     }
+
+    void sendMetaConversionEvent(normalized, env, request);
+
+    return json(
+      { success: true },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
   } catch {
     return json(
       { success: false, error: 'Lead submission failed' },
       { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
-  }
-
-  // 2. Синхронная отправка в Meta (для диагностики)
-  const token = env.META_CAPI_ACCESS_TOKEN;
-  const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
-  const testCode = env.META_CAPI_TEST_CODE;
-
-  if (!token || !pixelId) {
-    return json(
-      { success: true, meta: { status: 'skipped', reason: 'missing access token or pixel id' } },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
-  }
-
-  const eventTime = Math.floor(Date.now() / 1000);
-  const clientIp = request.headers.get('CF-Connecting-IP') || '';
-  const userAgent = request.headers.get('User-Agent') || '';
-
-  const nameParts = (normalized.name || '').trim().split(/\s+/);
-  const firstName = nameParts[0] || '';
-  const lastName = nameParts.slice(1).join(' ') || '';
-
-  const [hashedEmail, hashedPhone, hashedFn, hashedLn] = await Promise.all([
-    normalized.email ? sha256(normalized.email) : undefined,
-    normalized.phone ? sha256(normalized.phone) : undefined,
-    firstName ? sha256(firstName) : undefined,
-    lastName ? sha256(lastName) : undefined,
-  ]);
-
-  const event = {
-    event_name: 'Lead',
-    event_time: eventTime,
-    action_source: 'website',
-    event_id: normalized.event_id || undefined,
-    user_data: {
-      em: hashedEmail ? [hashedEmail] : undefined,
-      ph: hashedPhone ? [hashedPhone] : undefined,
-      fn: hashedFn ? [hashedFn] : undefined,
-      ln: hashedLn ? [hashedLn] : undefined,
-      client_ip_address: clientIp,
-      client_user_agent: userAgent,
-    },
-    custom_data: {
-      budget: normalized.budget,
-      message: normalized.message?.slice(0, 500),
-      contact_method: normalized.contactMethod,
-    },
-    event_source_url: request.url,
-  };
-
-  const body = JSON.stringify({
-    data: [event],
-    ...(testCode ? { test_event_code: testCode } : {}),
-  });
-
-  try {
-    const metaResponse = await fetch(
-      `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${token}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      }
-    );
-
-    const metaText = await metaResponse.text();
-    console.log('[Meta CAPI] Response:', metaResponse.status, metaText);
-
-    return json(
-      {
-        success: true,
-        meta: {
-          status: metaResponse.status,
-          body: metaText,
-        },
-      },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
-  } catch (error) {
-    return json(
-      {
-        success: true,
-        meta: { status: 'network_error', body: String(error) },
-      },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
 };
