@@ -1,241 +1,50 @@
-import { CACHE_CONTROL, deleteCacheByUrl } from '../../_lib/cache';
-import { verifyAdminPassword } from '../../_lib/auth';
-import { enforceRateLimit } from '../../_lib/rate-limit';
-import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
-import { fetchArticlesFromD1, writeArticlesToD1 } from '../../_lib/d1';
-import { json } from '../../_lib/http';
-import type { Article, Env } from '../../_lib/types';
-
-interface AuthPayload {
-  password?: string;
+export interface Article {
+  id: number;
+  slug: string;
+  title: string;
+  category: string;
+  readTime: string;
+  date: string;
+  description: string;
+  content: string;
+  image: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  publishedAt?: string;
+  updatedAt?: string;
+  tags?: string[];
+  summary?: string;
+  keyTakeaways?: string[];
+  faq?: Array<{
+    question: string;
+    answer: string;
+  }>;
+  status?: 'draft' | 'published';
+  downloads?: Array<{
+    url: string;
+    label: string;
+  }>;
 }
 
-interface UpdatePayload {
-  password?: string;
-  articles?: Article[];
+export interface Env {
+  DB?: D1Database;
+  BUCKET: R2Bucket;
+  R2_PUBLIC_HOST?: string;
+  USE_D1_ARTICLES?: string;
+  JSONBIN_BIN_ID: string;
+  JSONBIN_MASTER_KEY: string;
+  JSONBIN_ACCESS_KEY?: string;
+  JSONBIN_BACKUP_BIN_ID?: string;
+  JSONBIN_BACKUP_MASTER_KEY?: string;
+  JSONBIN_BACKUP_ACCESS_KEY?: string;
+  ADMIN_PASSWORD: string;
+  SITE_URL?: string;
+  INDEXNOW_KEY?: string;
+  INDEXNOW_ENDPOINT?: string;
+  // Meta Conversions API (серверная отправка событий)
+  META_CAPI_ACCESS_TOKEN?: string;
+  META_CAPI_TEST_CODE?: string;
+  // ID пикселей Meta и TikTok (опционально, могут использоваться в edge-функциях)
+  VITE_META_PIXEL_ID?: string;
+  VITE_TIKTOK_PIXEL_ID?: string;
 }
-
-const MAX_ARTICLES = 500;
-const MAX_CONTENT_LENGTH = 120_000;
-const MAX_TEXT_LENGTH = 2_000;
-const ALLOWED_INDEXNOW_HOSTS = new Set(['api.indexnow.org']);
-
-function getSiteUrl(env: Env, request: Request): string {
-  if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');
-  const { origin } = new URL(request.url);
-  return origin.replace(/\/$/, '');
-}
-
-interface CacheInvalidationReport {
-  targets: string[];
-  successful: string[];
-  failed: string[];
-}
-
-async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Promise<CacheInvalidationReport> {
-  const targets = [
-    `${siteUrl}/api/articles`,
-    `${siteUrl}/sitemap.xml`,
-    `${siteUrl}/feed.xml`,
-    ...articleSlugs.map((slug) => `${siteUrl}/blog/${slug}`),
-  ];
-
-  const settled = await Promise.allSettled(targets.map((url) => deleteCacheByUrl(url)));
-  const successful: string[] = [];
-  const failed: string[] = [];
-
-  settled.forEach((result, index) => {
-    if (result.status === 'fulfilled') successful.push(targets[index]);
-    else failed.push(targets[index]);
-  });
-
-  return {
-    targets,
-    successful,
-    failed,
-  };
-}
-
-async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Article[]): Promise<void> {
-  if (!env.INDEXNOW_KEY) return;
-
-  const endpoint = env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow';
-  let parsedEndpoint: URL;
-  try {
-    parsedEndpoint = new URL(endpoint);
-  } catch {
-    return;
-  }
-  if (parsedEndpoint.protocol !== 'https:' || !ALLOWED_INDEXNOW_HOSTS.has(parsedEndpoint.host)) {
-    return;
-  }
-  const host = new URL(siteUrl).host;
-  const urls = updatedArticles.map((article) => `${siteUrl}/blog/${article.slug}`);
-
-  if (urls.length === 0) return;
-
-  await fetch(parsedEndpoint.toString(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-    body: JSON.stringify({
-      host,
-      key: env.INDEXNOW_KEY,
-      keyLocation: `${siteUrl}/${env.INDEXNOW_KEY}.txt`,
-      urlList: urls.slice(0, 10000),
-    }),
-    cf: {
-      cacheEverything: false,
-      cacheTtl: 0,
-    },
-  });
-}
-
-function isValidArticlePayload(article: Article): boolean {
-  if (!article) return false;
-  if (String(article.title || '').trim().length === 0) return false;
-  if (String(article.slug || '').trim().length === 0) return false;
-  if (String(article.content || '').length > MAX_CONTENT_LENGTH) return false;
-  if (String(article.description || '').length > MAX_TEXT_LENGTH) return false;
-  if (String(article.seoTitle || '').length > 120) return false;
-  if (String(article.seoDescription || '').length > 220) return false;
-  if ((article.tags || []).length > 20) return false;
-  if ((article.keyTakeaways || []).length > 20) return false;
-  if ((article.faq || []).length > 20) return false;
-  return true;
-}
-
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const rateLimited = await enforceRateLimit(request);
-  if (rateLimited) return rateLimited;
-
-  const payload = (await request.json().catch(() => ({}))) as AuthPayload;
-  const password = String(payload?.password || '');
-
-  if (!verifyAdminPassword(password, env)) {
-    return json(
-      { success: false, error: 'Unauthorized' },
-      {
-        status: 401,
-        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-      },
-    );
-  }
-
-  return json(
-    { success: true },
-    {
-      headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-    },
-  );
-};
-
-export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const rateLimited = await enforceRateLimit(request);
-  if (rateLimited) return rateLimited;
-
-  const payload = (await request.json().catch(() => ({}))) as UpdatePayload;
-  const password = String(payload?.password || '');
-
-  if (!verifyAdminPassword(password, env)) {
-    return json(
-      { success: false, error: 'Unauthorized' },
-      {
-        status: 401,
-        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-      },
-    );
-  }
-
-  if (!Array.isArray(payload?.articles)) {
-    return json(
-      { success: false, error: 'Invalid payload: articles[] required' },
-      {
-        status: 400,
-        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-      },
-    );
-  }
-  if (payload.articles.length > MAX_ARTICLES) {
-    return json(
-      { success: false, error: `Too many articles. Limit is ${MAX_ARTICLES}` },
-      {
-        status: 400,
-        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-      },
-    );
-  }
-  if (!payload.articles.every((article) => isValidArticlePayload(article as Article))) {
-    return json(
-      { success: false, error: 'Invalid article payload: check required fields and size limits' },
-      {
-        status: 400,
-        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-      },
-    );
-  }
-
-  try {
-    const useD1 = String(env.USE_D1_ARTICLES || '').toLowerCase() === 'true' && Boolean(env.DB);
-    const existing = useD1 ? await fetchArticlesFromD1(env) : await fetchArticlesFromJsonBin(env);
-
-    if (existing.length > 0 && payload.articles.length === 0) {
-      return json(
-        { success: false, error: 'Refusing to overwrite non-empty blog with an empty payload' },
-        {
-          status: 400,
-          headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-        },
-      );
-    }
-
-    // Убедимся, что у всех статей есть поле status (по умолчанию published)
-    const articlesWithStatus = payload.articles.map((article) => ({
-      ...article,
-      status: article.status || 'published',
-    }));
-
-    const updated = useD1
-      ? await writeArticlesToD1(env, articlesWithStatus, existing)
-      : await writeArticlesToJsonBin(env, articlesWithStatus, existing);
-
-    const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
-    const siteUrl = getSiteUrl(env, request);
-
-    const invalidationPromise = invalidateSeoCaches(siteUrl, allSlugs);
-    waitUntil(invalidationPromise.then(() => undefined));
-    waitUntil(notifyIndexNow(env, siteUrl, updated));
-
-    const invalidationReport = await invalidationPromise;
-
-    return json(
-      {
-        success: true,
-        articles: updated,
-        cacheInvalidationAttempted: true,
-        siteUrlUsed: siteUrl,
-        requestOrigin: new URL(request.url).origin.replace(/\/$/, ''),
-        invalidatedPathsCount: invalidationReport.successful.length,
-        invalidationTargetsCount: invalidationReport.targets.length,
-        invalidationFailedCount: invalidationReport.failed.length,
-      },
-      {
-        headers: {
-          'Cache-Control': CACHE_CONTROL.noStore,
-        },
-      },
-    );
-  } catch (error) {
-    return json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save articles',
-      },
-      {
-        status: 502,
-        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
-      },
-    );
-  }
-};
