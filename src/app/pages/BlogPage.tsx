@@ -134,9 +134,9 @@ function BlogPageComponent() {
           className="blog-page blog-page--article min-h-screen bg-background"
           style={{ contain: 'layout style paint' }}
         >
-          <div className="relative overflow-hidden pt-16 pb-12 md:pt-24 md:pb-20">
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
+          <div className="relative overflow-visible pt-16 pb-12 md:pt-24 md:pb-20">
+            <div className="absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
+            <div className="absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="relative max-w-4xl mx-auto px-4 sm:px-6">
               <div className="flex flex-col gap-3 mb-4 md:mb-0 md:block">
                 <nav className="text-xs text-muted-foreground" aria-label="breadcrumb">
@@ -146,7 +146,6 @@ function BlogPageComponent() {
                   <span className="mx-2">›</span>
                   <span className="text-foreground break-words">{selectedArticle.title}</span>
                 </nav>
-
               </div>
 
               <button onClick={goToBlogList} className="blog-touch-target inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 bg-transparent border-none cursor-pointer">
