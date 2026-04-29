@@ -439,7 +439,7 @@ export default function Admin() {
                     <textarea value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">TL;DR / Краткий ответ (AEO)</label>
+                    <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">TL;DR / Краткое описание (AEO)</label>
                     <textarea value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                   </div>
 
