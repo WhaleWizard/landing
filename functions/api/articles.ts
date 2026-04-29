@@ -13,11 +13,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   }
 
   try {
-    const articles = await fetchArticlesWithFallback(env, request);
+    const now = new Date().toISOString();
+    const allArticles = await fetchArticlesWithFallback(env, request);
 
-    const isEmpty = !Array.isArray(articles) || articles.length === 0;
+    // Показываем только published, у которых publishedAt <= now
+    const visibleArticles = allArticles.filter((article) => {
+      if (article.status === 'draft') return false;
+      if (article.publishedAt && article.publishedAt > now) return false;
+      return true;
+    });
+
+    const isEmpty = !Array.isArray(visibleArticles) || visibleArticles.length === 0;
     const response = json(
-      { articles },
+      { articles: visibleArticles },
       {
         headers: {
           'Cache-Control': isEmpty ? CACHE_CONTROL.noStore : CACHE_CONTROL.apiArticles,
