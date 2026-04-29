@@ -27,12 +27,23 @@ Set these environment variables in Cloudflare Pages project settings:
 - `VITE_YANDEX_METRIKA_ID` (optional override, defaults to `108699980`)
 - `VITE_META_PIXEL_ID` (optional, Meta Pixel ID for client build)
 - `VITE_TIKTOK_PIXEL_ID` (optional, TikTok Pixel ID for client build)
+- `DB` (D1 binding, optional while migrating)
+- `USE_D1_ARTICLES` (`true` to read/write articles from D1, default `false`)
 
 ## SEO endpoints
 
-- `GET /sitemap.xml` — dynamic sitemap from JSONBin
+- `GET /sitemap.xml` — dynamic sitemap from active articles storage
 - `GET /feed.xml` — RSS feed for fast discovery
 - `GET /blog/:slug` — bot-aware SEO HTML on edge
+
+## D1 migration quick start (safe mode)
+
+1. Create D1 database and bind it as `DB` in Pages.
+2. Apply SQL migration from `migrations/0001_create_articles.sql`.
+3. Keep `USE_D1_ARTICLES=false` and import data into `articles`.
+4. Validate in preview/staging.
+5. Switch `USE_D1_ARTICLES=true` in production.
+6. After validation, you can deprecate `JSONBIN_*` variables.
 
 ## Analytics events
 
