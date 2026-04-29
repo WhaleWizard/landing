@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
-  Search, Copy, Calendar, History, X, Upload, EyeOff, Eye
+  Search, Copy, Calendar, EyeOff, Upload
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
@@ -79,7 +79,6 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
 
   const vars = themeTokens[mode] as React.CSSProperties;
 
-  // Добавляем Prism.js для подсветки синтаксиса
   useEffect(() => {
     if (!document.getElementById('prism-css')) {
       const link = document.createElement('link');
@@ -188,7 +187,6 @@ export default function Admin() {
     }
   };
 
-  // Загрузка файла (изображения/файла) в R2
   const uploadFile = async (file: File): Promise<string | null> => {
     const form = new FormData();
     form.append('file', file);
@@ -322,7 +320,29 @@ export default function Admin() {
       <AdminThemeProvider>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
         <div className="flex items-center justify-center p-4 min-h-screen">
-          {/* ... форма логина (без изменений) ... */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md p-8 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--adm-primary)] to-[var(--adm-primary-strong)] flex items-center justify-center">
+                <Lock className="w-8 h-8 text-white" />
+              </div>
+              <button onClick={() => {
+                const newMode = localStorage.getItem('ww-admin-theme') === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('ww-admin-theme', newMode);
+                window.location.reload();
+              }} className="px-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)]">
+                {localStorage.getItem('ww-admin-theme') === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+            </div>
+            <h2 className="text-2xl font-semibold text-center mb-2">Вход в админку</h2>
+            <p className="text-center text-sm text-[var(--adm-fg)]/70 mb-6">Безопасный вход в CMS для управления контентом.</p>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <input type="password" placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/54 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50" autoFocus />
+              {error && <p className="text-[var(--adm-danger)] text-sm text-center">{error}</p>}
+              <button type="submit" disabled={authLoading} className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all">
+                <LogIn className="w-5 h-5" /> {authLoading ? 'Проверка...' : 'Войти'}
+              </button>
+            </form>
+          </motion.div>
         </div>
       </AdminThemeProvider>
     );
@@ -333,9 +353,23 @@ export default function Admin() {
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
       <div className="py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          {/* ... (шапка без изменений) ... */}
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
+            <h1 className="text-3xl font-semibold bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Управление статьями</h1>
+            <div className="flex items-center gap-3">
+              <button onClick={() => {
+                const newMode = localStorage.getItem('ww-admin-theme') === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('ww-admin-theme', newMode);
+                window.location.reload();
+              }} className="px-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)]">
+                {localStorage.getItem('ww-admin-theme') === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+              <span className="text-xs px-2.5 py-1.5 rounded-full bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] border border-[var(--adm-primary)]/30">Источник: {sourceLabel}</span>
+              <button onClick={async () => { await forceRefreshArticles(); await refreshHealth(); }} className="text-sm text-[var(--adm-fg)]/70 hover:text-[var(--adm-primary)] transition-colors">Обновить из API (no-cache)</button>
+              <button onClick={() => navigate('/')} className="text-sm text-[var(--adm-fg)]/70 hover:text-[var(--adm-primary)] transition-colors">← На главную</button>
+            </div>
+          </div>
+
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Левая панель – список статей */}
             <div className="lg:col-span-1 p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-lg">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">Статьи</h2>
@@ -351,7 +385,6 @@ export default function Admin() {
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              {/* Поиск */}
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--adm-fg)]/40" />
                 <input
@@ -393,11 +426,9 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Правая панель – редактор */}
             <div className="lg:col-span-2 p-6 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-lg">
               {editingArticle ? (
                 <div className="space-y-4">
-                  {/* Заголовок и категория (без изменений) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Заголовок</label>
@@ -409,7 +440,6 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  {/* Время чтения, дата */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Время чтения</label>
@@ -421,7 +451,6 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  {/* Статус */}
                   <div className="flex items-center gap-4">
                     <label className="text-sm font-medium text-[var(--adm-fg)]/80">Статус:</label>
                     <select
@@ -437,7 +466,6 @@ export default function Admin() {
                     )}
                   </div>
 
-                  {/* Планировщик */}
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80 flex items-center gap-2">
                       <Calendar className="w-4 h-4" /> Дата публикации (оставьте пустой для немедленной)
@@ -450,7 +478,6 @@ export default function Admin() {
                     />
                   </div>
 
-                  {/* Description, Summary (без изменений, но метка TL;DR исправлена) */}
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Краткое описание</label>
                     <textarea value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
@@ -460,10 +487,40 @@ export default function Admin() {
                     <textarea value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                   </div>
 
-                  {/* Takeaways, FAQ (без изменений) */}
-                  {/* ... */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Ключевые тезисы (по одному на строку)</label>
+                    <textarea
+                      value={takeawaysText}
+                      onChange={(e) => {
+                        const keyTakeaways = e.target.value.split('\n').map((line) => line.trim()).filter(Boolean);
+                        setEditingArticle({ ...editingArticle, keyTakeaways });
+                      }}
+                      rows={4}
+                      className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
+                    />
+                  </div>
 
-                  {/* Загрузка обложки */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">FAQ (формат: вопрос::ответ, каждая пара с новой строки)</label>
+                    <textarea
+                      value={faqText}
+                      onChange={(e) => {
+                        const faq = e.target.value
+                          .split('\n')
+                          .map((line) => line.trim())
+                          .filter(Boolean)
+                          .map((line) => {
+                            const [question, ...rest] = line.split('::');
+                            return { question: question?.trim() || '', answer: rest.join('::').trim() };
+                          })
+                          .filter((item) => item.question && item.answer);
+                        setEditingArticle({ ...editingArticle, faq });
+                      }}
+                      rows={5}
+                      className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">URL обложки</label>
                     <div className="flex gap-2">
@@ -486,15 +543,17 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  {/* Slug (без изменений) */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Slug (URL-адрес статьи)</label>
+                    <input type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <p className="text-xs text-[var(--adm-fg)]/50 mt-1">Автоматически из заголовка (если не трогать вручную). Только латиница и дефисы.</p>
+                  </div>
 
-                  {/* Редактор контента (передаём пароль для возможности загрузки?) – не требуется, потому что upload endpoint авторизуется по паролю. ArticleEditor не знает пароль, загрузка будет происходить внутри редактора через отдельный fetch с паролем, который можно передать как пропс. Мы обновим ArticleEditor позже, чтобы он принимал callback onUpload. */}
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Содержание статьи</label>
                     <ArticleEditor content={editingArticle.content} onChange={handleContentChange} onUpload={uploadFile} />
                   </div>
 
-                  {/* Кнопки */}
                   <div className="flex gap-3">
                     <button onClick={() => handleSave('published')} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg">
                       <Save className="w-4 h-4" /> Сохранить и опубликовать
