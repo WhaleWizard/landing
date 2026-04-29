@@ -183,7 +183,7 @@ function BlogPageComponent() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap max-w-3xl mx-auto px-4 sm:px-6 pb-20">
             {selectedArticle.summary && (
               <aside className="mb-8 rounded-2xl border border-primary/30 bg-primary/10 p-5">
-                <h2 className="text-lg font-semibold mb-2">Краткий ответ</h2>
+                <h2 className="text-lg font-semibold mb-2">Краткое описание</h2>
                 <p className="text-sm md:text-base text-foreground/90 leading-relaxed">{selectedArticle.summary}</p>
               </aside>
             )}
