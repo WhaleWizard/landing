@@ -97,10 +97,10 @@ function blockToHtml(block: ContentBlock): string {
       return `<div data-ww-block="gallery" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:1.25em 0;">${items.map((item) => `<figure style="margin:0;"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" loading="lazy" style="width:100%;height:auto;border-radius:1rem;border:1px solid rgba(255,255,255,.14);" /></figure>`).join('')}</div>`;
     }
     case 'downloadButton': {
-      const label = block.downloadLabel || 'Скачать';
-      const url = block.downloadUrl || '#';
-      return `<div data-ww-block="downloadButton" style="text-align:center;margin:1.5em 0;"><a href="${escapeHtml(url)}" target="_blank" class="blog-touch-target group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer" style="display:inline-flex;text-decoration:none;color:white;"><div style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,0.2),transparent);transform:translateX(-120%);transition:transform 1s;" class="group-hover:translate-x-[120%]"></div><span style="position:relative;">${escapeHtml(label)}</span></a></div>`;
-    }
+  const label = block.downloadLabel || 'Скачать';
+  const url = block.downloadUrl || '#';
+  return `<div data-ww-block="downloadButton" style="text-align:center;margin:1.5em 0;"><a href="${escapeHtml(url)}" target="_blank" class="blog-touch-target group relative inline-flex items-center justify-center gap-3 px-6 md:px-8 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer" style="display:inline-flex;text-decoration:none;color:white;min-width:220px;"><div style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,0.2),transparent);transform:translateX(-120%);transition:transform 1s;" class="group-hover:translate-x-[120%]"></div><span style="position:relative;">${escapeHtml(label)}</span></a></div>`;
+}
     case 'spacer': {
       const value = Math.min(120, Math.max(8, Number(block.space || 24)));
       return `<div data-ww-block="spacer" style="height:${value}px;"></div>`;
