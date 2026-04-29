@@ -41,6 +41,7 @@ async function sendMetaPageView(
 ): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
+  const testCode = env.META_CAPI_TEST_CODE;
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing token or pixel ID, skipping PageView');
@@ -73,6 +74,7 @@ async function sendMetaPageView(
 
   const body = JSON.stringify({
     data: [event],
+    test_event_code: testCode || undefined,
   });
 
   try {
