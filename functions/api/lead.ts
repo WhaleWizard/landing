@@ -150,6 +150,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   // --- Honeypot ---
   if (normalized.hp_trap && normalized.hp_trap.length > 0) {
+    void sendMetaConversionEvent(normalized, env, request);
+
     return json(
       { success: true },
       { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
