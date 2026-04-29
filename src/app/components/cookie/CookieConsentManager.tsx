@@ -88,6 +88,18 @@ function Preferences({
   );
 }
 
+
+
+function PolicyNotice() {
+  return (
+    <p className="mt-3 text-[11px] md:text-xs text-muted-foreground leading-relaxed">
+      Используя сайт, вы соглашаетесь с{' '}
+      <a className="underline decoration-dotted hover:text-primary" href="/privacy-policy">Политикой конфиденциальности</a>{' '}
+      и{' '}
+      <a className="underline decoration-dotted hover:text-primary" href="/cookie-policy">политикой cookie</a>.
+    </p>
+  );
+}
 export default function CookieConsentManager() {
   const [mode, setMode] = useState<BannerMode>('hidden');
   const [loadingGeo, setLoadingGeo] = useState(true);
@@ -193,14 +205,16 @@ export default function CookieConsentManager() {
 
   if (!isVisible && !loadingGeo) {
     return (
+      <>
       <button
         type="button"
         onClick={openCookieSettings}
-        className="fixed bottom-4 left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
+        className="fixed bottom-2 left-2 md:bottom-4 md:left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-2 py-1.5 md:px-3 md:py-2 text-[11px] md:text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
         aria-label="Открыть настройки cookie"
       >
         Cookie settings
       </button>
+    </>
     );
   }
 
@@ -223,6 +237,8 @@ export default function CookieConsentManager() {
             />
           </div>
         )}
+
+        <PolicyNotice />
 
         <div className="mt-4 flex flex-wrap gap-2 justify-end">
           <button type="button" onClick={rejectAll} className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors">

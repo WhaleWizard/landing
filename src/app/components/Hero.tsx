@@ -211,16 +211,21 @@ interface RightPanelProps {
 const RightPanel = memo(({ inView }: RightPanelProps) => {
   const isTouch = useTouchDevice();
   const [isMobile, setIsMobile] = useState(false);
+  const [isVerySmallMobile, setIsVerySmallMobile] = useState(false);
   
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    const checkMobile = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsVerySmallMobile(width < 480);
+    };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
   // Уменьшаем количество частиц на очень слабых устройствах (доп. оптимизация)
-  const particleCount = isMobile ? (window.innerWidth < 480 ? 4 : 6) : 12;
+  const particleCount = isMobile ? (isVerySmallMobile ? 4 : 6) : 12;
 
   // Предзагрузка и preconnect для ускорения загрузки изображения
   useEffect(() => {
