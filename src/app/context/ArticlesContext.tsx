@@ -53,7 +53,36 @@ export const ArticlesProvider = ({ children }: Props) => {
   };
 
   useEffect(() => {
-    loadArticles();
+    if (typeof window === 'undefined') {
+      loadArticles();
+      return;
+    }
+
+    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+    if (!isDesktop) {
+      loadArticles();
+      return;
+    }
+
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      void loadArticles();
+    };
+
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(run, { timeout: 1200 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timer = window.setTimeout(run, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   return (
