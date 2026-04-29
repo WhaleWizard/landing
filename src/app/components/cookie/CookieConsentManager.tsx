@@ -218,14 +218,11 @@ export default function CookieConsentManager() {
         <button
           type="button"
           onClick={openCookieSettings}
-          className="fixed bottom-4 left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
+          className="fixed bottom-2 left-2 md:bottom-4 md:left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-2 py-1.5 md:px-3 md:py-2 text-[11px] md:text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
           aria-label="Открыть настройки cookie"
         >
           Cookie settings
         </button>
-        <div className="fixed bottom-4 left-1/2 z-[60] w-[min(96vw,680px)] -translate-x-1/2 rounded-xl border border-border/60 bg-card/90 px-3 py-2 backdrop-blur">
-          <PolicyNotice />
-        </div>
       </>
     );
   }
