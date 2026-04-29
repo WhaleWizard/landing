@@ -190,7 +190,6 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
       );
     }
 
-    // Убедимся, что у всех статей есть поле status (по умолчанию published)
     const articlesWithStatus = payload.articles.map((article) => ({
       ...article,
       status: article.status || 'published',
