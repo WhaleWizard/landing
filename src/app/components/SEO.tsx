@@ -61,6 +61,19 @@ export default function SEO({
     setMeta('twitter:title', fullTitle);
     setMeta('twitter:description', description);
     setMeta('twitter:image', absoluteImage);
+    setMeta('twitter:url', absoluteUrl);
+
+    const setAlternate = (hrefLang: string, href: string) => {
+      const selector = `link[rel="alternate"][hreflang="${hrefLang}"]`;
+      let link = document.querySelector(selector) as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.setAttribute('rel', 'alternate');
+        link.setAttribute('hreflang', hrefLang);
+        document.head.appendChild(link);
+      }
+      link.setAttribute('href', href);
+    };
 
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
@@ -69,6 +82,8 @@ export default function SEO({
       document.head.appendChild(canonical);
     }
     canonical.setAttribute('href', absoluteUrl);
+    setAlternate('ru', absoluteUrl);
+    setAlternate('x-default', absoluteUrl);
 
     const upsertJsonLd = (id: string, payload: Record<string, unknown>) => {
       let script = document.getElementById(id) as HTMLScriptElement | null;
