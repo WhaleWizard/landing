@@ -210,41 +210,6 @@ interface RightPanelProps {
 
 const RightPanel = memo(({ inView }: RightPanelProps) => {
   const isTouch = useTouchDevice();
-  const [isMobile, setIsMobile] = useState(false);
-  const [isVerySmallMobile, setIsVerySmallMobile] = useState(false);
-  
-  useEffect(() => {
-    const checkMobile = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-      setIsVerySmallMobile(width < 480);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-  
-  // Уменьшаем количество частиц на очень слабых устройствах (доп. оптимизация)
-  const particleCount = isMobile ? (isVerySmallMobile ? 4 : 6) : 12;
-
-  // Предзагрузка и preconnect для ускорения загрузки изображения
-  useEffect(() => {
-    const preconnect = document.createElement('link');
-    preconnect.rel = 'preconnect';
-    preconnect.href = 'https://i.ibb.co';
-    document.head.appendChild(preconnect);
-    
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    link.href = 'https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg';
-    document.head.appendChild(link);
-    
-    return () => {
-      document.head.removeChild(preconnect);
-      document.head.removeChild(link);
-    };
-  }, []);
 
   // Опционально: отключаем hover-анимации на тач-устройствах
   const hoverProps = !isTouch ? { whileHover: { scale: 1.1, rotate: 5 } } : {};
@@ -272,15 +237,34 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
 
         {/* Main image — оптимизированная загрузка */}
         <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-          <img
-            src="https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg"
-            alt=""
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            className="w-full h-full object-cover"
-            style={{ objectPosition: 'center center' }}
-          />
+          <picture>
+            <source
+              srcSet="
+                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?format=webp&width=720 720w,
+                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?format=webp&width=960 960w,
+                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?format=webp&width=1280 1280w
+              "
+              sizes="(max-width: 768px) 100vw, 50vw"
+              type="image/webp"
+            />
+            <img
+              src="https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg"
+              srcSet="
+                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?width=720 720w,
+                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?width=960 960w,
+                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?width=1280 1280w
+              "
+              sizes="(max-width: 768px) 100vw, 50vw"
+              alt="Performance marketer portrait"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              width={960}
+              height={1200}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: 'center center' }}
+            />
+          </picture>
         </div>
 
         {/* Neon rim light */}
@@ -349,7 +333,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
           </motion.div>
         ))}
 
-        <Particles count={particleCount} inView={inView} />
+        <Particles count={12} inView={inView} />
 
         {/* Scan line */}
         <motion.div

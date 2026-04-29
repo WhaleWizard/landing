@@ -2,7 +2,7 @@ import { createBrowserRouter, Outlet, useRouteError } from 'react-router';
 import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
-import CookieConsentManager from './components/cookie/CookieConsentManager';
+const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 
 const ThankYou = lazy(() => import('./pages/ThankYou'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
@@ -51,7 +51,9 @@ function RootLayout() {
   return (
     <>
       <Outlet />
-      <CookieConsentManager />
+      <Suspense fallback={null}>
+        <CookieConsentManager />
+      </Suspense>
     </>
   );
 }
