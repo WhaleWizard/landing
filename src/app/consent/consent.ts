@@ -30,7 +30,6 @@ const REGULATED_COUNTRIES = new Set([
   'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB', 'CH'
 ]);
 
-
 function getExpiryTimestamp(days = CONSENT_TTL_DAYS): number {
   return Date.now() + days * 24 * 60 * 60 * 1000;
 }

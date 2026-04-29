@@ -165,6 +165,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
   }
 
+  void sendMetaConversionEvent(normalized, env, request);
+
   try {
     const response = await fetch(DEFAULT_LEAD_ENDPOINT, {
       method: 'POST',
@@ -179,8 +181,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
       );
     }
-
-    void sendMetaConversionEvent(normalized, env, request);
 
     return json(
       { success: true },
