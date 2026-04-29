@@ -104,21 +104,6 @@ function Cases() {
     }
   }, [nextSlide, prevSlide]);
 
-  // Предзагрузка первых двух изображений
-  useEffect(() => {
-    const preloadImages = casesData.slice(0, 2).map(item => {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = item.image;
-      document.head.appendChild(link);
-      return link;
-    });
-    return () => {
-      preloadImages.forEach(link => document.head.removeChild(link));
-    };
-  }, []);
-
   // Отключаем hover-анимации на тач-устройствах
   const desktopHover = !isTouch ? { whileHover: { scale: 1.05 } } : {};
   const cardHover = !isTouch ? { whileHover: { scale: 1.1 } } : {};

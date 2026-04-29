@@ -127,7 +127,7 @@ async function fetchLocalSeedFallback(): Promise<Article[]> {
     const res = await fetch('/articles.seed.json', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
+      cache: 'force-cache',
     });
 
     if (!res.ok) return [];
@@ -139,11 +139,14 @@ async function fetchLocalSeedFallback(): Promise<Article[]> {
 }
 
 async function fetchPublicJsonBinFallback(): Promise<Article[]> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 1800);
   try {
     const res = await fetch(JSONBIN_PUBLIC_URL, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
+      cache: 'force-cache',
+      signal: controller.signal,
     });
 
     if (!res.ok) return [];
@@ -152,15 +155,24 @@ async function fetchPublicJsonBinFallback(): Promise<Article[]> {
     return asArticleArray(json?.record?.articles);
   } catch {
     return [];
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
 async function resolveFallbackArticles(): Promise<Article[]> {
   const localBackup = dedupeBySlug(fetchLocalArticlesBackup());
-  const [localSeed, publicFallback] = await Promise.all([
-    fetchLocalSeedFallback().then(dedupeBySlug),
-    fetchPublicJsonBinFallback().then(dedupeBySlug),
-  ]);
+  const localSeed = await fetchLocalSeedFallback().then(dedupeBySlug);
+
+  // Быстрый путь: если уже есть локальные данные — возвращаем их сразу,
+  // чтобы не блокировать UI медленными внешними запросами.
+  const quickSource = [localSeed, localBackup].find((source) => source.length > 0) || [];
+  if (quickSource.length > 0) {
+    saveLocalArticlesBackup(quickSource);
+    return quickSource;
+  }
+
+  const publicFallback = await fetchPublicJsonBinFallback().then(dedupeBySlug);
 
   // Prefer a single freshest non-empty fallback source to avoid mixing stale and current datasets.
   const preferredSource = [publicFallback, localSeed, localBackup].find((source) => source.length > 0) || [];
@@ -194,7 +206,7 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      cache: 'no-store',
+      cache: options?.bypassCache ? 'no-store' : 'default',
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
