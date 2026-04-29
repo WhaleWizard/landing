@@ -215,8 +215,9 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
   
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      setIsVerySmallMobile(window.innerWidth < 480);
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsVerySmallMobile(width < 480);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
