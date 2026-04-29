@@ -1,7 +1,8 @@
-import { createBrowserRouter, useRouteError } from 'react-router';
+import { createBrowserRouter, Outlet, useRouteError } from 'react-router';
 import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
+import CookieConsentManager from './components/cookie/CookieConsentManager';
 
 const ThankYou = lazy(() => import('./pages/ThankYou'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
@@ -45,17 +46,34 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+
+function RootLayout() {
+  return (
+    <>
+      <Outlet />
+      <CookieConsentManager />
+    </>
+  );
+}
+
 export const router = createBrowserRouter([
-  { path: '/', Component: Home, errorElement: <RouteErrorBoundary /> },
-  { path: '/calculator', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><Calculator /></LazyWrapper> },
-  { path: '/roi-calculator', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><RoiPage /></LazyWrapper> },
-  { path: '/thank-you', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><ThankYou /></LazyWrapper> },
-  { path: '/blog', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><BlogPage /></LazyWrapper> },
-  { path: '/blog/:slug', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><BlogPage /></LazyWrapper> },
-  { path: '/admin', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><Admin /></LazyWrapper> },
-  { path: '/privacy-policy', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><PrivacyPolicy /></LazyWrapper> },
-  { path: '/offer', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><Offer /></LazyWrapper> },
-  { path: '/cookie-policy', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><CookiePolicy /></LazyWrapper> },
-  { path: '/faq', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><FAQPage /></LazyWrapper> },
-  { path: '/marketing-glossary', errorElement: <RouteErrorBoundary />, element: <LazyWrapper><MarketingGlossaryPage /></LazyWrapper> },
+  {
+    path: '/',
+    element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      { index: true, Component: Home },
+      { path: 'calculator', element: <LazyWrapper><Calculator /></LazyWrapper> },
+      { path: 'roi-calculator', element: <LazyWrapper><RoiPage /></LazyWrapper> },
+      { path: 'thank-you', element: <LazyWrapper><ThankYou /></LazyWrapper> },
+      { path: 'blog', element: <LazyWrapper><BlogPage /></LazyWrapper> },
+      { path: 'blog/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
+      { path: 'admin', element: <LazyWrapper><Admin /></LazyWrapper> },
+      { path: 'privacy-policy', element: <LazyWrapper><PrivacyPolicy /></LazyWrapper> },
+      { path: 'offer', element: <LazyWrapper><Offer /></LazyWrapper> },
+      { path: 'cookie-policy', element: <LazyWrapper><CookiePolicy /></LazyWrapper> },
+      { path: 'faq', element: <LazyWrapper><FAQPage /></LazyWrapper> },
+      { path: 'marketing-glossary', element: <LazyWrapper><MarketingGlossaryPage /></LazyWrapper> },
+    ],
+  },
 ]);

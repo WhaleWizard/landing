@@ -341,6 +341,47 @@ export async function ensureMarketingLoaded(): Promise<void> {
   }
 }
 
+function sendServerPageView(payload: { event_id: string; page_url: string; referrer?: string }): void {
+  const body = JSON.stringify(payload);
+
+  // 1) Prefer sendBeacon when available to survive quick navigations/unloads.
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    try {
+      const blob = new Blob([body], { type: 'application/json' });
+      const queued = navigator.sendBeacon('/api/pageview', blob);
+      if (queued) return;
+    } catch {
+      // fallback to fetch below
+    }
+  }
+
+  // 2) keepalive fetch + single retry for transient failures.
+  fetch('/api/pageview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: true,
+    credentials: 'same-origin',
+  })
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    })
+    .catch((e) => {
+      console.warn('[PageView] Failed to send server event, retrying once', e);
+      window.setTimeout(() => {
+        fetch('/api/pageview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          keepalive: true,
+          credentials: 'same-origin',
+        }).catch((err) => console.warn('[PageView] Retry failed', err));
+      }, 800);
+    });
+}
+
 export function trackPageView(path: string): void {
   const now = Date.now();
   if (path === lastTrackedPath && now - lastTrackedAt < 1200) return;
@@ -380,16 +421,12 @@ export function trackPageView(path: string): void {
   win.fbq?.('track', 'PageView', { eventID: eventId });
   win.ttq?.page?.();
 
-  // Отправляем серверный PageView через наш API
-  fetch('/api/pageview', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event_id: eventId,
-      page_url: window.location.href,
-      referrer: document.referrer || undefined,
-    }),
-  }).catch((e) => console.warn('[PageView] Failed to send server event', e));
+  // Отправляем серверный PageView через наш API (устойчиво к быстрым переходам)
+  sendServerPageView({
+    event_id: eventId,
+    page_url: window.location.href,
+    referrer: document.referrer || undefined,
+  });
 }
 
 export function trackFaqOpen(question: string): void {
