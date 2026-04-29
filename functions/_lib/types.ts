@@ -22,6 +22,8 @@ export interface Article {
 }
 
 export interface Env {
+  DB?: D1Database;
+  USE_D1_ARTICLES?: string;
   JSONBIN_BIN_ID: string;
   JSONBIN_MASTER_KEY: string;
   JSONBIN_ACCESS_KEY?: string;

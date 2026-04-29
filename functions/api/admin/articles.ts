@@ -2,6 +2,7 @@ import { CACHE_CONTROL, deleteCacheByUrl } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
+import { fetchArticlesFromD1, writeArticlesToD1 } from '../../_lib/d1';
 import { json } from '../../_lib/http';
 import type { Article, Env } from '../../_lib/types';
 
@@ -176,7 +177,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   }
 
   try {
-    const existing = await fetchArticlesFromJsonBin(env);
+    const useD1 = String(env.USE_D1_ARTICLES || '').toLowerCase() === 'true' && Boolean(env.DB);
+    const existing = useD1 ? await fetchArticlesFromD1(env) : await fetchArticlesFromJsonBin(env);
 
     if (existing.length > 0 && payload.articles.length === 0) {
       return json(
@@ -188,7 +190,9 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
       );
     }
 
-    const updated = await writeArticlesToJsonBin(env, payload.articles, existing);
+    const updated = useD1
+      ? await writeArticlesToD1(env, payload.articles, existing)
+      : await writeArticlesToJsonBin(env, payload.articles, existing);
 
     const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
     const siteUrl = getSiteUrl(env, request);
