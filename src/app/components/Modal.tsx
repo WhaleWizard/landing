@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -14,16 +15,30 @@ interface ModalProps {
 export default function Modal({ isOpen, onClose, title, children, dialogClassName, bodyClassName }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const previousOverflow = document.body.style.overflow;
     const previousPaddingRight = document.body.style.paddingRight;
+    const previousPosition = document.body.style.position;
+    const previousTop = document.body.style.top;
+    const previousWidth = document.body.style.width;
+    const scrollY = window.scrollY;
     const scrollbarCompensation = window.innerWidth - document.documentElement.clientWidth;
 
     lastActiveElementRef.current = document.activeElement as HTMLElement;
+
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
     if (scrollbarCompensation > 0) {
       document.body.style.paddingRight = `${scrollbarCompensation}px`;
     }
@@ -65,11 +80,17 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPaddingRight;
+      document.body.style.position = previousPosition;
+      document.body.style.top = previousTop;
+      document.body.style.width = previousWidth;
+      window.scrollTo(0, scrollY);
       lastActiveElementRef.current?.focus();
     };
   }, [isOpen, onClose]);
 
-  return (
+  if (!isMounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -79,7 +100,7 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000]"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -90,7 +111,7 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-2xl max-h-[calc(100dvh-2rem)] md:max-h-[85vh] bg-card border border-primary/30 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col ${dialogClassName ?? ''}`}
+            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-2xl max-h-[calc(100dvh-2rem)] md:max-h-[85vh] bg-card border border-primary/30 rounded-2xl shadow-2xl z-[1001] overflow-hidden flex flex-col ${dialogClassName ?? ''}`}
           >
             <div className="flex justify-between items-center p-4 border-b border-border">
               <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -106,7 +127,6 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
                 <X className="w-5 h-5 text-muted-foreground" />
               </motion.button>
             </div>
-            {/* Добавляем класс для кастомного скроллбара */}
             <div className={`p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto modal-scroll ${bodyClassName ?? ''}`}>
               {children}
             </div>
@@ -118,7 +138,6 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
           </motion.div>
         </>
       )}
-      {/* Стили только для этого компонента */}
       <style>{`
         .modal-scroll {
           scrollbar-width: thin;
@@ -139,6 +158,7 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
           background: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
         }
       `}</style>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
