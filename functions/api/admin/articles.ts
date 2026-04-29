@@ -190,9 +190,15 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
       );
     }
 
+    // Убедимся, что у всех статей есть поле status (по умолчанию published)
+    const articlesWithStatus = payload.articles.map((article) => ({
+      ...article,
+      status: article.status || 'published',
+    }));
+
     const updated = useD1
-      ? await writeArticlesToD1(env, payload.articles, existing)
-      : await writeArticlesToJsonBin(env, payload.articles, existing);
+      ? await writeArticlesToD1(env, articlesWithStatus, existing)
+      : await writeArticlesToJsonBin(env, articlesWithStatus, existing);
 
     const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
     const siteUrl = getSiteUrl(env, request);
