@@ -60,6 +60,37 @@ function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
   }
   return result;
 }
+
+function extractRequestContext(request: Request) {
+  const country = request.headers.get('CF-IPCountry') || undefined;
+  const city = request.headers.get('CF-IPCity') || request.headers.get('X-City') || undefined;
+  const region = request.headers.get('CF-Region') || request.headers.get('X-Region') || undefined;
+  const timezone = request.headers.get('CF-Timezone') || undefined;
+  const language = request.headers.get('Accept-Language')?.split(',')[0]?.trim() || undefined;
+  const platform = request.headers.get('Sec-CH-UA-Platform')?.replaceAll('"', '') || undefined;
+  const uaMobile = request.headers.get('Sec-CH-UA-Mobile');
+  const isMobile = uaMobile === '?1' ? 'mobile' : uaMobile === '?0' ? 'desktop' : undefined;
+
+  let utmSource: string | undefined;
+  let utmMedium: string | undefined;
+  let utmCampaign: string | undefined;
+  let utmContent: string | undefined;
+  let utmTerm: string | undefined;
+
+  try {
+    const sourceUrl = new URL(request.url);
+    utmSource = sourceUrl.searchParams.get('utm_source') || undefined;
+    utmMedium = sourceUrl.searchParams.get('utm_medium') || undefined;
+    utmCampaign = sourceUrl.searchParams.get('utm_campaign') || undefined;
+    utmContent = sourceUrl.searchParams.get('utm_content') || undefined;
+    utmTerm = sourceUrl.searchParams.get('utm_term') || undefined;
+  } catch {
+    // no-op
+  }
+
+  return { country, city, region, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm };
+}
+
 async function sendMetaConversionEvent(
   payload: LeadPayload,
   env: Env,
@@ -79,16 +110,20 @@ async function sendMetaConversionEvent(
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
   const { fbp, fbc } = getMetaCookies(request);
+  const ctx = extractRequestContext(request);
 
   const nameParts = (payload.name || '').trim().split(/\s+/);
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
 
-  const [hashedEmail, hashedPhone, hashedFn, hashedLn] = await Promise.all([
+  const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion] = await Promise.all([
     payload.email ? sha256(payload.email) : undefined,
     payload.phone ? sha256(payload.phone) : undefined,
     firstName ? sha256(firstName) : undefined,
     lastName ? sha256(lastName) : undefined,
+    ctx.country ? sha256(ctx.country) : undefined,
+    ctx.city ? sha256(ctx.city) : undefined,
+    ctx.region ? sha256(ctx.region) : undefined,
   ]);
 
   const event = {
@@ -105,11 +140,26 @@ async function sendMetaConversionEvent(
       client_user_agent: userAgent,
       fbp: fbp || undefined,
       fbc: fbc || undefined,
+      country: hashedCountry ? [hashedCountry] : undefined,
+      ct: hashedCity ? [hashedCity] : undefined,
+      st: hashedRegion ? [hashedRegion] : undefined,
     },
     custom_data: {
       budget: payload.budget,
       message: payload.message?.slice(0, 500),
       contact_method: payload.contactMethod,
+      country: ctx.country,
+      city: ctx.city,
+      region: ctx.region,
+      timezone: ctx.timezone,
+      language: ctx.language,
+      platform: ctx.platform,
+      device_type: ctx.isMobile,
+      utm_source: ctx.utmSource,
+      utm_medium: ctx.utmMedium,
+      utm_campaign: ctx.utmCampaign,
+      utm_content: ctx.utmContent,
+      utm_term: ctx.utmTerm,
     },
     event_source_url: eventSourceUrl,
   };

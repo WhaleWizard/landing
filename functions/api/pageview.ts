@@ -34,6 +34,37 @@ function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
   return result;
 }
 
+
+function extractRequestContext(request: Request) {
+  const country = request.headers.get('CF-IPCountry') || undefined;
+  const city = request.headers.get('CF-IPCity') || request.headers.get('X-City') || undefined;
+  const region = request.headers.get('CF-Region') || request.headers.get('X-Region') || undefined;
+  const timezone = request.headers.get('CF-Timezone') || undefined;
+  const language = request.headers.get('Accept-Language')?.split(',')[0]?.trim() || undefined;
+  const platform = request.headers.get('Sec-CH-UA-Platform')?.replaceAll('"', '') || undefined;
+  const uaMobile = request.headers.get('Sec-CH-UA-Mobile');
+  const isMobile = uaMobile === '?1' ? 'mobile' : uaMobile === '?0' ? 'desktop' : undefined;
+
+  let utmSource: string | undefined;
+  let utmMedium: string | undefined;
+  let utmCampaign: string | undefined;
+  let utmContent: string | undefined;
+  let utmTerm: string | undefined;
+
+  try {
+    const sourceUrl = new URL(request.url);
+    utmSource = sourceUrl.searchParams.get('utm_source') || undefined;
+    utmMedium = sourceUrl.searchParams.get('utm_medium') || undefined;
+    utmCampaign = sourceUrl.searchParams.get('utm_campaign') || undefined;
+    utmContent = sourceUrl.searchParams.get('utm_content') || undefined;
+    utmTerm = sourceUrl.searchParams.get('utm_term') || undefined;
+  } catch {
+    // no-op
+  }
+
+  return { country, city, region, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm };
+}
+
 async function sendMetaPageView(
   payload: PageViewPayload,
   env: Env,
@@ -55,7 +86,11 @@ async function sendMetaPageView(
   const eventId = payload.event_id || undefined;
 
   const { fbp, fbc } = getMetaCookies(request);
+  const ctx = extractRequestContext(request);
   const hashedExternalId = payload.external_id ? await sha256(payload.external_id) : undefined;
+  const hashedCountry = ctx.country ? await sha256(ctx.country) : undefined;
+  const hashedCity = ctx.city ? await sha256(ctx.city) : undefined;
+  const hashedRegion = ctx.region ? await sha256(ctx.region) : undefined;
 
   const event = {
     event_name: 'PageView',
@@ -68,6 +103,23 @@ async function sendMetaPageView(
       fbp: fbp || undefined,
       fbc: fbc || undefined,
       external_id: hashedExternalId ? [hashedExternalId] : undefined,
+      country: hashedCountry ? [hashedCountry] : undefined,
+      ct: hashedCity ? [hashedCity] : undefined,
+      st: hashedRegion ? [hashedRegion] : undefined,
+    },
+    custom_data: {
+      country: ctx.country,
+      city: ctx.city,
+      region: ctx.region,
+      timezone: ctx.timezone,
+      language: ctx.language,
+      platform: ctx.platform,
+      device_type: ctx.isMobile,
+      utm_source: ctx.utmSource,
+      utm_medium: ctx.utmMedium,
+      utm_campaign: ctx.utmCampaign,
+      utm_content: ctx.utmContent,
+      utm_term: ctx.utmTerm,
     },
     event_source_url: eventSourceUrl,
   };
