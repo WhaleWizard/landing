@@ -13,6 +13,8 @@ interface LeadPayload {
   telegramUsername?: string;
   event_id?: string;
   hp_trap?: string;   // honeypot – боты заполняют, люди нет
+  page_url?: string;
+  referrer?: string;
 }
 
 const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
@@ -32,6 +34,8 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     telegramUsername: sanitizeText(payload.telegramUsername || '', 120),
     event_id: sanitizeText(payload.event_id || '', 64),
     hp_trap: sanitizeText(payload.hp_trap || '', 10),
+    page_url: sanitizeText(payload.page_url || '', 2048),
+    referrer: sanitizeText(payload.referrer || '', 2048),
   };
 }
 
@@ -43,6 +47,19 @@ async function sha256(value: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+
+function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
+  const cookieHeader = request.headers.get('Cookie') || '';
+  const pairs = cookieHeader.split(';').map(p => p.trim());
+  const result: { fbp?: string; fbc?: string } = {};
+  for (const pair of pairs) {
+    const [key, ...rest] = pair.split('=');
+    const value = rest.join('=');
+    if (key === '_fbp') result.fbp = decodeURIComponent(value);
+    else if (key === '_fbc') result.fbc = decodeURIComponent(value);
+  }
+  return result;
+}
 async function sendMetaConversionEvent(
   payload: LeadPayload,
   env: Env,
@@ -50,6 +67,7 @@ async function sendMetaConversionEvent(
 ): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
+  const testCode = env.META_CAPI_TEST_CODE;
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
@@ -59,6 +77,8 @@ async function sendMetaConversionEvent(
   const eventTime = Math.floor(Date.now() / 1000);
   const clientIp = request.headers.get('CF-Connecting-IP') || '';
   const userAgent = request.headers.get('User-Agent') || '';
+  const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
+  const { fbp, fbc } = getMetaCookies(request);
 
   const nameParts = (payload.name || '').trim().split(/\s+/);
   const firstName = nameParts[0] || '';
@@ -83,17 +103,20 @@ async function sendMetaConversionEvent(
       ln: hashedLn ? [hashedLn] : undefined,
       client_ip_address: clientIp,
       client_user_agent: userAgent,
+      fbp: fbp || undefined,
+      fbc: fbc || undefined,
     },
     custom_data: {
       budget: payload.budget,
       message: payload.message?.slice(0, 500),
       contact_method: payload.contactMethod,
     },
-    event_source_url: request.url,
+    event_source_url: eventSourceUrl,
   };
 
   const body = JSON.stringify({
     data: [event],
+    test_event_code: testCode || undefined,
   });
 
   try {
@@ -140,6 +163,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
   }
 
+  void sendMetaConversionEvent(normalized, env, request);
+
   try {
     const response = await fetch(DEFAULT_LEAD_ENDPOINT, {
       method: 'POST',
@@ -154,8 +179,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
       );
     }
-
-    void sendMetaConversionEvent(normalized, env, request);
 
     return json(
       { success: true },

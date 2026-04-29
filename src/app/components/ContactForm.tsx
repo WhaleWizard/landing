@@ -125,6 +125,8 @@ function ContactForm() {
             telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
             event_id: eventId,
             hp_trap: hpTrap,
+            page_url: window.location.href,
+            referrer: document.referrer || undefined,
           }),
         });
         if (!res.ok) {
