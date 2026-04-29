@@ -98,7 +98,8 @@ function PolicyNotice() {
       и{' '}
       <a className="underline decoration-dotted hover:text-primary" href="/cookie-policy">
         политикой cookie
-      </a>.
+      </a>
+      .
     </p>
   );
 }
