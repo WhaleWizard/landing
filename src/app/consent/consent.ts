@@ -30,6 +30,25 @@ const REGULATED_COUNTRIES = new Set([
   'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB', 'CH'
 ]);
 
+
+const REGULATED_TIMEZONE_PREFIXES = [
+  'Europe/',
+  'Atlantic/Canary',
+  'Atlantic/Madeira',
+] as const;
+
+function inferRequiresConsentFromTimezone(): boolean | null {
+  try {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (!timeZone) return null;
+
+    return REGULATED_TIMEZONE_PREFIXES.some((prefix) => timeZone.startsWith(prefix));
+  } catch {
+    return null;
+  }
+}
+
+
 function getExpiryTimestamp(days = CONSENT_TTL_DAYS): number {
   return Date.now() + days * 24 * 60 * 60 * 1000;
 }
@@ -152,6 +171,8 @@ export async function resolveGeo(): Promise<GeoResolution | null> {
 }
 
 export function requiresConsentByDefault(): boolean {
+  const inferred = inferRequiresConsentFromTimezone();
+  if (typeof inferred === 'boolean') return inferred;
   return true;
 }
 
