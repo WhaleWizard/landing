@@ -27,12 +27,16 @@ export default defineConfig({
     },
   },
   build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    modulePreload: {
+      polyfill: false,
+    },
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router'],
           motion: ['motion'],
-          ui: ['@mui/material', '@mui/icons-material'],
           tiptap: ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-image'],
         },
       },

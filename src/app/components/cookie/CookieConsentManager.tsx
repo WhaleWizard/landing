@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { router } from '../../routes';
 import {
   ensureAnalyticsLoaded,
@@ -88,6 +89,18 @@ function Preferences({
   );
 }
 
+
+
+function PolicyNotice() {
+  return (
+    <p className="mt-3 text-[11px] md:text-xs text-muted-foreground leading-relaxed">
+      Используя сайт, вы соглашаетесь с{' '}
+      <Link className="underline decoration-dotted hover:text-primary" to="/privacy-policy">Политикой конфиденциальности</Link>{' '}
+      и{' '}
+      <Link className="underline decoration-dotted hover:text-primary" to="/cookie-policy">политикой cookie</Link>.
+    </p>
+  );
+}
 export default function CookieConsentManager() {
   const [mode, setMode] = useState<BannerMode>('hidden');
   const [loadingGeo, setLoadingGeo] = useState(true);
@@ -193,6 +206,7 @@ export default function CookieConsentManager() {
 
   if (!isVisible && !loadingGeo) {
     return (
+      <>
       <button
         type="button"
         onClick={openCookieSettings}
@@ -201,6 +215,10 @@ export default function CookieConsentManager() {
       >
         Cookie settings
       </button>
+      <div className="fixed bottom-4 left-1/2 z-[60] w-[min(96vw,680px)] -translate-x-1/2 rounded-xl border border-border/60 bg-card/90 px-3 py-2 backdrop-blur">
+        <PolicyNotice />
+      </div>
+    </>
     );
   }
 
@@ -223,6 +241,8 @@ export default function CookieConsentManager() {
             />
           </div>
         )}
+
+        <PolicyNotice />
 
         <div className="mt-4 flex flex-wrap gap-2 justify-end">
           <button type="button" onClick={rejectAll} className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors">
