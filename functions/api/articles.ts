@@ -16,7 +16,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const now = new Date().toISOString();
     const allArticles = await fetchArticlesWithFallback(env, request);
 
-    // Показываем только published, у которых publishedAt <= now
     const visibleArticles = allArticles.filter((article) => {
       if (article.status === 'draft') return false;
       if (article.publishedAt && article.publishedAt > now) return false;
