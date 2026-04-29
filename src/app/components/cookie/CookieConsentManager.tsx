@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { router } from '../../routes';
 import {
   ensureAnalyticsLoaded,
@@ -89,18 +88,21 @@ function Preferences({
   );
 }
 
-
-
 function PolicyNotice() {
   return (
     <p className="mt-3 text-[11px] md:text-xs text-muted-foreground leading-relaxed">
       Используя сайт, вы соглашаетесь с{' '}
-      <Link className="underline decoration-dotted hover:text-primary" to="/privacy-policy">Политикой конфиденциальности</Link>{' '}
+      <a className="underline decoration-dotted hover:text-primary" href="/privacy-policy">
+        Политикой конфиденциальности
+      </a>{' '}
       и{' '}
-      <Link className="underline decoration-dotted hover:text-primary" to="/cookie-policy">политикой cookie</Link>.
+      <a className="underline decoration-dotted hover:text-primary" href="/cookie-policy">
+        политикой cookie
+      </a>.
     </p>
   );
 }
+
 export default function CookieConsentManager() {
   const [mode, setMode] = useState<BannerMode>('hidden');
   const [loadingGeo, setLoadingGeo] = useState(true);
@@ -110,12 +112,15 @@ export default function CookieConsentManager() {
 
   const consentRef = useRef<ConsentRecord | null>(null);
 
-  const saveAndApply = useCallback((categories: Omit<ConsentCategories, 'necessary'>, source: ConsentRecord['source']) => {
-    const consent = saveConsent(categories, region, source);
-    consentRef.current = consent;
-    applyConsent(consent);
-    setMode('hidden');
-  }, [region]);
+  const saveAndApply = useCallback(
+    (categories: Omit<ConsentCategories, 'necessary'>, source: ConsentRecord['source']) => {
+      const consent = saveConsent(categories, region, source);
+      consentRef.current = consent;
+      applyConsent(consent);
+      setMode('hidden');
+    },
+    [region],
+  );
 
   useEffect(() => {
     const existing = loadConsent();
@@ -131,27 +136,29 @@ export default function CookieConsentManager() {
 
     let alive = true;
 
-    void resolveGeo().then((geo) => {
-      if (!alive) return;
+    void resolveGeo()
+      .then((geo) => {
+        if (!alive) return;
 
-      const resolvedRegion = geo?.countryCode || 'UNKNOWN';
-      setRegion(resolvedRegion);
+        const resolvedRegion = geo?.countryCode || 'UNKNOWN';
+        setRegion(resolvedRegion);
 
-      const requiresConsent = geo?.requiresConsent ?? requiresConsentByDefault();
+        const requiresConsent = geo?.requiresConsent ?? requiresConsentByDefault();
 
-      if (requiresConsent) {
-        setMode('banner');
-      } else {
-        const autoConsent = saveConsent({ analytics: true, marketing: true }, resolvedRegion, 'region_auto');
-        consentRef.current = autoConsent;
-        setAnalytics(true);
-        setMarketing(true);
-        applyConsent(autoConsent);
-        setMode('hidden');
-      }
-    }).finally(() => {
-      if (alive) setLoadingGeo(false);
-    });
+        if (requiresConsent) {
+          setMode('banner');
+        } else {
+          const autoConsent = saveConsent({ analytics: true, marketing: true }, resolvedRegion, 'region_auto');
+          consentRef.current = autoConsent;
+          setAnalytics(true);
+          setMarketing(true);
+          applyConsent(autoConsent);
+          setMode('hidden');
+        }
+      })
+      .finally(() => {
+        if (alive) setLoadingGeo(false);
+      });
 
     return () => {
       alive = false;
@@ -184,9 +191,10 @@ export default function CookieConsentManager() {
   const isVisible = mode !== 'hidden';
   const panelTitle = mode === 'banner' ? 'Мы используем cookie' : 'Настройки cookie';
 
-  const description = useMemo(() => (
-    'Нужны для аналитики, маркетинга и корректной работы сайта. Вы можете изменить выбор в любой момент.'
-  ), []);
+  const description = useMemo(
+    () => 'Нужны для аналитики, маркетинга и корректной работы сайта. Вы можете изменить выбор в любой момент.',
+    [],
+  );
 
   const acceptAll = useCallback(() => {
     setAnalytics(true);
@@ -207,18 +215,18 @@ export default function CookieConsentManager() {
   if (!isVisible && !loadingGeo) {
     return (
       <>
-      <button
-        type="button"
-        onClick={openCookieSettings}
-        className="fixed bottom-4 left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
-        aria-label="Открыть настройки cookie"
-      >
-        Cookie settings
-      </button>
-      <div className="fixed bottom-4 left-1/2 z-[60] w-[min(96vw,680px)] -translate-x-1/2 rounded-xl border border-border/60 bg-card/90 px-3 py-2 backdrop-blur">
-        <PolicyNotice />
-      </div>
-    </>
+        <button
+          type="button"
+          onClick={openCookieSettings}
+          className="fixed bottom-4 left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
+          aria-label="Открыть настройки cookie"
+        >
+          Cookie settings
+        </button>
+        <div className="fixed bottom-4 left-1/2 z-[60] w-[min(96vw,680px)] -translate-x-1/2 rounded-xl border border-border/60 bg-card/90 px-3 py-2 backdrop-blur">
+          <PolicyNotice />
+        </div>
+      </>
     );
   }
 
@@ -226,7 +234,10 @@ export default function CookieConsentManager() {
 
   return (
     <div className="fixed inset-0 z-[70] pointer-events-none">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] pointer-events-auto" onClick={() => setMode('modal')} />
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-[1px] pointer-events-auto"
+        onClick={() => setMode('modal')}
+      />
       <section className="pointer-events-auto absolute bottom-4 left-1/2 w-[min(96vw,680px)] -translate-x-1/2 rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl p-4 md:p-5">
         <h3 className="text-base md:text-lg font-semibold">{panelTitle}</h3>
         <p className="mt-1 text-xs md:text-sm text-muted-foreground">{description}</p>
@@ -245,13 +256,25 @@ export default function CookieConsentManager() {
         <PolicyNotice />
 
         <div className="mt-4 flex flex-wrap gap-2 justify-end">
-          <button type="button" onClick={rejectAll} className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors">
+          <button
+            type="button"
+            onClick={rejectAll}
+            className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors"
+          >
             Отклонить все
           </button>
-          <button type="button" onClick={() => setMode('modal')} className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors">
+          <button
+            type="button"
+            onClick={() => setMode('modal')}
+            className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors"
+          >
             Настроить
           </button>
-          <button type="button" onClick={mode === 'modal' ? saveCustom : acceptAll} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 transition-opacity">
+          <button
+            type="button"
+            onClick={mode === 'modal' ? saveCustom : acceptAll}
+            className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 transition-opacity"
+          >
             {mode === 'modal' ? 'Сохранить выбор' : 'Принять все'}
           </button>
         </div>
