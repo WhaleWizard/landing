@@ -50,6 +50,9 @@ const casesData = [
   },
 ];
 
+const buildResponsiveImageSet = (baseUrl: string) =>
+  `${baseUrl}?width=480 480w, ${baseUrl}?width=768 768w, ${baseUrl}?width=1024 1024w`;
+
 // Хук для определения тач-устройства
 const useTouchDevice = () => {
   const [isTouch, setIsTouch] = useState(false);
@@ -170,8 +173,11 @@ function Cases() {
                 <ImageWithFallback
                   src={item.image}
                   alt={item.title}
+                  srcSet={buildResponsiveImageSet(item.image)}
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  loading={index < 2 ? "eager" : "lazy"}
+                  loading="lazy"
+                  fetchPriority="low"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                 <motion.div 
@@ -247,8 +253,11 @@ function Cases() {
                       <ImageWithFallback
                         src={item.image}
                         alt={item.title}
+                        srcSet={buildResponsiveImageSet(item.image)}
+                        sizes="100vw"
                         className="w-full h-full object-cover"
-                        loading={index < 2 ? "eager" : "lazy"}
+                        loading="lazy"
+                        fetchPriority="low"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
