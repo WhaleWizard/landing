@@ -187,7 +187,7 @@ const painPoints = [
   },
   {
     icon: Eye,
-    title: 'Креативы не останавливают скролл',
+    title: 'Кр��ативы не останавливают скролл',
     description: 'Шаблонные объявления теряются в ленте среди конкурентов.',
     color: 'from-orange-500/20 to-yellow-500/20',
     borderColor: 'border-orange-500/30',
@@ -237,40 +237,49 @@ const workSteps = [
   },
 ];
 
+// Meta brand colors
+const metaColors = {
+  instagram: '#E1306C',
+  purple: '#833AB4',
+  facebook: '#405DE6',
+  red: '#f87171',
+  green: '#4ade80',
+};
+
 // Cases data
 const casesData = [
   {
     title: 'E-commerce',
     category: 'Meta Ads',
     stats: [
-      { label: 'CPA до', value: 31, prefix: '$', color: 'text-red-400' },
-      { label: 'CPA после', value: 18, prefix: '$', color: 'text-green-400' },
-      { label: 'Качество лидов', value: 59, suffix: '%', color: 'text-[#E1306C]' },
+      { label: 'CPA до', value: 31, prefix: '$', color: metaColors.red },
+      { label: 'CPA после', value: 18, prefix: '$', color: metaColors.green },
+      { label: 'Качество лидов', value: 59, suffix: '%', color: metaColors.instagram },
     ],
     description: 'Снизили CPA с $31 до $18 за 5 недель. Доля качественных лидов выросла до 59%.',
-    gradient: 'from-[#E1306C]/10 to-[#833AB4]/10',
+    bgGradient: `linear-gradient(135deg, ${metaColors.instagram}15 0%, ${metaColors.purple}15 100%)`,
   },
   {
     title: 'B2C Услуги',
     category: 'Meta Ads',
     stats: [
-      { label: 'CPL', value: 12, prefix: '$', color: 'text-[#E1306C]' },
-      { label: 'Лидов/нед', value: 85, suffix: '+', color: 'text-[#833AB4]' },
-      { label: 'Конверсия', value: 24, suffix: '%', color: 'text-[#405DE6]' },
+      { label: 'CPL', value: 12, prefix: '$', color: metaColors.instagram },
+      { label: 'Лидов/нед', value: 85, suffix: '+', color: metaColors.purple },
+      { label: 'Конверсия', value: 24, suffix: '%', color: metaColors.facebook },
     ],
     description: 'Настроили поток заявок на консультации. Стабильный рост качественных лидов.',
-    gradient: 'from-[#833AB4]/10 to-[#405DE6]/10',
+    bgGradient: `linear-gradient(135deg, ${metaColors.purple}15 0%, ${metaColors.facebook}15 100%)`,
   },
   {
     title: 'Инфобизнес',
     category: 'Reels + Бот',
     stats: [
-      { label: 'Регистрации', value: 3500, suffix: '+', color: 'text-[#E1306C]' },
-      { label: 'Снижение CPR', value: 42, suffix: '%', color: 'text-green-400' },
-      { label: 'ROI', value: 180, suffix: '%', color: 'text-[#833AB4]' },
+      { label: 'Регистрации', value: 3500, suffix: '+', color: metaColors.instagram },
+      { label: 'Снижение CPR', value: 42, suffix: '%', color: metaColors.green },
+      { label: 'ROI', value: 180, suffix: '%', color: metaColors.purple },
     ],
     description: 'Масштабировали воронку через Reels + бот. Стоимость регистрации снизилась на 42%.',
-    gradient: 'from-[#405DE6]/10 to-[#E1306C]/10',
+    bgGradient: `linear-gradient(135deg, ${metaColors.facebook}15 0%, ${metaColors.instagram}15 100%)`,
   },
 ];
 
@@ -653,27 +662,31 @@ function MetaAdsPage() {
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {casesData.map((caseItem, index) => (
-              <TiltCard key={index} glowColor="rgba(131, 58, 180, 0.15)">
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.15 }}
-                  className={`h-full p-6 rounded-2xl bg-gradient-to-br ${caseItem.gradient} border border-border/50 backdrop-blur-xl`}
-                >
-                  <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-xl font-semibold text-foreground">{caseItem.title}</h3>
-                    <span className="px-3 py-1 text-xs rounded-full bg-[#E1306C]/10 text-[#E1306C] font-medium">
-                      {caseItem.category}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 mb-5">
-                    {caseItem.stats.map((stat, i) => (
-                      <div key={i} className="text-center">
-                        <div className={`text-xl font-bold ${stat.color}`}>
-                          <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
-                        </div>
+{casesData.map((caseItem, index) => (
+  <TiltCard key={index} glowColor="rgba(131, 58, 180, 0.15)">
+  <motion.div
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true }}
+  transition={{ delay: index * 0.15 }}
+  className="h-full p-6 rounded-2xl border border-border/50 backdrop-blur-xl"
+  style={{ background: caseItem.bgGradient }}
+  >
+  <div className="flex items-center justify-between mb-5">
+  <h3 className="text-xl font-semibold text-foreground">{caseItem.title}</h3>
+  <span 
+    className="px-3 py-1 text-xs rounded-full font-medium"
+    style={{ background: `${metaColors.instagram}15`, color: metaColors.instagram }}
+  >
+  {caseItem.category}
+  </span>
+  </div>
+  <div className="grid grid-cols-3 gap-3 mb-5">
+  {caseItem.stats.map((stat, i) => (
+  <div key={i} className="text-center">
+  <div className="text-xl font-bold" style={{ color: stat.color }}>
+  <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
+  </div>
                         <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
                       </div>
                     ))}

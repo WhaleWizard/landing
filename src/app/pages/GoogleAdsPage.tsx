@@ -28,7 +28,7 @@ import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
 import CosmicWhale from '../components/CosmicWhale';
-import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
+import InteractiveBackground from '../components/InteractiveBackground';
 
 // Google brand colors
 const googleColors = {
@@ -278,12 +278,13 @@ const GoogleSectionBackground = memo(({ variant }: { variant: 'grid' | 'gradient
         />
       ))}
       {/* Connecting lines */}
-      <svg className="absolute inset-0 w-full h-full opacity-10">
+      <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 100 100" preserveAspectRatio="none">
         <motion.path
-          d="M 0 50% Q 25% 30%, 50% 50% T 100% 50%"
+          d="M 0 50 Q 25 30, 50 50 T 100 50"
           stroke={googleColors.blue}
-          strokeWidth="1"
+          strokeWidth="0.5"
           fill="none"
+          vectorEffect="non-scaling-stroke"
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 0.3 }}
           transition={{ duration: 3, repeat: Infinity, repeatType: 'reverse' }}
@@ -354,9 +355,9 @@ const casesData = [
     title: 'B2B SaaS',
     category: 'Search + PMax',
     stats: [
-      { label: 'CPC до', value: 8, prefix: '$', color: `text-[${googleColors.red}]` },
-      { label: 'CPC после', value: 3, prefix: '$', color: `text-[${googleColors.green}]` },
-      { label: 'Конверсии', value: 156, suffix: '%', color: `text-[${googleColors.blue}]` },
+      { label: 'CPC до', value: 8, prefix: '$', color: googleColors.red },
+      { label: 'CPC после', value: 3, prefix: '$', color: googleColors.green },
+      { label: 'Конверсии', value: 156, suffix: '%', color: googleColors.blue },
     ],
     description: 'Снизили стоимость клика с $8 до $3 за месяц работы. Рост конверсий на 156%.',
   },
@@ -364,9 +365,9 @@ const casesData = [
     title: 'E-commerce',
     category: 'Shopping',
     stats: [
-      { label: 'ROAS', value: 580, suffix: '%', color: `text-[${googleColors.green}]` },
-      { label: 'Продажи', value: 2400, suffix: '+', color: `text-[${googleColors.blue}]` },
-      { label: 'CAC', value: 35, suffix: '%', color: `text-[${googleColors.yellow}]` },
+      { label: 'ROAS', value: 580, suffix: '%', color: googleColors.green },
+      { label: 'Продажи', value: 2400, suffix: '+', color: googleColors.blue },
+      { label: 'CAC', value: 35, suffix: '%', color: googleColors.yellow },
     ],
     description: 'ROAS 580% на Performance Max. Снижение стоимости привлечения на 35%.',
   },
@@ -374,9 +375,9 @@ const casesData = [
     title: 'Локальный бизнес',
     category: 'Local Ads',
     stats: [
-      { label: 'Лидов/мес', value: 120, suffix: '+', color: `text-[${googleColors.blue}]` },
-      { label: 'CPL', value: 15, prefix: '$', color: `text-[${googleColors.green}]` },
-      { label: 'CTR', value: 12, suffix: '%', color: `text-[${googleColors.yellow}]` },
+      { label: 'Лидов/мес', value: 120, suffix: '+', color: googleColors.blue },
+      { label: 'CPL', value: 15, prefix: '$', color: googleColors.green },
+      { label: 'CTR', value: 12, suffix: '%', color: googleColors.yellow },
     ],
     description: 'Стабильный поток заявок для локального сервиса с высоким CTR.',
   },
@@ -727,17 +728,17 @@ function GoogleAdsPage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-3 mb-5">
-                    {caseItem.stats.map((stat, i) => (
-                      <div key={i} className="text-center">
-                        <div 
-                          className="text-xl font-bold"
-                          style={{ color: [googleColors.red, googleColors.green, googleColors.blue, googleColors.yellow][i % 4] }}
-                        >
-                          <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
-                      </div>
-                    ))}
+{caseItem.stats.map((stat, i) => (
+  <div key={i} className="text-center">
+  <div
+  className="text-xl font-bold"
+  style={{ color: stat.color }}
+  >
+  <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
+  </div>
+  <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
+  </div>
+  ))}
                   </div>
                   <p className="text-sm text-muted-foreground">{caseItem.description}</p>
                 </motion.div>

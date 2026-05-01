@@ -30,7 +30,7 @@ import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
 import CosmicWhale from '../components/CosmicWhale';
-import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
+import InteractiveBackground from '../components/InteractiveBackground';
 
 // Animated progress bar
 const AnimatedProgress = memo(({ value, color, delay = 0 }: { value: number; color: string; delay?: number }) => {
