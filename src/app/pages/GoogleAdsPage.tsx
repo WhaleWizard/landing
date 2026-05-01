@@ -245,7 +245,7 @@ function GoogleAdsPage() {
       />
       <Navbar />
 
-      {/* Hero Section with Cosmic Whale */}
+      {/* Hero Section with conversion animation */}
       <section
         ref={heroRef}
         className="relative min-h-screen flex items-center overflow-hidden"
@@ -366,10 +366,10 @@ function GoogleAdsPage() {
               
               {/* Desktop: full animation scene */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 2, delay: 0.3, ease: 'easeOut' }}
-                className="hidden lg:block relative h-[550px] xl:h-[650px]"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, delay: 0.3 }}
+                className="relative mx-auto h-[420px] w-full max-w-[520px]"
               >
                 <HeroAnimation variant="google" className="w-full h-full" />
               </motion.div>
