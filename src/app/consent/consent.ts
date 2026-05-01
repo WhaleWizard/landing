@@ -257,7 +257,9 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (ymId && !ymLoaded) {
+  const shouldInitYandexDirectly = Boolean(ymId) && !gtmId;
+
+  if (shouldInitYandexDirectly && !ymLoaded) {
     try {
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
       const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
