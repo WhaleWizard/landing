@@ -117,7 +117,7 @@ export default function InteractiveBackground({
           const mdy = p1.y - mouseRef.current.y;
           const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
 
-          if (mDist < 150) {
+          if (mDist < 150 && mDist > 0.1) {
             const opacity = (1 - mDist / 150) * 0.6;
             ctx.strokeStyle = `rgba(167, 139, 250, ${opacity})`;
             ctx.lineWidth = 1;
