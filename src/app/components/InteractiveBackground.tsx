@@ -30,6 +30,8 @@ export default function InteractiveBackground({
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
   const animationRef = useRef<number>();
+  const frameRef = useRef(0);
+  const reducedMotionRef = useRef(false);
 
   const colors = useMemo(() => {
     switch (variant) {
@@ -43,7 +45,10 @@ export default function InteractiveBackground({
   }, [variant]);
 
   const initParticles = useCallback((width: number, height: number) => {
-    particlesRef.current = Array.from({ length: particleCount }, () => ({
+    const mobileFactor = width < 768 ? 0.45 : width < 1024 ? 0.65 : 1;
+    const effectiveCount = Math.max(16, Math.floor(particleCount * mobileFactor));
+
+    particlesRef.current = Array.from({ length: effectiveCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
       vx: (Math.random() - 0.5) * 0.5,
@@ -62,12 +67,14 @@ export default function InteractiveBackground({
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const resizeCanvas = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
@@ -90,9 +97,21 @@ export default function InteractiveBackground({
     }
 
     const animate = () => {
+      if (document.hidden) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      frameRef.current += 1;
+      if (reducedMotionRef.current && frameRef.current % 2 !== 0) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
 
+      const connectionDistance = rect.width < 768 ? 72 : rect.width < 1024 ? 96 : 120;
       // Draw connections
       ctx.lineWidth = 0.5;
       particlesRef.current.forEach((p1, i) => {
@@ -101,8 +120,8 @@ export default function InteractiveBackground({
           const dy = p1.y - p2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (dist < 120) {
-            const opacity = (1 - dist / 120) * 0.3;
+          if (dist < connectionDistance) {
+            const opacity = (1 - dist / connectionDistance) * 0.25;
             ctx.strokeStyle = `rgba(139, 92, 246, ${opacity})`;
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
@@ -209,7 +228,7 @@ export default function InteractiveBackground({
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 pointer-events-auto ${className}`}
+      className={`absolute inset-0 w-full h-full pointer-events-none ${className}`}
       style={{ background: 'transparent' }}
     />
   );
@@ -373,3 +392,4 @@ export function AnimatedGrid({ variant = 'cosmic' }: AnimatedGridProps) {
     </div>
   );
 }
+    reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

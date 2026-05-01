@@ -4,7 +4,6 @@ import { useRef, useMemo, useState, useEffect, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { 
   Float, 
-  Environment, 
   Stars, 
   Sparkles,
   MeshDistortMaterial,
@@ -540,7 +539,6 @@ function SceneWrapper({ variant, children }: { variant: 'meta' | 'google' | 'con
       
       {children}
       
-      <Environment preset="night" />
     </>
   );
 }

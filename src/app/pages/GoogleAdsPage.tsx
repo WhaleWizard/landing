@@ -28,8 +28,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import HeroAnimation from '../components/HeroAnimation';
-import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
+import { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated counter component
 const AnimatedCounter = memo(({ value, suffix = '', prefix = '' }: { value: number; suffix?: string; prefix?: string }) => {
@@ -253,7 +252,7 @@ function GoogleAdsPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-background to-background" />
-          <InteractiveBackground variant="digital" particleCount={40} />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(66,133,244,0.18),transparent_45%),radial-gradient(circle_at_82%_22%,rgba(52,168,83,0.14),transparent_42%),radial-gradient(circle_at_55%_78%,rgba(234,67,53,0.12),transparent_50%)]" />
         </div>
 
         {/* Gradient Overlay */}
@@ -264,7 +263,7 @@ function GoogleAdsPage() {
           style={{ opacity: heroOpacity, scale: heroScale }}
           className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 lg:pt-32 lg:pb-20"
         >
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <div className="grid grid-cols-1 items-center">
             {/* Left column - Text content */}
             <div className="order-2 lg:order-1 text-center lg:text-left">
               <motion.div
@@ -290,7 +289,7 @@ function GoogleAdsPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
                   <span className="block leading-tight text-balance">Контекстная реклама</span>
                   <span className="block mt-3 leading-tight pb-1">
                     <span style={{ color: googleColors.blue }}>G</span>
@@ -352,28 +351,6 @@ function GoogleAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - 3D Animation */}
-            <div className="order-1 lg:order-2 relative">
-              {/* Mobile: animation visible above text */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
-                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
-              >
-                <HeroAnimation variant="google" className="w-full h-full" />
-              </motion.div>
-              
-              {/* Desktop: full animation scene */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.3 }}
-                className="relative mx-auto h-[420px] w-full max-w-[520px]"
-              >
-                <HeroAnimation variant="google" className="w-full h-full" />
-              </motion.div>
-            </div>
           </div>
         </motion.div>
 
@@ -414,7 +391,7 @@ function GoogleAdsPage() {
               <AlertTriangle className="w-4 h-4 text-red-500" />
               <span className="text-sm text-red-400">Проблема</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Почему Google Ads сливает бюджет?
             </h2>
           </motion.div>
@@ -432,7 +409,7 @@ function GoogleAdsPage() {
                   <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center mb-5">
                     <point.icon className="w-7 h-7 text-red-400" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-3">{point.title}</h3>
+                  <h3 className="text-xl font-semibold [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden mb-3">{point.title}</h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">{point.description}</p>
                 </motion.div>
               </TiltCard>
@@ -456,7 +433,7 @@ function GoogleAdsPage() {
               <Sparkles className="w-4 h-4 text-[#4285f4]" />
               <span className="text-sm text-[#4285f4]">Процесс</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Как я работаю
             </h2>
           </motion.div>
@@ -484,7 +461,7 @@ function GoogleAdsPage() {
                         <step.icon className="w-6 h-6" style={{ color: stepColor }} />
                       </div>
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+                    <h3 className="text-lg font-semibold mb-2 [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{step.title}</h3>
                     <p className="text-muted-foreground text-sm">{step.description}</p>
                   </motion.div>
                 </TiltCard>
@@ -509,7 +486,7 @@ function GoogleAdsPage() {
               <TrendingUp className="w-4 h-4 text-[#34a853]" />
               <span className="text-sm text-[#34a853]">Кейсы</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Результаты клиентов
             </h2>
           </motion.div>
@@ -525,7 +502,7 @@ function GoogleAdsPage() {
                   className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
                 >
                   <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-xl font-semibold">{caseItem.title}</h3>
+                    <h3 className="text-xl font-semibold [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{caseItem.title}</h3>
                     <span className="px-3 py-1 text-xs rounded-full bg-[#4285f4]/10 text-[#4285f4]">
                       {caseItem.category}
                     </span>
@@ -563,7 +540,7 @@ function GoogleAdsPage() {
               <Shield className="w-4 h-4 text-[#34a853]" />
               <span className="text-sm text-[#34a853]">Что входит</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               В работу со мной входит
             </h2>
           </motion.div>
@@ -605,7 +582,7 @@ function GoogleAdsPage() {
                 <span className="text-sm text-[#4285f4]">Бесплатно</span>
               </div>
               
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
                 Получите бесплатный{' '}
                 <span className="block mt-2">
                   <span style={{ color: googleColors.blue }}>а</span>

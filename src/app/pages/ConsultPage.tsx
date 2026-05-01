@@ -26,8 +26,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import HeroAnimation from '../components/HeroAnimation';
-import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
+import { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated progress bar
 const AnimatedProgress = memo(({ value, color, delay = 0 }: { value: number; color: string; delay?: number }) => {
@@ -229,7 +228,7 @@ function ConsultPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#1a0a2e] via-background to-background" />
-          <InteractiveBackground variant="ethereal" particleCount={40} />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(139,92,246,0.18),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(6,182,212,0.14),transparent_42%),radial-gradient(circle_at_52%_78%,rgba(236,72,153,0.12),transparent_50%)]" />
         </div>
 
         {/* Gradient Overlay */}
@@ -240,7 +239,7 @@ function ConsultPage() {
           style={{ opacity: heroOpacity, scale: heroScale }}
           className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 lg:pt-32 lg:pb-20"
         >
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <div className="grid grid-cols-1 items-center">
             {/* Left column - Text content */}
             <div className="order-2 lg:order-1 text-center lg:text-left">
               <motion.div
@@ -261,7 +260,7 @@ function ConsultPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
                   <span className="block leading-tight text-balance">Помогу найти</span>
                   <span className="block mt-3 leading-tight bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-1">
                     стабильный поток клиентов
@@ -313,28 +312,6 @@ function ConsultPage() {
               </motion.div>
             </div>
 
-            {/* Right column - 3D Animation */}
-            <div className="order-1 lg:order-2 relative">
-              {/* Mobile: animation visible above text */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
-                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
-              >
-                <HeroAnimation variant="consult" className="w-full h-full" />
-              </motion.div>
-              
-              {/* Desktop: full animation scene */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.3 }}
-                className="relative mx-auto h-[420px] w-full max-w-[520px]"
-              >
-                <HeroAnimation variant="consult" className="w-full h-full" />
-              </motion.div>
-            </div>
           </div>
         </motion.div>
 
@@ -375,7 +352,7 @@ function ConsultPage() {
               <AlertTriangle className="w-4 h-4 text-red-500" />
               <span className="text-sm text-red-400">Проблема</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Почему сложно найти клиентов?
             </h2>
           </motion.div>
@@ -393,7 +370,7 @@ function ConsultPage() {
                   <div className="w-12 h-12 rounded-2xl bg-card/50 flex items-center justify-center mb-4">
                     <point.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{point.title}</h3>
+                  <h3 className="text-lg font-semibold mb-2 [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{point.title}</h3>
                   <p className="text-muted-foreground text-sm">{point.description}</p>
                 </motion.div>
               </TiltCard>
@@ -417,7 +394,7 @@ function ConsultPage() {
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm text-primary">Программа</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Что входит в консультацию
             </h2>
           </motion.div>
@@ -443,7 +420,7 @@ function ConsultPage() {
                       <step.icon className="w-5 h-5" style={{ color: step.color }} />
                     </div>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+                  <h3 className="text-lg font-semibold mb-2 [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{step.title}</h3>
                   <p className="text-muted-foreground text-sm mb-4">{step.description}</p>
                   <AnimatedProgress value={step.progress} color={step.color} delay={index * 0.2} />
                 </motion.div>
@@ -468,7 +445,7 @@ function ConsultPage() {
               <CheckCircle2 className="w-4 h-4 text-green-500" />
               <span className="text-sm text-green-400">Результат</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Что вы получите
             </h2>
           </motion.div>
@@ -486,7 +463,7 @@ function ConsultPage() {
                   <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
                     <item.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+                  <h3 className="text-lg font-semibold mb-2 [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{item.title}</h3>
                   <p className="text-muted-foreground text-sm">{item.description}</p>
                 </motion.div>
               </TiltCard>
@@ -511,7 +488,7 @@ function ConsultPage() {
                   <Star key={i} className="w-6 h-6 text-amber-400 fill-amber-400" />
                 ))}
               </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
                 Готовы выйти на новый уровень?
               </h2>
               <p className="text-muted-foreground mb-8 max-w-2xl mx-auto text-balance">
@@ -550,7 +527,7 @@ function ConsultPage() {
                 <span className="text-sm text-primary">Личная консультация</span>
               </div>
               
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
                 Запишитесь на{' '}
                 <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                   консультацию

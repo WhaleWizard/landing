@@ -157,6 +157,7 @@ export function requiresConsentByDefault(): boolean {
 
 let gaLoaded = false;
 let ymLoaded = false;
+let ymInitStarted = false;
 let metaLoaded = false;
 let ttLoaded = false;
 let gtmLoaded = false;
@@ -257,8 +258,9 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (ymId && !ymLoaded) {
+  if (ymId && !ymLoaded && !ymInitStarted) {
     try {
+      ymInitStarted = true;
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
       const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
       win.dataLayer = win.dataLayer || [];
@@ -282,6 +284,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
       ymLoaded = true;
     } catch (error) {
       console.warn('[analytics] Yandex Metrika load failed', error);
+      ymInitStarted = false;
     }
   }
 }
