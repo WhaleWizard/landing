@@ -26,7 +26,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import CosmicWhale from '../components/CosmicWhale';
+import Whale3D from '../components/Whale3D';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated progress bar
@@ -313,21 +313,21 @@ function ConsultPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Cosmic Whale */}
+            {/* Right column - 3D Whale Animation */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-30">
-                <CosmicWhale className="w-full h-full" />
+              {/* Mobile: whale as subtle background */}
+              <div className="lg:hidden absolute inset-0 -z-10 opacity-40">
+                <Whale3D variant="cosmic" intensity="low" className="w-full h-full" />
               </div>
               
-              {/* Desktop: whale visible */}
+              {/* Desktop: fully interactive 3D whale */}
               <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 1, delay: 0.3 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1.2, delay: 0.2, ease: 'easeOut' }}
                 className="hidden lg:block relative h-[500px] xl:h-[600px]"
               >
-                <CosmicWhale className="w-full h-full" />
+                <Whale3D variant="cosmic" intensity="high" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
