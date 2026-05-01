@@ -26,7 +26,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import PremiumWhale from '../components/PremiumWhale';
+import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated progress bar
@@ -313,21 +313,26 @@ function ConsultPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Premium Whale 3D */}
+            {/* Right column - 3D Animation */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as ambient background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-50">
-                <PremiumWhale variant="ethereal" className="w-full h-full" />
-              </div>
+              {/* Mobile: animation visible above text */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
+                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
+              >
+                <HeroAnimation variant="consult" className="w-full h-full" />
+              </motion.div>
               
-              {/* Desktop: full whale scene */}
+              {/* Desktop: full animation scene */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 2, delay: 0.3, ease: 'easeOut' }}
                 className="hidden lg:block relative h-[550px] xl:h-[650px]"
               >
-                <PremiumWhale variant="ethereal" className="w-full h-full" />
+                <HeroAnimation variant="consult" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
@@ -531,29 +536,66 @@ function ConsultPage() {
         <GradientOrbs variant="ethereal" />
         <AnimatedGrid variant="ethereal" />
         
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
-              Запишитесь на консультацию
-            </h2>
-            <p className="text-muted-foreground text-balance">
-              Заполните форму и я свяжусь с вами в течение 24 часов
-            </p>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-          >
-            <LandingForm service="consult" />
-          </motion.div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left - Text content */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="text-center lg:text-left"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm text-primary">Личная консультация</span>
+              </div>
+              
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
+                Запишитесь на{' '}
+                <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+                  консультацию
+                </span>
+              </h2>
+              
+              <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-balance">
+                60-90 минут личной работы над вашей стратегией поиска клиентов. 
+                Разберу ситуацию и дам пошаговый план.
+              </p>
+              
+              <div className="space-y-4 max-w-md mx-auto lg:mx-0">
+                {[
+                  'Разбор вашего позиционирования',
+                  'Анализ портфолио и офферов',
+                  'Стратегия поиска клиентов',
+                  'Шаблоны и скрипты продаж',
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary to-accent flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-foreground">{item}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+            
+            {/* Right - Form */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
+              <LandingForm service="consult" />
+            </motion.div>
+          </div>
         </div>
       </section>
 

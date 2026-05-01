@@ -22,7 +22,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import PremiumWhale from '../components/PremiumWhale';
+import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 
@@ -333,21 +333,26 @@ function MetaAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Premium Whale 3D */}
+            {/* Right column - 3D Animation */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as ambient background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-50">
-                <PremiumWhale variant="cosmic" className="w-full h-full" />
-              </div>
+              {/* Mobile: animation visible above text */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
+                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
+              >
+                <HeroAnimation variant="meta" className="w-full h-full" />
+              </motion.div>
               
-              {/* Desktop: full whale scene */}
+              {/* Desktop: full animation scene */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 2, delay: 0.3, ease: 'easeOut' }}
                 className="hidden lg:block relative h-[550px] xl:h-[650px]"
               >
-                <PremiumWhale variant="cosmic" className="w-full h-full" />
+                <HeroAnimation variant="meta" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
