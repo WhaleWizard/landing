@@ -177,7 +177,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   }
 
   try {
-    const useD1 = String(env.USE_D1_ARTICLES || '').toLowerCase() === 'true' && Boolean(env.DB);
+    const useD1 = Boolean(env.DB);
     const existing = useD1 ? await fetchArticlesFromD1(env) : await fetchArticlesFromJsonBin(env);
 
     if (existing.length > 0 && payload.articles.length === 0) {

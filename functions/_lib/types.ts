@@ -1,6 +1,7 @@
 export interface Article {
   id: number;
   slug: string;
+  sortOrder?: number;
   title: string;
   category: string;
   readTime: string;

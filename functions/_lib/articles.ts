@@ -29,8 +29,8 @@ async function fetchSeedArticles(siteUrl: string): Promise<Article[]> {
 }
 
 export async function fetchArticlesWithFallback(env: Env, request: Request): Promise<Article[]> {
-  const useD1 = String(env.USE_D1_ARTICLES || '').toLowerCase() === 'true';
-  if (useD1 && env.DB) {
+  const useD1 = Boolean(env.DB);
+  if (useD1) {
     try {
       const d1Articles = await fetchArticlesFromD1(env);
       if (d1Articles.length > 0) return d1Articles;

@@ -19,6 +19,7 @@ interface D1Row {
   summary: string | null;
   key_takeaways_json: string | null;
   faq_json: string | null;
+  sort_order: number | null;
 }
 
 function hasD1(env: Env): boolean {
@@ -70,13 +71,14 @@ function mapRowToArticle(row: D1Row): Article {
     summary: row.summary || undefined,
     keyTakeaways: parseArray(row.key_takeaways_json),
     faq: parseFaq(row.faq_json),
+    sortOrder: Number(row.sort_order ?? 0),
   };
 }
 
 export async function fetchArticlesFromD1(env: Env): Promise<Article[]> {
   if (!hasD1(env)) return [];
   const result = await env.DB
-    .prepare(`SELECT * FROM articles ORDER BY datetime(COALESCE(updated_at, published_at, date)) DESC, id DESC`)
+    .prepare(`SELECT * FROM articles ORDER BY COALESCE(sort_order, 2147483647) ASC, datetime(COALESCE(updated_at, published_at, date)) DESC, id DESC`)
     .all<D1Row>();
   return (result.results || []).map(mapRowToArticle);
 }
@@ -93,7 +95,7 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
   const statements = [];
   const seen = new Set<string>();
 
-  for (const article of normalized) {
+  for (const [index, article] of normalized.entries()) {
     seen.add(article.slug);
     const previous = existingBySlug.get(article.slug);
     const publishedAt = previous?.publishedAt || article.publishedAt || nowIso;
@@ -103,8 +105,8 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
       env.DB.prepare(
         `INSERT INTO articles (
           id, slug, title, category, read_time, date, description, content, image,
-          seo_title, seo_description, published_at, updated_at, tags_json, summary, key_takeaways_json, faq_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          seo_title, seo_description, published_at, updated_at, tags_json, summary, key_takeaways_json, faq_json, sort_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(slug) DO UPDATE SET
           id = excluded.id,
           title = excluded.title,
@@ -121,7 +123,8 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
           tags_json = excluded.tags_json,
           summary = excluded.summary,
           key_takeaways_json = excluded.key_takeaways_json,
-          faq_json = excluded.faq_json`
+          faq_json = excluded.faq_json,
+          sort_order = excluded.sort_order`
       ).bind(
         article.id,
         article.slug,
@@ -140,6 +143,7 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
         article.summary || '',
         JSON.stringify(article.keyTakeaways || []),
         JSON.stringify(article.faq || []),
+        index,
       ),
     );
   }
