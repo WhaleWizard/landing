@@ -1,17 +1,17 @@
 'use client';
 
-import { useRef, useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo, useState, useEffect, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float, Environment, MeshDistortMaterial, Sphere, Trail, Stars, useTexture, MeshWobbleMaterial } from '@react-three/drei';
+import { Float, Environment, MeshDistortMaterial, Trail, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Whale body geometry component
 function WhaleBody({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
   const whaleRef = useRef<THREE.Group>(null);
-  const tailRef = useRef<THREE.Mesh>(null);
+  const tailRef = useRef<THREE.Group>(null);
   const finLeftRef = useRef<THREE.Mesh>(null);
   const finRightRef = useRef<THREE.Mesh>(null);
-  const { mouse, viewport } = useThree();
+  const { pointer, viewport } = useThree();
   
   const colors = useMemo(() => {
     switch (variant) {
@@ -45,15 +45,15 @@ function WhaleBody({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'e
     const time = state.clock.elapsedTime;
     
     // Smooth whale movement following mouse
-    const targetX = (mouse.x * viewport.width) / 8;
-    const targetY = (mouse.y * viewport.height) / 8;
+    const targetX = (pointer.x * viewport.width) / 8;
+    const targetY = (pointer.y * viewport.height) / 8;
     
     whaleRef.current.position.x = THREE.MathUtils.lerp(whaleRef.current.position.x, targetX, 0.02);
     whaleRef.current.position.y = THREE.MathUtils.lerp(whaleRef.current.position.y, targetY + Math.sin(time * 0.5) * 0.3, 0.02);
     
     // Gentle rotation following mouse
-    whaleRef.current.rotation.y = THREE.MathUtils.lerp(whaleRef.current.rotation.y, mouse.x * 0.3, 0.02);
-    whaleRef.current.rotation.x = THREE.MathUtils.lerp(whaleRef.current.rotation.x, -mouse.y * 0.1, 0.02);
+    whaleRef.current.rotation.y = THREE.MathUtils.lerp(whaleRef.current.rotation.y, pointer.x * 0.3, 0.02);
+    whaleRef.current.rotation.x = THREE.MathUtils.lerp(whaleRef.current.rotation.x, -pointer.y * 0.1, 0.02);
     
     // Swimming motion
     whaleRef.current.rotation.z = Math.sin(time * 0.8) * 0.05;
@@ -230,9 +230,10 @@ function WhaleBody({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'e
       </mesh>
       
       {/* Glow effect around whale */}
-      <Sphere args={[2.5, 32, 32]} position={[0.3, 0, 0]}>
+      <mesh position={[0.3, 0, 0]}>
+        <sphereGeometry args={[2.5, 32, 32]} />
         <meshBasicMaterial color={colors.glow} transparent opacity={0.05} side={THREE.BackSide} />
-      </Sphere>
+      </mesh>
     </group>
   );
 }
@@ -240,7 +241,7 @@ function WhaleBody({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'e
 // Animated particles around the whale
 function ParticleField({ count = 200, variant = 'cosmic' }: { count?: number; variant?: 'cosmic' | 'digital' | 'ethereal' }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const { mouse } = useThree();
+  const { pointer } = useThree();
   
   const particles = useMemo(() => {
     const temp = [];
@@ -263,7 +264,7 @@ function ParticleField({ count = 200, variant = 'cosmic' }: { count?: number; va
     return temp;
   }, [count]);
 
-  const colors = useMemo(() => {
+  const colorArray = useMemo(() => {
     switch (variant) {
       case 'digital':
         return ['#4285f4', '#34a853', '#ea4335', '#fbbc04'];
@@ -286,7 +287,7 @@ function ParticleField({ count = 200, variant = 'cosmic' }: { count?: number; va
       
       // Orbital motion with mouse influence
       const angle = time * speed * 0.2 + offset;
-      const mouseInfluence = new THREE.Vector3(mouse.x * 0.5, mouse.y * 0.5, 0);
+      const mouseInfluence = new THREE.Vector3(pointer.x * 0.5, pointer.y * 0.5, 0);
       
       const x = position.x * Math.cos(angle) - position.z * Math.sin(angle) + mouseInfluence.x;
       const y = position.y + Math.sin(time * speed + offset) * 0.5 + mouseInfluence.y;
@@ -294,12 +295,12 @@ function ParticleField({ count = 200, variant = 'cosmic' }: { count?: number; va
       
       const dynamicScale = scale * (1 + Math.sin(time * 2 + offset) * 0.3);
       
+      matrix.makeScale(dynamicScale, dynamicScale, dynamicScale);
       matrix.setPosition(x, y, z);
-      matrix.scale(new THREE.Vector3(dynamicScale, dynamicScale, dynamicScale));
       meshRef.current!.setMatrixAt(i, matrix);
       
       // Color variation
-      color.set(colors[i % colors.length]);
+      color.set(colorArray[i % colorArray.length]);
       meshRef.current!.setColorAt(i, color);
     });
     
@@ -355,6 +356,7 @@ function EnergyRings({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 
 // Nebula background effect
 function NebulaBackground({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
   const nebulaRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
   
   const colors = useMemo(() => {
     switch (variant) {
@@ -376,6 +378,7 @@ function NebulaBackground({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digita
     <mesh ref={nebulaRef} position={[0, 0, -15]}>
       <planeGeometry args={[60, 60]} />
       <shaderMaterial
+        ref={materialRef}
         uniforms={{
           uTime: { value: 0 },
           uColor1: { value: new THREE.Color(colors.inner) },
@@ -485,6 +488,16 @@ function Whale3DScene({ variant = 'cosmic', intensity = 'high' }: Whale3DScenePr
   );
 }
 
+// Loading fallback
+function LoadingFallback() {
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 32, 32]} />
+      <meshBasicMaterial color="#8b5cf6" wireframe />
+    </mesh>
+  );
+}
+
 // Main exported component
 interface Whale3DProps {
   variant?: 'cosmic' | 'digital' | 'ethereal';
@@ -493,13 +506,13 @@ interface Whale3DProps {
 }
 
 export default function Whale3D({ variant = 'cosmic', className = '', intensity = 'high' }: Whale3DProps) {
-  const [isClient, setIsClient] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    setMounted(true);
   }, []);
 
-  if (!isClient) {
+  if (!mounted) {
     return (
       <div className={`w-full h-full bg-gradient-to-b from-[#0a0a1f] to-[#050510] ${className}`}>
         <div className="absolute inset-0 flex items-center justify-center">
@@ -521,7 +534,9 @@ export default function Whale3D({ variant = 'cosmic', className = '', intensity 
         }}
         style={{ background: 'transparent' }}
       >
-        <Whale3DScene variant={variant} intensity={intensity} />
+        <Suspense fallback={<LoadingFallback />}>
+          <Whale3DScene variant={variant} intensity={intensity} />
+        </Suspense>
       </Canvas>
     </div>
   );
