@@ -22,7 +22,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import CosmicWhale from '../components/CosmicWhale';
+import PremiumWhale from '../components/PremiumWhale';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 
@@ -277,9 +277,9 @@ function MetaAdsPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-[1.1] tracking-tight">
-                  <span className="block text-balance">Стабильные заявки из</span>
-                  <span className="block mt-2 bg-gradient-to-r from-[#E1306C] via-[#833AB4] to-[#405DE6] bg-clip-text text-transparent">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
+                  <span className="block leading-tight text-balance">Стабильные заявки из</span>
+                  <span className="block mt-3 leading-tight bg-gradient-to-r from-[#E1306C] via-[#833AB4] to-[#405DE6] bg-clip-text text-transparent pb-1">
                     Facebook и Instagram
                   </span>
                 </h1>
@@ -333,21 +333,21 @@ function MetaAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Cosmic Whale */}
+            {/* Right column - Premium Whale 3D */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-30">
-                <CosmicWhale className="w-full h-full" />
+              {/* Mobile: whale as ambient background */}
+              <div className="lg:hidden absolute inset-0 -z-10 opacity-50">
+                <PremiumWhale variant="cosmic" className="w-full h-full" />
               </div>
               
-              {/* Desktop: whale visible */}
+              {/* Desktop: full whale scene */}
               <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 1, delay: 0.3 }}
-                className="hidden lg:block relative h-[500px] xl:h-[600px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 2, delay: 0.3, ease: 'easeOut' }}
+                className="hidden lg:block relative h-[550px] xl:h-[650px]"
               >
-                <CosmicWhale className="w-full h-full" />
+                <PremiumWhale variant="cosmic" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
