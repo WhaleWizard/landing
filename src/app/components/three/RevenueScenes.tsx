@@ -1,85 +1,126 @@
-import { motion, useScroll, useTransform } from 'motion/react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-type SceneProps = {
+type SceneConfig = {
   title: string;
   subtitle: string;
-  accent: string;
+  gradient: [string, string];
+  speed: number;
 };
 
 export function SceneShell({ children }: { children: React.ReactNode }) {
-  return <div className="relative h-[420px] md:h-[560px] w-full overflow-hidden rounded-[2rem] border border-white/15 bg-[#06070d] shadow-[0_40px_120px_rgba(0,0,0,0.55)]">{children}</div>;
+  return <div className="relative h-[420px] md:h-[560px] w-full overflow-hidden rounded-[2rem] border border-white/15 bg-[#05060b] shadow-[0_40px_120px_rgba(0,0,0,0.55)]">{children}</div>;
 }
 
-function ImmersiveScene({ title, subtitle, accent }: SceneProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
-  const ySlow = useTransform(scrollYProgress, [0, 1], [40, -40]);
-  const yFast = useTransform(scrollYProgress, [0, 1], [80, -80]);
+function CanvasFlow({ config }: { config: SceneConfig }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let raf = 0;
+    let running = true;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const particles = Array.from({ length: 170 }, () => ({
+      x: Math.random() * 2 - 1,
+      y: Math.random() * 2 - 1,
+      z: Math.random() * 1.6 + 0.2,
+      s: Math.random() * 1.1 + 0.4,
+    }));
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const draw = (t: number) => {
+      if (!running) return;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, '#090b12');
+      bg.addColorStop(1, '#0d1020');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      particles.forEach((p, i) => {
+        p.z -= 0.004 * config.speed;
+        if (p.z < 0.18) {
+          p.z = 1.7;
+          p.x = Math.random() * 2 - 1;
+          p.y = Math.random() * 2 - 1;
+        }
+        const scale = 1 / p.z;
+        const x = w / 2 + p.x * w * 0.42 * scale;
+        const y = h / 2 + p.y * h * 0.35 * scale + Math.sin((t / 1000 + i) * 0.8) * 8;
+        const r = p.s * scale * 4;
+        const alpha = Math.max(0.05, Math.min(0.9, 1 - p.z));
+
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+        grad.addColorStop(0, `${config.gradient[0]}CC`);
+        grad.addColorStop(1, `${config.gradient[1]}00`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 9; i++) {
+        const offset = ((t * 0.02 * config.speed + i * 72) % (w + 200)) - 100;
+        ctx.beginPath();
+        ctx.moveTo(offset, 0);
+        ctx.bezierCurveTo(offset + 90, h * 0.26, offset - 60, h * 0.72, offset + 130, h);
+        ctx.stroke();
+      }
+
+      raf = requestAnimationFrame(draw);
+    };
+
+    raf = requestAnimationFrame(draw);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+    };
+  }, [config]);
 
   return (
-    <div ref={ref} className="relative h-full w-full">
-      <motion.div style={{ background: accent, y: ySlow, opacity: 0.35 }} className="absolute -left-24 -top-16 h-72 w-72 rounded-full blur-3xl" />
-      <motion.div style={{ y: yFast }} className="absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-indigo-500/30 blur-3xl" />
-
-      <svg className="absolute inset-0 h-full w-full opacity-60" viewBox="0 0 800 500" fill="none" aria-hidden>
-        <motion.path
-          d="M-30 420C70 340 160 330 250 360C340 390 440 380 520 310C600 240 680 220 860 260"
-          stroke="url(#grad1)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          initial={{ pathLength: 0, opacity: 0.2 }}
-          whileInView={{ pathLength: 1, opacity: 0.95 }}
-          transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
-          viewport={{ once: true, margin: '-10%' }}
-        />
-        <motion.path
-          d="M-30 300C90 220 160 210 240 240C320 270 420 290 520 220C620 150 720 140 860 170"
-          stroke="url(#grad2)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          initial={{ pathLength: 0, opacity: 0.2 }}
-          whileInView={{ pathLength: 1, opacity: 0.8 }}
-          transition={{ duration: 2.2, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          viewport={{ once: true, margin: '-10%' }}
-        />
-        <defs>
-          <linearGradient id="grad1" x1="100" y1="100" x2="650" y2="350" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#ffffff" stopOpacity="0.8" />
-            <stop offset="1" stopColor="#8b5cf6" stopOpacity="0.9" />
-          </linearGradient>
-          <linearGradient id="grad2" x1="100" y1="100" x2="650" y2="350" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#38bdf8" stopOpacity="0.6" />
-            <stop offset="1" stopColor="#c084fc" stopOpacity="0.8" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.15),transparent_45%),radial-gradient(circle_at_80%_90%,rgba(129,140,248,0.25),transparent_40%)]" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-        viewport={{ once: true }}
-        className="absolute bottom-10 left-8 right-8 rounded-2xl border border-white/15 bg-black/35 p-6 backdrop-blur-xl"
-      >
-        <p className="text-xs uppercase tracking-[0.22em] text-white/70">Cinematic conversion layer</p>
-        <h3 className="mt-2 text-2xl font-bold text-white">{title}</h3>
-        <p className="mt-2 text-sm text-white/80 md:text-base">{subtitle}</p>
-      </motion.div>
+    <div className="relative h-full w-full">
+      <canvas ref={ref} className="h-full w-full" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.2),transparent_45%),radial-gradient(circle_at_85%_85%,rgba(99,102,241,0.25),transparent_50%)]" />
+      <div className="absolute bottom-8 left-6 right-6 rounded-2xl border border-white/15 bg-black/40 p-5 backdrop-blur-xl">
+        <p className="text-xs uppercase tracking-[0.22em] text-white/70">Live depth visual</p>
+        <h3 className="mt-2 text-2xl font-bold text-white">{config.title}</h3>
+        <p className="mt-2 text-sm text-white/85">{config.subtitle}</p>
+      </div>
     </div>
   );
 }
 
 export function FlowFunnelScene() {
-  return <ImmersiveScene title="Signal vs Noise Reactor" subtitle="Холодный трафик проходит фильтрацию креативом и аналитикой, остаются только лиды с высоким потенциалом покупки." accent="#8b5cf6" />;
+  return <CanvasFlow config={{ title: 'Signal vs Noise Reactor', subtitle: 'Поток частиц показывает фильтрацию трафика: от хаоса к квалифицированным лидам.', gradient: ['#8b5cf6', '#312e81'], speed: 1 }} />;
 }
 
 export function SearchIntentScene() {
-  return <ImmersiveScene title="Intent Gravity Field" subtitle="Спрос высокой готовности притягивается в кампании, где Search и PMax синхронизируются по маржинальности." accent="#0ea5e9" />;
+  return <CanvasFlow config={{ title: 'Intent Gravity Field', subtitle: 'Слои спроса движутся к центру конверсии, показывая приоритизацию high-intent трафика.', gradient: ['#0ea5e9', '#1e3a8a'], speed: 1.25 }} />;
 }
 
 export function ConsultGrowthScene() {
-  return <ImmersiveScene title="Revenue Architecture" subtitle="Консультация превращает хаос в пошаговую систему роста: позиционирование, оффер, продажи и контент." accent="#d946ef" />;
+  return <CanvasFlow config={{ title: 'Revenue Architecture', subtitle: 'Пошаговый рост экспертизы визуализирован как подъём по глубинным траекториям.', gradient: ['#d946ef', '#581c87'], speed: 0.9 }} />;
 }
