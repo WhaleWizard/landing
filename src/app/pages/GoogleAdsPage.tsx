@@ -353,20 +353,20 @@ function GoogleAdsPage() {
             </div>
 
             {/* Right column - 3D Whale Animation */}
-            <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as subtle background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-40">
-                <Whale3D variant="digital" intensity="low" className="w-full h-full" />
-              </div>
-              
-              {/* Desktop: fully interactive 3D whale */}
+            <div className="order-1 lg:order-2 relative min-h-[300px] lg:min-h-[500px]">
+              {/* Whale container - allows overflow for organic feel */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 1.2, delay: 0.2, ease: 'easeOut' }}
-                className="hidden lg:block relative h-[500px] xl:h-[600px]"
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
+                className="absolute inset-0 lg:-right-20 lg:-top-16 lg:-bottom-16"
+                style={{ zIndex: 5 }}
               >
-                <Whale3D variant="digital" intensity="high" className="w-full h-full" />
+                <Whale3D 
+                  variant="digital" 
+                  intensity="high" 
+                  className="w-full h-full"
+                />
               </motion.div>
             </div>
           </div>
