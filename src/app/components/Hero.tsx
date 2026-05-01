@@ -135,7 +135,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView }: LeftCo
 
     <h1 className="text-2xl sm:text-4xl lg:text-4xl xl:text-4xl font-bold leading-tight">
       Увеличу поток клиентов через{' '}
-      <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+      <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent animated-gradient-text">
         Google Ads & Meta Ads
       </span>
     </h1>
@@ -234,6 +234,12 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             }}
           />
         </div>
+
+        <motion.div
+          className="absolute inset-[8%] rounded-[2rem] border border-primary/20 pointer-events-none"
+          animate={inView ? { rotate: [0, 4, 0, -4, 0] } : {}}
+          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        />
 
         {/* Main image — оптимизированная загрузка */}
         <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">

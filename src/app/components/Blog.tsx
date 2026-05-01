@@ -52,7 +52,7 @@ function Blog() {
             <span className="text-xs md:text-sm text-accent">Полезные материалы</span>
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-            Блог о <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">таргетированной рекламе</span>
+            Блог о <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent animated-gradient-text">таргетированной рекламе</span>
           </h2>
           <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">Экспертные статьи, стратегии и кейсы из практики</p>
         </motion.div>
@@ -79,7 +79,7 @@ function Blog() {
         <div ref={scrollContainerRef} className="flex gap-5 md:gap-7 overflow-x-auto scroll-smooth pb-8 px-4 md:px-8" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)', WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
           {articles.map((article) => (
             <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
-              <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
+              <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 animated-float-soft backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
                 <div className="relative h-44 sm:h-48 md:h-56 overflow-hidden">
                   <ImageWithFallback src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />

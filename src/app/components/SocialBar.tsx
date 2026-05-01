@@ -8,6 +8,8 @@ import {
   Phone,
   Music,
   Mail,
+  Linkedin,
+  Github,
 } from 'lucide-react';
 import { useRef, useEffect, memo, useCallback } from 'react';
 
@@ -20,6 +22,8 @@ const socialsDesktop = [
   { icon: Phone, href: '#', label: 'WhatsApp', color: '#25D366' },
   { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#000000' },
   { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
+  { icon: Linkedin, href: 'https://www.linkedin.com', label: 'LinkedIn', color: '#0A66C2' },
+  { icon: Github, href: 'https://github.com', label: 'GitHub', color: '#181717' },
 ];
 
 const socialsMobileOrder = [
@@ -31,6 +35,8 @@ const socialsMobileOrder = [
   { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
   { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
   { icon: Youtube, href: 'https://youtube.com/@whalewzrd', label: 'YouTube', color: '#FF0000' },
+  { icon: Linkedin, href: 'https://www.linkedin.com', label: 'LinkedIn', color: '#0A66C2' },
+  { icon: Github, href: 'https://github.com', label: 'GitHub', color: '#181717' },
 ];
 
 // Два повтора вместо трёх — достаточно для бесконечного скролла, снижает нагрузку
@@ -90,7 +96,7 @@ function SocialDock() {
         <div className="text-center mb-8">
           <h2 className="text-xl md:text-2xl font-medium mb-2">
             Подробнее о моей работе{' '}
-            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent animated-gradient-text">
               в соцсетях
             </span>
           </h2>
@@ -115,7 +121,7 @@ function SocialDock() {
                 transition={{ delay: i * 0.05 }}
                 {...desktopHover}
                 whileTap={{ scale: 0.95 }}
-                className="group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 hover:bg-primary/10"
+                className="group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 hover:bg-primary/10 animated-float-soft"
                 style={{ transform: 'translateZ(0)' }}
               >
                 <div className="relative">

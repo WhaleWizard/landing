@@ -2,3 +2,32 @@
 @import './tailwind.css';
 @import './theme.css';
 @import './blog-readable.css';
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float-soft {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+
+.animated-gradient-text {
+  background-size: 220% 220%;
+  animation: gradient-shift 8s ease-in-out infinite;
+  will-change: background-position;
+}
+
+.animated-float-soft {
+  animation: float-soft 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-gradient-text,
+  .animated-float-soft {
+    animation: none !important;
+  }
+}
