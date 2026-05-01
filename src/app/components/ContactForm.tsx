@@ -70,7 +70,7 @@ const useTouchDevice = () => {
   return isTouch;
 };
 
-function ContactForm() {
+function ContactForm({ service = 'general' }: { service?: string }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -127,6 +127,7 @@ function ContactForm() {
             hp_trap: hpTrap,
             page_url: window.location.href,
             referrer: document.referrer || undefined,
+            service,
           }),
         });
         if (!res.ok) {
@@ -152,7 +153,7 @@ function ContactForm() {
         setIsSubmitting(false);
       }
     },
-    [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap],
+    [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap, service],
   );
 
   const handleSetTelegramUsername = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
