@@ -28,8 +28,8 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import HeroAnimation from '../components/HeroAnimation';
-import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
+import HeroImage from '../components/HeroImage';
+import CanvasBackground from '../components/CanvasBackground';
 
 // Animated counter component
 const AnimatedCounter = memo(({ value, suffix = '', prefix = '' }: { value: number; suffix?: string; prefix?: string }) => {
@@ -245,7 +245,7 @@ function GoogleAdsPage() {
       />
       <Navbar />
 
-      {/* Hero Section with Cosmic Whale */}
+      {/* Hero Section */}
       <section
         ref={heroRef}
         className="relative min-h-screen flex items-center overflow-hidden"
@@ -253,7 +253,7 @@ function GoogleAdsPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-background to-background" />
-          <InteractiveBackground variant="digital" particleCount={40} />
+          <CanvasBackground type="data-stream" theme="google" intensity={0.6} />
         </div>
 
         {/* Gradient Overlay */}
@@ -352,26 +352,26 @@ function GoogleAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - 3D Animation */}
+            {/* Right column - Hero Image with overlays */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: animation visible above text */}
+              {/* Mobile: image visible above text */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
-                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
+                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4 rounded-2xl overflow-hidden"
               >
-                <HeroAnimation variant="google" className="w-full h-full" />
+                <HeroImage variant="google" className="w-full h-full" />
               </motion.div>
               
-              {/* Desktop: full animation scene */}
+              {/* Desktop: full image scene */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 2, delay: 0.3, ease: 'easeOut' }}
-                className="hidden lg:block relative h-[550px] xl:h-[650px]"
+                className="hidden lg:block relative h-[550px] xl:h-[650px] rounded-3xl overflow-hidden"
               >
-                <HeroAnimation variant="google" className="w-full h-full" />
+                <HeroImage variant="google" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
@@ -400,8 +400,7 @@ function GoogleAdsPage() {
 
       {/* Pain Points Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <GradientOrbs variant="digital" />
-        <AnimatedGrid variant="digital" />
+        <CanvasBackground type="geometric-flow" theme="google" intensity={0.6} />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -443,7 +442,7 @@ function GoogleAdsPage() {
 
       {/* How I Work Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        <CanvasBackground type="particles-network" theme="google" intensity={0.5} />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -496,7 +495,7 @@ function GoogleAdsPage() {
 
       {/* Cases Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <GradientOrbs variant="digital" />
+        <CanvasBackground type="constellation" theme="google" intensity={0.7} />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -550,7 +549,7 @@ function GoogleAdsPage() {
 
       {/* Benefits Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        <CanvasBackground type="aurora-glow" theme="google" intensity={0.6} />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -588,8 +587,7 @@ function GoogleAdsPage() {
 
       {/* Contact Form Section */}
       <section id="contact" className="py-20 md:py-32 relative overflow-hidden">
-        <GradientOrbs variant="digital" />
-        <AnimatedGrid variant="digital" />
+        <CanvasBackground type="gradient-waves" theme="google" intensity={0.8} />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
