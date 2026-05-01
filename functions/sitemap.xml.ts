@@ -4,7 +4,7 @@ import { renderSitemapXml } from './_lib/seo';
 import { xml } from './_lib/http';
 import type { Env } from './_lib/types';
 
-const STATIC_ROUTES = ['/', '/blog', '/faq', '/marketing-glossary', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy', '/feed.xml', '/llms.txt'];
+const STATIC_ROUTES = ['/', '/blog', '/faq', '/marketing-glossary', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy', '/feed.xml', '/llms.txt', '/meta-ads', '/google-ads', '/consult'];
 
 function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');

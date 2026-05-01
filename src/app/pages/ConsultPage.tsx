@@ -1,0 +1,553 @@
+import { memo, useRef, useState, useEffect, useCallback, Suspense } from 'react';
+import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll } from 'motion/react';
+import {
+  Users,
+  Zap,
+  BarChart3,
+  TrendingUp,
+  Sparkles,
+  Target,
+  MessageSquare,
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
+  Briefcase,
+  Award,
+  Rocket,
+  Shield,
+  DollarSign,
+  FileText,
+  Star,
+  GraduationCap,
+  MapPin,
+} from 'lucide-react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import LandingForm from '../components/LandingForm';
+import SEO from '../components/SEO';
+import { Button } from '../components/ui/button';
+import Whale3D from '../components/Whale3D';
+import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
+
+// Animated progress bar
+const AnimatedProgress = memo(({ value, color, delay = 0 }: { value: number; color: string; delay?: number }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-50px' });
+
+  return (
+    <div ref={ref} className="h-2 rounded-full bg-muted/50 overflow-hidden">
+      <motion.div
+        initial={{ width: 0 }}
+        animate={inView ? { width: `${value}%` } : { width: 0 }}
+        transition={{ duration: 1.5, delay, ease: [0.22, 1, 0.36, 1] }}
+        className="h-full rounded-full"
+        style={{ background: `linear-gradient(90deg, ${color}, ${color}80)` }}
+      />
+    </div>
+  );
+});
+AnimatedProgress.displayName = 'AnimatedProgress';
+
+// 3D Tilt Card
+const TiltCard = memo(({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const rotateX = useMotionValue(0);
+  const rotateY = useMotionValue(0);
+  const springRotateX = useSpring(rotateX, { stiffness: 300, damping: 30 });
+  const springRotateY = useSpring(rotateY, { stiffness: 300, damping: 30 });
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    rotateX.set((-((e.clientY - centerY) / rect.height)) * 10);
+    rotateY.set(((e.clientX - centerX) / rect.width) * 10);
+  }, [rotateX, rotateY]);
+
+  const handleMouseLeave = useCallback(() => {
+    rotateX.set(0);
+    rotateY.set(0);
+    setIsHovered(false);
+  }, [rotateX, rotateY]);
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        rotateX: springRotateX,
+        rotateY: springRotateY,
+        transformStyle: 'preserve-3d',
+        perspective: '1000px',
+      }}
+      className={`relative ${className}`}
+    >
+      {children}
+      {isHovered && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-radial from-primary/10 to-transparent"
+        />
+      )}
+    </motion.div>
+  );
+});
+TiltCard.displayName = 'TiltCard';
+
+// Pain points data
+const painPoints = [
+  {
+    icon: Target,
+    title: 'Нет ниши и оффера',
+    description: 'Работаете со всеми подряд, не можете сформулировать уникальность.',
+    color: 'from-primary/20 to-accent/20',
+    borderColor: 'border-primary/30',
+  },
+  {
+    icon: FileText,
+    title: 'Портфолио не продает',
+    description: 'Кейсы есть, но клиенты не понимают их ценность.',
+    color: 'from-accent/20 to-secondary/20',
+    borderColor: 'border-accent/30',
+  },
+  {
+    icon: MessageSquare,
+    title: 'Нет каналов поиска',
+    description: 'Telegram, LinkedIn, нетворкинг не работают системно.',
+    color: 'from-secondary/20 to-primary/20',
+    borderColor: 'border-secondary/30',
+  },
+  {
+    icon: Users,
+    title: 'Нет личного бренда',
+    description: 'Потенциальные клиенты не знают вас.',
+    color: 'from-amber-500/20 to-orange-500/20',
+    borderColor: 'border-amber-500/30',
+  },
+];
+
+// Program steps data
+const programSteps = [
+  {
+    number: '01',
+    title: 'Анализ уровня',
+    description: 'Разбираем портфолио, навыки и стратегию поиска.',
+    icon: BarChart3,
+    progress: 25,
+    color: '#8b5cf6',
+  },
+  {
+    number: '02',
+    title: 'Стратегия поиска',
+    description: 'Где искать, как писать, какие каналы использовать.',
+    icon: MapPin,
+    progress: 50,
+    color: '#6366f1',
+  },
+  {
+    number: '03',
+    title: 'Упаковка услуг',
+    description: 'Сильный оффер, упаковка кейсов, воронка.',
+    icon: Award,
+    progress: 75,
+    color: '#3b82f6',
+  },
+  {
+    number: '04',
+    title: 'План действий',
+    description: 'Шаблоны, скрипты и план на месяц.',
+    icon: Rocket,
+    progress: 100,
+    color: '#10b981',
+  },
+];
+
+// Results data
+const resultsData = [
+  { value: '150+', label: 'кейсов' },
+  { value: '$2M+', label: 'бюджета' },
+  { value: '5+', label: 'лет опыта' },
+  { value: '50+', label: 'учеников' },
+];
+
+// What you get data
+const whatYouGet = [
+  {
+    icon: Target,
+    title: 'Пошаговая стратегия',
+    description: 'План действий под ваш уровень и цели',
+  },
+  {
+    icon: FileText,
+    title: 'Упакованный оффер',
+    description: 'Позиционирование, выделяющее вас',
+  },
+  {
+    icon: MessageSquare,
+    title: 'Шаблоны и скрипты',
+    description: 'Тексты для холодных сообщений',
+  },
+  {
+    icon: Users,
+    title: 'Разбор портфолио',
+    description: 'Упаковка кейсов, которые продают',
+  },
+];
+
+function ConsultPage() {
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
+
+  const scrollToContact = useCallback(() => {
+    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      <SEO
+        title="Консультация для таргетологов"
+        description="Помогу таргетологу найти стабильный поток клиентов и выйти на доход от $1000/мес. Разбор стратегии, упаковка услуг, сильный оффер."
+        url="/consult"
+      />
+      <Navbar />
+
+      {/* Hero Section with 3D Whale */}
+      <section
+        ref={heroRef}
+        className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      >
+        {/* 3D Whale Background - Ethereal variant for Consult */}
+        <div className="absolute inset-0 z-0">
+          <Suspense fallback={
+            <div className="w-full h-full bg-gradient-to-b from-[#1a0a2e] to-background flex items-center justify-center">
+              <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+          }>
+            <Whale3D variant="ethereal" intensity="high" />
+          </Suspense>
+        </div>
+
+        {/* Interactive Particle Background */}
+        <div className="absolute inset-0 z-[1]">
+          <InteractiveBackground variant="ethereal" particleCount={60} />
+        </div>
+
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 z-[2] bg-gradient-to-b from-transparent via-background/30 to-background pointer-events-none" />
+
+        <motion.div
+          style={{ opacity: heroOpacity, scale: heroScale }}
+          className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20"
+        >
+          <div className="text-center max-w-4xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="space-y-6"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 backdrop-blur-xl"
+              >
+                <GraduationCap className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  Консультация для таргетологов
+                </span>
+              </motion.div>
+
+              <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+                <span className="block text-balance">Помогу найти</span>
+                <span className="block mt-2 bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+                  стабильный поток клиентов
+                </span>
+              </h1>
+
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto text-balance">
+                Разбор стратегии поиска клиентов, упаковка услуг и сильный оффер 
+                на основе личного опыта $2M+ бюджета в управлении.
+              </p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
+              >
+                <Button
+                  size="lg"
+                  onClick={scrollToContact}
+                  className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-2xl shadow-primary/30 h-14 px-8 text-base"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                  <span className="relative">Записаться на консультацию</span>
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </motion.div>
+
+              {/* Stats row */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 pt-12 max-w-2xl mx-auto"
+              >
+                {resultsData.map((stat, i) => (
+                  <motion.div
+                    key={i}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    className="text-center p-4 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                  >
+                    <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                      {stat.value}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
+        >
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="w-6 h-10 rounded-full border-2 border-primary/30 flex justify-center pt-2"
+          >
+            <motion.div
+              animate={{ y: [0, 8, 0], opacity: [1, 0.5, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="w-1.5 h-1.5 rounded-full bg-primary"
+            />
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Pain Points Section */}
+      <section className="py-20 md:py-32 relative overflow-hidden">
+        <GradientOrbs variant="ethereal" />
+        <AnimatedGrid variant="ethereal" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <span className="text-sm text-red-400">Проблема</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+              Почему сложно найти клиентов?
+            </h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {painPoints.map((point, index) => (
+              <TiltCard key={index}>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-xl`}
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-card/50 flex items-center justify-center mb-4">
+                    <point.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{point.title}</h3>
+                  <p className="text-muted-foreground text-sm">{point.description}</p>
+                </motion.div>
+              </TiltCard>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Program Section */}
+      <section className="py-20 md:py-32 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm text-primary">Программа</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+              Что входит в консультацию
+            </h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {programSteps.map((step, index) => (
+              <TiltCard key={index}>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="text-3xl font-bold" style={{ color: `${step.color}40` }}>
+                      {step.number}
+                    </span>
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: `${step.color}20` }}
+                    >
+                      <step.icon className="w-5 h-5" style={{ color: step.color }} />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+                  <p className="text-muted-foreground text-sm mb-4">{step.description}</p>
+                  <AnimatedProgress value={step.progress} color={step.color} delay={index * 0.2} />
+                </motion.div>
+              </TiltCard>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* What You Get Section */}
+      <section className="py-20 md:py-32 relative overflow-hidden">
+        <GradientOrbs variant="ethereal" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 mb-6">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              <span className="text-sm text-green-400">Результат</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+              Что вы получите
+            </h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {whatYouGet.map((item, index) => (
+              <TiltCard key={index}>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl hover:border-primary/50 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
+                    <item.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+                  <p className="text-muted-foreground text-sm">{item.description}</p>
+                </motion.div>
+              </TiltCard>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 md:py-32 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="p-8 md:p-12 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 border border-primary/20 backdrop-blur-xl">
+              <div className="flex justify-center mb-6">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-6 h-6 text-amber-400 fill-amber-400" />
+                ))}
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+                Готовы выйти на новый уровень?
+              </h2>
+              <p className="text-muted-foreground mb-8 max-w-2xl mx-auto text-balance">
+                Консультация длится 60-90 минут. Разберем вашу ситуацию 
+                и составим пошаговый план действий.
+              </p>
+              <Button
+                size="lg"
+                onClick={scrollToContact}
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group h-14 px-8 text-base"
+              >
+                Записаться на консультацию
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Contact Form Section */}
+      <section id="contact" className="py-20 md:py-32 relative overflow-hidden">
+        <GradientOrbs variant="ethereal" />
+        <AnimatedGrid variant="ethereal" />
+        
+        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+              Запишитесь на консультацию
+            </h2>
+            <p className="text-muted-foreground text-balance">
+              Заполните форму и я свяжусь с вами в течение 24 часов
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+          >
+            <LandingForm service="consult" />
+          </motion.div>
+        </div>
+      </section>
+
+      <Footer />
+    </main>
+  );
+}
+
+export default ConsultPage;
