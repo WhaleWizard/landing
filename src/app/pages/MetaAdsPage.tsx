@@ -23,7 +23,8 @@ import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
 import CosmicWhale from '../components/CosmicWhale';
-import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
+import InteractiveBackground from '../components/InteractiveBackground';
+import SectionBackground from '../components/SectionBackground';
 
 // Animated counter component
 const AnimatedCounter = memo(({ value, suffix = '', prefix = '' }: { value: number; suffix?: string; prefix?: string }) => {
@@ -375,8 +376,7 @@ function MetaAdsPage() {
 
       {/* Pain Points Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <GradientOrbs variant="cosmic" />
-        <AnimatedGrid variant="cosmic" />
+        <SectionBackground variant="nebula" color="meta" intensity="medium" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -390,7 +390,7 @@ function MetaAdsPage() {
               <span className="text-sm text-red-400">Проблема</span>
             </div>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
-              Почему Meta Ads не даёт результат?
+              Почему Meta Ads не даёт резул��тат?
             </h2>
           </motion.div>
 
@@ -418,7 +418,7 @@ function MetaAdsPage() {
 
       {/* How I Work Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        <SectionBackground variant="grid-glow" color="primary" intensity="low" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -465,7 +465,7 @@ function MetaAdsPage() {
 
       {/* Cases Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <GradientOrbs variant="cosmic" />
+        <SectionBackground variant="aurora" color="accent" intensity="medium" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -519,7 +519,7 @@ function MetaAdsPage() {
 
       {/* Benefits Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        <SectionBackground variant="particles" color="meta" intensity="low" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -557,32 +557,68 @@ function MetaAdsPage() {
 
       {/* Contact Form Section */}
       <section id="contact" className="py-20 md:py-32 relative overflow-hidden">
-        <GradientOrbs variant="cosmic" />
-        <AnimatedGrid variant="cosmic" />
+        <SectionBackground variant="cosmic-dust" color="meta" intensity="high" />
         
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
-              Получите бесплатный аудит рекламы
-            </h2>
-            <p className="text-muted-foreground text-balance">
-              Заполните форму и я свяжусь с вами в течение 24 часов
-            </p>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-          >
-            <LandingForm service="meta-ads" />
-          </motion.div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left - Text content */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="text-center lg:text-left"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#E1306C]/10 border border-[#E1306C]/20 mb-6">
+                <Sparkles className="w-4 h-4 text-[#E1306C]" />
+                <span className="text-sm text-[#E1306C]">Бесплатно</span>
+              </div>
+              
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
+                Получите бесплатный{' '}
+                <span className="bg-gradient-to-r from-[#E1306C] via-[#833AB4] to-[#405DE6] bg-clip-text text-transparent">
+                  аудит рекламы
+                </span>
+              </h2>
+              
+              <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-balance">
+                Разберу вашу текущую рекламу и покажу точки роста. 
+                Без воды и общих фраз — только конкретика.
+              </p>
+              
+              <div className="space-y-4 max-w-md mx-auto lg:mx-0">
+                {[
+                  'Анализ рекламного кабинета',
+                  'Оценка креативов и офферов',
+                  'Рекомендации по оптимизации',
+                  'Прогноз результатов',
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#E1306C] to-[#405DE6] flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-foreground">{item}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+            
+            {/* Right - Form */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
+              <LandingForm service="meta-ads" />
+            </motion.div>
+          </div>
         </div>
       </section>
 
