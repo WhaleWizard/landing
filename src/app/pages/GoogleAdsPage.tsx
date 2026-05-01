@@ -1,24 +1,23 @@
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
-import type { Group } from 'three';
+import { lazy, Suspense } from 'react';
 import ContactForm from '../components/ContactForm';
 
-function Laptop() {
-  const group = useRef<Group>(null);
-  useFrame(({ clock, pointer }) => {
-    if (!group.current) return;
-    group.current.rotation.y = pointer.x * 0.2;
-    group.current.rotation.x = pointer.y * 0.15;
-    group.current.children[1].rotation.x = -1.2 + Math.sin(clock.getElapsedTime() * 0.7) * 0.08;
-  });
-  return (
-    <group ref={group}>
-      <mesh position={[0, -0.5, 0]}><boxGeometry args={[2.3, 0.1, 1.5]} /><meshBasicMaterial wireframe color="#8b5cf6" /></mesh>
-      <mesh position={[0, 0.15, -0.75]} rotation={[-1.2, 0, 0]}><boxGeometry args={[2.3, 0.06, 1.5]} /><meshBasicMaterial wireframe color="#6366f1" /></mesh>
-    </group>
-  );
-}
+const AdsScenes = lazy(() => import('../components/three/Ads3DScenes'));
 
 export default function GoogleAdsPage() {
-  return <main className="bg-background text-foreground"><section className="min-h-screen grid lg:grid-cols-[40%_60%] items-center px-4 max-w-6xl mx-auto gap-8"><div className="h-[360px]"><Canvas camera={{position:[0,0,4]}}><Laptop /></Canvas></div><div><h1 className="text-4xl md:text-6xl font-black">Привлеку горячих клиентов из Google Ads, готовых купить сейчас</h1><p className="text-gray-300 mt-4">Настрою связку Search + Performance Max + YouTube так, чтобы каждый $ приносил максимум целевых заявок.</p><a href="#contact" className="mt-8 inline-flex rounded-3xl px-8 py-4 bg-gradient-to-r from-[#8b5cf6] to-[#6366f1]">Получить срез стоимости лида в вашей нише</a></div></section><section className="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-4">{['Ставка только на поисковые кампании','Отсутствие ретаргетинга','Неподготовленный сайт'].map(x=><article key={x} className="rounded-2xl p-6 bg-card border border-white/10">{x}</article>)}</section><section id="contact" className="max-w-6xl mx-auto px-4 py-16"><h2 className="text-3xl font-bold mb-4">Рассчитайте прогнозируемый ROAS для вашей ниши</h2><ContactForm service="google-ads" /></section></main>;
+  return (
+    <main className="bg-background text-foreground">
+      <section className="min-h-screen max-w-6xl mx-auto px-4 pt-24 pb-14 grid lg:grid-cols-2 gap-10 items-center">
+        <div>
+          <p className="text-sm uppercase tracking-[0.2em] text-sky-300">Google Ads Intent Map</p>
+          <h1 className="mt-3 text-4xl md:text-6xl font-black">Захватываем горячий спрос в момент готовности купить.</h1>
+          <p className="mt-5 text-gray-300 max-w-xl">Кольца в 3D-сцене отражают Search, PMax и ретаргетинг. Курсор-намерение показывает: как пользователь движется к самой маржинальной заявке.</p>
+          <a href="#contact" className="mt-8 inline-flex rounded-3xl px-8 py-4 bg-gradient-to-r from-[#0ea5e9] to-[#6366f1]">Получить медиаплан</a>
+        </div>
+        <Suspense fallback={<div className="h-[460px] rounded-3xl bg-zinc-900 animate-pulse" />}>
+          <AdsScenes.SceneShell><AdsScenes.SearchIntentScene /></AdsScenes.SceneShell>
+        </Suspense>
+      </section>
+      <section id="contact" className="max-w-6xl mx-auto px-4 py-16"><h2 className="text-3xl font-bold mb-4">Рассчитать целевой CPA</h2><ContactForm service="google-ads" /></section>
+    </main>
+  );
 }
