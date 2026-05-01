@@ -22,7 +22,6 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 
@@ -256,7 +255,7 @@ function MetaAdsPage() {
           style={{ opacity: heroOpacity, scale: heroScale }}
           className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 lg:pt-32 lg:pb-20"
         >
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <div className="grid grid-cols-1 items-center">
             {/* Left column - Text content */}
             <div className="order-2 lg:order-1 text-center lg:text-left">
               <motion.div
@@ -277,7 +276,7 @@ function MetaAdsPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
                   <span className="block leading-tight text-balance">Стабильные заявки из</span>
                   <span className="block mt-3 leading-tight bg-gradient-to-r from-[#E1306C] via-[#833AB4] to-[#405DE6] bg-clip-text text-transparent pb-1">
                     Facebook и Instagram
@@ -333,28 +332,6 @@ function MetaAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - 3D Animation */}
-            <div className="order-1 lg:order-2 relative">
-              {/* Mobile: animation visible above text */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
-                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
-              >
-                <HeroAnimation variant="meta" className="w-full h-full" />
-              </motion.div>
-              
-              {/* Desktop: full animation scene */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.3 }}
-                className="relative mx-auto h-[420px] w-full max-w-[520px]"
-              >
-                <HeroAnimation variant="meta" className="w-full h-full" />
-              </motion.div>
-            </div>
           </div>
         </motion.div>
 
@@ -394,7 +371,7 @@ function MetaAdsPage() {
               <AlertTriangle className="w-4 h-4 text-red-500" />
               <span className="text-sm text-red-400">Проблема</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Почему Meta Ads не даёт резул��тат?
             </h2>
           </motion.div>
@@ -412,7 +389,7 @@ function MetaAdsPage() {
                   <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center mb-5">
                     <point.icon className="w-7 h-7 text-red-400" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-3">{point.title}</h3>
+                  <h3 className="text-xl font-semibold [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden mb-3">{point.title}</h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">{point.description}</p>
                 </motion.div>
               </TiltCard>
@@ -436,7 +413,7 @@ function MetaAdsPage() {
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm text-primary">Процесс</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Как я работаю
             </h2>
           </motion.div>
@@ -459,7 +436,7 @@ function MetaAdsPage() {
                       <step.icon className={`w-6 h-6 text-${step.color}`} />
                     </div>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+                  <h3 className="text-lg font-semibold mb-2 [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{step.title}</h3>
                   <p className="text-muted-foreground text-sm">{step.description}</p>
                 </motion.div>
               </TiltCard>
@@ -483,7 +460,7 @@ function MetaAdsPage() {
               <TrendingUp className="w-4 h-4 text-accent" />
               <span className="text-sm text-accent">Кейсы</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               Результаты клиентов
             </h2>
           </motion.div>
@@ -499,7 +476,7 @@ function MetaAdsPage() {
                   className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
                 >
                   <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-xl font-semibold">{caseItem.title}</h3>
+                    <h3 className="text-xl font-semibold [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{caseItem.title}</h3>
                     <span className="px-3 py-1 text-xs rounded-full bg-primary/10 text-primary">
                       {caseItem.category}
                     </span>
@@ -537,7 +514,7 @@ function MetaAdsPage() {
               <Shield className="w-4 h-4 text-green-500" />
               <span className="text-sm text-green-400">Что входит</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
               В работу со мной входит
             </h2>
           </motion.div>
@@ -578,7 +555,7 @@ function MetaAdsPage() {
                 <span className="text-sm text-[#E1306C]">Бесплатно</span>
               </div>
               
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
                 Получите бесплатный{' '}
                 <span className="bg-gradient-to-r from-[#E1306C] via-[#833AB4] to-[#405DE6] bg-clip-text text-transparent">
                   аудит рекламы
