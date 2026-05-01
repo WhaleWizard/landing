@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { Menu, X } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 
@@ -8,6 +8,7 @@ function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -16,13 +17,29 @@ function Navbar() {
   }, []);
 
   const scrollToSection = useCallback((id: string) => {
-    const element = document.getElementById(id);
-    if (!element) return;
-    const yOffset = -80;
-    const y = element.getBoundingClientRect().top + window.scrollY + yOffset;
-    window.scrollTo({ top: y, behavior: 'smooth' });
+    const scrollNow = () => {
+      const element = document.getElementById(id);
+      if (!element) return false;
+      const yOffset = -80;
+      const y = element.getBoundingClientRect().top + window.scrollY + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      return true;
+    };
+
+    if (scrollNow()) {
+      setIsMobileMenuOpen(false);
+      return;
+    }
+
+    if (location.pathname !== '/') {
+      navigate('/');
+      window.setTimeout(() => {
+        scrollNow();
+      }, 80);
+    }
+
     setIsMobileMenuOpen(false);
-  }, []);
+  }, [location.pathname, navigate]);
 
   const navItems = [
     { label: 'Услуги', action: () => scrollToSection('services') },

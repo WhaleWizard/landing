@@ -22,6 +22,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
+import { useIsMobile } from '../components/ui/use-mobile';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 
@@ -222,6 +223,7 @@ function MetaAdsPage() {
   });
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
+  const isMobile = useIsMobile();
 
   const scrollToContact = useCallback(() => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -238,13 +240,14 @@ function MetaAdsPage() {
 
       {/* Hero Section with conversion animation */}
       <section
+        id="hero"
         ref={heroRef}
         className="relative min-h-screen flex items-center overflow-hidden"
       >
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a1f] via-background to-background" />
-          <InteractiveBackground variant="cosmic" particleCount={40} />
+          <InteractiveBackground variant="cosmic" particleCount={isMobile ? 16 : 40} interactive={!isMobile} />
         </div>
 
         {/* Gradient Overlay */}
@@ -539,6 +542,7 @@ function MetaAdsPage() {
 
       {/* Contact Form Section */}
       <section id="contact" className="py-20 md:py-32 relative overflow-hidden">
+        <div id="social" className="absolute -top-24" aria-hidden="true" />
         <SectionBackground variant="cosmic-dust" color="meta" intensity="high" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
