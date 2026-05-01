@@ -266,7 +266,7 @@ function GoogleAdsPage() {
         >
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left column - Text content */}
-            <div className="order-2 lg:order-1 text-center lg:text-left">
+            <div className="order-2 lg:order-1 text-center lg:text-left relative z-10">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -353,14 +353,12 @@ function GoogleAdsPage() {
             </div>
 
             {/* Right column - 3D Whale Animation */}
-            <div className="order-1 lg:order-2 relative min-h-[300px] lg:min-h-[500px]">
-              {/* Whale container - allows overflow for organic feel */}
+            <div className="order-1 lg:order-2 relative h-[280px] sm:h-[350px] lg:h-[520px] xl:h-[580px]">
               <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
-                className="absolute inset-0 lg:-right-20 lg:-top-16 lg:-bottom-16"
-                style={{ zIndex: 5 }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1.2, delay: 0.3, ease: 'easeOut' }}
+                className="absolute inset-0"
               >
                 <Whale3D 
                   variant="digital" 
