@@ -1,5 +1,5 @@
-import { memo, useRef, useState, useEffect, useCallback } from 'react';
-import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll, AnimatePresence } from 'motion/react';
+import { memo, useRef, useState, useEffect, useCallback, Suspense } from 'react';
+import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll } from 'motion/react';
 import {
   Users,
   Zap,
@@ -17,8 +17,6 @@ import {
   Shield,
   DollarSign,
   FileText,
-  Linkedin,
-  Send,
   Star,
   GraduationCap,
   MapPin,
@@ -28,6 +26,8 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
+import Whale3D from '../components/Whale3D';
+import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated progress bar
 const AnimatedProgress = memo(({ value, color, delay = 0 }: { value: number; color: string; delay?: number }) => {
@@ -48,7 +48,7 @@ const AnimatedProgress = memo(({ value, color, delay = 0 }: { value: number; col
 });
 AnimatedProgress.displayName = 'AnimatedProgress';
 
-// 3D Floating Card with tilt effect
+// 3D Tilt Card
 const TiltCard = memo(({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -62,10 +62,8 @@ const TiltCard = memo(({ children, className = '' }: { children: React.ReactNode
     const rect = ref.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    const mouseX = e.clientX - centerX;
-    const mouseY = e.clientY - centerY;
-    rotateX.set((-mouseY / rect.height) * 10);
-    rotateY.set((mouseX / rect.width) * 10);
+    rotateX.set((-((e.clientY - centerY) / rect.height)) * 10);
+    rotateY.set(((e.clientX - centerX) / rect.width) * 10);
   }, [rotateX, rotateY]);
 
   const handleMouseLeave = useCallback(() => {
@@ -93,10 +91,7 @@ const TiltCard = memo(({ children, className = '' }: { children: React.ReactNode
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="absolute inset-0 rounded-2xl pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(139, 92, 246, 0.15), transparent 50%)',
-          }}
+          className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-radial from-primary/10 to-transparent"
         />
       )}
     </motion.div>
@@ -104,53 +99,33 @@ const TiltCard = memo(({ children, className = '' }: { children: React.ReactNode
 });
 TiltCard.displayName = 'TiltCard';
 
-// Floating particle
-const FloatingParticle = memo(({ delay = 0, x = 0, size = 4 }: { delay?: number; x?: number; size?: number }) => (
-  <motion.div
-    className="absolute rounded-full bg-primary/30"
-    style={{ width: size, height: size }}
-    animate={{
-      y: [100, -100],
-      x: [x, x + 20, x],
-      opacity: [0, 1, 0],
-    }}
-    transition={{
-      duration: 4 + Math.random() * 2,
-      repeat: Infinity,
-      delay,
-      ease: 'easeInOut',
-    }}
-  />
-));
-FloatingParticle.displayName = 'FloatingParticle';
-
 // Pain points data
 const painPoints = [
   {
     icon: Target,
-    title: 'Нет ниши и четкого оффера',
-    description: 'Работаете со всеми подряд, не можете сформулировать свою уникальность.',
+    title: 'Нет ниши и оффера',
+    description: 'Работаете со всеми подряд, не можете сформулировать уникальность.',
     color: 'from-primary/20 to-accent/20',
     borderColor: 'border-primary/30',
   },
   {
     icon: FileText,
     title: 'Портфолио не продает',
-    description: 'Кейсы есть, но клиенты не понимают их ценность. Результаты не упакованы.',
+    description: 'Кейсы есть, но клиенты не понимают их ценность.',
     color: 'from-accent/20 to-secondary/20',
     borderColor: 'border-accent/30',
   },
   {
     icon: MessageSquare,
-    title: 'Не используете каналы поиска',
-    description: 'Telegram, LinkedIn, нетворкинг — не знаете, как системно искать клиентов.',
+    title: 'Нет каналов поиска',
+    description: 'Telegram, LinkedIn, нетворкинг не работают системно.',
     color: 'from-secondary/20 to-primary/20',
     borderColor: 'border-secondary/30',
   },
   {
     icon: Users,
     title: 'Нет личного бренда',
-    description: 'Потенциальные клиенты не знают вас. Нет контента, нет доверия.',
+    description: 'Потенциальные клиенты не знают вас.',
     color: 'from-amber-500/20 to-orange-500/20',
     borderColor: 'border-amber-500/30',
   },
@@ -160,16 +135,16 @@ const painPoints = [
 const programSteps = [
   {
     number: '01',
-    title: 'Анализ текущего уровня',
-    description: 'Разбираем ваше портфолио, навыки и текущую стратегию поиска клиентов.',
+    title: 'Анализ уровня',
+    description: 'Разбираем портфолио, навыки и стратегию поиска.',
     icon: BarChart3,
     progress: 25,
     color: '#8b5cf6',
   },
   {
     number: '02',
-    title: 'Стратегия поиска клиентов',
-    description: 'Где искать, как писать, какие каналы использовать для вашей ниши.',
+    title: 'Стратегия поиска',
+    description: 'Где искать, как писать, какие каналы использовать.',
     icon: MapPin,
     progress: 50,
     color: '#6366f1',
@@ -177,7 +152,7 @@ const programSteps = [
   {
     number: '03',
     title: 'Упаковка услуг',
-    description: 'Создаем сильный оффер, упаковываем кейсы, строим воронку привлечения.',
+    description: 'Сильный оффер, упаковка кейсов, воронка.',
     icon: Award,
     progress: 75,
     color: '#3b82f6',
@@ -185,7 +160,7 @@ const programSteps = [
   {
     number: '04',
     title: 'План действий',
-    description: 'Готовые шаблоны, скрипты и пошаговый план на ближайший месяц.',
+    description: 'Шаблоны, скрипты и план на месяц.',
     icon: Rocket,
     progress: 100,
     color: '#10b981',
@@ -195,9 +170,9 @@ const programSteps = [
 // Results data
 const resultsData = [
   { value: '150+', label: 'кейсов' },
-  { value: '$2M+', label: 'бюджета в управлении' },
+  { value: '$2M+', label: 'бюджета' },
   { value: '5+', label: 'лет опыта' },
-  { value: '24/7', label: 'поддержка после' },
+  { value: '50+', label: 'учеников' },
 ];
 
 // What you get data
@@ -205,22 +180,22 @@ const whatYouGet = [
   {
     icon: Target,
     title: 'Пошаговая стратегия',
-    description: 'Конкретный план действий, адаптированный под ваш уровень и цели',
+    description: 'План действий под ваш уровень и цели',
   },
   {
     icon: FileText,
     title: 'Упакованный оффер',
-    description: 'Сильное позиционирование, которое выделит вас среди конкурентов',
+    description: 'Позиционирование, выделяющее вас',
   },
   {
     icon: MessageSquare,
     title: 'Шаблоны и скрипты',
-    description: 'Готовые тексты для холодных сообщений, презентаций и переговоров',
+    description: 'Тексты для холодных сообщений',
   },
   {
     icon: Users,
     title: 'Разбор портфолио',
-    description: 'Как упаковать кейсы так, чтобы они продавали за вас',
+    description: 'Упаковка кейсов, которые продают',
   },
 ];
 
@@ -232,19 +207,6 @@ function ConsultPage() {
   });
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
-
-  // Mouse parallax for hero
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
-  const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const { clientX, clientY } = e;
-    const { innerWidth, innerHeight } = window;
-    mouseX.set((clientX - innerWidth / 2) / 50);
-    mouseY.set((clientY - innerHeight / 2) / 50);
-  }, [mouseX, mouseY]);
 
   const scrollToContact = useCallback(() => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -259,65 +221,46 @@ function ConsultPage() {
       />
       <Navbar />
 
-      {/* Hero Section */}
+      {/* Hero Section with 3D Whale */}
       <section
         ref={heroRef}
-        onMouseMove={handleMouseMove}
-        className="relative min-h-screen flex items-center justify-center pt-20 pb-16 overflow-hidden"
+        className="relative min-h-screen flex items-center justify-center overflow-hidden"
       >
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 pointer-events-none">
-          <motion.div
-            style={{ x: springX, y: springY }}
-            className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/15 rounded-full blur-[150px]"
-          />
-          <motion.div
-            style={{ x: useTransform(springX, v => -v * 1.5), y: useTransform(springY, v => -v * 1.5) }}
-            className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-accent/12 rounded-full blur-[150px]"
-          />
-          <motion.div
-            style={{ x: useTransform(springX, v => v * 0.8), y: useTransform(springY, v => v * 0.8) }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-secondary/8 rounded-full blur-[120px]"
-          />
+        {/* 3D Whale Background - Ethereal variant for Consult */}
+        <div className="absolute inset-0 z-0">
+          <Suspense fallback={
+            <div className="w-full h-full bg-gradient-to-b from-[#1a0a2e] to-background flex items-center justify-center">
+              <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+          }>
+            <Whale3D variant="ethereal" intensity="high" />
+          </Suspense>
         </div>
 
-        {/* Floating particles */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <FloatingParticle
-              key={i}
-              delay={i * 0.3}
-              x={Math.random() * 100}
-              size={2 + Math.random() * 4}
-            />
-          ))}
+        {/* Interactive Particle Background */}
+        <div className="absolute inset-0 z-[1]">
+          <InteractiveBackground variant="ethereal" particleCount={60} />
         </div>
 
-        {/* Diagonal lines pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(139, 92, 246, 0.3) 40px, rgba(139, 92, 246, 0.3) 41px)',
-          }}
-        />
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 z-[2] bg-gradient-to-b from-transparent via-background/30 to-background pointer-events-none" />
 
         <motion.div
           style={{ opacity: heroOpacity, scale: heroScale }}
-          className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+          className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20"
         >
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left content */}
+          <div className="text-center max-w-4xl mx-auto">
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="space-y-8"
+              className="space-y-6"
             >
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/30 backdrop-blur-sm"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 backdrop-blur-xl"
               >
                 <GraduationCap className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium text-primary">
@@ -325,185 +268,54 @@ function ConsultPage() {
                 </span>
               </motion.div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-                Помогу найти{' '}
-                <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+              <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+                <span className="block text-balance">Помогу найти</span>
+                <span className="block mt-2 bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                   стабильный поток клиентов
-                </span>{' '}
-                и выйти на $1000+/мес
+                </span>
               </h1>
 
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-                Разбор вашей стратегии поиска клиентов, упаковка услуг, сильный оффер 
-                и стратегия продвижения на основе личного опыта.
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto text-balance">
+                Разбор стратегии поиска клиентов, упаковка услуг и сильный оффер 
+                на основе личного опыта $2M+ бюджета в управлении.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button
-                    size="lg"
-                    onClick={scrollToContact}
-                    className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30 h-14 px-8 text-base"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                    <span className="relative">Записаться на консультацию</span>
-                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </motion.div>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
+              >
+                <Button
+                  size="lg"
+                  onClick={scrollToContact}
+                  className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-2xl shadow-primary/30 h-14 px-8 text-base"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                  <span className="relative">Записаться на консультацию</span>
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </motion.div>
 
-              {/* Results row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-8">
-                {resultsData.map((item, i) => (
+              {/* Stats row */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 pt-12 max-w-2xl mx-auto"
+              >
+                {resultsData.map((stat, i) => (
                   <motion.div
                     key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 + i * 0.1 }}
-                    className="text-center p-4 rounded-2xl bg-card/50 border border-border/50 backdrop-blur-sm"
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    className="text-center p-4 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
                   >
                     <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                      {item.value}
+                      {stat.value}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">{item.label}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
                   </motion.div>
                 ))}
-              </div>
-            </motion.div>
-
-            {/* Right side - 3D mentor visualization */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="relative h-[500px] hidden lg:block"
-            >
-              {/* Central element - Avatar/Brand */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <motion.div
-                  animate={{
-                    y: [0, -15, 0],
-                    rotateY: [0, 5, 0, -5, 0],
-                  }}
-                  transition={{
-                    duration: 6,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                  }}
-                  className="relative"
-                >
-                  <div className="w-48 h-48 rounded-3xl bg-gradient-to-br from-primary via-accent to-secondary p-[3px]">
-                    <div className="w-full h-full rounded-3xl bg-card flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
-                          WW
-                        </div>
-                        <div className="text-sm text-muted-foreground">Whale Wzrd</div>
-                        <div className="flex justify-center gap-1 mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Glow effect */}
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary to-accent opacity-30 blur-2xl -z-10" />
-                </motion.div>
-              </div>
-
-              {/* Floating achievement cards */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8 }}
-                className="absolute top-12 left-0"
-              >
-                <motion.div
-                  animate={{ y: [0, -10, 0], rotate: [0, 2, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                  className="p-4 rounded-2xl bg-card/90 border border-primary/30 backdrop-blur-xl shadow-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                      <Award className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Опыт</div>
-                      <div className="text-lg font-bold text-primary">5+ лет</div>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 1 }}
-                className="absolute top-8 right-0"
-              >
-                <motion.div
-                  animate={{ y: [0, -12, 0], rotate: [0, -2, 0] }}
-                  transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-                  className="p-4 rounded-2xl bg-card/90 border border-accent/30 backdrop-blur-xl shadow-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-accent" />
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Бюджет</div>
-                      <div className="text-lg font-bold text-accent">$2M+</div>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 1.2 }}
-                className="absolute bottom-20 left-8"
-              >
-                <motion.div
-                  animate={{ y: [0, -8, 0], rotate: [0, 1, 0] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-                  className="p-4 rounded-2xl bg-card/90 border border-secondary/30 backdrop-blur-xl shadow-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center">
-                      <Briefcase className="w-5 h-5 text-secondary" />
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Кейсов</div>
-                      <div className="text-lg font-bold text-secondary">150+</div>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 1.4 }}
-                className="absolute bottom-8 right-4"
-              >
-                <motion.div
-                  animate={{ y: [0, -10, 0], rotate: [0, -1, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
-                  className="p-4 rounded-2xl bg-card/90 border border-green-500/30 backdrop-blur-xl shadow-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Учеников</div>
-                      <div className="text-lg font-bold text-green-500">50+</div>
-                    </div>
-                  </div>
-                </motion.div>
               </motion.div>
             </motion.div>
           </div>
@@ -513,8 +325,8 @@ function ConsultPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+          transition={{ delay: 1.2 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
         >
           <motion.div
             animate={{ y: [0, 10, 0] }}
@@ -532,320 +344,204 @@ function ConsultPage() {
 
       {/* Pain Points Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
+        <GradientOrbs variant="ethereal" />
+        <AnimatedGrid variant="ethereal" />
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             className="text-center mb-16"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 mb-6">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <span className="text-sm text-amber-400">Честный разговор</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <span className="text-sm text-red-400">Проблема</span>
             </div>
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Почему ты до сих пор{' '}
-              <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-                без клиентов
-              </span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+              Почему сложно найти клиентов?
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Знакомые проблемы? Я тоже через это проходил
-            </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {painPoints.map((point, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, rotateX: 15, y: 40 }}
-                whileInView={{ opacity: 1, rotateX: 0, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ delay: index * 0.1, duration: 0.6 }}
-              >
-                <TiltCard className="h-full">
-                  <div className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-sm`}>
-                    <div className="w-14 h-14 rounded-xl bg-card/80 border border-border flex items-center justify-center mb-4">
-                      <point.icon className="w-7 h-7 text-primary" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-3">{point.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{point.description}</p>
-                  </div>
-                </TiltCard>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Program Section with Progress Bars */}
-      <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            className="text-center mb-16"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-              <span className="text-sm text-primary">Программа консультации</span>
-            </div>
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Что мы{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                разберём
-              </span>
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              За 1-2 часа получишь конкретный план действий
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {programSteps.map((step, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: index % 2 === 0 ? -40 : 40 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ delay: index * 0.15, duration: 0.6 }}
-              >
-                <TiltCard className="h-full">
-                  <div className="h-full p-6 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all">
-                    <div className="flex items-start gap-4">
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        whileInView={{ scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: index * 0.1 + 0.2, type: 'spring' }}
-                        className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white shadow-lg flex-shrink-0"
-                        style={{ backgroundColor: step.color, boxShadow: `0 10px 30px ${step.color}40` }}
-                      >
-                        {step.number}
-                      </motion.div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div 
-                            className="w-10 h-10 rounded-xl flex items-center justify-center"
-                            style={{ backgroundColor: `${step.color}20` }}
-                          >
-                            <step.icon className="w-5 h-5" style={{ color: step.color }} />
-                          </div>
-                          <h3 className="text-lg font-bold">{step.title}</h3>
-                        </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.description}</p>
-                        <AnimatedProgress value={step.progress} color={step.color} delay={index * 0.2} />
-                      </div>
-                    </div>
-                  </div>
-                </TiltCard>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Personal Experience Section */}
-      <section className="py-20 md:py-32 relative overflow-hidden bg-muted/30">
-        <div className="absolute inset-0">
-          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent" />
-        </div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            className="text-center mb-16"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 mb-6">
-              <Award className="w-4 h-4 text-accent" />
-              <span className="text-sm text-accent">Личный опыт</span>
-            </div>
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Прошел этот путь{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                сам
-              </span>
-            </h2>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-              className="space-y-6"
-            >
-              <div className="p-6 rounded-2xl bg-card border border-border">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <TrendingUp className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold mb-2">От фрилансера до Performance-таргетолога</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      Прошел путь от первых $100 заказов до управления бюджетами в $2M+. 
-                      Знаю все подводные камни и ошибки новичков.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-2xl bg-card border border-border">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                    <Briefcase className="w-6 h-6 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold mb-2">150+ успешных кейсов</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      E-commerce, услуги, инфобизнес — работал с разными нишами и бюджетами. 
-                      Знаю, что работает в 2024 году.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-2xl bg-card border border-border">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
-                    <Users className="w-6 h-6 text-secondary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold mb-2">Помог 50+ таргетологам</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      Мои клиенты-таргетологи находят первых заказчиков в течение 2-4 недель 
-                      после консультации.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-              className="grid grid-cols-2 gap-4"
-            >
-              {whatYouGet.map((item, index) => (
+              <TiltCard key={index}>
                 <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05, y: -5 }}
-                  className="p-5 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all"
+                  className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-xl`}
                 >
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-                    <item.icon className="w-5 h-5 text-primary" />
+                  <div className="w-12 h-12 rounded-2xl bg-card/50 flex items-center justify-center mb-4">
+                    <point.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <h4 className="font-bold mb-1">{item.title}</h4>
-                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                  <h3 className="text-lg font-semibold mb-2">{point.title}</h3>
+                  <p className="text-muted-foreground text-sm">{point.description}</p>
                 </motion.div>
-              ))}
-            </motion.div>
+              </TiltCard>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Offer & Form Section */}
+      {/* Program Section */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[150px]" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-[150px]" />
-        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm text-primary">Программа</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+              Что входит в консультацию
+            </h2>
+          </motion.div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-start">
-            {/* Left - Offer details */}
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-              className="space-y-8"
-            >
-              <div>
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-                  <Shield className="w-4 h-4 text-primary" />
-                  <span className="text-sm text-primary">Условия</span>
-                </div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                  Индивидуальная{' '}
-                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                    консультация
-                  </span>
-                </h2>
-              </div>
-
-              {/* Pricing card */}
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                className="p-8 rounded-3xl bg-gradient-to-br from-primary/10 via-card to-accent/10 border border-primary/30 relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
-                
-                <div className="relative">
-                  <div className="flex items-baseline gap-2 mb-4">
-                    <span className="text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">$150</span>
-                    <span className="text-muted-foreground">/консультация</span>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      <span>1-2 часа индивидуальной работы</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      <span>Разбор вашей ситуации</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      <span>Пошаговый план действий</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      <span>Шаблоны и скрипты</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      <span>Поддержка в Telegram после</span>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {programSteps.map((step, index) => (
+              <TiltCard key={index}>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="text-3xl font-bold" style={{ color: `${step.color}40` }}>
+                      {step.number}
+                    </span>
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: `${step.color}20` }}
+                    >
+                      <step.icon className="w-5 h-5" style={{ color: step.color }} />
                     </div>
                   </div>
-
-                  <div className="p-4 rounded-xl bg-background/50 border border-border/50">
-                    <div className="flex items-center gap-3">
-                      <Zap className="w-5 h-5 text-amber-400" />
-                      <span className="text-sm">Результат: первые клиенты через 2-4 недели</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-
-            {/* Right - Form */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-            >
-              <LandingForm
-                service="consult"
-                title="Хочу консультацию"
-                buttonText="Записаться"
-              />
-            </motion.div>
+                  <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+                  <p className="text-muted-foreground text-sm mb-4">{step.description}</p>
+                  <AnimatedProgress value={step.progress} color={step.color} delay={index * 0.2} />
+                </motion.div>
+              </TiltCard>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* What You Get Section */}
+      <section className="py-20 md:py-32 relative overflow-hidden">
+        <GradientOrbs variant="ethereal" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 mb-6">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              <span className="text-sm text-green-400">Результат</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+              Что вы получите
+            </h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {whatYouGet.map((item, index) => (
+              <TiltCard key={index}>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl hover:border-primary/50 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
+                    <item.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+                  <p className="text-muted-foreground text-sm">{item.description}</p>
+                </motion.div>
+              </TiltCard>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 md:py-32 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+        
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="p-8 md:p-12 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 border border-primary/20 backdrop-blur-xl">
+              <div className="flex justify-center mb-6">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-6 h-6 text-amber-400 fill-amber-400" />
+                ))}
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+                Готовы выйти на новый уровень?
+              </h2>
+              <p className="text-muted-foreground mb-8 max-w-2xl mx-auto text-balance">
+                Консультация длится 60-90 минут. Разберем вашу ситуацию 
+                и составим пошаговый план действий.
+              </p>
+              <Button
+                size="lg"
+                onClick={scrollToContact}
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group h-14 px-8 text-base"
+              >
+                Записаться на консультацию
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Contact Form Section */}
+      <section id="contact" className="py-20 md:py-32 relative overflow-hidden">
+        <GradientOrbs variant="ethereal" />
+        <AnimatedGrid variant="ethereal" />
+        
+        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+              Запишитесь на консультацию
+            </h2>
+            <p className="text-muted-foreground text-balance">
+              Заполните форму и я свяжусь с вами в течение 24 часов
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+          >
+            <LandingForm service="consult" />
+          </motion.div>
         </div>
       </section>
 
@@ -854,4 +550,4 @@ function ConsultPage() {
   );
 }
 
-export default memo(ConsultPage);
+export default ConsultPage;
