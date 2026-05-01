@@ -26,7 +26,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import PremiumWhale from '../components/PremiumWhale';
+import CinematicWhale from '../components/CinematicWhale';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated progress bar
@@ -313,21 +313,21 @@ function ConsultPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Premium Whale 3D */}
+            {/* Right column - Cinematic Whale */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as ambient background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-50">
-                <PremiumWhale variant="ethereal" className="w-full h-full" />
+              {/* Mobile: whale as subtle background */}
+              <div className="lg:hidden absolute inset-0 -z-10 opacity-40 scale-125">
+                <CinematicWhale variant="ethereal" intensity="low" className="w-full h-full" />
               </div>
               
-              {/* Desktop: full whale scene */}
+              {/* Desktop: whale with cinematic animation */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 2, delay: 0.3, ease: 'easeOut' }}
-                className="hidden lg:block relative h-[550px] xl:h-[650px]"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="hidden lg:block relative h-[500px] xl:h-[600px]"
               >
-                <PremiumWhale variant="ethereal" className="w-full h-full" />
+                <CinematicWhale variant="ethereal" intensity="high" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
