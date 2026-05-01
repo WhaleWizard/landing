@@ -15,9 +15,9 @@ const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
 const FAQPage = lazy(() => import('./pages/FAQPage'));
 const MarketingGlossaryPage = lazy(() => import('./pages/MarketingGlossaryPage'));
 
-const MetaAdsPage = lazy(() => import('./pages/MetaAdsPage'));
-const GoogleAdsPage = lazy(() => import('./pages/GoogleAdsPage'));
-const ConsultPage = lazy(() => import('./pages/ConsultPage'));
+import MetaAdsPage from './pages/MetaAdsPage';
+import GoogleAdsPage from './pages/GoogleAdsPage';
+import ConsultPage from './pages/ConsultPage';
 
 
 function RouteErrorBoundary() {
@@ -80,9 +80,9 @@ export const router = createBrowserRouter([
       { path: 'cookie-policy', element: <LazyWrapper><CookiePolicy /></LazyWrapper> },
       { path: 'faq', element: <LazyWrapper><FAQPage /></LazyWrapper> },
       { path: 'marketing-glossary', element: <LazyWrapper><MarketingGlossaryPage /></LazyWrapper> },
-      { path: 'meta-ads', element: <LazyWrapper><MetaAdsPage /></LazyWrapper> },
-      { path: 'google-ads', element: <LazyWrapper><GoogleAdsPage /></LazyWrapper> },
-      { path: 'consult', element: <LazyWrapper><ConsultPage /></LazyWrapper> },
+      { path: 'meta-ads', Component: MetaAdsPage },
+      { path: 'google-ads', Component: GoogleAdsPage },
+      { path: 'consult', Component: ConsultPage },
     ],
   },
 ]);
