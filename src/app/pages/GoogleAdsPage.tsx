@@ -1,5 +1,5 @@
 import { memo, useRef, useState, useEffect, useCallback } from 'react';
-import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll } from 'motion/react';
+import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll, useReducedMotion } from 'motion/react';
 import {
   Search,
   Zap,
@@ -232,6 +232,9 @@ function GoogleAdsPage() {
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
   const isMobile = useIsMobile();
+  const prefersReducedMotion = useReducedMotion();
+  const revealTransition = { duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] as const };
+  const revealViewport = { once: true, margin: '-60px', amount: 0.2 };
 
   const scrollToContact = useCallback(() => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -341,7 +344,7 @@ function GoogleAdsPage() {
                   ].map((stat, i) => (
                     <motion.div
                       key={i}
-                      whileHover={{ scale: 1.05, y: -5 }}
+                      whileHover={isMobile ? undefined : { scale: 1.03, y: -3 }}
                       className="text-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
                     >
                       <div className="text-lg sm:text-2xl font-bold" style={{ color: stat.color }}>
@@ -387,7 +390,8 @@ function GoogleAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
@@ -429,7 +433,8 @@ function GoogleAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4285f4]/10 border border-[#4285f4]/20 mb-6">
@@ -482,7 +487,8 @@ function GoogleAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#34a853]/10 border border-[#34a853]/20 mb-6">
@@ -536,7 +542,8 @@ function GoogleAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#34a853]/10 border border-[#34a853]/20 mb-6">
@@ -578,7 +585,8 @@ function GoogleAdsPage() {
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
+              viewport={revealViewport}
+              transition={revealTransition}
               className="text-center lg:text-left"
             >
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4285f4]/10 border border-[#4285f4]/20 mb-6">
@@ -634,8 +642,8 @@ function GoogleAdsPage() {
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
+              viewport={revealViewport}
+              transition={{ ...revealTransition, delay: 0.2 }}
             >
               <LandingForm service="google-ads" />
             </motion.div>

@@ -1,5 +1,5 @@
 import { memo, useRef, useState, useEffect, useCallback } from 'react';
-import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll } from 'motion/react';
+import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll, useReducedMotion } from 'motion/react';
 import {
   Target,
   Zap,
@@ -224,6 +224,9 @@ function MetaAdsPage() {
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
   const isMobile = useIsMobile();
+  const prefersReducedMotion = useReducedMotion();
+  const revealTransition = { duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] as const };
+  const revealViewport = { once: true, margin: '-60px', amount: 0.2 };
 
   const scrollToContact = useCallback(() => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -322,7 +325,7 @@ function MetaAdsPage() {
                   ].map((stat, i) => (
                     <motion.div
                       key={i}
-                      whileHover={{ scale: 1.05, y: -5 }}
+                      whileHover={isMobile ? undefined : { scale: 1.03, y: -3 }}
                       className="text-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
                     >
                       <div className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -367,7 +370,8 @@ function MetaAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
@@ -409,7 +413,8 @@ function MetaAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
@@ -456,7 +461,8 @@ function MetaAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 mb-6">
@@ -510,7 +516,8 @@ function MetaAdsPage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={revealViewport}
+            transition={revealTransition}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 mb-6">
@@ -551,7 +558,8 @@ function MetaAdsPage() {
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
+              viewport={revealViewport}
+              transition={revealTransition}
               className="text-center lg:text-left"
             >
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#E1306C]/10 border border-[#E1306C]/20 mb-6">
@@ -599,8 +607,8 @@ function MetaAdsPage() {
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
+              viewport={revealViewport}
+              transition={{ ...revealTransition, delay: 0.2 }}
             >
               <LandingForm service="meta-ads" />
             </motion.div>
