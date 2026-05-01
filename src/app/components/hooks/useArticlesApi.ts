@@ -68,6 +68,21 @@ function asArticleArray(value: unknown): Article[] {
   return Array.isArray(value) ? (value as Article[]) : [];
 }
 
+
+function hasValidSlug(slug?: string): boolean {
+  const normalized = String(slug || '').trim();
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized);
+}
+
+function hasImage(image?: string): boolean {
+  return String(image || '').trim().length > 0;
+}
+
+function sanitizeArticles(source: Article[]): Article[] {
+  const unique = dedupeBySlug(asArticleArray(source));
+  return unique.filter((article) => hasValidSlug(article?.slug) && hasImage(article?.image));
+}
+
 function asIsoTimestamp(value?: string): number {
   if (!value) return 0;
   const ts = Date.parse(value);
@@ -161,8 +176,8 @@ async function fetchPublicJsonBinFallback(): Promise<Article[]> {
 }
 
 async function resolveFallbackArticles(): Promise<Article[]> {
-  const localBackup = dedupeBySlug(fetchLocalArticlesBackup());
-  const localSeed = await fetchLocalSeedFallback().then(dedupeBySlug);
+  const localBackup = sanitizeArticles(fetchLocalArticlesBackup());
+  const localSeed = await fetchLocalSeedFallback().then((articles) => sanitizeArticles(articles));
 
   // Быстрый путь: если уже есть локальные данные — возвращаем их сразу,
   // чтобы не блокировать UI медленными внешними запросами.
@@ -172,7 +187,7 @@ async function resolveFallbackArticles(): Promise<Article[]> {
     return quickSource;
   }
 
-  const publicFallback = await fetchPublicJsonBinFallback().then(dedupeBySlug);
+  const publicFallback = await fetchPublicJsonBinFallback().then((articles) => sanitizeArticles(articles));
 
   // Prefer a single freshest non-empty fallback source to avoid mixing stale and current datasets.
   const preferredSource = [publicFallback, localSeed, localBackup].find((source) => source.length > 0) || [];
@@ -215,29 +230,9 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
     if (primaryArticles.length > 0) {
-      // Self-healing for partial datasets: if API temporarily returns fewer
-      // articles than local seed/backup, restore missing entries by identity.
-      const [localSeed, localBackup] = await Promise.all([
-        fetchLocalSeedFallback().then(dedupeBySlug),
-        Promise.resolve(dedupeBySlug(fetchLocalArticlesBackup())),
-      ]);
-
-      const mergedMap = new Map<string, Article>();
-      [localSeed, localBackup, primaryArticles].forEach((candidate) => {
-        candidate.forEach((article, index) => {
-          const key = articleIdentityKey(article, index);
-          const preferred = pickPreferredArticle(mergedMap.get(key), article);
-          mergedMap.set(key, preferred);
-        });
-      });
-
-      const mergedArticles = Array.from(mergedMap.values());
-      const resolvedArticles = mergedArticles.length > primaryArticles.length
-        ? mergedArticles
-        : primaryArticles;
-
-      saveLocalArticlesBackup(resolvedArticles);
-      return resolvedArticles;
+      // API is source of truth for admin operations. Do not restore deleted records from stale fallbacks.
+      saveLocalArticlesBackup(primaryArticles);
+      return primaryArticles;
     }
 
     return resolveFallbackArticles();
