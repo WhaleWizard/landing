@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
-  Search, Copy, Calendar, EyeOff, Upload
+  Search, Copy, Calendar, EyeOff, Upload, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
@@ -304,6 +304,34 @@ export default function Admin() {
     setSlugManuallyEdited(true);
   };
 
+  const handleReorder = async (slug: string, direction: 'up' | 'down') => {
+    if (query.trim()) {
+      alert('Для изменения порядка очистите строку поиска.');
+      return;
+    }
+    const index = articles.findIndex((item) => item.slug === slug);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= articles.length) return;
+
+    const reordered = [...articles];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+
+    try {
+      const success = await updateArticles(reordered, password);
+      if (success) {
+        await forceRefreshArticles();
+        await refreshHealth();
+      } else {
+        alert('Ошибка сохранения порядка статей');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      alert('Ошибка: ' + message);
+    }
+  };
+
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (editingArticle) {
@@ -416,6 +444,12 @@ export default function Admin() {
                       </button>
                       <button onClick={() => handleDuplicate(article)} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Дублировать">
                         <Copy className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleReorder(article.slug, 'up')} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Переместить выше">
+                        <ArrowUp className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleReorder(article.slug, 'down')} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Переместить ниже">
+                        <ArrowDown className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors" title="Удалить">
                         <Trash2 className="w-4 h-4" />
