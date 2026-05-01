@@ -215,9 +215,29 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
     if (primaryArticles.length > 0) {
-      // API is source-of-truth: do not merge with stale local backup when primary responds.
-      saveLocalArticlesBackup(primaryArticles);
-      return primaryArticles;
+      // Self-healing for partial datasets: if API temporarily returns fewer
+      // articles than local seed/backup, restore missing entries by identity.
+      const [localSeed, localBackup] = await Promise.all([
+        fetchLocalSeedFallback().then(dedupeBySlug),
+        Promise.resolve(dedupeBySlug(fetchLocalArticlesBackup())),
+      ]);
+
+      const mergedMap = new Map<string, Article>();
+      [localSeed, localBackup, primaryArticles].forEach((candidate) => {
+        candidate.forEach((article, index) => {
+          const key = articleIdentityKey(article, index);
+          const preferred = pickPreferredArticle(mergedMap.get(key), article);
+          mergedMap.set(key, preferred);
+        });
+      });
+
+      const mergedArticles = Array.from(mergedMap.values());
+      const resolvedArticles = mergedArticles.length > primaryArticles.length
+        ? mergedArticles
+        : primaryArticles;
+
+      saveLocalArticlesBackup(resolvedArticles);
+      return resolvedArticles;
     }
 
     return resolveFallbackArticles();
