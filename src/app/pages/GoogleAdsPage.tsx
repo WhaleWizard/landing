@@ -64,7 +64,7 @@ const AnimatedCounter = memo(({ value, suffix = '', prefix = '' }: { value: numb
 AnimatedCounter.displayName = 'AnimatedCounter';
 
 // 3D Tilt Card
-const TiltCard = memo(({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
+const TiltCard = memo(({ children, className = '', disableTilt = false }: { children: React.ReactNode; className?: string; disableTilt?: boolean }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const rotateX = useMotionValue(0);
@@ -72,20 +72,30 @@ const TiltCard = memo(({ children, className = '' }: { children: React.ReactNode
   const springRotateX = useSpring(rotateX, { stiffness: 300, damping: 30 });
   const springRotateY = useSpring(rotateY, { stiffness: 300, damping: 30 });
 
+  const frameRef = useRef<number | null>(null);
+
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
+    if (!ref.current || disableTilt) return;
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => {
+      if (!ref.current) return;
+      const rect = ref.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    rotateX.set((-((e.clientY - centerY) / rect.height)) * 12);
-    rotateY.set(((e.clientX - centerX) / rect.width) * 12);
-  }, [rotateX, rotateY]);
+      rotateX.set((-((e.clientY - centerY) / rect.height)) * 8);
+      rotateY.set(((e.clientX - centerX) / rect.width) * 8);
+    });
+  }, [disableTilt, rotateX, rotateY]);
 
   const handleMouseLeave = useCallback(() => {
     rotateX.set(0);
     rotateY.set(0);
     setIsHovered(false);
   }, [rotateX, rotateY]);
+
+  if (disableTilt) {
+    return <div className={`relative ${className}`}>{children}</div>;
+  }
 
   return (
     <motion.div
@@ -258,7 +268,7 @@ function GoogleAdsPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-background to-background" />
-          <InteractiveBackground variant="digital" particleCount={isMobile ? 16 : 40} interactive={!isMobile} />
+          <InteractiveBackground variant="digital" particleCount={isMobile ? 10 : 26} interactive={!isMobile && !prefersReducedMotion} />
         </div>
 
         {/* Gradient Overlay */}
@@ -405,7 +415,7 @@ function GoogleAdsPage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {painPoints.map((point, index) => (
-              <TiltCard key={index}>
+              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -450,7 +460,7 @@ function GoogleAdsPage() {
             {workSteps.map((step, index) => {
               const stepColor = googleColors[step.color as keyof typeof googleColors];
               return (
-                <TiltCard key={index}>
+                <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
                   <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -502,7 +512,7 @@ function GoogleAdsPage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {casesData.map((caseItem, index) => (
-              <TiltCard key={index}>
+              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
