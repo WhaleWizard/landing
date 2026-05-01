@@ -1,19 +1,18 @@
 import ContactForm from '../components/ContactForm';
-import { ConsultGrowthScene, SceneShell } from '../components/three/RevenueScenes';
+import SEO from '../components/SEO';
+import { FlowFunnelScene, SceneShell, SearchIntentScene, ConsultGrowthScene } from '../components/three/RevenueScenes';
 
-export default function ConsultPage() {
+function SectionTitle({ kicker, title, subtitle }: { kicker: string; title: string; subtitle?: string }) {
   return (
-    <main className="bg-background text-foreground">
-      <section className="min-h-screen max-w-6xl mx-auto px-4 pt-24 pb-14 grid lg:grid-cols-2 gap-10 items-center">
-        <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-fuchsia-300">CONSULT · REVENUE ARCHITECTURE</p>
-          <h1 className="mt-3 text-4xl md:text-6xl font-black">Собираем персональную архитектуру роста на 90 дней.</h1>
-          <p className="mt-5 text-gray-300 max-w-xl">На консультации вы получаете не мотивацию, а систему: позиционирование, оффер, канал продаж и контент-план, который приводит клиентов стабильно.</p>
-          <a href="#contact" className="mt-8 inline-flex rounded-3xl px-8 py-4 bg-gradient-to-r from-[#d946ef] to-[#6366f1]">Получить персональный growth-план</a>
-        </div>
-        <SceneShell><ConsultGrowthScene /></SceneShell>
-      </section>
-      <section id="contact" className="max-w-6xl mx-auto px-4 py-16"><h2 className="text-3xl font-bold mb-4">Записаться на стратегическую консультацию</h2><ContactForm service="consult" /></section>
-    </main>
+    <div className="mb-8">
+      <p className="text-xs uppercase tracking-[0.2em] text-primary/80">{kicker}</p>
+      <h2 className="mt-2 text-3xl md:text-4xl font-black">{title}</h2>
+      {subtitle ? <p className="mt-3 text-muted-foreground max-w-3xl">{subtitle}</p> : null}
+    </div>
   );
 }
+
+function ConsultPage() { return <main className="bg-background text-foreground"><SEO title="Консультации по трафику и росту в 2026" description="Стратегические консультации по маркетингу, рекламе и воронке продаж. Помогаю собрать план роста на 90 дней с понятными приоритетами и KPI." url="/consult" /><section className="min-h-screen max-w-6xl mx-auto px-4 pt-24 pb-14 grid lg:grid-cols-2 gap-10 items-center"><div><p className="text-sm uppercase tracking-[0.2em] text-fuchsia-300">CONSULT · HERO</p><h1 className="mt-3 text-4xl md:text-6xl font-black">Консультация, после которой у вас есть план роста, а не «идеи».</h1><p className="mt-5 text-gray-300 max-w-xl">Разбираем ваш маркетинг как P&L-систему: продукт, оффер, воронку, каналы, аналитику и командные узкие места. На выходе — дорожная карта на 90 дней.</p><a href="#contact" className="mt-8 inline-flex rounded-3xl px-8 py-4 bg-gradient-to-r from-[#d946ef] to-[#6366f1]">Получить персональный growth-план</a></div><SceneShell><ConsultGrowthScene /></SceneShell></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Боль" title="Когда нужна консультация" /><div className="grid md:grid-cols-3 gap-4">{['Есть трафик, но нет стабильной прибыли и прогнозируемости.', 'Команда делает много действий, но KPI не сходятся в систему.', 'Нужно быстро принять решения по каналам, бюджету и приоритетам роста.'].map((item) => (<article key={item} className="rounded-2xl border border-white/10 p-5 bg-white/5">{item}</article>))}</div></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Решение" title="Формат стратегической сессии" /><ol className="grid md:grid-cols-2 gap-4 list-decimal list-inside"><li className="rounded-2xl border border-white/10 p-5">Pre-work: сбор вводных, юнит-экономики, данных по каналам и воронке.</li><li className="rounded-2xl border border-white/10 p-5">Сессия 90–120 минут: диагностика ограничений и точек роста.</li><li className="rounded-2xl border border-white/10 p-5">Готовый план действий: что делать в первую очередь, что отложить, что отключить.</li><li className="rounded-2xl border border-white/10 p-5">7–14 дней сопровождения после сессии для внедрения ключевых решений.</li></ol></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Доказательства" title="Что получает бизнес" subtitle="Сокращение хаоса в маркетинге, ясность в приоритетах и скорость принятия решений, которые влияют на выручку уже в ближайший цикл." /></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Оффер" title="Консультация + план внедрения" subtitle="Идеально для собственников, маркетинг-директоров, руководителей performance и экспертных проектов." /><div className="rounded-3xl border border-fuchsia-400/30 bg-fuchsia-500/10 p-6"><p>Вы получаете документ с приоритизированными задачами, KPI и рекомендациями по бюджету/каналам на 90 дней.</p></div></section><section id="contact" className="max-w-6xl mx-auto px-4 py-16"><h2 className="text-3xl font-bold mb-4">Записаться на стратегическую консультацию</h2><ContactForm service="consult" /></section></main>; }
+
+
+export default ConsultPage;

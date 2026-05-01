@@ -1,19 +1,18 @@
 import ContactForm from '../components/ContactForm';
-import { SceneShell, SearchIntentScene } from '../components/three/RevenueScenes';
+import SEO from '../components/SEO';
+import { FlowFunnelScene, SceneShell, SearchIntentScene, ConsultGrowthScene } from '../components/three/RevenueScenes';
 
-export default function GoogleAdsPage() {
+function SectionTitle({ kicker, title, subtitle }: { kicker: string; title: string; subtitle?: string }) {
   return (
-    <main className="bg-background text-foreground">
-      <section className="min-h-screen max-w-6xl mx-auto px-4 pt-24 pb-14 grid lg:grid-cols-2 gap-10 items-center">
-        <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-sky-300">GOOGLE ADS · INTENT GRAVITY</p>
-          <h1 className="mt-3 text-4xl md:text-6xl font-black">Захватываем горячий спрос в момент готовности купить.</h1>
-          <p className="mt-5 text-gray-300 max-w-xl">Сценарий Search + PMax + remarketing ведет пользователя по орбите намерения, где бюджет концентрируется на самых конверсионных запросах.</p>
-          <a href="#contact" className="mt-8 inline-flex rounded-3xl px-8 py-4 bg-gradient-to-r from-[#0ea5e9] to-[#6366f1]">Запросить медиаплан и CPA-модель</a>
-        </div>
-        <SceneShell><SearchIntentScene /></SceneShell>
-      </section>
-      <section id="contact" className="max-w-6xl mx-auto px-4 py-16"><h2 className="text-3xl font-bold mb-4">Рассчитать целевой CPA</h2><ContactForm service="google-ads" /></section>
-    </main>
+    <div className="mb-8">
+      <p className="text-xs uppercase tracking-[0.2em] text-primary/80">{kicker}</p>
+      <h2 className="mt-2 text-3xl md:text-4xl font-black">{title}</h2>
+      {subtitle ? <p className="mt-3 text-muted-foreground max-w-3xl">{subtitle}</p> : null}
+    </div>
   );
 }
+
+function GoogleAdsPage() { return <main className="bg-background text-foreground"><SEO title="Google Ads под заявки и продажи в 2026" description="Настройка и ведение Google Ads: Search, PMax, YouTube и ремаркетинг. Управление ставками, минус-словами и юнит-экономикой для роста прибыли." url="/google-ads" /><section className="min-h-screen max-w-6xl mx-auto px-4 pt-24 pb-14 grid lg:grid-cols-2 gap-10 items-center"><div><p className="text-sm uppercase tracking-[0.2em] text-sky-300">GOOGLE ADS · HERO</p><h1 className="mt-3 text-4xl md:text-6xl font-black">Забираем горячий спрос в Google и превращаем его в продажи.</h1><p className="mt-5 text-gray-300 max-w-xl">В 2026 стоимость клика продолжает расти, поэтому побеждает не «больше бюджета», а архитектура кампаний и контроль намерения пользователя на каждом шаге.</p><a href="#contact" className="mt-8 inline-flex rounded-3xl px-8 py-4 bg-gradient-to-r from-[#0ea5e9] to-[#6366f1]">Запросить медиаплан и CPA-модель</a></div><SceneShell><SearchIntentScene /></SceneShell></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Боль" title="Типичные причины провала Google Ads" /><div className="grid md:grid-cols-3 gap-4">{['Смешаны холодные и горячие запросы — бюджет сгорает в нерелеванте.', 'PMax без контроля фида, гео и аудиторных сигналов дает шумный трафик.', 'Нет сквозной аналитики: оптимизация идет по «видимым» конверсиям, а не по прибыли.'].map((item) => (<article key={item} className="rounded-2xl border border-white/10 p-5 bg-white/5">{item}</article>))}</div></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Решение" title="Система управления спросом в Google Ads" /><ol className="grid md:grid-cols-2 gap-4 list-decimal list-inside"><li className="rounded-2xl border border-white/10 p-5">Декомпозиция воронки: brand, non-brand, competitor, high-intent, remarketing.</li><li className="rounded-2xl border border-white/10 p-5">Гигиена семантики: минус-слова, match type стратегия, контроль поисковых запросов.</li><li className="rounded-2xl border border-white/10 p-5">Связка Search + PMax + YouTube под конкретную цель: лиды, продажи, LTV.</li><li className="rounded-2xl border border-white/10 p-5">Оптимизация ставок и бюджетов на основе маржинальности и сезонности спроса.</li></ol></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Доказательства" title="Практический результат" subtitle="Клиенты получают более чистый лидопоток, снижение доли нецелевых обращений и прогнозируемый CPA при росте объема." /></section><section className="max-w-6xl mx-auto px-4 py-16"><SectionTitle kicker="Оффер" title="Пакет Google Ads Performance" subtitle="Аудит, перестройка структуры кампаний, запуск, weekly-оптимизация, отчеты по бизнес-метрикам." /><div className="rounded-3xl border border-sky-400/30 bg-sky-500/10 p-6"><p>В течение первых 30 дней фиксируем прозрачную карту роста: где масштабируемся, где сокращаем расходы и почему.</p></div></section><section id="contact" className="max-w-6xl mx-auto px-4 py-16"><h2 className="text-3xl font-bold mb-4">Рассчитать целевой CPA</h2><ContactForm service="google-ads" /></section></main>; }
+
+
+export default GoogleAdsPage;
