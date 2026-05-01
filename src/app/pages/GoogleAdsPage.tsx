@@ -28,7 +28,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import CosmicWhale from '../components/CosmicWhale';
+import CinematicWhale from '../components/CinematicWhale';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated counter component
@@ -290,9 +290,9 @@ function GoogleAdsPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-[1.1] tracking-tight">
-                  <span className="block text-balance">Контекстная реклама</span>
-                  <span className="block mt-2">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
+                  <span className="block leading-tight text-balance">Контекстная реклама</span>
+                  <span className="block mt-3 leading-tight pb-1">
                     <span style={{ color: googleColors.blue }}>G</span>
                     <span style={{ color: googleColors.red }}>o</span>
                     <span style={{ color: googleColors.yellow }}>o</span>
@@ -352,21 +352,21 @@ function GoogleAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Cosmic Whale */}
+            {/* Right column - Cinematic Whale */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-30">
-                <CosmicWhale className="w-full h-full" />
+              {/* Mobile: whale as subtle background */}
+              <div className="lg:hidden absolute inset-0 -z-10 opacity-40 scale-125">
+                <CinematicWhale variant="digital" intensity="low" className="w-full h-full" />
               </div>
               
-              {/* Desktop: whale visible */}
+              {/* Desktop: whale with cinematic animation */}
               <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 1, delay: 0.3 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
                 className="hidden lg:block relative h-[500px] xl:h-[600px]"
               >
-                <CosmicWhale className="w-full h-full" />
+                <CinematicWhale variant="digital" intensity="high" className="w-full h-full" />
               </motion.div>
             </div>
           </div>

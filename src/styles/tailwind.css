@@ -19,4 +19,22 @@
     background: #8b5cf6;
     border-radius: 10px;
   }
+  
+  /* Smooth whale container fade */
+  .whale-container {
+    mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, black 50%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, black 50%, transparent 100%);
+  }
+  
+  /* Premium text rendering */
+  .text-premium {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Heading line height fix */
+  .heading-tight {
+    line-height: 1.15 !important;
+  }
 }

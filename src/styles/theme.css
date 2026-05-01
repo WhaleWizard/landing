@@ -161,7 +161,7 @@
   h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.2;
+    line-height: 1.15;
   }
 
   h2 {
