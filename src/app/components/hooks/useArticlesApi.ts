@@ -5,6 +5,7 @@ const LOCAL_ARTICLES_BACKUP_KEY = 'ww_articles_backup_v1';
 export interface Article {
   id: number;
   slug: string;
+  sortOrder?: number;
   title: string;
   category: string;
   readTime: string;
