@@ -28,6 +28,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
+import { useIsMobile } from '../components/ui/use-mobile';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated counter component
@@ -230,6 +231,7 @@ function GoogleAdsPage() {
   });
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
+  const isMobile = useIsMobile();
 
   const scrollToContact = useCallback(() => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -246,13 +248,14 @@ function GoogleAdsPage() {
 
       {/* Hero Section with conversion animation */}
       <section
+        id="hero"
         ref={heroRef}
         className="relative min-h-screen flex items-center overflow-hidden"
       >
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-background to-background" />
-          <InteractiveBackground variant="digital" particleCount={40} />
+          <InteractiveBackground variant="digital" particleCount={isMobile ? 16 : 40} interactive={!isMobile} />
         </div>
 
         {/* Gradient Overlay */}
@@ -565,6 +568,7 @@ function GoogleAdsPage() {
 
       {/* Contact Form Section */}
       <section id="contact" className="py-20 md:py-32 relative overflow-hidden">
+        <div id="social" className="absolute -top-24" aria-hidden="true" />
         <GradientOrbs variant="digital" />
         <AnimatedGrid variant="digital" />
         
