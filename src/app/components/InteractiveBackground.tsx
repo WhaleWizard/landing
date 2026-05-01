@@ -30,6 +30,8 @@ export default function InteractiveBackground({
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
   const animationRef = useRef<number>();
+  const frameRef = useRef(0);
+  const reducedMotionRef = useRef(false);
 
   const colors = useMemo(() => {
     switch (variant) {
@@ -43,7 +45,10 @@ export default function InteractiveBackground({
   }, [variant]);
 
   const initParticles = useCallback((width: number, height: number) => {
-    particlesRef.current = Array.from({ length: particleCount }, () => ({
+    const mobileFactor = width < 768 ? 0.45 : width < 1024 ? 0.65 : 1;
+    const effectiveCount = Math.max(16, Math.floor(particleCount * mobileFactor));
+
+    particlesRef.current = Array.from({ length: effectiveCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
       vx: (Math.random() - 0.5) * 0.5,
@@ -68,6 +73,7 @@ export default function InteractiveBackground({
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
@@ -90,6 +96,17 @@ export default function InteractiveBackground({
     }
 
     const animate = () => {
+      if (document.hidden) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      frameRef.current += 1;
+      if (reducedMotionRef.current && frameRef.current % 2 !== 0) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
 
@@ -209,7 +226,7 @@ export default function InteractiveBackground({
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 pointer-events-auto ${className}`}
+      className={`absolute inset-0 w-full h-full pointer-events-none ${className}`}
       style={{ background: 'transparent' }}
     />
   );
@@ -373,3 +390,4 @@ export function AnimatedGrid({ variant = 'cosmic' }: AnimatedGridProps) {
     </div>
   );
 }
+    reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
