@@ -1,4 +1,4 @@
-import { memo, useRef, useState, useEffect, useCallback, Suspense } from 'react';
+import { memo, useRef, useState, useEffect, useCallback } from 'react';
 import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll } from 'motion/react';
 import {
   Users,
@@ -26,7 +26,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import Whale3D from '../components/Whale3D';
+import CosmicWhale from '../components/CosmicWhale';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated progress bar
@@ -221,103 +221,115 @@ function ConsultPage() {
       />
       <Navbar />
 
-      {/* Hero Section with 3D Whale */}
+      {/* Hero Section with Cosmic Whale */}
       <section
         ref={heroRef}
-        className="relative min-h-screen flex items-center justify-center overflow-hidden"
+        className="relative min-h-screen flex items-center overflow-hidden"
       >
-        {/* 3D Whale Background - Ethereal variant for Consult */}
+        {/* Background effects */}
         <div className="absolute inset-0 z-0">
-          <Suspense fallback={
-            <div className="w-full h-full bg-gradient-to-b from-[#1a0a2e] to-background flex items-center justify-center">
-              <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-            </div>
-          }>
-            <Whale3D variant="ethereal" intensity="high" />
-          </Suspense>
-        </div>
-
-        {/* Interactive Particle Background */}
-        <div className="absolute inset-0 z-[1]">
-          <InteractiveBackground variant="ethereal" particleCount={60} />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a0a2e] via-background to-background" />
+          <InteractiveBackground variant="ethereal" particleCount={40} />
         </div>
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 z-[2] bg-gradient-to-b from-transparent via-background/30 to-background pointer-events-none" />
+        <div className="absolute inset-0 z-[1] bg-gradient-to-r from-background via-background/80 to-transparent pointer-events-none lg:hidden" />
+        <div className="absolute inset-0 z-[1] bg-gradient-to-b from-transparent via-transparent to-background pointer-events-none" />
 
         <motion.div
           style={{ opacity: heroOpacity, scale: heroScale }}
-          className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20"
+          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 lg:pt-32 lg:pb-20"
         >
-          <div className="text-center max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="space-y-6"
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 backdrop-blur-xl"
-              >
-                <GraduationCap className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  Консультация для таргетологов
-                </span>
-              </motion.div>
-
-              <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-                <span className="block text-balance">Помогу найти</span>
-                <span className="block mt-2 bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                  стабильный поток клиентов
-                </span>
-              </h1>
-
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto text-balance">
-                Разбор стратегии поиска клиентов, упаковка услуг и сильный оффер 
-                на основе личного опыта $2M+ бюджета в управлении.
-              </p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
-              >
-                <Button
-                  size="lg"
-                  onClick={scrollToContact}
-                  className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-2xl shadow-primary/30 h-14 px-8 text-base"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                  <span className="relative">Записаться на консультацию</span>
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </motion.div>
-
-              {/* Stats row */}
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left column - Text content */}
+            <div className="order-2 lg:order-1 text-center lg:text-left">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-                className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 pt-12 max-w-2xl mx-auto"
+                transition={{ duration: 0.8 }}
+                className="space-y-6"
               >
-                {resultsData.map((stat, i) => (
-                  <motion.div
-                    key={i}
-                    whileHover={{ scale: 1.05, y: -5 }}
-                    className="text-center p-4 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 backdrop-blur-xl"
+                >
+                  <GraduationCap className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-primary">
+                    Консультация для таргетологов
+                  </span>
+                </motion.div>
+
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-[1.1] tracking-tight">
+                  <span className="block text-balance">Помогу найти</span>
+                  <span className="block mt-2 bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+                    стабильный поток клиентов
+                  </span>
+                </h1>
+
+                <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0 text-balance">
+                  Разбор стратегии поиска клиентов, упаковка услуг и сильный оффер 
+                  на основе личного опыта $2M+ бюджета в управлении.
+                </p>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2"
+                >
+                  <Button
+                    size="lg"
+                    onClick={scrollToContact}
+                    className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-2xl shadow-primary/30 h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base"
                   >
-                    <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                      {stat.value}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
-                  </motion.div>
-                ))}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                    <span className="relative">Записаться на консультацию</span>
+                    <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </motion.div>
+
+                {/* Stats row */}
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                  className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-8 max-w-lg mx-auto lg:mx-0"
+                >
+                  {resultsData.map((stat, i) => (
+                    <motion.div
+                      key={i}
+                      whileHover={{ scale: 1.05, y: -5 }}
+                      className="text-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                    >
+                      <div className="text-lg sm:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                        {stat.value}
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">{stat.label}</div>
+                    </motion.div>
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
+            </div>
+
+            {/* Right column - Cosmic Whale */}
+            <div className="order-1 lg:order-2 relative">
+              {/* Mobile: whale as background */}
+              <div className="lg:hidden absolute inset-0 -z-10 opacity-30">
+                <CosmicWhale className="w-full h-full" />
+              </div>
+              
+              {/* Desktop: whale visible */}
+              <motion.div
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 1, delay: 0.3 }}
+                className="hidden lg:block relative h-[500px] xl:h-[600px]"
+              >
+                <CosmicWhale className="w-full h-full" />
+              </motion.div>
+            </div>
           </div>
         </motion.div>
 
@@ -326,7 +338,7 @@ function ConsultPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 hidden sm:block"
         >
           <motion.div
             animate={{ y: [0, 10, 0] }}
