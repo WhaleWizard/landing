@@ -208,9 +208,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
   }
 
-  if (!normalized.name || !normalized.email) {
+  const hasAnyContact = Boolean(
+    normalized.email ||
+    normalized.phone ||
+    normalized.telegramUsername,
+  );
+
+  if (!normalized.name || !hasAnyContact) {
     return json(
-      { success: false, error: 'name and email are required' },
+      { success: false, error: 'name and at least one contact field are required' },
       { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
