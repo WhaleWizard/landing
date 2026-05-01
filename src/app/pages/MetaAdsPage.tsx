@@ -22,7 +22,6 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 
@@ -342,7 +341,7 @@ function MetaAdsPage() {
                 transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
                 className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
               >
-                <HeroAnimation variant="meta" className="w-full h-full" />
+                <div className="w-full h-full" aria-hidden="true" />
               </motion.div>
               
               {/* Desktop: full animation scene */}
@@ -352,7 +351,7 @@ function MetaAdsPage() {
                 transition={{ duration: 1, delay: 0.3 }}
                 className="relative mx-auto h-[420px] w-full max-w-[520px]"
               >
-                <HeroAnimation variant="meta" className="w-full h-full" />
+                <div className="w-full h-full" aria-hidden="true" />
               </motion.div>
             </div>
           </div>
