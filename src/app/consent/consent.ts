@@ -162,6 +162,9 @@ let ttLoaded = false;
 let gtmLoaded = false;
 let analyticsConfigLogged = false;
 let lastTrackedPath = '';
+let analyticsLoadPromise: Promise<void> | null = null;
+let marketingLoadPromise: Promise<void> | null = null;
+
 let lastTrackedAt = 0;
 
 const DEFAULT_GTM_ID = 'GTM-T88BWXVV';
@@ -215,6 +218,9 @@ function getTiktokPixelId(): string {
 }
 
 export async function ensureAnalyticsLoaded(): Promise<void> {
+  if (analyticsLoadPromise) return analyticsLoadPromise;
+
+  analyticsLoadPromise = (async () => {
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
   const gtmId = getGoogleTagManagerId();
@@ -257,7 +263,9 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (ymId && !ymLoaded) {
+  const shouldInitYandexDirectly = Boolean(ymId) && !gtmId;
+
+  if (shouldInitYandexDirectly && !ymLoaded) {
     try {
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
       const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
@@ -284,9 +292,19 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
       console.warn('[analytics] Yandex Metrika load failed', error);
     }
   }
+  })();
+
+  try {
+    await analyticsLoadPromise;
+  } finally {
+    analyticsLoadPromise = null;
+  }
 }
 
 export async function ensureMarketingLoaded(): Promise<void> {
+  if (marketingLoadPromise) return marketingLoadPromise;
+
+  marketingLoadPromise = (async () => {
   const metaId = getMetaPixelId();
   const tiktokId = getTiktokPixelId();
 
@@ -338,6 +356,13 @@ export async function ensureMarketingLoaded(): Promise<void> {
     win.ttq.load?.(tiktokId);
     win.ttq.page?.();
     ttLoaded = true;
+  }
+  })();
+
+  try {
+    await marketingLoadPromise;
+  } finally {
+    marketingLoadPromise = null;
   }
 }
 
