@@ -28,6 +28,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
+import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated counter component
@@ -351,18 +352,26 @@ function GoogleAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Funnel animation */}
+            {/* Right column - 3D Animation */}
             <div className="order-1 lg:order-2 relative">
+              {/* Mobile: animation visible above text */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
+                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
+              >
+                <HeroAnimation variant="google" className="w-full h-full" />
+              </motion.div>
+              
+              {/* Desktop: full animation scene */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.3 }}
                 className="relative mx-auto h-[420px] w-full max-w-[520px]"
               >
-                <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-[#4285f4]/15 via-[#34a853]/10 to-[#fbbc04]/15 blur-3xl" />
-                {['Ключи','Клики','Заявки'].map((s, i) => <motion.div key={s} className="absolute left-1/2 -translate-x-1/2 rounded-2xl border border-white/15 bg-card/70 px-6 py-4 backdrop-blur-xl" style={{top: `${40 + i*110}px`, width: `${280 - i*45}px`}} animate={{y:[0,-8,0]}} transition={{duration:3, repeat:Infinity, delay:i*0.3}}><p className="text-center font-semibold">{s}</p></motion.div>)}
-                <motion.div className="absolute left-1/2 top-[88px] h-[88px] w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#4285f4] to-[#34a853]" animate={{opacity:[0.3,1,0.3]}} transition={{duration:2, repeat:Infinity}}/>
-                <motion.div className="absolute left-1/2 top-[198px] h-[88px] w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#34a853] to-[#fbbc04]" animate={{opacity:[0.3,1,0.3]}} transition={{duration:2, repeat:Infinity, delay:0.5}}/>
+                <HeroAnimation variant="google" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
@@ -584,6 +593,7 @@ function GoogleAdsPage() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left - Text content */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -594,19 +604,43 @@ function GoogleAdsPage() {
                 <Sparkles className="w-4 h-4 text-[#4285f4]" />
                 <span className="text-sm text-[#4285f4]">Бесплатно</span>
               </div>
+              
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
                 Получите бесплатный{' '}
-                <span className="bg-gradient-to-r from-[#4285f4] via-[#34a853] to-[#fbbc04] bg-clip-text text-transparent">
-                  аудит кампаний
+                <span className="block mt-2">
+                  <span style={{ color: googleColors.blue }}>а</span>
+                  <span style={{ color: googleColors.red }}>у</span>
+                  <span style={{ color: googleColors.yellow }}>д</span>
+                  <span style={{ color: googleColors.blue }}>и</span>
+                  <span style={{ color: googleColors.green }}>т</span>
+                  <span className="text-foreground"> кампаний</span>
                 </span>
               </h2>
+              
               <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-balance">
-                Разберу текущие кампании, покажу где теряются деньги и что быстро улучшит стоимость заявки.
+                Разберу ваши текущие кампании и покажу точки роста. 
+                Найду, где сливается бюджет и как это исправить.
               </p>
+              
               <div className="space-y-4 max-w-md mx-auto lg:mx-0">
-                {['Проверка структуры кампаний', 'Анализ поисковых запросов и минус-слов', 'План оптимизации ставок и креативов', 'Прогноз роста конверсий'].map((item, i) => (
-                  <motion.div key={i} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#4285f4] to-[#34a853] flex items-center justify-center shrink-0">
+                {[
+                  'Анализ структуры кампаний',
+                  'Проверка Quality Score',
+                  'Аудит минус-слов и ключевых фраз',
+                  'Рекомендации по оптимизации',
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3"
+                  >
+                    <div 
+                      className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: Object.values(googleColors)[i % 4] }}
+                    >
                       <CheckCircle2 className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-foreground">{item}</span>
@@ -614,7 +648,14 @@ function GoogleAdsPage() {
                 ))}
               </div>
             </motion.div>
-            <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}>
+            
+            {/* Right - Form */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
               <LandingForm service="google-ads" />
             </motion.div>
           </div>

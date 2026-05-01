@@ -26,6 +26,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
+import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated progress bar
@@ -312,26 +313,26 @@ function ConsultPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Funnel animation */}
+            {/* Right column - 3D Animation */}
             <div className="order-1 lg:order-2 relative">
+              {/* Mobile: animation visible above text */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
+                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
+              >
+                <HeroAnimation variant="consult" className="w-full h-full" />
+              </motion.div>
+              
+              {/* Desktop: full animation scene */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.3 }}
                 className="relative mx-auto h-[420px] w-full max-w-[520px]"
               >
-                <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-primary/20 via-accent/10 to-secondary/20 blur-3xl" />
-                {['Позиционирование', 'Система поиска', 'Стабильные клиенты'].map((stage, i) => (
-                  <motion.div
-                    key={stage}
-                    className="absolute left-1/2 -translate-x-1/2 rounded-2xl border border-white/15 bg-card/70 px-6 py-4 backdrop-blur-xl"
-                    style={{ top: `${40 + i * 110}px`, width: `${300 - i * 45}px` }}
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, delay: i * 0.3 }}
-                  >
-                    <p className="text-center font-semibold">{stage}</p>
-                  </motion.div>
-                ))}
+                <HeroAnimation variant="consult" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
@@ -535,29 +536,66 @@ function ConsultPage() {
         <GradientOrbs variant="ethereal" />
         <AnimatedGrid variant="ethereal" />
         
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
-              Запишитесь на консультацию
-            </h2>
-            <p className="text-muted-foreground text-balance">
-              Заполните форму и я свяжусь с вами в течение 24 часов
-            </p>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-          >
-            <LandingForm service="consult" />
-          </motion.div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left - Text content */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="text-center lg:text-left"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm text-primary">Личная консультация</span>
+              </div>
+              
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
+                Запишитесь на{' '}
+                <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+                  консультацию
+                </span>
+              </h2>
+              
+              <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-balance">
+                60-90 минут личной работы над вашей стратегией поиска клиентов. 
+                Разберу ситуацию и дам пошаговый план.
+              </p>
+              
+              <div className="space-y-4 max-w-md mx-auto lg:mx-0">
+                {[
+                  'Разбор вашего позиционирования',
+                  'Анализ портфолио и офферов',
+                  'Стратегия поиска клиентов',
+                  'Шаблоны и скрипты продаж',
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary to-accent flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-foreground">{item}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+            
+            {/* Right - Form */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
+              <LandingForm service="consult" />
+            </motion.div>
+          </div>
         </div>
       </section>
 

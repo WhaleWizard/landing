@@ -22,6 +22,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
+import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 
@@ -332,18 +333,26 @@ function MetaAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Funnel animation */}
+            {/* Right column - 3D Animation */}
             <div className="order-1 lg:order-2 relative">
+              {/* Mobile: animation visible above text */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
+                className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
+              >
+                <HeroAnimation variant="meta" className="w-full h-full" />
+              </motion.div>
+              
+              {/* Desktop: full animation scene */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.3 }}
                 className="relative mx-auto h-[420px] w-full max-w-[520px]"
               >
-                <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-[#E1306C]/15 via-[#833AB4]/10 to-[#405DE6]/15 blur-3xl" />
-                {['Трафик','Лид','Продажа'].map((s, i) => <motion.div key={s} className="absolute left-1/2 -translate-x-1/2 rounded-2xl border border-white/15 bg-card/70 px-6 py-4 backdrop-blur-xl" style={{top: `${40 + i*110}px`, width: `${280 - i*45}px`}} animate={{y:[0,-8,0]}} transition={{duration:3, repeat:Infinity, delay:i*0.3}}><p className="text-center font-semibold">{s}</p></motion.div>)}
-                <motion.div className="absolute left-1/2 top-[88px] h-[88px] w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#E1306C] to-[#833AB4]" animate={{opacity:[0.3,1,0.3]}} transition={{duration:2, repeat:Infinity}}/>
-                <motion.div className="absolute left-1/2 top-[198px] h-[88px] w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#833AB4] to-[#405DE6]" animate={{opacity:[0.3,1,0.3]}} transition={{duration:2, repeat:Infinity, delay:0.5}}/>
+                <HeroAnimation variant="meta" className="w-full h-full" />
               </motion.div>
             </div>
           </div>
