@@ -15,9 +15,10 @@ function buildCsp(): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://mc.yandex.ru https://connect.facebook.net https://analytics.tiktok.com",
-    "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com https://mc.yandex.ru https://connect.facebook.net https://graph.facebook.com https://analytics.tiktok.com https://api.jsonbin.io https://script.google.com",
+    "script-src 'self' 'unsafe-inline' blob: https://www.googletagmanager.com https://mc.yandex.ru https://mc.webvisor.org https://connect.facebook.net https://analytics.tiktok.com",
+    "connect-src 'self' https: wss: https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com https://mc.yandex.ru https://mc.webvisor.org https://connect.facebook.net https://graph.facebook.com https://analytics.tiktok.com https://api.jsonbin.io https://script.google.com",
     "frame-src 'self' https://www.googletagmanager.com",
+    "worker-src 'self' blob:",
     "manifest-src 'self'",
     'upgrade-insecure-requests',
   ];
