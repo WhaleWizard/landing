@@ -1,8 +1,8 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { AdditiveBlending, Color, Vector3 } from 'three';
+import { AdditiveBlending, Color } from 'three';
 import { motion } from 'motion/react';
 import { useMemo, useRef } from 'react';
-import type { Group, Points } from 'three';
+import type { Points } from 'three';
 import ContactForm from '../components/ContactForm';
 
 const ease = [0.22, 1, 0.36, 1] as const;

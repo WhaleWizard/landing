@@ -1,5 +1,4 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { motion } from 'motion/react';
 import { useRef } from 'react';
 import type { Group } from 'three';
 import ContactForm from '../components/ContactForm';

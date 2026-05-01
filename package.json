@@ -74,9 +74,8 @@
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
     "vaul": "1.1.2",
-    "three": "0.178.0",
-    "@react-three/fiber": "9.3.0",
-    "@react-three/drei": "10.8.0"
+    "three": "0.164.1",
+    "@react-three/fiber": "8.17.14"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
