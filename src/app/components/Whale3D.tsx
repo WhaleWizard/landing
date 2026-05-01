@@ -1,346 +1,308 @@
+'use client';
+
 import { useRef, useMemo, useState, useEffect, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float, Environment, MeshDistortMaterial, Trail, Stars } from '@react-three/drei';
+import { useGLTF, Environment, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Whale body geometry component with smooth swimming animation
-function WhaleBody({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
+// Color palettes for different page variants
+const colorPalettes = {
+  cosmic: {
+    primary: '#6366f1',
+    secondary: '#8b5cf6',
+    accent: '#a855f7',
+    glow: '#8b5cf6',
+    fog: '#0f0a1f',
+    background: '#050510',
+    particles: ['#6366f1', '#8b5cf6', '#a855f7', '#c084fc', '#ffffff']
+  },
+  digital: {
+    primary: '#4285f4',
+    secondary: '#34a853',
+    accent: '#1a73e8',
+    glow: '#4285f4',
+    fog: '#0d1a2d',
+    background: '#080f1a',
+    particles: ['#4285f4', '#34a853', '#ea4335', '#fbbc04', '#ffffff']
+  },
+  ethereal: {
+    primary: '#8b5cf6',
+    secondary: '#a855f7',
+    accent: '#c084fc',
+    glow: '#a855f7',
+    fog: '#1a0a2e',
+    background: '#0a0a1f',
+    particles: ['#8b5cf6', '#a855f7', '#c084fc', '#e879f9', '#ffffff']
+  }
+};
+
+// Cinematic whale model component
+function WhaleModel({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
   const whaleRef = useRef<THREE.Group>(null);
-  const tailRef = useRef<THREE.Group>(null);
-  const finLeftRef = useRef<THREE.Mesh>(null);
-  const finRightRef = useRef<THREE.Mesh>(null);
-  const bodyRef = useRef<THREE.Mesh>(null);
+  const { scene } = useGLTF('/models/whale.glb');
   const { pointer, viewport } = useThree();
   
-  const colors = useMemo(() => {
-    switch (variant) {
-      case 'digital':
-        return {
-          primary: '#4285f4',
-          secondary: '#34a853',
-          accent: '#1a73e8',
-          glow: '#4285f4',
-          highlight: '#ffffff'
-        };
-      case 'ethereal':
-        return {
-          primary: '#8b5cf6',
-          secondary: '#a855f7',
-          accent: '#c084fc',
-          glow: '#8b5cf6',
-          highlight: '#ddd6fe'
-        };
-      default:
-        return {
-          primary: '#6366f1',
-          secondary: '#8b5cf6',
-          accent: '#a855f7',
-          glow: '#8b5cf6',
-          highlight: '#c7d2fe'
-        };
-    }
-  }, [variant]);
+  const colors = colorPalettes[variant];
+  
+  // Clone scene to avoid mutation issues
+  const clonedScene = useMemo(() => {
+    const cloned = scene.clone();
+    
+    // Apply custom material to all meshes
+    cloned.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.material = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(colors.primary),
+          metalness: 0.7,
+          roughness: 0.25,
+          envMapIntensity: 1.5,
+          emissive: new THREE.Color(colors.glow),
+          emissiveIntensity: 0.15,
+        });
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    
+    return cloned;
+  }, [scene, colors]);
 
-  useFrame((state) => {
+  // Animation state for cinematic movement
+  const animState = useRef({
+    phase: 'swimming' as 'swimming' | 'passing' | 'turning',
+    phaseTime: 0,
+    baseX: 0,
+    baseY: 0,
+    baseZ: -2,
+    targetRotY: 0,
+    swimCycle: 0
+  });
+
+  useFrame((state, delta) => {
     if (!whaleRef.current) return;
     
     const time = state.clock.elapsedTime;
+    const anim = animState.current;
     
-    // Smooth whale movement following mouse with gentle sway
-    const targetX = (pointer.x * viewport.width) / 10;
-    const targetY = (pointer.y * viewport.height) / 10;
+    anim.phaseTime += delta;
+    anim.swimCycle += delta;
     
-    // Main body floating motion
+    // Phase transitions - create varied movement patterns
+    if (anim.phaseTime > 8 + Math.random() * 4) {
+      anim.phaseTime = 0;
+      const rand = Math.random();
+      if (rand < 0.4) {
+        anim.phase = 'swimming';
+      } else if (rand < 0.7) {
+        anim.phase = 'passing';
+      } else {
+        anim.phase = 'turning';
+      }
+    }
+    
+    // Mouse influence for subtle parallax
+    const mouseX = pointer.x * viewport.width * 0.08;
+    const mouseY = pointer.y * viewport.height * 0.05;
+    
+    // Swimming body wave animation - critical for life-like feel
+    const bodyWave = Math.sin(anim.swimCycle * 1.5) * 0.06;
+    const tailWave = Math.sin(anim.swimCycle * 2.2) * 0.12;
+    
+    // Phase-based movement
+    let targetX = anim.baseX;
+    let targetY = anim.baseY;
+    let targetZ = anim.baseZ;
+    let targetRotY = 0;
+    
+    switch (anim.phase) {
+      case 'swimming':
+        // Gentle drift with figure-8 pattern
+        targetX = Math.sin(time * 0.15) * 1.5 + mouseX;
+        targetY = Math.sin(time * 0.2) * 0.8 + Math.cos(time * 0.12) * 0.3 + mouseY;
+        targetZ = -2 + Math.sin(time * 0.1) * 0.5;
+        targetRotY = Math.sin(time * 0.15) * 0.25;
+        break;
+        
+      case 'passing':
+        // Cinematic close pass - whale moves across the view
+        const passProgress = (anim.phaseTime / 8);
+        targetX = THREE.MathUtils.lerp(-4, 4, passProgress) + mouseX * 0.5;
+        targetY = Math.sin(passProgress * Math.PI) * 0.8 + mouseY * 0.5;
+        targetZ = -1.5 + Math.sin(passProgress * Math.PI) * 0.8;
+        targetRotY = -0.3;
+        break;
+        
+      case 'turning':
+        // Whale turns toward camera - aware of viewer
+        targetX = mouseX * 1.5;
+        targetY = mouseY * 1.2;
+        targetZ = -1.5;
+        // Look toward camera/mouse
+        targetRotY = Math.atan2(pointer.x, 1) * 0.5;
+        break;
+    }
+    
+    // Smooth interpolation for all movements
     whaleRef.current.position.x = THREE.MathUtils.lerp(
-      whaleRef.current.position.x, 
-      targetX + Math.sin(time * 0.3) * 0.2, 
+      whaleRef.current.position.x,
+      targetX,
       0.015
     );
     whaleRef.current.position.y = THREE.MathUtils.lerp(
-      whaleRef.current.position.y, 
-      targetY + Math.sin(time * 0.5) * 0.4, 
+      whaleRef.current.position.y,
+      targetY,
       0.015
     );
-    whaleRef.current.position.z = Math.sin(time * 0.2) * 0.3;
+    whaleRef.current.position.z = THREE.MathUtils.lerp(
+      whaleRef.current.position.z,
+      targetZ,
+      0.01
+    );
     
-    // Gentle rotation following mouse for lifelike movement
+    // Rotation with swimming motion
     whaleRef.current.rotation.y = THREE.MathUtils.lerp(
-      whaleRef.current.rotation.y, 
-      pointer.x * 0.4 + Math.sin(time * 0.3) * 0.05, 
+      whaleRef.current.rotation.y,
+      targetRotY + bodyWave,
       0.02
     );
+    
+    // Natural pitch from swimming
     whaleRef.current.rotation.x = THREE.MathUtils.lerp(
-      whaleRef.current.rotation.x, 
-      -pointer.y * 0.15 + Math.sin(time * 0.4) * 0.03, 
+      whaleRef.current.rotation.x,
+      -pointer.y * 0.08 + Math.sin(time * 0.3) * 0.03,
       0.02
     );
     
-    // Natural swimming roll motion
-    whaleRef.current.rotation.z = Math.sin(time * 0.6) * 0.08;
+    // Roll for organic feel
+    whaleRef.current.rotation.z = Math.sin(time * 0.4) * 0.04 + tailWave * 0.3;
     
-    // Tail undulation - the key to realistic swimming
-    if (tailRef.current) {
-      tailRef.current.rotation.y = Math.sin(time * 1.8) * 0.5;
-      tailRef.current.rotation.z = Math.sin(time * 1.5 + 0.5) * 0.15;
-      tailRef.current.position.x = Math.sin(time * 1.8) * 0.1;
-    }
-    
-    // Pectoral fin animations - gentle wave motion
-    if (finLeftRef.current) {
-      finLeftRef.current.rotation.z = Math.sin(time * 1.0) * 0.25 + 0.4;
-      finLeftRef.current.rotation.x = Math.sin(time * 0.8 + 0.3) * 0.1;
-    }
-    if (finRightRef.current) {
-      finRightRef.current.rotation.z = -Math.sin(time * 1.0) * 0.25 - 0.4;
-      finRightRef.current.rotation.x = -Math.sin(time * 0.8 + 0.3) * 0.1;
-    }
-
-    // Body flex for more organic movement
-    if (bodyRef.current) {
-      bodyRef.current.rotation.y = Math.sin(time * 1.2) * 0.03;
-    }
+    // Update base position for next phase
+    anim.baseX = whaleRef.current.position.x;
+    anim.baseY = whaleRef.current.position.y;
+    anim.baseZ = whaleRef.current.position.z;
   });
 
   return (
-    <group ref={whaleRef} scale={1.3} position={[0, 0, 0]}>
-      {/* Main body with trail */}
-      <Trail
-        width={2.5}
-        length={8}
-        color={colors.glow}
-        attenuation={(t) => t * t}
-      >
-        <mesh ref={bodyRef} position={[0, 0, 0]}>
-          <sphereGeometry args={[1, 64, 64]} />
-          <MeshDistortMaterial
-            color={colors.primary}
-            envMapIntensity={1.2}
-            clearcoat={1}
-            clearcoatRoughness={0}
-            metalness={0.85}
-            roughness={0.1}
-            distort={0.15}
-            speed={1.5}
-          />
-        </mesh>
-      </Trail>
+    <group ref={whaleRef} position={[0, 0, -2]} scale={0.8}>
+      <primitive object={clonedScene} rotation={[0, -Math.PI / 2, 0]} />
       
-      {/* Body extension - smoother shape */}
-      <mesh position={[0.9, 0, 0]} scale={[1.5, 0.75, 0.65]}>
-        <sphereGeometry args={[1, 64, 64]} />
-        <MeshDistortMaterial
-          color={colors.primary}
-          envMapIntensity={1}
-          clearcoat={1}
-          clearcoatRoughness={0}
-          metalness={0.85}
-          roughness={0.12}
-          distort={0.12}
-          speed={1.2}
-        />
-      </mesh>
-      
-      {/* Head - slightly bulbous */}
-      <mesh position={[-1.15, 0.12, 0]} scale={[0.85, 0.68, 0.6]}>
-        <sphereGeometry args={[1, 64, 64]} />
-        <MeshDistortMaterial
-          color={colors.secondary}
-          envMapIntensity={1.3}
-          clearcoat={1}
-          clearcoatRoughness={0}
-          metalness={0.8}
-          roughness={0.15}
-          distort={0.08}
-          speed={1.8}
-        />
-      </mesh>
-
-      {/* Forehead bump */}
-      <mesh position={[-1.5, 0.3, 0]} scale={[0.4, 0.35, 0.35]}>
-        <sphereGeometry args={[1, 32, 32]} />
-        <MeshDistortMaterial
-          color={colors.secondary}
-          envMapIntensity={1.2}
-          clearcoat={1}
-          metalness={0.85}
-          roughness={0.1}
-          distort={0.1}
-          speed={2}
-        />
-      </mesh>
-      
-      {/* Tail section with animation group */}
-      <group ref={tailRef} position={[2.3, 0, 0]}>
-        {/* Tail body */}
-        <mesh scale={[0.9, 0.38, 0.32]}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <MeshDistortMaterial
-            color={colors.accent}
-            envMapIntensity={1}
-            clearcoat={1}
-            metalness={0.9}
-            roughness={0.1}
-            distort={0.2}
-            speed={2.5}
-          />
-        </mesh>
-        
-        {/* Tail flukes - upper */}
-        <mesh position={[0.9, 0.35, 0]} rotation={[0, 0, 0.6]} scale={[0.65, 0.12, 0.35]}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <MeshDistortMaterial
-            color={colors.glow}
-            envMapIntensity={1.8}
-            clearcoat={1}
-            metalness={0.95}
-            roughness={0.05}
-            distort={0.25}
-            speed={3}
-          />
-        </mesh>
-        
-        {/* Tail flukes - lower */}
-        <mesh position={[0.9, -0.35, 0]} rotation={[0, 0, -0.6]} scale={[0.65, 0.12, 0.35]}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <MeshDistortMaterial
-            color={colors.glow}
-            envMapIntensity={1.8}
-            clearcoat={1}
-            metalness={0.95}
-            roughness={0.05}
-            distort={0.25}
-            speed={3}
-          />
-        </mesh>
-      </group>
-      
-      {/* Dorsal fin */}
-      <mesh position={[0.4, 0.95, 0]} rotation={[0, 0, -0.15]} scale={[0.35, 0.55, 0.08]}>
-        <coneGeometry args={[0.5, 1, 32]} />
-        <MeshDistortMaterial
-          color={colors.accent}
-          envMapIntensity={1.3}
-          clearcoat={1}
-          metalness={0.9}
-          roughness={0.1}
-          distort={0.12}
-          speed={2}
-        />
-      </mesh>
-      
-      {/* Pectoral fins */}
-      <mesh 
-        ref={finLeftRef} 
-        position={[-0.2, -0.35, 0.75]} 
-        rotation={[0.6, 0, 0.4]} 
-        scale={[0.55, 0.12, 0.28]}
-      >
-        <sphereGeometry args={[1, 32, 32]} />
-        <MeshDistortMaterial
-          color={colors.secondary}
-          envMapIntensity={1}
-          clearcoat={1}
-          metalness={0.9}
-          roughness={0.1}
-          distort={0.18}
-          speed={2}
-        />
-      </mesh>
-      <mesh 
-        ref={finRightRef} 
-        position={[-0.2, -0.35, -0.75]} 
-        rotation={[-0.6, 0, -0.4]} 
-        scale={[0.55, 0.12, 0.28]}
-      >
-        <sphereGeometry args={[1, 32, 32]} />
-        <MeshDistortMaterial
-          color={colors.secondary}
-          envMapIntensity={1}
-          clearcoat={1}
-          metalness={0.9}
-          roughness={0.1}
-          distort={0.18}
-          speed={2}
-        />
-      </mesh>
-      
-      {/* Eyes */}
-      <mesh position={[-1.55, 0.22, 0.42]} scale={0.1}>
-        <sphereGeometry args={[1, 32, 32]} />
-        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.4} />
-      </mesh>
-      <mesh position={[-1.55, 0.22, -0.42]} scale={0.1}>
-        <sphereGeometry args={[1, 32, 32]} />
-        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.4} />
-      </mesh>
-      
-      {/* Eye pupils */}
-      <mesh position={[-1.65, 0.22, 0.42]} scale={0.05}>
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshStandardMaterial color="#0a0a1a" />
-      </mesh>
-      <mesh position={[-1.65, 0.22, -0.42]} scale={0.05}>
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshStandardMaterial color="#0a0a1a" />
-      </mesh>
-      
-      {/* Ambient glow effect */}
-      <mesh position={[0.3, 0, 0]}>
-        <sphereGeometry args={[2.8, 32, 32]} />
-        <meshBasicMaterial color={colors.glow} transparent opacity={0.04} side={THREE.BackSide} />
-      </mesh>
-
-      {/* Belly highlight streak */}
-      <mesh position={[0, -0.6, 0]} rotation={[0, 0, 0]} scale={[2.5, 0.15, 0.5]}>
-        <sphereGeometry args={[1, 32, 32]} />
-        <meshStandardMaterial 
-          color={colors.highlight} 
-          emissive={colors.highlight} 
-          emissiveIntensity={0.2}
-          transparent
-          opacity={0.3}
-        />
-      </mesh>
+      {/* Subsurface scattering imitation - soft inner glow */}
+      <pointLight 
+        position={[0, 0, 0]} 
+        intensity={0.5} 
+        color={colors.glow} 
+        distance={3}
+      />
     </group>
   );
 }
 
-// Animated particles around the whale
-function ParticleField({ count = 150, variant = 'cosmic' }: { count?: number; variant?: 'cosmic' | 'digital' | 'ethereal' }) {
+// Cinematic camera controller
+function CinematicCamera({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
+  const { camera, pointer } = useThree();
+  const targetRef = useRef(new THREE.Vector3(0, 0, 7));
+  const lookAtRef = useRef(new THREE.Vector3(0, 0, 0));
+  
+  useFrame((state) => {
+    const time = state.clock.elapsedTime;
+    
+    // Subtle camera movement - like a cinematic observer
+    const breathX = Math.sin(time * 0.12) * 0.15;
+    const breathY = Math.sin(time * 0.08) * 0.1;
+    
+    // Mouse parallax - subtle and premium
+    const parallaxX = pointer.x * 0.4;
+    const parallaxY = pointer.y * 0.25;
+    
+    // Update camera position smoothly
+    targetRef.current.set(
+      parallaxX + breathX,
+      parallaxY + breathY,
+      7 + Math.sin(time * 0.1) * 0.3
+    );
+    
+    camera.position.lerp(targetRef.current, 0.02);
+    
+    // Look at center with slight offset for tracking feel
+    lookAtRef.current.set(
+      parallaxX * 0.3,
+      parallaxY * 0.2,
+      0
+    );
+    
+    camera.lookAt(lookAtRef.current);
+  });
+  
+  return null;
+}
+
+// Volumetric light rays effect
+function GodRays({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
+  const raysRef = useRef<THREE.Group>(null);
+  const colors = colorPalettes[variant];
+  
+  useFrame((state) => {
+    if (!raysRef.current) return;
+    const time = state.clock.elapsedTime;
+    
+    raysRef.current.children.forEach((ray, i) => {
+      const mesh = ray as THREE.Mesh;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      
+      // Pulsing opacity for light breathing effect
+      material.opacity = 0.03 + Math.sin(time * 0.5 + i * 0.8) * 0.015;
+      
+      // Subtle rotation
+      mesh.rotation.z = time * 0.02 + i * 0.3;
+    });
+  });
+  
+  return (
+    <group ref={raysRef} position={[3, 5, -5]}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <mesh key={i} rotation={[0, 0, i * 0.2]}>
+          <planeGeometry args={[0.5, 20]} />
+          <meshBasicMaterial 
+            color={colors.glow} 
+            transparent 
+            opacity={0.04}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// Interactive particles that react to whale movement
+function AtmosphericParticles({ 
+  count = 200, 
+  variant = 'cosmic' 
+}: { 
+  count?: number; 
+  variant?: 'cosmic' | 'digital' | 'ethereal';
+}) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const { pointer } = useThree();
+  const colors = colorPalettes[variant];
   
   const particles = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < count; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const radius = 3.5 + Math.random() * 7;
-      
-      temp.push({
-        position: new THREE.Vector3(
-          radius * Math.sin(phi) * Math.cos(theta),
-          radius * Math.sin(phi) * Math.sin(theta),
-          radius * Math.cos(phi)
-        ),
-        speed: 0.3 + Math.random() * 1.2,
-        offset: Math.random() * Math.PI * 2,
-        scale: 0.015 + Math.random() * 0.035
-      });
-    }
-    return temp;
+    return Array.from({ length: count }, () => ({
+      position: new THREE.Vector3(
+        (Math.random() - 0.5) * 16,
+        (Math.random() - 0.5) * 12,
+        (Math.random() - 0.5) * 10 - 3
+      ),
+      velocity: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.01
+      ),
+      baseScale: 0.01 + Math.random() * 0.03,
+      offset: Math.random() * Math.PI * 2
+    }));
   }, [count]);
-
-  const colorArray = useMemo(() => {
-    switch (variant) {
-      case 'digital':
-        return ['#4285f4', '#34a853', '#ea4335', '#fbbc04', '#ffffff'];
-      case 'ethereal':
-        return ['#8b5cf6', '#a855f7', '#c084fc', '#e879f9', '#ffffff'];
-      default:
-        return ['#6366f1', '#8b5cf6', '#a855f7', '#c084fc', '#ffffff'];
-    }
-  }, [variant]);
 
   useFrame((state) => {
     if (!meshRef.current) return;
@@ -350,24 +312,42 @@ function ParticleField({ count = 150, variant = 'cosmic' }: { count?: number; va
     const color = new THREE.Color();
     
     particles.forEach((particle, i) => {
-      const { position, speed, offset, scale } = particle;
+      // Drift motion
+      particle.position.add(particle.velocity);
       
-      // Orbital motion with gentle mouse influence
-      const angle = time * speed * 0.15 + offset;
-      const mouseInfluence = new THREE.Vector3(pointer.x * 0.3, pointer.y * 0.3, 0);
+      // Wrap around boundaries
+      if (particle.position.x > 8) particle.position.x = -8;
+      if (particle.position.x < -8) particle.position.x = 8;
+      if (particle.position.y > 6) particle.position.y = -6;
+      if (particle.position.y < -6) particle.position.y = 6;
       
-      const x = position.x * Math.cos(angle) - position.z * Math.sin(angle) + mouseInfluence.x;
-      const y = position.y + Math.sin(time * speed * 0.8 + offset) * 0.4 + mouseInfluence.y;
-      const z = position.x * Math.sin(angle) + position.z * Math.cos(angle);
+      // Mouse influence - particles flow away from cursor
+      const mouseForce = new THREE.Vector2(pointer.x * 3, pointer.y * 2);
+      const particleXY = new THREE.Vector2(particle.position.x, particle.position.y);
+      const dist = particleXY.distanceTo(mouseForce);
       
-      const dynamicScale = scale * (1 + Math.sin(time * 1.5 + offset) * 0.4);
+      if (dist < 3) {
+        const force = (3 - dist) * 0.003;
+        particle.velocity.x += (particle.position.x - mouseForce.x) * force * 0.1;
+        particle.velocity.y += (particle.position.y - mouseForce.y) * force * 0.1;
+      }
       
-      matrix.makeScale(dynamicScale, dynamicScale, dynamicScale);
-      matrix.setPosition(x, y, z);
+      // Damping
+      particle.velocity.multiplyScalar(0.99);
+      
+      // Pulsing scale
+      const scale = particle.baseScale * (1 + Math.sin(time * 1.5 + particle.offset) * 0.3);
+      
+      // Shimmer effect when light passes
+      const shimmer = Math.sin(time * 2 + particle.offset) > 0.8 ? 1.5 : 1;
+      
+      matrix.makeScale(scale * shimmer, scale * shimmer, scale * shimmer);
+      matrix.setPosition(particle.position);
       meshRef.current!.setMatrixAt(i, matrix);
       
       // Color variation
-      color.set(colorArray[i % colorArray.length]);
+      const colorIndex = i % colors.particles.length;
+      color.set(colors.particles[colorIndex]);
       meshRef.current!.setColorAt(i, color);
     });
     
@@ -380,201 +360,158 @@ function ParticleField({ count = 150, variant = 'cosmic' }: { count?: number; va
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
       <sphereGeometry args={[1, 8, 8]} />
-      <meshBasicMaterial transparent opacity={0.85} />
+      <meshBasicMaterial transparent opacity={0.7} />
     </instancedMesh>
   );
 }
 
-// Floating energy rings
-function EnergyRings({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
-  const ringsRef = useRef<THREE.Group>(null);
+// Deep fog effect for depth
+function DeepFog({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
+  const colors = colorPalettes[variant];
   
-  const color = useMemo(() => {
-    switch (variant) {
-      case 'digital': return '#4285f4';
-      case 'ethereal': return '#8b5cf6';
-      default: return '#6366f1';
-    }
-  }, [variant]);
-
-  useFrame((state) => {
-    if (!ringsRef.current) return;
-    const time = state.clock.elapsedTime;
-    
-    ringsRef.current.children.forEach((ring, i) => {
-      ring.rotation.x = time * 0.15 * (i + 1) * 0.25;
-      ring.rotation.y = time * 0.1 * (i + 1) * 0.18;
-      (ring as THREE.Mesh).scale.setScalar(1 + Math.sin(time * 0.5 + i) * 0.08);
-    });
-  });
-
   return (
-    <group ref={ringsRef}>
-      {[2.8, 3.8, 4.8].map((radius, i) => (
-        <mesh key={i} rotation={[Math.PI / 2 + i * 0.25, 0, i * 0.4]}>
-          <torusGeometry args={[radius, 0.015, 16, 100]} />
-          <meshBasicMaterial color={color} transparent opacity={0.25 - i * 0.06} />
-        </mesh>
-      ))}
-    </group>
+    <>
+      <fog attach="fog" args={[colors.fog, 5, 25]} />
+      
+      {/* Background gradient plane */}
+      <mesh position={[0, 0, -15]}>
+        <planeGeometry args={[50, 50]} />
+        <shaderMaterial
+          uniforms={{
+            uColorTop: { value: new THREE.Color(colors.fog) },
+            uColorBottom: { value: new THREE.Color(colors.background) }
+          }}
+          vertexShader={`
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            uniform vec3 uColorTop;
+            uniform vec3 uColorBottom;
+            varying vec2 vUv;
+            void main() {
+              vec3 color = mix(uColorBottom, uColorTop, vUv.y);
+              gl_FragColor = vec4(color, 1.0);
+            }
+          `}
+        />
+      </mesh>
+    </>
   );
 }
 
-// Nebula background effect
-function NebulaBackground({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
-  const nebulaRef = useRef<THREE.Mesh>(null);
+// Subtle bloom-like glow
+function AmbientGlow({ variant = 'cosmic' }: { variant?: 'cosmic' | 'digital' | 'ethereal' }) {
+  const glowRef = useRef<THREE.Mesh>(null);
+  const colors = colorPalettes[variant];
   
-  const colors = useMemo(() => {
-    switch (variant) {
-      case 'digital':
-        return { inner: '#0d1a2d', outer: '#080f1a' };
-      case 'ethereal':
-        return { inner: '#1a0a2e', outer: '#0a0a1f' };
-      default:
-        return { inner: '#0f0a1f', outer: '#050510' };
-    }
-  }, [variant]);
-
   useFrame((state) => {
-    if (!nebulaRef.current) return;
-    nebulaRef.current.rotation.z = state.clock.elapsedTime * 0.015;
+    if (!glowRef.current) return;
+    const material = glowRef.current.material as THREE.MeshBasicMaterial;
+    material.opacity = 0.08 + Math.sin(state.clock.elapsedTime * 0.3) * 0.03;
   });
-
+  
   return (
-    <mesh ref={nebulaRef} position={[0, 0, -18]}>
-      <planeGeometry args={[70, 70]} />
-      <shaderMaterial
-        uniforms={{
-          uColor1: { value: new THREE.Color(colors.inner) },
-          uColor2: { value: new THREE.Color(colors.outer) }
-        }}
-        vertexShader={`
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          uniform vec3 uColor1;
-          uniform vec3 uColor2;
-          varying vec2 vUv;
-          void main() {
-            float dist = distance(vUv, vec2(0.5));
-            vec3 color = mix(uColor1, uColor2, dist * 1.4);
-            gl_FragColor = vec4(color, 1.0);
-          }
-        `}
+    <mesh ref={glowRef} position={[0, 0, -3]}>
+      <sphereGeometry args={[4, 32, 32]} />
+      <meshBasicMaterial 
+        color={colors.glow} 
+        transparent 
+        opacity={0.08}
+        side={THREE.BackSide}
       />
     </mesh>
   );
 }
 
-// Floating bubbles effect
-function Bubbles({ count = 25 }: { count?: number }) {
-  const bubblesRef = useRef<THREE.Group>(null);
-  
-  const bubbles = useMemo(() => {
-    return Array.from({ length: count }, () => ({
-      position: [
-        (Math.random() - 0.5) * 14,
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 7
-      ] as [number, number, number],
-      scale: 0.04 + Math.random() * 0.12,
-      speed: 0.4 + Math.random() * 0.8
-    }));
-  }, [count]);
-
-  useFrame((state) => {
-    if (!bubblesRef.current) return;
-    const time = state.clock.elapsedTime;
-    
-    bubblesRef.current.children.forEach((bubble, i) => {
-      const data = bubbles[i];
-      bubble.position.y = ((data.position[1] + time * data.speed * 0.25) % 10) - 5;
-      bubble.position.x = data.position[0] + Math.sin(time * 0.8 + i) * 0.15;
-    });
-  });
-
-  return (
-    <group ref={bubblesRef}>
-      {bubbles.map((bubble, i) => (
-        <mesh key={i} position={bubble.position} scale={bubble.scale}>
-          <sphereGeometry args={[1, 16, 16]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.08} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-// Main 3D Scene component
+// Main scene composition
 interface Whale3DSceneProps {
   variant?: 'cosmic' | 'digital' | 'ethereal';
   intensity?: 'low' | 'medium' | 'high';
 }
 
 function Whale3DScene({ variant = 'cosmic', intensity = 'high' }: Whale3DSceneProps) {
-  const particleCount = intensity === 'high' ? 150 : intensity === 'medium' ? 80 : 40;
-  
-  const lightColor = useMemo(() => {
-    switch (variant) {
-      case 'digital': return '#4285f4';
-      case 'ethereal': return '#a855f7';
-      default: return '#8b5cf6';
-    }
-  }, [variant]);
+  const colors = colorPalettes[variant];
+  const particleCount = intensity === 'high' ? 200 : intensity === 'medium' ? 100 : 50;
   
   return (
     <>
-      <ambientLight intensity={0.25} />
-      <pointLight position={[10, 10, 10]} intensity={1.2} color={lightColor} />
-      <pointLight position={[-10, -10, -5]} intensity={0.6} color="#6366f1" />
-      <spotLight
-        position={[0, 12, 6]}
-        angle={0.35}
-        penumbra={1}
-        intensity={1.2}
-        color={lightColor}
+      {/* Cinematic camera controller */}
+      <CinematicCamera variant={variant} />
+      
+      {/* Lighting setup - emotional and dramatic */}
+      <ambientLight intensity={0.15} />
+      
+      {/* Main key light - backlight for silhouette */}
+      <directionalLight 
+        position={[5, 8, -5]} 
+        intensity={1.2} 
+        color={colors.glow}
         castShadow
       />
       
-      <NebulaBackground variant={variant} />
-      <Stars radius={55} depth={55} count={2500} factor={4} saturation={0} fade speed={0.8} />
+      {/* Fill light */}
+      <pointLight 
+        position={[-5, 0, 5]} 
+        intensity={0.4} 
+        color={colors.secondary}
+      />
       
-      <Float
-        speed={1.2}
-        rotationIntensity={0.15}
-        floatIntensity={0.4}
-      >
-        <WhaleBody variant={variant} />
-      </Float>
+      {/* Rim light for whale edge glow */}
+      <spotLight
+        position={[-3, 5, 3]}
+        angle={0.5}
+        penumbra={1}
+        intensity={0.8}
+        color={colors.accent}
+      />
       
-      <ParticleField count={particleCount} variant={variant} />
-      <EnergyRings variant={variant} />
-      <Bubbles count={25} />
+      {/* Environmental effects */}
+      <DeepFog variant={variant} />
+      <GodRays variant={variant} />
+      <AmbientGlow variant={variant} />
       
+      {/* Stars for cosmic depth */}
+      <Stars 
+        radius={40} 
+        depth={50} 
+        count={intensity === 'high' ? 3000 : 1500} 
+        factor={3} 
+        saturation={0.1} 
+        fade 
+        speed={0.5} 
+      />
+      
+      {/* The whale */}
+      <WhaleModel variant={variant} />
+      
+      {/* Atmospheric particles */}
+      <AtmosphericParticles count={particleCount} variant={variant} />
+      
+      {/* Environment for reflections */}
       <Environment preset="night" />
     </>
   );
 }
 
-// Loading fallback
+// Loading spinner fallback
 function LoadingFallback() {
   const meshRef = useRef<THREE.Mesh>(null);
   
   useFrame((state) => {
     if (meshRef.current) {
-      meshRef.current.rotation.x = state.clock.elapsedTime * 0.5;
-      meshRef.current.rotation.y = state.clock.elapsedTime * 0.3;
+      meshRef.current.rotation.y = state.clock.elapsedTime * 0.8;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5) * 0.2;
     }
   });
   
   return (
     <mesh ref={meshRef}>
-      <sphereGeometry args={[1, 32, 32]} />
-      <meshBasicMaterial color="#8b5cf6" wireframe />
+      <torusGeometry args={[1, 0.1, 16, 50]} />
+      <meshBasicMaterial color="#8b5cf6" transparent opacity={0.6} />
     </mesh>
   );
 }
@@ -586,7 +523,11 @@ interface Whale3DProps {
   intensity?: 'low' | 'medium' | 'high';
 }
 
-export default function Whale3D({ variant = 'cosmic', className = '', intensity = 'high' }: Whale3DProps) {
+export default function Whale3D({ 
+  variant = 'cosmic', 
+  className = '', 
+  intensity = 'high' 
+}: Whale3DProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -597,7 +538,7 @@ export default function Whale3D({ variant = 'cosmic', className = '', intensity 
     return (
       <div className={`w-full h-full bg-gradient-to-b from-[#0a0a1f] to-[#050510] ${className}`}>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -606,13 +547,16 @@ export default function Whale3D({ variant = 'cosmic', className = '', intensity 
   return (
     <div className={`w-full h-full ${className}`}>
       <Canvas
-        camera={{ position: [0, 0, 7], fov: 55 }}
+        camera={{ position: [0, 0, 7], fov: 50 }}
         dpr={[1, 2]}
         gl={{ 
           antialias: true, 
           alpha: true,
-          powerPreference: 'high-performance'
+          powerPreference: 'high-performance',
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.2
         }}
+        shadows
         style={{ background: 'transparent' }}
       >
         <Suspense fallback={<LoadingFallback />}>
@@ -622,3 +566,6 @@ export default function Whale3D({ variant = 'cosmic', className = '', intensity 
     </div>
   );
 }
+
+// Preload the whale model
+useGLTF.preload('/models/whale.glb');
