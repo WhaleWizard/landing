@@ -110,6 +110,7 @@ export default function InteractiveBackground({
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
 
+      const connectionDistance = rect.width < 768 ? 72 : rect.width < 1024 ? 96 : 120;
       // Draw connections
       ctx.lineWidth = 0.5;
       particlesRef.current.forEach((p1, i) => {
@@ -118,8 +119,8 @@ export default function InteractiveBackground({
           const dy = p1.y - p2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (dist < 120) {
-            const opacity = (1 - dist / 120) * 0.3;
+          if (dist < connectionDistance) {
+            const opacity = (1 - dist / connectionDistance) * 0.25;
             ctx.strokeStyle = `rgba(139, 92, 246, ${opacity})`;
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
