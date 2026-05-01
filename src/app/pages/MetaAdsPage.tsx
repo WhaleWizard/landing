@@ -22,7 +22,6 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import PremiumWhale from '../components/PremiumWhale';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 
@@ -237,7 +236,7 @@ function MetaAdsPage() {
       />
       <Navbar />
 
-      {/* Hero Section with Cosmic Whale */}
+      {/* Hero Section with conversion animation */}
       <section
         ref={heroRef}
         className="relative min-h-screen flex items-center overflow-hidden"
@@ -333,21 +332,18 @@ function MetaAdsPage() {
               </motion.div>
             </div>
 
-            {/* Right column - Premium Whale 3D */}
+            {/* Right column - Funnel animation */}
             <div className="order-1 lg:order-2 relative">
-              {/* Mobile: whale as ambient background */}
-              <div className="lg:hidden absolute inset-0 -z-10 opacity-50">
-                <PremiumWhale variant="cosmic" className="w-full h-full" />
-              </div>
-              
-              {/* Desktop: full whale scene */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 2, delay: 0.3, ease: 'easeOut' }}
-                className="hidden lg:block relative h-[550px] xl:h-[650px]"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, delay: 0.3 }}
+                className="relative mx-auto h-[420px] w-full max-w-[520px]"
               >
-                <PremiumWhale variant="cosmic" className="w-full h-full" />
+                <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-[#E1306C]/15 via-[#833AB4]/10 to-[#405DE6]/15 blur-3xl" />
+                {['Трафик','Лид','Продажа'].map((s, i) => <motion.div key={s} className="absolute left-1/2 -translate-x-1/2 rounded-2xl border border-white/15 bg-card/70 px-6 py-4 backdrop-blur-xl" style={{top: `${40 + i*110}px`, width: `${280 - i*45}px`}} animate={{y:[0,-8,0]}} transition={{duration:3, repeat:Infinity, delay:i*0.3}}><p className="text-center font-semibold">{s}</p></motion.div>)}
+                <motion.div className="absolute left-1/2 top-[88px] h-[88px] w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#E1306C] to-[#833AB4]" animate={{opacity:[0.3,1,0.3]}} transition={{duration:2, repeat:Infinity}}/>
+                <motion.div className="absolute left-1/2 top-[198px] h-[88px] w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#833AB4] to-[#405DE6]" animate={{opacity:[0.3,1,0.3]}} transition={{duration:2, repeat:Infinity, delay:0.5}}/>
               </motion.div>
             </div>
           </div>
