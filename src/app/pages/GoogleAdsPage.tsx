@@ -28,7 +28,6 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import HeroAnimation from '../components/HeroAnimation';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 
 // Animated counter component
@@ -290,7 +289,7 @@ function GoogleAdsPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
                   <span className="block leading-tight text-balance">Контекстная реклама</span>
                   <span className="block mt-3 leading-tight pb-1">
                     <span style={{ color: googleColors.blue }}>G</span>
@@ -361,7 +360,7 @@ function GoogleAdsPage() {
                 transition={{ duration: 1.5, delay: 0.3, ease: 'easeOut' }}
                 className="lg:hidden relative h-[280px] sm:h-[320px] mb-4"
               >
-                <HeroAnimation variant="google" className="w-full h-full" />
+                <div className="w-full h-full" aria-hidden="true" />
               </motion.div>
               
               {/* Desktop: full animation scene */}
@@ -371,7 +370,7 @@ function GoogleAdsPage() {
                 transition={{ duration: 1, delay: 0.3 }}
                 className="relative mx-auto h-[420px] w-full max-w-[520px]"
               >
-                <HeroAnimation variant="google" className="w-full h-full" />
+                <div className="w-full h-full" aria-hidden="true" />
               </motion.div>
             </div>
           </div>
@@ -414,7 +413,7 @@ function GoogleAdsPage() {
               <AlertTriangle className="w-4 h-4 text-red-500" />
               <span className="text-sm text-red-400">Проблема</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical]">
               Почему Google Ads сливает бюджет?
             </h2>
           </motion.div>
@@ -432,7 +431,7 @@ function GoogleAdsPage() {
                   <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center mb-5">
                     <point.icon className="w-7 h-7 text-red-400" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-3">{point.title}</h3>
+                  <h3 className="text-xl font-semibold whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical] mb-3">{point.title}</h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">{point.description}</p>
                 </motion.div>
               </TiltCard>
@@ -456,7 +455,7 @@ function GoogleAdsPage() {
               <Sparkles className="w-4 h-4 text-[#4285f4]" />
               <span className="text-sm text-[#4285f4]">Процесс</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical]">
               Как я работаю
             </h2>
           </motion.div>
@@ -484,7 +483,7 @@ function GoogleAdsPage() {
                         <step.icon className="w-6 h-6" style={{ color: stepColor }} />
                       </div>
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+                    <h3 className="text-lg font-semibold mb-2 whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical]">{step.title}</h3>
                     <p className="text-muted-foreground text-sm">{step.description}</p>
                   </motion.div>
                 </TiltCard>
@@ -509,7 +508,7 @@ function GoogleAdsPage() {
               <TrendingUp className="w-4 h-4 text-[#34a853]" />
               <span className="text-sm text-[#34a853]">Кейсы</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical]">
               Результаты клиентов
             </h2>
           </motion.div>
@@ -525,7 +524,7 @@ function GoogleAdsPage() {
                   className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
                 >
                   <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-xl font-semibold">{caseItem.title}</h3>
+                    <h3 className="text-xl font-semibold whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical]">{caseItem.title}</h3>
                     <span className="px-3 py-1 text-xs rounded-full bg-[#4285f4]/10 text-[#4285f4]">
                       {caseItem.category}
                     </span>
@@ -563,7 +562,7 @@ function GoogleAdsPage() {
               <Shield className="w-4 h-4 text-[#34a853]" />
               <span className="text-sm text-[#34a853]">Что входит</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-balance">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical]">
               В работу со мной входит
             </h2>
           </motion.div>
@@ -605,7 +604,7 @@ function GoogleAdsPage() {
                 <span className="text-sm text-[#4285f4]">Бесплатно</span>
               </div>
               
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-balance">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight whitespace-nowrap overflow-hidden text-ellipsis md:whitespace-normal md:[display:-webkit-box] md:[-webkit-line-clamp:2] md:[-webkit-box-orient:vertical]">
                 Получите бесплатный{' '}
                 <span className="block mt-2">
                   <span style={{ color: googleColors.blue }}>а</span>
