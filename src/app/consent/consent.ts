@@ -214,10 +214,19 @@ function getTiktokPixelId(): string {
   return env('VITE_TIKTOK_PIXEL_ID');
 }
 
+
+function shouldUseTagManagerForAnalytics(): boolean {
+  const mode = env('VITE_ANALYTICS_RUNTIME').toLowerCase();
+  if (mode === 'direct') return false;
+  if (mode === 'gtm') return true;
+  return true;
+}
+
 export async function ensureAnalyticsLoaded(): Promise<void> {
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
   const gtmId = getGoogleTagManagerId();
+  const useTagManagerRuntime = shouldUseTagManagerForAnalytics();
 
   if (!analyticsConfigLogged) {
     console.info('[analytics] bootstrap config', {
@@ -225,11 +234,12 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
       gaId,
       ymId,
       hasDataLayer: Array.isArray((window as Window & { dataLayer?: unknown[] }).dataLayer),
+      analyticsRuntime: useTagManagerRuntime ? 'gtm' : 'direct',
     });
     analyticsConfigLogged = true;
   }
 
-  if (gtmId && !gtmLoaded) {
+  if (useTagManagerRuntime && gtmId && !gtmLoaded) {
     try {
       const win = window as Window & { dataLayer?: unknown[] };
       win.dataLayer = win.dataLayer || [];
@@ -241,7 +251,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (gaId && !gaLoaded) {
+  if (!useTagManagerRuntime && gaId && !gaLoaded) {
     try {
       await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
       (window as Window & { dataLayer?: unknown[] }).dataLayer = (window as Window & { dataLayer?: unknown[] }).dataLayer || [];
@@ -257,7 +267,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (ymId && !ymLoaded) {
+  if (!useTagManagerRuntime && ymId && !ymLoaded) {
     try {
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
       const win = window as Window & {
