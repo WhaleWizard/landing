@@ -34,34 +34,46 @@ async function fetchSeedArticles(siteUrl: string): Promise<Article[]> {
 }
 
 export async function fetchArticlesWithFallback(env: Env, request: Request): Promise<Article[]> {
+  // D1 попытка (если настроен)
   const useD1 = Boolean(env.DB);
   if (useD1) {
     try {
       const d1Articles = await fetchArticlesFromD1(env);
-      if (d1Articles.length > 0) {
-        console.log('Using D1 articles');
+      if (Array.isArray(d1Articles) && d1Articles.length > 0) {
+        console.log('✅ Using D1 articles');
         return d1Articles;
       }
     } catch (error) {
-      console.warn('D1 fetch failed:', error instanceof Error ? error.message : String(error));
+      console.warn('⚠️ D1 fetch failed:', error instanceof Error ? error.message : String(error));
     }
   }
 
+  // JSONBin попытка (если настроен)
   try {
-    const primary = await fetchArticlesFromJsonBin(env);
-    if (primary.length > 0) {
-      console.log('Using JSONBin articles');
-      return primary;
+    const jsonbinArticles = await fetchArticlesFromJsonBin(env);
+    if (Array.isArray(jsonbinArticles) && jsonbinArticles.length > 0) {
+      console.log('✅ Using JSONBin articles');
+      return jsonbinArticles;
     }
   } catch (error) {
-    console.warn('JSONBin fetch failed:', error instanceof Error ? error.message : String(error));
+    console.warn('⚠️ JSONBin fetch failed:', error instanceof Error ? error.message : String(error));
   }
 
-  console.log('Using seed articles as fallback');
-  const siteUrl = (env.SITE_URL || new URL(request.url).origin).replace(/\/$/, '');
-  const seedArticles = await fetchSeedArticles(siteUrl);
-  if (seedArticles.length === 0) {
-    console.warn('No articles available from any source');
+  // Seed файл как основной fallback
+  try {
+    console.log('🌱 Trying seed articles...');
+    const siteUrl = (env.SITE_URL || new URL(request.url).origin).replace(/\/$/, '');
+    const seedArticles = await fetchSeedArticles(siteUrl);
+
+    if (Array.isArray(seedArticles) && seedArticles.length > 0) {
+      console.log('✅ Using seed articles - ' + seedArticles.length + ' articles');
+      return seedArticles;
+    } else {
+      console.warn('⚠️ Seed file returned 0 articles');
+      return [];
+    }
+  } catch (error) {
+    console.error('❌ Seed articles fetch failed:', error instanceof Error ? error.message : String(error));
+    return [];
   }
-  return seedArticles;
 }

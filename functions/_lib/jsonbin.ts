@@ -270,12 +270,13 @@ export async function fetchArticlesFromJsonBin(env: Env): Promise<Article[]> {
   const primaryConfig = buildPrimaryConfig(env);
   const backupConfig = buildBackupConfig(env);
 
-  const readErrors: string[] = [];
-
-  // If neither config is available, JSONBin is not configured
+  // Если JSONBin не настроен - это не ошибка, просто нет данных
   if (!primaryConfig && !backupConfig) {
-    throw new Error('JSONBin not configured - will use fallback articles');
+    console.warn('JSONBin is not configured (no JSONBIN_BIN_ID)');
+    return []; // Вернуть пустой массив вместо ошибки
   }
+
+  const readErrors: string[] = [];
 
   if (primaryConfig) {
     try {
@@ -293,6 +294,8 @@ export async function fetchArticlesFromJsonBin(env: Env): Promise<Article[]> {
     }
   }
 
+  // Если оба конфига есть но оба не сработали - это ошибка
+  console.error('JSONBin read failed:', readErrors.join(' | '));
   throw new Error(readErrors.join(' | '));
 }
 
