@@ -190,8 +190,9 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
       );
     }
 
-    const articlesWithStatus = payload.articles.map((article) => ({
+    const articlesWithStatus = payload.articles.map((article, index) => ({
       ...article,
+      id: index + 1,
       status: article.status || 'published',
     }));
 
