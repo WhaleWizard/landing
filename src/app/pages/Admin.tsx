@@ -120,6 +120,7 @@ interface AdminArticleItemProps {
   onMove: (fromIndex: number, toIndex: number) => void;
 }
 
+
 function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove }: AdminArticleItemProps) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ADMIN_DND_TYPE,
@@ -129,7 +130,7 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
 
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ADMIN_DND_TYPE,
-    hover: (dragged: { index: number }) => {
+    drop: (dragged: { index: number }) => {
       if (dragged.index === index) return;
       onMove(dragged.index, index);
       dragged.index = index;
