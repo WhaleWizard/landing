@@ -214,10 +214,19 @@ function getTiktokPixelId(): string {
   return env('VITE_TIKTOK_PIXEL_ID');
 }
 
+
+function shouldUseTagManagerForAnalytics(): boolean {
+  const mode = env('VITE_ANALYTICS_RUNTIME').toLowerCase();
+  if (mode === 'direct') return false;
+  if (mode === 'gtm') return true;
+  return true;
+}
+
 export async function ensureAnalyticsLoaded(): Promise<void> {
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
   const gtmId = getGoogleTagManagerId();
+  const useTagManagerRuntime = shouldUseTagManagerForAnalytics();
 
   if (!analyticsConfigLogged) {
     console.info('[analytics] bootstrap config', {
@@ -225,11 +234,12 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
       gaId,
       ymId,
       hasDataLayer: Array.isArray((window as Window & { dataLayer?: unknown[] }).dataLayer),
+      analyticsRuntime: useTagManagerRuntime ? 'gtm' : 'direct',
     });
     analyticsConfigLogged = true;
   }
 
-  if (gtmId && !gtmLoaded) {
+  if (useTagManagerRuntime && gtmId && !gtmLoaded) {
     try {
       const win = window as Window & { dataLayer?: unknown[] };
       win.dataLayer = win.dataLayer || [];
@@ -241,7 +251,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (gaId && !gaLoaded) {
+  if (!useTagManagerRuntime && gaId && !gaLoaded) {
     try {
       await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
       (window as Window & { dataLayer?: unknown[] }).dataLayer = (window as Window & { dataLayer?: unknown[] }).dataLayer || [];
@@ -257,10 +267,14 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (ymId && !ymLoaded) {
+  if (!useTagManagerRuntime && ymId && !ymLoaded) {
     try {
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
-      const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+      const win = window as Window & {
+        ym?: (...args: unknown[]) => void;
+        dataLayer?: unknown[];
+        [key: `yaCounter${number}`]: unknown;
+      };
       win.dataLayer = win.dataLayer || [];
 
       if (!win.ym) {
@@ -269,7 +283,11 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
         };
       }
 
-      win.ym(ymId, 'init', {
+      const existingCounterKey = `yaCounter${ymId}` as const;
+      const hasExistingCounter = typeof win[existingCounterKey] !== 'undefined';
+
+      if (!hasExistingCounter) {
+        win.ym(ymId, 'init', {
         ssr: true,
         webvisor: true,
         clickmap: true,
@@ -279,6 +297,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
         accurateTrackBounce: true,
         trackLinks: true,
       });
+      }
       ymLoaded = true;
     } catch (error) {
       console.warn('[analytics] Yandex Metrika load failed', error);
