@@ -226,6 +226,12 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
+    // Check content type to ensure we have JSON, not HTML error pages
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Expected JSON response, got ${contentType || 'unknown'}`);
+    }
+
     const json = (await res.json()) as ArticlesResponse;
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
