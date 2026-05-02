@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
-  Search, Copy, Calendar, EyeOff, Upload
+  Search, Copy, Calendar, EyeOff, Upload, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
@@ -304,6 +304,31 @@ export default function Admin() {
     setSlugManuallyEdited(true);
   };
 
+  const handleReorder = async (slug: string, direction: 'up' | 'down') => {
+    const currentIndex = articles.findIndex((article) => article.slug === slug);
+    if (currentIndex === -1) return;
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= articles.length) return;
+
+    const reordered = [...articles];
+    const [moved] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+    const normalizedOrder = reordered.map((article, index) => ({ ...article, id: index + 1 }));
+
+    try {
+      const success = await updateArticles(normalizedOrder, password);
+      if (!success) {
+        alert('Не удалось сохранить новый порядок статей');
+        return;
+      }
+      await forceRefreshArticles();
+      await refreshHealth();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      alert('Ошибка при смене порядка: ' + message);
+    }
+  };
+
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (editingArticle) {
@@ -399,7 +424,11 @@ export default function Admin() {
                 <p className="text-sm text-[var(--adm-fg)]/60">Загрузка...</p>
               ) : (
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {filtered.map(article => (
+                  {filtered.map(article => {
+                    const articleIndex = articles.findIndex((item) => item.slug === article.slug);
+                    const canMoveUp = articleIndex > 0;
+                    const canMoveDown = articleIndex < articles.length - 1;
+                    return (
                     <div key={article.slug} className="flex items-center gap-2 p-2.5 rounded-xl bg-[var(--adm-card)] border border-[var(--adm-border)] hover:bg-[var(--adm-muted)]/50 transition-all">
                       <button onClick={() => { setEditingArticle(article); setSlugManuallyEdited(false); }} className="flex-1 text-left truncate">
                         <div className="font-medium truncate flex items-center gap-2">
@@ -417,11 +446,27 @@ export default function Admin() {
                       <button onClick={() => handleDuplicate(article)} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Дублировать">
                         <Copy className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={() => handleReorder(article.slug, 'up')}
+                        disabled={!canMoveUp}
+                        className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Переместить выше"
+                      >
+                        <ArrowUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleReorder(article.slug, 'down')}
+                        disabled={!canMoveDown}
+                        className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Переместить ниже"
+                      >
+                        <ArrowDown className="w-4 h-4" />
+                      </button>
                       <button onClick={() => handleDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors" title="Удалить">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </div>
