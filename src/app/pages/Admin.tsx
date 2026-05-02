@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
-  Search, Copy, Calendar, EyeOff, Upload, ArrowUp, ArrowDown
+  Search, Copy, Calendar, EyeOff, Upload, GripVertical
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
@@ -127,11 +127,23 @@ export default function Admin() {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [sourceLabel, setSourceLabel] = useState<string>('unknown');
+  const [orderedArticles, setOrderedArticles] = useState<Article[]>([]);
+  const [draggedSlug, setDraggedSlug] = useState<string | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const navigate = useNavigate();
   const faqText = editingArticle?.faq?.map((item) => `${item.question}::${item.answer}`).join('\n') || '';
   const takeawaysText = editingArticle?.keyTakeaways?.join('\n') || '';
 
-  const { query, setQuery, filtered } = useFilteredArticles(articles);
+  useEffect(() => {
+    setOrderedArticles(articles);
+  }, [articles]);
+
+  const hasOrderChanges = useMemo(() => {
+    if (orderedArticles.length !== articles.length) return false;
+    return orderedArticles.some((article, index) => article.slug !== articles[index]?.slug);
+  }, [orderedArticles, articles]);
+
+  const { query, setQuery, filtered } = useFilteredArticles(orderedArticles);
 
   const refreshHealth = async () => {
     try {
@@ -304,28 +316,24 @@ export default function Admin() {
     setSlugManuallyEdited(true);
   };
 
-  const handleReorder = async (slug: string, direction: 'up' | 'down') => {
-    const currentIndex = articles.findIndex((article) => article.slug === slug);
-    if (currentIndex === -1) return;
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= articles.length) return;
-
-    const reordered = [...articles];
-    const [moved] = reordered.splice(currentIndex, 1);
-    reordered.splice(targetIndex, 0, moved);
-    const normalizedOrder = reordered.map((article, index) => ({ ...article, id: index + 1 }));
-
+  const handleSaveOrder = async () => {
+    if (!hasOrderChanges) return;
+    const normalizedOrder = orderedArticles.map((article, index) => ({ ...article, id: index + 1 }));
+    setIsSavingOrder(true);
     try {
       const success = await updateArticles(normalizedOrder, password);
       if (!success) {
-        alert('Не удалось сохранить новый порядок статей');
+        alert('Не удалось сохранить порядок статей');
         return;
       }
       await forceRefreshArticles();
       await refreshHealth();
+      alert('Порядок статей сохранён');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      alert('Ошибка при смене порядка: ' + message);
+      alert('Ошибка при сохранении порядка: ' + message);
+    } finally {
+      setIsSavingOrder(false);
     }
   };
 
@@ -420,16 +428,45 @@ export default function Admin() {
                   className="w-full pl-10 pr-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/40 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                 />
               </div>
+              <div className="mb-3 flex gap-2">
+                <button
+                  onClick={handleSaveOrder}
+                  disabled={!hasOrderChanges || isSavingOrder}
+                  className="flex-1 px-3 py-2 rounded-xl bg-[var(--adm-primary)] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isSavingOrder ? 'Сохраняю порядок...' : 'Сохранить порядок'}
+                </button>
+              </div>
               {loading ? (
                 <p className="text-sm text-[var(--adm-fg)]/60">Загрузка...</p>
               ) : (
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
                   {filtered.map(article => {
-                    const articleIndex = articles.findIndex((item) => item.slug === article.slug);
-                    const canMoveUp = articleIndex > 0;
-                    const canMoveDown = articleIndex < articles.length - 1;
                     return (
-                    <div key={article.slug} className="flex items-center gap-2 p-2.5 rounded-xl bg-[var(--adm-card)] border border-[var(--adm-border)] hover:bg-[var(--adm-muted)]/50 transition-all">
+                    <div
+                      key={article.slug}
+                      draggable
+                      onDragStart={() => setDraggedSlug(article.slug)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        if (!draggedSlug || draggedSlug === article.slug) return;
+                        setOrderedArticles((prev) => {
+                          const from = prev.findIndex((x) => x.slug === draggedSlug);
+                          const to = prev.findIndex((x) => x.slug === article.slug);
+                          if (from === -1 || to === -1) return prev;
+                          const next = [...prev];
+                          const [moved] = next.splice(from, 1);
+                          next.splice(to, 0, moved);
+                          return next;
+                        });
+                        setDraggedSlug(null);
+                      }}
+                      onDragEnd={() => setDraggedSlug(null)}
+                      className="flex items-center gap-2 p-2.5 rounded-xl bg-[var(--adm-card)] border border-[var(--adm-border)] hover:bg-[var(--adm-muted)]/50 transition-all"
+                    >
+                      <span className="cursor-grab text-[var(--adm-fg)]/40">
+                        <GripVertical className="w-4 h-4" />
+                      </span>
                       <button onClick={() => { setEditingArticle(article); setSlugManuallyEdited(false); }} className="flex-1 text-left truncate">
                         <div className="font-medium truncate flex items-center gap-2">
                           {article.title}
