@@ -483,6 +483,22 @@ export default function Admin() {
                       <button onClick={() => handleDuplicate(article)} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Дублировать">
                         <Copy className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={() => handleReorder(article.slug, 'up')}
+                        disabled={!canMoveUp}
+                        className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Переместить выше"
+                      >
+                        <ArrowUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleReorder(article.slug, 'down')}
+                        disabled={!canMoveDown}
+                        className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Переместить ниже"
+                      >
+                        <ArrowDown className="w-4 h-4" />
+                      </button>
                       <button onClick={() => handleDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors" title="Удалить">
                         <Trash2 className="w-4 h-4" />
                       </button>
