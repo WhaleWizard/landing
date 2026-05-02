@@ -8,8 +8,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   const bypassCache = url.searchParams.has('_') || url.searchParams.get('cache') === 'no-store';
   const cacheKey = new Request(request.url, { method: 'GET' });
   if (!bypassCache) {
-    const cached = await matchCache(cacheKey);
-    if (cached) return cached;
+    try {
+      const cached = await matchCache(cacheKey);
+      if (cached) return cached;
+    } catch {
+      // Ignore edge cache failures and continue with live data fetch.
+    }
   }
 
   try {
@@ -34,7 +38,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     );
 
     if (!isEmpty && !bypassCache) {
-      waitUntil(putCache(cacheKey, response));
+      waitUntil(
+        putCache(cacheKey, response).catch(() => {
+          // Ignore cache write errors; response is already ready.
+        }),
+      );
     }
     return response;
   } catch (error) {

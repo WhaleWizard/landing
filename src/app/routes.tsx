@@ -61,6 +61,15 @@ function RootLayout() {
   );
 }
 
+function ApiArticleRedirect() {
+  useEffect(() => {
+    const nextUrl = `/api/articles${window.location.search}${window.location.hash}`;
+    window.location.replace(nextUrl);
+  }, []);
+
+  return null;
+}
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -82,6 +91,7 @@ export const router = createBrowserRouter([
       { path: 'meta-ads', element: <LazyWrapper><MetaAdsPage /></LazyWrapper> },
       { path: 'google-ads', element: <LazyWrapper><GoogleAdsPage /></LazyWrapper> },
       { path: 'consult', element: <LazyWrapper><ConsultPage /></LazyWrapper> },
+      { path: 'api/article', Component: ApiArticleRedirect },
     ],
   },
 ]);

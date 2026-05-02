@@ -34,16 +34,18 @@ export async function fetchArticlesWithFallback(env: Env, request: Request): Pro
     try {
       const d1Articles = await fetchArticlesFromD1(env);
       if (d1Articles.length > 0) return d1Articles;
+      console.warn('[articles] D1 returned empty dataset, continuing fallback chain.');
     } catch {
-      // fallback below
+      console.error('[articles] Failed to read from D1, continuing fallback chain.');
     }
   }
 
   try {
     const primary = await fetchArticlesFromJsonBin(env);
     if (primary.length > 0) return primary;
+    console.warn('[articles] JsonBin returned empty dataset, continuing fallback chain.');
   } catch {
-    // fallback below
+    console.error('[articles] Failed to read from JsonBin, continuing fallback chain.');
   }
 
   const siteUrl = (env.SITE_URL || new URL(request.url).origin).replace(/\/$/, '');
