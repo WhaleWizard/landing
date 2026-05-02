@@ -21,6 +21,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       if (article.publishedAt && article.publishedAt > now) return false;
       return true;
     });
+    visibleArticles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 
     const isEmpty = !Array.isArray(visibleArticles) || visibleArticles.length === 0;
     const response = json(
