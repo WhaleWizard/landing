@@ -76,7 +76,7 @@ function mapRowToArticle(row: D1Row): Article {
 export async function fetchArticlesFromD1(env: Env): Promise<Article[]> {
   if (!hasD1(env)) return [];
   const result = await env.DB
-    .prepare(`SELECT * FROM articles ORDER BY datetime(COALESCE(updated_at, published_at, date)) DESC, id DESC`)
+    .prepare(`SELECT * FROM articles ORDER BY id ASC`)
     .all<D1Row>();
   return (result.results || []).map(mapRowToArticle);
 }
