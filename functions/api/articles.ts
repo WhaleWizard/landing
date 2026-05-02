@@ -14,7 +14,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const now = new Date().toISOString();
-    const allArticles = await fetchArticlesWithFallback(env, request);
+    let allArticles: any[] = [];
+
+    try {
+      allArticles = await fetchArticlesWithFallback(env, request);
+    } catch (fetchError) {
+      // If fetchArticlesWithFallback fails completely, log the error but still return seed data
+      console.error('fetchArticlesWithFallback failed:', fetchError);
+      allArticles = [];
+    }
 
     const visibleArticles = allArticles.filter((article) => {
       if (article.status === 'draft') return false;

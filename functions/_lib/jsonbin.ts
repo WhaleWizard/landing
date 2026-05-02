@@ -177,7 +177,12 @@ function applyFreshnessMetadata(normalized: Article[], previousArticles: Article
   });
 }
 
-function buildPrimaryConfig(env: Env): JsonBinConfig {
+function buildPrimaryConfig(env: Env): JsonBinConfig | null {
+  // JSONBin is optional - if not configured, return null to trigger fallback
+  if (!env.JSONBIN_BIN_ID) {
+    return null;
+  }
+
   return {
     binId: env.JSONBIN_BIN_ID,
     masterKey: env.JSONBIN_MASTER_KEY,
@@ -267,10 +272,17 @@ export async function fetchArticlesFromJsonBin(env: Env): Promise<Article[]> {
 
   const readErrors: string[] = [];
 
-  try {
-    return await fetchArticlesFromConfig(primaryConfig);
-  } catch (error) {
-    readErrors.push(error instanceof Error ? error.message : 'Unknown primary JSONBin read error');
+  // If neither config is available, JSONBin is not configured
+  if (!primaryConfig && !backupConfig) {
+    throw new Error('JSONBin not configured - will use fallback articles');
+  }
+
+  if (primaryConfig) {
+    try {
+      return await fetchArticlesFromConfig(primaryConfig);
+    } catch (error) {
+      readErrors.push(error instanceof Error ? error.message : 'Unknown primary JSONBin read error');
+    }
   }
 
   if (backupConfig) {
@@ -290,15 +302,22 @@ export async function writeArticlesToJsonBin(env: Env, articles: Article[], prev
 
   const primaryConfig = buildPrimaryConfig(env);
   const backupConfig = buildBackupConfig(env);
-  const writeErrors: string[] = [];
 
+  // If neither config is available, JSONBin is not configured
+  if (!primaryConfig && !backupConfig) {
+    throw new Error('JSONBin not configured - cannot write articles');
+  }
+
+  const writeErrors: string[] = [];
   let primaryOk = false;
 
-  try {
-    await writeArticlesToConfig(primaryConfig, freshnessSafeArticles);
-    primaryOk = true;
-  } catch (error) {
-    writeErrors.push(error instanceof Error ? error.message : 'Unknown primary JSONBin write error');
+  if (primaryConfig) {
+    try {
+      await writeArticlesToConfig(primaryConfig, freshnessSafeArticles);
+      primaryOk = true;
+    } catch (error) {
+      writeErrors.push(error instanceof Error ? error.message : 'Unknown primary JSONBin write error');
+    }
   }
 
   if (backupConfig) {
