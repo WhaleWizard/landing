@@ -98,12 +98,18 @@ function didArticleChange(previous: Article | undefined, next: Article): boolean
 }
 
 export function normalizeArticles(rawArticles: unknown[]): Article[] {
-  const usedSlugs = new Set<string>();
-  const usedIds = new Set<number>();
-  let nextGeneratedId = 1;
+  try {
+    if (!Array.isArray(rawArticles)) {
+      console.warn('normalizeArticles: input is not array');
+      return [];
+    }
 
-  return rawArticles.map((rawArticle, index) => {
-    const article = (rawArticle ?? {}) as Partial<Article>;
+    const usedSlugs = new Set<string>();
+    const usedIds = new Set<number>();
+    let nextGeneratedId = 1;
+
+    return rawArticles.map((rawArticle, index) => {
+      const article = (rawArticle ?? {}) as Partial<Article>;
     const baseSlug = toSafeSlug(article.slug || article.title || '', `article-${index + 1}`);
     let uniqueSlug = baseSlug;
     let suffix = 2;
@@ -149,6 +155,10 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       faq: extractFaq(article),
     };
   });
+  } catch (error) {
+    console.error('normalizeArticles error:', error instanceof Error ? error.message : String(error));
+    return [];
+  }
 }
 
 function applyFreshnessMetadata(normalized: Article[], previousArticles: Article[]): Article[] {
@@ -233,24 +243,29 @@ function getJsonBinWriteHeaders(config: JsonBinConfig): HeadersInit {
 }
 
 async function fetchArticlesFromConfig(config: JsonBinConfig): Promise<Article[]> {
-  const response = await fetch(`${getJsonBinBase(config)}/latest`, {
-    method: 'GET',
-    headers: getJsonBinReadHeaders(config),
-    cf: {
-      cacheEverything: false,
-      cacheTtl: 0,
-    },
-  });
+  try {
+    const response = await fetch(`${getJsonBinBase(config)}/latest`, {
+      method: 'GET',
+      headers: getJsonBinReadHeaders(config),
+      cf: {
+        cacheEverything: false,
+        cacheTtl: 0,
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(`JSONBin read failed for ${config.binId}: HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`JSONBin read failed for ${config.binId}: HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { record?: unknown[] | { articles?: unknown[] } };
+    const articles = Array.isArray(payload?.record)
+      ? payload.record
+      : (Array.isArray(payload?.record?.articles) ? payload.record.articles : []);
+    return normalizeArticles(articles);
+  } catch (error) {
+    console.error('fetchArticlesFromConfig error:', error instanceof Error ? error.message : String(error));
+    throw error;
   }
-
-  const payload = (await response.json()) as { record?: unknown[] | { articles?: unknown[] } };
-  const articles = Array.isArray(payload?.record)
-    ? payload.record
-    : (Array.isArray(payload?.record?.articles) ? payload.record.articles : []);
-  return normalizeArticles(articles);
 }
 
 async function writeArticlesToConfig(config: JsonBinConfig, articles: Article[]): Promise<void> {
