@@ -4,32 +4,43 @@ import { json } from '../_lib/http';
 import type { Env } from '../_lib/types';
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const url = new URL(request.url);
-  const bypassCache = url.searchParams.has('_') || url.searchParams.get('cache') === 'no-store';
-  const cacheKey = new Request(request.url, { method: 'GET' });
-  if (!bypassCache) {
-    const cached = await matchCache(cacheKey);
-    if (cached) return cached;
-  }
-
   try {
+    const url = new URL(request.url);
+    const bypassCache = url.searchParams.has('_') || url.searchParams.get('cache') === 'no-store';
+    const cacheKey = new Request(request.url, { method: 'GET' });
+    if (!bypassCache) {
+      try {
+        const cached = await matchCache(cacheKey);
+        if (cached) return cached;
+      } catch (cacheError) {
+        console.warn('Cache lookup failed:', cacheError);
+      }
+    }
+
     const now = new Date().toISOString();
-    let allArticles: any[] = [];
+    let allArticles = [];
 
     try {
       allArticles = await fetchArticlesWithFallback(env, request);
     } catch (fetchError) {
-      // If fetchArticlesWithFallback fails completely, log the error but still return seed data
-      console.error('fetchArticlesWithFallback failed:', fetchError);
-      allArticles = [];
+      console.error('fetchArticlesWithFallback error:', fetchError);
+      // Continue with empty array - will use seed data below
     }
 
-    const visibleArticles = allArticles.filter((article) => {
-      if (article.status === 'draft') return false;
-      if (article.publishedAt && article.publishedAt > now) return false;
-      return true;
-    });
-    visibleArticles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+    // Safely filter articles
+    let visibleArticles = [];
+    try {
+      visibleArticles = (allArticles || []).filter((article) => {
+        if (!article) return false;
+        if (article.status === 'draft') return false;
+        if (article.publishedAt && article.publishedAt > now) return false;
+        return true;
+      });
+      visibleArticles.sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
+    } catch (filterError) {
+      console.error('Error filtering articles:', filterError);
+      visibleArticles = [];
+    }
 
     const isEmpty = !Array.isArray(visibleArticles) || visibleArticles.length === 0;
     const response = json(
@@ -42,19 +53,24 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     );
 
     if (!isEmpty && !bypassCache) {
-      waitUntil(putCache(cacheKey, response));
+      try {
+        waitUntil(putCache(cacheKey, response));
+      } catch (cacheError) {
+        console.warn('Cache put failed:', cacheError);
+      }
     }
     return response;
   } catch (error) {
+    console.error('Unhandled error in articles endpoint:', error);
     return json(
       {
         error: 'Failed to load articles',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.message : String(error),
       },
       {
         status: 502,
         headers: {
-          'Cache-Control': CACHE_CONTROL.noStore,
+          'Cache-Control': 'no-store',
         },
       },
     );

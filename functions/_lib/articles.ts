@@ -19,11 +19,16 @@ async function fetchSeedArticles(siteUrl: string): Promise<Article[]> {
       },
     });
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.warn(`Seed file fetch failed: ${response.status}`);
+      return [];
+    }
 
     const payload = (await response.json()) as SeedPayload;
-    return Array.isArray(payload?.articles) ? normalizeArticles(payload.articles) : [];
-  } catch {
+    const articles = Array.isArray(payload?.articles) ? payload.articles : [];
+    return articles.length > 0 ? normalizeArticles(articles) : [];
+  } catch (error) {
+    console.error('Error fetching seed articles:', error instanceof Error ? error.message : String(error));
     return [];
   }
 }
@@ -33,19 +38,30 @@ export async function fetchArticlesWithFallback(env: Env, request: Request): Pro
   if (useD1) {
     try {
       const d1Articles = await fetchArticlesFromD1(env);
-      if (d1Articles.length > 0) return d1Articles;
-    } catch {
-      // fallback below
+      if (d1Articles.length > 0) {
+        console.log('Using D1 articles');
+        return d1Articles;
+      }
+    } catch (error) {
+      console.warn('D1 fetch failed:', error instanceof Error ? error.message : String(error));
     }
   }
 
   try {
     const primary = await fetchArticlesFromJsonBin(env);
-    if (primary.length > 0) return primary;
-  } catch {
-    // fallback below
+    if (primary.length > 0) {
+      console.log('Using JSONBin articles');
+      return primary;
+    }
+  } catch (error) {
+    console.warn('JSONBin fetch failed:', error instanceof Error ? error.message : String(error));
   }
 
+  console.log('Using seed articles as fallback');
   const siteUrl = (env.SITE_URL || new URL(request.url).origin).replace(/\/$/, '');
-  return fetchSeedArticles(siteUrl);
+  const seedArticles = await fetchSeedArticles(siteUrl);
+  if (seedArticles.length === 0) {
+    console.warn('No articles available from any source');
+  }
+  return seedArticles;
 }
