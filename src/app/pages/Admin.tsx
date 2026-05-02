@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
-  Search, Copy, Calendar, EyeOff, Upload, ArrowUp, ArrowDown
+  Search, Copy, Calendar, EyeOff, Upload, GripVertical
 } from 'lucide-react';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
 import { API_ROUTES } from '../config';
@@ -101,6 +103,67 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
       <div className="bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
         {children}
       </div>
+    </div>
+  );
+}
+
+
+
+const ADMIN_DND_TYPE = 'ADMIN_ARTICLE_ITEM';
+
+interface AdminArticleItemProps {
+  article: Article;
+  index: number;
+  onEdit: (article: Article) => void;
+  onDuplicate: (article: Article) => void;
+  onDelete: (slug: string) => void;
+  onMove: (fromIndex: number, toIndex: number) => void;
+}
+
+function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove }: AdminArticleItemProps) {
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: ADMIN_DND_TYPE,
+    item: { index },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  }), [index]);
+
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: ADMIN_DND_TYPE,
+    hover: (dragged: { index: number }) => {
+      if (dragged.index === index) return;
+      onMove(dragged.index, index);
+      dragged.index = index;
+    },
+    collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
+  }), [index, onMove]);
+
+  return (
+    <div
+      ref={(node) => drag(drop(node))}
+      className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'} ${isDragging ? 'opacity-60' : ''}`}
+    >
+      <button className="p-1.5 rounded-lg text-[var(--adm-fg)]/50 cursor-grab active:cursor-grabbing" title="Перетащить">
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <button onClick={() => onEdit(article)} className="flex-1 text-left truncate">
+        <div className="font-medium truncate flex items-center gap-2">
+          {article.title}
+          {article.status === 'draft' ? (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">черновик</span>
+          ) : article.publishedAt && new Date(article.publishedAt) > new Date() ? (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">запланирована</span>
+          ) : (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">опубл.</span>
+          )}
+        </div>
+        <div className="text-xs text-[var(--adm-fg)]/60 truncate">{article.slug}</div>
+      </button>
+      <button onClick={() => onDuplicate(article)} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Дублировать">
+        <Copy className="w-4 h-4" />
+      </button>
+      <button onClick={() => onDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors" title="Удалить">
+        <Trash2 className="w-4 h-4" />
+      </button>
     </div>
   );
 }
@@ -304,30 +367,24 @@ export default function Admin() {
     setSlugManuallyEdited(true);
   };
 
-  const handleReorder = async (slug: string, direction: 'up' | 'down') => {
-    const currentIndex = articles.findIndex((article) => article.slug === slug);
-    if (currentIndex === -1) return;
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= articles.length) return;
 
+  const moveArticle = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= articles.length || toIndex >= articles.length) return;
     const reordered = [...articles];
-    const [moved] = reordered.splice(currentIndex, 1);
-    reordered.splice(targetIndex, 0, moved);
-    const normalizedOrder = reordered.map((article, index) => ({ ...article, id: index + 1 }));
-
-    try {
-      const success = await updateArticles(normalizedOrder, password);
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    updateArticles(reordered, password).then(async (success) => {
       if (!success) {
         alert('Не удалось сохранить новый порядок статей');
-        return;
       }
       await forceRefreshArticles();
       await refreshHealth();
-    } catch (err) {
+    }).catch(async (err) => {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       alert('Ошибка при смене порядка: ' + message);
-    }
-  };
+      await forceRefreshArticles();
+    });
+  }, [articles, forceRefreshArticles, password, updateArticles]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -423,51 +480,24 @@ export default function Admin() {
               {loading ? (
                 <p className="text-sm text-[var(--adm-fg)]/60">Загрузка...</p>
               ) : (
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {filtered.map(article => {
-                    const articleIndex = articles.findIndex((item) => item.slug === article.slug);
-                    const canMoveUp = articleIndex > 0;
-                    const canMoveDown = articleIndex < articles.length - 1;
-                    return (
-                    <div key={article.slug} className="flex items-center gap-2 p-2.5 rounded-xl bg-[var(--adm-card)] border border-[var(--adm-border)] hover:bg-[var(--adm-muted)]/50 transition-all">
-                      <button onClick={() => { setEditingArticle(article); setSlugManuallyEdited(false); }} className="flex-1 text-left truncate">
-                        <div className="font-medium truncate flex items-center gap-2">
-                          {article.title}
-                          {article.status === 'draft' ? (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">черновик</span>
-                          ) : article.publishedAt && new Date(article.publishedAt) > new Date() ? (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">запланирована</span>
-                          ) : (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">опубл.</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-[var(--adm-fg)]/60 truncate">{article.slug}</div>
-                      </button>
-                      <button onClick={() => handleDuplicate(article)} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Дублировать">
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleReorder(article.slug, 'up')}
-                        disabled={!canMoveUp}
-                        className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Переместить выше"
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleReorder(article.slug, 'down')}
-                        disabled={!canMoveDown}
-                        className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Переместить ниже"
-                      >
-                        <ArrowDown className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors" title="Удалить">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )})}
-                </div>
+                <DndProvider backend={HTML5Backend}>
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    {filtered.map((article) => {
+                      const articleIndex = articles.findIndex((item) => item.slug === article.slug);
+                      return (
+                        <AdminArticleItem
+                          key={article.slug}
+                          article={article}
+                          index={articleIndex}
+                          onEdit={(item) => { setEditingArticle(item); setSlugManuallyEdited(false); }}
+                          onDuplicate={handleDuplicate}
+                          onDelete={handleDelete}
+                          onMove={moveArticle}
+                        />
+                      );
+                    })}
+                  </div>
+                </DndProvider>
               )}
             </div>
 
