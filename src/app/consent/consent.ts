@@ -260,7 +260,11 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
   if (ymId && !ymLoaded) {
     try {
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
-      const win = window as Window & { ym?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+      const win = window as Window & {
+        ym?: (...args: unknown[]) => void;
+        dataLayer?: unknown[];
+        [key: `yaCounter${number}`]: unknown;
+      };
       win.dataLayer = win.dataLayer || [];
 
       if (!win.ym) {
@@ -269,7 +273,11 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
         };
       }
 
-      win.ym(ymId, 'init', {
+      const existingCounterKey = `yaCounter${ymId}` as const;
+      const hasExistingCounter = typeof win[existingCounterKey] !== 'undefined';
+
+      if (!hasExistingCounter) {
+        win.ym(ymId, 'init', {
         ssr: true,
         webvisor: true,
         clickmap: true,
@@ -279,6 +287,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
         accurateTrackBounce: true,
         trackLinks: true,
       });
+      }
       ymLoaded = true;
     } catch (error) {
       console.warn('[analytics] Yandex Metrika load failed', error);
