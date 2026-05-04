@@ -119,7 +119,7 @@ function Services() {
       <section id="services" ref={sectionRef} className="relative py-16 md:py-24 overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent pointer-events-none -z-10" />
+        <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent pointer-events-none -z-10 md:hidden" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -208,7 +208,7 @@ function Services() {
                   <div className="relative z-10 mt-8 pt-4 border-t border-border/50">
                     <button
                       onClick={openModal}
-                      className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors group/btn"
+                      className="inline-flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3.5 py-2 text-sm font-medium text-primary hover:bg-primary/[0.1] hover:border-primary/40 transition-all duration-200 group/btn"
                     >
                       <Info className="w-4 h-4" />
                       <span>Подробнее о работе</span>
@@ -283,7 +283,7 @@ function Services() {
                           <div className="mt-6 pt-4 border-t border-border/50">
                             <button
                               onClick={openModal}
-                              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors w-full justify-center"
+                              className="inline-flex w-full justify-center items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3.5 py-2 text-sm font-medium text-primary hover:bg-primary/[0.1] hover:border-primary/40 transition-all duration-200"
                             >
                               <Info className="w-4 h-4" />
                               <span>Подробнее о работе</span>
