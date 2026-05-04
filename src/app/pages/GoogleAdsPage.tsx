@@ -269,7 +269,7 @@ function GoogleAdsPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-background to-background" />
-          <InteractiveBackground variant="digital" particleCount={isMobile ? 10 : 26} interactive={!isMobile && !prefersReducedMotion} />
+          <InteractiveBackground variant="digital" particleCount={isMobile ? 6 : 16} interactive={!isMobile && !prefersReducedMotion} />
         </div>
 
         {/* Gradient Overlay */}

@@ -244,7 +244,7 @@ function ConsultPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#1a0a2e] via-background to-background" />
-          <InteractiveBackground variant="ethereal" particleCount={isMobile ? 10 : 26} interactive={!isMobile && !prefersReducedMotion} />
+          <InteractiveBackground variant="ethereal" particleCount={isMobile ? 6 : 16} interactive={!isMobile && !prefersReducedMotion} />
         </div>
 
         {/* Gradient Overlay */}
