@@ -31,9 +31,9 @@ function PageHeroVisualBase({ variant }: PageHeroVisualProps) {
       initial={{ opacity: 0, x: 24 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: reduceMotion ? 0.15 : 0.55, ease: [0.22, 1, 0.36, 1] }}
-      className="order-1 lg:order-2 relative w-full min-h-[380px] sm:min-h-[470px] lg:min-h-[600px]"
+      className="order-1 lg:order-2 relative w-full min-h-[380px] sm:min-h-[470px] lg:min-h-[640px] lg:w-[50vw] lg:mr-[calc(50%-50vw)]"
     >
-      <div className="absolute inset-0 -left-[8%] lg:-left-[20%] lg:-right-[18%] will-change-transform">
+      <div className="absolute inset-0 -left-[6%] right-0 lg:-left-[14%] lg:right-0 will-change-transform">
         {!videoFailed ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"
@@ -55,9 +55,9 @@ function PageHeroVisualBase({ variant }: PageHeroVisualProps) {
           />
         )}
 
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(94deg,rgba(7,7,14,0.99)_0%,rgba(7,7,14,0.91)_18%,rgba(7,7,14,0.68)_34%,rgba(7,7,14,0.24)_51%,rgba(7,7,14,0.47)_100%)]" />
-        <div className="pointer-events-none absolute inset-y-0 left-[18%] w-[34%] bg-[radial-gradient(circle_at_center,rgba(129,140,248,0.2),transparent_72%)] blur-3xl" />
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-[30%] bg-gradient-to-r from-background via-background/65 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(94deg,rgba(7,7,14,1)_0%,rgba(7,7,14,0.95)_14%,rgba(7,7,14,0.72)_29%,rgba(7,7,14,0.2)_47%,rgba(7,7,14,0.42)_100%)]" />
+        <div className="pointer-events-none absolute inset-y-0 left-[14%] w-[36%] bg-[radial-gradient(circle_at_center,rgba(129,140,248,0.22),transparent_72%)] blur-3xl" />
+        <div className="pointer-events-none absolute inset-y-0 -left-[1px] w-[42%] bg-gradient-to-r from-background via-background/72 to-transparent" />
         <div className="pointer-events-none absolute inset-0 opacity-[0.16] bg-[linear-gradient(to_right,rgba(52,211,153,0.3)_1px,transparent_1px),linear-gradient(to_bottom,rgba(139,92,246,0.22)_1px,transparent_1px)] bg-[size:54px_54px]" />
         <div className="pointer-events-none absolute inset-0 opacity-45 mix-blend-screen bg-[radial-gradient(circle_at_78%_30%,rgba(56,189,248,0.26),transparent_34%),radial-gradient(circle_at_68%_72%,rgba(168,85,247,0.24),transparent_37%)]" />
 
