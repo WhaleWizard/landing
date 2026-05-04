@@ -58,18 +58,15 @@ function PageHeroVisualBase({ variant }: PageHeroVisualProps) {
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(94deg,rgba(7,7,14,1)_0%,rgba(7,7,14,0.95)_14%,rgba(7,7,14,0.72)_29%,rgba(7,7,14,0.2)_47%,rgba(7,7,14,0.42)_100%)]" />
         <div className="pointer-events-none absolute inset-y-0 left-[14%] w-[36%] bg-[radial-gradient(circle_at_center,rgba(129,140,248,0.22),transparent_72%)] blur-3xl" />
         <div className="pointer-events-none absolute inset-y-0 -left-[1px] w-[42%] bg-gradient-to-r from-background via-background/72 to-transparent" />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.16] bg-[linear-gradient(to_right,rgba(52,211,153,0.3)_1px,transparent_1px),linear-gradient(to_bottom,rgba(139,92,246,0.22)_1px,transparent_1px)] bg-[size:54px_54px]" />
-        <div className="pointer-events-none absolute inset-0 opacity-45 mix-blend-screen bg-[radial-gradient(circle_at_78%_30%,rgba(56,189,248,0.26),transparent_34%),radial-gradient(circle_at_68%_72%,rgba(168,85,247,0.24),transparent_37%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08] bg-[linear-gradient(to_right,rgba(255,255,255,0.28)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.2)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        <div className="pointer-events-none absolute inset-0 opacity-25 mix-blend-screen bg-[radial-gradient(circle_at_72%_35%,rgba(56,189,248,0.22),transparent_38%)]" />
 
         {!reduceMotion && (
           <>
             <div className="pointer-events-none absolute inset-x-0 -top-24 h-24 bg-gradient-to-b from-violet-400/24 via-indigo-400/14 to-transparent animate-[scanline_9s_linear_infinite]" />
-            <div className="pointer-events-none absolute top-0 right-[6%] h-full w-[2px] bg-gradient-to-b from-cyan-300/0 via-cyan-300/90 to-cyan-300/0 shadow-[0_0_18px_rgba(34,211,238,0.9)] animate-[verticalScanner_3.6s_linear_infinite]" />
-            <div className="pointer-events-none absolute inset-y-0 right-[6%] w-[18%] bg-gradient-to-l from-cyan-300/18 via-cyan-300/6 to-transparent animate-[scannerBloom_3.6s_ease-in-out_infinite]" />
-            <div className="pointer-events-none absolute inset-y-0 right-[9%] w-[1px] bg-cyan-300/50 animate-[dataRain_6s_linear_infinite]" />
-            <div className="pointer-events-none absolute -right-24 top-[10%] h-72 w-72 bg-violet-500/16 blur-[120px] animate-[glowPulse_6.5s_ease-in-out_infinite]" />
-            <div className="pointer-events-none absolute right-[12%] bottom-[2%] h-56 w-56 bg-indigo-500/12 blur-[110px] animate-[glowPulse_7.8s_ease-in-out_infinite]" />
-            <div className="pointer-events-none absolute left-[40%] top-[14%] h-[2px] w-24 bg-cyan-300/70 shadow-[0_0_18px_rgba(34,211,238,0.7)] animate-[hudSweep_4.8s_ease-in-out_infinite]" />
+            <div className="pointer-events-none absolute top-0 right-[8%] h-full w-[2px] bg-gradient-to-b from-cyan-300/0 via-cyan-300/85 to-cyan-300/0 shadow-[0_0_14px_rgba(34,211,238,0.72)] animate-[verticalScanner_5.2s_ease-in-out_infinite]" />
+            <div className="pointer-events-none absolute inset-y-0 right-[8%] w-[12%] bg-gradient-to-l from-cyan-300/12 to-transparent animate-[scannerBloom_5.2s_ease-in-out_infinite]" />
+            <div className="pointer-events-none absolute -right-20 top-[14%] h-60 w-60 bg-violet-500/14 blur-[110px] animate-[glowPulse_8s_ease-in-out_infinite]" />
           </>
         )}
       </div>

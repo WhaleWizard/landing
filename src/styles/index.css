@@ -27,15 +27,3 @@
   0%, 100% { opacity: 0.25; }
   50% { opacity: 0.6; }
 }
-
-@keyframes hudSweep {
-  0% { transform: translateX(-18px); opacity: 0.3; }
-  50% { transform: translateX(42px); opacity: 0.95; }
-  100% { transform: translateX(-18px); opacity: 0.3; }
-}
-
-@keyframes dataRain {
-  0% { background-position: 0 -140px; opacity: 0.1; }
-  35% { opacity: 0.6; }
-  100% { background-position: 0 140px; opacity: 0.1; }
-}
