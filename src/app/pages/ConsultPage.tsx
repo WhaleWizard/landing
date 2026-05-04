@@ -18,7 +18,6 @@ import {
   DollarSign,
   FileText,
   Star,
-  GraduationCap,
   MapPin,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -271,7 +270,6 @@ function ConsultPage() {
                   transition={{ delay: 0.2 }}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 backdrop-blur-xl"
                 >
-                  <GraduationCap className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium text-primary">
                     Консультация для таргетологов
                   </span>
