@@ -64,8 +64,8 @@ function PageHeroVisualBase({ variant }: PageHeroVisualProps) {
         {!reduceMotion && (
           <>
             <div className="pointer-events-none absolute inset-x-0 -top-24 h-24 bg-gradient-to-b from-violet-400/24 via-indigo-400/14 to-transparent animate-[scanline_9s_linear_infinite]" />
-            <div className="pointer-events-none absolute top-0 right-[8%] h-full w-[2px] bg-gradient-to-b from-cyan-300/0 via-cyan-300/85 to-cyan-300/0 shadow-[0_0_14px_rgba(34,211,238,0.72)] animate-[verticalScanner_5.2s_ease-in-out_infinite]" />
-            <div className="pointer-events-none absolute inset-y-0 right-[8%] w-[12%] bg-gradient-to-l from-cyan-300/12 to-transparent animate-[scannerBloom_5.2s_ease-in-out_infinite]" />
+            <div className="pointer-events-none absolute top-[10%] left-[12%] right-[8%] h-px bg-gradient-to-r from-transparent via-cyan-300/55 to-transparent opacity-60 animate-[glowPulse_8s_ease-in-out_infinite]" />
+            <div className="pointer-events-none absolute bottom-[12%] left-[10%] right-[14%] h-px bg-gradient-to-r from-transparent via-violet-300/50 to-transparent opacity-50 animate-[glowPulse_9s_ease-in-out_infinite]" />
             <div className="pointer-events-none absolute -right-20 top-[14%] h-60 w-60 bg-violet-500/14 blur-[110px] animate-[glowPulse_8s_ease-in-out_infinite]" />
           </>
         )}
