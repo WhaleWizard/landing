@@ -1,5 +1,6 @@
-import { memo, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useMotionTemplate, useMotionValue, useSpring } from 'motion/react';
+import HeroAnimation from './HeroAnimation';
 
 type Variant = 'meta' | 'google' | 'consult';
 
@@ -12,17 +13,33 @@ function PageHeroVisualBase({ variant, isMobile = false }: PageHeroVisualProps) 
   const cardRef = useRef<HTMLDivElement>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
+  const [reducedMode, setReducedMode] = useState(false);
 
   const smoothX = useSpring(mouseX, { damping: 30, stiffness: 150 });
   const smoothY = useSpring(mouseY, { damping: 30, stiffness: 150 });
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => {
+      const lowMemory =
+        'deviceMemory' in navigator &&
+        typeof (navigator as Navigator & { deviceMemory?: number }).deviceMemory === 'number' &&
+        ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4;
+      setReducedMode(media.matches || lowMemory);
+    };
+
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isMobile || !cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    mouseX.set(x / 8);
-    mouseY.set(y / 8);
+    mouseX.set(x / 12);
+    mouseY.set(y / 12);
   };
 
   const handleMouseLeave = () => {
@@ -33,34 +50,34 @@ function PageHeroVisualBase({ variant, isMobile = false }: PageHeroVisualProps) 
   const config = useMemo(() => {
     if (variant === 'meta') {
       return {
-        title: 'Attention Engine',
-        subtitle: 'Reels • Stories • Feed',
+        title: 'Cyber Whale in Social Ocean',
+        subtitle: 'Attention flows into measurable demand',
         glow: 'from-[#E1306C]/40 via-[#833AB4]/25 to-[#405DE6]/35',
         border: 'border-[#E1306C]/30',
-        chips: ['CTR +42%', 'CPL -27%', 'ROAS x3.1'],
+        chips: ['❤️ Engagement', '💬 Dialogue', '▶️ Video Intent'],
       };
     }
 
     if (variant === 'google') {
       return {
-        title: 'Performance Core',
-        subtitle: 'Search • PMax • Shopping',
+        title: 'Data City Command Center',
+        subtitle: 'Traffic paths optimized in real time',
         glow: 'from-[#4285f4]/35 via-[#34a853]/20 to-[#fbbc04]/30',
         border: 'border-[#4285f4]/30',
-        chips: ['CPC -36%', 'QS 8.9', 'Conv. +58%'],
+        chips: ['🔍 Search', '🎯 Intent Match', '💰 Conversion Pulse'],
       };
     }
 
     return {
-      title: 'Growth System',
-      subtitle: 'Strategy • Offer • Pipeline',
+      title: 'Mentor Chamber',
+      subtitle: 'Structured growth from offer to closing',
       glow: 'from-primary/40 via-accent/25 to-secondary/35',
       border: 'border-primary/30',
-      chips: ['Clients +', 'Offer ↑', 'Income ↑'],
+      chips: ['🧠 Offer', '🧲 Leadgen', '📞 Sales Path'],
     };
   }, [variant]);
 
-  const overlay = useMotionTemplate`radial-gradient(500px circle at ${smoothX}px ${smoothY}px, rgba(255,255,255,0.12), transparent 45%)`;
+  const overlay = useMotionTemplate`radial-gradient(460px circle at ${smoothX}px ${smoothY}px, rgba(255,255,255,0.12), transparent 45%)`;
 
   return (
     <motion.div
@@ -78,16 +95,26 @@ function PageHeroVisualBase({ variant, isMobile = false }: PageHeroVisualProps) 
           rotateY: isMobile ? 0 : smoothX,
           transformPerspective: 1200,
         }}
-        className={`relative overflow-hidden rounded-3xl border ${config.border} bg-card/45 p-6 sm:p-8 backdrop-blur-2xl shadow-2xl`}
+        className={`relative overflow-hidden rounded-3xl border ${config.border} bg-card/45 p-4 sm:p-6 backdrop-blur-2xl shadow-2xl`}
       >
         <div className={`absolute -inset-20 bg-gradient-to-br ${config.glow} blur-3xl`} />
         <motion.div className="absolute inset-0" style={{ background: overlay }} />
 
-        <div className="relative z-10 space-y-6">
+        <div className="relative z-10 space-y-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Live Signal</p>
-            <h3 className="mt-2 text-2xl sm:text-3xl font-semibold text-white">{config.title}</h3>
+            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Live Scene</p>
+            <h3 className="mt-2 text-xl sm:text-2xl font-semibold text-white">{config.title}</h3>
             <p className="mt-2 text-sm text-white/70">{config.subtitle}</p>
+          </div>
+
+          <div className="relative h-[220px] sm:h-[260px] rounded-2xl overflow-hidden border border-white/10 bg-black/30">
+            {!reducedMode ? (
+              <HeroAnimation variant={variant} className="h-full w-full" />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-white/60 text-sm">
+                Static cinematic fallback
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -101,21 +128,6 @@ function PageHeroVisualBase({ variant, isMobile = false }: PageHeroVisualProps) 
               >
                 {chip}
               </motion.div>
-            ))}
-          </div>
-
-          <div className="space-y-3">
-            {[72, 54, 89].map((v, idx) => (
-              <div key={idx} className="space-y-1">
-                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${v}%` }}
-                    transition={{ duration: 1.2, delay: 0.35 + idx * 0.1, ease: [0.22, 1, 0.36, 1] }}
-                    className="h-full rounded-full bg-gradient-to-r from-white/70 to-white/30"
-                  />
-                </div>
-              </div>
             ))}
           </div>
         </div>
