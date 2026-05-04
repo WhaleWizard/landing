@@ -244,7 +244,8 @@ function GoogleAdsPage() {
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
   const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
-  const revealTransition = { duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] as const };
+  const shouldAnimate = !isMobile && !prefersReducedMotion;
+  const revealTransition = { duration: shouldAnimate ? 0.35 : 0, ease: [0.22, 1, 0.36, 1] as const };
   const revealViewport = { once: true, margin: '-60px', amount: 0.2 };
 
   const scrollToContact = useCallback(() => {
@@ -401,8 +402,8 @@ function GoogleAdsPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={revealViewport}
+            whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+            viewport={shouldAnimate ? revealViewport : undefined}
             transition={revealTransition}
             className="text-center mb-16"
           >
@@ -420,8 +421,8 @@ function GoogleAdsPage() {
               <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
+                  whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+                  viewport={shouldAnimate ? { once: true } : undefined}
                   transition={{ delay: index * 0.15 }}
                   className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-xl`}
                 >
@@ -444,8 +445,8 @@ function GoogleAdsPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={revealViewport}
+            whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+            viewport={shouldAnimate ? revealViewport : undefined}
             transition={revealTransition}
             className="text-center mb-16"
           >
@@ -465,8 +466,8 @@ function GoogleAdsPage() {
                 <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
                   <motion.div
                     initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
+                    whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+                    viewport={shouldAnimate ? { once: true } : undefined}
                     transition={{ delay: index * 0.1 }}
                     className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl group hover:border-[#4285f4]/50 transition-all"
                   >
@@ -498,8 +499,8 @@ function GoogleAdsPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={revealViewport}
+            whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+            viewport={shouldAnimate ? revealViewport : undefined}
             transition={revealTransition}
             className="text-center mb-16"
           >
@@ -517,8 +518,8 @@ function GoogleAdsPage() {
               <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
+                  whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+                  viewport={shouldAnimate ? { once: true } : undefined}
                   transition={{ delay: index * 0.15 }}
                   className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
                 >
@@ -553,8 +554,8 @@ function GoogleAdsPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={revealViewport}
+            whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+            viewport={shouldAnimate ? revealViewport : undefined}
             transition={revealTransition}
             className="text-center mb-16"
           >
@@ -572,8 +573,8 @@ function GoogleAdsPage() {
               <motion.div
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
+                whileInView={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
+                viewport={shouldAnimate ? { once: true } : undefined}
                 transition={{ delay: index * 0.1 }}
                 className="flex items-center gap-3 p-4 rounded-xl bg-card/40 border border-border/30 backdrop-blur-sm"
               >
@@ -596,8 +597,8 @@ function GoogleAdsPage() {
             {/* Left - Text content */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={revealViewport}
+              whileInView={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
+              viewport={shouldAnimate ? revealViewport : undefined}
               transition={revealTransition}
               className="text-center lg:text-left"
             >
@@ -633,8 +634,8 @@ function GoogleAdsPage() {
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
+                    whileInView={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
+                    viewport={shouldAnimate ? { once: true } : undefined}
                     transition={{ delay: i * 0.1 }}
                     className="flex items-center gap-3"
                   >
@@ -653,8 +654,8 @@ function GoogleAdsPage() {
             {/* Right - Form */}
             <motion.div
               initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={revealViewport}
+              whileInView={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
+              viewport={shouldAnimate ? revealViewport : undefined}
               transition={{ ...revealTransition, delay: 0.2 }}
             >
               <LandingForm service="google-ads" />
