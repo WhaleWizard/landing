@@ -33,7 +33,7 @@ function PageHeroVisualBase({ variant }: PageHeroVisualProps) {
       transition={{ duration: reduceMotion ? 0.15 : 0.55, ease: [0.22, 1, 0.36, 1] }}
       className="order-1 lg:order-2 relative w-full min-h-[380px] sm:min-h-[470px] lg:min-h-[640px] lg:w-[50vw] lg:mr-[calc(50%-50vw)]"
     >
-      <div className="absolute inset-0 -left-[6%] right-0 lg:-left-[14%] lg:right-0 will-change-transform">
+      <div className="absolute inset-y-0 left-0 right-0 lg:-left-[14%] lg:right-0 will-change-transform">
         {!videoFailed ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"
