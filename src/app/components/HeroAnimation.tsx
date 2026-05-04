@@ -71,8 +71,8 @@ function MetaScene() {
       
       {/* Particle ring */}
       <Sparkles
-        count={100}
-        size={2}
+        count={70}
+        size={1.6}
         scale={[8, 8, 8]}
         speed={0.3}
         color="#E1306C"
@@ -143,8 +143,8 @@ function GoogleScene() {
       </mesh>
       
       <Sparkles
-        count={80}
-        size={1.5}
+        count={60}
+        size={1.2}
         scale={[7, 7, 7]}
         speed={0.2}
         color={googleColors.blue}
@@ -206,8 +206,8 @@ function ConsultScene() {
       <NetworkLines color="#8b5cf6" />
       
       <Sparkles
-        count={100}
-        size={2}
+        count={70}
+        size={1.6}
         scale={[8, 8, 8]}
         speed={0.25}
         color="#8b5cf6"
@@ -535,7 +535,7 @@ function SceneWrapper({ variant, children }: { variant: 'meta' | 'google' | 'con
       <spotLight position={[0, 8, -2]} angle={0.5} penumbra={1} intensity={0.4} color={lightColor} />
       
       <CameraController />
-      <Stars radius={50} depth={50} count={2000} factor={4} saturation={0.2} fade speed={0.3} />
+      <Stars radius={50} depth={50} count={1200} factor={4} saturation={0.2} fade speed={0.3} />
       
       {children}
       
@@ -597,11 +597,12 @@ export default function HeroAnimation({ variant, className = '' }: HeroAnimation
     >
       <Canvas
         camera={{ position: [0, 0.2, 6], fov: 50 }}
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
         gl={{ 
           antialias: true, 
           alpha: true,
           powerPreference: 'high-performance',
+          stencil: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.2,
         }}
