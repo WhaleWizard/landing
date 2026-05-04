@@ -25,6 +25,7 @@ import { Button } from '../components/ui/button';
 import { useIsMobile } from '../components/ui/use-mobile';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
+import PageHeroVisual from '../components/PageHeroVisual';
 
 // Animated counter component
 const AnimatedCounter = memo(({ value, suffix = '', prefix = '' }: { value: number; suffix?: string; prefix?: string }) => {
@@ -271,7 +272,7 @@ function MetaAdsPage() {
           style={{ opacity: heroOpacity, scale: heroScale }}
           className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 lg:pt-32 lg:pb-20"
         >
-          <div className="grid grid-cols-1 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-10 lg:gap-14">
             {/* Left column - Text content */}
             <div className="order-2 lg:order-1 text-center lg:text-left">
               <motion.div
@@ -347,6 +348,7 @@ function MetaAdsPage() {
                 </motion.div>
               </motion.div>
             </div>
+            <PageHeroVisual variant="meta" isMobile={isMobile} />
 
           </div>
         </motion.div>
