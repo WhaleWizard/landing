@@ -306,7 +306,7 @@ function GoogleAdsPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-5xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
                   <span className="block leading-tight text-balance">Контекстная реклама</span>
                   <span className="block mt-3 leading-tight pb-1">
                     <span style={{ color: googleColors.blue }}>G</span>

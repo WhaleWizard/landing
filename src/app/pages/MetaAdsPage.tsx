@@ -293,7 +293,7 @@ function MetaAdsPage() {
                   </span>
                 </motion.div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-5xl font-bold tracking-tight [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
                   <span className="block leading-tight text-balance">Стабильные заявки из</span>
                   <span className="block mt-3 leading-tight bg-gradient-to-r from-[#E1306C] via-[#833AB4] to-[#405DE6] bg-clip-text text-transparent pb-1">
                     Facebook и Instagram
