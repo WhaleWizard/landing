@@ -30,6 +30,7 @@ export default function InteractiveBackground({
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
   const animationRef = useRef<number>();
+  const isVisibleRef = useRef(true);
 
   const colors = useMemo(() => {
     switch (variant) {
@@ -63,8 +64,9 @@ export default function InteractiveBackground({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const lowPowerMode = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, lowPowerMode ? 1 : 1.5);
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
@@ -78,6 +80,14 @@ export default function InteractiveBackground({
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisibleRef.current = entry.isIntersecting;
+      },
+      { threshold: 0.01 }
+    );
+    observer.observe(canvas);
+
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       mouseRef.current = {
@@ -90,7 +100,22 @@ export default function InteractiveBackground({
       canvas.addEventListener('mousemove', handleMouseMove);
     }
 
-    const animate = () => {
+    const fps = lowPowerMode ? 24 : 30;
+    const frameInterval = 1000 / fps;
+    let lastFrameTime = 0;
+
+    const animate = (time: number) => {
+      if (!isVisibleRef.current) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      if (time - lastFrameTime < frameInterval) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastFrameTime = time;
+
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
 
@@ -100,16 +125,16 @@ export default function InteractiveBackground({
         particlesRef.current.slice(i + 1).forEach(p2 => {
           const dx = p1.x - p2.x;
           const dy = p1.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          const distSq = dx * dx + dy * dy;
+          if (distSq >= 14400) return;
+          const dist = Math.sqrt(distSq);
 
-          if (dist < 120) {
-            const opacity = (1 - dist / 120) * 0.3;
-            ctx.strokeStyle = `rgba(139, 92, 246, ${opacity})`;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-          }
+          const opacity = (1 - dist / 120) * 0.3;
+          ctx.strokeStyle = `rgba(139, 92, 246, ${opacity})`;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
         });
 
         // Mouse interaction
@@ -194,10 +219,11 @@ export default function InteractiveBackground({
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    animationRef.current = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
+      observer.disconnect();
       if (interactive) {
         canvas.removeEventListener('mousemove', handleMouseMove);
       }
@@ -237,6 +263,7 @@ export function GradientOrbs({ variant = 'cosmic' }: GradientOrbsProps) {
   const orb3Y = useTransform(orbY, (v) => v * 0.025);
 
   useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const handleMouseMove = (e: MouseEvent) => {
       mouseX.set(e.clientX - window.innerWidth / 2);
       mouseY.set(e.clientY - window.innerHeight / 2);
