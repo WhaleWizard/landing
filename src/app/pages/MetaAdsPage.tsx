@@ -1,5 +1,5 @@
-import { memo, useRef, useState, useEffect, useCallback } from 'react';
-import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll, useReducedMotion } from 'motion/react';
+import { memo, useRef, useEffect, useCallback } from 'react';
+import { motion, useInView, useTransform, useScroll } from 'motion/react';
 import {
   Target,
   Zap,
@@ -22,7 +22,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import { useIsMobile } from '../components/ui/use-mobile';
+import { usePerformanceMode } from '../hooks/usePerformanceMode';
 import InteractiveBackground from '../components/InteractiveBackground';
 import SectionBackground from '../components/SectionBackground';
 import PageHeroVisual from '../components/PageHeroVisual';
@@ -31,98 +31,39 @@ import PageHeroVisual from '../components/PageHeroVisual';
 const AnimatedCounter = memo(({ value, suffix = '', prefix = '' }: { value: number; suffix?: string; prefix?: string }) => {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-50px' });
-  const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    if (!inView) return;
-    let start = 0;
-    const duration = 2000;
+    const element = ref.current;
+    if (!inView || !element) return;
+
+    const duration = 900;
     const startTime = performance.now();
+    let frameId = 0;
 
     const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+      const progress = Math.min((currentTime - startTime) / duration, 1);
       const easeOut = 1 - Math.pow(1 - progress, 3);
-      start = Math.floor(easeOut * value);
-      setDisplayValue(start);
-      if (progress < 1) requestAnimationFrame(animate);
+      element.textContent = `${prefix}${Math.floor(easeOut * value)}${suffix}`;
+      if (progress < 1) frameId = requestAnimationFrame(animate);
     };
 
-    requestAnimationFrame(animate);
-  }, [inView, value]);
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [inView, prefix, suffix, value]);
 
   return (
     <span ref={ref} className="tabular-nums">
-      {prefix}{displayValue}{suffix}
+      {prefix}0{suffix}
     </span>
   );
 });
 AnimatedCounter.displayName = 'AnimatedCounter';
 
-// 3D Floating Card with tilt effect
-const TiltCard = memo(({ children, className = '', disableTilt = false }: { children: React.ReactNode; className?: string; disableTilt?: boolean }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
-  const rotateX = useMotionValue(0);
-  const rotateY = useMotionValue(0);
-  const springRotateX = useSpring(rotateX, { stiffness: 300, damping: 30 });
-  const springRotateY = useSpring(rotateY, { stiffness: 300, damping: 30 });
-
-  const frameRef = useRef<number | null>(null);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ref.current || disableTilt) return;
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => {
-      if (!ref.current) return;
-      const rect = ref.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const mouseX = e.clientX - centerX;
-    const mouseY = e.clientY - centerY;
-      rotateX.set((-mouseY / rect.height) * 10);
-      rotateY.set((mouseX / rect.width) * 10);
-    });
-  }, [disableTilt, rotateX, rotateY]);
-
-  const handleMouseLeave = useCallback(() => {
-    rotateX.set(0);
-    rotateY.set(0);
-    setIsHovered(false);
-  }, [rotateX, rotateY]);
-
-  if (disableTilt) {
-    return <div className={`relative ${className}`}>{children}</div>;
-  }
-
-  return (
-    <motion.div
-      ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        rotateX: springRotateX,
-        rotateY: springRotateY,
-        transformStyle: 'preserve-3d',
-        perspective: '1000px',
-      }}
-      className={`relative ${className}`}
-    >
-      {children}
-      {isHovered && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="absolute inset-0 rounded-2xl pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(139, 92, 246, 0.15), transparent 50%)',
-          }}
-        />
-      )}
-    </motion.div>
-  );
-});
+const TiltCard = memo(({ children, className = '', disableTilt = false }: { children: React.ReactNode; className?: string; disableTilt?: boolean }) => (
+  <div className={`relative ${className} ${disableTilt ? '' : 'lg:transition-transform lg:duration-300 lg:ease-out lg:hover:-translate-y-1'}`}>
+    {children}
+  </div>
+));
 TiltCard.displayName = 'TiltCard';
 
 // Pain points data
@@ -234,10 +175,10 @@ function MetaAdsPage() {
   });
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
-  const isMobile = useIsMobile();
-  const prefersReducedMotion = useReducedMotion();
-  const revealTransition = { duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] as const };
-  const revealViewport = { once: true, margin: '-60px', amount: 0.2 };
+  const performance = usePerformanceMode();
+  const isMobile = performance.isMobile;
+  const revealTransition = { duration: performance.revealDuration, ease: [0.22, 1, 0.36, 1] as const };
+  const revealViewport = { once: true, margin: '-40px', amount: 0.15 };
 
   const scrollToContact = useCallback(() => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -261,7 +202,7 @@ function MetaAdsPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a1f] via-background to-background" />
-          <InteractiveBackground variant="cosmic" particleCount={isMobile ? 6 : 16} interactive={!isMobile && !prefersReducedMotion} />
+          <InteractiveBackground variant="cosmic" particleCount={isMobile ? 6 : 16} interactive={performance.allowInteractiveBackground} />
         </div>
 
         {/* Gradient Overlay */}
@@ -278,14 +219,14 @@ function MetaAdsPage() {
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
+                transition={{ duration: performance.revealDuration }}
                 className="space-y-6"
               >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#E1306C]/20 to-[#405DE6]/20 border border-[#E1306C]/30 backdrop-blur-xl"
+                  transition={{ delay: performance.allowStagger ? 0.2 : 0, duration: performance.revealDuration }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#E1306C]/20 to-[#405DE6]/20 border border-[#E1306C]/30 backdrop-blur-md"
                 >
                   <div className="w-2 h-2 rounded-full bg-[#E1306C] animate-pulse" />
                   <span className="text-sm font-medium bg-gradient-to-r from-[#E1306C] to-[#405DE6] bg-clip-text text-transparent">
@@ -308,7 +249,7 @@ function MetaAdsPage() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
+                  transition={{ delay: performance.allowStagger ? 0.5 : 0, duration: performance.revealDuration }}
                   className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2"
                 >
                   <Button
@@ -326,7 +267,7 @@ function MetaAdsPage() {
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 }}
+                  transition={{ delay: performance.allowStagger ? 0.7 : 0, duration: performance.revealDuration }}
                   className="grid grid-cols-3 gap-3 sm:gap-4 pt-8 max-w-md mx-auto lg:mx-0"
                 >
                   {[
@@ -336,8 +277,8 @@ function MetaAdsPage() {
                   ].map((stat, i) => (
                     <motion.div
                       key={i}
-                      whileHover={isMobile ? undefined : { scale: 1.03, y: -3 }}
-                      className="text-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                      whileHover={performance.allowTilt ? { scale: 1.02, y: -2 } : undefined}
+                      className="text-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-card/60 border border-border/50 backdrop-blur-md"
                     >
                       <div className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                         ${stat.value}{stat.suffix}
@@ -357,7 +298,7 @@ function MetaAdsPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
+          transition={{ delay: performance.allowStagger ? 1.2 : 0, duration: performance.revealDuration }}
           className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 hidden sm:block"
         >
           <motion.div
@@ -397,13 +338,13 @@ function MetaAdsPage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {painPoints.map((point, index) => (
-              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
+              <TiltCard key={index} disableTilt={!performance.allowTilt}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.15 }}
-                  className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-xl`}
+                  transition={{ delay: performance.allowStagger ? index * 0.05 : 0, duration: performance.revealDuration }}
+                  className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-md`}
                 >
                   <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center mb-5">
                     <point.icon className="w-7 h-7 text-red-400" />
@@ -440,13 +381,13 @@ function MetaAdsPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {workSteps.map((step, index) => (
-              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
+              <TiltCard key={index} disableTilt={!performance.allowTilt}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl group hover:border-primary/50 transition-all"
+                  transition={{ delay: performance.allowStagger ? index * 0.04 : 0, duration: performance.revealDuration }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-md group hover:border-primary/50 transition-all"
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <span className="text-4xl font-bold bg-gradient-to-r from-primary/30 to-accent/30 bg-clip-text text-transparent">
@@ -488,13 +429,13 @@ function MetaAdsPage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {casesData.map((caseItem, index) => (
-              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
+              <TiltCard key={index} disableTilt={!performance.allowTilt}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.15 }}
-                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                  transition={{ delay: performance.allowStagger ? index * 0.05 : 0, duration: performance.revealDuration }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-md"
                 >
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="text-xl font-semibold [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] overflow-hidden">{caseItem.title}</h3>
@@ -548,7 +489,7 @@ function MetaAdsPage() {
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: performance.allowStagger ? index * 0.04 : 0, duration: performance.revealDuration }}
                 className="flex items-center gap-3 p-4 rounded-xl bg-card/40 border border-border/30 backdrop-blur-sm"
               >
                 <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
@@ -603,7 +544,7 @@ function MetaAdsPage() {
                     initial={{ opacity: 0, x: -20 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: i * 0.1 }}
+                    transition={{ delay: performance.allowStagger ? i * 0.04 : 0, duration: performance.revealDuration }}
                     className="flex items-center gap-3"
                   >
                     <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#E1306C] to-[#405DE6] flex items-center justify-center shrink-0">
@@ -620,7 +561,7 @@ function MetaAdsPage() {
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={revealViewport}
-              transition={{ ...revealTransition, delay: 0.2 }}
+              transition={{ ...revealTransition, delay: performance.allowStagger ? 0.12 : 0 }}
             >
               <LandingForm service="meta-ads" />
             </motion.div>

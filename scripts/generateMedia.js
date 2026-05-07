@@ -5,7 +5,7 @@ const imageDir = path.resolve('public/images');
 const iconDir = path.resolve('public/icons');
 const videoDir = path.resolve('public/videos');
 
-const requiredImages = ['meta.jpg', 'google.jpg', 'consult.jpg'];
+const requiredImages = ['meta.jpg', 'google.svg', 'consult.svg'];
 const requiredVideos = ['meta-hero.mp4', 'google-hero.mp4', 'consult-hero.mp4'];
 
 async function ensureDir(dir) {

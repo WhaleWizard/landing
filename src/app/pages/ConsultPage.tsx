@@ -1,5 +1,5 @@
-import { memo, useRef, useState, useEffect, useCallback } from 'react';
-import { motion, useInView, useMotionValue, useSpring, useTransform, useScroll, useReducedMotion } from 'motion/react';
+import { memo, useRef, useCallback } from 'react';
+import { motion, useInView, useTransform, useScroll } from 'motion/react';
 import {
   Users,
   Zap,
@@ -25,7 +25,7 @@ import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
-import { useIsMobile } from '../components/ui/use-mobile';
+import { usePerformanceMode } from '../hooks/usePerformanceMode';
 import InteractiveBackground, { GradientOrbs, AnimatedGrid } from '../components/InteractiveBackground';
 import PageHeroVisual from '../components/PageHeroVisual';
 
@@ -48,65 +48,11 @@ const AnimatedProgress = memo(({ value, color, delay = 0 }: { value: number; col
 });
 AnimatedProgress.displayName = 'AnimatedProgress';
 
-// 3D Tilt Card
-const TiltCard = memo(({ children, className = '', disableTilt = false }: { children: React.ReactNode; className?: string; disableTilt?: boolean }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
-  const rotateX = useMotionValue(0);
-  const rotateY = useMotionValue(0);
-  const springRotateX = useSpring(rotateX, { stiffness: 300, damping: 30 });
-  const springRotateY = useSpring(rotateY, { stiffness: 300, damping: 30 });
-
-  const frameRef = useRef<number | null>(null);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ref.current || disableTilt) return;
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => {
-      if (!ref.current) return;
-      const rect = ref.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-      rotateX.set((-((e.clientY - centerY) / rect.height)) * 7);
-      rotateY.set(((e.clientX - centerX) / rect.width) * 7);
-    });
-  }, [disableTilt, rotateX, rotateY]);
-
-  const handleMouseLeave = useCallback(() => {
-    rotateX.set(0);
-    rotateY.set(0);
-    setIsHovered(false);
-  }, [rotateX, rotateY]);
-
-  if (disableTilt) {
-    return <div className={`relative ${className}`}>{children}</div>;
-  }
-
-  return (
-    <motion.div
-      ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        rotateX: springRotateX,
-        rotateY: springRotateY,
-        transformStyle: 'preserve-3d',
-        perspective: '1000px',
-      }}
-      className={`relative ${className}`}
-    >
-      {children}
-      {isHovered && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-radial from-primary/10 to-transparent"
-        />
-      )}
-    </motion.div>
-  );
-});
+const TiltCard = memo(({ children, className = '', disableTilt = false }: { children: React.ReactNode; className?: string; disableTilt?: boolean }) => (
+  <div className={`relative ${className} ${disableTilt ? '' : 'lg:transition-transform lg:duration-300 lg:ease-out lg:hover:-translate-y-1'}`}>
+    {children}
+  </div>
+));
 TiltCard.displayName = 'TiltCard';
 
 // Pain points data
@@ -217,10 +163,10 @@ function ConsultPage() {
   });
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
-  const isMobile = useIsMobile();
-  const prefersReducedMotion = useReducedMotion();
-  const revealTransition = { duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] as const };
-  const revealViewport = { once: true, margin: '-60px', amount: 0.2 };
+  const performance = usePerformanceMode();
+  const isMobile = performance.isMobile;
+  const revealTransition = { duration: performance.revealDuration, ease: [0.22, 1, 0.36, 1] as const };
+  const revealViewport = { once: true, margin: '-40px', amount: 0.15 };
 
   const scrollToContact = useCallback(() => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -244,7 +190,7 @@ function ConsultPage() {
         {/* Background effects */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#1a0a2e] via-background to-background" />
-          <InteractiveBackground variant="ethereal" particleCount={isMobile ? 6 : 16} interactive={!isMobile && !prefersReducedMotion} />
+          <InteractiveBackground variant="ethereal" particleCount={isMobile ? 6 : 16} interactive={performance.allowInteractiveBackground} />
         </div>
 
         {/* Gradient Overlay */}
@@ -261,14 +207,14 @@ function ConsultPage() {
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
+                transition={{ duration: performance.revealDuration }}
                 className="space-y-6"
               >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 backdrop-blur-xl"
+                  transition={{ delay: performance.allowStagger ? 0.2 : 0, duration: performance.revealDuration }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 backdrop-blur-md"
                 >
                   <span className="text-sm font-medium text-primary">
                     Консультация для таргетологов
@@ -290,7 +236,7 @@ function ConsultPage() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
+                  transition={{ delay: performance.allowStagger ? 0.5 : 0, duration: performance.revealDuration }}
                   className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2"
                 >
                   <Button
@@ -308,14 +254,14 @@ function ConsultPage() {
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 }}
+                  transition={{ delay: performance.allowStagger ? 0.7 : 0, duration: performance.revealDuration }}
                   className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-8 max-w-lg mx-auto lg:mx-0"
                 >
                   {resultsData.map((stat, i) => (
                     <motion.div
                       key={i}
-                      whileHover={isMobile ? undefined : { scale: 1.03, y: -3 }}
-                      className="text-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                      whileHover={performance.allowTilt ? { scale: 1.02, y: -2 } : undefined}
+                      className="text-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-card/60 border border-border/50 backdrop-blur-md"
                     >
                       <div className="text-lg sm:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                         {stat.value}
@@ -335,7 +281,7 @@ function ConsultPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
+          transition={{ delay: performance.allowStagger ? 1.2 : 0, duration: performance.revealDuration }}
           className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 hidden sm:block"
         >
           <motion.div
@@ -376,13 +322,13 @@ function ConsultPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {painPoints.map((point, index) => (
-              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
+              <TiltCard key={index} disableTilt={!performance.allowTilt}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-xl`}
+                  transition={{ delay: performance.allowStagger ? index * 0.04 : 0, duration: performance.revealDuration }}
+                  className={`h-full p-6 rounded-2xl bg-gradient-to-br ${point.color} border ${point.borderColor} backdrop-blur-md`}
                 >
                   <div className="w-12 h-12 rounded-2xl bg-card/50 flex items-center justify-center mb-4">
                     <point.icon className="w-6 h-6 text-primary" />
@@ -419,13 +365,13 @@ function ConsultPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {programSteps.map((step, index) => (
-              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
+              <TiltCard key={index} disableTilt={!performance.allowTilt}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl"
+                  transition={{ delay: performance.allowStagger ? index * 0.04 : 0, duration: performance.revealDuration }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-md"
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <span className="text-3xl font-bold" style={{ color: `${step.color}40` }}>
@@ -471,13 +417,13 @@ function ConsultPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {whatYouGet.map((item, index) => (
-              <TiltCard key={index} disableTilt={isMobile || prefersReducedMotion}>
+              <TiltCard key={index} disableTilt={!performance.allowTilt}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl hover:border-primary/50 transition-all"
+                  transition={{ delay: performance.allowStagger ? index * 0.04 : 0, duration: performance.revealDuration }}
+                  className="h-full p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-md hover:border-primary/50 transition-all"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
                     <item.icon className="w-6 h-6 text-primary" />
@@ -502,7 +448,7 @@ function ConsultPage() {
             viewport={revealViewport}
             transition={revealTransition}
           >
-            <div className="p-8 md:p-12 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 border border-primary/20 backdrop-blur-xl">
+            <div className="p-8 md:p-12 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 border border-primary/20 backdrop-blur-md">
               <div className="flex justify-center mb-6">
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className="w-6 h-6 text-amber-400 fill-amber-400" />
@@ -573,7 +519,7 @@ function ConsultPage() {
                     initial={{ opacity: 0, x: -20 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: i * 0.1 }}
+                    transition={{ delay: performance.allowStagger ? i * 0.04 : 0, duration: performance.revealDuration }}
                     className="flex items-center gap-3"
                   >
                     <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary to-accent flex items-center justify-center shrink-0">
@@ -590,7 +536,7 @@ function ConsultPage() {
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={revealViewport}
-              transition={{ ...revealTransition, delay: 0.2 }}
+              transition={{ ...revealTransition, delay: performance.allowStagger ? 0.12 : 0 }}
             >
               <LandingForm service="consult" />
             </motion.div>

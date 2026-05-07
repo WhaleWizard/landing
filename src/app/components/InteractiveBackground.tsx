@@ -1,5 +1,6 @@
-import { useRef, useEffect, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { usePerformanceMode } from '../hooks/usePerformanceMode';
 
 interface Particle {
   x: number;
@@ -20,93 +21,85 @@ interface InteractiveBackgroundProps {
   className?: string;
 }
 
+const variantPalette = {
+  digital: ['#4285f4', '#34a853', '#ea4335', '#fbbc04', '#ffffff'],
+  ethereal: ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#ffffff'],
+  cosmic: ['#8b5cf6', '#6366f1', '#3b82f6', '#a855f7', '#ffffff'],
+};
+
+const staticBackgrounds = {
+  cosmic: 'radial-gradient(circle at 18% 22%, rgba(139,92,246,0.18), transparent 34%), radial-gradient(circle at 78% 24%, rgba(59,130,246,0.14), transparent 36%), radial-gradient(circle at 48% 78%, rgba(168,85,247,0.12), transparent 40%)',
+  digital: 'radial-gradient(circle at 18% 22%, rgba(66,133,244,0.18), transparent 34%), radial-gradient(circle at 78% 24%, rgba(52,168,83,0.14), transparent 36%), radial-gradient(circle at 52% 78%, rgba(251,188,4,0.1), transparent 40%)',
+  ethereal: 'radial-gradient(circle at 18% 22%, rgba(139,92,246,0.18), transparent 34%), radial-gradient(circle at 78% 24%, rgba(6,182,212,0.14), transparent 36%), radial-gradient(circle at 52% 78%, rgba(236,72,153,0.1), transparent 40%)',
+};
+
 export default function InteractiveBackground({
   variant = 'cosmic',
   particleCount = 80,
   interactive = true,
-  className = ''
+  className = '',
 }: InteractiveBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
-  const mouseRef = useRef({ x: 0, y: 0 });
-  const animationRef = useRef<number>();
-  const isVisibleRef = useRef(true);
+  const mouseRef = useRef({ x: -9999, y: -9999 });
+  const animationRef = useRef<number | null>(null);
+  const dimensionsRef = useRef({ width: 0, height: 0, dpr: 1 });
+  const visibleRef = useRef(false);
+  const performance = usePerformanceMode();
+  const shouldAnimate = performance.allowInteractiveBackground;
+  const effectiveCount = performance.mode === 'full' ? particleCount : Math.min(6, particleCount);
 
-  const colors = useMemo(() => {
-    switch (variant) {
-      case 'digital':
-        return ['#4285f4', '#34a853', '#ea4335', '#fbbc04', '#ffffff'];
-      case 'ethereal':
-        return ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#ffffff'];
-      default:
-        return ['#8b5cf6', '#6366f1', '#3b82f6', '#a855f7', '#ffffff'];
-    }
-  }, [variant]);
+  const colors = useMemo(() => variantPalette[variant], [variant]);
 
   const initParticles = useCallback((width: number, height: number) => {
-    particlesRef.current = Array.from({ length: particleCount }, () => ({
+    particlesRef.current = Array.from({ length: effectiveCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      size: Math.random() * 3 + 1,
-      opacity: Math.random() * 0.5 + 0.2,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      size: Math.random() * 2 + 1,
+      opacity: Math.random() * 0.35 + 0.18,
       color: colors[Math.floor(Math.random() * colors.length)],
       life: Math.random() * 100,
-      maxLife: 100 + Math.random() * 100
+      maxLife: 120 + Math.random() * 120,
     }));
-  }, [particleCount, colors]);
+  }, [colors, effectiveCount]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !shouldAnimate) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    const lowPowerMode = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const stop = () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+
     const resizeCanvas = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, lowPowerMode ? 1 : 1.5);
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+      dimensionsRef.current = { width: rect.width, height: rect.height, dpr };
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       initParticles(rect.width, rect.height);
     };
 
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        isVisibleRef.current = entry.isIntersecting;
-      },
-      { threshold: 0.01 }
-    );
-    observer.observe(canvas);
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouseRef.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      };
-    };
-
-    if (interactive) {
-      canvas.addEventListener('mousemove', handleMouseMove);
-    }
-
-    const fps = lowPowerMode ? 24 : 30;
-    const frameInterval = 1000 / fps;
     let lastFrameTime = 0;
+    const fps = 24;
+    const frameInterval = 1000 / fps;
 
     const animate = (time: number) => {
-      if (!isVisibleRef.current) {
-        animationRef.current = requestAnimationFrame(animate);
+      if (!visibleRef.current) {
+        animationRef.current = null;
         return;
       }
 
@@ -116,288 +109,201 @@ export default function InteractiveBackground({
       }
       lastFrameTime = time;
 
-      const rect = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
+      const { width, height } = dimensionsRef.current;
+      ctx.clearRect(0, 0, width, height);
 
-      // Draw connections
-      ctx.lineWidth = 0.5;
-      particlesRef.current.forEach((p1, i) => {
-        particlesRef.current.slice(i + 1).forEach(p2 => {
+      const particles = particlesRef.current;
+      ctx.lineWidth = 0.45;
+
+      for (let i = 0; i < particles.length; i += 1) {
+        const p1 = particles[i];
+        for (let j = i + 1; j < particles.length; j += 1) {
+          const p2 = particles[j];
           const dx = p1.x - p2.x;
           const dy = p1.y - p2.y;
           const distSq = dx * dx + dy * dy;
-          if (distSq >= 14400) return;
-          const dist = Math.sqrt(distSq);
-
-          const opacity = (1 - dist / 120) * 0.3;
+          if (distSq >= 11025) continue;
+          const opacity = (1 - Math.sqrt(distSq) / 105) * 0.22;
           ctx.strokeStyle = `rgba(139, 92, 246, ${opacity})`;
           ctx.beginPath();
           ctx.moveTo(p1.x, p1.y);
           ctx.lineTo(p2.x, p2.y);
           ctx.stroke();
-        });
+        }
 
-        // Mouse interaction
         if (interactive) {
           const mdx = p1.x - mouseRef.current.x;
           const mdy = p1.y - mouseRef.current.y;
-          const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-
-          if (mDist < 150 && mDist > 0.1) {
-            const opacity = (1 - mDist / 150) * 0.6;
-            ctx.strokeStyle = `rgba(167, 139, 250, ${opacity})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(mouseRef.current.x, mouseRef.current.y);
-            ctx.stroke();
-            ctx.lineWidth = 0.5;
-
-            // Repel particles from mouse
-            const force = (150 - mDist) / 150;
-            p1.vx += (mdx / mDist) * force * 0.3;
-            p1.vy += (mdy / mDist) * force * 0.3;
+          const mDistSq = mdx * mdx + mdy * mdy;
+          if (mDistSq < 14400 && mDistSq > 1) {
+            const mDist = Math.sqrt(mDistSq);
+            const force = (120 - mDist) / 120;
+            p1.vx += (mdx / mDist) * force * 0.12;
+            p1.vy += (mdy / mDist) * force * 0.12;
           }
         }
-      });
+      }
 
-      // Update and draw particles
-      particlesRef.current.forEach(p => {
-        // Update life
+      for (const p of particles) {
         p.life += 1;
         if (p.life > p.maxLife) {
           p.life = 0;
-          p.x = Math.random() * rect.width;
-          p.y = Math.random() * rect.height;
+          p.x = Math.random() * width;
+          p.y = Math.random() * height;
         }
 
-        // Pulse opacity
-        const lifeFactor = Math.sin((p.life / p.maxLife) * Math.PI);
-        const currentOpacity = p.opacity * lifeFactor;
-
-        // Update position
         p.x += p.vx;
         p.y += p.vy;
+        p.vx = p.vx * 0.985 + (Math.random() - 0.5) * 0.01;
+        p.vy = p.vy * 0.985 + (Math.random() - 0.5) * 0.01;
 
-        // Damping
-        p.vx *= 0.99;
-        p.vy *= 0.99;
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
 
-        // Base velocity
-        p.vx += (Math.random() - 0.5) * 0.02;
-        p.vy += (Math.random() - 0.5) * 0.02;
-
-        // Boundary wrap
-        if (p.x < 0) p.x = rect.width;
-        if (p.x > rect.width) p.x = 0;
-        if (p.y < 0) p.y = rect.height;
-        if (p.y > rect.height) p.y = 0;
-
-        // Draw particle with glow
-        ctx.save();
-        ctx.globalAlpha = currentOpacity;
-
-        // Outer glow
-        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
-        gradient.addColorStop(0, p.color);
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Core
-        ctx.globalAlpha = currentOpacity * 2;
+        const alpha = p.opacity * Math.sin((p.life / p.maxLife) * Math.PI);
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
-
-        ctx.restore();
-      });
+      }
+      ctx.globalAlpha = 1;
 
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    animationRef.current = requestAnimationFrame(animate);
+    const start = () => {
+      if (!animationRef.current) animationRef.current = requestAnimationFrame(animate);
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        visibleRef.current = entry.isIntersecting;
+        if (entry.isIntersecting) start();
+        else stop();
+      },
+      { threshold: 0.01 },
+    );
+
+    const handlePointerMove = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    const resizeObserver = new ResizeObserver(resizeCanvas);
+    resizeObserver.observe(canvas);
+    observer.observe(canvas);
+    if (interactive) canvas.addEventListener('pointermove', handlePointerMove, { passive: true });
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      stop();
       observer.disconnect();
-      if (interactive) {
-        canvas.removeEventListener('mousemove', handleMouseMove);
-      }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      resizeObserver.disconnect();
+      if (interactive) canvas.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [initParticles, interactive]);
+  }, [initParticles, interactive, shouldAnimate]);
+
+  if (!shouldAnimate) {
+    return <div className={`absolute inset-0 ${className}`} style={{ background: staticBackgrounds[variant] }} />;
+  }
 
   return (
     <canvas
       ref={canvasRef}
       className={`absolute inset-0 w-full h-full pointer-events-none ${className}`}
-      style={{ background: 'transparent' }}
+      style={{ background: staticBackgrounds[variant] }}
     />
   );
 }
 
-// Gradient orbs component
 interface GradientOrbsProps {
   variant?: 'cosmic' | 'digital' | 'ethereal';
 }
 
 export function GradientOrbs({ variant = 'cosmic' }: GradientOrbsProps) {
+  const performance = usePerformanceMode();
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-
-  const springConfig = { damping: 50, stiffness: 100 };
+  const springConfig = { damping: 55, stiffness: 90 };
   const orbX = useSpring(mouseX, springConfig);
   const orbY = useSpring(mouseY, springConfig);
-
-  const orb1X = useTransform(orbX, (v) => v * 0.02);
-  const orb1Y = useTransform(orbY, (v) => v * 0.02);
-  const orb2X = useTransform(orbX, (v) => v * -0.015);
-  const orb2Y = useTransform(orbY, (v) => v * -0.015);
-  const orb3X = useTransform(orbX, (v) => v * 0.01);
-  const orb3Y = useTransform(orbY, (v) => v * 0.025);
+  const orb1X = useTransform(orbX, (v) => v * 0.012);
+  const orb1Y = useTransform(orbY, (v) => v * 0.012);
+  const orb2X = useTransform(orbX, (v) => v * -0.01);
+  const orb2Y = useTransform(orbY, (v) => v * -0.01);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (performance.mode !== 'full') return;
     const handleMouseMove = (e: MouseEvent) => {
       mouseX.set(e.clientX - window.innerWidth / 2);
       mouseY.set(e.clientY - window.innerHeight / 2);
     };
-
-    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
+  }, [mouseX, mouseY, performance.mode]);
 
   const colors = useMemo(() => {
     switch (variant) {
       case 'digital':
-        return {
-          orb1: 'from-blue-600/30 via-blue-500/20 to-transparent',
-          orb2: 'from-green-500/25 via-green-400/15 to-transparent',
-          orb3: 'from-yellow-500/20 via-yellow-400/10 to-transparent'
-        };
+        return { orb1: 'from-blue-500/14 via-blue-500/7 to-transparent', orb2: 'from-green-500/12 via-yellow-500/7 to-transparent' };
       case 'ethereal':
-        return {
-          orb1: 'from-purple-600/30 via-violet-500/20 to-transparent',
-          orb2: 'from-cyan-500/25 via-teal-400/15 to-transparent',
-          orb3: 'from-pink-500/20 via-rose-400/10 to-transparent'
-        };
+        return { orb1: 'from-violet-500/14 via-cyan-500/7 to-transparent', orb2: 'from-pink-500/12 via-amber-500/7 to-transparent' };
       default:
-        return {
-          orb1: 'from-primary/30 via-purple-500/20 to-transparent',
-          orb2: 'from-accent/25 via-indigo-400/15 to-transparent',
-          orb3: 'from-secondary/20 via-blue-400/10 to-transparent'
-        };
+        return { orb1: 'from-violet-500/14 via-blue-500/7 to-transparent', orb2: 'from-indigo-500/12 via-purple-500/7 to-transparent' };
     }
   }, [variant]);
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none contain-paint">
       <motion.div
-        className={`absolute w-[600px] h-[600px] rounded-full bg-gradient-radial ${colors.orb1} blur-3xl`}
-        style={{
-          x: orb1X,
-          y: orb1Y,
-          top: '10%',
-          left: '20%'
-        }}
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.5, 0.7, 0.5]
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: 'easeInOut'
-        }}
+        className={`absolute -top-40 -left-32 w-[420px] h-[420px] md:w-[560px] md:h-[560px] rounded-full bg-gradient-radial ${colors.orb1} blur-3xl`}
+        style={{ x: performance.mode === 'full' ? orb1X : 0, y: performance.mode === 'full' ? orb1Y : 0 }}
       />
       <motion.div
-        className={`absolute w-[500px] h-[500px] rounded-full bg-gradient-radial ${colors.orb2} blur-3xl`}
-        style={{
-          x: orb2X,
-          y: orb2Y,
-          top: '50%',
-          right: '10%'
-        }}
-        animate={{
-          scale: [1, 1.15, 1],
-          opacity: [0.4, 0.6, 0.4]
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          delay: 2
-        }}
-      />
-      <motion.div
-        className={`absolute w-[400px] h-[400px] rounded-full bg-gradient-radial ${colors.orb3} blur-3xl`}
-        style={{
-          x: orb3X,
-          y: orb3Y,
-          bottom: '10%',
-          left: '30%'
-        }}
-        animate={{
-          scale: [1, 1.2, 1],
-          opacity: [0.3, 0.5, 0.3]
-        }}
-        transition={{
-          duration: 12,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          delay: 4
-        }}
+        className={`absolute -bottom-40 -right-32 w-[380px] h-[380px] md:w-[500px] md:h-[500px] rounded-full bg-gradient-radial ${colors.orb2} blur-3xl`}
+        style={{ x: performance.mode === 'full' ? orb2X : 0, y: performance.mode === 'full' ? orb2Y : 0 }}
       />
     </div>
   );
 }
 
-// Animated grid background
 interface AnimatedGridProps {
   variant?: 'cosmic' | 'digital' | 'ethereal';
 }
 
-export function AnimatedGrid({ variant = 'cosmic' }: AnimatedGridProps) {
+export const AnimatedGrid = memo(function AnimatedGrid({ variant = 'cosmic' }: AnimatedGridProps) {
+  const performance = usePerformanceMode();
   const gridColor = useMemo(() => {
     switch (variant) {
       case 'digital': return 'rgba(66, 133, 244, 0.1)';
       case 'ethereal': return 'rgba(139, 92, 246, 0.1)';
-      default: return 'rgba(99, 102, 241, 0.08)';
+      default: return 'rgba(139, 92, 246, 0.1)';
     }
   }, [variant]);
 
+  const gridStyle = {
+    backgroundImage: `linear-gradient(${gridColor} 1px, transparent 1px), linear-gradient(90deg, ${gridColor} 1px, transparent 1px)`,
+    backgroundSize: '72px 72px',
+  };
+
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <motion.div
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30 contain-paint">
+      {performance.allowAnimatedBackgrounds ? (
+        <motion.div
+          className="absolute inset-0"
+          style={gridStyle}
+          animate={{ x: [0, 72], y: [0, 72] }}
+          transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+        />
+      ) : (
+        <div className="absolute inset-0" style={gridStyle} />
+      )}
+      <div
         className="absolute inset-0"
-        style={{
-          backgroundImage: `
-            linear-gradient(${gridColor} 1px, transparent 1px),
-            linear-gradient(90deg, ${gridColor} 1px, transparent 1px)
-          `,
-          backgroundSize: '60px 60px'
-        }}
-        animate={{
-          backgroundPosition: ['0px 0px', '60px 60px']
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: 'linear'
-        }}
-      />
-      <div 
-        className="absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at center, transparent 0%, var(--background) 70%)`
-        }}
+        style={{ background: 'radial-gradient(ellipse at center, transparent 0%, var(--background) 72%)' }}
       />
     </div>
   );
-}
+});

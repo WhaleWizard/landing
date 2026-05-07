@@ -171,6 +171,27 @@ function renderStaticPages(assetLinks) {
       lead: 'Прогноз окупаемости рекламных кампаний и unit-экономики.',
     },
     {
+      route: '/meta-ads',
+      title: 'Meta Ads | Whale Wzrd',
+      description: 'Настройка рекламы в Facebook и Instagram: оффер, креативы, аналитика и масштабирование.',
+      h1: 'Платный трафик из Meta Ads',
+      lead: 'Стабильные заявки из Facebook и Instagram без слива бюджета.',
+    },
+    {
+      route: '/google-ads',
+      title: 'Google Ads | Whale Wzrd',
+      description: 'Настройка Google Ads под прибыльные заявки: структура кампаний, аналитика и оптимизация.',
+      h1: 'Google Ads под заявки и продажи',
+      lead: 'Поисковая и performance-реклама с понятной аналитикой и контролем бюджета.',
+    },
+    {
+      route: '/consult',
+      title: 'Консультация по рекламе | Whale Wzrd',
+      description: 'Личная консультация по стратегии привлечения клиентов, офферу, рекламе и аналитике.',
+      h1: 'Консультация по привлечению клиентов',
+      lead: 'Разбор ситуации и пошаговый план роста рекламы и продаж.',
+    },
+    {
       route: '/faq',
       title: 'FAQ по рекламе | Whale Wzrd',
       description: 'Ответы по бюджетам, срокам, аналитике и масштабированию.',
