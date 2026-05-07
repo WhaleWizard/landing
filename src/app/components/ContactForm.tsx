@@ -15,7 +15,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { trackLead } from '../consent/consent';
+import { getMetaBrowserContext, trackLead } from '../consent/consent';
 import Modal from './Modal';
 import { API_ROUTES } from '../config';
 
@@ -110,6 +110,7 @@ function ContactForm() {
       setIsSubmitting(true);
 
       const eventId = crypto.randomUUID();
+      const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
 
       try {
         const res = await fetch(API_ROUTES.lead, {
@@ -126,6 +127,16 @@ function ContactForm() {
             event_id: eventId,
             hp_trap: hpTrap,
             page_url: window.location.href,
+            page_title: metaBrowserContext.page_title,
+            page_path: metaBrowserContext.page_path,
+            external_id: metaBrowserContext.external_id,
+            browser_language: metaBrowserContext.browser_language,
+            screen_width: metaBrowserContext.screen_width,
+            screen_height: metaBrowserContext.screen_height,
+            viewport_width: metaBrowserContext.viewport_width,
+            viewport_height: metaBrowserContext.viewport_height,
+            device_pixel_ratio: metaBrowserContext.device_pixel_ratio,
+            timezone_offset: metaBrowserContext.timezone_offset,
             referrer: document.referrer || undefined,
           }),
         });
@@ -140,7 +151,11 @@ function ContactForm() {
         setHpTrap('');
         setContactMethod('telegram');
         setAgreed(false);
-        trackLead(eventId);
+        trackLead(eventId, {
+          ...metaBrowserContext,
+          budget: formData.budget || undefined,
+          contact_method: contactMethod,
+        });
 
         setTimeout(() => setIsSubmitted(false), 5000);
         setTimeout(() => navigate('/thank-you'), 800);

@@ -44,6 +44,7 @@ export interface Env {
   // Meta Conversions API
   META_CAPI_ACCESS_TOKEN?: string;
   META_CAPI_TEST_CODE?: string;
+  META_CAPI_API_VERSION?: string;
   // Pixel IDs
   VITE_META_PIXEL_ID?: string;
   VITE_TIKTOK_PIXEL_ID?: string;

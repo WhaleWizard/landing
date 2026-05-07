@@ -21,6 +21,7 @@ export type GeoResolution = {
 
 const CONSENT_VERSION = 1;
 const CONSENT_KEY = 'ww_cookie_consent_v1';
+const META_EXTERNAL_ID_KEY = 'ww_meta_external_id_v1';
 const CONSENT_TTL_DAYS = 180;
 const OPEN_SETTINGS_EVENT = 'open-cookie-settings';
 
@@ -360,7 +361,57 @@ export async function ensureMarketingLoaded(): Promise<void> {
   }
 }
 
-function sendServerPageView(payload: { event_id: string; page_url: string; referrer?: string }): void {
+export type MetaBrowserContext = {
+  page_title?: string;
+  page_path?: string;
+  page_location?: string;
+  referrer?: string;
+  external_id?: string;
+  browser_language?: string;
+  screen_width?: number;
+  screen_height?: number;
+  viewport_width?: number;
+  viewport_height?: number;
+  device_pixel_ratio?: number;
+  timezone_offset?: number;
+};
+
+function getOrCreateMetaExternalId(): string | undefined {
+  try {
+    const existing = localStorage.getItem(META_EXTERNAL_ID_KEY);
+    if (existing) return existing;
+
+    const id = crypto.randomUUID();
+    localStorage.setItem(META_EXTERNAL_ID_KEY, id);
+    return id;
+  } catch {
+    return undefined;
+  }
+}
+
+export function getMetaBrowserContext(pagePath = window.location.pathname): MetaBrowserContext {
+  return {
+    page_title: document.title || undefined,
+    page_path: pagePath,
+    page_location: window.location.href,
+    referrer: document.referrer || undefined,
+    external_id: getOrCreateMetaExternalId(),
+    browser_language: navigator.language || undefined,
+    screen_width: window.screen?.width,
+    screen_height: window.screen?.height,
+    viewport_width: window.innerWidth,
+    viewport_height: window.innerHeight,
+    device_pixel_ratio: window.devicePixelRatio,
+    timezone_offset: new Date().getTimezoneOffset(),
+  };
+}
+
+type ServerPageViewPayload = MetaBrowserContext & {
+  event_id: string;
+  page_url: string;
+};
+
+function sendServerPageView(payload: ServerPageViewPayload): void {
   const body = JSON.stringify(payload);
 
   // 1) Prefer sendBeacon when available to survive quick navigations/unloads.
@@ -431,20 +482,29 @@ export function trackPageView(path: string): void {
   if (Array.isArray(win.dataLayer)) {
     win.dataLayer.push({
       event: 'virtual_pageview',
+      event_id: eventId,
       page_path: path,
       page_location: window.location.href,
     });
   }
 
+  const browserContext = getMetaBrowserContext(path);
+  const pageViewData = {
+    page_title: browserContext.page_title,
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+    referrer: browserContext.referrer,
+  };
+
   // Браузерный PageView с eventID для дедупликации
-  win.fbq?.('track', 'PageView', { eventID: eventId });
+  win.fbq?.('track', 'PageView', pageViewData, { eventID: eventId });
   win.ttq?.page?.();
 
   // Отправляем серверный PageView через наш API (устойчиво к быстрым переходам)
   sendServerPageView({
     event_id: eventId,
     page_url: window.location.href,
-    referrer: document.referrer || undefined,
+    ...browserContext,
   });
 }
 
@@ -478,7 +538,7 @@ export function trackFaqOpen(question: string): void {
   }
 }
 
-export function trackLead(eventId?: string): void {
+export function trackLead(eventId?: string, eventData: Record<string, unknown> = {}): void {
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;
     fbq?: (...args: unknown[]) => void;
@@ -501,15 +561,15 @@ export function trackLead(eventId?: string): void {
   }
 
   if (Array.isArray(win.dataLayer)) {
-    win.dataLayer.push({ event: 'lead_submitted' });
-    win.dataLayer.push({ event: 'form_submit' });
+    win.dataLayer.push({ event: 'lead_submitted', ...eventData, event_id: eventId });
+    win.dataLayer.push({ event: 'form_submit', ...eventData, event_id: eventId });
   }
 
-  // Передаём eventID для дедупликации с серверным событием
+  // Передаём eventID 4-м аргументом fbq для дедупликации с серверным событием
   if (eventId) {
-    win.fbq?.('track', 'Lead', { eventID: eventId });
+    win.fbq?.('track', 'Lead', eventData, { eventID: eventId });
   } else {
-    win.fbq?.('track', 'Lead');
+    win.fbq?.('track', 'Lead', eventData);
   }
   win.ttq?.track?.('SubmitForm');
 }
