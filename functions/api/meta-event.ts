@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
+import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
 
 type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact' | 'LeadFormView' | 'EngagedView';
 
@@ -14,6 +15,10 @@ interface MetaEventPayload {
   page_location?: string;
   referrer?: string;
   external_id?: string;
+  em?: string;
+  ph?: string;
+  fn?: string;
+  ln?: string;
   fbp?: string;
   fbc?: string;
   fbclid?: string;
@@ -115,6 +120,10 @@ function normalizeMetaEventPayload(payload: MetaEventPayload): MetaEventPayload 
     page_location: sanitizeText(payload.page_location || '', 2048),
     referrer: sanitizeText(payload.referrer || '', 2048),
     external_id: sanitizeText(payload.external_id || '', 128),
+    em: sanitizeText(payload.em || '', 64),
+    ph: sanitizeText(payload.ph || '', 64),
+    fn: sanitizeText(payload.fn || '', 64),
+    ln: sanitizeText(payload.ln || '', 64),
     fbp: sanitizeText(payload.fbp || '', 128),
     fbc: sanitizeText(payload.fbc || '', 256),
     fbclid: sanitizeText(payload.fbclid || '', 512),
@@ -171,6 +180,17 @@ async function sha256Normalized(value: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function isSha256Hex(value: string | undefined): boolean {
+  return Boolean(value && /^[a-f0-9]{64}$/i.test(value));
+}
+
+function buildExternalIdSeed(payload: MetaEventPayload, fbp: string | undefined): string | undefined {
+  if (payload.external_id) return payload.external_id;
+  const seed = payload.session_id || fbp || undefined;
+  if (!seed) return undefined;
+  return `anon:${seed}`;
 }
 
 function safeDecodeURIComponent(value: string): string {
@@ -323,6 +343,7 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped',
       error_message: 'missing_token_or_pixel_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload),
       has_fbp: Boolean(payload.fbp), has_fbc: Boolean(payload.fbc), has_external_id: Boolean(payload.external_id),
+      has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph),
       has_fbclid: Boolean(payload.fbclid), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version,
       consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp,
     });
@@ -341,8 +362,9 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
 
+  const externalIdSeed = buildExternalIdSeed(payload, fbp);
   const [hashedExternalId, hashedCountry, hashedCity, hashedRegion] = await Promise.all([
-    payload.external_id ? sha256Normalized(normalizeTextForMeta(payload.external_id)) : undefined,
+    externalIdSeed ? sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined,
     ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
     ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
     (ctx.regionCode || ctx.region) ? sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || '')) : undefined,
@@ -359,6 +381,10 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       fbp: fbp || undefined,
       fbc: fbc || undefined,
       external_id: hashedExternalId ? [hashedExternalId] : undefined,
+      em: isSha256Hex(payload.em) ? [payload.em!.toLowerCase()] : undefined,
+      ph: isSha256Hex(payload.ph) ? [payload.ph!.toLowerCase()] : undefined,
+      fn: isSha256Hex(payload.fn) ? [payload.fn!.toLowerCase()] : undefined,
+      ln: isSha256Hex(payload.ln) ? [payload.ln!.toLowerCase()] : undefined,
       country: hashedCountry ? [hashedCountry] : undefined,
       ct: hashedCity ? [hashedCity] : undefined,
       st: hashedRegion ? [hashedRegion] : undefined,
@@ -428,35 +454,42 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
   });
 
   try {
-    const response = await fetch(
+    const response = await fetchMetaWithRetry(
       `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
-      }
+      },
+      env
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] ${payload.event_name} event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
       await markMetaEventSent(env, payload.event_name, payload.event_id);
-      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
         fbtrace_id: result?.fbtrace_id,
         events_received: result?.events_received,
       });
     }
   } catch (error) {
-    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error(`[Meta CAPI] Error sending ${payload.event_name} event:`, error);
   }
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+  if (!isTrustedTrackingRequest(request, env)) {
+    return json(
+      { success: false, error: 'untrusted_request_origin' },
+      { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
   const payload = normalizeMetaEventPayload(
     (await request.json().catch(() => ({}))) as MetaEventPayload,
   );

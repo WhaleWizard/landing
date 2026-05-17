@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
+import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
 
 interface LeadPayload {
   name?: string;
@@ -172,6 +173,13 @@ async function sha256Normalized(value: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function buildExternalIdSeed(payload: LeadPayload, fbp: string | undefined): string | undefined {
+  if (payload.external_id) return payload.external_id;
+  const seed = payload.session_id || fbp || payload.email || payload.phone || undefined;
+  if (!seed) return undefined;
+  return `anon:${seed}`;
 }
 
 
@@ -368,6 +376,7 @@ async function sendMetaConversionEvent(
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
 
+  const externalIdSeed = buildExternalIdSeed(payload, fbp);
   const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion, hashedExternalId] = await Promise.all([
     payload.email ? sha256Normalized(normalizeEmailForMeta(payload.email)) : undefined,
     payload.phone ? sha256Normalized(normalizePhoneForMeta(payload.phone)) : undefined,
@@ -376,7 +385,7 @@ async function sendMetaConversionEvent(
     ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
     ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
     (ctx.regionCode || ctx.region) ? sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || '')) : undefined,
-    payload.external_id ? sha256Normalized(normalizeTextForMeta(payload.external_id)) : undefined,
+    externalIdSeed ? sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined,
   ]);
 
   const event = {
@@ -460,13 +469,14 @@ async function sendMetaConversionEvent(
   });
 
   try {
-    const response = await fetch(
+    const response = await fetchMetaWithRetry(
       `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
-      }
+      },
+      env
     );
 
     if (!response.ok) {
@@ -489,6 +499,12 @@ async function sendMetaConversionEvent(
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+  if (!isTrustedTrackingRequest(request, env)) {
+    return json(
+      { success: false, error: 'untrusted_request_origin' },
+      { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
   // --- Rate limit ---
   const normalized = normalizeLeadPayload(
     (await request.json().catch(() => ({}))) as LeadPayload,
