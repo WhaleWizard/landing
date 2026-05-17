@@ -141,7 +141,7 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
       <style>{`
         .modal-scroll {
           scrollbar-width: thin;
-          scrollbar-color: rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05);
+          scrollbar-color: color-mix(in srgb, var(--primary) 55%, transparent) rgba(255, 255, 255, 0.05);
         }
         .modal-scroll::-webkit-scrollbar {
           width: 4px;
@@ -151,11 +151,11 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
           border-radius: 10px;
         }
         .modal-scroll::-webkit-scrollbar-thumb {
-          background: linear-gradient(135deg, #8b5cf6, #6366f1, #3b82f6);
+          background: linear-gradient(135deg, var(--primary), var(--accent), var(--secondary));
           border-radius: 10px;
         }
         .modal-scroll::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
+          background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 78%, white 22%), color-mix(in srgb, var(--accent) 78%, white 22%), color-mix(in srgb, var(--secondary) 78%, white 22%));
         }
       `}</style>
     </AnimatePresence>,

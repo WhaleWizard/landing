@@ -4,7 +4,13 @@ import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 
-function Navbar() {
+type NavbarVariant = 'home' | 'service';
+
+interface NavbarProps {
+  variant?: NavbarVariant;
+}
+
+function Navbar({ variant = 'home' }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -31,6 +37,14 @@ function Navbar() {
       return;
     }
 
+    if (variant === 'service') {
+      window.setTimeout(() => {
+        scrollNow();
+      }, 120);
+      setIsMobileMenuOpen(false);
+      return;
+    }
+
     if (location.pathname !== '/') {
       navigate('/');
       window.setTimeout(() => {
@@ -39,16 +53,23 @@ function Navbar() {
     }
 
     setIsMobileMenuOpen(false);
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, variant]);
 
-  const navItems = [
-    { label: 'Услуги', action: () => scrollToSection('services') },
-    { label: 'Кейсы', action: () => scrollToSection('cases') },
-    { label: 'Блог', action: () => navigate('/blog') },
-    { label: 'FAQ', action: () => navigate('/faq') },
-    { label: 'Контакты', action: () => scrollToSection('social') },
-    { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
-  ];
+  const navItems = variant === 'service'
+    ? [
+      { label: 'Услуги', action: () => scrollToSection('services') },
+      { label: 'Кейсы', action: () => scrollToSection('cases') },
+      { label: 'Отзывы', action: () => scrollToSection('about') },
+      { label: 'Контакты', action: () => scrollToSection('contact') },
+    ]
+    : [
+      { label: 'Услуги', action: () => scrollToSection('services') },
+      { label: 'Кейсы', action: () => scrollToSection('cases') },
+      { label: 'Блог', action: () => navigate('/blog') },
+      { label: 'FAQ', action: () => navigate('/faq') },
+      { label: 'Контакты', action: () => scrollToSection('social') },
+      { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
+    ];
 
   return (
     <>
