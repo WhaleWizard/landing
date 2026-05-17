@@ -8,6 +8,11 @@ const files = {
   metaEvent: readFileSync('functions/api/meta-event.ts', 'utf8'),
   consent: readFileSync('src/app/consent/consent.ts', 'utf8'),
   landingForm: readFileSync('src/app/components/LandingForm.tsx', 'utf8'),
+  metaTestEvent: readFileSync('functions/api/meta-test-event.ts', 'utf8'),
+  diagnosticsSummary: readFileSync('functions/api/meta-diagnostics-summary.ts', 'utf8'),
+  diagnosticsCoverage: readFileSync('functions/api/meta-diagnostics-coverage.ts', 'utf8'),
+  diagnosticsAlerts: readFileSync('functions/api/meta-diagnostics-alerts.ts', 'utf8'),
+  diagnosticsWriter: readFileSync('functions/_lib/meta-diagnostics.ts', 'utf8'),
 };
 
 function mustContain(name, source, needles) {
@@ -110,6 +115,51 @@ mustContain('Home contact form Meta tracking', files.contactForm, [
   "service_slug: 'home'",
   "form_id: 'home_contact_form'",
   "form_variant: 'home_contact_v1'",
+]);
+
+mustContain('Meta CAPI test endpoint coverage', files.metaTestEvent, [
+  "'LeadFormView'",
+  "'EngagedView'",
+  "'Contact'",
+  'test_event_code: testCode',
+  'recordMetaDiagnostics',
+]);
+
+mustContain('Meta diagnostics summary endpoint', files.diagnosticsSummary, [
+  'META_CAPI_DEBUG_SECRET',
+  'meta_capi_diagnostics',
+  'sent_rate',
+  'failed_rate',
+  'fbp_rate',
+  'fbc_rate',
+  'marketing_consent_rate',
+  'avg_match_quality_score',
+  'form_id',
+]);
+
+mustContain('Meta diagnostics writer quality fields', files.diagnosticsWriter, [
+  'computeMatchQualityScore',
+  'match_quality_score',
+  'form_id',
+  'form_variant',
+  'contact_method',
+  'lead_source_page',
+  'PRAGMA table_info(meta_capi_diagnostics)',
+]);
+
+mustContain('Meta diagnostics coverage endpoint', files.diagnosticsCoverage, [
+  'CORE_EVENTS',
+  'missing_core_events',
+  'PageView',
+  'LeadFormView',
+  'Contact',
+]);
+
+mustContain('Meta diagnostics alerts endpoint', files.diagnosticsAlerts, [
+  'no_pageviews_sent',
+  'failed_events_present',
+  'low_fbc_rate',
+  'traffic_without_leads',
 ]);
 
 console.log('Meta CAPI smoke tests passed');

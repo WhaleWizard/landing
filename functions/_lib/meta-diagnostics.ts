@@ -24,19 +24,39 @@ export type MetaDiagnosticsInput = {
   consent_source?: string;
   consent_region?: string;
   consent_timestamp?: number;
+  form_id?: string;
+  form_variant?: string;
+  contact_method?: string;
+  lead_source_page?: string;
 };
 
 type MetaDiagnosticsEnv = Env & {
   META_CAPI_DIAGNOSTICS?: KVNamespace;
 };
 
-function safeString(value: unknown, max = 2048): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  return String(value).slice(0, max);
+export type MetaDiagnosticsWriteResult = {
+  kv: { attempted: boolean; ok: boolean; error?: string };
+  d1: { attempted: boolean; ok: boolean; error?: string; stored_columns?: string[]; match_quality_score?: number };
+  console_fallback: boolean;
+};
+
+type DiagnosticValue = string | number | null;
+
+type DiagnosticsColumnCache = {
+  expiresAt: number;
+  columns: Set<string>;
+};
+
+let diagnosticsColumnCache: DiagnosticsColumnCache | null = null;
+
+function safeString(value: unknown, max = 2048): string | null {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized ? normalized.slice(0, max) : null;
 }
 
-function safeBool(value: unknown): number | undefined {
-  return typeof value === 'boolean' ? (value ? 1 : 0) : undefined;
+function safeBool(value: unknown): number | null {
+  return typeof value === 'boolean' ? (value ? 1 : 0) : null;
 }
 
 function getCreatedAt(): string {
@@ -48,65 +68,127 @@ function getDiagnosticId(input: MetaDiagnosticsInput): string {
   return `meta_capi_diag:${Date.now()}:${input.event_name}:${input.event_id || random}:${random}`;
 }
 
-export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: MetaDiagnosticsInput): Promise<void> {
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function computeMatchQualityScore(input: MetaDiagnosticsInput): number {
+  let score = 0;
+  if (input.marketing_consent) score += 5;
+  if (input.has_fbp) score += 15;
+  if (input.has_fbc) score += 20;
+  if (input.has_fbclid) score += 15;
+  if (input.has_utm) score += 10;
+  if (input.has_external_id) score += 15;
+  if (input.has_email) score += 20;
+  if (input.has_phone) score += 15;
+  return Math.min(score, 100);
+}
+
+async function getDiagnosticsColumns(db: D1Database): Promise<Set<string>> {
+  const now = Date.now();
+  if (diagnosticsColumnCache && diagnosticsColumnCache.expiresAt > now) {
+    return diagnosticsColumnCache.columns;
+  }
+
+  const columnsResult = await db.prepare('PRAGMA table_info(meta_capi_diagnostics)').all<{ name: string }>();
+  const columns = new Set((columnsResult.results || []).map((column) => column.name).filter(Boolean));
+  diagnosticsColumnCache = { columns, expiresAt: now + 5 * 60 * 1000 };
+  return columns;
+}
+
+function buildDiagnosticValues(input: MetaDiagnosticsInput, createdAt: string): Record<string, DiagnosticValue> {
+  const matchQualityScore = computeMatchQualityScore(input);
+
+  return {
+    event_name: safeString(input.event_name, 80),
+    event_id: safeString(input.event_id, 128),
+    event_time: input.event_time ?? null,
+    status: safeString(input.status, 20),
+    events_received: input.events_received ?? null,
+    fbtrace_id: safeString(input.fbtrace_id, 120),
+    error_code: safeString(input.error_code, 80),
+    error_message: safeString(input.error_message, 1024),
+    page_path: safeString(input.page_path, 512),
+    page_url: safeString(input.page_url, 2048),
+    service: safeString(input.service, 120),
+    has_fbp: safeBool(input.has_fbp),
+    has_fbc: safeBool(input.has_fbc),
+    has_external_id: safeBool(input.has_external_id),
+    has_email: safeBool(input.has_email),
+    has_phone: safeBool(input.has_phone),
+    has_fbclid: safeBool(input.has_fbclid),
+    has_utm: safeBool(input.has_utm),
+    marketing_consent: safeBool(input.marketing_consent),
+    consent_version: input.consent_version ?? null,
+    consent_source: safeString(input.consent_source, 80),
+    consent_region: safeString(input.consent_region, 80),
+    consent_timestamp: input.consent_timestamp ?? null,
+    form_id: safeString(input.form_id, 120),
+    form_variant: safeString(input.form_variant, 120),
+    contact_method: safeString(input.contact_method, 80),
+    lead_source_page: safeString(input.lead_source_page, 512),
+    match_quality_score: matchQualityScore,
+    created_at: createdAt,
+  };
+}
+
+export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: MetaDiagnosticsInput): Promise<MetaDiagnosticsWriteResult> {
   const createdAt = getCreatedAt();
+  const valuesByColumn = buildDiagnosticValues(input, createdAt);
   const record = {
     ...input,
+    match_quality_score: valuesByColumn.match_quality_score,
     created_at: createdAt,
+  };
+
+  const result: MetaDiagnosticsWriteResult = {
+    kv: { attempted: false, ok: false },
+    d1: { attempted: false, ok: false },
+    console_fallback: false,
   };
 
   const kv = env.META_CAPI_DIAGNOSTICS;
   if (kv) {
+    result.kv.attempted = true;
     try {
       await kv.put(getDiagnosticId(input), JSON.stringify(record), { expirationTtl: 60 * 60 * 24 * 30 });
+      result.kv.ok = true;
     } catch (error) {
+      result.kv.error = toErrorMessage(error);
       console.warn('[Meta CAPI] Failed to write diagnostics to KV', error);
     }
   }
 
   if (env.DB) {
+    result.d1.attempted = true;
     try {
+      const availableColumns = await getDiagnosticsColumns(env.DB);
+      const columns = Object.keys(valuesByColumn).filter((column) => availableColumns.has(column));
+      const placeholders = columns.map(() => '?').join(', ');
+      const values = columns.map((column) => valuesByColumn[column]);
+
       await env.DB.prepare(`
-        INSERT INTO meta_capi_diagnostics (
-          event_name, event_id, event_time, status, events_received, fbtrace_id,
-          error_code, error_message, page_path, page_url, service,
-          has_fbp, has_fbc, has_external_id, has_email, has_phone, has_fbclid, has_utm,
-          marketing_consent, consent_version, consent_source, consent_region, consent_timestamp, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        safeString(input.event_name, 80),
-        safeString(input.event_id, 128),
-        input.event_time ?? null,
-        safeString(input.status, 20),
-        input.events_received ?? null,
-        safeString(input.fbtrace_id, 120),
-        safeString(input.error_code, 80),
-        safeString(input.error_message, 1024),
-        safeString(input.page_path, 512),
-        safeString(input.page_url, 2048),
-        safeString(input.service, 120),
-        safeBool(input.has_fbp) ?? null,
-        safeBool(input.has_fbc) ?? null,
-        safeBool(input.has_external_id) ?? null,
-        safeBool(input.has_email) ?? null,
-        safeBool(input.has_phone) ?? null,
-        safeBool(input.has_fbclid) ?? null,
-        safeBool(input.has_utm) ?? null,
-        safeBool(input.marketing_consent) ?? null,
-        input.consent_version ?? null,
-        safeString(input.consent_source, 80),
-        safeString(input.consent_region, 80),
-        input.consent_timestamp ?? null,
-        createdAt,
-      ).run();
+        INSERT INTO meta_capi_diagnostics (${columns.join(', ')})
+        VALUES (${placeholders})
+      `).bind(...values).run();
+
+      result.d1.ok = true;
+      result.d1.stored_columns = columns;
+      result.d1.match_quality_score = Number(valuesByColumn.match_quality_score);
     } catch (error) {
+      result.d1.error = toErrorMessage(error);
+      diagnosticsColumnCache = null;
       console.warn('[Meta CAPI] Failed to write diagnostics to D1', error);
     }
   }
 
   if (!kv && !env.DB) {
+    result.console_fallback = true;
     console.info('[Meta CAPI diagnostics]', record);
   }
+
+  return result;
 }
 
 export async function wasMetaEventAlreadySent(env: Env & { META_CAPI_IDEMPOTENCY?: KVNamespace }, eventName: string, eventId?: string): Promise<boolean> {
