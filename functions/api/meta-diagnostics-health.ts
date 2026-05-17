@@ -12,7 +12,16 @@ type DiagnosticsTableCheck = DiagnosticsCheck & {
   exists?: boolean;
   count?: number;
   latest_created_at?: string | null;
+  columns?: string[];
+  missing_columns?: string[];
 };
+
+const REQUIRED_DIAGNOSTICS_COLUMNS = [
+  'event_name', 'event_id', 'event_time', 'status', 'events_received', 'fbtrace_id',
+  'error_code', 'error_message', 'page_path', 'page_url', 'service',
+  'has_fbp', 'has_fbc', 'has_external_id', 'has_email', 'has_phone', 'has_fbclid', 'has_utm',
+  'marketing_consent', 'consent_version', 'consent_source', 'consent_region', 'consent_timestamp', 'created_at',
+];
 
 function getProvidedSecret(request: Request): string | undefined {
   const url = new URL(request.url);
@@ -37,15 +46,24 @@ async function checkDiagnosticsTable(env: Env): Promise<DiagnosticsTableCheck> {
       return { ok: false, exists: false, error: 'D1 table meta_capi_diagnostics was not found on the bound DB.' };
     }
 
+    const columnsResult = await env.DB.prepare(
+      'PRAGMA table_info(meta_capi_diagnostics)',
+    ).all<{ name: string }>();
+    const columns = (columnsResult.results || []).map((column) => column.name).filter(Boolean);
+    const missingColumns = REQUIRED_DIAGNOSTICS_COLUMNS.filter((column) => !columns.includes(column));
+
     const stats = await env.DB.prepare(
       'SELECT COUNT(*) AS count, MAX(created_at) AS latest_created_at FROM meta_capi_diagnostics',
     ).first<{ count: number; latest_created_at: string | null }>();
 
     return {
-      ok: true,
+      ok: missingColumns.length === 0,
       exists: true,
       count: Number(stats?.count || 0),
       latest_created_at: stats?.latest_created_at ?? null,
+      columns,
+      missing_columns: missingColumns,
+      error: missingColumns.length > 0 ? `D1 table is missing columns: ${missingColumns.join(', ')}` : undefined,
     };
   } catch (error) {
     return {
@@ -73,7 +91,7 @@ async function checkDiagnosticEvent(env: Env, eventId: string): Promise<Diagnost
   }
 }
 
-async function maybeWriteProbe(request: Request, env: Env): Promise<DiagnosticsCheck & { event_id?: string; inserted?: boolean }> {
+async function maybeWriteProbe(request: Request, env: Env): Promise<DiagnosticsCheck & { event_id?: string; inserted?: boolean; write_result?: Awaited<ReturnType<typeof recordMetaDiagnostics>> }> {
   const url = new URL(request.url);
   const shouldWrite = request.method === 'POST' || url.searchParams.get('write') === '1';
 
@@ -82,7 +100,7 @@ async function maybeWriteProbe(request: Request, env: Env): Promise<DiagnosticsC
   const eventId = `diagnostics-health-${crypto.randomUUID()}`;
 
   try {
-    await recordMetaDiagnostics(env, {
+    const writeResult = await recordMetaDiagnostics(env, {
       event_name: 'DiagnosticsHealthCheck',
       event_id: eventId,
       event_time: Math.floor(Date.now() / 1000),
@@ -93,12 +111,23 @@ async function maybeWriteProbe(request: Request, env: Env): Promise<DiagnosticsC
       marketing_consent: true,
     });
 
+    if (!writeResult.d1.ok) {
+      return {
+        ok: false,
+        event_id: eventId,
+        inserted: false,
+        write_result: writeResult,
+        error: writeResult.d1.error || 'recordMetaDiagnostics did not write to D1.',
+      };
+    }
+
     const inserted = await checkDiagnosticEvent(env, eventId);
 
     return {
       ok: inserted.ok,
       event_id: eventId,
       inserted: inserted.found,
+      write_result: writeResult,
       error: inserted.ok ? undefined : (inserted.error || 'Diagnostics probe row was not found after recordMetaDiagnostics ran.'),
     };
   } catch (error) {
@@ -144,8 +173,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       next_steps: [
         'If has_DB_binding=false, fix Pages Functions Production binding name to DB.',
         'If diagnostics_table_before.exists=false, run migration 0002 on the DB bound to Production.',
+        'If diagnostics_table_before.missing_columns is not empty, apply the latest migration/schema to the DB bound to Production.',
+        'If write_probe.write_result.d1.error is present, that is the exact D1 write error from recordMetaDiagnostics.',
         'If write_probe.inserted=true and count increases, D1 diagnostics writes work and the empty table means browser/API events are not reaching the functions.',
-        'If write_probe.ok=false, inspect Cloudflare Pages Functions logs for D1 errors from recordMetaDiagnostics.',
       ],
     },
     { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
