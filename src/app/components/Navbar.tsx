@@ -60,7 +60,6 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       { label: 'Услуги', action: () => scrollToSection('services') },
       { label: 'Кейсы', action: () => scrollToSection('cases') },
       { label: 'Отзывы', action: () => scrollToSection('about') },
-      { label: 'Контакты', action: () => scrollToSection('contact') },
     ]
     : [
       { label: 'Услуги', action: () => scrollToSection('services') },
