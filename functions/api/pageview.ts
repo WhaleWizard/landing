@@ -405,7 +405,7 @@ async function sendMetaPageView(
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const rateLimited = await enforceRateLimit(request);
+  const rateLimited = await enforceRateLimit(request, 'pageview');
   if (rateLimited) return rateLimited;
 
   const payload = normalizePageViewPayload(

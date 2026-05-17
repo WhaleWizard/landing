@@ -454,11 +454,12 @@ async function sendMetaConversionEvent(
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   // --- Rate limit ---
-  const rateLimited = await enforceRateLimit(request);
-  if (rateLimited) return rateLimited;
-
   const payload = (await request.json().catch(() => ({}))) as LeadPayload;
-  const normalized = normalizeLeadPayload(payload);
+  const rateLimited = await enforceRateLimit(request, 'lead');
+  if (rateLimited) {
+    waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'rate_limited', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), marketing_consent: normalized.marketing_consent }));
+    return rateLimited;
+  }
 
   // --- Honeypot ---
   if (normalized.hp_trap && normalized.hp_trap.length > 0) {

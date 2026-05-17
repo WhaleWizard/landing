@@ -421,12 +421,15 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const rateLimited = await enforceRateLimit(request);
-  if (rateLimited) return rateLimited;
-
   const payload = normalizeMetaEventPayload(
     (await request.json().catch(() => ({}))) as MetaEventPayload,
   );
+
+  const rateLimited = await enforceRateLimit(request, 'meta_event');
+  if (rateLimited) {
+    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name || 'ViewContent', event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'rate_limited', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: payload.marketing_consent }));
+    return rateLimited;
+  }
 
   if (!payload.event_name || !payload.event_id) {
     return json(
