@@ -102,7 +102,7 @@ function buildTestEvent(eventName: TestEventName, request: Request, eventSourceU
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const rateLimited = await enforceRateLimit(request);
+  const rateLimited = await enforceRateLimit(request, 'meta_test_event');
   if (rateLimited) return rateLimited;
 
   const token = env.META_CAPI_ACCESS_TOKEN;

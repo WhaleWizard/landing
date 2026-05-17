@@ -277,6 +277,21 @@ function classifyProblemCategory(problem: string | undefined): string | undefine
   return 'other';
 }
 
+
+function normalizePagePath(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const path = value.split('?')[0].split('#')[0] || '/';
+  return path.length > 1 ? path.replace(/\/$/, '') : path;
+}
+
+
+function estimateLeadValue(payload: LeadPayload): number | undefined {
+  const budget = Number((payload.budget || '').replace(/[^0-9.]/g, ''));
+  if (Number.isFinite(budget) && budget > 0) return Math.min(Math.max(budget, 100), 100000);
+  const serviceBoost = payload.service_slug ? 750 : 500;
+  return serviceBoost;
+}
+
 function hasAnyUtm(payload: LeadPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
   return Boolean(
     payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
@@ -297,18 +312,17 @@ async function sendMetaConversionEvent(
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
-    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'missing_token_or_pixel_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getLeadDiagnosticsContext(payload), has_email: Boolean(payload.email), has_phone: Boolean(payload.phone), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'missing_token_or_pixel_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getLeadDiagnosticsContext(payload), has_email: Boolean(payload.email), has_phone: Boolean(payload.phone), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     return;
   }
 
   const eventTime = resolveEventTime(payload.event_time);
   if (await wasMetaEventAlreadySent(env, 'Lead', payload.event_id)) {
-    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getLeadDiagnosticsContext(payload), has_email: Boolean(payload.email), has_phone: Boolean(payload.phone), marketing_consent: payload.marketing_consent });
+    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getLeadDiagnosticsContext(payload), has_email: Boolean(payload.email), has_phone: Boolean(payload.phone), marketing_consent: payload.marketing_consent });
     return;
   }
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
-  const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
   const metaCookies = getMetaCookies(request);
   const fbp = payload.fbp || metaCookies.fbp;
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
@@ -440,11 +454,12 @@ async function sendMetaConversionEvent(
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   // --- Rate limit ---
-  const rateLimited = await enforceRateLimit(request);
-  if (rateLimited) return rateLimited;
-
   const payload = (await request.json().catch(() => ({}))) as LeadPayload;
-  const normalized = normalizeLeadPayload(payload);
+  const rateLimited = await enforceRateLimit(request, 'lead');
+  if (rateLimited) {
+    waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'rate_limited', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), marketing_consent: normalized.marketing_consent }));
+    return rateLimited;
+  }
 
   // --- Honeypot ---
   if (normalized.hp_trap && normalized.hp_trap.length > 0) {

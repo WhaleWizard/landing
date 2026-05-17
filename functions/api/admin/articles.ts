@@ -107,7 +107,7 @@ function isValidArticlePayload(article: Article): boolean {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const rateLimited = await enforceRateLimit(request);
+  const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
   const payload = (await request.json().catch(() => ({}))) as AuthPayload;
@@ -132,7 +132,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const rateLimited = await enforceRateLimit(request);
+  const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
   const payload = (await request.json().catch(() => ({}))) as UpdatePayload;

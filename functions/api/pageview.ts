@@ -218,6 +218,13 @@ function isSha256Hex(value: string | undefined): boolean {
   return Boolean(value && /^[a-f0-9]{64}$/i.test(value));
 }
 
+
+function normalizePagePath(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const path = value.split('?')[0].split('#')[0] || '/';
+  return path.length > 1 ? path.replace(/\/$/, '') : path;
+}
+
 function hasAnyUtm(payload: PageViewPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
   return Boolean(
     payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
@@ -245,7 +252,7 @@ async function sendMetaPageView(
       status: 'skipped',
       error_message: 'missing_token_or_pixel_id',
       page_path: payload.page_path,
-      page_url: payload.page_url,
+      page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path),
       has_email: isSha256Hex(payload.em),
       has_phone: isSha256Hex(payload.ph),
       marketing_consent: true,
@@ -259,12 +266,11 @@ async function sendMetaPageView(
 
   const eventTime = resolveEventTime(payload.event_time);
   if (await wasMetaEventAlreadySent(env, 'PageView', payload.event_id)) {
-    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, marketing_consent: true });
+    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), marketing_consent: true });
     return;
   }
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
-  const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
   const eventId = payload.event_id || undefined;
 
   const metaCookies = getMetaCookies(request);
@@ -399,7 +405,7 @@ async function sendMetaPageView(
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const rateLimited = await enforceRateLimit(request);
+  const rateLimited = await enforceRateLimit(request, 'pageview');
   if (rateLimited) return rateLimited;
 
   const payload = normalizePageViewPayload(

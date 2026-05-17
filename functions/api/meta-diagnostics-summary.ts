@@ -18,6 +18,11 @@ type SummaryRow = {
   with_external_id: number;
   with_marketing_consent: number;
   avg_match_quality_score: number | null;
+  avg_score_identity: number | null;
+  avg_score_attribution: number | null;
+  avg_score_consent: number | null;
+  avg_score_context: number | null;
+  avg_lead_value: number | null;
   latest_created_at: string | null;
 };
 
@@ -35,6 +40,14 @@ type LatestRow = {
   contact_method: string | null;
   lead_source_page: string | null;
   match_quality_score: number | null;
+  event_source_url: string | null;
+  page_path_normalized: string | null;
+  lead_value: number | null;
+  lead_currency: string | null;
+  score_identity: number | null;
+  score_attribution: number | null;
+  score_consent: number | null;
+  score_context: number | null;
   has_fbp: number | null;
   has_fbc: number | null;
   has_fbclid: number | null;
@@ -64,6 +77,11 @@ function formatRows(rows: SummaryRow[]) {
   return rows.map((row) => ({
     ...row,
     avg_match_quality_score: row.avg_match_quality_score === null ? null : Math.round(row.avg_match_quality_score * 100) / 100,
+    avg_score_identity: row.avg_score_identity === null ? null : Math.round(row.avg_score_identity * 100) / 100,
+    avg_score_attribution: row.avg_score_attribution === null ? null : Math.round(row.avg_score_attribution * 100) / 100,
+    avg_score_consent: row.avg_score_consent === null ? null : Math.round(row.avg_score_consent * 100) / 100,
+    avg_score_context: row.avg_score_context === null ? null : Math.round(row.avg_score_context * 100) / 100,
+    avg_lead_value: row.avg_lead_value === null ? null : Math.round(row.avg_lead_value * 100) / 100,
     sent_rate: pct(row.sent, row.total),
     failed_rate: pct(row.failed, row.total),
     skipped_rate: pct(row.skipped, row.total),
@@ -112,6 +130,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const columns = await getColumns(env);
     const avgQualityExpression = columns.has('match_quality_score') ? 'AVG(match_quality_score)' : 'NULL';
+    const avgScoreIdentity = columns.has('score_identity') ? 'AVG(score_identity)' : 'NULL';
+    const avgScoreAttribution = columns.has('score_attribution') ? 'AVG(score_attribution)' : 'NULL';
+    const avgScoreConsent = columns.has('score_consent') ? 'AVG(score_consent)' : 'NULL';
+    const avgScoreContext = columns.has('score_context') ? 'AVG(score_context)' : 'NULL';
+    const avgLeadValue = columns.has('lead_value') ? 'AVG(lead_value)' : 'NULL';
 
     const summary = await env.DB.prepare(`
       SELECT
@@ -130,6 +153,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SUM(CASE WHEN has_external_id = 1 THEN 1 ELSE 0 END) AS with_external_id,
         SUM(CASE WHEN marketing_consent = 1 THEN 1 ELSE 0 END) AS with_marketing_consent,
         ${avgQualityExpression} AS avg_match_quality_score,
+        ${avgScoreIdentity} AS avg_score_identity,
+        ${avgScoreAttribution} AS avg_score_attribution,
+        ${avgScoreConsent} AS avg_score_consent,
+        ${avgScoreContext} AS avg_score_context,
+        ${avgLeadValue} AS avg_lead_value,
         MAX(created_at) AS latest_created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
@@ -146,6 +174,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         ${optionalColumn(columns, 'contact_method')},
         ${optionalColumn(columns, 'lead_source_page')},
         ${optionalColumn(columns, 'match_quality_score')},
+        ${optionalColumn(columns, 'event_source_url')},
+        ${optionalColumn(columns, 'page_path_normalized')},
+        ${optionalColumn(columns, 'lead_value')},
+        ${optionalColumn(columns, 'lead_currency')},
+        ${optionalColumn(columns, 'score_identity')},
+        ${optionalColumn(columns, 'score_attribution')},
+        ${optionalColumn(columns, 'score_consent')},
+        ${optionalColumn(columns, 'score_context')},
         has_fbp, has_fbc, has_fbclid, has_utm, marketing_consent, created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
@@ -159,7 +195,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         checked_at: new Date().toISOString(),
         lookback_hours: hours,
         since,
-        optional_columns: ['form_id', 'form_variant', 'contact_method', 'lead_source_page', 'match_quality_score'].filter((column) => columns.has(column)),
+        optional_columns: ['form_id', 'form_variant', 'contact_method', 'lead_source_page', 'match_quality_score', 'event_source_url', 'page_path_normalized', 'lead_value', 'lead_currency', 'score_identity', 'score_attribution', 'score_consent', 'score_context'].filter((column) => columns.has(column)),
         summary: formatRows(summary.results || []),
         latest: latest.results || [],
       },

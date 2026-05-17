@@ -260,6 +260,13 @@ function extractRequestContext(request: Request, pageUrl?: string) {
 }
 
 
+
+function normalizePagePath(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const path = value.split('?')[0].split('#')[0] || '/';
+  return path.length > 1 ? path.replace(/\/$/, '') : path;
+}
+
 function hasAnyUtm(payload: MetaEventPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
   return Boolean(
     payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
@@ -278,7 +285,7 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
     console.warn('[Meta CAPI] Missing token or pixel ID, skipping extra event');
     await recordMetaDiagnostics(env, {
       event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped',
-      error_message: 'missing_token_or_pixel_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getMetaEventDiagnosticsContext(payload),
+      error_message: 'missing_token_or_pixel_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload),
       has_fbp: Boolean(payload.fbp), has_fbc: Boolean(payload.fbc), has_external_id: Boolean(payload.external_id),
       has_fbclid: Boolean(payload.fbclid), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version,
       consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp,
@@ -288,12 +295,11 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
 
   const eventTime = resolveEventTime(payload.event_time);
   if (await wasMetaEventAlreadySent(env, payload.event_name, payload.event_id)) {
-    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: payload.marketing_consent });
+    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: payload.marketing_consent });
     return;
   }
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
-  const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
   const metaCookies = getMetaCookies(request);
   const fbp = payload.fbp || metaCookies.fbp;
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
@@ -415,12 +421,15 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const rateLimited = await enforceRateLimit(request);
-  if (rateLimited) return rateLimited;
-
   const payload = normalizeMetaEventPayload(
     (await request.json().catch(() => ({}))) as MetaEventPayload,
   );
+
+  const rateLimited = await enforceRateLimit(request, 'meta_event');
+  if (rateLimited) {
+    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name || 'ViewContent', event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'rate_limited', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: payload.marketing_consent }));
+    return rateLimited;
+  }
 
   if (!payload.event_name || !payload.event_id) {
     return json(
@@ -430,7 +439,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   if (!payload.marketing_consent) {
-    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: false, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp }));
+    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: payload.page_path, page_url: payload.page_url, event_source_url: payload.page_url || request.headers.get('Referer') || request.url, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: false, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp }));
     return json(
       { success: true, skipped: true, reason: 'marketing_consent_not_granted' },
       { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },

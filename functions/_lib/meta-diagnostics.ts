@@ -1,6 +1,10 @@
 import type { Env } from './types';
 
 export type MetaDiagnosticsInput = {
+  event_source_url?: string;
+  page_path_normalized?: string;
+  lead_value?: number;
+  lead_currency?: string;
   event_name: string;
   event_id?: string;
   event_time?: number;
@@ -59,6 +63,17 @@ function safeBool(value: unknown): number | null {
   return typeof value === 'boolean' ? (value ? 1 : 0) : null;
 }
 
+
+function safeCurrency(value: unknown): string | null {
+  const normalized = safeString(value, 3);
+  return normalized ? normalized.toUpperCase() : null;
+}
+
+function safePositiveNumber(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
+  return Math.round(value * 100) / 100;
+}
+
 function getCreatedAt(): string {
   return new Date().toISOString();
 }
@@ -75,13 +90,47 @@ function toErrorMessage(error: unknown): string {
 function computeMatchQualityScore(input: MetaDiagnosticsInput): number {
   let score = 0;
   if (input.marketing_consent) score += 5;
-  if (input.has_fbp) score += 15;
-  if (input.has_fbc) score += 20;
-  if (input.has_fbclid) score += 15;
-  if (input.has_utm) score += 10;
-  if (input.has_external_id) score += 15;
+  if (input.has_fbp) score += 12;
+  if (input.has_fbc) score += 18;
+  if (input.has_fbclid) score += 10;
+  if (input.has_utm) score += 8;
+  if (input.has_external_id) score += 12;
   if (input.has_email) score += 20;
   if (input.has_phone) score += 15;
+  if (safeString(input.event_source_url, 2048)) score += 5;
+  if (safeString(input.page_path_normalized, 512)) score += 5;
+  if (safePositiveNumber(input.lead_value) !== null) score += 5;
+  return Math.min(score, 100);
+}
+
+function computeScoreIdentity(input: MetaDiagnosticsInput): number {
+  let score = 0;
+  if (input.has_email) score += 40;
+  if (input.has_phone) score += 30;
+  if (input.has_external_id) score += 30;
+  return Math.min(score, 100);
+}
+
+function computeScoreAttribution(input: MetaDiagnosticsInput): number {
+  let score = 0;
+  if (input.has_fbp) score += 25;
+  if (input.has_fbc) score += 35;
+  if (input.has_fbclid) score += 20;
+  if (input.has_utm) score += 20;
+  return Math.min(score, 100);
+}
+
+function computeScoreConsent(input: MetaDiagnosticsInput): number {
+  return input.marketing_consent ? 100 : 0;
+}
+
+function computeScoreContext(input: MetaDiagnosticsInput): number {
+  let score = 0;
+  if (safeString(input.page_path, 512)) score += 20;
+  if (safeString(input.page_path_normalized, 512)) score += 20;
+  if (safeString(input.event_source_url, 2048)) score += 20;
+  if (safeString(input.form_id, 120)) score += 20;
+  if (safeString(input.lead_source_page, 512)) score += 20;
   return Math.min(score, 100);
 }
 
@@ -99,6 +148,10 @@ async function getDiagnosticsColumns(db: D1Database): Promise<Set<string>> {
 
 function buildDiagnosticValues(input: MetaDiagnosticsInput, createdAt: string): Record<string, DiagnosticValue> {
   const matchQualityScore = computeMatchQualityScore(input);
+  const scoreIdentity = computeScoreIdentity(input);
+  const scoreAttribution = computeScoreAttribution(input);
+  const scoreConsent = computeScoreConsent(input);
+  const scoreContext = computeScoreContext(input);
 
   return {
     event_name: safeString(input.event_name, 80),
@@ -111,6 +164,8 @@ function buildDiagnosticValues(input: MetaDiagnosticsInput, createdAt: string): 
     error_message: safeString(input.error_message, 1024),
     page_path: safeString(input.page_path, 512),
     page_url: safeString(input.page_url, 2048),
+    event_source_url: safeString(input.event_source_url, 2048),
+    page_path_normalized: safeString(input.page_path_normalized, 512),
     service: safeString(input.service, 120),
     has_fbp: safeBool(input.has_fbp),
     has_fbc: safeBool(input.has_fbc),
@@ -129,6 +184,12 @@ function buildDiagnosticValues(input: MetaDiagnosticsInput, createdAt: string): 
     contact_method: safeString(input.contact_method, 80),
     lead_source_page: safeString(input.lead_source_page, 512),
     match_quality_score: matchQualityScore,
+    score_identity: scoreIdentity,
+    score_attribution: scoreAttribution,
+    score_consent: scoreConsent,
+    score_context: scoreContext,
+    lead_value: safePositiveNumber(input.lead_value),
+    lead_currency: safeCurrency(input.lead_currency),
     created_at: createdAt,
   };
 }

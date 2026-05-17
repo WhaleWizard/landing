@@ -12,6 +12,8 @@ const files = {
   diagnosticsSummary: readFileSync('functions/api/meta-diagnostics-summary.ts', 'utf8'),
   diagnosticsCoverage: readFileSync('functions/api/meta-diagnostics-coverage.ts', 'utf8'),
   diagnosticsAlerts: readFileSync('functions/api/meta-diagnostics-alerts.ts', 'utf8'),
+  diagnosticsFunnel: readFileSync('functions/api/meta-diagnostics-funnel.ts', 'utf8'),
+  diagnosticsAnomalies: readFileSync('functions/api/meta-diagnostics-anomalies.ts', 'utf8'),
   diagnosticsWriter: readFileSync('functions/_lib/meta-diagnostics.ts', 'utf8'),
 };
 
@@ -145,6 +147,8 @@ mustContain('Meta diagnostics writer quality fields', files.diagnosticsWriter, [
   'contact_method',
   'lead_source_page',
   'PRAGMA table_info(meta_capi_diagnostics)',
+  'score_identity',
+  'page_path_normalized',
 ]);
 
 mustContain('Meta diagnostics coverage endpoint', files.diagnosticsCoverage, [
@@ -163,3 +167,16 @@ mustContain('Meta diagnostics alerts endpoint', files.diagnosticsAlerts, [
 ]);
 
 console.log('Meta CAPI smoke tests passed');
+
+
+mustContain('Meta diagnostics funnel endpoint', files.diagnosticsFunnel, [
+  'FUNNEL_STEPS',
+  'conversion_from_prev_rate',
+  'dropoff_from_prev',
+]);
+
+mustContain('Meta diagnostics anomalies endpoint', files.diagnosticsAnomalies, [
+  'failed_rate_spike',
+  'fbc_rate_drop',
+  'consent_rate_drop',
+]);

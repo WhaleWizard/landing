@@ -27,6 +27,8 @@ const REQUIRED_DIAGNOSTICS_COLUMNS = [
 
 const OPTIONAL_DIAGNOSTICS_COLUMNS = [
   'form_id', 'form_variant', 'contact_method', 'lead_source_page', 'match_quality_score',
+  'event_source_url', 'page_path_normalized', 'lead_value', 'lead_currency',
+  'score_identity', 'score_attribution', 'score_consent', 'score_context',
 ];
 
 function getProvidedSecret(request: Request): string | undefined {
