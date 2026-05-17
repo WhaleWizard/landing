@@ -15,7 +15,14 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { getMetaBrowserContext, trackLead } from '../consent/consent';
+import {
+  getMetaBrowserContext,
+  rememberMetaLeadIdentifiers,
+  trackEngagedView,
+  trackFormStart,
+  trackLead,
+  trackLeadFormView,
+} from '../consent/consent';
 import Modal from './Modal';
 import { API_ROUTES } from '../config';
 
@@ -87,17 +94,36 @@ function ContactForm() {
   const [agreed, setAgreed] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
+  const formStartTrackedRef = useRef(false);
+  const formViewTrackedRef = useRef(false);
 
   const navigate = useNavigate();
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const isTouch = useTouchDevice();
 
+  useEffect(() => {
+    if (!inView || formViewTrackedRef.current) return;
+    formViewTrackedRef.current = trackLeadFormView('home');
+    if (formViewTrackedRef.current) {
+      trackEngagedView('form_view');
+    }
+  }, [inView]);
+
+  const trackFirstFormInteraction = useCallback((fieldName: string) => {
+    if (formStartTrackedRef.current) return;
+    formStartTrackedRef.current = trackFormStart('home', {
+      form_id: 'home_contact_form',
+      form_field: fieldName,
+    });
+  }, []);
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      trackFirstFormInteraction(e.target.name);
       setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     },
-    [],
+    [trackFirstFormInteraction],
   );
 
   const handleSubmit = useCallback(
@@ -125,6 +151,11 @@ function ContactForm() {
             message: formData.message,
             contactMethod: contactMethod,
             telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
+            service: 'WhaleWzrd main landing',
+            service_slug: 'home',
+            form_id: 'home_contact_form',
+            form_variant: 'home_contact_v1',
+            lead_source_page: window.location.pathname,
             event_id: eventId,
             hp_trap: hpTrap,
             page_url: window.location.href,
@@ -137,6 +168,7 @@ function ContactForm() {
         }
 
         setIsSubmitted(true);
+        await rememberMetaLeadIdentifiers({ email: formData.email, phone: formData.phone, name: formData.name });
         setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
         setTelegramUsername('');
         setHpTrap('');
@@ -146,6 +178,10 @@ function ContactForm() {
           ...metaBrowserContext,
           budget: formData.budget || undefined,
           contact_method: contactMethod,
+          service: 'WhaleWzrd main landing',
+          service_slug: 'home',
+          form_id: 'home_contact_form',
+          form_variant: 'home_contact_v1',
         });
 
         setTimeout(() => setIsSubmitted(false), 5000);
@@ -162,12 +198,14 @@ function ContactForm() {
   );
 
   const handleSetTelegramUsername = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    trackFirstFormInteraction('telegramUsername');
     setTelegramUsername(e.target.value);
-  }, []);
+  }, [trackFirstFormInteraction]);
 
   const handleSetContactMethod = useCallback((method: 'telegram' | 'whatsapp') => {
+    trackFirstFormInteraction('contactMethod');
     setContactMethod(method);
-  }, []);
+  }, [trackFirstFormInteraction]);
 
   const handleSetHpTrap = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setHpTrap(e.target.value);
@@ -298,7 +336,10 @@ function ContactForm() {
                           required
                           value={formData.name}
                           onChange={handleChange}
-                          onFocus={() => setFocusedField('name')}
+                          onFocus={() => {
+                            setFocusedField('name');
+                            trackFirstFormInteraction('name');
+                          }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="Ваше имя"
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
@@ -323,7 +364,10 @@ function ContactForm() {
                           required
                           value={formData.email}
                           onChange={handleChange}
-                          onFocus={() => setFocusedField('email')}
+                          onFocus={() => {
+                            setFocusedField('email');
+                            trackFirstFormInteraction('email');
+                          }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="your@email.com"
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
@@ -348,7 +392,10 @@ function ContactForm() {
                           required
                           value={formData.phone}
                           onChange={handleChange}
-                          onFocus={() => setFocusedField('phone')}
+                          onFocus={() => {
+                            setFocusedField('phone');
+                            trackFirstFormInteraction('phone');
+                          }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="+111 11 123-45-67"
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
@@ -419,7 +466,10 @@ function ContactForm() {
                           name="message"
                           value={formData.message}
                           onChange={handleChange}
-                          onFocus={() => setFocusedField('message')}
+                          onFocus={() => {
+                            setFocusedField('message');
+                            trackFirstFormInteraction('message');
+                          }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="Расскажите кратко о вашем проекте..."
                           rows={4}

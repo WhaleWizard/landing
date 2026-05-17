@@ -856,7 +856,22 @@ type ServerMetaEventPayload = MetaBrowserContext & {
   content_ids?: string[];
 };
 
-const SERVICE_CONTENT: Record<string, { service: string; content_name: string; content_category: string; content_type: string; content_ids: string[] }> = {
+type MetaPageContent = {
+  service: string;
+  content_name: string;
+  content_category: string;
+  content_type: string;
+  content_ids: string[];
+};
+
+const SERVICE_CONTENT: Record<string, MetaPageContent> = {
+  '/': {
+    service: 'WhaleWzrd main landing',
+    content_name: 'WhaleWzrd main landing',
+    content_category: 'main_landing',
+    content_type: 'website',
+    content_ids: ['home'],
+  },
   '/meta-ads': {
     service: 'Meta Ads',
     content_name: 'Meta Ads audit landing',
@@ -878,7 +893,112 @@ const SERVICE_CONTENT: Record<string, { service: string; content_name: string; c
     content_type: 'service',
     content_ids: ['consult'],
   },
+  '/calculator': {
+    service: 'Budget calculator',
+    content_name: 'Budget calculator page',
+    content_category: 'calculator',
+    content_type: 'tool',
+    content_ids: ['calculator'],
+  },
+  '/roi-calculator': {
+    service: 'ROI calculator',
+    content_name: 'ROI calculator page',
+    content_category: 'calculator',
+    content_type: 'tool',
+    content_ids: ['roi-calculator'],
+  },
+  '/thank-you': {
+    service: 'Lead confirmation',
+    content_name: 'Thank you page',
+    content_category: 'conversion_confirmation',
+    content_type: 'page',
+    content_ids: ['thank-you'],
+  },
+  '/blog': {
+    service: 'Marketing blog',
+    content_name: 'Blog listing page',
+    content_category: 'blog',
+    content_type: 'article_index',
+    content_ids: ['blog'],
+  },
+  '/faq': {
+    service: 'FAQ',
+    content_name: 'FAQ page',
+    content_category: 'support_content',
+    content_type: 'page',
+    content_ids: ['faq'],
+  },
+  '/marketing-glossary': {
+    service: 'Marketing glossary',
+    content_name: 'Marketing glossary page',
+    content_category: 'education_content',
+    content_type: 'page',
+    content_ids: ['marketing-glossary'],
+  },
+  '/privacy-policy': {
+    service: 'Privacy policy',
+    content_name: 'Privacy policy page',
+    content_category: 'legal_page',
+    content_type: 'page',
+    content_ids: ['privacy-policy'],
+  },
+  '/offer': {
+    service: 'Offer',
+    content_name: 'Offer page',
+    content_category: 'legal_page',
+    content_type: 'page',
+    content_ids: ['offer'],
+  },
+  '/cookie-policy': {
+    service: 'Cookie policy',
+    content_name: 'Cookie policy page',
+    content_category: 'legal_page',
+    content_type: 'page',
+    content_ids: ['cookie-policy'],
+  },
 };
+
+function normalizePathnameForMeta(path: string): string {
+  const pathname = path.split('?')[0].split('#')[0] || '/';
+  if (pathname === '/') return pathname;
+  return pathname.replace(/\/$/, '');
+}
+
+function slugifyContentId(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/[^a-z0-9а-яё_-]+/giu, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 120) || 'unknown-page';
+}
+
+function getMetaPageContent(path: string): MetaPageContent {
+  const pathname = normalizePathnameForMeta(path);
+  const staticContent = SERVICE_CONTENT[pathname];
+  if (staticContent) return staticContent;
+
+  if (pathname.startsWith('/blog/')) {
+    const articleSlug = slugifyContentId(pathname.slice('/blog/'.length));
+    return {
+      service: 'Marketing blog article',
+      content_name: document.title || `Blog article ${articleSlug}`,
+      content_category: 'blog_article',
+      content_type: 'article',
+      content_ids: [`blog-${articleSlug}`],
+    };
+  }
+
+  const genericId = slugifyContentId(pathname);
+  return {
+    service: 'WhaleWzrd site page',
+    content_name: document.title || `WhaleWzrd ${genericId}`,
+    content_category: 'site_page',
+    content_type: 'page',
+    content_ids: [`page-${genericId}`],
+  };
+}
 
 function sendServerMetaEvent(payload: ServerMetaEventPayload): void {
   if (!payload.marketing_consent) return;
@@ -896,9 +1016,7 @@ function sendServerMetaEvent(payload: ServerMetaEventPayload): void {
 export function trackServiceViewContent(path: string, options: { marketing?: boolean } = {}): void {
   if (options.marketing === false) return;
 
-  const pathname = path.split('?')[0];
-  const content = SERVICE_CONTENT[pathname];
-  if (!content) return;
+  const content = getMetaPageContent(path);
 
   const eventId = crypto.randomUUID();
   const browserContext = getMetaBrowserContext(path);
@@ -936,7 +1054,7 @@ export function trackFormStart(serviceSlug: string, extraData: Record<string, un
   if (!browserContext.marketing_consent) return false;
 
   const eventId = crypto.randomUUID();
-  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     form_id: 'service_landing_form',
     form_step: 'first_interaction',
@@ -986,7 +1104,7 @@ export function trackLeadFormView(serviceSlug: string): boolean {
   leadFormViewTracked.add(key);
 
   const eventId = crypto.randomUUID();
-  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     form_id: 'service_landing_form',
     form_step: 'view',
@@ -1026,7 +1144,7 @@ export function trackEngagedView(reason: 'time_10s' | 'scroll_50' | 'form_view',
   engagedViewTracked.add(key);
 
   const eventId = crypto.randomUUID();
-  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     engagement_type: reason,
     service: serviceContent?.service,
@@ -1062,7 +1180,7 @@ export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone
   if (!browserContext.marketing_consent) return false;
 
   const eventId = crypto.randomUUID();
-  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     contact_channel: channel,
     placement,

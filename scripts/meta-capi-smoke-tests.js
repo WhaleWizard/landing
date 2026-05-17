@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const files = {
+  contactForm: readFileSync('src/app/components/ContactForm.tsx', 'utf8'),
   pageview: readFileSync('functions/api/pageview.ts', 'utf8'),
   lead: readFileSync('functions/api/lead.ts', 'utf8'),
   metaEvent: readFileSync('functions/api/meta-event.ts', 'utf8'),
@@ -72,6 +73,13 @@ mustContain('Client service content ids and dedupe ids', files.consent, [
   "content_ids: ['meta-ads']",
   "content_ids: ['google-ads']",
   "content_ids: ['consult']",
+  "content_ids: ['home']",
+  "content_ids: ['calculator']",
+  "content_ids: ['blog']",
+  "content_ids: ['faq']",
+  'function getMetaPageContent',
+  "pathname.startsWith('/blog/')",
+  'page-${genericId}',
   "win.fbq?.('track', 'ViewContent', eventData, { eventID: eventId })",
   "event_name: 'ViewContent'",
   "event_id: eventId",
@@ -93,6 +101,15 @@ mustContain('Landing form email and context', files.landingForm, [
   "form_variant: 'service_landing_v1'",
   'rememberMetaLeadIdentifiers',
   'trackLeadFormView',
+]);
+
+mustContain('Home contact form Meta tracking', files.contactForm, [
+  'trackLeadFormView',
+  'trackFormStart',
+  'rememberMetaLeadIdentifiers',
+  "service_slug: 'home'",
+  "form_id: 'home_contact_form'",
+  "form_variant: 'home_contact_v1'",
 ]);
 
 console.log('Meta CAPI smoke tests passed');
