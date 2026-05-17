@@ -36,13 +36,13 @@ export type MetaDiagnosticsWriteResult = {
   console_fallback: boolean;
 };
 
-function safeString(value: unknown, max = 2048): string | undefined {
-  if (value === undefined || value === null) return undefined;
+function safeString(value: unknown, max = 2048): string | null {
+  if (value === undefined || value === null) return null;
   return String(value).slice(0, max);
 }
 
-function safeBool(value: unknown): number | undefined {
-  return typeof value === 'boolean' ? (value ? 1 : 0) : undefined;
+function safeBool(value: unknown): number | null {
+  return typeof value === 'boolean' ? (value ? 1 : 0) : null;
 }
 
 function getCreatedAt(): string {
@@ -105,14 +105,14 @@ export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: Meta
         safeString(input.page_path, 512),
         safeString(input.page_url, 2048),
         safeString(input.service, 120),
-        safeBool(input.has_fbp) ?? null,
-        safeBool(input.has_fbc) ?? null,
-        safeBool(input.has_external_id) ?? null,
-        safeBool(input.has_email) ?? null,
-        safeBool(input.has_phone) ?? null,
-        safeBool(input.has_fbclid) ?? null,
-        safeBool(input.has_utm) ?? null,
-        safeBool(input.marketing_consent) ?? null,
+        safeBool(input.has_fbp),
+        safeBool(input.has_fbc),
+        safeBool(input.has_external_id),
+        safeBool(input.has_email),
+        safeBool(input.has_phone),
+        safeBool(input.has_fbclid),
+        safeBool(input.has_utm),
+        safeBool(input.marketing_consent),
         input.consent_version ?? null,
         safeString(input.consent_source, 80),
         safeString(input.consent_region, 80),
