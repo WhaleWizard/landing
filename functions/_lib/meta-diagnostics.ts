@@ -30,13 +30,19 @@ type MetaDiagnosticsEnv = Env & {
   META_CAPI_DIAGNOSTICS?: KVNamespace;
 };
 
-function safeString(value: unknown, max = 2048): string | undefined {
-  if (value === undefined || value === null) return undefined;
+export type MetaDiagnosticsWriteResult = {
+  kv: { attempted: boolean; ok: boolean; error?: string };
+  d1: { attempted: boolean; ok: boolean; error?: string };
+  console_fallback: boolean;
+};
+
+function safeString(value: unknown, max = 2048): string | null {
+  if (value === undefined || value === null) return null;
   return String(value).slice(0, max);
 }
 
-function safeBool(value: unknown): number | undefined {
-  return typeof value === 'boolean' ? (value ? 1 : 0) : undefined;
+function safeBool(value: unknown): number | null {
+  return typeof value === 'boolean' ? (value ? 1 : 0) : null;
 }
 
 function getCreatedAt(): string {
@@ -48,23 +54,37 @@ function getDiagnosticId(input: MetaDiagnosticsInput): string {
   return `meta_capi_diag:${Date.now()}:${input.event_name}:${input.event_id || random}:${random}`;
 }
 
-export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: MetaDiagnosticsInput): Promise<void> {
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: MetaDiagnosticsInput): Promise<MetaDiagnosticsWriteResult> {
   const createdAt = getCreatedAt();
   const record = {
     ...input,
     created_at: createdAt,
   };
 
+  const result: MetaDiagnosticsWriteResult = {
+    kv: { attempted: false, ok: false },
+    d1: { attempted: false, ok: false },
+    console_fallback: false,
+  };
+
   const kv = env.META_CAPI_DIAGNOSTICS;
   if (kv) {
+    result.kv.attempted = true;
     try {
       await kv.put(getDiagnosticId(input), JSON.stringify(record), { expirationTtl: 60 * 60 * 24 * 30 });
+      result.kv.ok = true;
     } catch (error) {
+      result.kv.error = toErrorMessage(error);
       console.warn('[Meta CAPI] Failed to write diagnostics to KV', error);
     }
   }
 
   if (env.DB) {
+    result.d1.attempted = true;
     try {
       await env.DB.prepare(`
         INSERT INTO meta_capi_diagnostics (
@@ -85,28 +105,33 @@ export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: Meta
         safeString(input.page_path, 512),
         safeString(input.page_url, 2048),
         safeString(input.service, 120),
-        safeBool(input.has_fbp) ?? null,
-        safeBool(input.has_fbc) ?? null,
-        safeBool(input.has_external_id) ?? null,
-        safeBool(input.has_email) ?? null,
-        safeBool(input.has_phone) ?? null,
-        safeBool(input.has_fbclid) ?? null,
-        safeBool(input.has_utm) ?? null,
-        safeBool(input.marketing_consent) ?? null,
+        safeBool(input.has_fbp),
+        safeBool(input.has_fbc),
+        safeBool(input.has_external_id),
+        safeBool(input.has_email),
+        safeBool(input.has_phone),
+        safeBool(input.has_fbclid),
+        safeBool(input.has_utm),
+        safeBool(input.marketing_consent),
         input.consent_version ?? null,
         safeString(input.consent_source, 80),
         safeString(input.consent_region, 80),
         input.consent_timestamp ?? null,
         createdAt,
       ).run();
+      result.d1.ok = true;
     } catch (error) {
+      result.d1.error = toErrorMessage(error);
       console.warn('[Meta CAPI] Failed to write diagnostics to D1', error);
     }
   }
 
   if (!kv && !env.DB) {
+    result.console_fallback = true;
     console.info('[Meta CAPI diagnostics]', record);
   }
+
+  return result;
 }
 
 export async function wasMetaEventAlreadySent(env: Env & { META_CAPI_IDEMPOTENCY?: KVNamespace }, eventName: string, eventId?: string): Promise<boolean> {
