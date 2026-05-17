@@ -4,6 +4,8 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
+import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
+import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 
 interface PageViewPayload {
   event_id?: string;
@@ -482,9 +484,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const rateLimited = await enforceRateLimit(request, 'pageview');
   if (rateLimited) return rateLimited;
 
-  const payload = normalizePageViewPayload(
-    (await request.json().catch(() => ({}))) as PageViewPayload,
-  );
+  const rawBody = await request.text();
+  const signatureMode = getTrackingSignatureMode(env);
+  const signature = await verifyTrackingSignature(request, env, rawBody);
+  if (!signature.ok && signatureMode === 'enforce') {
+    return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+
+  const payload = normalizePageViewPayload((JSON.parse(rawBody || '{}')) as PageViewPayload);
 
   if (!payload.event_id) {
     return json(
@@ -493,8 +500,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
+  const outboxId = `pv:${payload.event_id}`;
+  waitUntil(enqueueMetaEvent(env, { id: outboxId, event_name: 'PageView', event_id: payload.event_id || outboxId, payload_json: JSON.stringify(payload) }));
   // Отправляем асинхронно, не замедляя клиентскую навигацию
-  waitUntil(sendMetaPageView(payload, env, request));
+  waitUntil(sendMetaPageView(payload, env, request)
+    .then(() => markOutboxSent(env, outboxId))
+    .catch(async (e) => {
+      const now = Math.floor(Date.now() / 1000);
+      await markOutboxRetry(env, outboxId, 1, now + 60, e instanceof Error ? e.message : String(e));
+    }));
 
   return json(
     { success: true },
