@@ -30,6 +30,12 @@ type MetaDiagnosticsEnv = Env & {
   META_CAPI_DIAGNOSTICS?: KVNamespace;
 };
 
+export type MetaDiagnosticsWriteResult = {
+  kv: { attempted: boolean; ok: boolean; error?: string };
+  d1: { attempted: boolean; ok: boolean; error?: string };
+  console_fallback: boolean;
+};
+
 function safeString(value: unknown, max = 2048): string | undefined {
   if (value === undefined || value === null) return undefined;
   return String(value).slice(0, max);
@@ -48,23 +54,37 @@ function getDiagnosticId(input: MetaDiagnosticsInput): string {
   return `meta_capi_diag:${Date.now()}:${input.event_name}:${input.event_id || random}:${random}`;
 }
 
-export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: MetaDiagnosticsInput): Promise<void> {
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: MetaDiagnosticsInput): Promise<MetaDiagnosticsWriteResult> {
   const createdAt = getCreatedAt();
   const record = {
     ...input,
     created_at: createdAt,
   };
 
+  const result: MetaDiagnosticsWriteResult = {
+    kv: { attempted: false, ok: false },
+    d1: { attempted: false, ok: false },
+    console_fallback: false,
+  };
+
   const kv = env.META_CAPI_DIAGNOSTICS;
   if (kv) {
+    result.kv.attempted = true;
     try {
       await kv.put(getDiagnosticId(input), JSON.stringify(record), { expirationTtl: 60 * 60 * 24 * 30 });
+      result.kv.ok = true;
     } catch (error) {
+      result.kv.error = toErrorMessage(error);
       console.warn('[Meta CAPI] Failed to write diagnostics to KV', error);
     }
   }
 
   if (env.DB) {
+    result.d1.attempted = true;
     try {
       await env.DB.prepare(`
         INSERT INTO meta_capi_diagnostics (
@@ -99,14 +119,19 @@ export async function recordMetaDiagnostics(env: MetaDiagnosticsEnv, input: Meta
         input.consent_timestamp ?? null,
         createdAt,
       ).run();
+      result.d1.ok = true;
     } catch (error) {
+      result.d1.error = toErrorMessage(error);
       console.warn('[Meta CAPI] Failed to write diagnostics to D1', error);
     }
   }
 
   if (!kv && !env.DB) {
+    result.console_fallback = true;
     console.info('[Meta CAPI diagnostics]', record);
   }
+
+  return result;
 }
 
 export async function wasMetaEventAlreadySent(env: Env & { META_CAPI_IDEMPOTENCY?: KVNamespace }, eventName: string, eventId?: string): Promise<boolean> {
