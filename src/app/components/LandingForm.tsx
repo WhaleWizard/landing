@@ -33,6 +33,28 @@ const serviceLabels: Record<ServiceType, string> = {
   'consult': 'Консультация',
 };
 
+
+function normalizeContactForLead(contact: string): {
+  email?: string;
+  phone?: string;
+  telegramUsername?: string;
+  contactMethod: 'telegram' | 'whatsapp';
+} {
+  const value = contact.trim();
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const digits = value.replace(/\D/g, '');
+  const looksLikeTelegram = value.startsWith('@') || /^https?:\/\/(t\.me|telegram\.me)\//i.test(value);
+  const looksLikeEmail = emailPattern.test(value);
+  const looksLikePhone = digits.length >= 8;
+
+  return {
+    email: looksLikeEmail ? value : undefined,
+    phone: looksLikePhone ? value : undefined,
+    telegramUsername: looksLikeTelegram || (!looksLikeEmail && !looksLikePhone) ? value : undefined,
+    contactMethod: looksLikePhone && !looksLikeTelegram ? 'whatsapp' : 'telegram',
+  };
+}
+
 const budgetOptions = [
   { value: 'до $1000', label: 'до $1000' },
   { value: '$1k-$5k', label: '$1k-$5k' },
@@ -81,34 +103,24 @@ function LandingForm({
 
       const eventId = crypto.randomUUID();
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
+      const contactPayload = normalizeContactForLead(formData.contact);
 
       try {
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            ...metaBrowserContext,
+            ...contactPayload,
             name: formData.name,
-            phone: formData.contact,
             message: service === 'consult' 
               ? `Опыт: ${formData.experience}\nПроблема: ${formData.problem}`
               : `Сайт: ${formData.website}\nБюджет: ${formData.budget}`,
             budget: formData.budget,
-            contactMethod: 'telegram',
-            telegramUsername: formData.contact,
             service: serviceLabels[service],
             event_id: eventId,
             hp_trap: hpTrap,
             page_url: window.location.href,
-            page_title: metaBrowserContext.page_title,
-            page_path: metaBrowserContext.page_path,
-            external_id: metaBrowserContext.external_id,
-            browser_language: metaBrowserContext.browser_language,
-            screen_width: metaBrowserContext.screen_width,
-            screen_height: metaBrowserContext.screen_height,
-            viewport_width: metaBrowserContext.viewport_width,
-            viewport_height: metaBrowserContext.viewport_height,
-            device_pixel_ratio: metaBrowserContext.device_pixel_ratio,
-            timezone_offset: metaBrowserContext.timezone_offset,
             referrer: document.referrer || undefined,
           }),
         });
@@ -124,7 +136,7 @@ function LandingForm({
         trackLead(eventId, {
           ...metaBrowserContext,
           budget: formData.budget || undefined,
-          contact_method: 'telegram',
+          contact_method: contactPayload.contactMethod,
           service: serviceLabels[service],
         });
 
@@ -180,7 +192,6 @@ function LandingForm({
   return (
     <motion.div
       ref={formRef}
-      id="contact"
       initial={{ opacity: 0, rotateX: 15, y: 40 }}
       animate={inView ? { opacity: 1, rotateX: 0, y: 0 } : {}}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}

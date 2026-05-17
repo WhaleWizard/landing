@@ -22,7 +22,13 @@ export type GeoResolution = {
 const CONSENT_VERSION = 1;
 const CONSENT_KEY = 'ww_cookie_consent_v1';
 const META_EXTERNAL_ID_KEY = 'ww_meta_external_id_v1';
+const META_FIRST_TOUCH_KEY = 'ww_meta_first_touch_v1';
+const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
+const META_SESSION_ID_KEY = 'ww_meta_session_id_v1';
+const META_FBC_KEY = 'ww_meta_fbc_v1';
 const CONSENT_TTL_DAYS = 180;
+const META_SESSION_TTL_MS = 30 * 60 * 1000;
+const META_FBC_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const OPEN_SETTINGS_EVENT = 'open-cookie-settings';
 
 const REGULATED_COUNTRIES = new Set([
@@ -326,7 +332,12 @@ export async function ensureMarketingLoaded(): Promise<void> {
       win._fbq = fbq;
     }
     await appendExternalScript('https://connect.facebook.net/en_US/fbevents.js');
-    win.fbq?.('init', metaId);
+    const browserContext = getMetaBrowserContext(window.location.pathname);
+    if (browserContext.external_id) {
+      win.fbq?.('init', metaId, { external_id: browserContext.external_id });
+    } else {
+      win.fbq?.('init', metaId);
+    }
     metaLoaded = true;
   }
 
@@ -367,6 +378,13 @@ export type MetaBrowserContext = {
   page_location?: string;
   referrer?: string;
   external_id?: string;
+  fbp?: string;
+  fbc?: string;
+  fbclid?: string;
+  landing_page_url?: string;
+  first_touch_url?: string;
+  first_touch_at?: string;
+  session_id?: string;
   browser_language?: string;
   screen_width?: number;
   screen_height?: number;
@@ -374,15 +392,166 @@ export type MetaBrowserContext = {
   viewport_height?: number;
   device_pixel_ratio?: number;
   timezone_offset?: number;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  utm_id?: string;
+  gclid?: string;
+  wbraid?: string;
+  gbraid?: string;
+  yclid?: string;
 };
 
-function getOrCreateMetaExternalId(): string | undefined {
-  try {
-    const existing = localStorage.getItem(META_EXTERNAL_ID_KEY);
-    if (existing) return existing;
 
+function safeReadLocalStorage(key: string): string | undefined {
+  try {
+    return localStorage.getItem(key) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function safeWriteLocalStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage may be unavailable in private mode; analytics still works without it.
+  }
+}
+
+function getCookieValue(name: string): string | undefined {
+  const encodedName = `${name}=`;
+  const pair = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(encodedName));
+  if (!pair) return undefined;
+  try {
+    return decodeURIComponent(pair.slice(encodedName.length));
+  } catch {
+    return pair.slice(encodedName.length);
+  }
+}
+
+function getUrlParam(url: URL, name: string): string | undefined {
+  return url.searchParams.get(name)?.trim() || undefined;
+}
+
+function createFbcFromFbclid(fbclid: string | undefined, timestampMs = Date.now()): string | undefined {
+  return fbclid ? `fb.1.${timestampMs}.${fbclid}` : undefined;
+}
+
+type StoredFbc = {
+  fbclid: string;
+  value: string;
+  expiresAt: number;
+};
+
+function readStoredFbc(now = Date.now()): StoredFbc | undefined {
+  const raw = safeReadLocalStorage(META_FBC_KEY);
+  if (!raw) return undefined;
+
+  try {
+    const parsed = JSON.parse(raw) as StoredFbc;
+    if (!parsed?.value || !parsed.fbclid || parsed.expiresAt <= now) return undefined;
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function getOrCreateFbc(fbclid: string | undefined): string | undefined {
+  const now = Date.now();
+  const stored = readStoredFbc(now);
+
+  if (!fbclid) return stored?.value;
+  if (stored?.fbclid === fbclid && stored.expiresAt > now) return stored.value;
+
+  const value = createFbcFromFbclid(fbclid, now);
+  if (value) {
+    safeWriteLocalStorage(META_FBC_KEY, JSON.stringify({
+      fbclid,
+      value,
+      expiresAt: now + META_FBC_TTL_MS,
+    } satisfies StoredFbc));
+  }
+
+  return value;
+}
+
+type StoredSession = {
+  id: string;
+  lastSeenAt: number;
+  expiresAt: number;
+};
+
+function persistSession(id: string, now = Date.now()): string {
+  safeWriteLocalStorage(META_SESSION_ID_KEY, JSON.stringify({
+    id,
+    lastSeenAt: now,
+    expiresAt: now + META_SESSION_TTL_MS,
+  } satisfies StoredSession));
+  return id;
+}
+
+function getOrCreateSessionId(): string | undefined {
+  const now = Date.now();
+  const existing = safeReadLocalStorage(META_SESSION_ID_KEY);
+
+  if (existing) {
+    try {
+      const parsed = JSON.parse(existing) as StoredSession;
+      if (parsed?.id && parsed.expiresAt > now) {
+        return persistSession(parsed.id, now);
+      }
+    } catch {
+      // Backward compatibility with the previous plain-string session ID format.
+      return persistSession(existing, now);
+    }
+  }
+
+  try {
+    return persistSession(crypto.randomUUID(), now);
+  } catch {
+    return undefined;
+  }
+}
+
+type TouchPoint = {
+  url: string;
+  at: string;
+};
+
+function captureTouchPoint(url: string): TouchPoint {
+  const now = new Date().toISOString();
+  const firstRaw = safeReadLocalStorage(META_FIRST_TOUCH_KEY);
+  let firstTouch: TouchPoint | undefined;
+  if (firstRaw) {
+    try {
+      firstTouch = JSON.parse(firstRaw) as TouchPoint;
+    } catch {
+      firstTouch = undefined;
+    }
+  }
+
+  if (!firstTouch?.url) {
+    firstTouch = { url, at: now };
+    safeWriteLocalStorage(META_FIRST_TOUCH_KEY, JSON.stringify(firstTouch));
+  }
+
+  safeWriteLocalStorage(META_LAST_TOUCH_KEY, JSON.stringify({ url, at: now }));
+  return firstTouch;
+}
+
+function getOrCreateMetaExternalId(): string | undefined {
+  const existing = safeReadLocalStorage(META_EXTERNAL_ID_KEY);
+  if (existing) return existing;
+
+  try {
     const id = crypto.randomUUID();
-    localStorage.setItem(META_EXTERNAL_ID_KEY, id);
+    safeWriteLocalStorage(META_EXTERNAL_ID_KEY, id);
     return id;
   } catch {
     return undefined;
@@ -390,12 +559,23 @@ function getOrCreateMetaExternalId(): string | undefined {
 }
 
 export function getMetaBrowserContext(pagePath = window.location.pathname): MetaBrowserContext {
+  const currentUrl = new URL(window.location.href);
+  const fbclid = getUrlParam(currentUrl, 'fbclid');
+  const firstTouch = captureTouchPoint(window.location.href);
+
   return {
     page_title: document.title || undefined,
     page_path: pagePath,
     page_location: window.location.href,
     referrer: document.referrer || undefined,
     external_id: getOrCreateMetaExternalId(),
+    fbp: getCookieValue('_fbp'),
+    fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
+    fbclid,
+    landing_page_url: firstTouch.url,
+    first_touch_url: firstTouch.url,
+    first_touch_at: firstTouch.at,
+    session_id: getOrCreateSessionId(),
     browser_language: navigator.language || undefined,
     screen_width: window.screen?.width,
     screen_height: window.screen?.height,
@@ -403,6 +583,16 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     viewport_height: window.innerHeight,
     device_pixel_ratio: window.devicePixelRatio,
     timezone_offset: new Date().getTimezoneOffset(),
+    utm_source: getUrlParam(currentUrl, 'utm_source'),
+    utm_medium: getUrlParam(currentUrl, 'utm_medium'),
+    utm_campaign: getUrlParam(currentUrl, 'utm_campaign'),
+    utm_content: getUrlParam(currentUrl, 'utm_content'),
+    utm_term: getUrlParam(currentUrl, 'utm_term'),
+    utm_id: getUrlParam(currentUrl, 'utm_id'),
+    gclid: getUrlParam(currentUrl, 'gclid'),
+    wbraid: getUrlParam(currentUrl, 'wbraid'),
+    gbraid: getUrlParam(currentUrl, 'gbraid'),
+    yclid: getUrlParam(currentUrl, 'yclid'),
   };
 }
 
@@ -452,10 +642,12 @@ function sendServerPageView(payload: ServerPageViewPayload): void {
     });
 }
 
-export function trackPageView(path: string): void {
+export function trackPageView(path: string, options: { marketing?: boolean } = {}): void {
   const now = Date.now();
-  if (path === lastTrackedPath && now - lastTrackedAt < 1200) return;
-  lastTrackedPath = path;
+  const shouldTrackMarketing = options.marketing !== false;
+  const trackingKey = `${path}|marketing:${shouldTrackMarketing ? 'on' : 'off'}`;
+  if (trackingKey === lastTrackedPath && now - lastTrackedAt < 1200) return;
+  lastTrackedPath = trackingKey;
   lastTrackedAt = now;
 
   const eventId = crypto.randomUUID(); // уникальный ID для дедупликации
@@ -487,6 +679,8 @@ export function trackPageView(path: string): void {
       page_location: window.location.href,
     });
   }
+
+  if (!shouldTrackMarketing) return;
 
   const browserContext = getMetaBrowserContext(path);
   const pageViewData = {

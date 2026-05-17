@@ -5,8 +5,26 @@ import type { Env } from '../_lib/types';
 interface PageViewPayload {
   event_id?: string;
   page_url?: string;
+  page_location?: string;
   referrer?: string;
   external_id?: string;
+  fbp?: string;
+  fbc?: string;
+  fbclid?: string;
+  landing_page_url?: string;
+  first_touch_url?: string;
+  first_touch_at?: string;
+  session_id?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  utm_id?: string;
+  gclid?: string;
+  wbraid?: string;
+  gbraid?: string;
+  yclid?: string;
   page_title?: string;
   page_path?: string;
   browser_language?: string;
@@ -49,8 +67,26 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
   return {
     event_id: sanitizeText(payload.event_id || '', 64),
     page_url: sanitizeText(payload.page_url || '', 2048),
+    page_location: sanitizeText(payload.page_location || '', 2048),
     referrer: sanitizeText(payload.referrer || '', 2048),
     external_id: sanitizeText(payload.external_id || '', 128),
+    fbp: sanitizeText(payload.fbp || '', 128),
+    fbc: sanitizeText(payload.fbc || '', 256),
+    fbclid: sanitizeText(payload.fbclid || '', 512),
+    landing_page_url: sanitizeText(payload.landing_page_url || '', 2048),
+    first_touch_url: sanitizeText(payload.first_touch_url || '', 2048),
+    first_touch_at: sanitizeText(payload.first_touch_at || '', 40),
+    session_id: sanitizeText(payload.session_id || '', 128),
+    utm_source: sanitizeText(payload.utm_source || '', 200),
+    utm_medium: sanitizeText(payload.utm_medium || '', 200),
+    utm_campaign: sanitizeText(payload.utm_campaign || '', 200),
+    utm_content: sanitizeText(payload.utm_content || '', 500),
+    utm_term: sanitizeText(payload.utm_term || '', 500),
+    utm_id: sanitizeText(payload.utm_id || '', 200),
+    gclid: sanitizeText(payload.gclid || '', 512),
+    wbraid: sanitizeText(payload.wbraid || '', 512),
+    gbraid: sanitizeText(payload.gbraid || '', 512),
+    yclid: sanitizeText(payload.yclid || '', 512),
     page_title: sanitizeText(payload.page_title || '', 200),
     page_path: sanitizeText(payload.page_path || '', 512),
     browser_language: sanitizeText(payload.browser_language || '', 40),
@@ -109,6 +145,11 @@ function extractRequestContext(request: Request, pageUrl?: string) {
   let utmCampaign: string | undefined;
   let utmContent: string | undefined;
   let utmTerm: string | undefined;
+  let utmId: string | undefined;
+  let gclid: string | undefined;
+  let wbraid: string | undefined;
+  let gbraid: string | undefined;
+  let yclid: string | undefined;
 
   try {
     const sourceUrl = new URL(pageUrl || request.url);
@@ -117,11 +158,16 @@ function extractRequestContext(request: Request, pageUrl?: string) {
     utmCampaign = sourceUrl.searchParams.get('utm_campaign') || undefined;
     utmContent = sourceUrl.searchParams.get('utm_content') || undefined;
     utmTerm = sourceUrl.searchParams.get('utm_term') || undefined;
+    utmId = sourceUrl.searchParams.get('utm_id') || undefined;
+    gclid = sourceUrl.searchParams.get('gclid') || undefined;
+    wbraid = sourceUrl.searchParams.get('wbraid') || undefined;
+    gbraid = sourceUrl.searchParams.get('gbraid') || undefined;
+    yclid = sourceUrl.searchParams.get('yclid') || undefined;
   } catch {
     // no-op
   }
 
-  return { country, city, region, regionCode, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm };
+  return { country, city, region, regionCode, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, utmId, gclid, wbraid, gbraid, yclid };
 }
 
 async function sendMetaPageView(
@@ -140,14 +186,14 @@ async function sendMetaPageView(
   }
 
   const eventTime = Math.floor(Date.now() / 1000);
-  const clientIp = request.headers.get('CF-Connecting-IP') || '';
+  const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
   const eventId = payload.event_id || undefined;
 
   const metaCookies = getMetaCookies(request);
-  const fbp = metaCookies.fbp;
-  const fbc = metaCookies.fbc || createFbcFromPageUrl(eventSourceUrl, eventTime);
+  const fbp = payload.fbp || metaCookies.fbp;
+  const fbc = payload.fbc || metaCookies.fbc || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
   const hashedExternalId = payload.external_id ? await sha256Normalized(normalizeTextForMeta(payload.external_id)) : undefined;
   const hashedCountry = ctx.country ? await sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined;
@@ -179,13 +225,24 @@ async function sendMetaPageView(
       language: ctx.language,
       platform: ctx.platform,
       device_type: ctx.isMobile,
-      utm_source: ctx.utmSource,
-      utm_medium: ctx.utmMedium,
-      utm_campaign: ctx.utmCampaign,
-      utm_content: ctx.utmContent,
-      utm_term: ctx.utmTerm,
+      utm_source: payload.utm_source || ctx.utmSource,
+      utm_medium: payload.utm_medium || ctx.utmMedium,
+      utm_campaign: payload.utm_campaign || ctx.utmCampaign,
+      utm_content: payload.utm_content || ctx.utmContent,
+      utm_term: payload.utm_term || ctx.utmTerm,
+      utm_id: payload.utm_id || ctx.utmId,
+      fbclid: payload.fbclid,
+      gclid: payload.gclid || ctx.gclid,
+      wbraid: payload.wbraid || ctx.wbraid,
+      gbraid: payload.gbraid || ctx.gbraid,
+      yclid: payload.yclid || ctx.yclid,
+      landing_page_url: payload.landing_page_url,
+      first_touch_url: payload.first_touch_url,
+      first_touch_at: payload.first_touch_at,
+      session_id: payload.session_id,
       content_name: payload.page_title,
       page_title: payload.page_title,
+      page_location: payload.page_location || payload.page_url,
       page_path: payload.page_path,
       referrer: payload.referrer,
       browser_language: payload.browser_language,
