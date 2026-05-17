@@ -4,7 +4,7 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
 
-const TEST_EVENTS = ['PageView', 'ViewContent', 'FormStart', 'Lead'] as const;
+const TEST_EVENTS = ['PageView', 'ViewContent', 'FormStart', 'LeadFormView', 'EngagedView', 'Contact', 'Lead'] as const;
 
 type TestEventName = typeof TEST_EVENTS[number];
 
@@ -51,6 +51,39 @@ function buildTestEvent(eventName: TestEventName, request: Request, eventSourceU
         form_id: 'meta_capi_test_form',
         form_step: 'first_interaction',
         form_field: 'email',
+      },
+    };
+  }
+
+  if (eventName === 'LeadFormView') {
+    return {
+      ...base,
+      custom_data: {
+        form_id: 'meta_capi_test_form',
+        content_name: 'Meta CAPI test LeadFormView',
+        content_category: 'diagnostics',
+      },
+    };
+  }
+
+  if (eventName === 'EngagedView') {
+    return {
+      ...base,
+      custom_data: {
+        engagement_reason: 'diagnostics_test',
+        engagement_seconds: 10,
+        content_category: 'diagnostics',
+      },
+    };
+  }
+
+  if (eventName === 'Contact') {
+    return {
+      ...base,
+      custom_data: {
+        contact_channel: 'diagnostics',
+        placement: 'meta_capi_test_event',
+        content_category: 'contact_intent',
       },
     };
   }

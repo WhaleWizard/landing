@@ -9,7 +9,7 @@
     "generate:pages": "node scripts/generate-pages.js",
     "fetch:articles": "node scripts/fetch-articles.js",
     "test": "npm run build",
-    "check": "npm run build",
+    "check": "npm run test:meta-capi && npm run build",
     "generate:media": "node scripts/generateMedia.js",
     "test:meta-capi": "node scripts/meta-capi-smoke-tests.js"
   },

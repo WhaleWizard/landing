@@ -8,6 +8,8 @@ const files = {
   metaEvent: readFileSync('functions/api/meta-event.ts', 'utf8'),
   consent: readFileSync('src/app/consent/consent.ts', 'utf8'),
   landingForm: readFileSync('src/app/components/LandingForm.tsx', 'utf8'),
+  metaTestEvent: readFileSync('functions/api/meta-test-event.ts', 'utf8'),
+  diagnosticsSummary: readFileSync('functions/api/meta-diagnostics-summary.ts', 'utf8'),
 };
 
 function mustContain(name, source, needles) {
@@ -110,6 +112,24 @@ mustContain('Home contact form Meta tracking', files.contactForm, [
   "service_slug: 'home'",
   "form_id: 'home_contact_form'",
   "form_variant: 'home_contact_v1'",
+]);
+
+mustContain('Meta CAPI test endpoint coverage', files.metaTestEvent, [
+  "'LeadFormView'",
+  "'EngagedView'",
+  "'Contact'",
+  'test_event_code: testCode',
+  'recordMetaDiagnostics',
+]);
+
+mustContain('Meta diagnostics summary endpoint', files.diagnosticsSummary, [
+  'META_CAPI_DEBUG_SECRET',
+  'meta_capi_diagnostics',
+  'sent_rate',
+  'failed_rate',
+  'fbp_rate',
+  'fbc_rate',
+  'marketing_consent_rate',
 ]);
 
 console.log('Meta CAPI smoke tests passed');
