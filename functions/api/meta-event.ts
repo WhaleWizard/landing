@@ -4,6 +4,8 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
+import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
+import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 
 type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact' | 'LeadFormView' | 'EngagedView';
 
@@ -490,9 +492,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
-  const payload = normalizeMetaEventPayload(
-    (await request.json().catch(() => ({}))) as MetaEventPayload,
-  );
+  const rawBody = await request.text();
+  const signatureMode = getTrackingSignatureMode(env);
+  const signature = await verifyTrackingSignature(request, env, rawBody);
+  if (!signature.ok && signatureMode === 'enforce') {
+    return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+
+  const payload = normalizeMetaEventPayload((JSON.parse(rawBody || '{}')) as MetaEventPayload);
 
   const rateLimited = await enforceRateLimit(request, 'meta_event');
   if (rateLimited) {
@@ -515,7 +522,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  waitUntil(sendMetaEvent(payload, env, request));
+  const outboxId = `me:${payload.event_name}:${payload.event_id}`;
+  waitUntil(enqueueMetaEvent(env, { id: outboxId, event_name: payload.event_name, event_id: payload.event_id, payload_json: JSON.stringify(payload) }));
+  waitUntil(sendMetaEvent(payload, env, request)
+    .then(() => markOutboxSent(env, outboxId))
+    .catch(async (e) => {
+      const now = Math.floor(Date.now() / 1000);
+      await markOutboxRetry(env, outboxId, 1, now + 60, e instanceof Error ? e.message : String(e));
+    }));
 
   return json(
     { success: true },

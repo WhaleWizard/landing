@@ -4,6 +4,8 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
+import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
+import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 
 interface LeadPayload {
   name?: string;
@@ -506,9 +508,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
   // --- Rate limit ---
-  const normalized = normalizeLeadPayload(
-    (await request.json().catch(() => ({}))) as LeadPayload,
-  );
+  const rawBody = await request.text();
+  const signatureMode = getTrackingSignatureMode(env);
+  const signature = await verifyTrackingSignature(request, env, rawBody);
+  if (!signature.ok && signatureMode === 'enforce') {
+    return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+
+  const normalized = normalizeLeadPayload((JSON.parse(rawBody || '{}')) as LeadPayload);
   const rateLimited = await enforceRateLimit(request, 'lead');
   if (rateLimited) {
     waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'rate_limited', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), marketing_consent: normalized.marketing_consent }));
@@ -532,36 +539,36 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  try {
-    const response = await fetch(DEFAULT_LEAD_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify(normalized),
-      cf: { cacheEverything: false, cacheTtl: 0 },
+  const crmTask = fetch(DEFAULT_LEAD_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(normalized),
+    cf: { cacheEverything: false, cacheTtl: 0 },
+  })
+    .then(async (response) => {
+      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: response.ok ? 'sent' : 'failed', error_message: response.ok ? undefined : `lead_crm_http_${response.status}`, page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
+    })
+    .catch(async () => {
+      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'failed', error_message: 'lead_crm_network_error', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
     });
 
-    if (!response.ok) {
-      return json(
-        { success: false, error: `Lead endpoint failed with HTTP ${response.status}` },
-        { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-      );
-    }
+  waitUntil(crmTask);
 
-    if (normalized.marketing_consent) {
-      waitUntil(sendMetaConversionEvent(normalized, env, request));
-    } else {
-      waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), has_email: Boolean(normalized.email), has_phone: Boolean(normalized.phone), marketing_consent: false, consent_version: normalized.consent_version, consent_source: normalized.consent_source, consent_region: normalized.consent_region, consent_timestamp: normalized.consent_timestamp }));
-      console.log('[Meta CAPI] Lead server event skipped because marketing consent is not granted.');
-    }
-
-    return json(
-      { success: true },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
-  } catch {
-    return json(
-      { success: false, error: 'Lead submission failed' },
-      { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
+  if (normalized.marketing_consent) {
+    const outboxId = `lead:${normalized.event_id}`;
+    waitUntil(enqueueMetaEvent(env, { id: outboxId, event_name: 'Lead', event_id: normalized.event_id || outboxId, payload_json: JSON.stringify(normalized) }));
+    waitUntil(sendMetaConversionEvent(normalized, env, request)
+      .then(() => markOutboxSent(env, outboxId))
+      .catch(async (e) => {
+        const now = Math.floor(Date.now() / 1000);
+        await markOutboxRetry(env, outboxId, 1, now + 60, e instanceof Error ? e.message : String(e));
+      }));
+  } else {
+    waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), has_email: Boolean(normalized.email), has_phone: Boolean(normalized.phone), marketing_consent: false, consent_version: normalized.consent_version, consent_source: normalized.consent_source, consent_region: normalized.consent_region, consent_timestamp: normalized.consent_timestamp }));
   }
+
+  return json(
+    { success: true },
+    { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
 };
