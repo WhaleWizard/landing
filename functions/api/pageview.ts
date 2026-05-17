@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
+import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
 
 interface PageViewPayload {
   event_id?: string;
@@ -134,6 +135,13 @@ async function sha256Normalized(value: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function buildExternalIdSeed(payload: PageViewPayload, fbp: string | undefined): string | undefined {
+  if (payload.external_id) return payload.external_id;
+  const seed = payload.session_id || fbp || undefined;
+  if (!seed) return undefined;
+  return `anon:${seed}`;
 }
 
 function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
@@ -335,7 +343,8 @@ async function sendMetaPageView(
   const fbp = payload.fbp || metaCookies.fbp;
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
-  const hashedExternalId = payload.external_id ? await sha256Normalized(normalizeTextForMeta(payload.external_id)) : undefined;
+  const externalIdSeed = buildExternalIdSeed(payload, fbp);
+  const hashedExternalId = externalIdSeed ? await sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined;
   const hashedCountry = ctx.country ? await sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined;
   const hashedCity = ctx.city ? await sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined;
   const hashedRegion = (ctx.regionCode || ctx.region)
@@ -413,13 +422,14 @@ async function sendMetaPageView(
   });
 
   try {
-    const response = await fetch(
+    const response = await fetchMetaWithRetry(
       `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
-      }
+      },
+      env
     );
 
     if (!response.ok) {
@@ -463,6 +473,12 @@ async function sendMetaPageView(
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+  if (!isTrustedTrackingRequest(request, env)) {
+    return json(
+      { success: false, error: 'untrusted_request_origin' },
+      { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
   const rateLimited = await enforceRateLimit(request, 'pageview');
   if (rateLimited) return rateLimited;
 
