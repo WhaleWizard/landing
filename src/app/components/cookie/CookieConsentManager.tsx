@@ -10,6 +10,7 @@ import {
   resolveGeo,
   saveConsent,
   trackPageView,
+  trackServiceViewContent,
   type ConsentCategories,
   type ConsentRecord,
 } from '../../consent/consent';
@@ -32,6 +33,7 @@ function applyConsent(consent: ConsentRecord): void {
     const path = `${location.pathname}${location.search}`;
     if (consent.categories.analytics || consent.categories.marketing) {
       trackPageView(path, { marketing: consent.categories.marketing });
+      trackServiceViewContent(path, { marketing: consent.categories.marketing });
     }
   });
 }
@@ -184,6 +186,7 @@ export default function CookieConsentManager() {
       if (!consent.categories.analytics && !consent.categories.marketing) return;
       const path = `${state.location.pathname}${state.location.search}`;
       trackPageView(path, { marketing: consent.categories.marketing });
+      trackServiceViewContent(path, { marketing: consent.categories.marketing });
     });
 
     return unsubscribe;

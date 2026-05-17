@@ -24,6 +24,8 @@ interface LeadPayload {
   landing_page_url?: string;
   first_touch_url?: string;
   first_touch_at?: string;
+  last_touch_url?: string;
+  last_touch_at?: string;
   session_id?: string;
   utm_source?: string;
   utm_medium?: string;
@@ -44,6 +46,12 @@ interface LeadPayload {
   viewport_height?: number;
   device_pixel_ratio?: number;
   timezone_offset?: number;
+  event_time?: number;
+  consent_version?: number;
+  consent_source?: string;
+  consent_region?: string;
+  consent_timestamp?: number;
+  marketing_consent?: boolean;
 }
 
 const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
@@ -74,12 +82,15 @@ function normalizeLocationForMeta(value: string): string {
   return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
 }
 
+function createFbcFromFbclid(fbclid: string | undefined, eventTime: number): string | undefined {
+  return fbclid ? `fb.1.${eventTime * 1000}.${fbclid}` : undefined;
+}
+
 function createFbcFromPageUrl(pageUrl: string | undefined, eventTime: number): string | undefined {
   if (!pageUrl) return undefined;
 
   try {
-    const fbclid = new URL(pageUrl).searchParams.get('fbclid')?.trim();
-    return fbclid ? `fb.1.${eventTime * 1000}.${fbclid}` : undefined;
+    return createFbcFromFbclid(new URL(pageUrl).searchParams.get('fbclid')?.trim(), eventTime);
   } catch {
     return undefined;
   }
@@ -107,6 +118,8 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     landing_page_url: sanitizeText(payload.landing_page_url || '', 2048),
     first_touch_url: sanitizeText(payload.first_touch_url || '', 2048),
     first_touch_at: sanitizeText(payload.first_touch_at || '', 40),
+    last_touch_url: sanitizeText(payload.last_touch_url || '', 2048),
+    last_touch_at: sanitizeText(payload.last_touch_at || '', 40),
     session_id: sanitizeText(payload.session_id || '', 128),
     utm_source: sanitizeText(payload.utm_source || '', 200),
     utm_medium: sanitizeText(payload.utm_medium || '', 200),
@@ -127,6 +140,12 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     viewport_height: sanitizeNumber(payload.viewport_height),
     device_pixel_ratio: sanitizeNumber(payload.device_pixel_ratio),
     timezone_offset: sanitizeNumber(payload.timezone_offset),
+    event_time: sanitizeNumber(payload.event_time),
+    consent_version: sanitizeNumber(payload.consent_version),
+    consent_source: sanitizeText(payload.consent_source || '', 40),
+    consent_region: sanitizeText(payload.consent_region || '', 40),
+    consent_timestamp: sanitizeNumber(payload.consent_timestamp),
+    marketing_consent: payload.marketing_consent === true,
   };
 }
 
@@ -158,6 +177,22 @@ function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
     else if (key === '_fbc') result.fbc = safeDecodeURIComponent(value);
   }
   return result;
+}
+
+
+function resolveEventTime(payloadEventTime: number | undefined): number {
+  const now = Math.floor(Date.now() / 1000);
+  if (!payloadEventTime) return now;
+
+  const eventTime = Math.floor(payloadEventTime);
+  const maxPastAgeSeconds = 7 * 24 * 60 * 60;
+  const maxFutureSkewSeconds = 5 * 60;
+
+  if (eventTime < now - maxPastAgeSeconds || eventTime > now + maxFutureSkewSeconds) {
+    return now;
+  }
+
+  return eventTime;
 }
 
 function extractRequestContext(request: Request, pageUrl?: string) {
@@ -216,13 +251,13 @@ async function sendMetaConversionEvent(
     return;
   }
 
-  const eventTime = Math.floor(Date.now() / 1000);
+  const eventTime = resolveEventTime(payload.event_time);
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
   const metaCookies = getMetaCookies(request);
   const fbp = payload.fbp || metaCookies.fbp;
-  const fbc = payload.fbc || metaCookies.fbc || createFbcFromPageUrl(eventSourceUrl, eventTime);
+  const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
 
   const nameParts = (payload.name || '').trim().split(/\s+/);
@@ -284,6 +319,8 @@ async function sendMetaConversionEvent(
       landing_page_url: payload.landing_page_url,
       first_touch_url: payload.first_touch_url,
       first_touch_at: payload.first_touch_at,
+      last_touch_url: payload.last_touch_url,
+      last_touch_at: payload.last_touch_at,
       session_id: payload.session_id,
       content_name: payload.page_title || payload.service,
       page_title: payload.page_title,
@@ -297,6 +334,11 @@ async function sendMetaConversionEvent(
       viewport_height: payload.viewport_height,
       device_pixel_ratio: payload.device_pixel_ratio,
       timezone_offset: payload.timezone_offset,
+      event_time_client: payload.event_time,
+      consent_version: payload.consent_version,
+      consent_source: payload.consent_source,
+      consent_region: payload.consent_region,
+      consent_timestamp: payload.consent_timestamp,
     },
     event_source_url: eventSourceUrl,
   };
@@ -320,7 +362,11 @@ async function sendMetaConversionEvent(
       const errorText = await response.text();
       console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
     } else {
-      console.log('[Meta CAPI] Lead server event sent successfully');
+      const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
+      console.log('[Meta CAPI] Lead server event sent successfully', {
+        fbtrace_id: result?.fbtrace_id,
+        events_received: result?.events_received,
+      });
     }
   } catch (error) {
     console.error('[Meta CAPI] Error sending Lead event:', error);
@@ -367,7 +413,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       );
     }
 
-    waitUntil(sendMetaConversionEvent(normalized, env, request));
+    if (normalized.marketing_consent) {
+      waitUntil(sendMetaConversionEvent(normalized, env, request));
+    } else {
+      console.log('[Meta CAPI] Lead server event skipped because marketing consent is not granted.');
+    }
 
     return json(
       { success: true },

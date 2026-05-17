@@ -16,7 +16,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { getMetaBrowserContext, trackLead } from '../consent/consent';
+import { getMetaBrowserContext, trackFormStart, trackLead } from '../consent/consent';
 import { API_ROUTES } from '../config';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult';
@@ -80,16 +80,23 @@ function LandingForm({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const formStartTrackedRef = useRef(false);
 
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
   const inView = useInView(formRef, { once: true, margin: '-100px' });
 
+  const trackFirstFormInteraction = useCallback((fieldName: string) => {
+    if (formStartTrackedRef.current) return;
+    formStartTrackedRef.current = trackFormStart(service, { form_field: fieldName });
+  }, [service]);
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      trackFirstFormInteraction(e.target.name);
       setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     },
-    [],
+    [trackFirstFormInteraction],
   );
 
   const handleSubmit = useCallback(
@@ -173,7 +180,10 @@ function LandingForm({
           required={required}
           value={formData[name as keyof typeof formData]}
           onChange={handleChange}
-          onFocus={() => setFocusedField(name)}
+          onFocus={() => {
+              setFocusedField(name);
+              trackFirstFormInteraction(name);
+            }}
           onBlur={() => setFocusedField(null)}
           placeholder={placeholder}
           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm pl-4"

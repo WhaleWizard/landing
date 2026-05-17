@@ -26,6 +26,7 @@ const META_FIRST_TOUCH_KEY = 'ww_meta_first_touch_v1';
 const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
 const META_SESSION_ID_KEY = 'ww_meta_session_id_v1';
 const META_FBC_KEY = 'ww_meta_fbc_v1';
+const META_ATTRIBUTION_KEY = 'ww_meta_attribution_v1';
 const CONSENT_TTL_DAYS = 180;
 const META_SESSION_TTL_MS = 30 * 60 * 1000;
 const META_FBC_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -384,6 +385,8 @@ export type MetaBrowserContext = {
   landing_page_url?: string;
   first_touch_url?: string;
   first_touch_at?: string;
+  last_touch_url?: string;
+  last_touch_at?: string;
   session_id?: string;
   browser_language?: string;
   screen_width?: number;
@@ -402,6 +405,12 @@ export type MetaBrowserContext = {
   wbraid?: string;
   gbraid?: string;
   yclid?: string;
+  marketing_consent?: boolean;
+  consent_version?: number;
+  consent_source?: ConsentRecord['source'];
+  consent_region?: string;
+  consent_timestamp?: number;
+  event_time?: number;
 };
 
 
@@ -524,7 +533,7 @@ type TouchPoint = {
   at: string;
 };
 
-function captureTouchPoint(url: string): TouchPoint {
+function captureTouchPoint(url: string): { firstTouch: TouchPoint; lastTouch: TouchPoint } {
   const now = new Date().toISOString();
   const firstRaw = safeReadLocalStorage(META_FIRST_TOUCH_KEY);
   let firstTouch: TouchPoint | undefined;
@@ -541,8 +550,9 @@ function captureTouchPoint(url: string): TouchPoint {
     safeWriteLocalStorage(META_FIRST_TOUCH_KEY, JSON.stringify(firstTouch));
   }
 
-  safeWriteLocalStorage(META_LAST_TOUCH_KEY, JSON.stringify({ url, at: now }));
-  return firstTouch;
+  const lastTouch = { url, at: now };
+  safeWriteLocalStorage(META_LAST_TOUCH_KEY, JSON.stringify(lastTouch));
+  return { firstTouch, lastTouch };
 }
 
 function getOrCreateMetaExternalId(): string | undefined {
@@ -558,10 +568,81 @@ function getOrCreateMetaExternalId(): string | undefined {
   }
 }
 
+type StoredAttribution = {
+  values: Partial<Record<'utm_source' | 'utm_medium' | 'utm_campaign' | 'utm_content' | 'utm_term' | 'utm_id' | 'fbclid' | 'gclid' | 'wbraid' | 'gbraid' | 'yclid', string>>;
+  expiresAt: number;
+};
+
+function readStoredAttribution(now = Date.now()): StoredAttribution['values'] {
+  const raw = safeReadLocalStorage(META_ATTRIBUTION_KEY);
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw) as StoredAttribution;
+    if (!parsed?.values || parsed.expiresAt <= now) return {};
+    return parsed.values;
+  } catch {
+    return {};
+  }
+}
+
+function getAttributionWithFallback(currentUrl: URL): StoredAttribution['values'] {
+  const current = {
+    utm_source: getUrlParam(currentUrl, 'utm_source'),
+    utm_medium: getUrlParam(currentUrl, 'utm_medium'),
+    utm_campaign: getUrlParam(currentUrl, 'utm_campaign'),
+    utm_content: getUrlParam(currentUrl, 'utm_content'),
+    utm_term: getUrlParam(currentUrl, 'utm_term'),
+    utm_id: getUrlParam(currentUrl, 'utm_id'),
+    fbclid: getUrlParam(currentUrl, 'fbclid'),
+    gclid: getUrlParam(currentUrl, 'gclid'),
+    wbraid: getUrlParam(currentUrl, 'wbraid'),
+    gbraid: getUrlParam(currentUrl, 'gbraid'),
+    yclid: getUrlParam(currentUrl, 'yclid'),
+  };
+
+  const stored = readStoredAttribution();
+  const merged = { ...stored };
+  let hasCurrentValue = false;
+
+  for (const [key, value] of Object.entries(current)) {
+    if (value) {
+      merged[key as keyof StoredAttribution['values']] = value;
+      hasCurrentValue = true;
+    }
+  }
+
+  if (hasCurrentValue) {
+    safeWriteLocalStorage(META_ATTRIBUTION_KEY, JSON.stringify({
+      values: merged,
+      expiresAt: Date.now() + META_FBC_TTL_MS,
+    } satisfies StoredAttribution));
+  }
+
+  return merged;
+}
+
+function getConsentSnapshot(): Pick<MetaBrowserContext, 'marketing_consent' | 'consent_version' | 'consent_source' | 'consent_region' | 'consent_timestamp'> {
+  const consent = loadConsent();
+  return {
+    marketing_consent: consent?.categories.marketing === true,
+    consent_version: consent?.version,
+    consent_source: consent?.source,
+    consent_region: consent?.region,
+    consent_timestamp: consent?.timestamp,
+  };
+}
+
+function hasMarketingConsent(): boolean {
+  return getConsentSnapshot().marketing_consent === true;
+}
+
 export function getMetaBrowserContext(pagePath = window.location.pathname): MetaBrowserContext {
   const currentUrl = new URL(window.location.href);
-  const fbclid = getUrlParam(currentUrl, 'fbclid');
-  const firstTouch = captureTouchPoint(window.location.href);
+  const attribution = getAttributionWithFallback(currentUrl);
+  const fbclid = attribution.fbclid;
+  const { firstTouch, lastTouch } = captureTouchPoint(window.location.href);
+  const consentSnapshot = getConsentSnapshot();
 
   return {
     page_title: document.title || undefined,
@@ -572,9 +653,12 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     fbp: getCookieValue('_fbp'),
     fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
     fbclid,
+    ...consentSnapshot,
     landing_page_url: firstTouch.url,
     first_touch_url: firstTouch.url,
     first_touch_at: firstTouch.at,
+    last_touch_url: lastTouch.url,
+    last_touch_at: lastTouch.at,
     session_id: getOrCreateSessionId(),
     browser_language: navigator.language || undefined,
     screen_width: window.screen?.width,
@@ -583,16 +667,17 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     viewport_height: window.innerHeight,
     device_pixel_ratio: window.devicePixelRatio,
     timezone_offset: new Date().getTimezoneOffset(),
-    utm_source: getUrlParam(currentUrl, 'utm_source'),
-    utm_medium: getUrlParam(currentUrl, 'utm_medium'),
-    utm_campaign: getUrlParam(currentUrl, 'utm_campaign'),
-    utm_content: getUrlParam(currentUrl, 'utm_content'),
-    utm_term: getUrlParam(currentUrl, 'utm_term'),
-    utm_id: getUrlParam(currentUrl, 'utm_id'),
-    gclid: getUrlParam(currentUrl, 'gclid'),
-    wbraid: getUrlParam(currentUrl, 'wbraid'),
-    gbraid: getUrlParam(currentUrl, 'gbraid'),
-    yclid: getUrlParam(currentUrl, 'yclid'),
+    event_time: Math.floor(Date.now() / 1000),
+    utm_source: attribution.utm_source,
+    utm_medium: attribution.utm_medium,
+    utm_campaign: attribution.utm_campaign,
+    utm_content: attribution.utm_content,
+    utm_term: attribution.utm_term,
+    utm_id: attribution.utm_id,
+    gclid: attribution.gclid,
+    wbraid: attribution.wbraid,
+    gbraid: attribution.gbraid,
+    yclid: attribution.yclid,
   };
 }
 
@@ -640,6 +725,142 @@ function sendServerPageView(payload: ServerPageViewPayload): void {
         }).catch((err) => console.warn('[PageView] Retry failed', err));
       }, 800);
     });
+}
+
+
+type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact';
+
+type ServerMetaEventPayload = MetaBrowserContext & {
+  event_name: MetaEventName;
+  event_id: string;
+  page_url: string;
+  service?: string;
+  service_slug?: string;
+  form_id?: string;
+  form_step?: string;
+  contact_channel?: string;
+  placement?: string;
+  content_name?: string;
+  content_category?: string;
+  content_type?: string;
+  content_ids?: string[];
+};
+
+const SERVICE_CONTENT: Record<string, { service: string; content_name: string; content_category: string; content_type: string; content_ids: string[] }> = {
+  '/meta-ads': {
+    service: 'Meta Ads',
+    content_name: 'Meta Ads audit landing',
+    content_category: 'paid_social_service',
+    content_type: 'service',
+    content_ids: ['meta-ads'],
+  },
+  '/google-ads': {
+    service: 'Google Ads',
+    content_name: 'Google Ads audit landing',
+    content_category: 'paid_search_service',
+    content_type: 'service',
+    content_ids: ['google-ads'],
+  },
+  '/consult': {
+    service: 'Консультация',
+    content_name: 'Expert consultation landing',
+    content_category: 'consulting_service',
+    content_type: 'service',
+    content_ids: ['consult'],
+  },
+};
+
+function sendServerMetaEvent(payload: ServerMetaEventPayload): void {
+  if (!payload.marketing_consent) return;
+
+  const body = JSON.stringify(payload);
+  fetch('/api/meta-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: true,
+    credentials: 'same-origin',
+  }).catch((err) => console.warn(`[Meta ${payload.event_name}] Server event failed`, err));
+}
+
+export function trackServiceViewContent(path: string, options: { marketing?: boolean } = {}): void {
+  if (options.marketing === false) return;
+
+  const pathname = path.split('?')[0];
+  const content = SERVICE_CONTENT[pathname];
+  if (!content) return;
+
+  const eventId = crypto.randomUUID();
+  const browserContext = getMetaBrowserContext(path);
+  if (!browserContext.marketing_consent) return;
+
+  const eventData = {
+    ...content,
+    service_slug: content.content_ids[0],
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+  };
+
+  const win = window as Window & {
+    fbq?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
+  };
+
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'view_content', event_id: eventId, ...eventData });
+  }
+
+  win.fbq?.('track', 'ViewContent', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'ViewContent',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...eventData,
+  });
+}
+
+export function trackFormStart(serviceSlug: string, extraData: Record<string, unknown> = {}): boolean {
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  if (!browserContext.marketing_consent) return false;
+
+  const eventId = crypto.randomUUID();
+  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const eventData = {
+    form_id: 'service_landing_form',
+    form_step: 'first_interaction',
+    service_slug: serviceSlug,
+    service: serviceContent?.service || serviceSlug,
+    content_name: serviceContent?.content_name || document.title,
+    content_category: serviceContent?.content_category || 'lead_form',
+    content_type: serviceContent?.content_type || 'service',
+    content_ids: serviceContent?.content_ids || [serviceSlug],
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+    ...extraData,
+  };
+
+  const win = window as Window & {
+    fbq?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
+  };
+
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'form_start', event_id: eventId, ...eventData });
+  }
+
+  win.fbq?.('trackCustom', 'FormStart', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'FormStart',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
+  });
+
+  return true;
 }
 
 export function trackPageView(path: string, options: { marketing?: boolean } = {}): void {
