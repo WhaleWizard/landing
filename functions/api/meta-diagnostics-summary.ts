@@ -17,6 +17,7 @@ type SummaryRow = {
   with_phone: number;
   with_external_id: number;
   with_marketing_consent: number;
+  avg_match_quality_score: number | null;
   latest_created_at: string | null;
 };
 
@@ -29,6 +30,11 @@ type LatestRow = {
   error_message: string | null;
   page_path: string | null;
   service: string | null;
+  form_id: string | null;
+  form_variant: string | null;
+  contact_method: string | null;
+  lead_source_page: string | null;
+  match_quality_score: number | null;
   has_fbp: number | null;
   has_fbc: number | null;
   has_fbclid: number | null;
@@ -57,6 +63,7 @@ function pct(value: number, total: number): number {
 function formatRows(rows: SummaryRow[]) {
   return rows.map((row) => ({
     ...row,
+    avg_match_quality_score: row.avg_match_quality_score === null ? null : Math.round(row.avg_match_quality_score * 100) / 100,
     sent_rate: pct(row.sent, row.total),
     failed_rate: pct(row.failed, row.total),
     skipped_rate: pct(row.skipped, row.total),
@@ -69,6 +76,16 @@ function formatRows(rows: SummaryRow[]) {
     external_id_rate: pct(row.with_external_id, row.total),
     marketing_consent_rate: pct(row.with_marketing_consent, row.total),
   }));
+}
+
+async function getColumns(env: Env): Promise<Set<string>> {
+  if (!env.DB) return new Set();
+  const columnsResult = await env.DB.prepare('PRAGMA table_info(meta_capi_diagnostics)').all<{ name: string }>();
+  return new Set((columnsResult.results || []).map((column) => column.name).filter(Boolean));
+}
+
+function optionalColumn(columns: Set<string>, name: string, fallback = 'NULL'): string {
+  return columns.has(name) ? name : `${fallback} AS ${name}`;
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -93,6 +110,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
   try {
+    const columns = await getColumns(env);
+    const avgQualityExpression = columns.has('match_quality_score') ? 'AVG(match_quality_score)' : 'NULL';
+
     const summary = await env.DB.prepare(`
       SELECT
         event_name,
@@ -109,6 +129,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SUM(CASE WHEN has_phone = 1 THEN 1 ELSE 0 END) AS with_phone,
         SUM(CASE WHEN has_external_id = 1 THEN 1 ELSE 0 END) AS with_external_id,
         SUM(CASE WHEN marketing_consent = 1 THEN 1 ELSE 0 END) AS with_marketing_consent,
+        ${avgQualityExpression} AS avg_match_quality_score,
         MAX(created_at) AS latest_created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
@@ -119,7 +140,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const latest = await env.DB.prepare(`
       SELECT
         event_name, status, events_received, fbtrace_id, error_code, error_message,
-        page_path, service, has_fbp, has_fbc, has_fbclid, has_utm, marketing_consent, created_at
+        page_path, service,
+        ${optionalColumn(columns, 'form_id')},
+        ${optionalColumn(columns, 'form_variant')},
+        ${optionalColumn(columns, 'contact_method')},
+        ${optionalColumn(columns, 'lead_source_page')},
+        ${optionalColumn(columns, 'match_quality_score')},
+        has_fbp, has_fbc, has_fbclid, has_utm, marketing_consent, created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
       ORDER BY created_at DESC
@@ -132,6 +159,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         checked_at: new Date().toISOString(),
         lookback_hours: hours,
         since,
+        optional_columns: ['form_id', 'form_variant', 'contact_method', 'lead_source_page', 'match_quality_score'].filter((column) => columns.has(column)),
         summary: formatRows(summary.results || []),
         latest: latest.results || [],
       },

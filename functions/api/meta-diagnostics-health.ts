@@ -14,6 +14,8 @@ type DiagnosticsTableCheck = DiagnosticsCheck & {
   latest_created_at?: string | null;
   columns?: string[];
   missing_columns?: string[];
+  optional_columns?: string[];
+  missing_optional_columns?: string[];
 };
 
 const REQUIRED_DIAGNOSTICS_COLUMNS = [
@@ -21,6 +23,10 @@ const REQUIRED_DIAGNOSTICS_COLUMNS = [
   'error_code', 'error_message', 'page_path', 'page_url', 'service',
   'has_fbp', 'has_fbc', 'has_external_id', 'has_email', 'has_phone', 'has_fbclid', 'has_utm',
   'marketing_consent', 'consent_version', 'consent_source', 'consent_region', 'consent_timestamp', 'created_at',
+];
+
+const OPTIONAL_DIAGNOSTICS_COLUMNS = [
+  'form_id', 'form_variant', 'contact_method', 'lead_source_page', 'match_quality_score',
 ];
 
 function getProvidedSecret(request: Request): string | undefined {
@@ -51,6 +57,7 @@ async function checkDiagnosticsTable(env: Env): Promise<DiagnosticsTableCheck> {
     ).all<{ name: string }>();
     const columns = (columnsResult.results || []).map((column) => column.name).filter(Boolean);
     const missingColumns = REQUIRED_DIAGNOSTICS_COLUMNS.filter((column) => !columns.includes(column));
+    const missingOptionalColumns = OPTIONAL_DIAGNOSTICS_COLUMNS.filter((column) => !columns.includes(column));
 
     const stats = await env.DB.prepare(
       'SELECT COUNT(*) AS count, MAX(created_at) AS latest_created_at FROM meta_capi_diagnostics',
@@ -63,6 +70,8 @@ async function checkDiagnosticsTable(env: Env): Promise<DiagnosticsTableCheck> {
       latest_created_at: stats?.latest_created_at ?? null,
       columns,
       missing_columns: missingColumns,
+      optional_columns: OPTIONAL_DIAGNOSTICS_COLUMNS.filter((column) => columns.includes(column)),
+      missing_optional_columns: missingOptionalColumns,
       error: missingColumns.length > 0 ? `D1 table is missing columns: ${missingColumns.join(', ')}` : undefined,
     };
   } catch (error) {
@@ -163,6 +172,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         has_META_CAPI_ACCESS_TOKEN: isEnabled(env.META_CAPI_ACCESS_TOKEN),
         has_META_CAPI_DEBUG_SECRET: isEnabled(env.META_CAPI_DEBUG_SECRET),
         has_META_CAPI_TEST_CODE: isEnabled(env.META_CAPI_TEST_CODE),
+        has_META_CAPI_IDEMPOTENCY: Boolean(env.META_CAPI_IDEMPOTENCY),
+        has_META_CAPI_DIAGNOSTICS: Boolean(env.META_CAPI_DIAGNOSTICS),
         META_CAPI_API_VERSION: env.META_CAPI_API_VERSION || null,
         VITE_META_PIXEL_ID: env.VITE_META_PIXEL_ID || null,
         SITE_URL_configured: isEnabled(env.SITE_URL),
@@ -173,7 +184,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       next_steps: [
         'If has_DB_binding=false, fix Pages Functions Production binding name to DB.',
         'If diagnostics_table_before.exists=false, run migration 0002 on the DB bound to Production.',
-        'If diagnostics_table_before.missing_columns is not empty, apply the latest migration/schema to the DB bound to Production.',
+        'If diagnostics_table_before.missing_columns is not empty, apply the required base migration/schema to the DB bound to Production.',
+        'If diagnostics_table_before.missing_optional_columns is not empty, apply optional quality/form diagnostics migration 0003 when ready.',
         'If write_probe.write_result.d1.error is present, that is the exact D1 write error from recordMetaDiagnostics.',
         'If write_probe.inserted=true and count increases, D1 diagnostics writes work and the empty table means browser/API events are not reaching the functions.',
       ],

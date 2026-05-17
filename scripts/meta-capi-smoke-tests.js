@@ -10,6 +10,9 @@ const files = {
   landingForm: readFileSync('src/app/components/LandingForm.tsx', 'utf8'),
   metaTestEvent: readFileSync('functions/api/meta-test-event.ts', 'utf8'),
   diagnosticsSummary: readFileSync('functions/api/meta-diagnostics-summary.ts', 'utf8'),
+  diagnosticsCoverage: readFileSync('functions/api/meta-diagnostics-coverage.ts', 'utf8'),
+  diagnosticsAlerts: readFileSync('functions/api/meta-diagnostics-alerts.ts', 'utf8'),
+  diagnosticsWriter: readFileSync('functions/_lib/meta-diagnostics.ts', 'utf8'),
 };
 
 function mustContain(name, source, needles) {
@@ -130,6 +133,33 @@ mustContain('Meta diagnostics summary endpoint', files.diagnosticsSummary, [
   'fbp_rate',
   'fbc_rate',
   'marketing_consent_rate',
+  'avg_match_quality_score',
+  'form_id',
+]);
+
+mustContain('Meta diagnostics writer quality fields', files.diagnosticsWriter, [
+  'computeMatchQualityScore',
+  'match_quality_score',
+  'form_id',
+  'form_variant',
+  'contact_method',
+  'lead_source_page',
+  'PRAGMA table_info(meta_capi_diagnostics)',
+]);
+
+mustContain('Meta diagnostics coverage endpoint', files.diagnosticsCoverage, [
+  'CORE_EVENTS',
+  'missing_core_events',
+  'PageView',
+  'LeadFormView',
+  'Contact',
+]);
+
+mustContain('Meta diagnostics alerts endpoint', files.diagnosticsAlerts, [
+  'no_pageviews_sent',
+  'failed_events_present',
+  'low_fbc_rate',
+  'traffic_without_leads',
 ]);
 
 console.log('Meta CAPI smoke tests passed');
