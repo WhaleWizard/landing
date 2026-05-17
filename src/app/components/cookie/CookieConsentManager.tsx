@@ -31,7 +31,7 @@ function applyConsent(consent: ConsentRecord): void {
     const location = router.state.location;
     const path = `${location.pathname}${location.search}`;
     if (consent.categories.analytics || consent.categories.marketing) {
-      trackPageView(path);
+      trackPageView(path, { marketing: consent.categories.marketing });
     }
   });
 }
@@ -183,7 +183,7 @@ export default function CookieConsentManager() {
       if (!consent) return;
       if (!consent.categories.analytics && !consent.categories.marketing) return;
       const path = `${state.location.pathname}${state.location.search}`;
-      trackPageView(path);
+      trackPageView(path, { marketing: consent.categories.marketing });
     });
 
     return unsubscribe;
