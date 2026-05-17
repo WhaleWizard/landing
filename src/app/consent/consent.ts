@@ -25,7 +25,10 @@ const META_EXTERNAL_ID_KEY = 'ww_meta_external_id_v1';
 const META_FIRST_TOUCH_KEY = 'ww_meta_first_touch_v1';
 const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
 const META_SESSION_ID_KEY = 'ww_meta_session_id_v1';
+const META_FBC_KEY = 'ww_meta_fbc_v1';
 const CONSENT_TTL_DAYS = 180;
+const META_SESSION_TTL_MS = 30 * 60 * 1000;
+const META_FBC_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const OPEN_SETTINGS_EVENT = 'open-cookie-settings';
 
 const REGULATED_COUNTRIES = new Set([
@@ -440,13 +443,77 @@ function createFbcFromFbclid(fbclid: string | undefined, timestampMs = Date.now(
   return fbclid ? `fb.1.${timestampMs}.${fbclid}` : undefined;
 }
 
-function getOrCreateSessionId(): string | undefined {
-  const existing = safeReadLocalStorage(META_SESSION_ID_KEY);
-  if (existing) return existing;
+type StoredFbc = {
+  fbclid: string;
+  value: string;
+  expiresAt: number;
+};
+
+function readStoredFbc(now = Date.now()): StoredFbc | undefined {
+  const raw = safeReadLocalStorage(META_FBC_KEY);
+  if (!raw) return undefined;
+
   try {
-    const id = crypto.randomUUID();
-    safeWriteLocalStorage(META_SESSION_ID_KEY, id);
-    return id;
+    const parsed = JSON.parse(raw) as StoredFbc;
+    if (!parsed?.value || !parsed.fbclid || parsed.expiresAt <= now) return undefined;
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function getOrCreateFbc(fbclid: string | undefined): string | undefined {
+  const now = Date.now();
+  const stored = readStoredFbc(now);
+
+  if (!fbclid) return stored?.value;
+  if (stored?.fbclid === fbclid && stored.expiresAt > now) return stored.value;
+
+  const value = createFbcFromFbclid(fbclid, now);
+  if (value) {
+    safeWriteLocalStorage(META_FBC_KEY, JSON.stringify({
+      fbclid,
+      value,
+      expiresAt: now + META_FBC_TTL_MS,
+    } satisfies StoredFbc));
+  }
+
+  return value;
+}
+
+type StoredSession = {
+  id: string;
+  lastSeenAt: number;
+  expiresAt: number;
+};
+
+function persistSession(id: string, now = Date.now()): string {
+  safeWriteLocalStorage(META_SESSION_ID_KEY, JSON.stringify({
+    id,
+    lastSeenAt: now,
+    expiresAt: now + META_SESSION_TTL_MS,
+  } satisfies StoredSession));
+  return id;
+}
+
+function getOrCreateSessionId(): string | undefined {
+  const now = Date.now();
+  const existing = safeReadLocalStorage(META_SESSION_ID_KEY);
+
+  if (existing) {
+    try {
+      const parsed = JSON.parse(existing) as StoredSession;
+      if (parsed?.id && parsed.expiresAt > now) {
+        return persistSession(parsed.id, now);
+      }
+    } catch {
+      // Backward compatibility with the previous plain-string session ID format.
+      return persistSession(existing, now);
+    }
+  }
+
+  try {
+    return persistSession(crypto.randomUUID(), now);
   } catch {
     return undefined;
   }
@@ -503,7 +570,7 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     referrer: document.referrer || undefined,
     external_id: getOrCreateMetaExternalId(),
     fbp: getCookieValue('_fbp'),
-    fbc: getCookieValue('_fbc') || createFbcFromFbclid(fbclid),
+    fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
     fbclid,
     landing_page_url: firstTouch.url,
     first_touch_url: firstTouch.url,
