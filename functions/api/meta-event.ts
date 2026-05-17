@@ -2,8 +2,9 @@ import { json } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
+import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 
-type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact';
+type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact' | 'LeadFormView' | 'EngagedView';
 
 interface MetaEventPayload {
   event_name?: MetaEventName;
@@ -51,6 +52,9 @@ interface MetaEventPayload {
   form_id?: string;
   form_step?: string;
   form_field?: string;
+  engagement_type?: string;
+  engagement_seconds?: number;
+  scroll_depth?: number;
   contact_channel?: string;
   placement?: string;
   content_name?: string;
@@ -59,7 +63,7 @@ interface MetaEventPayload {
   content_ids?: string[];
 }
 
-const ALLOWED_EVENTS = new Set<MetaEventName>(['ViewContent', 'FormStart', 'Contact']);
+const ALLOWED_EVENTS = new Set<MetaEventName>(['ViewContent', 'FormStart', 'Contact', 'LeadFormView', 'EngagedView']);
 
 function sanitizeText(value: string, max: number): string {
   return String(value || '').trim().slice(0, max);
@@ -149,6 +153,9 @@ function normalizeMetaEventPayload(payload: MetaEventPayload): MetaEventPayload 
     form_id: sanitizeText(payload.form_id || '', 120),
     form_step: sanitizeText(payload.form_step || '', 120),
     form_field: sanitizeText(payload.form_field || '', 120),
+    engagement_type: sanitizeText(payload.engagement_type || '', 120),
+    engagement_seconds: sanitizeNumber(payload.engagement_seconds),
+    scroll_depth: sanitizeNumber(payload.scroll_depth),
     contact_channel: sanitizeText(payload.contact_channel || '', 80),
     placement: sanitizeText(payload.placement || '', 120),
     content_name: sanitizeText(payload.content_name || '', 200),
@@ -243,6 +250,15 @@ function extractRequestContext(request: Request, pageUrl?: string) {
   return { country, city, region, regionCode, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, utmId, gclid, wbraid, gbraid, yclid };
 }
 
+
+function hasAnyUtm(payload: MetaEventPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
+  return Boolean(
+    payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
+    payload.utm_term || payload.utm_id || ctx.utmSource || ctx.utmMedium || ctx.utmCampaign ||
+    ctx.utmContent || ctx.utmTerm || ctx.utmId
+  );
+}
+
 async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Request): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
@@ -251,10 +267,21 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing token or pixel ID, skipping extra event');
+    await recordMetaDiagnostics(env, {
+      event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped',
+      error_message: 'missing_token_or_pixel_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service,
+      has_fbp: Boolean(payload.fbp), has_fbc: Boolean(payload.fbc), has_external_id: Boolean(payload.external_id),
+      has_fbclid: Boolean(payload.fbclid), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version,
+      consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp,
+    });
     return;
   }
 
   const eventTime = resolveEventTime(payload.event_time);
+  if (await wasMetaEventAlreadySent(env, payload.event_name, payload.event_id)) {
+    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, marketing_consent: payload.marketing_consent });
+    return;
+  }
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
@@ -291,6 +318,9 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       form_id: payload.form_id,
       form_step: payload.form_step,
       form_field: payload.form_field,
+      engagement_type: payload.engagement_type,
+      engagement_seconds: payload.engagement_seconds,
+      scroll_depth: payload.scroll_depth,
       contact_channel: payload.contact_channel,
       placement: payload.placement,
       content_name: payload.content_name || payload.page_title || payload.service,
@@ -358,15 +388,19 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
 
     if (!response.ok) {
       const errorText = await response.text();
+      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] ${payload.event_name} event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
+      await markMetaEventSent(env, payload.event_name, payload.event_id);
+      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
         fbtrace_id: result?.fbtrace_id,
         events_received: result?.events_received,
       });
     }
   } catch (error) {
+    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error(`[Meta CAPI] Error sending ${payload.event_name} event:`, error);
   }
 }
@@ -387,6 +421,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   if (!payload.marketing_consent) {
+    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, marketing_consent: false, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp }));
     return json(
       { success: true, skipped: true, reason: 'marketing_consent_not_granted' },
       { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },

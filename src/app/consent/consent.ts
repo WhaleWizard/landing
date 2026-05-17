@@ -27,6 +27,7 @@ const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
 const META_SESSION_ID_KEY = 'ww_meta_session_id_v1';
 const META_FBC_KEY = 'ww_meta_fbc_v1';
 const META_ATTRIBUTION_KEY = 'ww_meta_attribution_v1';
+const META_USER_DATA_KEY = 'ww_meta_user_data_v1';
 const CONSENT_TTL_DAYS = 180;
 const META_SESSION_TTL_MS = 30 * 60 * 1000;
 const META_FBC_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -334,8 +335,16 @@ export async function ensureMarketingLoaded(): Promise<void> {
     }
     await appendExternalScript('https://connect.facebook.net/en_US/fbevents.js');
     const browserContext = getMetaBrowserContext(window.location.pathname);
-    if (browserContext.external_id) {
-      win.fbq?.('init', metaId, { external_id: browserContext.external_id });
+    const advancedMatching = {
+      external_id: browserContext.external_id,
+      em: browserContext.em,
+      ph: browserContext.ph,
+      fn: browserContext.fn,
+      ln: browserContext.ln,
+    };
+    const hasAdvancedMatching = Object.values(advancedMatching).some(Boolean);
+    if (hasAdvancedMatching) {
+      win.fbq?.('init', metaId, advancedMatching);
     } else {
       win.fbq?.('init', metaId);
     }
@@ -379,6 +388,10 @@ export type MetaBrowserContext = {
   page_location?: string;
   referrer?: string;
   external_id?: string;
+  em?: string;
+  ph?: string;
+  fn?: string;
+  ln?: string;
   fbp?: string;
   fbc?: string;
   fbclid?: string;
@@ -428,6 +441,94 @@ function safeWriteLocalStorage(key: string, value: string): void {
   } catch {
     // Storage may be unavailable in private mode; analytics still works without it.
   }
+}
+
+
+type StoredMetaUserData = {
+  em?: string;
+  ph?: string;
+  fn?: string;
+  ln?: string;
+  updatedAt: number;
+  expiresAt: number;
+};
+
+const META_USER_DATA_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+
+function normalizeEmailForMeta(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function normalizePhoneForMeta(value: string): string {
+  return value.trim().replace(/\D/g, '');
+}
+
+function normalizeTextForMeta(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, '');
+}
+
+function splitNameForMeta(name: string): { firstName?: string; lastName?: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0],
+    lastName: parts.length > 1 ? parts.slice(1).join(' ') : undefined,
+  };
+}
+
+function isSha256Hex(value: string | undefined): boolean {
+  return Boolean(value && /^[a-f0-9]{64}$/i.test(value));
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getStoredMetaUserData(now = Date.now()): Pick<StoredMetaUserData, 'em' | 'ph' | 'fn' | 'ln'> {
+  const raw = safeReadLocalStorage(META_USER_DATA_KEY);
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw) as StoredMetaUserData;
+    if (!parsed || parsed.expiresAt <= now) return {};
+    return {
+      em: isSha256Hex(parsed.em) ? parsed.em : undefined,
+      ph: isSha256Hex(parsed.ph) ? parsed.ph : undefined,
+      fn: isSha256Hex(parsed.fn) ? parsed.fn : undefined,
+      ln: isSha256Hex(parsed.ln) ? parsed.ln : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export async function rememberMetaLeadIdentifiers(input: { email?: string; phone?: string; name?: string }): Promise<void> {
+  if (!hasMarketingConsent()) return;
+
+  const now = Date.now();
+  const existing = getStoredMetaUserData(now);
+  const email = input.email ? normalizeEmailForMeta(input.email) : '';
+  const phone = input.phone ? normalizePhoneForMeta(input.phone) : '';
+  const { firstName, lastName } = input.name ? splitNameForMeta(input.name) : {};
+
+  const [em, ph, fn, ln] = await Promise.all([
+    email ? sha256Hex(email) : Promise.resolve(existing.em),
+    phone ? sha256Hex(phone) : Promise.resolve(existing.ph),
+    firstName ? sha256Hex(normalizeTextForMeta(firstName)) : Promise.resolve(existing.fn),
+    lastName ? sha256Hex(normalizeTextForMeta(lastName)) : Promise.resolve(existing.ln),
+  ]);
+
+  if (!em && !ph && !fn && !ln) return;
+
+  safeWriteLocalStorage(META_USER_DATA_KEY, JSON.stringify({
+    em,
+    ph,
+    fn,
+    ln,
+    updatedAt: now,
+    expiresAt: now + META_USER_DATA_TTL_MS,
+  } satisfies StoredMetaUserData));
 }
 
 function getCookieValue(name: string): string | undefined {
@@ -643,6 +744,7 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
   const fbclid = attribution.fbclid;
   const { firstTouch, lastTouch } = captureTouchPoint(window.location.href);
   const consentSnapshot = getConsentSnapshot();
+  const storedUserData = getStoredMetaUserData();
 
   return {
     page_title: document.title || undefined,
@@ -650,6 +752,10 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     page_location: window.location.href,
     referrer: document.referrer || undefined,
     external_id: getOrCreateMetaExternalId(),
+    em: storedUserData.em,
+    ph: storedUserData.ph,
+    fn: storedUserData.fn,
+    ln: storedUserData.ln,
     fbp: getCookieValue('_fbp'),
     fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
     fbclid,
@@ -728,7 +834,7 @@ function sendServerPageView(payload: ServerPageViewPayload): void {
 }
 
 
-type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact';
+type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact' | 'LeadFormView' | 'EngagedView';
 
 type ServerMetaEventPayload = MetaBrowserContext & {
   event_name: MetaEventName;
@@ -738,6 +844,10 @@ type ServerMetaEventPayload = MetaBrowserContext & {
   service_slug?: string;
   form_id?: string;
   form_step?: string;
+  form_field?: string;
+  engagement_type?: string;
+  engagement_seconds?: number;
+  scroll_depth?: number;
   contact_channel?: string;
   placement?: string;
   content_name?: string;
@@ -863,6 +973,127 @@ export function trackFormStart(serviceSlug: string, extraData: Record<string, un
   return true;
 }
 
+
+const leadFormViewTracked = new Set<string>();
+const engagedViewTracked = new Set<string>();
+
+export function trackLeadFormView(serviceSlug: string): boolean {
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  if (!browserContext.marketing_consent) return false;
+
+  const key = `${window.location.pathname}:${serviceSlug}`;
+  if (leadFormViewTracked.has(key)) return false;
+  leadFormViewTracked.add(key);
+
+  const eventId = crypto.randomUUID();
+  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const eventData = {
+    form_id: 'service_landing_form',
+    form_step: 'view',
+    service_slug: serviceSlug,
+    service: serviceContent?.service || serviceSlug,
+    content_name: serviceContent?.content_name || document.title,
+    content_category: serviceContent?.content_category || 'lead_form',
+    content_type: serviceContent?.content_type || 'service',
+    content_ids: serviceContent?.content_ids || [serviceSlug],
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+  };
+
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'lead_form_view', event_id: eventId, ...eventData });
+  }
+  win.fbq?.('trackCustom', 'LeadFormView', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'LeadFormView',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
+  });
+
+  return true;
+}
+
+export function trackEngagedView(reason: 'time_10s' | 'scroll_50' | 'form_view', extraData: Record<string, unknown> = {}): boolean {
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  if (!browserContext.marketing_consent) return false;
+
+  const key = `${window.location.pathname}:${reason}`;
+  if (engagedViewTracked.has(key)) return false;
+  engagedViewTracked.add(key);
+
+  const eventId = crypto.randomUUID();
+  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const eventData = {
+    engagement_type: reason,
+    service: serviceContent?.service,
+    service_slug: serviceContent?.content_ids?.[0],
+    content_name: serviceContent?.content_name || document.title,
+    content_category: serviceContent?.content_category || 'engagement',
+    content_type: serviceContent?.content_type || 'page',
+    content_ids: serviceContent?.content_ids,
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+    ...extraData,
+  };
+
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'engaged_view', event_id: eventId, ...eventData });
+  }
+  win.fbq?.('trackCustom', 'EngagedView', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'EngagedView',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
+  });
+
+  return true;
+}
+
+export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone' | 'social', placement: string, extraData: Record<string, unknown> = {}): boolean {
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  if (!browserContext.marketing_consent) return false;
+
+  const eventId = crypto.randomUUID();
+  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const eventData = {
+    contact_channel: channel,
+    placement,
+    service: serviceContent?.service,
+    service_slug: serviceContent?.content_ids?.[0],
+    content_name: serviceContent?.content_name || document.title,
+    content_category: 'contact_intent',
+    content_type: 'contact_link',
+    content_ids: serviceContent?.content_ids,
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+    ...extraData,
+  };
+
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'contact', event_id: eventId, ...eventData });
+  }
+  win.fbq?.('track', 'Contact', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'Contact',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
+  });
+
+  return true;
+}
+
 export function trackPageView(path: string, options: { marketing?: boolean } = {}): void {
   const now = Date.now();
   const shouldTrackMarketing = options.marketing !== false;
@@ -921,6 +1152,10 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
     page_url: window.location.href,
     ...browserContext,
   });
+
+  window.setTimeout(() => {
+    trackEngagedView('time_10s', { engagement_seconds: 10 });
+  }, 10_000);
 }
 
 export function trackFaqOpen(question: string): void {
