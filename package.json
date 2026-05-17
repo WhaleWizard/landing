@@ -10,7 +10,8 @@
     "fetch:articles": "node scripts/fetch-articles.js",
     "test": "npm run build",
     "check": "npm run build",
-    "generate:media": "node scripts/generateMedia.js"
+    "generate:media": "node scripts/generateMedia.js",
+    "test:meta-capi": "node scripts/meta-capi-smoke-tests.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

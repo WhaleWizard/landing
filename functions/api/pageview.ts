@@ -2,6 +2,7 @@ import { json } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
+import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 
 interface PageViewPayload {
   event_id?: string;
@@ -9,6 +10,10 @@ interface PageViewPayload {
   page_location?: string;
   referrer?: string;
   external_id?: string;
+  em?: string;
+  ph?: string;
+  fn?: string;
+  ln?: string;
   fbp?: string;
   fbc?: string;
   fbclid?: string;
@@ -81,6 +86,10 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
     page_location: sanitizeText(payload.page_location || '', 2048),
     referrer: sanitizeText(payload.referrer || '', 2048),
     external_id: sanitizeText(payload.external_id || '', 128),
+    em: sanitizeText(payload.em || '', 64),
+    ph: sanitizeText(payload.ph || '', 64),
+    fn: sanitizeText(payload.fn || '', 64),
+    ln: sanitizeText(payload.ln || '', 64),
     fbp: sanitizeText(payload.fbp || '', 128),
     fbc: sanitizeText(payload.fbc || '', 256),
     fbclid: sanitizeText(payload.fbclid || '', 512),
@@ -204,6 +213,19 @@ function extractRequestContext(request: Request, pageUrl?: string) {
   return { country, city, region, regionCode, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, utmId, gclid, wbraid, gbraid, yclid };
 }
 
+
+function isSha256Hex(value: string | undefined): boolean {
+  return Boolean(value && /^[a-f0-9]{64}$/i.test(value));
+}
+
+function hasAnyUtm(payload: PageViewPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
+  return Boolean(
+    payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
+    payload.utm_term || payload.utm_id || ctx.utmSource || ctx.utmMedium || ctx.utmCampaign ||
+    ctx.utmContent || ctx.utmTerm || ctx.utmId
+  );
+}
+
 async function sendMetaPageView(
   payload: PageViewPayload,
   env: Env,
@@ -216,10 +238,30 @@ async function sendMetaPageView(
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing token or pixel ID, skipping PageView');
+    await recordMetaDiagnostics(env, {
+      event_name: 'PageView',
+      event_id: payload.event_id,
+      event_time: payload.event_time,
+      status: 'skipped',
+      error_message: 'missing_token_or_pixel_id',
+      page_path: payload.page_path,
+      page_url: payload.page_url,
+      has_email: isSha256Hex(payload.em),
+      has_phone: isSha256Hex(payload.ph),
+      marketing_consent: true,
+      consent_version: payload.consent_version,
+      consent_source: payload.consent_source,
+      consent_region: payload.consent_region,
+      consent_timestamp: payload.consent_timestamp,
+    });
     return;
   }
 
   const eventTime = resolveEventTime(payload.event_time);
+  if (await wasMetaEventAlreadySent(env, 'PageView', payload.event_id)) {
+    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, marketing_consent: true });
+    return;
+  }
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
@@ -247,6 +289,10 @@ async function sendMetaPageView(
       fbp: fbp || undefined,
       fbc: fbc || undefined,
       external_id: hashedExternalId ? [hashedExternalId] : undefined,
+      em: isSha256Hex(payload.em) ? [payload.em!.toLowerCase()] : undefined,
+      ph: isSha256Hex(payload.ph) ? [payload.ph!.toLowerCase()] : undefined,
+      fn: isSha256Hex(payload.fn) ? [payload.fn!.toLowerCase()] : undefined,
+      ln: isSha256Hex(payload.ln) ? [payload.ln!.toLowerCase()] : undefined,
       country: hashedCountry ? [hashedCountry] : undefined,
       ct: hashedCity ? [hashedCity] : undefined,
       st: hashedRegion ? [hashedRegion] : undefined,
@@ -314,15 +360,40 @@ async function sendMetaPageView(
 
     if (!response.ok) {
       const errorText = await response.text();
+      await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: true, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
+      await markMetaEventSent(env, 'PageView', eventId);
+      await recordMetaDiagnostics(env, {
+        event_name: 'PageView',
+        event_id: eventId,
+        event_time: eventTime,
+        status: 'sent',
+        events_received: result?.events_received,
+        fbtrace_id: result?.fbtrace_id,
+        page_path: payload.page_path,
+        page_url: eventSourceUrl,
+        has_fbp: Boolean(fbp),
+        has_fbc: Boolean(fbc),
+        has_external_id: Boolean(hashedExternalId),
+        has_email: isSha256Hex(payload.em),
+        has_phone: isSha256Hex(payload.ph),
+        has_fbclid: Boolean(payload.fbclid),
+        has_utm: hasAnyUtm(payload, ctx),
+        marketing_consent: true,
+        consent_version: payload.consent_version,
+        consent_source: payload.consent_source,
+        consent_region: payload.consent_region,
+        consent_timestamp: payload.consent_timestamp,
+      });
       console.log('[Meta CAPI] PageView server event sent successfully', {
         fbtrace_id: result?.fbtrace_id,
         events_received: result?.events_received,
       });
     }
   } catch (error) {
+    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: true, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending PageView event:', error);
   }
 }

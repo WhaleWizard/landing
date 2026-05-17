@@ -1,4 +1,4 @@
-import { useState, useCallback, memo, useRef } from 'react';
+import { useState, useCallback, memo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, useInView } from 'motion/react';
 import {
@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Loader2,
   MessageCircle,
+  Mail,
   Phone,
   User,
   Globe,
@@ -16,7 +17,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { getMetaBrowserContext, trackFormStart, trackLead } from '../consent/consent';
+import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import { API_ROUTES } from '../config';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult';
@@ -55,6 +56,19 @@ function normalizeContactForLead(contact: string): {
   };
 }
 
+
+function extractWebsiteDomain(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed || !trimmed.includes('.')) return undefined;
+
+  try {
+    const url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+    return url.hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
 const budgetOptions = [
   { value: 'до $1000', label: 'до $1000' },
   { value: '$1k-$5k', label: '$1k-$5k' },
@@ -69,6 +83,8 @@ function LandingForm({
 }: LandingFormProps) {
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
+    phone: '',
     contact: '',
     website: '',
     budget: '',
@@ -81,10 +97,19 @@ function LandingForm({
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const formStartTrackedRef = useRef(false);
+  const formViewTrackedRef = useRef(false);
 
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
   const inView = useInView(formRef, { once: true, margin: '-100px' });
+
+  useEffect(() => {
+    if (!inView || formViewTrackedRef.current) return;
+    formViewTrackedRef.current = trackLeadFormView(service);
+    if (formViewTrackedRef.current) {
+      trackEngagedView('form_view');
+    }
+  }, [inView, service]);
 
   const trackFirstFormInteraction = useCallback((fieldName: string) => {
     if (formStartTrackedRef.current) return;
@@ -111,6 +136,9 @@ function LandingForm({
       const eventId = crypto.randomUUID();
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const contactPayload = normalizeContactForLead(formData.contact);
+      const email = formData.email.trim();
+      const phone = formData.phone.trim();
+      const websiteDomain = extractWebsiteDomain(formData.website);
 
       try {
         const res = await fetch(API_ROUTES.lead, {
@@ -119,12 +147,22 @@ function LandingForm({
           body: JSON.stringify({
             ...metaBrowserContext,
             ...contactPayload,
+            email,
+            phone,
             name: formData.name,
             message: service === 'consult' 
               ? `Опыт: ${formData.experience}\nПроблема: ${formData.problem}`
               : `Сайт: ${formData.website}\nБюджет: ${formData.budget}`,
             budget: formData.budget,
+            website: formData.website,
+            website_domain: websiteDomain,
+            experience: formData.experience,
+            problem: formData.problem,
             service: serviceLabels[service],
+            service_slug: service,
+            form_id: 'service_landing_form',
+            form_variant: 'service_landing_v1',
+            lead_source_page: window.location.pathname,
             event_id: eventId,
             hp_trap: hpTrap,
             page_url: window.location.href,
@@ -137,14 +175,20 @@ function LandingForm({
         }
 
         setIsSubmitted(true);
-        setFormData({ name: '', contact: '', website: '', budget: '', experience: '', problem: '' });
+        await rememberMetaLeadIdentifiers({ email, phone, name: formData.name });
+        setFormData({ name: '', email: '', phone: '', contact: '', website: '', budget: '', experience: '', problem: '' });
         setHpTrap('');
         setAgreed(false);
         trackLead(eventId, {
           ...metaBrowserContext,
           budget: formData.budget || undefined,
           contact_method: contactPayload.contactMethod,
+          phone_collected: Boolean(phone),
           service: serviceLabels[service],
+          service_slug: service,
+          form_id: 'service_landing_form',
+          form_variant: 'service_landing_v1',
+          website_domain: websiteDomain,
         });
 
         setTimeout(() => setIsSubmitted(false), 5000);
@@ -259,12 +303,19 @@ function LandingForm({
               {/* Name */}
               {renderField('name', 'Имя', <User className="w-4 h-4 text-primary" />, 'Ваше имя')}
 
+              {/* Email */}
+              {renderField('email', 'Email', <Mail className="w-4 h-4 text-primary" />, 'you@example.com', true, 'email')}
+
+              {/* Phone */}
+              {renderField('phone', 'Телефон / WhatsApp', <Phone className="w-4 h-4 text-primary" />, '+1 555 000 0000', true, 'tel')}
+
               {/* Contact */}
               {renderField(
                 'contact',
-                'Telegram / WhatsApp',
+                'Telegram / дополнительный контакт',
                 <MessageCircle className="w-4 h-4 text-primary" />,
-                '@username или +7...'
+                '@username или ссылка на мессенджер',
+                false
               )}
 
               {/* Service-specific fields */}
