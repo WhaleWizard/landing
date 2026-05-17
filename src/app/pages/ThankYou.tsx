@@ -2,8 +2,16 @@ import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Instagram, MessageCircle, Mail, Sparkles, ArrowRight } from 'lucide-react';
 import { Youtube } from 'lucide-react';
-import { trackThankYouConversion } from '../consent/consent';
+import { trackContact, trackThankYouConversion } from '../consent/consent';
 import SEO from '../components/SEO';
+
+
+function getThankYouContactChannel(name: string): 'telegram' | 'email' | 'social' {
+  const normalized = name.toLowerCase();
+  if (normalized.includes('telegram')) return 'telegram';
+  if (normalized.includes('email')) return 'email';
+  return 'social';
+}
 
 export default function ThankYou() {
   useEffect(() => {
@@ -116,6 +124,7 @@ export default function ThankYou() {
             <a
               key={i}
               href={social.link}
+              onClick={() => trackContact(getThankYouContactChannel(social.name), 'thank_you', { social_label: social.name })}
               target="_blank"
               className="group relative p-4 rounded-2xl border border-border bg-card/40 backdrop-blur-xl hover:scale-105 transition-all overflow-hidden"
             >

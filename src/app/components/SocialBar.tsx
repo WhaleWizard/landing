@@ -10,6 +10,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { useRef, useEffect, memo, useCallback } from 'react';
+import { trackContact } from '../consent/consent';
 
 const socialsDesktop = [
   { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
@@ -32,6 +33,15 @@ const socialsMobileOrder = [
   { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
   { icon: Youtube, href: 'https://youtube.com/@whalewzrd', label: 'YouTube', color: '#FF0000' },
 ];
+
+
+function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | 'phone' | 'social' {
+  const normalized = label.toLowerCase();
+  if (normalized.includes('telegram')) return 'telegram';
+  if (normalized.includes('whatsapp')) return 'whatsapp';
+  if (normalized.includes('email')) return 'email';
+  return 'social';
+}
 
 // Два повтора вместо трёх — достаточно для бесконечного скролла, снижает нагрузку
 const socialsInfinite = [...socialsMobileOrder, ...socialsMobileOrder];
@@ -108,6 +118,7 @@ function SocialDock() {
               <motion.a
                 key={i}
                 href={s.href}
+                onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
                 target="_blank"
                 rel="noopener noreferrer"
                 initial={{ opacity: 0, y: 10 }}
@@ -149,6 +160,7 @@ function SocialDock() {
                 <motion.a
                   key={i}
                   href={s.href}
+                  onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
                   target="_blank"
                   rel="noopener noreferrer"
                   initial={{ opacity: 0, scale: 0.9 }}

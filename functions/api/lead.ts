@@ -2,6 +2,7 @@ import { json } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
+import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 
 interface LeadPayload {
   name?: string;
@@ -12,6 +13,14 @@ interface LeadPayload {
   contactMethod?: 'telegram' | 'whatsapp';
   telegramUsername?: string;
   service?: string;
+  website?: string;
+  website_domain?: string;
+  experience?: string;
+  problem?: string;
+  service_slug?: string;
+  form_id?: string;
+  form_variant?: string;
+  lead_source_page?: string;
   event_id?: string;
   hp_trap?: string;   // honeypot – боты заполняют, люди нет
   page_url?: string;
@@ -106,6 +115,14 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     contactMethod: payload.contactMethod === 'whatsapp' ? 'whatsapp' : 'telegram',
     telegramUsername: sanitizeText(payload.telegramUsername || '', 120),
     service: sanitizeText(payload.service || '', 80),
+    website: sanitizeText(payload.website || '', 2048),
+    website_domain: sanitizeText(payload.website_domain || '', 255),
+    experience: sanitizeText(payload.experience || '', 200),
+    problem: sanitizeText(payload.problem || '', 500),
+    service_slug: sanitizeText(payload.service_slug || '', 80),
+    form_id: sanitizeText(payload.form_id || '', 120),
+    form_variant: sanitizeText(payload.form_variant || '', 120),
+    lead_source_page: sanitizeText(payload.lead_source_page || '', 512),
     event_id: sanitizeText(payload.event_id || '', 64),
     hp_trap: sanitizeText(payload.hp_trap || '', 10),
     page_url: sanitizeText(payload.page_url || '', 2048),
@@ -236,6 +253,28 @@ function extractRequestContext(request: Request, pageUrl?: string) {
   return { country, city, region, regionCode, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, utmId, gclid, wbraid, gbraid, yclid };
 }
 
+
+
+function classifyProblemCategory(problem: string | undefined): string | undefined {
+  const value = (problem || '').toLowerCase();
+  if (!value) return undefined;
+  if (/лид|заяв|конверс|продаж|клиент/.test(value)) return 'lead_generation';
+  if (/кабинет|бан|модерац|аккаунт|доступ/.test(value)) return 'account_or_moderation';
+  if (/креатив|объяв|баннер|видео|контент/.test(value)) return 'creative';
+  if (/аналит|пиксел|метрик|capi|отслеж/.test(value)) return 'analytics_tracking';
+  if (/стратег|воронк|оффер|позицион/.test(value)) return 'strategy_funnel';
+  if (/бюджет|ставк|стоим|cpl|cpa|цена/.test(value)) return 'budget_efficiency';
+  return 'other';
+}
+
+function hasAnyUtm(payload: LeadPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
+  return Boolean(
+    payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
+    payload.utm_term || payload.utm_id || ctx.utmSource || ctx.utmMedium || ctx.utmCampaign ||
+    ctx.utmContent || ctx.utmTerm || ctx.utmId
+  );
+}
+
 async function sendMetaConversionEvent(
   payload: LeadPayload,
   env: Env,
@@ -248,10 +287,15 @@ async function sendMetaConversionEvent(
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
+    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'missing_token_or_pixel_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, has_email: Boolean(payload.email), has_phone: Boolean(payload.phone), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     return;
   }
 
   const eventTime = resolveEventTime(payload.event_time);
+  if (await wasMetaEventAlreadySent(env, 'Lead', payload.event_id)) {
+    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, has_email: Boolean(payload.email), has_phone: Boolean(payload.phone), marketing_consent: payload.marketing_consent });
+    return;
+  }
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
@@ -298,6 +342,13 @@ async function sendMetaConversionEvent(
       budget: payload.budget,
       contact_method: payload.contactMethod,
       service: payload.service,
+      service_slug: payload.service_slug,
+      form_id: payload.form_id,
+      form_variant: payload.form_variant,
+      lead_source_page: payload.lead_source_page,
+      website_domain: payload.website_domain,
+      experience_level: payload.experience,
+      problem_category: classifyProblemCategory(payload.problem),
       country: ctx.country,
       city: ctx.city,
       region: ctx.region,
@@ -360,15 +411,19 @@ async function sendMetaConversionEvent(
 
     if (!response.ok) {
       const errorText = await response.text();
+      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
+      await markMetaEventSent(env, 'Lead', payload.event_id);
+      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.log('[Meta CAPI] Lead server event sent successfully', {
         fbtrace_id: result?.fbtrace_id,
         events_received: result?.events_received,
       });
     }
   } catch (error) {
+    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending Lead event:', error);
   }
 }
@@ -416,6 +471,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     if (normalized.marketing_consent) {
       waitUntil(sendMetaConversionEvent(normalized, env, request));
     } else {
+      waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, has_email: Boolean(normalized.email), has_phone: Boolean(normalized.phone), marketing_consent: false, consent_version: normalized.consent_version, consent_source: normalized.consent_source, consent_region: normalized.consent_region, consent_timestamp: normalized.consent_timestamp }));
       console.log('[Meta CAPI] Lead server event skipped because marketing consent is not granted.');
     }
 

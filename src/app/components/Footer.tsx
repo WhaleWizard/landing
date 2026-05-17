@@ -1,7 +1,7 @@
 import { Mail, MessageSquare, ExternalLink, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { memo, useCallback } from 'react';
-import { openCookieSettings } from '../consent/consent';
+import { openCookieSettings, trackContact } from '../consent/consent';
 
 function Footer() {
   const scrollToSection = useCallback((id: string) => {
@@ -168,6 +168,7 @@ function Footer() {
               <li>
                 <a
                   href="mailto:whalewzrd@gmail.com"
+                  onClick={() => trackContact('email', 'footer')}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -180,6 +181,7 @@ function Footer() {
               <li>
                 <a
                   href="https://t.me/white_rsh"
+                  onClick={() => trackContact('telegram', 'footer')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"

@@ -45,6 +45,9 @@ export interface Env {
   META_CAPI_ACCESS_TOKEN?: string;
   META_CAPI_TEST_CODE?: string;
   META_CAPI_API_VERSION?: string;
+  META_CAPI_DIAGNOSTICS?: KVNamespace;
+  META_CAPI_IDEMPOTENCY?: KVNamespace;
+  META_CAPI_DEBUG_SECRET?: string;
   // Pixel IDs
   VITE_META_PIXEL_ID?: string;
   VITE_TIKTOK_PIXEL_ID?: string;

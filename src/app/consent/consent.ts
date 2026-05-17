@@ -27,6 +27,7 @@ const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
 const META_SESSION_ID_KEY = 'ww_meta_session_id_v1';
 const META_FBC_KEY = 'ww_meta_fbc_v1';
 const META_ATTRIBUTION_KEY = 'ww_meta_attribution_v1';
+const META_USER_DATA_KEY = 'ww_meta_user_data_v1';
 const CONSENT_TTL_DAYS = 180;
 const META_SESSION_TTL_MS = 30 * 60 * 1000;
 const META_FBC_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -334,8 +335,16 @@ export async function ensureMarketingLoaded(): Promise<void> {
     }
     await appendExternalScript('https://connect.facebook.net/en_US/fbevents.js');
     const browserContext = getMetaBrowserContext(window.location.pathname);
-    if (browserContext.external_id) {
-      win.fbq?.('init', metaId, { external_id: browserContext.external_id });
+    const advancedMatching = {
+      external_id: browserContext.external_id,
+      em: browserContext.em,
+      ph: browserContext.ph,
+      fn: browserContext.fn,
+      ln: browserContext.ln,
+    };
+    const hasAdvancedMatching = Object.values(advancedMatching).some(Boolean);
+    if (hasAdvancedMatching) {
+      win.fbq?.('init', metaId, advancedMatching);
     } else {
       win.fbq?.('init', metaId);
     }
@@ -379,6 +388,10 @@ export type MetaBrowserContext = {
   page_location?: string;
   referrer?: string;
   external_id?: string;
+  em?: string;
+  ph?: string;
+  fn?: string;
+  ln?: string;
   fbp?: string;
   fbc?: string;
   fbclid?: string;
@@ -428,6 +441,94 @@ function safeWriteLocalStorage(key: string, value: string): void {
   } catch {
     // Storage may be unavailable in private mode; analytics still works without it.
   }
+}
+
+
+type StoredMetaUserData = {
+  em?: string;
+  ph?: string;
+  fn?: string;
+  ln?: string;
+  updatedAt: number;
+  expiresAt: number;
+};
+
+const META_USER_DATA_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+
+function normalizeEmailForMeta(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function normalizePhoneForMeta(value: string): string {
+  return value.trim().replace(/\D/g, '');
+}
+
+function normalizeTextForMeta(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, '');
+}
+
+function splitNameForMeta(name: string): { firstName?: string; lastName?: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0],
+    lastName: parts.length > 1 ? parts.slice(1).join(' ') : undefined,
+  };
+}
+
+function isSha256Hex(value: string | undefined): boolean {
+  return Boolean(value && /^[a-f0-9]{64}$/i.test(value));
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getStoredMetaUserData(now = Date.now()): Pick<StoredMetaUserData, 'em' | 'ph' | 'fn' | 'ln'> {
+  const raw = safeReadLocalStorage(META_USER_DATA_KEY);
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw) as StoredMetaUserData;
+    if (!parsed || parsed.expiresAt <= now) return {};
+    return {
+      em: isSha256Hex(parsed.em) ? parsed.em : undefined,
+      ph: isSha256Hex(parsed.ph) ? parsed.ph : undefined,
+      fn: isSha256Hex(parsed.fn) ? parsed.fn : undefined,
+      ln: isSha256Hex(parsed.ln) ? parsed.ln : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export async function rememberMetaLeadIdentifiers(input: { email?: string; phone?: string; name?: string }): Promise<void> {
+  if (!hasMarketingConsent()) return;
+
+  const now = Date.now();
+  const existing = getStoredMetaUserData(now);
+  const email = input.email ? normalizeEmailForMeta(input.email) : '';
+  const phone = input.phone ? normalizePhoneForMeta(input.phone) : '';
+  const { firstName, lastName } = input.name ? splitNameForMeta(input.name) : {};
+
+  const [em, ph, fn, ln] = await Promise.all([
+    email ? sha256Hex(email) : Promise.resolve(existing.em),
+    phone ? sha256Hex(phone) : Promise.resolve(existing.ph),
+    firstName ? sha256Hex(normalizeTextForMeta(firstName)) : Promise.resolve(existing.fn),
+    lastName ? sha256Hex(normalizeTextForMeta(lastName)) : Promise.resolve(existing.ln),
+  ]);
+
+  if (!em && !ph && !fn && !ln) return;
+
+  safeWriteLocalStorage(META_USER_DATA_KEY, JSON.stringify({
+    em,
+    ph,
+    fn,
+    ln,
+    updatedAt: now,
+    expiresAt: now + META_USER_DATA_TTL_MS,
+  } satisfies StoredMetaUserData));
 }
 
 function getCookieValue(name: string): string | undefined {
@@ -643,6 +744,7 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
   const fbclid = attribution.fbclid;
   const { firstTouch, lastTouch } = captureTouchPoint(window.location.href);
   const consentSnapshot = getConsentSnapshot();
+  const storedUserData = getStoredMetaUserData();
 
   return {
     page_title: document.title || undefined,
@@ -650,6 +752,10 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     page_location: window.location.href,
     referrer: document.referrer || undefined,
     external_id: getOrCreateMetaExternalId(),
+    em: storedUserData.em,
+    ph: storedUserData.ph,
+    fn: storedUserData.fn,
+    ln: storedUserData.ln,
     fbp: getCookieValue('_fbp'),
     fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
     fbclid,
@@ -728,7 +834,7 @@ function sendServerPageView(payload: ServerPageViewPayload): void {
 }
 
 
-type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact';
+type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact' | 'LeadFormView' | 'EngagedView';
 
 type ServerMetaEventPayload = MetaBrowserContext & {
   event_name: MetaEventName;
@@ -738,6 +844,10 @@ type ServerMetaEventPayload = MetaBrowserContext & {
   service_slug?: string;
   form_id?: string;
   form_step?: string;
+  form_field?: string;
+  engagement_type?: string;
+  engagement_seconds?: number;
+  scroll_depth?: number;
   contact_channel?: string;
   placement?: string;
   content_name?: string;
@@ -746,7 +856,22 @@ type ServerMetaEventPayload = MetaBrowserContext & {
   content_ids?: string[];
 };
 
-const SERVICE_CONTENT: Record<string, { service: string; content_name: string; content_category: string; content_type: string; content_ids: string[] }> = {
+type MetaPageContent = {
+  service: string;
+  content_name: string;
+  content_category: string;
+  content_type: string;
+  content_ids: string[];
+};
+
+const SERVICE_CONTENT: Record<string, MetaPageContent> = {
+  '/': {
+    service: 'WhaleWzrd main landing',
+    content_name: 'WhaleWzrd main landing',
+    content_category: 'main_landing',
+    content_type: 'website',
+    content_ids: ['home'],
+  },
   '/meta-ads': {
     service: 'Meta Ads',
     content_name: 'Meta Ads audit landing',
@@ -768,7 +893,112 @@ const SERVICE_CONTENT: Record<string, { service: string; content_name: string; c
     content_type: 'service',
     content_ids: ['consult'],
   },
+  '/calculator': {
+    service: 'Budget calculator',
+    content_name: 'Budget calculator page',
+    content_category: 'calculator',
+    content_type: 'tool',
+    content_ids: ['calculator'],
+  },
+  '/roi-calculator': {
+    service: 'ROI calculator',
+    content_name: 'ROI calculator page',
+    content_category: 'calculator',
+    content_type: 'tool',
+    content_ids: ['roi-calculator'],
+  },
+  '/thank-you': {
+    service: 'Lead confirmation',
+    content_name: 'Thank you page',
+    content_category: 'conversion_confirmation',
+    content_type: 'page',
+    content_ids: ['thank-you'],
+  },
+  '/blog': {
+    service: 'Marketing blog',
+    content_name: 'Blog listing page',
+    content_category: 'blog',
+    content_type: 'article_index',
+    content_ids: ['blog'],
+  },
+  '/faq': {
+    service: 'FAQ',
+    content_name: 'FAQ page',
+    content_category: 'support_content',
+    content_type: 'page',
+    content_ids: ['faq'],
+  },
+  '/marketing-glossary': {
+    service: 'Marketing glossary',
+    content_name: 'Marketing glossary page',
+    content_category: 'education_content',
+    content_type: 'page',
+    content_ids: ['marketing-glossary'],
+  },
+  '/privacy-policy': {
+    service: 'Privacy policy',
+    content_name: 'Privacy policy page',
+    content_category: 'legal_page',
+    content_type: 'page',
+    content_ids: ['privacy-policy'],
+  },
+  '/offer': {
+    service: 'Offer',
+    content_name: 'Offer page',
+    content_category: 'legal_page',
+    content_type: 'page',
+    content_ids: ['offer'],
+  },
+  '/cookie-policy': {
+    service: 'Cookie policy',
+    content_name: 'Cookie policy page',
+    content_category: 'legal_page',
+    content_type: 'page',
+    content_ids: ['cookie-policy'],
+  },
 };
+
+function normalizePathnameForMeta(path: string): string {
+  const pathname = path.split('?')[0].split('#')[0] || '/';
+  if (pathname === '/') return pathname;
+  return pathname.replace(/\/$/, '');
+}
+
+function slugifyContentId(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/[^a-z0-9а-яё_-]+/giu, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 120) || 'unknown-page';
+}
+
+function getMetaPageContent(path: string): MetaPageContent {
+  const pathname = normalizePathnameForMeta(path);
+  const staticContent = SERVICE_CONTENT[pathname];
+  if (staticContent) return staticContent;
+
+  if (pathname.startsWith('/blog/')) {
+    const articleSlug = slugifyContentId(pathname.slice('/blog/'.length));
+    return {
+      service: 'Marketing blog article',
+      content_name: document.title || `Blog article ${articleSlug}`,
+      content_category: 'blog_article',
+      content_type: 'article',
+      content_ids: [`blog-${articleSlug}`],
+    };
+  }
+
+  const genericId = slugifyContentId(pathname);
+  return {
+    service: 'WhaleWzrd site page',
+    content_name: document.title || `WhaleWzrd ${genericId}`,
+    content_category: 'site_page',
+    content_type: 'page',
+    content_ids: [`page-${genericId}`],
+  };
+}
 
 function sendServerMetaEvent(payload: ServerMetaEventPayload): void {
   if (!payload.marketing_consent) return;
@@ -786,9 +1016,7 @@ function sendServerMetaEvent(payload: ServerMetaEventPayload): void {
 export function trackServiceViewContent(path: string, options: { marketing?: boolean } = {}): void {
   if (options.marketing === false) return;
 
-  const pathname = path.split('?')[0];
-  const content = SERVICE_CONTENT[pathname];
-  if (!content) return;
+  const content = getMetaPageContent(path);
 
   const eventId = crypto.randomUUID();
   const browserContext = getMetaBrowserContext(path);
@@ -826,7 +1054,7 @@ export function trackFormStart(serviceSlug: string, extraData: Record<string, un
   if (!browserContext.marketing_consent) return false;
 
   const eventId = crypto.randomUUID();
-  const serviceContent = SERVICE_CONTENT[window.location.pathname];
+  const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     form_id: 'service_landing_form',
     form_step: 'first_interaction',
@@ -854,6 +1082,127 @@ export function trackFormStart(serviceSlug: string, extraData: Record<string, un
 
   sendServerMetaEvent({
     event_name: 'FormStart',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
+  });
+
+  return true;
+}
+
+
+const leadFormViewTracked = new Set<string>();
+const engagedViewTracked = new Set<string>();
+
+export function trackLeadFormView(serviceSlug: string): boolean {
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  if (!browserContext.marketing_consent) return false;
+
+  const key = `${window.location.pathname}:${serviceSlug}`;
+  if (leadFormViewTracked.has(key)) return false;
+  leadFormViewTracked.add(key);
+
+  const eventId = crypto.randomUUID();
+  const serviceContent = getMetaPageContent(window.location.pathname);
+  const eventData = {
+    form_id: 'service_landing_form',
+    form_step: 'view',
+    service_slug: serviceSlug,
+    service: serviceContent?.service || serviceSlug,
+    content_name: serviceContent?.content_name || document.title,
+    content_category: serviceContent?.content_category || 'lead_form',
+    content_type: serviceContent?.content_type || 'service',
+    content_ids: serviceContent?.content_ids || [serviceSlug],
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+  };
+
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'lead_form_view', event_id: eventId, ...eventData });
+  }
+  win.fbq?.('trackCustom', 'LeadFormView', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'LeadFormView',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
+  });
+
+  return true;
+}
+
+export function trackEngagedView(reason: 'time_10s' | 'scroll_50' | 'form_view', extraData: Record<string, unknown> = {}): boolean {
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  if (!browserContext.marketing_consent) return false;
+
+  const key = `${window.location.pathname}:${reason}`;
+  if (engagedViewTracked.has(key)) return false;
+  engagedViewTracked.add(key);
+
+  const eventId = crypto.randomUUID();
+  const serviceContent = getMetaPageContent(window.location.pathname);
+  const eventData = {
+    engagement_type: reason,
+    service: serviceContent?.service,
+    service_slug: serviceContent?.content_ids?.[0],
+    content_name: serviceContent?.content_name || document.title,
+    content_category: serviceContent?.content_category || 'engagement',
+    content_type: serviceContent?.content_type || 'page',
+    content_ids: serviceContent?.content_ids,
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+    ...extraData,
+  };
+
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'engaged_view', event_id: eventId, ...eventData });
+  }
+  win.fbq?.('trackCustom', 'EngagedView', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'EngagedView',
+    event_id: eventId,
+    page_url: window.location.href,
+    ...browserContext,
+    ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
+  });
+
+  return true;
+}
+
+export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone' | 'social', placement: string, extraData: Record<string, unknown> = {}): boolean {
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  if (!browserContext.marketing_consent) return false;
+
+  const eventId = crypto.randomUUID();
+  const serviceContent = getMetaPageContent(window.location.pathname);
+  const eventData = {
+    contact_channel: channel,
+    placement,
+    service: serviceContent?.service,
+    service_slug: serviceContent?.content_ids?.[0],
+    content_name: serviceContent?.content_name || document.title,
+    content_category: 'contact_intent',
+    content_type: 'contact_link',
+    content_ids: serviceContent?.content_ids,
+    page_path: browserContext.page_path,
+    page_location: browserContext.page_location,
+    ...extraData,
+  };
+
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'contact', event_id: eventId, ...eventData });
+  }
+  win.fbq?.('track', 'Contact', eventData, { eventID: eventId });
+
+  sendServerMetaEvent({
+    event_name: 'Contact',
     event_id: eventId,
     page_url: window.location.href,
     ...browserContext,
@@ -921,6 +1270,10 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
     page_url: window.location.href,
     ...browserContext,
   });
+
+  window.setTimeout(() => {
+    trackEngagedView('time_10s', { engagement_seconds: 10 });
+  }, 10_000);
 }
 
 export function trackFaqOpen(question: string): void {
