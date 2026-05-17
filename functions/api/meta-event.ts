@@ -3,8 +3,12 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 
-interface PageViewPayload {
+type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact';
+
+interface MetaEventPayload {
+  event_name?: MetaEventName;
   event_id?: string;
+  event_time?: number;
   page_url?: string;
   page_location?: string;
   referrer?: string;
@@ -12,6 +16,7 @@ interface PageViewPayload {
   fbp?: string;
   fbc?: string;
   fbclid?: string;
+  marketing_consent?: boolean;
   landing_page_url?: string;
   first_touch_url?: string;
   first_touch_at?: string;
@@ -37,12 +42,24 @@ interface PageViewPayload {
   viewport_height?: number;
   device_pixel_ratio?: number;
   timezone_offset?: number;
-  event_time?: number;
   consent_version?: number;
   consent_source?: string;
   consent_region?: string;
   consent_timestamp?: number;
+  service?: string;
+  service_slug?: string;
+  form_id?: string;
+  form_step?: string;
+  form_field?: string;
+  contact_channel?: string;
+  placement?: string;
+  content_name?: string;
+  content_category?: string;
+  content_type?: string;
+  content_ids?: string[];
 }
+
+const ALLOWED_EVENTS = new Set<MetaEventName>(['ViewContent', 'FormStart', 'Contact']);
 
 function sanitizeText(value: string, max: number): string {
   return String(value || '').trim().slice(0, max);
@@ -50,6 +67,15 @@ function sanitizeText(value: string, max: number): string {
 
 function sanitizeNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function sanitizeTextArray(value: unknown, maxItems: number, maxTextLength: number): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value
+    .map((item) => sanitizeText(String(item || ''), maxTextLength))
+    .filter(Boolean)
+    .slice(0, maxItems);
+  return items.length ? items : undefined;
 }
 
 function normalizeTextForMeta(value: string): string {
@@ -74,9 +100,13 @@ function createFbcFromPageUrl(pageUrl: string | undefined, eventTime: number): s
   }
 }
 
-function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
+function normalizeMetaEventPayload(payload: MetaEventPayload): MetaEventPayload {
+  const eventName = payload.event_name && ALLOWED_EVENTS.has(payload.event_name) ? payload.event_name : undefined;
+
   return {
+    event_name: eventName,
     event_id: sanitizeText(payload.event_id || '', 64),
+    event_time: sanitizeNumber(payload.event_time),
     page_url: sanitizeText(payload.page_url || '', 2048),
     page_location: sanitizeText(payload.page_location || '', 2048),
     referrer: sanitizeText(payload.referrer || '', 2048),
@@ -84,6 +114,7 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
     fbp: sanitizeText(payload.fbp || '', 128),
     fbc: sanitizeText(payload.fbc || '', 256),
     fbclid: sanitizeText(payload.fbclid || '', 512),
+    marketing_consent: payload.marketing_consent === true,
     landing_page_url: sanitizeText(payload.landing_page_url || '', 2048),
     first_touch_url: sanitizeText(payload.first_touch_url || '', 2048),
     first_touch_at: sanitizeText(payload.first_touch_at || '', 40),
@@ -109,11 +140,21 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
     viewport_height: sanitizeNumber(payload.viewport_height),
     device_pixel_ratio: sanitizeNumber(payload.device_pixel_ratio),
     timezone_offset: sanitizeNumber(payload.timezone_offset),
-    event_time: sanitizeNumber(payload.event_time),
     consent_version: sanitizeNumber(payload.consent_version),
     consent_source: sanitizeText(payload.consent_source || '', 40),
     consent_region: sanitizeText(payload.consent_region || '', 40),
     consent_timestamp: sanitizeNumber(payload.consent_timestamp),
+    service: sanitizeText(payload.service || '', 120),
+    service_slug: sanitizeText(payload.service_slug || '', 120),
+    form_id: sanitizeText(payload.form_id || '', 120),
+    form_step: sanitizeText(payload.form_step || '', 120),
+    form_field: sanitizeText(payload.form_field || '', 120),
+    contact_channel: sanitizeText(payload.contact_channel || '', 80),
+    placement: sanitizeText(payload.placement || '', 120),
+    content_name: sanitizeText(payload.content_name || '', 200),
+    content_category: sanitizeText(payload.content_category || '', 120),
+    content_type: sanitizeText(payload.content_type || '', 80),
+    content_ids: sanitizeTextArray(payload.content_ids, 20, 120),
   };
 }
 
@@ -123,6 +164,14 @@ async function sha256Normalized(value: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
@@ -137,16 +186,6 @@ function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
   }
   return result;
 }
-
-
-function safeDecodeURIComponent(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
 
 function resolveEventTime(payloadEventTime: number | undefined): number {
   const now = Math.floor(Date.now() / 1000);
@@ -204,18 +243,14 @@ function extractRequestContext(request: Request, pageUrl?: string) {
   return { country, city, region, regionCode, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, utmId, gclid, wbraid, gbraid, yclid };
 }
 
-async function sendMetaPageView(
-  payload: PageViewPayload,
-  env: Env,
-  request: Request
-): Promise<void> {
+async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Request): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
   const testCode = env.META_CAPI_TEST_CODE;
   const apiVersion = env.META_CAPI_API_VERSION || 'v25.0';
 
   if (!token || !pixelId) {
-    console.warn('[Meta CAPI] Missing token or pixel ID, skipping PageView');
+    console.warn('[Meta CAPI] Missing token or pixel ID, skipping extra event');
     return;
   }
 
@@ -223,24 +258,23 @@ async function sendMetaPageView(
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || request.url;
-  const eventId = payload.event_id || undefined;
-
   const metaCookies = getMetaCookies(request);
   const fbp = payload.fbp || metaCookies.fbp;
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
-  const hashedExternalId = payload.external_id ? await sha256Normalized(normalizeTextForMeta(payload.external_id)) : undefined;
-  const hashedCountry = ctx.country ? await sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined;
-  const hashedCity = ctx.city ? await sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined;
-  const hashedRegion = (ctx.regionCode || ctx.region)
-    ? await sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || ''))
-    : undefined;
+
+  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion] = await Promise.all([
+    payload.external_id ? sha256Normalized(normalizeTextForMeta(payload.external_id)) : undefined,
+    ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
+    ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
+    (ctx.regionCode || ctx.region) ? sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || '')) : undefined,
+  ]);
 
   const event = {
-    event_name: 'PageView',
+    event_name: payload.event_name,
     event_time: eventTime,
     action_source: 'website',
-    event_id: eventId,
+    event_id: payload.event_id || undefined,
     user_data: {
       client_ip_address: clientIp,
       client_user_agent: userAgent,
@@ -252,6 +286,17 @@ async function sendMetaPageView(
       st: hashedRegion ? [hashedRegion] : undefined,
     },
     custom_data: {
+      service: payload.service,
+      service_slug: payload.service_slug,
+      form_id: payload.form_id,
+      form_step: payload.form_step,
+      form_field: payload.form_field,
+      contact_channel: payload.contact_channel,
+      placement: payload.placement,
+      content_name: payload.content_name || payload.page_title || payload.service,
+      content_category: payload.content_category,
+      content_type: payload.content_type,
+      content_ids: payload.content_ids,
       country: ctx.country,
       city: ctx.city,
       region: ctx.region,
@@ -276,7 +321,6 @@ async function sendMetaPageView(
       last_touch_url: payload.last_touch_url,
       last_touch_at: payload.last_touch_at,
       session_id: payload.session_id,
-      content_name: payload.page_title,
       page_title: payload.page_title,
       page_location: payload.page_location || payload.page_url,
       page_path: payload.page_path,
@@ -314,16 +358,16 @@ async function sendMetaPageView(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
+      console.error(`[Meta CAPI] ${payload.event_name} event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
-      console.log('[Meta CAPI] PageView server event sent successfully', {
+      console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
         fbtrace_id: result?.fbtrace_id,
         events_received: result?.events_received,
       });
     }
   } catch (error) {
-    console.error('[Meta CAPI] Error sending PageView event:', error);
+    console.error(`[Meta CAPI] Error sending ${payload.event_name} event:`, error);
   }
 }
 
@@ -331,19 +375,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const rateLimited = await enforceRateLimit(request);
   if (rateLimited) return rateLimited;
 
-  const payload = normalizePageViewPayload(
-    (await request.json().catch(() => ({}))) as PageViewPayload,
+  const payload = normalizeMetaEventPayload(
+    (await request.json().catch(() => ({}))) as MetaEventPayload,
   );
 
-  if (!payload.event_id) {
+  if (!payload.event_name || !payload.event_id) {
     return json(
-      { success: false, error: 'event_id is required' },
+      { success: false, error: 'event_name and event_id are required' },
       { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
 
-  // Отправляем асинхронно, не замедляя клиентскую навигацию
-  waitUntil(sendMetaPageView(payload, env, request));
+  if (!payload.marketing_consent) {
+    return json(
+      { success: true, skipped: true, reason: 'marketing_consent_not_granted' },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+
+  waitUntil(sendMetaEvent(payload, env, request));
 
   return json(
     { success: true },
