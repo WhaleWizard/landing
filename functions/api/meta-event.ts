@@ -267,6 +267,42 @@ function normalizePagePath(value: string | undefined): string | undefined {
   return path.length > 1 ? path.replace(/\/$/, '') : path;
 }
 
+
+type MetaDataProcessingOptions = {
+  data_processing_options?: string[];
+  data_processing_options_country?: number;
+  data_processing_options_state?: number;
+};
+
+function parseDataProcessingOptions(value: string | undefined): string[] | undefined {
+  const options = (value || '')
+    .split(',')
+    .map((option) => option.trim())
+    .filter(Boolean);
+  return options.length ? options : undefined;
+}
+
+function parseOptionalInteger(value: string | undefined): number | undefined {
+  if (!value?.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function getMetaDataProcessingOptions(env: Env): MetaDataProcessingOptions {
+  const dataProcessingOptions = parseDataProcessingOptions(env.META_CAPI_DATA_PROCESSING_OPTIONS);
+  if (!dataProcessingOptions) return {};
+
+  const country = parseOptionalInteger(env.META_CAPI_DATA_PROCESSING_OPTIONS_COUNTRY);
+  const state = parseOptionalInteger(env.META_CAPI_DATA_PROCESSING_OPTIONS_STATE);
+  const hasGeoPair = typeof country === 'number' && typeof state === 'number';
+
+  return {
+    data_processing_options: dataProcessingOptions,
+    data_processing_options_country: hasGeoPair ? country : undefined,
+    data_processing_options_state: hasGeoPair ? state : undefined,
+  };
+}
+
 function hasAnyUtm(payload: MetaEventPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
   return Boolean(
     payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
@@ -278,8 +314,8 @@ function hasAnyUtm(payload: MetaEventPayload, ctx: ReturnType<typeof extractRequ
 async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Request): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
-  const testCode = env.META_CAPI_TEST_CODE;
   const apiVersion = env.META_CAPI_API_VERSION || 'v25.0';
+  const eventSourceUrl = payload.page_url || payload.page_location || request.headers.get('Referer') || request.url;
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing token or pixel ID, skipping extra event');
@@ -384,11 +420,11 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       consent_timestamp: payload.consent_timestamp,
     },
     event_source_url: eventSourceUrl,
+    ...getMetaDataProcessingOptions(env),
   };
 
   const body = JSON.stringify({
     data: [event],
-    test_event_code: testCode || undefined,
   });
 
   try {
@@ -439,7 +475,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   if (!payload.marketing_consent) {
-    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: payload.page_path, page_url: payload.page_url, event_source_url: payload.page_url || request.headers.get('Referer') || request.url, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: false, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp }));
+    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: payload.page_path, page_url: payload.page_url, event_source_url: payload.page_url || payload.page_location || request.headers.get('Referer') || request.url, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: false, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp }));
     return json(
       { success: true, skipped: true, reason: 'marketing_consent_not_granted' },
       { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },

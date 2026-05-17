@@ -15,6 +15,9 @@ const files = {
   diagnosticsFunnel: readFileSync('functions/api/meta-diagnostics-funnel.ts', 'utf8'),
   diagnosticsAnomalies: readFileSync('functions/api/meta-diagnostics-anomalies.ts', 'utf8'),
   diagnosticsWriter: readFileSync('functions/_lib/meta-diagnostics.ts', 'utf8'),
+  envTypes: readFileSync('functions/_lib/types.ts', 'utf8'),
+  envExample: readFileSync('.env.example', 'utf8'),
+  cloudflareSetupDoc: readFileSync('docs/META_CAPI_CLOUDFLARE_SETUP.md', 'utf8'),
 };
 
 function mustContain(name, source, needles) {
@@ -28,6 +31,10 @@ mustContain('PageView CAPI payload', files.pageview, [
   'event_id: eventId',
   "action_source: 'website'",
   'event_source_url: eventSourceUrl',
+  'const eventSourceUrl = payload.page_url || payload.page_location',
+  'marketing_consent: payload.marketing_consent === true',
+  "error_message: 'marketing_consent_not_granted'",
+  '...getMetaDataProcessingOptions(env)',
   'client_ip_address: clientIp',
   'client_user_agent: userAgent',
   'fbp: fbp || undefined',
@@ -45,6 +52,14 @@ mustContain('PageView CAPI payload', files.pageview, [
   'recordMetaDiagnostics',
   'wasMetaEventAlreadySent',
 ]);
+
+mustContain('Lead request normalization regression', files.lead, [
+  'const normalized = normalizeLeadPayload',
+  'event_source_url: eventSourceUrl',
+  'const eventSourceUrl = payload.page_url || payload.page_location',
+  '...getMetaDataProcessingOptions(env)',
+]);
+assert.ok(!files.lead.includes('const payload = (await request.json().catch(() => ({}))) as LeadPayload'), 'Lead handler must normalize payload before using normalized fields');
 
 mustContain('Lead CAPI payload', files.lead, [
   "event_name: 'Lead'",
@@ -74,6 +89,8 @@ mustContain('ViewContent/FormStart/Contact payloads', files.metaEvent, [
   'content_ids: payload.content_ids',
   'recordMetaDiagnostics',
   'wasMetaEventAlreadySent',
+  'const eventSourceUrl = payload.page_url || payload.page_location',
+  '...getMetaDataProcessingOptions(env)',
 ]);
 
 mustContain('Client service content ids and dedupe ids', files.consent, [
@@ -88,9 +105,12 @@ mustContain('Client service content ids and dedupe ids', files.consent, [
   "pathname.startsWith('/blog/')",
   'page-${genericId}',
   "win.fbq?.('track', 'ViewContent', eventData, { eventID: eventId })",
+  'if (!browserContext.marketing_consent) return;',
   "event_name: 'ViewContent'",
   "event_id: eventId",
   "win.fbq?.('trackCustom', 'FormStart', eventData, { eventID: eventId })",
+  'const hasLeadMarketingConsent = eventData.marketing_consent === true',
+  'if (!hasLeadMarketingConsent) return;',
   "event_name: 'FormStart'",
   'rememberMetaLeadIdentifiers',
   'META_USER_DATA_KEY',
@@ -118,6 +138,31 @@ mustContain('Home contact form Meta tracking', files.contactForm, [
   "form_id: 'home_contact_form'",
   "form_variant: 'home_contact_v1'",
 ]);
+
+
+mustContain('Meta LDU env configuration', files.envTypes + files.envExample, [
+  'META_CAPI_DATA_PROCESSING_OPTIONS',
+  'META_CAPI_DATA_PROCESSING_OPTIONS_COUNTRY',
+  'META_CAPI_DATA_PROCESSING_OPTIONS_STATE',
+]);
+
+
+mustContain('Meta Cloudflare setup docs', files.cloudflareSetupDoc, [
+  'META_CAPI_ACCESS_TOKEN',
+  'VITE_META_PIXEL_ID',
+  'META_CAPI_TEST_CODE',
+  'META_CAPI_DEBUG_SECRET',
+  'META_CAPI_IDEMPOTENCY',
+  'META_CAPI_DIAGNOSTICS',
+  '/api/meta-test-event',
+  '/api/meta-diagnostics-health',
+  'обычные live handlers при этом всё равно не будут добавлять `test_event_code`',
+]);
+
+
+assert.ok(!files.pageview.includes('test_event_code'), 'Live PageView CAPI must not include test_event_code');
+assert.ok(!files.metaEvent.includes('test_event_code'), 'Live meta-event CAPI must not include test_event_code');
+assert.ok(!files.lead.includes('test_event_code'), 'Live Lead CAPI must not include test_event_code');
 
 mustContain('Meta CAPI test endpoint coverage', files.metaTestEvent, [
   "'LeadFormView'",

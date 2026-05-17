@@ -1253,6 +1253,8 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
   if (!shouldTrackMarketing) return;
 
   const browserContext = getMetaBrowserContext(path);
+  if (!browserContext.marketing_consent) return;
+
   const pageViewData = {
     page_title: browserContext.page_title,
     page_path: browserContext.page_path,
@@ -1315,6 +1317,7 @@ export function trackLead(eventId?: string, eventData: Record<string, unknown> =
     dataLayer?: unknown[];
   };
 
+  const hasLeadMarketingConsent = eventData.marketing_consent === true;
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
 
@@ -1332,6 +1335,8 @@ export function trackLead(eventId?: string, eventData: Record<string, unknown> =
     win.dataLayer.push({ event: 'lead_submitted', ...eventData, event_id: eventId });
     win.dataLayer.push({ event: 'form_submit', ...eventData, event_id: eventId });
   }
+
+  if (!hasLeadMarketingConsent) return;
 
   // Передаём eventID 4-м аргументом fbq для дедупликации с серверным событием
   if (eventId) {

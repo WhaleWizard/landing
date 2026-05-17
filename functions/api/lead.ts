@@ -292,6 +292,42 @@ function estimateLeadValue(payload: LeadPayload): number | undefined {
   return serviceBoost;
 }
 
+
+type MetaDataProcessingOptions = {
+  data_processing_options?: string[];
+  data_processing_options_country?: number;
+  data_processing_options_state?: number;
+};
+
+function parseDataProcessingOptions(value: string | undefined): string[] | undefined {
+  const options = (value || '')
+    .split(',')
+    .map((option) => option.trim())
+    .filter(Boolean);
+  return options.length ? options : undefined;
+}
+
+function parseOptionalInteger(value: string | undefined): number | undefined {
+  if (!value?.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function getMetaDataProcessingOptions(env: Env): MetaDataProcessingOptions {
+  const dataProcessingOptions = parseDataProcessingOptions(env.META_CAPI_DATA_PROCESSING_OPTIONS);
+  if (!dataProcessingOptions) return {};
+
+  const country = parseOptionalInteger(env.META_CAPI_DATA_PROCESSING_OPTIONS_COUNTRY);
+  const state = parseOptionalInteger(env.META_CAPI_DATA_PROCESSING_OPTIONS_STATE);
+  const hasGeoPair = typeof country === 'number' && typeof state === 'number';
+
+  return {
+    data_processing_options: dataProcessingOptions,
+    data_processing_options_country: hasGeoPair ? country : undefined,
+    data_processing_options_state: hasGeoPair ? state : undefined,
+  };
+}
+
 function hasAnyUtm(payload: LeadPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
   return Boolean(
     payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
@@ -307,8 +343,8 @@ async function sendMetaConversionEvent(
 ): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
-  const testCode = env.META_CAPI_TEST_CODE;
   const apiVersion = env.META_CAPI_API_VERSION || 'v25.0';
+  const eventSourceUrl = payload.page_url || payload.page_location || request.headers.get('Referer') || request.url;
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
@@ -416,11 +452,11 @@ async function sendMetaConversionEvent(
       consent_timestamp: payload.consent_timestamp,
     },
     event_source_url: eventSourceUrl,
+    ...getMetaDataProcessingOptions(env),
   };
 
   const body = JSON.stringify({
     data: [event],
-    test_event_code: testCode || undefined,
   });
 
   try {
@@ -454,7 +490,9 @@ async function sendMetaConversionEvent(
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   // --- Rate limit ---
-  const payload = (await request.json().catch(() => ({}))) as LeadPayload;
+  const normalized = normalizeLeadPayload(
+    (await request.json().catch(() => ({}))) as LeadPayload,
+  );
   const rateLimited = await enforceRateLimit(request, 'lead');
   if (rateLimited) {
     waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'rate_limited', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), marketing_consent: normalized.marketing_consent }));
