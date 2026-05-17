@@ -26,7 +26,6 @@ const META_FIRST_TOUCH_KEY = 'ww_meta_first_touch_v1';
 const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
 const META_SESSION_ID_KEY = 'ww_meta_session_id_v1';
 const META_FBC_KEY = 'ww_meta_fbc_v1';
-const META_ATTRIBUTION_KEY = 'ww_meta_attribution_v1';
 const CONSENT_TTL_DAYS = 180;
 const META_SESSION_TTL_MS = 30 * 60 * 1000;
 const META_FBC_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -403,7 +402,6 @@ export type MetaBrowserContext = {
   wbraid?: string;
   gbraid?: string;
   yclid?: string;
-  marketing_consent?: boolean;
 };
 
 
@@ -560,68 +558,9 @@ function getOrCreateMetaExternalId(): string | undefined {
   }
 }
 
-type StoredAttribution = {
-  values: Partial<Record<'utm_source' | 'utm_medium' | 'utm_campaign' | 'utm_content' | 'utm_term' | 'utm_id' | 'fbclid' | 'gclid' | 'wbraid' | 'gbraid' | 'yclid', string>>;
-  expiresAt: number;
-};
-
-function readStoredAttribution(now = Date.now()): StoredAttribution['values'] {
-  const raw = safeReadLocalStorage(META_ATTRIBUTION_KEY);
-  if (!raw) return {};
-
-  try {
-    const parsed = JSON.parse(raw) as StoredAttribution;
-    if (!parsed?.values || parsed.expiresAt <= now) return {};
-    return parsed.values;
-  } catch {
-    return {};
-  }
-}
-
-function getAttributionWithFallback(currentUrl: URL): StoredAttribution['values'] {
-  const current = {
-    utm_source: getUrlParam(currentUrl, 'utm_source'),
-    utm_medium: getUrlParam(currentUrl, 'utm_medium'),
-    utm_campaign: getUrlParam(currentUrl, 'utm_campaign'),
-    utm_content: getUrlParam(currentUrl, 'utm_content'),
-    utm_term: getUrlParam(currentUrl, 'utm_term'),
-    utm_id: getUrlParam(currentUrl, 'utm_id'),
-    fbclid: getUrlParam(currentUrl, 'fbclid'),
-    gclid: getUrlParam(currentUrl, 'gclid'),
-    wbraid: getUrlParam(currentUrl, 'wbraid'),
-    gbraid: getUrlParam(currentUrl, 'gbraid'),
-    yclid: getUrlParam(currentUrl, 'yclid'),
-  };
-
-  const stored = readStoredAttribution();
-  const merged = { ...stored };
-  let hasCurrentValue = false;
-
-  for (const [key, value] of Object.entries(current)) {
-    if (value) {
-      merged[key as keyof StoredAttribution['values']] = value;
-      hasCurrentValue = true;
-    }
-  }
-
-  if (hasCurrentValue) {
-    safeWriteLocalStorage(META_ATTRIBUTION_KEY, JSON.stringify({
-      values: merged,
-      expiresAt: Date.now() + META_FBC_TTL_MS,
-    } satisfies StoredAttribution));
-  }
-
-  return merged;
-}
-
-function hasMarketingConsent(): boolean {
-  return loadConsent()?.categories.marketing === true;
-}
-
 export function getMetaBrowserContext(pagePath = window.location.pathname): MetaBrowserContext {
   const currentUrl = new URL(window.location.href);
-  const attribution = getAttributionWithFallback(currentUrl);
-  const fbclid = attribution.fbclid;
+  const fbclid = getUrlParam(currentUrl, 'fbclid');
   const firstTouch = captureTouchPoint(window.location.href);
 
   return {
@@ -633,7 +572,6 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     fbp: getCookieValue('_fbp'),
     fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
     fbclid,
-    marketing_consent: hasMarketingConsent(),
     landing_page_url: firstTouch.url,
     first_touch_url: firstTouch.url,
     first_touch_at: firstTouch.at,
@@ -645,16 +583,16 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     viewport_height: window.innerHeight,
     device_pixel_ratio: window.devicePixelRatio,
     timezone_offset: new Date().getTimezoneOffset(),
-    utm_source: attribution.utm_source,
-    utm_medium: attribution.utm_medium,
-    utm_campaign: attribution.utm_campaign,
-    utm_content: attribution.utm_content,
-    utm_term: attribution.utm_term,
-    utm_id: attribution.utm_id,
-    gclid: attribution.gclid,
-    wbraid: attribution.wbraid,
-    gbraid: attribution.gbraid,
-    yclid: attribution.yclid,
+    utm_source: getUrlParam(currentUrl, 'utm_source'),
+    utm_medium: getUrlParam(currentUrl, 'utm_medium'),
+    utm_campaign: getUrlParam(currentUrl, 'utm_campaign'),
+    utm_content: getUrlParam(currentUrl, 'utm_content'),
+    utm_term: getUrlParam(currentUrl, 'utm_term'),
+    utm_id: getUrlParam(currentUrl, 'utm_id'),
+    gclid: getUrlParam(currentUrl, 'gclid'),
+    wbraid: getUrlParam(currentUrl, 'wbraid'),
+    gbraid: getUrlParam(currentUrl, 'gbraid'),
+    yclid: getUrlParam(currentUrl, 'yclid'),
   };
 }
 
