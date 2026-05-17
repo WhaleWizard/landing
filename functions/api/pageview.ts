@@ -1,6 +1,7 @@
 import { json } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
+import { enforceRateLimit } from '../_lib/rate-limit';
 
 interface PageViewPayload {
   event_id?: string;
@@ -52,12 +53,15 @@ function normalizeLocationForMeta(value: string): string {
   return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
 }
 
+function createFbcFromFbclid(fbclid: string | undefined, eventTime: number): string | undefined {
+  return fbclid ? `fb.1.${eventTime * 1000}.${fbclid}` : undefined;
+}
+
 function createFbcFromPageUrl(pageUrl: string | undefined, eventTime: number): string | undefined {
   if (!pageUrl) return undefined;
 
   try {
-    const fbclid = new URL(pageUrl).searchParams.get('fbclid')?.trim();
-    return fbclid ? `fb.1.${eventTime * 1000}.${fbclid}` : undefined;
+    return createFbcFromFbclid(new URL(pageUrl).searchParams.get('fbclid')?.trim(), eventTime);
   } catch {
     return undefined;
   }
@@ -193,7 +197,7 @@ async function sendMetaPageView(
 
   const metaCookies = getMetaCookies(request);
   const fbp = payload.fbp || metaCookies.fbp;
-  const fbc = payload.fbc || metaCookies.fbc || createFbcFromPageUrl(eventSourceUrl, eventTime);
+  const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
   const hashedExternalId = payload.external_id ? await sha256Normalized(normalizeTextForMeta(payload.external_id)) : undefined;
   const hashedCountry = ctx.country ? await sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined;
@@ -275,7 +279,11 @@ async function sendMetaPageView(
       const errorText = await response.text();
       console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
     } else {
-      console.log('[Meta CAPI] PageView server event sent successfully');
+      const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
+      console.log('[Meta CAPI] PageView server event sent successfully', {
+        fbtrace_id: result?.fbtrace_id,
+        events_received: result?.events_received,
+      });
     }
   } catch (error) {
     console.error('[Meta CAPI] Error sending PageView event:', error);
@@ -283,6 +291,9 @@ async function sendMetaPageView(
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+  const rateLimited = await enforceRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   const payload = normalizePageViewPayload(
     (await request.json().catch(() => ({}))) as PageViewPayload,
   );
