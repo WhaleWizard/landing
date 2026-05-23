@@ -19,6 +19,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import { API_ROUTES } from '../config';
+import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult';
 
@@ -33,22 +34,6 @@ const serviceLabels: Record<ServiceType, string> = {
   'google-ads': 'Google Ads',
   'consult': 'Консультация',
 };
-
-const COUNTRY_DIAL_CODES: Record<string, string> = {
-  US: '+1', CA: '+1', KZ: '+7', UZ: '+998', RU: '+7', KG: '+996', UA: '+380',
-  DE: '+49', FR: '+33', ES: '+34', IT: '+39', GB: '+44', AE: '+971', TR: '+90',
-};
-
-const COUNTRY_PHONE_OPTIONS = [
-  { code: 'US', dial: '+1', label: '🇺🇸 +1' }, { code: 'KZ', dial: '+7', label: '🇰🇿 +7' },
-  { code: 'UZ', dial: '+998', label: '🇺🇿 +998' }, { code: 'RU', dial: '+7', label: '🇷🇺 +7' },
-  { code: 'KG', dial: '+996', label: '🇰🇬 +996' }, { code: 'UA', dial: '+380', label: '🇺🇦 +380' },
-  { code: 'DE', dial: '+49', label: '🇩🇪 +49' }, { code: 'GB', dial: '+44', label: '🇬🇧 +44' },
-  { code: 'AE', dial: '+971', label: '🇦🇪 +971' }, { code: 'TR', dial: '+90', label: '🇹🇷 +90' },
-];
-
-
-
 
 function normalizeContactForLead(contact: string): {
   email?: string;
@@ -120,12 +105,6 @@ function LandingForm({
   const inView = useInView(formRef, { once: true, margin: '-100px' });
 
   useEffect(() => {
-    if (formData.phone.trim() === '' && phoneCode && !formData.phone.startsWith(phoneCode)) {
-      setFormData((prev) => ({ ...prev, phone: `${phoneCode} ` }));
-    }
-  }, [phoneCode]);
-
-  useEffect(() => {
     let active = true;
     void fetch('/api/geo')
       .then((res) => (res.ok ? res.json() : null))
@@ -174,7 +153,7 @@ function LandingForm({
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const contactPayload = normalizeContactForLead(formData.contact);
       const email = formData.email.trim();
-      const phone = formData.phone.trim();
+      const phone = `${phoneCode} ${formData.phone}`.trim();
       const websiteDomain = extractWebsiteDomain(formData.website);
 
       try {
@@ -355,13 +334,12 @@ function LandingForm({
                     onChange={(e) => {
                       const nextCode = e.target.value;
                       setPhoneCode(nextCode);
-                      setFormData((prev) => ({ ...prev, phone: prev.phone.replace(/^\+\d+\s*/, `${nextCode} `) }));
-                    }}
+                                          }}
                     className="h-10 rounded-md border border-border/50 bg-background/70 px-2 text-sm"
                     aria-label="Код страны"
                   >
                     {COUNTRY_PHONE_OPTIONS.map((option) => (
-                      <option key={option.code} value={option.dial}>{option.label}</option>
+                      <option key={`${option.code}-${option.dial}`} value={option.dial}>{option.label}</option>
                     ))}
                   </select>
                   <Input

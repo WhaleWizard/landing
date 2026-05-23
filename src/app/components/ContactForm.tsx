@@ -25,6 +25,7 @@ import {
 } from '../consent/consent';
 import Modal from './Modal';
 import { API_ROUTES } from '../config';
+import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
 const budgetOptions = [
   {
@@ -57,24 +58,6 @@ const budgetOptions = [
   },
 ];
 
-
-const COUNTRY_DIAL_CODES: Record<string, string> = {
-  US: '+1', CA: '+1', KZ: '+7', UZ: '+998', RU: '+7', KG: '+996', UA: '+380',
-  DE: '+49', FR: '+33', ES: '+34', IT: '+39', GB: '+44', AE: '+971', TR: '+90',
-};
-
-const COUNTRY_PHONE_OPTIONS = [
-  { code: 'US', dial: '+1', label: '🇺🇸 +1' },
-  { code: 'KZ', dial: '+7', label: '🇰🇿 +7' },
-  { code: 'UZ', dial: '+998', label: '🇺🇿 +998' },
-  { code: 'RU', dial: '+7', label: '🇷🇺 +7' },
-  { code: 'KG', dial: '+996', label: '🇰🇬 +996' },
-  { code: 'UA', dial: '+380', label: '🇺🇦 +380' },
-  { code: 'DE', dial: '+49', label: '🇩🇪 +49' },
-  { code: 'GB', dial: '+44', label: '🇬🇧 +44' },
-  { code: 'AE', dial: '+971', label: '🇦🇪 +971' },
-  { code: 'TR', dial: '+90', label: '🇹🇷 +90' },
-];
 
 const benefits = [
   { title: 'Бесплатный аудит', description: 'Анализ текущей ситуации и точек роста', icon: CheckCircle2, delay: 0 },
@@ -121,12 +104,6 @@ function ContactForm() {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const isTouch = useTouchDevice();
-
-  useEffect(() => {
-    if (formData.phone.trim() === '' && phoneCode && !formData.phone.startsWith(phoneCode)) {
-      setFormData((prev) => ({ ...prev, phone: `${phoneCode} ` }));
-    }
-  }, [phoneCode]);
 
   useEffect(() => {
     let active = true;
@@ -187,7 +164,7 @@ function ContactForm() {
             ...metaBrowserContext,
             name: formData.name,
             email: formData.email,
-            phone: formData.phone,
+            phone: `${phoneCode} ${formData.phone}`.trim(),
             budget: formData.budget,
             message: formData.message,
             contactMethod: contactMethod,
@@ -209,7 +186,7 @@ function ContactForm() {
         }
 
         setIsSubmitted(true);
-        await rememberMetaLeadIdentifiers({ email: formData.email, phone: formData.phone, name: formData.name });
+        await rememberMetaLeadIdentifiers({ email: formData.email, phone: `${phoneCode} ${formData.phone}`.trim(), name: formData.name });
         setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
         setTelegramUsername('');
         setHpTrap('');
@@ -432,13 +409,12 @@ function ContactForm() {
                           onChange={(e) => {
                             const nextCode = e.target.value;
                             setPhoneCode(nextCode);
-                            setFormData((prev) => ({ ...prev, phone: prev.phone.replace(/^\+\d+\s*/, `${nextCode} `) }));
-                          }}
+                                                      }}
                           className="h-10 rounded-md border border-border/50 bg-background/70 px-2 text-sm"
                           aria-label="Код страны"
                         >
                           {COUNTRY_PHONE_OPTIONS.map((option) => (
-                            <option key={option.code} value={option.dial}>{option.label}</option>
+                            <option key={`${option.code}-${option.dial}`} value={option.dial}>{option.label}</option>
                           ))}
                         </select>
                         <Input
