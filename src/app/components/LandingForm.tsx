@@ -8,6 +8,7 @@ import {
   MessageCircle,
   Mail,
   Phone,
+  ChevronDown,
   User,
   Globe,
   DollarSign,
