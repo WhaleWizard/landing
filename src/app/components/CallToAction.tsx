@@ -2,14 +2,14 @@ import { motion } from 'motion/react';
 import { ArrowDown, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { memo, useCallback } from 'react';
+import { useScrollTo } from './hooks/useScrollTo';
 
 function CallToAction() {
+  const { scrollToWhenReady } = useScrollTo();
+
   const scrollToContact = useCallback(() => {
-    const element = document.getElementById('contact');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, []);
+    scrollToWhenReady('contact');
+  }, [scrollToWhenReady]);
 
   return (
     <section className="relative py-12 md:py-16 overflow-hidden">

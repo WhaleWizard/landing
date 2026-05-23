@@ -7,6 +7,7 @@ import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
+import { useScrollTo } from '../components/hooks/useScrollTo';
 
 function normalizeTokens(value = '') {
   return String(value)
@@ -60,6 +61,7 @@ function BlogPageComponent() {
   const sectionRef = useRef(null);
   const articleTitleRef = useRef<HTMLHeadingElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
+  const { scrollToWhenReady } = useScrollTo();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -94,12 +96,12 @@ function BlogPageComponent() {
       if (link?.getAttribute('href') === '/#contact') {
         e.preventDefault();
         navigate('/');
-        setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100);
+        setTimeout(() => scrollToWhenReady('contact'), 40);
       }
     };
     contentRef.current.addEventListener('click', handler);
     return () => contentRef.current?.removeEventListener('click', handler);
-  }, [selectedArticle, navigate]);
+  }, [selectedArticle, navigate, scrollToWhenReady]);
 
   const goHome = useCallback(() => {
     navigate('/');
@@ -110,8 +112,8 @@ function BlogPageComponent() {
 
   const goToContact = useCallback(() => {
     navigate('/');
-    setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [navigate]);
+    setTimeout(() => scrollToWhenReady('contact'), 40);
+  }, [navigate, scrollToWhenReady]);
 
   const normalizedQueryTokens = normalizeTokens(searchQuery);
   const filteredArticles = normalizedQueryTokens.length === 0
