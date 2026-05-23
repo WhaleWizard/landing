@@ -49,7 +49,7 @@ export default function NotFound() {
               <span>🚨</span>
               Страница потерялась в гиперпространстве
             </p>
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
               404: кит свернул не туда,
               <br />
               но курс уже пересчитан
