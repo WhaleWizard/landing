@@ -12,7 +12,7 @@ const CallToAction = lazy(() => import('../components/CallToAction'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
 const Footer = lazy(() => import('../components/Footer'));
 
-type ServiceType = 'meta-ads' | 'google-ads' | 'consult';
+type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 
 type LandingTheme = {
   primary: string;
@@ -73,6 +73,19 @@ const themes: Record<ServiceType, LandingTheme> = {
     checkGradientClassName: 'from-[#4285F4] to-[#34A853]',
     shadowClassName: 'shadow-[#4285F4]/20',
   },
+  'meta-apps': {
+    primary: '#4F7DFF',
+    accent: '#B04DFF',
+    secondary: '#FF7AB6',
+    orbFrom: 'rgba(79, 125, 255, 0.22)',
+    orbTo: 'rgba(255, 122, 182, 0.18)',
+    badgeClassName: 'bg-[#4F7DFF]/10 border-[#4F7DFF]/20',
+    sparkleClassName: 'text-[#4F7DFF]',
+    labelClassName: 'text-[#4F7DFF]',
+    titleGradientClassName: 'from-[#4F7DFF] via-[#B04DFF] to-[#FF7AB6]',
+    checkGradientClassName: 'from-[#4F7DFF] to-[#B04DFF]',
+    shadowClassName: 'shadow-[#4F7DFF]/20',
+  },
   consult: {
     primary: '#8B5CF6',
     accent: '#6366F1',
@@ -124,6 +137,25 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
         'Проверка Quality Score',
         'Аудит минус-слов и ключевых фраз',
         'Рекомендации по оптимизации',
+      ],
+    },
+  },
+  'meta-apps': {
+    seo: {
+      title: 'Трафик для приложений из Meta Ads (Facebook/Instagram)',
+      description: 'Привлекаю установки и целевые события в мобильных приложениях через Meta Ads: стратегия, креативы, аналитика и масштабирование.',
+      url: '/meta-apps',
+    },
+    contact: {
+      badge: 'App Growth',
+      titlePrefix: 'Получите стратегию',
+      titleAccent: 'роста приложения',
+      description: 'Разберу ваш app funnel и покажу, как получать качественные установки из Facebook и Instagram без резких просадок по окупаемости.',
+      bullets: [
+        'Аудит App Install и App Event кампаний',
+        'Проверка трекинга MMP/SKAN и событий',
+        'Креативная стратегия под мобильные плейсменты',
+        'План масштабирования по KPI приложения',
       ],
     },
   },

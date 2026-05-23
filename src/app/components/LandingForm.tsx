@@ -24,7 +24,7 @@ import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, t
 import { API_ROUTES } from '../config';
 import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
-type ServiceType = 'meta-ads' | 'google-ads' | 'consult';
+type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 
 interface LandingFormProps {
   service: ServiceType;
@@ -36,6 +36,7 @@ const serviceLabels: Record<ServiceType, string> = {
   'meta-ads': 'Meta Ads',
   'google-ads': 'Google Ads',
   'consult': 'Консультация',
+  'meta-apps': 'Meta App Traffic',
 };
 
 function normalizeContactForLead(contact: string): {
@@ -74,9 +75,9 @@ function extractWebsiteDomain(value: string): string | undefined {
 
 const budgetOptions = [
   { value: 'до $1000', label: 'до $1000' },
-  { value: '$1k-$5k', label: '$1k-$5k' },
-  { value: '$5k-$10k', label: '$5k-$10k' },
-  { value: '$10k+', label: '$10k+' },
+  { value: '$1к-10к', label: '$1к-10к' },
+  { value: '$10к-100к', label: '$10к-100к' },
+  { value: '$100к+', label: '$100к+' },
 ];
 
 function LandingForm({ 
