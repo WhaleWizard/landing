@@ -34,6 +34,21 @@ const serviceLabels: Record<ServiceType, string> = {
   'consult': 'Консультация',
 };
 
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  US: '+1', CA: '+1', KZ: '+7', UZ: '+998', RU: '+7', KG: '+996', UA: '+380',
+  DE: '+49', FR: '+33', ES: '+34', IT: '+39', GB: '+44', AE: '+971', TR: '+90',
+};
+
+const COUNTRY_PHONE_OPTIONS = [
+  { code: 'US', dial: '+1', label: '🇺🇸 +1' }, { code: 'KZ', dial: '+7', label: '🇰🇿 +7' },
+  { code: 'UZ', dial: '+998', label: '🇺🇿 +998' }, { code: 'RU', dial: '+7', label: '🇷🇺 +7' },
+  { code: 'KG', dial: '+996', label: '🇰🇬 +996' }, { code: 'UA', dial: '+380', label: '🇺🇦 +380' },
+  { code: 'DE', dial: '+49', label: '🇩🇪 +49' }, { code: 'GB', dial: '+44', label: '🇬🇧 +44' },
+  { code: 'AE', dial: '+971', label: '🇦🇪 +971' }, { code: 'TR', dial: '+90', label: '🇹🇷 +90' },
+];
+
+
+
 
 function normalizeContactForLead(contact: string): {
   email?: string;
@@ -92,6 +107,7 @@ function LandingForm({
     problem: '',
   });
   const [hpTrap, setHpTrap] = useState('');
+  const [phoneCode, setPhoneCode] = useState('+1');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -102,6 +118,27 @@ function LandingForm({
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
   const inView = useInView(formRef, { once: true, margin: '-100px' });
+
+  useEffect(() => {
+    if (formData.phone.trim() === '' && phoneCode && !formData.phone.startsWith(phoneCode)) {
+      setFormData((prev) => ({ ...prev, phone: `${phoneCode} ` }));
+    }
+  }, [phoneCode]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/geo')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.countryCode) return;
+        const dial = COUNTRY_DIAL_CODES[String(data.countryCode).toUpperCase()];
+        if (dial) setPhoneCode(dial);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!inView || formViewTrackedRef.current) return;
@@ -307,7 +344,42 @@ function LandingForm({
               {renderField('email', 'Email', <Mail className="w-4 h-4 text-primary" />, 'you@example.com', true, 'email')}
 
               {/* Phone */}
-              {renderField('phone', 'Телефон / WhatsApp', <Phone className="w-4 h-4 text-primary" />, '+1 555 000 0000', true, 'tel')}
+              <div className="relative">
+                <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-primary" />
+                  Телефон / WhatsApp *
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={phoneCode}
+                    onChange={(e) => {
+                      const nextCode = e.target.value;
+                      setPhoneCode(nextCode);
+                      setFormData((prev) => ({ ...prev, phone: prev.phone.replace(/^\+\d+\s*/, `${nextCode} `) }));
+                    }}
+                    className="h-10 rounded-md border border-border/50 bg-background/70 px-2 text-sm"
+                    aria-label="Код страны"
+                  >
+                    {COUNTRY_PHONE_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.dial}>{option.label}</option>
+                    ))}
+                  </select>
+                  <Input
+                    name="phone"
+                    type="tel"
+                    required
+                    value={formData.phone}
+                    onChange={handleChange}
+                    onFocus={() => {
+                      setFocusedField('phone');
+                      trackFirstFormInteraction('phone');
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="+1 555 000 0000"
+                    className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm pl-4"
+                  />
+                </div>
+              </div>
 
               {/* Contact */}
               {renderField(
