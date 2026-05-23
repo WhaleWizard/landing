@@ -47,17 +47,18 @@ type ServiceLandingPageProps = {
 
 const themes: Record<ServiceType, LandingTheme> = {
   'meta-ads': {
-    primary: '#E1306C',
-    accent: '#833AB4',
-    secondary: '#405DE6',
-    orbFrom: 'rgba(225, 48, 108, 0.22)',
-    orbTo: 'rgba(64, 93, 230, 0.2)',
-    badgeClassName: 'bg-[#E1306C]/10 border-[#E1306C]/20',
-    sparkleClassName: 'text-[#E1306C]',
-    labelClassName: 'text-[#E1306C]',
-    titleGradientClassName: 'from-[#E1306C] via-[#833AB4] to-[#405DE6]',
-    checkGradientClassName: 'from-[#E1306C] to-[#405DE6]',
-    shadowClassName: 'shadow-[#E1306C]/20',
+    // Soft Meta-like pastel palette: blue + violet + airy highlights for better readability.
+    primary: '#5B7CFA',
+    accent: '#8B7CFF',
+    secondary: '#9AD7FF',
+    orbFrom: 'rgba(91, 124, 250, 0.20)',
+    orbTo: 'rgba(154, 215, 255, 0.18)',
+    badgeClassName: 'bg-[#5B7CFA]/10 border-[#5B7CFA]/20',
+    sparkleClassName: 'text-[#5B7CFA]',
+    labelClassName: 'text-[#5B7CFA]',
+    titleGradientClassName: 'from-[#5B7CFA] via-[#8B7CFF] to-[#9AD7FF]',
+    checkGradientClassName: 'from-[#5B7CFA] to-[#8B7CFF]',
+    shadowClassName: 'shadow-[#5B7CFA]/20',
   },
   'google-ads': {
     primary: '#4285F4',

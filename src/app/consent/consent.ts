@@ -161,7 +161,9 @@ export async function resolveGeo(): Promise<GeoResolution | null> {
 }
 
 export function requiresConsentByDefault(): boolean {
-  return true;
+  // Fallback mode: if geo resolution fails, do not block analytics entirely.
+  // Regulated regions are still handled by /api/geo and explicit consent banner.
+  return false;
 }
 
 let gaLoaded = false;
