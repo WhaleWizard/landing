@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
@@ -155,7 +156,7 @@ function LandingForm({
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const contactPayload = normalizeContactForLead(formData.contact);
       const email = formData.email.trim();
-      const phone = `${phoneCode} ${formData.phone}`.trim();
+      const phone = `${phoneCode}${formData.phone.replace(/\D/g, '')}`;
       const websiteDomain = extractWebsiteDomain(formData.website);
 
       try {
@@ -331,21 +332,22 @@ function LandingForm({
                   Телефон / WhatsApp *
                 </label>
                 <div className="flex gap-2">
-                  <div className="relative w-[180px] sm:w-[220px]">
-                  <select
-                    value={phoneCode}
-                    onChange={(e) => {
-                      const nextCode = e.target.value;
-                      setPhoneCode(nextCode);
-                                          }}
-                    className="h-10 w-full appearance-none rounded-lg border border-border/50 bg-background/60 pl-3 pr-9 text-xs sm:text-sm text-foreground backdrop-blur-sm transition-colors hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    aria-label="Код страны"
-                  >
-                    {COUNTRY_PHONE_OPTIONS.map((option) => (
-                      <option key={`${option.code}-${option.dial}`} value={option.dial}>{option.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <div className="w-[180px] sm:w-[220px]">
+                    <Select value={phoneCode} onValueChange={setPhoneCode}>
+                      <SelectTrigger
+                        aria-label="Код страны"
+                        className="h-10 rounded-lg border-border/50 bg-background/60 text-xs sm:text-sm backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/30"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72 rounded-xl border-border/70 bg-card/95 backdrop-blur-xl">
+                        {COUNTRY_PHONE_OPTIONS.map((option) => (
+                          <SelectItem key={`${option.code}-${option.dial}`} value={option.dial} className="text-sm">
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Input
                     name="phone"
