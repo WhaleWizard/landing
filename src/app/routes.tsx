@@ -18,6 +18,7 @@ const MetaAdsPage = lazy(() => import('./pages/MetaAdsPage'));
 const GoogleAdsPage = lazy(() => import('./pages/GoogleAdsPage'));
 const ConsultPage = lazy(() => import('./pages/ConsultPage'));
 const MetaAppsPage = lazy(() => import('./pages/MetaAppsPage'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 
 function RouteErrorBoundary() {
@@ -94,6 +95,7 @@ export const router = createBrowserRouter([
       { path: 'consult', element: <LazyWrapper><ConsultPage /></LazyWrapper> },
       { path: 'meta-apps', element: <LazyWrapper><MetaAppsPage /></LazyWrapper> },
       { path: 'api/article', Component: ApiArticleRedirect },
+      { path: '*', element: <LazyWrapper><NotFound /></LazyWrapper> },
     ],
   },
 ]);
