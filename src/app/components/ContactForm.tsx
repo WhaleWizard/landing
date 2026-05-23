@@ -15,6 +15,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
   getMetaBrowserContext,
   rememberMetaLeadIdentifiers,
@@ -25,6 +26,7 @@ import {
 } from '../consent/consent';
 import Modal from './Modal';
 import { API_ROUTES } from '../config';
+import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
 const budgetOptions = [
   {
@@ -57,6 +59,7 @@ const budgetOptions = [
   },
 ];
 
+
 const benefits = [
   { title: 'Бесплатный аудит', description: 'Анализ текущей ситуации и точек роста', icon: CheckCircle2, delay: 0 },
   {
@@ -86,6 +89,7 @@ function ContactForm() {
     message: '',
   });
   const [contactMethod, setContactMethod] = useState<'telegram' | 'whatsapp'>('telegram');
+  const [phoneCode, setPhoneCode] = useState('+1');
   const [telegramUsername, setTelegramUsername] = useState('');
   const [hpTrap, setHpTrap] = useState(''); // honeypot
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,6 +105,21 @@ function ContactForm() {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const isTouch = useTouchDevice();
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/geo')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.countryCode) return;
+        const dial = COUNTRY_DIAL_CODES[String(data.countryCode).toUpperCase()];
+        if (dial) setPhoneCode(dial);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!inView || formViewTrackedRef.current) return;
@@ -146,7 +165,7 @@ function ContactForm() {
             ...metaBrowserContext,
             name: formData.name,
             email: formData.email,
-            phone: formData.phone,
+            phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`,
             budget: formData.budget,
             message: formData.message,
             contactMethod: contactMethod,
@@ -168,7 +187,7 @@ function ContactForm() {
         }
 
         setIsSubmitted(true);
-        await rememberMetaLeadIdentifiers({ email: formData.email, phone: formData.phone, name: formData.name });
+        await rememberMetaLeadIdentifiers({ email: formData.email, phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`, name: formData.name });
         setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
         setTelegramUsername('');
         setHpTrap('');
@@ -385,7 +404,24 @@ function ContactForm() {
                     {/* Телефон */}
                     <div className="relative">
                       <label className="block text-sm mb-2 font-medium">Телефон *</label>
-                      <div className="relative">
+                      <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
+                        <div className="w-[160px] sm:w-[210px]">
+                        <Select value={phoneCode} onValueChange={setPhoneCode}>
+                          <SelectTrigger
+                            aria-label="Код страны"
+                            className="h-10 rounded-lg border-border/40 bg-background/70 text-xs sm:text-sm font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-80 rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
+                            {COUNTRY_PHONE_OPTIONS.map((option) => (
+                              <SelectItem key={`${option.code}-${option.dial}`} value={option.dial} className="rounded-lg py-2 text-sm">
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        </div>
                         <Input
                           name="phone"
                           type="tel"
@@ -397,16 +433,9 @@ function ContactForm() {
                             trackFirstFormInteraction('phone');
                           }}
                           onBlur={() => setFocusedField(null)}
-                          placeholder="+111 11 123-45-67"
-                          className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
+                          placeholder="555 123 4567"
+                          className="h-10 border-border/40 bg-background/70 focus:border-primary/50 focus:bg-background/80 transition-all backdrop-blur-sm"
                         />
-                        {focusedField === 'phone' && (
-                          <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="absolute inset-0 rounded-lg border-2 border-primary/50 pointer-events-none"
-                          />
-                        )}
                       </div>
                     </div>
 
