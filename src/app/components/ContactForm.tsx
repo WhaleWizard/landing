@@ -31,29 +31,29 @@ import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry
 
 const budgetOptions = [
   {
-    value: '50-100k',
-    label: 'до 1000 $',
+    value: 'до $1000',
+    label: 'до $1000',
     icon: Sparkles,
     color: 'from-primary/20 to-primary/10',
     bgGradient: 'rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1)',
   },
   {
-    value: '100-300k',
-    label: '1к-10к $',
+    value: '$1к-10к',
+    label: '$1к-10к',
     icon: TrendingUp,
     color: 'from-accent/20 to-accent/10',
     bgGradient: 'rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1)',
   },
   {
-    value: '300-500k',
-    label: '10к-50к $',
+    value: '$10к-100к',
+    label: '$10к-100к',
     icon: Zap,
     color: 'from-secondary/20 to-secondary/10',
     bgGradient: 'rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)',
   },
   {
-    value: '500k+',
-    label: '50к+ $',
+    value: '$100к+',
+    label: '$100к+',
     icon: DollarSign,
     color: 'from-primary/20 to-accent/10',
     bgGradient: 'rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.1)',
