@@ -1,18 +1,37 @@
 import { Mail, MessageSquare, ExternalLink, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { memo, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
 
 function Footer() {
-  const scrollToSection = useCallback((id: string) => {
-    const element = document.getElementById(id);
-    if (!element) return;
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
-  }, []);
+  const scrollToSection = useCallback((id: string) => {
+    const scrollNow = () => {
+      const element = document.getElementById(id);
+      if (!element) return false;
+
+      const yOffset = -80;
+      const y = element.getBoundingClientRect().top + window.scrollY + yOffset;
+
+      window.scrollTo({
+        top: y,
+        behavior: 'smooth',
+      });
+      return true;
+    };
+
+    if (scrollNow()) return;
+
+    if (location.pathname !== '/') {
+      navigate('/');
+      window.setTimeout(() => {
+        scrollNow();
+      }, 120);
+    }
+  }, [location.pathname, navigate]);
 
   return (
     <footer className="relative border-t border-border bg-card/30 backdrop-blur-sm overflow-hidden">
@@ -58,32 +77,28 @@ function Footer() {
             </h4>
 
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li
-                onClick={() => scrollToSection('services')}
-                className="hover:text-primary transition-colors cursor-pointer"
-              >
-                Google Ads
+              <li>
+                <a href="/google-ads" className="hover:text-primary transition-colors">
+                  Google Ads
+                </a>
               </li>
 
-              <li
-                onClick={() => scrollToSection('services')}
-                className="hover:text-primary transition-colors cursor-pointer"
-              >
-                Meta Ads (Facebook & Instagram)
+              <li>
+                <a href="/meta-ads" className="hover:text-primary transition-colors">
+                  Meta Ads (Facebook & Instagram)
+                </a>
               </li>
 
-              <li
-                onClick={() => scrollToSection('services')}
-                className="hover:text-primary transition-colors cursor-pointer"
-              >
-                Аналитика
+              <li>
+                <a href="/consult" className="hover:text-primary transition-colors">
+                  Консультация
+                </a>
               </li>
 
-              <li
-                onClick={() => scrollToSection('services')}
-                className="hover:text-primary transition-colors cursor-pointer"
-              >
-                Оптимизация кампаний
+              <li>
+                <a href="/meta-apps" className="hover:text-primary transition-colors">
+                  Meta Apps
+                </a>
               </li>
             </ul>
           </motion.div>
@@ -121,7 +136,7 @@ function Footer() {
 
               <li>
                 <button
-                  onClick={() => scrollToSection('blog')}
+                  onClick={() => navigate('/blog')}
                   className="hover:text-primary transition-colors"
                 >
                   Блог
