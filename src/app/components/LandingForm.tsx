@@ -19,6 +19,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import { API_ROUTES } from '../config';
+import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult';
 
@@ -33,7 +34,6 @@ const serviceLabels: Record<ServiceType, string> = {
   'google-ads': 'Google Ads',
   'consult': 'Консультация',
 };
-
 
 function normalizeContactForLead(contact: string): {
   email?: string;
@@ -92,6 +92,7 @@ function LandingForm({
     problem: '',
   });
   const [hpTrap, setHpTrap] = useState('');
+  const [phoneCode, setPhoneCode] = useState('+1');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -102,6 +103,21 @@ function LandingForm({
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
   const inView = useInView(formRef, { once: true, margin: '-100px' });
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/geo')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.countryCode) return;
+        const dial = COUNTRY_DIAL_CODES[String(data.countryCode).toUpperCase()];
+        if (dial) setPhoneCode(dial);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!inView || formViewTrackedRef.current) return;
@@ -137,7 +153,7 @@ function LandingForm({
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const contactPayload = normalizeContactForLead(formData.contact);
       const email = formData.email.trim();
-      const phone = formData.phone.trim();
+      const phone = `${phoneCode} ${formData.phone}`.trim();
       const websiteDomain = extractWebsiteDomain(formData.website);
 
       try {
@@ -307,7 +323,41 @@ function LandingForm({
               {renderField('email', 'Email', <Mail className="w-4 h-4 text-primary" />, 'you@example.com', true, 'email')}
 
               {/* Phone */}
-              {renderField('phone', 'Телефон / WhatsApp', <Phone className="w-4 h-4 text-primary" />, '+1 555 000 0000', true, 'tel')}
+              <div className="relative">
+                <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-primary" />
+                  Телефон / WhatsApp *
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={phoneCode}
+                    onChange={(e) => {
+                      const nextCode = e.target.value;
+                      setPhoneCode(nextCode);
+                                          }}
+                    className="h-10 rounded-md border border-border/50 bg-background/70 px-2 text-sm"
+                    aria-label="Код страны"
+                  >
+                    {COUNTRY_PHONE_OPTIONS.map((option) => (
+                      <option key={`${option.code}-${option.dial}`} value={option.dial}>{option.label}</option>
+                    ))}
+                  </select>
+                  <Input
+                    name="phone"
+                    type="tel"
+                    required
+                    value={formData.phone}
+                    onChange={handleChange}
+                    onFocus={() => {
+                      setFocusedField('phone');
+                      trackFirstFormInteraction('phone');
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="+1 555 000 0000"
+                    className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm pl-4"
+                  />
+                </div>
+              </div>
 
               {/* Contact */}
               {renderField(
