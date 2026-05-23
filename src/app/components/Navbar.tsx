@@ -32,15 +32,21 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       return true;
     };
 
+    const scrollWhenReady = (attempt = 0) => {
+      if (scrollNow()) return;
+      if (attempt >= 12) return;
+      window.setTimeout(() => {
+        scrollWhenReady(attempt + 1);
+      }, 80);
+    };
+
     if (scrollNow()) {
       setIsMobileMenuOpen(false);
       return;
     }
 
     if (variant === 'service') {
-      window.setTimeout(() => {
-        scrollNow();
-      }, 120);
+      scrollWhenReady();
       setIsMobileMenuOpen(false);
       return;
     }
@@ -48,8 +54,10 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     if (location.pathname !== '/') {
       navigate('/');
       window.setTimeout(() => {
-        scrollNow();
-      }, 80);
+        scrollWhenReady();
+      }, 40);
+    } else {
+      scrollWhenReady();
     }
 
     setIsMobileMenuOpen(false);
