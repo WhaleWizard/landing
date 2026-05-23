@@ -50,9 +50,9 @@ export default function NotFound() {
               Страница потерялась в гиперпространстве
             </p>
             <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">
-              404: мы искали,
+              404: кит свернул не туда,
               <br />
-              но нашли только мемы
+              но курс уже пересчитан
             </h1>
             <p className="text-base md:text-lg text-slate-200/90 max-w-xl">
               Похоже, ссылка устарела или опечаталась. Хорошая новость: у нас есть запасной план, хорошее чувство юмора и полезные страницы.
@@ -66,10 +66,10 @@ export default function NotFound() {
                 🏠 На главную
               </Link>
               <Link
-                to="/offer"
+                to="/blog/test"
                 className="inline-flex items-center rounded-xl border border-white/40 bg-white/10 px-5 py-3 text-white font-semibold hover:bg-white/20 transition-colors"
               >
-                🎁 Посмотреть оффер
+                🎁 Получить подарок
               </Link>
             </div>
           </div>
