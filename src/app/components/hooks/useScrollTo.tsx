@@ -12,5 +12,25 @@ export function useScrollTo() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  return { scrollTo, scrollToHome };
+  const scrollToWhenReady = useCallback((elementId: string, options?: { offset?: number; attempts?: number; intervalMs?: number }) => {
+    const offset = options?.offset ?? 80;
+    const attempts = options?.attempts ?? 12;
+    const intervalMs = options?.intervalMs ?? 80;
+
+    const tryScroll = (attempt: number) => {
+      const element = document.getElementById(elementId);
+      if (element) {
+        const y = element.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+        return;
+      }
+
+      if (attempt >= attempts) return;
+      window.setTimeout(() => tryScroll(attempt + 1), intervalMs);
+    };
+
+    tryScroll(0);
+  }, []);
+
+  return { scrollTo, scrollToHome, scrollToWhenReady };
 }
