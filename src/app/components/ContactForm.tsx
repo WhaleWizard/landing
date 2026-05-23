@@ -57,6 +57,25 @@ const budgetOptions = [
   },
 ];
 
+
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  US: '+1', CA: '+1', KZ: '+7', UZ: '+998', RU: '+7', KG: '+996', UA: '+380',
+  DE: '+49', FR: '+33', ES: '+34', IT: '+39', GB: '+44', AE: '+971', TR: '+90',
+};
+
+const COUNTRY_PHONE_OPTIONS = [
+  { code: 'US', dial: '+1', label: '🇺🇸 +1' },
+  { code: 'KZ', dial: '+7', label: '🇰🇿 +7' },
+  { code: 'UZ', dial: '+998', label: '🇺🇿 +998' },
+  { code: 'RU', dial: '+7', label: '🇷🇺 +7' },
+  { code: 'KG', dial: '+996', label: '🇰🇬 +996' },
+  { code: 'UA', dial: '+380', label: '🇺🇦 +380' },
+  { code: 'DE', dial: '+49', label: '🇩🇪 +49' },
+  { code: 'GB', dial: '+44', label: '🇬🇧 +44' },
+  { code: 'AE', dial: '+971', label: '🇦🇪 +971' },
+  { code: 'TR', dial: '+90', label: '🇹🇷 +90' },
+];
+
 const benefits = [
   { title: 'Бесплатный аудит', description: 'Анализ текущей ситуации и точек роста', icon: CheckCircle2, delay: 0 },
   {
@@ -86,6 +105,7 @@ function ContactForm() {
     message: '',
   });
   const [contactMethod, setContactMethod] = useState<'telegram' | 'whatsapp'>('telegram');
+  const [phoneCode, setPhoneCode] = useState('+1');
   const [telegramUsername, setTelegramUsername] = useState('');
   const [hpTrap, setHpTrap] = useState(''); // honeypot
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,6 +121,27 @@ function ContactForm() {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const isTouch = useTouchDevice();
+
+  useEffect(() => {
+    if (formData.phone.trim() === '' && phoneCode && !formData.phone.startsWith(phoneCode)) {
+      setFormData((prev) => ({ ...prev, phone: `${phoneCode} ` }));
+    }
+  }, [phoneCode]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/geo')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.countryCode) return;
+        const dial = COUNTRY_DIAL_CODES[String(data.countryCode).toUpperCase()];
+        if (dial) setPhoneCode(dial);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!inView || formViewTrackedRef.current) return;
@@ -385,7 +426,21 @@ function ContactForm() {
                     {/* Телефон */}
                     <div className="relative">
                       <label className="block text-sm mb-2 font-medium">Телефон *</label>
-                      <div className="relative">
+                      <div className="relative flex gap-2">
+                        <select
+                          value={phoneCode}
+                          onChange={(e) => {
+                            const nextCode = e.target.value;
+                            setPhoneCode(nextCode);
+                            setFormData((prev) => ({ ...prev, phone: prev.phone.replace(/^\+\d+\s*/, `${nextCode} `) }));
+                          }}
+                          className="h-10 rounded-md border border-border/50 bg-background/70 px-2 text-sm"
+                          aria-label="Код страны"
+                        >
+                          {COUNTRY_PHONE_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.dial}>{option.label}</option>
+                          ))}
+                        </select>
                         <Input
                           name="phone"
                           type="tel"
