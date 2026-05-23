@@ -11,6 +11,7 @@ import {
   Zap,
   MessageCircle,
   Phone,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -164,7 +165,7 @@ function ContactForm() {
             ...metaBrowserContext,
             name: formData.name,
             email: formData.email,
-            phone: `${phoneCode} ${formData.phone}`.trim(),
+            phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`,
             budget: formData.budget,
             message: formData.message,
             contactMethod: contactMethod,
@@ -186,7 +187,7 @@ function ContactForm() {
         }
 
         setIsSubmitted(true);
-        await rememberMetaLeadIdentifiers({ email: formData.email, phone: `${phoneCode} ${formData.phone}`.trim(), name: formData.name });
+        await rememberMetaLeadIdentifiers({ email: formData.email, phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`, name: formData.name });
         setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
         setTelegramUsername('');
         setHpTrap('');
@@ -404,19 +405,22 @@ function ContactForm() {
                     <div className="relative">
                       <label className="block text-sm mb-2 font-medium">Телефон *</label>
                       <div className="relative flex gap-2">
+                        <div className="relative w-[180px] sm:w-[220px]">
                         <select
                           value={phoneCode}
                           onChange={(e) => {
                             const nextCode = e.target.value;
                             setPhoneCode(nextCode);
                                                       }}
-                          className="h-10 rounded-md border border-border/50 bg-background/70 px-2 text-sm"
+                          className="h-10 w-full appearance-none rounded-lg border border-border/50 bg-background/60 pl-3 pr-9 text-xs sm:text-sm text-foreground backdrop-blur-sm transition-colors hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                           aria-label="Код страны"
                         >
                           {COUNTRY_PHONE_OPTIONS.map((option) => (
                             <option key={`${option.code}-${option.dial}`} value={option.dial}>{option.label}</option>
                           ))}
                         </select>
+                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        </div>
                         <Input
                           name="phone"
                           type="tel"
@@ -428,7 +432,7 @@ function ContactForm() {
                             trackFirstFormInteraction('phone');
                           }}
                           onBlur={() => setFocusedField(null)}
-                          placeholder="+111 11 123-45-67"
+                          placeholder="555 123 4567"
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
                         />
                         {focusedField === 'phone' && (
