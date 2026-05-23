@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import { API_ROUTES } from '../config';
+import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult';
 
@@ -33,7 +35,6 @@ const serviceLabels: Record<ServiceType, string> = {
   'google-ads': 'Google Ads',
   'consult': 'Консультация',
 };
-
 
 function normalizeContactForLead(contact: string): {
   email?: string;
@@ -92,6 +93,7 @@ function LandingForm({
     problem: '',
   });
   const [hpTrap, setHpTrap] = useState('');
+  const [phoneCode, setPhoneCode] = useState('+1');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -102,6 +104,21 @@ function LandingForm({
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
   const inView = useInView(formRef, { once: true, margin: '-100px' });
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/geo')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.countryCode) return;
+        const dial = COUNTRY_DIAL_CODES[String(data.countryCode).toUpperCase()];
+        if (dial) setPhoneCode(dial);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!inView || formViewTrackedRef.current) return;
@@ -137,7 +154,7 @@ function LandingForm({
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const contactPayload = normalizeContactForLead(formData.contact);
       const email = formData.email.trim();
-      const phone = formData.phone.trim();
+      const phone = `${phoneCode}${formData.phone.replace(/\D/g, '')}`;
       const websiteDomain = extractWebsiteDomain(formData.website);
 
       try {
@@ -307,7 +324,45 @@ function LandingForm({
               {renderField('email', 'Email', <Mail className="w-4 h-4 text-primary" />, 'you@example.com', true, 'email')}
 
               {/* Phone */}
-              {renderField('phone', 'Телефон / WhatsApp', <Phone className="w-4 h-4 text-primary" />, '+1 555 000 0000', true, 'tel')}
+              <div className="relative">
+                <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-primary" />
+                  Телефон / WhatsApp *
+                </label>
+                <div className="flex gap-2">
+                  <div className="w-[180px] sm:w-[220px]">
+                    <Select value={phoneCode} onValueChange={setPhoneCode}>
+                      <SelectTrigger
+                        aria-label="Код страны"
+                        className="h-10 rounded-lg border-border/50 bg-background/60 text-xs sm:text-sm backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/30"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72 rounded-xl border-border/70 bg-card/95 backdrop-blur-xl">
+                        {COUNTRY_PHONE_OPTIONS.map((option) => (
+                          <SelectItem key={`${option.code}-${option.dial}`} value={option.dial} className="text-sm">
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    name="phone"
+                    type="tel"
+                    required
+                    value={formData.phone}
+                    onChange={handleChange}
+                    onFocus={() => {
+                      setFocusedField('phone');
+                      trackFirstFormInteraction('phone');
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="555 000 0000"
+                    className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm pl-4"
+                  />
+                </div>
+              </div>
 
               {/* Contact */}
               {renderField(
