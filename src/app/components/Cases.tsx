@@ -1,5 +1,5 @@
 import { motion, useInView } from 'motion/react';
-import { ArrowUpRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
+import { ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
@@ -366,6 +366,18 @@ function Cases() {
               </svg>
             </button>
           </div>
+        </div>
+
+        <div className="relative mt-12 md:mt-16 flex justify-center">
+          <button
+            type="button"
+            onClick={() => navigate('/cases')}
+            className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 px-8 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+            <span className="relative text-sm md:text-base lg:text-lg">Перейти ко всем кейсам</span>
+            <ArrowRight className="w-4 h-4 md:w-5 md:h-5 relative group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
       </div>
     </section>
