@@ -49,29 +49,6 @@ const casesData = [
       { label: 'ROI', value: 'до 300%' },
     ],
   },
-
-  {
-    title: 'SaaS B2B',
-    category: 'Google Ads',
-    description: 'Рост заявок на демо через Search + PMax, с фокусом на SQL и контролем CPL.',
-    image: 'https://i.ibb.co/F4q65TQk/photo-2026-04-11-00-20-39.jpg',
-    stats: [
-      { label: 'SQL', value: '+68%' },
-      { label: 'CPL', value: '-34%' },
-      { label: 'CR demo', value: '+41%' },
-    ],
-  },
-  {
-    title: 'EdTech',
-    category: 'Meta Ads',
-    description: 'Масштабирование онлайн-курсов через сегментацию аудиторий и серию креативных тестов.',
-    image: 'https://i.ibb.co/TqBqwSGB/photo-2026-04-11-00-21-23.jpg',
-    stats: [
-      { label: 'Лиды', value: '+120%' },
-      { label: 'CPA', value: '-27%' },
-      { label: 'ROMI', value: '245%' },
-    ],
-  },
 ];
 
 const buildResponsiveImageSet = (baseUrl: string) =>
@@ -172,17 +149,6 @@ function Cases() {
             Конкретные результаты, подтверждённые цифрами и аналитикой. Больше кейсов и подробный разбор можете найти в блоге или в соц. сетях
           </p>
         </motion.div>
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => navigate('/cases')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-primary/40 bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
-          >
-            Перейти ко всем кейсам
-            <ArrowUpRight className="w-4 h-4" />
-          </button>
-        </div>
-
         {/* Desktop Grid */}
         <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {casesData.map((item, index) => (
@@ -250,8 +216,10 @@ function Cases() {
                       <div className="absolute top-1 right-1 w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
                         <Sparkles className="w-2 h-2 text-primary" />
                       </div>
-                      <div className="text-xs text-muted-foreground">{stat.label}</div>
-                      <div className="text-sm md:text-base font-bold text-primary">{stat.value}</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs text-muted-foreground leading-none">{stat.label}</div>
+                        <div className="text-sm md:text-base font-bold text-primary leading-none text-right">{stat.value}</div>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -314,8 +282,10 @@ function Cases() {
                             <div className="absolute top-1 right-1 w-3 h-3 rounded bg-primary/30 flex items-center justify-center">
                               <Sparkles className="w-2 h-2 text-primary" />
                             </div>
-                            <div className="text-[10px] text-muted-foreground mb-1">{stat.label}</div>
-                            <div className="text-sm font-bold text-primary">{stat.value}</div>
+                            <div className="flex items-center justify-between gap-2">
+                            <div className="text-[10px] text-muted-foreground leading-none">{stat.label}</div>
+                            <div className="text-sm font-bold text-primary leading-none text-right">{stat.value}</div>
+                            </div>
                           </div>
                         ))}
                       </div>
