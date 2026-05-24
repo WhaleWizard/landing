@@ -235,12 +235,13 @@ function LandingForm({
     type = 'text'
   ) => (
     <div className="relative">
-      <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+      <label htmlFor={`field-${name}`} className="block text-sm mb-2 font-medium flex items-center gap-2">
         {icon}
         {label} {required && '*'}
       </label>
       <div className="relative">
         <Input
+          id={`field-${name}`}
           name={name}
           type={type}
           required={required}
@@ -252,6 +253,7 @@ function LandingForm({
             }}
           onBlur={() => setFocusedField(null)}
           placeholder={placeholder}
+          autoComplete={name === 'name' ? 'name' : name === 'email' ? 'email' : name === 'phone' ? 'tel' : name === 'website' ? 'url' : 'off'}
           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm pl-4"
         />
         {focusedField === name && (
@@ -310,6 +312,7 @@ function LandingForm({
               {/* Honeypot */}
               <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
                 <input
+                  id="landing-hp-trap"
                   type="text"
                   name="hp_trap"
                   value={hpTrap}
@@ -330,7 +333,7 @@ function LandingForm({
 
               {/* Phone */}
               <div className="relative">
-                <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+                <label htmlFor="landing-phone" className="block text-sm mb-2 font-medium flex items-center gap-2">
                   <Phone className="w-4 h-4 text-primary" />
                   Телефон / WhatsApp *
                 </label>
@@ -354,6 +357,7 @@ function LandingForm({
                     </Select>
                   </div>
                   <Input
+                    id="landing-phone"
                     name="phone"
                     type="tel"
                     required
@@ -365,6 +369,7 @@ function LandingForm({
                     }}
                     onBlur={() => setFocusedField(null)}
                     placeholder="555 000 0000"
+                    autoComplete="tel-national"
                     className="h-10 border-border/40 bg-background/70 focus:border-primary/50 focus:bg-background/80 transition-all backdrop-blur-sm pl-4"
                   />
                 </div>
@@ -391,10 +396,10 @@ function LandingForm({
 
                   {/* Budget Select */}
                   <div className="relative">
-                    <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+                    <p className="block text-sm mb-2 font-medium flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-primary" />
                       Месячный бюджет
-                    </label>
+                    </p>
                     <div className="grid grid-cols-2 gap-2">
                       {budgetOptions.map((option) => (
                         <motion.button
@@ -436,12 +441,13 @@ function LandingForm({
                   )}
 
                   <div className="relative">
-                    <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+                    <label htmlFor="landing-problem" className="block text-sm mb-2 font-medium flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-primary" />
                       Главная проблема *
                     </label>
                     <div className="relative">
                       <Textarea
+                        id="landing-problem"
                         name="problem"
                         required
                         value={formData.problem}
@@ -449,6 +455,7 @@ function LandingForm({
                         onFocus={() => setFocusedField('problem')}
                         onBlur={() => setFocusedField(null)}
                         placeholder="Опишите вашу главную проблему..."
+                        autoComplete="off"
                         rows={3}
                         className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"
                       />
@@ -477,7 +484,7 @@ function LandingForm({
                 >
                   {agreed && <CheckCircle2 className="w-3 h-3 text-white" />}
                 </button>
-                <label className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   Я согласен с{' '}
                   <a href="/privacy-policy" className="text-primary hover:underline">
                     политикой конфиденциальности
@@ -486,7 +493,7 @@ function LandingForm({
                   <a href="/offer" className="text-primary hover:underline">
                     публичной офертой
                   </a>
-                </label>
+                </p>
               </div>
 
               {/* Submit */}

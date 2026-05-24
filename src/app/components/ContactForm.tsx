@@ -351,9 +351,10 @@ function ContactForm() {
 
                     {/* Имя */}
                     <div className="relative">
-                      <label className="block text-sm mb-2 font-medium">Имя *</label>
+                      <label htmlFor="contact-name" className="block text-sm mb-2 font-medium">Имя *</label>
                       <div className="relative">
                         <Input
+                          id="contact-name"
                           name="name"
                           type="text"
                           required
@@ -365,6 +366,7 @@ function ContactForm() {
                           }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="Ваше имя"
+                          autoComplete="name"
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
                         />
                         {focusedField === 'name' && (
@@ -379,9 +381,10 @@ function ContactForm() {
 
                     {/* Email */}
                     <div className="relative">
-                      <label className="block text-sm mb-2 font-medium">Email *</label>
+                      <label htmlFor="contact-email" className="block text-sm mb-2 font-medium">Email *</label>
                       <div className="relative">
                         <Input
+                          id="contact-email"
                           name="email"
                           type="email"
                           required
@@ -393,6 +396,7 @@ function ContactForm() {
                           }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="your@email.com"
+                          autoComplete="email"
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
                         />
                         {focusedField === 'email' && (
@@ -407,7 +411,7 @@ function ContactForm() {
 
                     {/* Телефон */}
                     <div className="relative">
-                      <label className="block text-sm mb-2 font-medium">Телефон *</label>
+                      <label htmlFor="contact-phone" className="block text-sm mb-2 font-medium">Телефон *</label>
                       <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
                         <div className="w-[170px] sm:w-[220px] shrink-0">
                         <Select value={phoneCode} onValueChange={setPhoneCode}>
@@ -428,6 +432,7 @@ function ContactForm() {
                         </Select>
                         </div>
                         <Input
+                          id="contact-phone"
                           name="phone"
                           type="tel"
                           required
@@ -439,6 +444,7 @@ function ContactForm() {
                           }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="555 123 4567"
+                          autoComplete="tel-national"
                           className="h-10 border-border/40 bg-background/70 focus:border-primary/50 focus:bg-background/80 transition-all backdrop-blur-sm"
                         />
                       </div>
@@ -446,7 +452,7 @@ function ContactForm() {
 
                     {/* Бюджет */}
                     <div>
-                      <label className="block text-sm mb-3 font-medium">Месячный бюджет</label>
+                      <p className="block text-sm mb-3 font-medium">Месячный бюджет</p>
                       <div className="grid grid-cols-2 gap-3">
                         {budgetOptions.map((option) => (
                           <motion.div
@@ -457,7 +463,7 @@ function ContactForm() {
                           >
                             <input
                               type="radio"
-                              id={option.value}
+                              id={`budget-${option.value.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
                               name="budget"
                               value={option.value}
                               checked={formData.budget === option.value}
@@ -465,7 +471,7 @@ function ContactForm() {
                               className="peer sr-only"
                             />
                             <label
-                              htmlFor={option.value}
+                              htmlFor={`budget-${option.value.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
                               className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-300 bg-background/50 border border-border/50 backdrop-blur-sm hover:border-primary/50 hover:bg-background/70 peer-checked:border-primary peer-checked:shadow-lg peer-checked:shadow-primary/20`}
                               style={
                                 formData.budget === option.value
@@ -494,9 +500,10 @@ function ContactForm() {
 
                     {/* О проекте */}
                     <div className="relative">
-                      <label className="block text-sm mb-2 font-medium">О вашем проекте</label>
+                      <label htmlFor="contact-message" className="block text-sm mb-2 font-medium">О вашем проекте</label>
                       <div className="relative">
                         <Textarea
+                          id="contact-message"
                           name="message"
                           value={formData.message}
                           onChange={handleChange}
@@ -506,6 +513,7 @@ function ContactForm() {
                           }}
                           onBlur={() => setFocusedField(null)}
                           placeholder="Расскажите кратко о вашем проекте..."
+                          autoComplete="off"
                           rows={4}
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"
                         />
@@ -521,7 +529,7 @@ function ContactForm() {
 
                     {/* Способ связи */}
                     <div>
-                      <label className="block text-sm mb-2 font-medium">Предпочитаемый способ связи</label>
+                      <p className="block text-sm mb-2 font-medium">Предпочитаемый способ связи</p>
                       <div className="flex gap-3">
                         <button
                           type="button"
@@ -562,14 +570,17 @@ function ContactForm() {
                             transition={{ duration: 0.15 }}
                             className="mt-2"
                           >
-                            <label className="block text-sm mb-2 font-medium">
+                            <label htmlFor="telegram-username" className="block text-sm mb-2 font-medium">
                               Telegram username (необязательно)
                             </label>
                             <Input
+                              id="telegram-username"
+                              name="telegram_username"
                               type="text"
                               value={telegramUsername}
                               onChange={handleSetTelegramUsername}
                               placeholder="@username"
+                              autoComplete="off"
                               className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
                             />
                           </motion.div>
@@ -596,6 +607,7 @@ function ContactForm() {
                       <input
                         type="checkbox"
                         id="consent"
+                        name="consent"
                         checked={agreed}
                         onChange={(e) => setAgreed(e.target.checked)}
                         className="mt-1 w-4 h-4 text-primary bg-white border-border/70 rounded focus:ring-primary/20"
