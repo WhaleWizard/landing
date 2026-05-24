@@ -99,6 +99,8 @@ function ContactForm() {
   const [agreed, setAgreed] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
+  const selectedPhoneOption = COUNTRY_PHONE_OPTIONS.find((option) => option.dial === phoneCode);
+  const selectedPhoneCodeLabel = selectedPhoneOption ? `${selectedPhoneOption.code} ${selectedPhoneOption.dial}` : phoneCode;
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
 
@@ -406,13 +408,13 @@ function ContactForm() {
                     <div className="relative">
                       <label className="block text-sm mb-2 font-medium">Телефон *</label>
                       <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
-                        <div className="w-[160px] sm:w-[210px]">
+                        <div className="w-[170px] sm:w-[220px] shrink-0">
                         <Select value={phoneCode} onValueChange={setPhoneCode}>
                           <SelectTrigger
                             aria-label="Код страны"
                             className="h-10 rounded-lg border-border/40 bg-background/70 text-xs sm:text-sm font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25"
                           >
-                            <SelectValue />
+                            <span className="truncate">{selectedPhoneCodeLabel}</span>
                           </SelectTrigger>
                           <SelectContent className="max-h-80 rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
                             {COUNTRY_PHONE_OPTIONS.map((option) => (
@@ -594,7 +596,7 @@ function ContactForm() {
                         id="consent"
                         checked={agreed}
                         onChange={(e) => setAgreed(e.target.checked)}
-                        className="mt-1 w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary/20"
+                        className="mt-1 w-4 h-4 text-primary bg-white border-border/70 rounded focus:ring-primary/20"
                       />
                       <label htmlFor="consent" className="text-xs text-muted-foreground leading-relaxed">
                         Я даю согласие на обработку моих персональных данных в соответствии с{' '}
