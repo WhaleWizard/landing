@@ -1,7 +1,8 @@
 import { motion, useInView } from 'motion/react';
-import { ArrowUpRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
+import { ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 
 const casesData = [
   {
@@ -48,6 +49,29 @@ const casesData = [
       { label: 'ROI', value: 'до 300%' },
     ],
   },
+
+  {
+    title: 'SaaS B2B',
+    category: 'Google Ads',
+    description: 'Рост заявок на демо через Search + PMax, с фокусом на SQL и контролем CPL.',
+    image: 'https://i.ibb.co/F4q65TQk/photo-2026-04-11-00-20-39.jpg',
+    stats: [
+      { label: 'SQL', value: '+68%' },
+      { label: 'CPL', value: '-34%' },
+      { label: 'CR demo', value: '+41%' },
+    ],
+  },
+  {
+    title: 'EdTech',
+    category: 'Meta Ads',
+    description: 'Масштабирование онлайн-курсов через сегментацию аудиторий и серию креативных тестов.',
+    image: 'https://i.ibb.co/TqBqwSGB/photo-2026-04-11-00-21-23.jpg',
+    stats: [
+      { label: 'Лиды', value: '+120%' },
+      { label: 'CPA', value: '-27%' },
+      { label: 'ROMI', value: '245%' },
+    ],
+  },
 ];
 
 const buildResponsiveImageSet = (baseUrl: string) =>
@@ -75,6 +99,7 @@ const useMobile = () => {
 };
 
 function Cases() {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
@@ -115,9 +140,9 @@ function Cases() {
   const enablePulse = !isMobile && inView;
 
   return (
-    <section 
-      id="cases" 
-      ref={sectionRef} 
+    <section
+      id="cases"
+      ref={sectionRef}
       className="relative py-16 md:py-24 overflow-hidden bg-muted/30"
       style={{ contain: 'layout style paint' }}
     >
@@ -149,7 +174,7 @@ function Cases() {
         </motion.div>
 
         {/* Desktop Grid */}
-        <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8">
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {casesData.map((item, index) => (
             <motion.div
               key={index}
@@ -197,7 +222,7 @@ function Cases() {
               <div className="p-5 md:p-6 space-y-4">
                 <h3 className="text-lg md:text-xl font-bold group-hover:text-primary transition-colors flex items-start justify-between">
                   {item.title}
-                  <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1" />
+                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1" />
                 </h3>
                 <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
                   {item.description}
@@ -331,6 +356,18 @@ function Cases() {
               </svg>
             </button>
           </div>
+        </div>
+
+        <div className="relative mt-12 md:mt-16 flex justify-center">
+          <button
+            type="button"
+            onClick={() => navigate('/cases')}
+            className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 px-8 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+            <span className="relative text-sm md:text-base lg:text-lg">Перейти ко всем кейсам</span>
+            <ArrowRight className="w-4 h-4 md:w-5 md:h-5 relative group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
       </div>
     </section>

@@ -196,6 +196,7 @@ export default function Admin() {
   const takeawaysText = editingArticle?.keyTakeaways?.join('\n') || '';
 
   const { query, setQuery, filtered } = useFilteredArticles(articles);
+  const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
 
   const refreshHealth = async () => {
     try {
@@ -458,7 +459,7 @@ export default function Admin() {
                 <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">Статьи</h2>
                 <button onClick={() => {
                   setEditingArticle({
-                    id: 0, slug: '', title: '', category: '', readTime: '5 мин',
+                    id: 0, slug: '', title: '', category: 'Блог', readTime: '5 мин',
                     date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
                     description: '', summary: '', keyTakeaways: [], faq: [], content: '', image: '',
                     status: 'published'
@@ -467,6 +468,11 @@ export default function Admin() {
                 }} className="p-2 rounded-lg bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] hover:bg-[var(--adm-primary)]/30 transition-all">
                   <Plus className="w-4 h-4" />
                 </button>
+              </div>
+              <div className="mb-3 flex gap-2">
+                <button onClick={() => setAdminSectionFilter('all')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='all' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Все</button>
+                <button onClick={() => setAdminSectionFilter('blog')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='blog' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Блог</button>
+                <button onClick={() => setAdminSectionFilter('cases')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='cases' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Кейсы</button>
               </div>
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--adm-fg)]/40" />
@@ -483,7 +489,7 @@ export default function Admin() {
               ) : (
                 <DndProvider backend={HTML5Backend}>
                   <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                    {filtered.map((article) => {
+                    {filtered.filter((article) => adminSectionFilter === 'all' ? true : adminSectionFilter === 'cases' ? article.category === 'Кейсы' : article.category !== 'Кейсы').map((article) => {
                       const articleIndex = articles.findIndex((item) => item.slug === article.slug);
                       return (
                         <AdminArticleItem
@@ -511,8 +517,11 @@ export default function Admin() {
                       <input type="text" value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Категория</label>
-                      <input type="text" value={editingArticle.category} onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                      <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Раздел публикации</label>
+                      <select value={editingArticle.category || 'Блог'} onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all">
+                        <option value="Блог">Блог</option>
+                        <option value="Кейсы">Кейсы</option>
+                      </select>
                     </div>
                   </div>
 
