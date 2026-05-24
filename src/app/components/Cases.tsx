@@ -1,5 +1,5 @@
 import { motion, useInView } from 'motion/react';
-import { ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
