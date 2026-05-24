@@ -27,7 +27,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
 
   try {
     const articles = await fetchArticlesWithFallback(env, request);
-    const article = articles.find((item) => item.slug === slug && item.category !== 'Кейсы');
+    const article = articles.find((item) => item.slug === slug && item.category === 'Кейсы');
 
     if (!article) {
       return next(spaIndexRequest);

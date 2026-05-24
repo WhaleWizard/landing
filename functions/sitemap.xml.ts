@@ -4,7 +4,7 @@ import { renderSitemapXml } from './_lib/seo';
 import { xml } from './_lib/http';
 import type { Env } from './_lib/types';
 
-const STATIC_ROUTES = ['/', '/blog', '/faq', '/marketing-glossary', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy', '/feed.xml', '/llms.txt', '/meta-ads', '/google-ads', '/consult'];
+const STATIC_ROUTES = ['/', '/blog', '/cases', '/faq', '/marketing-glossary', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy', '/feed.xml', '/llms.txt', '/meta-ads', '/google-ads', '/consult'];
 
 function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');
@@ -19,10 +19,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   try {
     const siteUrl = getSiteUrl(env, request);
     const articles = await fetchArticlesWithFallback(env, request);
-    const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
+    const articleRoutes = articles.map((article) => article.category === 'Кейсы' ? `/cases/${article.slug}` : `/blog/${article.slug}`);
     const articleDates = Object.fromEntries(
       articles.map((article) => [
-        `/blog/${article.slug}`,
+        article.category === 'Кейсы' ? `/cases/${article.slug}` : `/blog/${article.slug}`,
         article.updatedAt || article.publishedAt || new Date().toISOString(),
       ]),
     );
