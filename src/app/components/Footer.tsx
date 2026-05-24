@@ -142,6 +142,14 @@ function Footer() {
                   Блог
                 </button>
               </li>
+              <li>
+                <button
+                  onClick={() => navigate('/cases')}
+                  className="hover:text-primary transition-colors"
+                >
+                  Кейсы статьи
+                </button>
+              </li>
 
               <li>
                 <a href="/faq" className="hover:text-primary transition-colors">

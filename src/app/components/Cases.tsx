@@ -2,6 +2,7 @@ import { motion, useInView } from 'motion/react';
 import { ArrowUpRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 
 const casesData = [
   {
@@ -48,6 +49,29 @@ const casesData = [
       { label: 'ROI', value: 'до 300%' },
     ],
   },
+
+  {
+    title: 'SaaS B2B',
+    category: 'Google Ads',
+    description: 'Рост заявок на демо через Search + PMax, с фокусом на SQL и контролем CPL.',
+    image: 'https://i.ibb.co/F4q65TQk/photo-2026-04-11-00-20-39.jpg',
+    stats: [
+      { label: 'SQL', value: '+68%' },
+      { label: 'CPL', value: '-34%' },
+      { label: 'CR demo', value: '+41%' },
+    ],
+  },
+  {
+    title: 'EdTech',
+    category: 'Meta Ads',
+    description: 'Масштабирование онлайн-курсов через сегментацию аудиторий и серию креативных тестов.',
+    image: 'https://i.ibb.co/TqBqwSGB/photo-2026-04-11-00-21-23.jpg',
+    stats: [
+      { label: 'Лиды', value: '+120%' },
+      { label: 'CPA', value: '-27%' },
+      { label: 'ROMI', value: '245%' },
+    ],
+  },
 ];
 
 const buildResponsiveImageSet = (baseUrl: string) =>
@@ -75,6 +99,7 @@ const useMobile = () => {
 };
 
 function Cases() {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
@@ -115,9 +140,9 @@ function Cases() {
   const enablePulse = !isMobile && inView;
 
   return (
-    <section 
-      id="cases" 
-      ref={sectionRef} 
+    <section
+      id="cases"
+      ref={sectionRef}
       className="relative py-16 md:py-24 overflow-hidden bg-muted/30"
       style={{ contain: 'layout style paint' }}
     >
@@ -148,8 +173,18 @@ function Cases() {
           </p>
         </motion.div>
 
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => navigate('/cases')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-primary/40 bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
+          >
+            Перейти ко всем кейсам
+            <ArrowUpRight className="w-4 h-4" />
+          </button>
+        </div>
+
         {/* Desktop Grid */}
-        <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8">
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {casesData.map((item, index) => (
             <motion.div
               key={index}

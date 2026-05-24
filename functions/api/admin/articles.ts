@@ -37,7 +37,7 @@ async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Pro
     `${siteUrl}/api/articles`,
     `${siteUrl}/sitemap.xml`,
     `${siteUrl}/feed.xml`,
-    ...articleSlugs.map((slug) => `${siteUrl}/blog/${slug}`),
+    ...articleSlugs.flatMap((slug) => [`${siteUrl}/blog/${slug}`, `${siteUrl}/cases/${slug}`]),
   ];
 
   const settled = await Promise.allSettled(targets.map((url) => deleteCacheByUrl(url)));

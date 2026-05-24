@@ -1,7 +1,7 @@
 // src/app/pages/BlogPage.tsx
 import { motion, useInView } from 'motion/react';
 import { Clock, ArrowRight, ArrowLeft, Calendar } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useLocation } from 'react-router';
 import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
@@ -54,6 +54,9 @@ function extractRelatedArticles(allArticles, currentArticle) {
 function BlogPageComponent() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCasesRoute = location.pathname === '/cases' || location.pathname.startsWith('/cases/');
+  const routeBase = isCasesRoute ? '/cases' : '/blog';
   const { articles: allArticles, loading } = useArticles();
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,13 +79,13 @@ function BlogPageComponent() {
 
   useEffect(() => {
     if (slug && !loading) {
-      const article = allArticles.find((a) => a.slug === slug);
+      const article = allArticles.find((a) => a.slug === slug && (isCasesRoute ? a.category === 'Кейсы' : a.category !== 'Кейсы'));
       if (article) setSelectedArticle(article);
-      else navigate('/blog', { replace: true });
+      else navigate(routeBase, { replace: true });
     } else {
       setSelectedArticle(null);
     }
-  }, [slug, allArticles, loading, navigate]);
+  }, [slug, allArticles, loading, navigate, isCasesRoute, routeBase]);
 
   useEffect(() => {
     if (!selectedArticle) return;
@@ -108,7 +111,7 @@ function BlogPageComponent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [navigate]);
 
-  const goToBlogList = useCallback(() => navigate('/blog'), [navigate]);
+  const goToBlogList = useCallback(() => navigate(routeBase), [navigate, routeBase]);
 
   const goToContact = useCallback(() => {
     navigate('/');
@@ -117,7 +120,7 @@ function BlogPageComponent() {
 
   const normalizedQueryTokens = normalizeTokens(searchQuery);
   const filteredArticles = normalizedQueryTokens.length === 0
-    ? allArticles
+    ? allArticles.filter((article) => (isCasesRoute ? article.category === 'Кейсы' : article.category !== 'Кейсы'))
     : allArticles.filter((article) => {
       const haystack = normalizeTokens([
         article.title,
@@ -144,7 +147,7 @@ function BlogPageComponent() {
         <SEO
           title={seoTitle}
           description={seoDescription}
-          url={`/blog/${selectedArticle.slug}`}
+          url={`${routeBase}/${selectedArticle.slug}`}
           type="article"
         />
         <section
@@ -248,7 +251,7 @@ function BlogPageComponent() {
                       <motion.button
                         whileHover={{ x: 4 }}
                         transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                        onClick={() => navigate(`/blog/${article.slug}`)}
+                        onClick={() => navigate(`${routeBase}/${article.slug}`)}
                         className="text-left bg-transparent border-none p-0 text-primary hover:underline cursor-pointer"
                       >
                         {article.title}
@@ -277,7 +280,11 @@ function BlogPageComponent() {
 
   return (
     <>
-      <SEO title="Блог о маркетинге" description="Экспертные статьи о таргетированной рекламе" />
+      <SEO
+        title={isCasesRoute ? 'Кейсы по маркетингу' : 'Блог о маркетинге'}
+        description={isCasesRoute ? 'Практические кейсы с результатами, метриками и выводами.' : 'Экспертные статьи о таргетированной рекламе'}
+        url={routeBase}
+      />
       <section
         data-blog-ui="true"
         className="blog-page blog-page--list min-h-screen bg-background py-20 px-4 sm:px-6"
@@ -286,8 +293,17 @@ function BlogPageComponent() {
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-end mb-4"><button onClick={goHome} className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
-            <h1 className="text-4xl md:text-6xl font-bold">Блог о <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">маркетинге</span></h1>
-            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса</p>
+            <h1 className="text-4xl md:text-6xl font-bold">
+              {isCasesRoute ? 'Кейсы с ' : 'Блог о '}
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                {isCasesRoute ? 'результатами' : 'маркетинге'}
+              </span>
+            </h1>
+            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">
+              {isCasesRoute
+                ? 'Реальные проекты: гипотезы, внедрения, цифры и выводы по росту.'
+                : 'Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса'}
+            </p>
           </motion.div>
           <div className="mb-8">
             <label htmlFor="blog-search" className="sr-only">Поиск по статьям</label>
@@ -300,7 +316,7 @@ function BlogPageComponent() {
               className="w-full rounded-xl border border-border bg-card/70 px-4 py-3 text-sm md:text-base outline-none ring-0 focus:border-primary"
             />
           </div>
-          {allArticles.length === 0 ? (
+          {filteredArticles.length === 0 ? (
             <div className="rounded-2xl border border-border bg-card/70 p-8 text-center">
               <h2 className="text-xl font-semibold mb-2">Статьи скоро появятся</h2>
               <p className="text-muted-foreground mb-4">Сейчас блог временно пуст. Напишите нам — подскажем решение под ваш кейс.</p>
@@ -319,7 +335,7 @@ function BlogPageComponent() {
           ) : (
             <div className="blog-list-grid grid md:grid-cols-2 gap-6 md:gap-8">
               {filteredArticles.map((article, i) => (
-                <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`/blog/${article.slug}`)}>
+                <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`${routeBase}/${article.slug}`)}>
                   <div className="blog-card p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{article.category}</span>
