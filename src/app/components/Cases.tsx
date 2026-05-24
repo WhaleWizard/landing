@@ -49,29 +49,6 @@ const casesData = [
       { label: 'ROI', value: 'до 300%' },
     ],
   },
-
-  {
-    title: 'SaaS B2B',
-    category: 'Google Ads',
-    description: 'Рост заявок на демо через Search + PMax, с фокусом на SQL и контролем CPL.',
-    image: 'https://i.ibb.co/F4q65TQk/photo-2026-04-11-00-20-39.jpg',
-    stats: [
-      { label: 'SQL', value: '+68%' },
-      { label: 'CPL', value: '-34%' },
-      { label: 'CR demo', value: '+41%' },
-    ],
-  },
-  {
-    title: 'EdTech',
-    category: 'Meta Ads',
-    description: 'Масштабирование онлайн-курсов через сегментацию аудиторий и серию креативных тестов.',
-    image: 'https://i.ibb.co/TqBqwSGB/photo-2026-04-11-00-21-23.jpg',
-    stats: [
-      { label: 'Лиды', value: '+120%' },
-      { label: 'CPA', value: '-27%' },
-      { label: 'ROMI', value: '245%' },
-    ],
-  },
 ];
 
 const buildResponsiveImageSet = (baseUrl: string) =>
