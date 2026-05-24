@@ -21,6 +21,12 @@ interface MetaEventPayload {
   ph?: string;
   fn?: string;
   ln?: string;
+  zp?: string;
+  ge?: 'm' | 'f';
+  dobd?: string;
+  dobm?: string;
+  doby?: string;
+  madid?: string;
   fbp?: string;
   fbc?: string;
   fbclid?: string;
@@ -68,6 +74,15 @@ interface MetaEventPayload {
   content_category?: string;
   content_type?: string;
   content_ids?: string[];
+  value?: number;
+  currency?: string;
+  order_id?: string;
+  contents?: Array<{ id?: string; quantity?: number; item_price?: number; delivery_category?: string }>;
+  num_items?: number;
+  search_string?: string;
+  predicted_ltv?: number;
+  status?: string;
+  lead_id?: string;
 }
 
 const ALLOWED_EVENTS = new Set<MetaEventName>(['ViewContent', 'FormStart', 'Contact', 'LeadFormView', 'EngagedView']);
@@ -87,6 +102,33 @@ function sanitizeTextArray(value: unknown, maxItems: number, maxTextLength: numb
     .filter(Boolean)
     .slice(0, maxItems);
   return items.length ? items : undefined;
+}
+function sanitizeContents(value: unknown): Array<{ id?: string; quantity?: number; item_price?: number; delivery_category?: string }> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.slice(0, 50).map((raw) => {
+    const item = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+    return {
+      id: sanitizeText(String(item.id || ''), 120) || undefined,
+      quantity: sanitizeNumber(item.quantity),
+      item_price: sanitizeNumber(item.item_price),
+      delivery_category: sanitizeText(String(item.delivery_category || ''), 80) || undefined,
+    };
+  }).filter((item) => item.id || item.quantity !== undefined || item.item_price !== undefined || item.delivery_category);
+  return items.length ? items : undefined;
+}
+
+function normalizeGender(value: string | undefined): 'm' | 'f' | undefined {
+  const raw = (value || '').trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'm' || raw === 'male' || raw === 'man' || raw === 'м' || raw === 'муж') return 'm';
+  if (raw === 'f' || raw === 'female' || raw === 'woman' || raw === 'ж' || raw === 'жен') return 'f';
+  return undefined;
+}
+
+function normalizeDobPart(value: string | undefined, len: 2 | 4): string | undefined {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return undefined;
+  return digits.slice(0, len).padStart(len, '0');
 }
 
 function normalizeTextForMeta(value: string): string {
@@ -126,6 +168,12 @@ function normalizeMetaEventPayload(payload: MetaEventPayload): MetaEventPayload 
     ph: sanitizeText(payload.ph || '', 64),
     fn: sanitizeText(payload.fn || '', 64),
     ln: sanitizeText(payload.ln || '', 64),
+    zp: sanitizeText(payload.zp || '', 40),
+    ge: normalizeGender(payload.ge),
+    dobd: normalizeDobPart(payload.dobd, 2),
+    dobm: normalizeDobPart(payload.dobm, 2),
+    doby: normalizeDobPart(payload.doby, 4),
+    madid: sanitizeText(payload.madid || '', 128),
     fbp: sanitizeText(payload.fbp || '', 128),
     fbc: sanitizeText(payload.fbc || '', 256),
     fbclid: sanitizeText(payload.fbclid || '', 512),
@@ -173,6 +221,15 @@ function normalizeMetaEventPayload(payload: MetaEventPayload): MetaEventPayload 
     content_category: sanitizeText(payload.content_category || '', 120),
     content_type: sanitizeText(payload.content_type || '', 80),
     content_ids: sanitizeTextArray(payload.content_ids, 20, 120),
+    value: sanitizeNumber(payload.value),
+    currency: sanitizeText(payload.currency || '', 8).toUpperCase(),
+    order_id: sanitizeText(payload.order_id || '', 128),
+    contents: sanitizeContents(payload.contents),
+    num_items: sanitizeNumber(payload.num_items) ?? (Array.isArray(payload.contents) ? payload.contents.length : undefined),
+    search_string: sanitizeText(payload.search_string || '', 500),
+    predicted_ltv: sanitizeNumber(payload.predicted_ltv),
+    status: sanitizeText(payload.status || '', 80),
+    lead_id: sanitizeText(payload.lead_id || '', 128),
   };
 }
 
@@ -365,11 +422,17 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
   const ctx = extractRequestContext(request, eventSourceUrl);
 
   const externalIdSeed = buildExternalIdSeed(payload, fbp);
-  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion] = await Promise.all([
+  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([
     externalIdSeed ? sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined,
     ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
     ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
     (ctx.regionCode || ctx.region) ? sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || '')) : undefined,
+    payload.zp ? sha256Normalized(normalizeLocationForMeta(payload.zp)) : undefined,
+    payload.dobd ? sha256Normalized(payload.dobd) : undefined,
+    payload.dobm ? sha256Normalized(payload.dobm) : undefined,
+    payload.doby ? sha256Normalized(payload.doby) : undefined,
+    payload.ge ? sha256Normalized(payload.ge) : undefined,
+    payload.madid ? sha256Normalized(normalizeTextForMeta(payload.madid)) : undefined,
   ]);
 
   const event = {
@@ -390,7 +453,14 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       country: hashedCountry ? [hashedCountry] : undefined,
       ct: hashedCity ? [hashedCity] : undefined,
       st: hashedRegion ? [hashedRegion] : undefined,
+      zp: hashedZip ? [hashedZip] : undefined,
+      dobd: hashedDobd ? [hashedDobd] : undefined,
+      dobm: hashedDobm ? [hashedDobm] : undefined,
+      doby: hashedDoby ? [hashedDoby] : undefined,
+      ge: hashedGe ? [hashedGe] : undefined,
+      madid: hashedMadid ? [hashedMadid] : undefined,
     },
+    opt_out: payload.marketing_consent === false,
     custom_data: {
       service: payload.service, ...getMetaEventDiagnosticsContext(payload),
       service_slug: payload.service_slug,
@@ -406,6 +476,15 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       content_category: payload.content_category,
       content_type: payload.content_type,
       content_ids: payload.content_ids,
+      value: payload.value,
+      currency: payload.currency || undefined,
+      order_id: payload.order_id || undefined,
+      contents: payload.contents,
+      num_items: payload.num_items,
+      search_string: payload.search_string || undefined,
+      predicted_ltv: payload.predicted_ltv,
+      status: payload.status || undefined,
+      lead_id: payload.lead_id || undefined,
       country: ctx.country,
       city: ctx.city,
       region: ctx.region,

@@ -394,6 +394,12 @@ export type MetaBrowserContext = {
   ph?: string;
   fn?: string;
   ln?: string;
+  zp?: string;
+  ge?: 'm' | 'f';
+  dobd?: string;
+  dobm?: string;
+  doby?: string;
+  madid?: string;
   fbp?: string;
   fbc?: string;
   fbclid?: string;
@@ -426,6 +432,8 @@ export type MetaBrowserContext = {
   consent_region?: string;
   consent_timestamp?: number;
   event_time?: number;
+  lead_id?: string;
+  search_string?: string;
 };
 
 
@@ -740,6 +748,26 @@ function hasMarketingConsent(): boolean {
   return getConsentSnapshot().marketing_consent === true;
 }
 
+function readUrlParam(currentUrl: URL, key: string): string | undefined {
+  const value = currentUrl.searchParams.get(key);
+  return value ? value.trim() || undefined : undefined;
+}
+
+function getExtendedMetaContext(currentUrl: URL): Pick<MetaBrowserContext, 'zp' | 'ge' | 'dobd' | 'dobm' | 'doby' | 'madid' | 'lead_id' | 'search_string'> {
+  const ge = readUrlParam(currentUrl, 'ge') || readUrlParam(currentUrl, 'gender');
+  const normalizedGe = ge ? (ge.toLowerCase().startsWith('m') || ge === 'м' ? 'm' : ge.toLowerCase().startsWith('f') || ge === 'ж' ? 'f' : undefined) : undefined;
+  return {
+    zp: readUrlParam(currentUrl, 'zp') || readUrlParam(currentUrl, 'zip') || readUrlParam(currentUrl, 'postal_code'),
+    ge: normalizedGe,
+    dobd: readUrlParam(currentUrl, 'dobd'),
+    dobm: readUrlParam(currentUrl, 'dobm'),
+    doby: readUrlParam(currentUrl, 'doby'),
+    madid: readUrlParam(currentUrl, 'madid'),
+    lead_id: readUrlParam(currentUrl, 'lead_id'),
+    search_string: readUrlParam(currentUrl, 'search') || readUrlParam(currentUrl, 'q'),
+  };
+}
+
 export function getMetaBrowserContext(pagePath = window.location.pathname): MetaBrowserContext {
   const currentUrl = new URL(window.location.href);
   const attribution = getAttributionWithFallback(currentUrl);
@@ -786,12 +814,19 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     wbraid: attribution.wbraid,
     gbraid: attribution.gbraid,
     yclid: attribution.yclid,
+    ...getExtendedMetaContext(currentUrl),
   };
 }
 
 type ServerPageViewPayload = MetaBrowserContext & {
   event_id: string;
   page_url: string;
+  content_name?: string;
+  content_category?: string;
+  content_type?: string;
+  content_ids?: string[];
+  service?: string;
+  service_slug?: string;
 };
 
 function sendServerPageView(payload: ServerPageViewPayload): void {
@@ -856,6 +891,14 @@ type ServerMetaEventPayload = MetaBrowserContext & {
   content_category?: string;
   content_type?: string;
   content_ids?: string[];
+  value?: number;
+  currency?: string;
+  order_id?: string;
+  contents?: Array<{ id?: string; quantity?: number; item_price?: number; delivery_category?: string }>;
+  num_items?: number;
+  search_string?: string;
+  predicted_ltv?: number;
+  status?: string;
 };
 
 type MetaPageContent = {
@@ -1263,6 +1306,7 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
     page_location: browserContext.page_location,
     referrer: browserContext.referrer,
   };
+  const pageContent = getMetaPageContent(path);
 
   // Браузерный PageView с eventID для дедупликации
   win.fbq?.('track', 'PageView', pageViewData, { eventID: eventId });
@@ -1272,6 +1316,12 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
   sendServerPageView({
     event_id: eventId,
     page_url: window.location.href,
+    service: pageContent.service,
+    service_slug: pageContent.content_ids?.[0],
+    content_name: pageContent.content_name,
+    content_category: pageContent.content_category,
+    content_type: pageContent.content_type,
+    content_ids: pageContent.content_ids,
     ...browserContext,
   });
 

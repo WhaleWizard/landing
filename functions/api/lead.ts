@@ -64,6 +64,23 @@ interface LeadPayload {
   consent_region?: string;
   consent_timestamp?: number;
   marketing_consent?: boolean;
+  zp?: string;
+  ge?: 'm' | 'f';
+  dobd?: string;
+  dobm?: string;
+  doby?: string;
+  madid?: string;
+  value?: number;
+  currency?: string;
+  order_id?: string;
+  contents?: Array<{ id?: string; quantity?: number; item_price?: number; delivery_category?: string }>;
+  num_items?: number;
+  predicted_ltv?: number;
+  status?: string;
+  lead_id?: string;
+  search_string?: string;
+  content_ids?: string[];
+  content_type?: string;
 }
 
 const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
@@ -92,6 +109,18 @@ function normalizeTextForMeta(value: string): string {
 
 function normalizeLocationForMeta(value: string): string {
   return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
+}
+function normalizeGender(value: string | undefined): 'm' | 'f' | undefined {
+  const raw = (value || '').trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'm' || raw === 'male' || raw === 'man' || raw === 'м' || raw === 'муж') return 'm';
+  if (raw === 'f' || raw === 'female' || raw === 'woman' || raw === 'ж' || raw === 'жен') return 'f';
+  return undefined;
+}
+function normalizeDobPart(value: string | undefined, len: 2 | 4): string | undefined {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return undefined;
+  return digits.slice(0, len).padStart(len, '0');
 }
 
 function createFbcFromFbclid(fbclid: string | undefined, eventTime: number): string | undefined {
@@ -166,6 +195,23 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     consent_region: sanitizeText(payload.consent_region || '', 40),
     consent_timestamp: sanitizeNumber(payload.consent_timestamp),
     marketing_consent: payload.marketing_consent === true,
+    zp: sanitizeText(payload.zp || '', 40),
+    ge: normalizeGender(payload.ge),
+    dobd: normalizeDobPart(payload.dobd, 2),
+    dobm: normalizeDobPart(payload.dobm, 2),
+    doby: normalizeDobPart(payload.doby, 4),
+    madid: sanitizeText(payload.madid || '', 128),
+    value: sanitizeNumber(payload.value),
+    currency: sanitizeText(payload.currency || '', 8).toUpperCase(),
+    order_id: sanitizeText(payload.order_id || '', 128),
+    contents: Array.isArray(payload.contents) ? payload.contents.slice(0, 50) : undefined,
+    num_items: sanitizeNumber(payload.num_items) ?? (Array.isArray(payload.contents) ? payload.contents.length : undefined),
+    predicted_ltv: sanitizeNumber(payload.predicted_ltv),
+    status: sanitizeText(payload.status || '', 80),
+    lead_id: sanitizeText(payload.lead_id || '', 128),
+    search_string: sanitizeText(payload.search_string || '', 500),
+    content_type: sanitizeText(payload.content_type || '', 80),
+    content_ids: Array.isArray(payload.content_ids) ? payload.content_ids.map((x) => sanitizeText(String(x || ''), 120)).filter(Boolean).slice(0, 20) : undefined,
   };
 }
 
@@ -379,7 +425,7 @@ async function sendMetaConversionEvent(
   const lastName = nameParts.slice(1).join(' ') || '';
 
   const externalIdSeed = buildExternalIdSeed(payload, fbp);
-  const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion, hashedExternalId] = await Promise.all([
+  const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion, hashedExternalId, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([
     payload.email ? sha256Normalized(normalizeEmailForMeta(payload.email)) : undefined,
     payload.phone ? sha256Normalized(normalizePhoneForMeta(payload.phone)) : undefined,
     firstName ? sha256Normalized(normalizeTextForMeta(firstName)) : undefined,
@@ -388,6 +434,12 @@ async function sendMetaConversionEvent(
     ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
     (ctx.regionCode || ctx.region) ? sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || '')) : undefined,
     externalIdSeed ? sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined,
+    payload.zp ? sha256Normalized(normalizeLocationForMeta(payload.zp)) : undefined,
+    payload.dobd ? sha256Normalized(payload.dobd) : undefined,
+    payload.dobm ? sha256Normalized(payload.dobm) : undefined,
+    payload.doby ? sha256Normalized(payload.doby) : undefined,
+    payload.ge ? sha256Normalized(payload.ge) : undefined,
+    payload.madid ? sha256Normalized(normalizeTextForMeta(payload.madid)) : undefined,
   ]);
 
   const event = {
@@ -407,8 +459,15 @@ async function sendMetaConversionEvent(
       country: hashedCountry ? [hashedCountry] : undefined,
       ct: hashedCity ? [hashedCity] : undefined,
       st: hashedRegion ? [hashedRegion] : undefined,
+      zp: hashedZip ? [hashedZip] : undefined,
+      dobd: hashedDobd ? [hashedDobd] : undefined,
+      dobm: hashedDobm ? [hashedDobm] : undefined,
+      doby: hashedDoby ? [hashedDoby] : undefined,
+      ge: hashedGe ? [hashedGe] : undefined,
+      madid: hashedMadid ? [hashedMadid] : undefined,
       external_id: hashedExternalId ? [hashedExternalId] : undefined,
     },
+    opt_out: payload.marketing_consent === false,
     custom_data: {
       budget: payload.budget,
       contact_method: payload.contactMethod,
@@ -445,6 +504,17 @@ async function sendMetaConversionEvent(
       last_touch_at: payload.last_touch_at,
       session_id: payload.session_id,
       content_name: payload.page_title || payload.service,
+      content_type: payload.content_type || 'lead',
+      content_ids: payload.content_ids || (payload.service_slug ? [payload.service_slug] : undefined),
+      value: payload.value,
+      currency: payload.currency || undefined,
+      order_id: payload.order_id || undefined,
+      contents: payload.contents,
+      num_items: payload.num_items,
+      search_string: payload.search_string || undefined,
+      predicted_ltv: payload.predicted_ltv,
+      status: payload.status || undefined,
+      lead_id: payload.lead_id || undefined,
       page_title: payload.page_title,
       page_location: payload.page_location || payload.page_url,
       page_path: payload.page_path,

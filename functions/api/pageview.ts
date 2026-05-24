@@ -51,6 +51,22 @@ interface PageViewPayload {
   consent_region?: string;
   consent_timestamp?: number;
   marketing_consent?: boolean;
+  zp?: string;
+  ge?: 'm' | 'f';
+  dobd?: string;
+  dobm?: string;
+  doby?: string;
+  madid?: string;
+  lead_id?: string;
+  content_type?: string;
+  content_ids?: string[];
+  value?: number;
+  currency?: string;
+  order_id?: string;
+  num_items?: number;
+  predicted_ltv?: number;
+  status?: string;
+  search_string?: string;
 }
 
 function sanitizeText(value: string, max: number): string {
@@ -59,6 +75,23 @@ function sanitizeText(value: string, max: number): string {
 
 function sanitizeNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+function sanitizeTextArray(value: unknown, maxItems: number, maxTextLength: number): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.map((item) => sanitizeText(String(item || ''), maxTextLength)).filter(Boolean).slice(0, maxItems);
+  return items.length ? items : undefined;
+}
+function normalizeGender(value: string | undefined): 'm' | 'f' | undefined {
+  const raw = (value || '').trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'm' || raw === 'male' || raw === 'man' || raw === 'м' || raw === 'муж') return 'm';
+  if (raw === 'f' || raw === 'female' || raw === 'woman' || raw === 'ж' || raw === 'жен') return 'f';
+  return undefined;
+}
+function normalizeDobPart(value: string | undefined, len: 2 | 4): string | undefined {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return undefined;
+  return digits.slice(0, len).padStart(len, '0');
 }
 
 function normalizeTextForMeta(value: string): string {
@@ -128,6 +161,22 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
     consent_region: sanitizeText(payload.consent_region || '', 40),
     consent_timestamp: sanitizeNumber(payload.consent_timestamp),
     marketing_consent: payload.marketing_consent === true,
+    zp: sanitizeText(payload.zp || '', 40),
+    ge: normalizeGender(payload.ge),
+    dobd: normalizeDobPart(payload.dobd, 2),
+    dobm: normalizeDobPart(payload.dobm, 2),
+    doby: normalizeDobPart(payload.doby, 4),
+    madid: sanitizeText(payload.madid || '', 128),
+    lead_id: sanitizeText(payload.lead_id || '', 128),
+    content_type: sanitizeText(payload.content_type || '', 80),
+    content_ids: sanitizeTextArray(payload.content_ids, 20, 120),
+    value: sanitizeNumber(payload.value),
+    currency: sanitizeText(payload.currency || '', 8).toUpperCase(),
+    order_id: sanitizeText(payload.order_id || '', 128),
+    num_items: sanitizeNumber(payload.num_items),
+    predicted_ltv: sanitizeNumber(payload.predicted_ltv),
+    status: sanitizeText(payload.status || '', 80),
+    search_string: sanitizeText(payload.search_string || '', 500),
   };
 }
 
@@ -346,12 +395,18 @@ async function sendMetaPageView(
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
   const externalIdSeed = buildExternalIdSeed(payload, fbp);
-  const hashedExternalId = externalIdSeed ? await sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined;
-  const hashedCountry = ctx.country ? await sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined;
-  const hashedCity = ctx.city ? await sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined;
-  const hashedRegion = (ctx.regionCode || ctx.region)
-    ? await sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || ''))
-    : undefined;
+  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([
+    externalIdSeed ? sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined,
+    ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
+    ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
+    (ctx.regionCode || ctx.region) ? sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || '')) : undefined,
+    payload.zp ? sha256Normalized(normalizeLocationForMeta(payload.zp)) : undefined,
+    payload.dobd ? sha256Normalized(payload.dobd) : undefined,
+    payload.dobm ? sha256Normalized(payload.dobm) : undefined,
+    payload.doby ? sha256Normalized(payload.doby) : undefined,
+    payload.ge ? sha256Normalized(payload.ge) : undefined,
+    payload.madid ? sha256Normalized(normalizeTextForMeta(payload.madid)) : undefined,
+  ]);
 
   const event = {
     event_name: 'PageView',
@@ -371,7 +426,14 @@ async function sendMetaPageView(
       country: hashedCountry ? [hashedCountry] : undefined,
       ct: hashedCity ? [hashedCity] : undefined,
       st: hashedRegion ? [hashedRegion] : undefined,
+      zp: hashedZip ? [hashedZip] : undefined,
+      dobd: hashedDobd ? [hashedDobd] : undefined,
+      dobm: hashedDobm ? [hashedDobm] : undefined,
+      doby: hashedDoby ? [hashedDoby] : undefined,
+      ge: hashedGe ? [hashedGe] : undefined,
+      madid: hashedMadid ? [hashedMadid] : undefined,
     },
+    opt_out: payload.marketing_consent === false,
     custom_data: {
       country: ctx.country,
       city: ctx.city,
@@ -398,6 +460,16 @@ async function sendMetaPageView(
       last_touch_at: payload.last_touch_at,
       session_id: payload.session_id,
       content_name: payload.page_title,
+      content_type: payload.content_type || 'page',
+      content_ids: payload.content_ids,
+      value: payload.value,
+      currency: payload.currency || undefined,
+      order_id: payload.order_id || undefined,
+      num_items: payload.num_items,
+      predicted_ltv: payload.predicted_ltv,
+      status: payload.status || undefined,
+      search_string: payload.search_string || undefined,
+      lead_id: payload.lead_id || undefined,
       page_title: payload.page_title,
       page_location: payload.page_location || payload.page_url,
       page_path: payload.page_path,
