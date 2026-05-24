@@ -100,6 +100,7 @@ function ContactForm() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
   const selectedPhoneOption = COUNTRY_PHONE_OPTIONS.find((option) => option.dial === phoneCode);
+  const selectedPhoneFlag = selectedPhoneOption?.label.split(' ')[0] ?? '';
   const selectedPhoneCodeLabel = selectedPhoneOption ? `${selectedPhoneOption.code} ${selectedPhoneOption.dial}` : phoneCode;
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
@@ -414,7 +415,8 @@ function ContactForm() {
                             aria-label="Код страны"
                             className="h-10 rounded-lg border-border/40 bg-background/70 text-xs sm:text-sm font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25"
                           >
-                            <span className="truncate">{selectedPhoneCodeLabel}</span>
+                            <span className="truncate sm:hidden">{selectedPhoneFlag ? `${selectedPhoneFlag} ${phoneCode}` : phoneCode}</span>
+                            <span className="hidden truncate sm:inline">{selectedPhoneCodeLabel}</span>
                           </SelectTrigger>
                           <SelectContent className="max-h-80 rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
                             {COUNTRY_PHONE_OPTIONS.map((option) => (
