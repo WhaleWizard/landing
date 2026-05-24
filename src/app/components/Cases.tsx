@@ -232,7 +232,7 @@ function Cases() {
               <div className="p-5 md:p-6 space-y-4">
                 <h3 className="text-lg md:text-xl font-bold group-hover:text-primary transition-colors flex items-start justify-between">
                   {item.title}
-                  <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1" />
+                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1" />
                 </h3>
                 <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
                   {item.description}
