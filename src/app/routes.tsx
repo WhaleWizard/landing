@@ -27,7 +27,15 @@ function RouteErrorBoundary() {
   useEffect(() => {
     const msg = String(error?.message || '');
     if (msg.includes('Failed to fetch dynamically imported module')) {
-      const timer = window.setTimeout(() => window.location.reload(), 400);
+      const onceKey = 'ww_chunk_reload_once_v1';
+      const alreadyRetried = window.sessionStorage.getItem(onceKey) === '1';
+      const timer = window.setTimeout(() => {
+        if (alreadyRetried) return;
+        window.sessionStorage.setItem(onceKey, '1');
+        const url = new URL(window.location.href);
+        url.searchParams.set('_v', String(Date.now()));
+        window.location.replace(url.toString());
+      }, 400);
       return () => window.clearTimeout(timer);
     }
   }, [error]);
