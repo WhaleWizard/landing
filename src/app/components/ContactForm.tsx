@@ -452,7 +452,7 @@ function ContactForm() {
 
                     {/* Бюджет */}
                     <div>
-                      <label className="block text-sm mb-3 font-medium">Месячный бюджет</label>
+                      <p className="block text-sm mb-3 font-medium">Месячный бюджет</p>
                       <div className="grid grid-cols-2 gap-3">
                         {budgetOptions.map((option) => (
                           <motion.div
@@ -529,7 +529,7 @@ function ContactForm() {
 
                     {/* Способ связи */}
                     <div>
-                      <label className="block text-sm mb-2 font-medium">Предпочитаемый способ связи</label>
+                      <p className="block text-sm mb-2 font-medium">Предпочитаемый способ связи</p>
                       <div className="flex gap-3">
                         <button
                           type="button"
@@ -575,6 +575,7 @@ function ContactForm() {
                             </label>
                             <Input
                               id="telegram-username"
+                              name="telegram_username"
                               type="text"
                               value={telegramUsername}
                               onChange={handleSetTelegramUsername}
@@ -606,6 +607,7 @@ function ContactForm() {
                       <input
                         type="checkbox"
                         id="consent"
+                        name="consent"
                         checked={agreed}
                         onChange={(e) => setAgreed(e.target.checked)}
                         className="mt-1 w-4 h-4 text-primary bg-white border-border/70 rounded focus:ring-primary/20"

@@ -312,6 +312,7 @@ function LandingForm({
               {/* Honeypot */}
               <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
                 <input
+                  id="landing-hp-trap"
                   type="text"
                   name="hp_trap"
                   value={hpTrap}
@@ -395,10 +396,10 @@ function LandingForm({
 
                   {/* Budget Select */}
                   <div className="relative">
-                    <label className="block text-sm mb-2 font-medium flex items-center gap-2">
+                    <p className="block text-sm mb-2 font-medium flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-primary" />
                       Месячный бюджет
-                    </label>
+                    </p>
                     <div className="grid grid-cols-2 gap-2">
                       {budgetOptions.map((option) => (
                         <motion.button
@@ -483,7 +484,7 @@ function LandingForm({
                 >
                   {agreed && <CheckCircle2 className="w-3 h-3 text-white" />}
                 </button>
-                <label className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   Я согласен с{' '}
                   <a href="/privacy-policy" className="text-primary hover:underline">
                     политикой конфиденциальности
@@ -492,7 +493,7 @@ function LandingForm({
                   <a href="/offer" className="text-primary hover:underline">
                     публичной офертой
                   </a>
-                </label>
+                </p>
               </div>
 
               {/* Submit */}
