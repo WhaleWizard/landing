@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
@@ -103,6 +102,9 @@ function LandingForm({
   const [agreed, setAgreed] = useState(false);
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
+  const selectedPhoneOption = COUNTRY_PHONE_OPTIONS.find((option) => option.dial === phoneCode);
+  const selectedPhoneFlag = selectedPhoneOption?.label.split(' ')[0] ?? '';
+  const selectedPhoneCodeLabel = selectedPhoneOption ? `${selectedPhoneOption.code} ${selectedPhoneOption.dial}` : phoneCode;
 
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
@@ -333,13 +335,14 @@ function LandingForm({
                   Телефон / WhatsApp *
                 </label>
                 <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
-                  <div className="w-[160px] sm:w-[210px]">
+                  <div className="w-[170px] sm:w-[220px] shrink-0">
                     <Select value={phoneCode} onValueChange={setPhoneCode}>
                       <SelectTrigger
                         aria-label="Код страны"
                         className="h-10 rounded-lg border-border/40 bg-background/70 text-xs sm:text-sm font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25"
                       >
-                        <SelectValue />
+                        <span className="truncate sm:hidden">{selectedPhoneFlag ? `${selectedPhoneFlag} ${phoneCode}` : phoneCode}</span>
+                        <span className="hidden truncate sm:inline">{selectedPhoneCodeLabel}</span>
                       </SelectTrigger>
                       <SelectContent className="max-h-80 rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
                         {COUNTRY_PHONE_OPTIONS.map((option) => (
@@ -469,7 +472,7 @@ function LandingForm({
                   className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                     agreed
                       ? 'bg-primary border-primary'
-                      : 'border-border/50 hover:border-primary/50'
+                      : 'border-border/70 bg-white hover:border-primary/50'
                   }`}
                 >
                   {agreed && <CheckCircle2 className="w-3 h-3 text-white" />}
