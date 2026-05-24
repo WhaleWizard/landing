@@ -84,6 +84,8 @@ export const router = createBrowserRouter([
       { path: 'thank-you', element: <LazyWrapper><ThankYou /></LazyWrapper> },
       { path: 'blog', element: <LazyWrapper><BlogPage /></LazyWrapper> },
       { path: 'blog/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
+      { path: 'cases', element: <LazyWrapper><BlogPage /></LazyWrapper> },
+      { path: 'cases/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
       { path: 'admin', element: <LazyWrapper><Admin /></LazyWrapper> },
       { path: 'privacy-policy', element: <LazyWrapper><PrivacyPolicy /></LazyWrapper> },
       { path: 'offer', element: <LazyWrapper><Offer /></LazyWrapper> },
