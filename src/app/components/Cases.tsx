@@ -1,5 +1,5 @@
 import { motion, useInView } from 'motion/react';
-import { ArrowRight, ArrowUpRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
@@ -149,6 +149,7 @@ function Cases() {
             Конкретные результаты, подтверждённые цифрами и аналитикой. Больше кейсов и подробный разбор можете найти в блоге или в соц. сетях
           </p>
         </motion.div>
+
         {/* Desktop Grid */}
         <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {casesData.map((item, index) => (
