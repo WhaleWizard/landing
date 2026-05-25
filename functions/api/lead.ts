@@ -333,6 +333,13 @@ function classifyProblemCategory(problem: string | undefined): string | undefine
   return 'other';
 }
 
+function isAllowedLeadBudget(value: string | undefined): string | undefined {
+  const normalized = (value || '').trim();
+  if (!normalized) return undefined;
+  const allowed = new Set(['до $1000', '$1к-10к', '$10к-100к', '$100к+']);
+  return allowed.has(normalized) ? normalized : undefined;
+}
+
 
 function normalizePagePath(value: string | undefined): string | undefined {
   if (!value) return undefined;
