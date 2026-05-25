@@ -487,8 +487,8 @@ async function sendMetaConversionEvent(
     },
     opt_out: payload.marketing_consent === false,
     custom_data: {
-      // Keep only coarse predefined buckets; do not send arbitrary financial details.
-      budget_bucket: isAllowedLeadBudget(payload.budget),
+      // Do not send budget-like financial details in Lead custom_data.
+      budget_bucket: undefined,
       contact_method: payload.contactMethod,
       service: payload.service, ...getLeadDiagnosticsContext(payload),
       service_slug: payload.service_slug,
