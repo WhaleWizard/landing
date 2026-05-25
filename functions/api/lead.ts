@@ -333,6 +333,13 @@ function classifyProblemCategory(problem: string | undefined): string | undefine
   return 'other';
 }
 
+function isAllowedLeadBudget(value: string | undefined): string | undefined {
+  const normalized = (value || '').trim();
+  if (!normalized) return undefined;
+  const allowed = new Set(['до $1000', '$1к-10к', '$10к-100к', '$100к+']);
+  return allowed.has(normalized) ? normalized : undefined;
+}
+
 
 function normalizePagePath(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -480,7 +487,8 @@ async function sendMetaConversionEvent(
     },
     opt_out: payload.marketing_consent === false,
     custom_data: {
-      budget: payload.budget,
+      // Keep only coarse predefined buckets; do not send arbitrary financial details.
+      budget_bucket: isAllowedLeadBudget(payload.budget),
       contact_method: payload.contactMethod,
       service: payload.service, ...getLeadDiagnosticsContext(payload),
       service_slug: payload.service_slug,
@@ -488,8 +496,9 @@ async function sendMetaConversionEvent(
       form_variant: payload.form_variant,
       lead_source_page: payload.lead_source_page,
       website_domain: payload.website_domain,
-      experience_level: payload.experience,
-      problem_category: classifyProblemCategory(payload.problem),
+      // Avoid forwarding fields derived from free-text lead answers to Meta Lead.
+      experience_level: undefined,
+      problem_category: undefined,
       country: ctx.country,
       city: ctx.city,
       region: ctx.region,
