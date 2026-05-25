@@ -203,7 +203,6 @@ function LandingForm({
         setAgreed(false);
         trackLead(eventId, {
           ...metaBrowserContext,
-          budget: formData.budget || undefined,
           contact_method: contactPayload.contactMethod,
           phone_collected: Boolean(phone),
           service: serviceLabels[service],

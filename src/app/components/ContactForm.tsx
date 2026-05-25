@@ -199,7 +199,6 @@ function ContactForm() {
         setAgreed(false);
         trackLead(eventId, {
           ...metaBrowserContext,
-          budget: formData.budget || undefined,
           contact_method: contactMethod,
           service: 'WhaleWzrd main landing',
           service_slug: 'home',
