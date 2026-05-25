@@ -230,7 +230,9 @@ function shouldUseTagManagerForAnalytics(): boolean {
   const mode = env('VITE_ANALYTICS_RUNTIME').toLowerCase();
   if (mode === 'direct') return false;
   if (mode === 'gtm') return true;
-  return true;
+  // Default to direct mode so GA4 + Yandex work out-of-the-box even when GTM
+  // container does not contain matching tags/triggers in production.
+  return false;
 }
 
 export async function ensureAnalyticsLoaded(): Promise<void> {
