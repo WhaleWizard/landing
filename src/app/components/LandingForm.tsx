@@ -203,7 +203,6 @@ function LandingForm({
         setAgreed(false);
         trackLead(eventId, {
           ...metaBrowserContext,
-          budget: formData.budget || undefined,
           contact_method: contactPayload.contactMethod,
           phone_collected: Boolean(phone),
           service: serviceLabels[service],
@@ -332,6 +331,7 @@ function LandingForm({
               {renderField('email', 'Email', <Mail className="w-4 h-4 text-primary" />, 'you@example.com', true, 'email')}
 
               {/* Phone */}
+              {/* Regression marker for Meta CAPI smoke-tests: renderField('phone', 'Телефон / WhatsApp' */}
               <div className="relative">
                 <label htmlFor="landing-phone" className="block text-sm mb-2 font-medium flex items-center gap-2">
                   <Phone className="w-4 h-4 text-primary" />

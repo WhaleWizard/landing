@@ -346,6 +346,16 @@ function normalizePagePath(value: string | undefined): string | undefined {
   return path.length > 1 ? path.replace(/\/$/, '') : path;
 }
 
+function sanitizeUrlForMeta(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return undefined;
+  }
+}
+
 
 type MetaDataProcessingOptions = {
   data_processing_options?: string[];
@@ -503,16 +513,16 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       wbraid: payload.wbraid || ctx.wbraid,
       gbraid: payload.gbraid || ctx.gbraid,
       yclid: payload.yclid || ctx.yclid,
-      landing_page_url: payload.landing_page_url,
-      first_touch_url: payload.first_touch_url,
+      landing_page_url: sanitizeUrlForMeta(payload.landing_page_url),
+      first_touch_url: sanitizeUrlForMeta(payload.first_touch_url),
       first_touch_at: payload.first_touch_at,
-      last_touch_url: payload.last_touch_url,
+      last_touch_url: sanitizeUrlForMeta(payload.last_touch_url),
       last_touch_at: payload.last_touch_at,
       session_id: payload.session_id,
       page_title: payload.page_title,
-      page_location: payload.page_location || payload.page_url,
+      page_location: sanitizeUrlForMeta(payload.page_location || payload.page_url),
       page_path: payload.page_path,
-      referrer: payload.referrer,
+      referrer: sanitizeUrlForMeta(payload.referrer),
       browser_language: payload.browser_language,
       screen_width: payload.screen_width,
       screen_height: payload.screen_height,
