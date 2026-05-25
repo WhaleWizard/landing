@@ -180,6 +180,21 @@ const DEFAULT_GA_MEASUREMENT_ID = 'G-ZV18R9DLVC';
 const DEFAULT_YANDEX_METRIKA_ID = 108699980;
 const DEFAULT_META_PIXEL_ID = '926332213606723';
 
+type AnalyticsRuntimeStatus = {
+  runtime: 'gtm' | 'direct';
+  gaLoaded: boolean;
+  ymLoaded: boolean;
+  gtmLoaded: boolean;
+  gaId: string;
+  ymId: number | null;
+  gtmId: string;
+  updatedAt: string;
+};
+
+function setAnalyticsRuntimeStatus(status: AnalyticsRuntimeStatus): void {
+  (window as Window & { __wwAnalyticsRuntime?: AnalyticsRuntimeStatus }).__wwAnalyticsRuntime = status;
+}
+
 function appendExternalScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${src}"]`);
@@ -316,6 +331,17 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
       console.warn('[analytics] Yandex Metrika load failed', error);
     }
   }
+
+  setAnalyticsRuntimeStatus({
+    runtime: useTagManagerRuntime ? 'gtm' : 'direct',
+    gaLoaded,
+    ymLoaded,
+    gtmLoaded,
+    gaId,
+    ymId,
+    gtmId,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function ensureMarketingLoaded(): Promise<void> {
