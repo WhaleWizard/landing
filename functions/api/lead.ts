@@ -333,11 +333,28 @@ function classifyProblemCategory(problem: string | undefined): string | undefine
   return 'other';
 }
 
+function isAllowedLeadBudget(value: string | undefined): string | undefined {
+  const normalized = (value || '').trim();
+  if (!normalized) return undefined;
+  const allowed = new Set(['до $1000', '$1к-10к', '$10к-100к', '$100к+']);
+  return allowed.has(normalized) ? normalized : undefined;
+}
+
 
 function normalizePagePath(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const path = value.split('?')[0].split('#')[0] || '/';
   return path.length > 1 ? path.replace(/\/$/, '') : path;
+}
+
+function sanitizeUrlForMeta(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return undefined;
+  }
 }
 
 
@@ -401,6 +418,7 @@ async function sendMetaConversionEvent(
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
   const apiVersion = env.META_CAPI_API_VERSION || 'v25.0';
   const eventSourceUrl = payload.page_url || payload.page_location || request.headers.get('Referer') || request.url;
+  const sanitizedEventSourceUrl = sanitizeUrlForMeta(eventSourceUrl) || request.url;
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
@@ -469,7 +487,8 @@ async function sendMetaConversionEvent(
     },
     opt_out: payload.marketing_consent === false,
     custom_data: {
-      budget: payload.budget,
+      // Keep only coarse predefined buckets; do not send arbitrary financial details.
+      budget_bucket: isAllowedLeadBudget(payload.budget),
       contact_method: payload.contactMethod,
       service: payload.service, ...getLeadDiagnosticsContext(payload),
       service_slug: payload.service_slug,
@@ -477,8 +496,9 @@ async function sendMetaConversionEvent(
       form_variant: payload.form_variant,
       lead_source_page: payload.lead_source_page,
       website_domain: payload.website_domain,
-      experience_level: payload.experience,
-      problem_category: classifyProblemCategory(payload.problem),
+      // Avoid forwarding fields derived from free-text lead answers to Meta Lead.
+      experience_level: undefined,
+      problem_category: undefined,
       country: ctx.country,
       city: ctx.city,
       region: ctx.region,
@@ -497,10 +517,10 @@ async function sendMetaConversionEvent(
       wbraid: payload.wbraid || ctx.wbraid,
       gbraid: payload.gbraid || ctx.gbraid,
       yclid: payload.yclid || ctx.yclid,
-      landing_page_url: payload.landing_page_url,
-      first_touch_url: payload.first_touch_url,
+      landing_page_url: sanitizeUrlForMeta(payload.landing_page_url),
+      first_touch_url: sanitizeUrlForMeta(payload.first_touch_url),
       first_touch_at: payload.first_touch_at,
-      last_touch_url: payload.last_touch_url,
+      last_touch_url: sanitizeUrlForMeta(payload.last_touch_url),
       last_touch_at: payload.last_touch_at,
       session_id: payload.session_id,
       content_name: payload.page_title || payload.service,
@@ -516,9 +536,9 @@ async function sendMetaConversionEvent(
       status: payload.status || undefined,
       lead_id: payload.lead_id || undefined,
       page_title: payload.page_title,
-      page_location: payload.page_location || payload.page_url,
+      page_location: sanitizeUrlForMeta(payload.page_location || payload.page_url),
       page_path: payload.page_path,
-      referrer: payload.referrer,
+      referrer: sanitizeUrlForMeta(payload.referrer),
       browser_language: payload.browser_language,
       screen_width: payload.screen_width,
       screen_height: payload.screen_height,
@@ -532,7 +552,7 @@ async function sendMetaConversionEvent(
       consent_region: payload.consent_region,
       consent_timestamp: payload.consent_timestamp,
     },
-    event_source_url: eventSourceUrl,
+    event_source_url: sanitizedEventSourceUrl,
     ...getMetaDataProcessingOptions(env),
   };
 
@@ -553,19 +573,19 @@ async function sendMetaConversionEvent(
 
     if (!response.ok) {
       const errorText = await response.text();
-      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
       await markMetaEventSent(env, 'Lead', payload.event_id);
-      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.log('[Meta CAPI] Lead server event sent successfully', {
         fbtrace_id: result?.fbtrace_id,
         events_received: result?.events_received,
       });
     }
   } catch (error) {
-    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending Lead event:', error);
   }
 }
