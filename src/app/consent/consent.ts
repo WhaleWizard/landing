@@ -1418,11 +1418,25 @@ export function trackLead(eventId?: string, eventData: Record<string, unknown> =
 
   if (!hasLeadMarketingConsent) return;
 
+  // Browser Pixel Lead payload should be minimal and must not contain raw
+  // customer identifiers. Matching is handled by Pixel init advanced matching
+  // and by hashed identifiers in server-side CAPI.
+  const browserLeadEventData = {
+    service: eventData.service,
+    service_slug: eventData.service_slug,
+    form_id: eventData.form_id,
+    form_variant: eventData.form_variant,
+    contact_method: eventData.contact_method,
+    page_path: eventData.page_path,
+    page_title: eventData.page_title,
+    page_location: eventData.page_location,
+  };
+
   // Передаём eventID 4-м аргументом fbq для дедупликации с серверным событием
   if (eventId) {
-    win.fbq?.('track', 'Lead', eventData, { eventID: eventId });
+    win.fbq?.('track', 'Lead', browserLeadEventData, { eventID: eventId });
   } else {
-    win.fbq?.('track', 'Lead', eventData);
+    win.fbq?.('track', 'Lead', browserLeadEventData);
   }
   win.ttq?.track?.('SubmitForm');
 }
