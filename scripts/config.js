@@ -28,6 +28,7 @@ export const STATIC_ROUTES = [
   '/meta-ads',
   '/google-ads',
   '/consult',
+  '/meta-apps',
   '/privacy-policy',
   '/offer',
   '/cookie-policy',
