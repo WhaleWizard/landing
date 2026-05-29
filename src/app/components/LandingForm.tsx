@@ -485,13 +485,13 @@ function LandingForm({
                   {agreed && <CheckCircle2 className="w-3 h-3 text-white" />}
                 </button>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Я согласен с{' '}
+                  Я даю согласие на обработку моих персональных данных для обработки заявки и обратной связи со мной в соответствии с{' '}
                   <a href="/privacy-policy" className="text-primary hover:underline">
-                    политикой конфиденциальности
+                    Политикой конфиденциальности и обработки персональных данных
                   </a>{' '}
-                  и{' '}
+                  и подтверждаю ознакомление с{' '}
                   <a href="/offer" className="text-primary hover:underline">
-                    публичной офертой
+                    Публичной офертой
                   </a>
                 </p>
               </div>
