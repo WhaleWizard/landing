@@ -4,6 +4,7 @@ import { motion, useInView } from 'motion/react';
 import {
   Send,
   CheckCircle2,
+  Check,
   Loader2,
   MessageCircle,
   Mail,
@@ -20,6 +21,9 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
+import Modal from './Modal';
+import PrivacyPolicyContent from './legal/PrivacyPolicyContent';
+import OfferContent from './legal/OfferContent';
 import { API_ROUTES } from '../config';
 import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
@@ -100,6 +104,8 @@ function LandingForm({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showOfferModal, setShowOfferModal] = useState(false);
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
   const selectedPhoneOption = COUNTRY_PHONE_OPTIONS.find((option) => option.dial === phoneCode);
@@ -476,23 +482,31 @@ function LandingForm({
                 <button
                   type="button"
                   onClick={() => setAgreed(!agreed)}
-                  className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                  className={`mt-0.5 h-5 w-5 shrink-0 aspect-square rounded-[4px] border-2 p-0 flex items-center justify-center transition-all ${
                     agreed
                       ? 'bg-primary border-primary'
                       : 'border-border/70 bg-white hover:border-primary/50'
                   }`}
                 >
-                  {agreed && <CheckCircle2 className="w-3 h-3 text-white" />}
+                  {agreed && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                 </button>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Я согласен с{' '}
-                  <a href="/privacy-policy" className="text-primary hover:underline">
-                    политикой конфиденциальности
-                  </a>{' '}
-                  и{' '}
-                  <a href="/offer" className="text-primary hover:underline">
-                    публичной офертой
-                  </a>
+                  Я даю согласие на обработку моих персональных данных для обработки заявки и обратной связи со мной в соответствии с{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowPrivacyModal(true)}
+                    className="text-primary hover:underline bg-transparent border-0 p-0 cursor-pointer text-left align-baseline"
+                  >
+                    Политикой конфиденциальности и обработки персональных данных
+                  </button>{' '}
+                  и подтверждаю ознакомление с{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowOfferModal(true)}
+                    className="text-primary hover:underline bg-transparent border-0 p-0 cursor-pointer text-left align-baseline"
+                  >
+                    Публичной офертой
+                  </button>
                 </p>
               </div>
 
@@ -518,6 +532,26 @@ function LandingForm({
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        title="Политика конфиденциальности и обработки персональных данных"
+        dialogClassName="max-w-4xl"
+        bodyClassName="prose prose-invert prose-sm max-w-none"
+      >
+        <PrivacyPolicyContent />
+      </Modal>
+
+      <Modal
+        isOpen={showOfferModal}
+        onClose={() => setShowOfferModal(false)}
+        title="Публичная оферта"
+        dialogClassName="max-w-4xl"
+        bodyClassName="prose prose-invert prose-sm max-w-none"
+      >
+        <OfferContent />
+      </Modal>
     </motion.div>
   );
 }
