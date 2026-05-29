@@ -1,5 +1,7 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import createDOMPurify from 'dompurify';
+import { parseHTML } from 'linkedom';
 import {
   DIST_DIR,
   BUILD_ARTICLES_PATH,
@@ -9,6 +11,43 @@ import {
 } from './config.js';
 
 const BUILD_DATE = new Date().toISOString().split('T')[0];
+
+const { window: sanitizerWindow } = parseHTML('<!doctype html><html><body></body></html>');
+const domPurify = createDOMPurify(sanitizerWindow);
+
+const ARTICLE_HTML_SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'hr',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li', 'strong', 'em', 'b', 'i',
+    'blockquote', 'pre', 'code',
+    'a', 'img', 'figure', 'figcaption',
+    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+    'details', 'summary', 'aside', 'section', 'div', 'span',
+    'video', 'source', 'iframe',
+    'button', 'form', 'input', 'label', 'textarea', 'select', 'option',
+    'svg', 'defs', 'linearGradient', 'stop', 'path',
+  ],
+  ALLOWED_ATTR: [
+    'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading',
+    'width', 'height', 'data-ww-block',
+    'id', 'role', 'aria-label',
+    'colspan', 'rowspan', 'scope',
+    'srcset', 'sizes',
+    'type', 'controls', 'autoplay', 'loop', 'muted', 'playsinline', 'poster', 'preload',
+    'name', 'value', 'placeholder', 'for', 'disabled', 'checked', 'selected',
+    'rows', 'cols', 'maxlength', 'minlength', 'min', 'max', 'step',
+    'method', 'action',
+    'allow', 'allowfullscreen', 'frameborder', 'sandbox', 'referrerpolicy',
+    'viewBox', 'preserveAspectRatio', 'd', 'fill', 'stroke', 'stroke-width',
+    'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
+  ],
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|ftp):\/\/|data:image\/)/i,
+};
+
+function sanitizeArticleHtml(html = '') {
+  return domPurify.sanitize(String(html || ''), ARTICLE_HTML_SANITIZE_CONFIG);
+}
 
 // Reads articles from build cache first, then local fallback for deterministic SEO output
 
@@ -438,7 +477,7 @@ ${articleItems}
           eyebrow: article.category,
           children: `        <p style="${generatedShellStyles.articleMeta}"><strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` · <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
         <section style="${generatedShellStyles.articleBody}">
-${article.content}
+${sanitizeArticleHtml(article.content)}
         </section>`,
         }),
       }),
