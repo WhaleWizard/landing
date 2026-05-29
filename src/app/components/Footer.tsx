@@ -4,6 +4,14 @@ import { memo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
 
+const footerHeadingClass = 'font-semibold mb-4 flex items-center gap-2';
+const footerListClass = 'space-y-2 text-sm font-semibold text-muted-foreground';
+const footerLinkClass = 'font-semibold hover:text-primary transition-colors';
+const footerContactLinkClass =
+  'flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors group';
+const footerLegalLinkClass =
+  'inline-flex h-5 items-center text-sm font-semibold leading-none hover:text-primary transition-colors relative group';
+
 function Footer() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,32 +79,32 @@ function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <h4 className="font-semibold mb-4 flex items-center gap-2">
+            <h4 className={footerHeadingClass}>
               Услуги
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
             </h4>
 
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <ul className={footerListClass}>
               <li>
-                <a href="/google-ads" className="hover:text-primary transition-colors">
+                <a href="/google-ads" className={footerLinkClass}>
                   Google Ads
                 </a>
               </li>
 
               <li>
-                <a href="/meta-ads" className="hover:text-primary transition-colors">
+                <a href="/meta-ads" className={footerLinkClass}>
                   Meta Ads (Facebook & Instagram)
                 </a>
               </li>
 
               <li>
-                <a href="/consult" className="hover:text-primary transition-colors">
+                <a href="/consult" className={footerLinkClass}>
                   Консультация
                 </a>
               </li>
 
               <li>
-                <a href="/meta-apps" className="hover:text-primary transition-colors">
+                <a href="/meta-apps" className={footerLinkClass}>
                   Meta Apps
                 </a>
               </li>
@@ -110,16 +118,16 @@ function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <h4 className="font-semibold mb-4 flex items-center gap-2">
+            <h4 className={footerHeadingClass}>
               Компания
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
             </h4>
 
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <ul className={footerListClass}>
               <li>
                 <button
                   onClick={() => scrollToSection('about')}
-                  className="hover:text-primary transition-colors"
+                  className={footerLinkClass}
                 >
                   Обо мне говорят
                 </button>
@@ -128,7 +136,7 @@ function Footer() {
               <li>
                 <button
                   onClick={() => scrollToSection('cases')}
-                  className="hover:text-primary transition-colors"
+                  className={footerLinkClass}
                 >
                   Кейсы
                 </button>
@@ -137,7 +145,7 @@ function Footer() {
               <li>
                 <button
                   onClick={() => navigate('/blog')}
-                  className="hover:text-primary transition-colors"
+                  className={footerLinkClass}
                 >
                   Блог
                 </button>
@@ -145,20 +153,20 @@ function Footer() {
               <li>
                 <button
                   onClick={() => navigate('/cases')}
-                  className="hover:text-primary transition-colors"
+                  className={footerLinkClass}
                 >
                   Кейсы статьи
                 </button>
               </li>
 
               <li>
-                <a href="/faq" className="hover:text-primary transition-colors">
+                <a href="/faq" className={footerLinkClass}>
                   FAQ
                 </a>
               </li>
 
               <li>
-                <a href="/marketing-glossary" className="hover:text-primary transition-colors">
+                <a href="/marketing-glossary" className={footerLinkClass}>
                   Словарь метрик
                 </a>
               </li>
@@ -166,7 +174,7 @@ function Footer() {
               <li>
                 <button
                   onClick={() => scrollToSection('social')}
-                  className="hover:text-primary transition-colors"
+                  className={footerLinkClass}
                 >
                   Контакты
                 </button>
@@ -182,7 +190,7 @@ function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <h4 className="font-semibold mb-4 flex items-center gap-2">
+            <h4 className={footerHeadingClass}>
               Контакты
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
             </h4>
@@ -192,7 +200,7 @@ function Footer() {
                 <a
                   href="mailto:whalewzrd@gmail.com"
                   onClick={() => trackContact('email', 'footer')}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
+                  className={footerContactLinkClass}
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Mail className="w-4 h-4" />
@@ -207,7 +215,7 @@ function Footer() {
                   onClick={() => trackContact('telegram', 'footer')}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
+                  className={footerContactLinkClass}
                 >
                   <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
                     <MessageSquare className="w-4 h-4" />
@@ -219,7 +227,7 @@ function Footer() {
               <li>
                 <button
                   onClick={() => scrollToSection('cases')}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
+                  className={footerContactLinkClass}
                 >
                   <div className="w-8 h-8 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
                     <ExternalLink className="w-4 h-4" />
@@ -247,26 +255,26 @@ function Footer() {
             </p>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 justify-center md:justify-end leading-none">
-              <a href="/privacy-policy" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+              <a href="/privacy-policy" className={footerLegalLinkClass}>
                 <span>Политика конфиденциальности и ПД</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
-              <a href="/offer" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+              <a href="/offer" className={footerLegalLinkClass}>
                 <span>Публичная оферта</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
-              <a href="/cookie-policy" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+              <a href="/cookie-policy" className={footerLegalLinkClass}>
                 <span>Политика Cookie</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
-              <a href="/faq" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+              <a href="/faq" className={footerLegalLinkClass}>
                 <span>FAQ</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
               <button
                 type="button"
                 onClick={openCookieSettings}
-                className="inline-flex h-5 items-center text-sm leading-none text-muted-foreground hover:text-primary transition-colors relative group text-left bg-transparent border-0 p-0 m-0 font-inherit appearance-none cursor-pointer"
+                className={`${footerLegalLinkClass} text-muted-foreground text-left bg-transparent border-0 p-0 m-0 appearance-none cursor-pointer`}
               >
                 <span>Настройки Cookie</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
