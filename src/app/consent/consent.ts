@@ -297,34 +297,38 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
 
   if (!useTagManagerRuntime && ymId && !ymLoaded) {
     try {
-      await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
       const win = window as Window & {
-        ym?: (...args: unknown[]) => void;
+        ym?: ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
         dataLayer?: unknown[];
         [key: `yaCounter${number}`]: unknown;
       };
       win.dataLayer = win.dataLayer || [];
 
       if (!win.ym) {
-        win.ym = (...args: unknown[]) => {
-          ((win as unknown as { yandex_metrika_calls?: unknown[][] }).yandex_metrika_calls ||= []).push(args);
-        };
+        const queuedYm = ((...args: unknown[]) => {
+          queuedYm.a = queuedYm.a || [];
+          queuedYm.a.push(args);
+        }) as ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
+        queuedYm.l = Date.now();
+        win.ym = queuedYm;
       }
+
+      await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
 
       const existingCounterKey = `yaCounter${ymId}` as const;
       const hasExistingCounter = typeof win[existingCounterKey] !== 'undefined';
 
       if (!hasExistingCounter) {
         win.ym(ymId, 'init', {
-        ssr: true,
-        webvisor: true,
-        clickmap: true,
-        ecommerce: 'dataLayer',
-        referrer: document.referrer,
-        url: location.href,
-        accurateTrackBounce: true,
-        trackLinks: true,
-      });
+          ssr: true,
+          webvisor: true,
+          clickmap: true,
+          ecommerce: 'dataLayer',
+          referrer: document.referrer,
+          url: location.href,
+          accurateTrackBounce: true,
+          trackLinks: true,
+        });
       }
       ymLoaded = true;
     } catch (error) {

@@ -4,18 +4,22 @@ import {
   BUILD_ARTICLES_PATH,
   LOCAL_ARTICLES_PATH,
   JSONBIN_URL,
-  STRICT_FETCH,
   RETRIES,
   TIMEOUT_MS,
   buildJsonBinHeaders,
 } from './config.js';
 
-// Fallback chain: JSONBin -> previous build cache -> committed local fallback
-// Strict mode is opt-in to avoid failing deploys when JSONBin is temporarily unavailable.
-const CI_STRICT_FALLBACK =
-  process.env.CI === 'true' &&
-  process.env.REQUIRE_FRESH_ARTICLES === 'true' &&
-  process.env.ALLOW_FALLBACK_BUILD !== 'true';
+// Fallback chain: JSONBin -> previous build cache -> committed local fallback.
+// Production can require fresh JSONBin content without relying on provider-specific CI flags.
+const REQUIRE_FRESH_ARTICLES = process.env.REQUIRE_FRESH_ARTICLES === 'true' || process.env.STRICT_ARTICLES_FETCH === 'true';
+const ALLOW_FALLBACK_BUILD = process.env.ALLOW_FALLBACK_BUILD === 'true';
+const FAIL_ON_FALLBACK = REQUIRE_FRESH_ARTICLES && !ALLOW_FALLBACK_BUILD;
+
+function markFallbackBuildDisallowed() {
+  console.error('❌ Fresh article content is required, but JSONBin was unavailable.');
+  console.error('ℹ️ Keep REQUIRE_FRESH_ARTICLES=true for production. Set ALLOW_FALLBACK_BUILD=true only for an intentional emergency fallback deploy.');
+  process.exitCode = 1;
+}
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -110,10 +114,8 @@ async function main() {
       writeBuildArticles(previousBuildArticles, 'build-cache-fallback');
       console.warn('⚠️ JSONBin unavailable. Using previous build cache.');
       console.warn(error);
-      if (CI_STRICT_FALLBACK) {
-        console.error('❌ CI strict mode: fallback content is not allowed. Set ALLOW_FALLBACK_BUILD=true to override.');
-        console.error('ℹ️ To enforce fresh content explicitly, set REQUIRE_FRESH_ARTICLES=true in CI.');
-        process.exitCode = 1;
+      if (FAIL_ON_FALLBACK) {
+        markFallbackBuildDisallowed();
       }
       return;
     }
@@ -123,15 +125,13 @@ async function main() {
       writeBuildArticles(localFallbackArticles, 'local-fallback');
       console.warn('⚠️ JSONBin unavailable. Using local fallback data/articles.local.json');
       console.warn(error);
-      if (CI_STRICT_FALLBACK) {
-        console.error('❌ CI strict mode: fallback content is not allowed. Set ALLOW_FALLBACK_BUILD=true to override.');
-        console.error('ℹ️ To enforce fresh content explicitly, set REQUIRE_FRESH_ARTICLES=true in CI.');
-        process.exitCode = 1;
+      if (FAIL_ON_FALLBACK) {
+        markFallbackBuildDisallowed();
       }
       return;
     }
 
-    if (STRICT_FETCH) {
+    if (REQUIRE_FRESH_ARTICLES) {
       console.error('❌ JSONBin unavailable and no fallback source found.');
       console.error(error);
       process.exitCode = 1;

@@ -15,6 +15,9 @@ Set these environment variables in Cloudflare Pages project settings:
 - `JSONBIN_BIN_ID`
 - `JSONBIN_MASTER_KEY`
 - `JSONBIN_ACCESS_KEY` (optional)
+- `JSONBIN_URL` (optional override; defaults to `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`)
+- `REQUIRE_FRESH_ARTICLES` (`true` for production builds that must fail instead of silently deploying stale fallback articles)
+- `ALLOW_FALLBACK_BUILD` (`true` only for intentional emergency deploys when JSONBin is unavailable)
 - `JSONBIN_BACKUP_BIN_ID` (optional, second bin for fallback read/write)
 - `JSONBIN_BACKUP_MASTER_KEY` (optional, defaults to `JSONBIN_MASTER_KEY`)
 - `JSONBIN_BACKUP_ACCESS_KEY` (optional, defaults to `JSONBIN_ACCESS_KEY`)
@@ -29,6 +32,13 @@ Set these environment variables in Cloudflare Pages project settings:
 - `VITE_TIKTOK_PIXEL_ID` (optional, TikTok Pixel ID for client build)
 - `DB` (D1 binding, optional while migrating)
 - `USE_D1_ARTICLES` (`true` to read/write articles from D1, default `false`)
+
+
+## Article freshness guard for production deploys
+
+For production, keep `REQUIRE_FRESH_ARTICLES=true` so the build fails when JSONBin cannot be fetched. This prevents accidental deploys with stale `data/articles.build.json` or committed local fallback content.
+
+Use `ALLOW_FALLBACK_BUILD=true` only as a temporary emergency override when you intentionally want to deploy code while JSONBin is unavailable. Remove it after the emergency deploy so fresh content is required again.
 
 ## SEO endpoints
 
