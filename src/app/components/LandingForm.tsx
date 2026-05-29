@@ -4,6 +4,7 @@ import { motion, useInView } from 'motion/react';
 import {
   Send,
   CheckCircle2,
+  Check,
   Loader2,
   MessageCircle,
   Mail,
@@ -476,22 +477,22 @@ function LandingForm({
                 <button
                   type="button"
                   onClick={() => setAgreed(!agreed)}
-                  className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                  className={`mt-0.5 h-5 w-5 shrink-0 aspect-square rounded-[4px] border-2 p-0 flex items-center justify-center transition-all ${
                     agreed
                       ? 'bg-primary border-primary'
                       : 'border-border/70 bg-white hover:border-primary/50'
                   }`}
                 >
-                  {agreed && <CheckCircle2 className="w-3 h-3 text-white" />}
+                  {agreed && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                 </button>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Я согласен с{' '}
+                  Я даю согласие на обработку моих персональных данных для обработки заявки и обратной связи со мной в соответствии с{' '}
                   <a href="/privacy-policy" className="text-primary hover:underline">
-                    политикой конфиденциальности
+                    Политикой конфиденциальности и обработки персональных данных
                   </a>{' '}
-                  и{' '}
+                  и подтверждаю ознакомление с{' '}
                   <a href="/offer" className="text-primary hover:underline">
-                    публичной офертой
+                    Публичной офертой
                   </a>
                 </p>
               </div>
