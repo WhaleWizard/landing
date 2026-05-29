@@ -246,29 +246,29 @@ function Footer() {
               <span className="text-xs">Made with ❤️</span>
             </p>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center md:justify-end">
-              <a href="/privacy-policy" className="hover:text-primary transition-colors relative group">
-                Политика конфиденциальности и ПД
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 justify-center md:justify-end leading-none">
+              <a href="/privacy-policy" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+                <span>Политика конфиденциальности и ПД</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
-              <a href="/offer" className="hover:text-primary transition-colors relative group">
-                Публичная оферта
+              <a href="/offer" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+                <span>Публичная оферта</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
-              <a href="/cookie-policy" className="hover:text-primary transition-colors relative group">
-                Политика Cookie
+              <a href="/cookie-policy" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+                <span>Политика Cookie</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
-              <a href="/faq" className="hover:text-primary transition-colors relative group">
-                FAQ
+              <a href="/faq" className="inline-flex h-5 items-center text-sm leading-none hover:text-primary transition-colors relative group">
+                <span>FAQ</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
               <button
                 type="button"
                 onClick={openCookieSettings}
-                className="hover:text-primary transition-colors relative group text-left"
+                className="inline-flex h-5 items-center text-sm leading-none text-muted-foreground hover:text-primary transition-colors relative group text-left bg-transparent border-0 p-0 m-0 font-inherit appearance-none cursor-pointer"
               >
-                Настройки Cookie
+                <span>Настройки Cookie</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </button>
             </div>
