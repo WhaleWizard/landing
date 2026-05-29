@@ -248,7 +248,7 @@ function Footer() {
 
             <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center md:justify-end">
               <a href="/privacy-policy" className="hover:text-primary transition-colors relative group">
-                Политика конфиденциальности
+                Политика конфиденциальности и ПД
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </a>
               <a href="/offer" className="hover:text-primary transition-colors relative group">
