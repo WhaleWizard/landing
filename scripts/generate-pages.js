@@ -43,6 +43,13 @@ function xmlEscape(value = '') {
     .replace(/'/g, '&apos;');
 }
 
+function toAbsoluteUrl(value = '') {
+  const url = String(value || '').trim();
+  if (!url) return `${SITE_URL}/og-image.jpg`;
+  if (/^https?:\/\//i.test(url)) return url;
+  return url.startsWith('/') ? `${SITE_URL}${url}` : `${SITE_URL}/${url}`;
+}
+
 function toSafeSlug(rawSlug, fallback) {
   const normalized = String(rawSlug || fallback || '')
     .normalize('NFKD')
@@ -55,15 +62,47 @@ function toSafeSlug(rawSlug, fallback) {
   return normalized || fallback;
 }
 
-function getViteAssetLinks() {
+function readViteIndexHtml() {
   const indexPath = join(DIST_DIR, 'index.html');
-  if (!existsSync(indexPath)) return '';
+  if (!existsSync(indexPath)) {
+    throw new Error('dist/index.html is missing. Run vite build before generate:pages.');
+  }
 
-  const indexHtml = readFileSync(indexPath, 'utf8');
-  const css = [...indexHtml.matchAll(/<link[^>]+rel="stylesheet"[^>]*>/g)].map((m) => m[0]);
-  const scripts = [...indexHtml.matchAll(/<script[^>]+type="module"[^>]*><\/script>/g)].map((m) => m[0]);
+  return readFileSync(indexPath, 'utf8');
+}
 
-  return [...css, ...scripts].join('\n  ');
+function insertBeforeHeadClose(html, tag) {
+  if (!html.includes('</head>')) return `${tag}\n${html}`;
+  return html.replace('</head>', `  ${tag}\n</head>`);
+}
+
+function upsertTag(html, matcher, tag) {
+  if (matcher.test(html)) return html.replace(matcher, tag);
+  return insertBeforeHeadClose(html, tag);
+}
+
+function upsertNamedMeta(html, name, content) {
+  return upsertTag(
+    html,
+    new RegExp(`<meta\\s+[^>]*name=["']${name}["'][^>]*>`, 'i'),
+    `<meta name="${name}" content="${escapeHtml(content)}" />`,
+  );
+}
+
+function upsertPropertyMeta(html, property, content) {
+  return upsertTag(
+    html,
+    new RegExp(`<meta\\s+[^>]*property=["']${property}["'][^>]*>`, 'i'),
+    `<meta property="${property}" content="${escapeHtml(content)}" />`,
+  );
+}
+
+function upsertCanonical(html, canonicalUrl) {
+  return upsertTag(
+    html,
+    /<link\s+[^>]*rel=["']canonical["'][^>]*>/i,
+    `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`,
+  );
 }
 
 function readArticles(pathname) {
@@ -111,34 +150,36 @@ function normalizeArticles(rawArticles) {
   });
 }
 
-function htmlTemplate({ title, description, canonicalPath, bodyHtml, ogType = 'website', ogImage, assetLinks = '' }) {
+function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, ogType = 'website', ogImage, noIndex = false }) {
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
+  const imageUrl = toAbsoluteUrl(ogImage || '/og-image.jpg');
+  let html = baseHtml;
 
-  return `<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${escapeHtml(title)}</title>
-  <meta name="description" content="${escapeHtml(description)}" />
-  <meta property="og:title" content="${escapeHtml(title)}" />
-  <meta property="og:description" content="${escapeHtml(description)}" />
-  <meta property="og:type" content="${escapeHtml(ogType)}" />
-  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-  <meta property="og:image" content="${escapeHtml(ogImage || `${SITE_URL}/og-image.jpg`)}" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${escapeHtml(title)}" />
-  <meta name="twitter:description" content="${escapeHtml(description)}" />
-  <meta name="twitter:image" content="${escapeHtml(ogImage || `${SITE_URL}/og-image.jpg`)}" />
-  <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
-  ${assetLinks}
-</head>
-<body>
-  <div id="root">
-${bodyHtml}
-  </div>
-</body>
-</html>`;
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
+  html = upsertNamedMeta(html, 'description', description);
+  html = upsertNamedMeta(html, 'robots', noIndex ? 'noindex, nofollow, noarchive' : 'index, follow');
+  html = upsertPropertyMeta(html, 'og:title', title);
+  html = upsertPropertyMeta(html, 'og:description', description);
+  html = upsertPropertyMeta(html, 'og:type', ogType);
+  html = upsertPropertyMeta(html, 'og:url', canonicalUrl);
+  html = upsertPropertyMeta(html, 'og:image', imageUrl);
+  html = upsertPropertyMeta(html, 'og:site_name', 'Whale Wzrd');
+  html = upsertPropertyMeta(html, 'og:locale', 'ru_RU');
+  html = upsertNamedMeta(html, 'twitter:card', 'summary_large_image');
+  html = upsertNamedMeta(html, 'twitter:title', title);
+  html = upsertNamedMeta(html, 'twitter:description', description);
+  html = upsertNamedMeta(html, 'twitter:image', imageUrl);
+  html = upsertNamedMeta(html, 'twitter:url', canonicalUrl);
+  html = upsertCanonical(html, canonicalUrl);
+
+  const rootHtml = `  <div id="root">\n${bodyHtml}\n  </div>`;
+  if (/<div id="root"><\/div>/i.test(html)) {
+    html = html.replace(/<div id="root"><\/div>/i, rootHtml.trim());
+  } else {
+    html = html.replace(/<div id="root">[\s\S]*?<\/div>/i, rootHtml.trim());
+  }
+
+  return html;
 }
 
 function writeRoute(route, html) {
@@ -147,14 +188,93 @@ function writeRoute(route, html) {
   writeFileSync(join(dir, 'index.html'), html, 'utf8');
 }
 
-function renderStaticPages(assetLinks) {
+const generatedShellStyles = {
+  main: [
+    'min-height:100vh',
+    'box-sizing:border-box',
+    'display:grid',
+    'place-items:center',
+    'padding:48px 20px',
+    'background:radial-gradient(circle at 18% 18%, rgba(139,92,246,.30), transparent 34%),radial-gradient(circle at 82% 8%, rgba(56,189,248,.20), transparent 30%),linear-gradient(135deg,#07070e 0%,#101226 52%,#07070e 100%)',
+    'color:#f8fafc',
+    'font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+  ].join(';'),
+  card: [
+    'width:min(100%,860px)',
+    'box-sizing:border-box',
+    'border:1px solid rgba(255,255,255,.14)',
+    'border-radius:28px',
+    'padding:clamp(28px,5vw,56px)',
+    'background:linear-gradient(180deg,rgba(15,23,42,.78),rgba(15,23,42,.48))',
+    'box-shadow:0 30px 90px rgba(0,0,0,.38)',
+    'backdrop-filter:blur(18px)',
+  ].join(';'),
+  eyebrow: [
+    'display:inline-flex',
+    'align-items:center',
+    'gap:8px',
+    'margin:0 0 18px',
+    'padding:8px 12px',
+    'border-radius:999px',
+    'border:1px solid rgba(129,140,248,.38)',
+    'background:rgba(99,102,241,.14)',
+    'color:#c4b5fd',
+    'font-size:13px',
+    'font-weight:700',
+    'letter-spacing:.08em',
+    'text-transform:uppercase',
+  ].join(';'),
+  title: [
+    'margin:0',
+    'max-width:760px',
+    'font-size:clamp(34px,7vw,68px)',
+    'line-height:.96',
+    'letter-spacing:-.055em',
+    'font-weight:850',
+  ].join(';'),
+  lead: [
+    'margin:22px 0 0',
+    'max-width:680px',
+    'color:rgba(226,232,240,.78)',
+    'font-size:clamp(16px,2vw,20px)',
+    'line-height:1.7',
+  ].join(';'),
+  footer: [
+    'margin-top:32px',
+    'display:flex',
+    'align-items:center',
+    'gap:10px',
+    'color:rgba(148,163,184,.78)',
+    'font-size:13px',
+  ].join(';'),
+  dot: 'width:8px;height:8px;border-radius:999px;background:linear-gradient(135deg,#8b5cf6,#38bdf8);box-shadow:0 0 24px rgba(99,102,241,.9)',
+  list: 'display:grid;gap:14px;margin-top:28px',
+  item: 'display:block;text-decoration:none;color:#f8fafc;padding:16px 18px;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055)',
+  muted: 'display:block;margin-top:6px;color:rgba(203,213,225,.72);font-size:14px;line-height:1.55',
+  articleMeta: 'margin:18px 0 0;color:rgba(203,213,225,.74);font-size:14px;line-height:1.6',
+  articleBody: 'margin-top:34px;padding-top:28px;border-top:1px solid rgba(255,255,255,.12);color:rgba(226,232,240,.86);line-height:1.72;font-size:16px',
+};
+
+function renderGeneratedShell({ eyebrow = 'Whale Wzrd', title, lead, children = '' }) {
+  return `    <main style="${generatedShellStyles.main}">
+      <section style="${generatedShellStyles.card}">
+        <p style="${generatedShellStyles.eyebrow}">${escapeHtml(eyebrow)}</p>
+        <h1 style="${generatedShellStyles.title}">${escapeHtml(title)}</h1>
+        <p style="${generatedShellStyles.lead}">${escapeHtml(lead)}</p>
+${children}
+        <div style="${generatedShellStyles.footer}" aria-hidden="true"><span style="${generatedShellStyles.dot}"></span><span>Загружаем интерактивную версию сайта…</span></div>
+      </section>
+    </main>`;
+}
+
+function renderStaticPages(baseHtml) {
   const staticPages = [
     {
       route: '/',
-      title: 'Whale Wzrd | Performance-маркетинг',
-      description: 'Настройка и ведение рекламы в Google Ads и Meta Ads.',
-      h1: 'Performance-маркетинг',
-      lead: 'Запуск, оптимизация и масштабирование рекламных кампаний.',
+      title: 'Whale Wzrd | Performance-таргетолог',
+      description: 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.',
+      h1: 'Performance-таргетолог',
+      lead: 'Настраиваю и масштабирую рекламу в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
     },
     {
       route: '/calculator',
@@ -192,6 +312,13 @@ function renderStaticPages(assetLinks) {
       lead: 'Главная структура Whale Wzrd с услугами, кейсами, отзывами и заявкой на консультацию.',
     },
     {
+      route: '/meta-apps',
+      title: 'Трафик для приложений из Meta Ads (Facebook/Instagram) | Whale Wzrd',
+      description: 'Привлекаю установки и целевые события в мобильных приложениях через Meta Ads: стратегия, креативы, аналитика и масштабирование.',
+      h1: 'Трафик для приложений из Meta Ads',
+      lead: 'Страница услуги для app growth: установки, события, креативы, MMP/SKAN и масштабирование по KPI приложения.',
+    },
+    {
       route: '/faq',
       title: 'FAQ по рекламе | Whale Wzrd',
       description: 'Ответы по бюджетам, срокам, аналитике и масштабированию.',
@@ -226,6 +353,22 @@ function renderStaticPages(assetLinks) {
       h1: 'Политика cookie',
       lead: 'Правила использования cookie и аналитических технологий.',
     },
+    {
+      route: '/thank-you',
+      title: 'Спасибо за заявку | Whale Wzrd',
+      description: 'Страница подтверждения отправки заявки.',
+      h1: 'Спасибо за заявку',
+      lead: 'Заявка отправлена. Эта служебная страница закрыта от индексации.',
+      noIndex: true,
+    },
+    {
+      route: '/admin',
+      title: 'Admin | Whale Wzrd',
+      description: 'Служебная панель управления контентом.',
+      h1: 'Admin',
+      lead: 'Служебная панель управления контентом. Эта страница закрыта от индексации.',
+      noIndex: true,
+    },
   ];
 
   for (const page of staticPages) {
@@ -235,23 +378,25 @@ function renderStaticPages(assetLinks) {
         title: page.title,
         description: page.description,
         canonicalPath: page.route,
-        assetLinks,
-        bodyHtml: `    <main>
-      <h1>${escapeHtml(page.h1)}</h1>
-      <p>${escapeHtml(page.lead)}</p>
-    </main>`,
+        noIndex: Boolean(page.noIndex),
+        baseHtml,
+        bodyHtml: renderGeneratedShell({
+          title: page.h1,
+          lead: page.lead,
+          eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wzrd',
+        }),
       }),
     );
   }
 }
 
-function renderBlogPages(articles, assetLinks) {
+function renderBlogPages(articles, baseHtml) {
   const articleItems = articles
     .map(
-      (article) => `      <article>
-        <h2><a href="/blog/${article.slug}">${escapeHtml(article.title)}</a></h2>
-        <p>${escapeHtml(article.description)}</p>
-      </article>`,
+      (article) => `          <a href="/blog/${article.slug}" style="${generatedShellStyles.item}">
+            <strong>${escapeHtml(article.title)}</strong>
+            <span style="${generatedShellStyles.muted}">${escapeHtml(article.description)}</span>
+          </a>`,
     )
     .join('\n');
 
@@ -261,11 +406,17 @@ function renderBlogPages(articles, assetLinks) {
       title: 'Блог | Whale Wzrd',
       description: 'Статьи про маркетинг, рекламу и аналитику.',
       canonicalPath: '/blog',
-      assetLinks,
-      bodyHtml: `    <main>
-      <h1>Блог</h1>
-${articleItems || '      <p>Статьи скоро появятся.</p>'}
-    </main>`,
+      baseHtml,
+      bodyHtml: renderGeneratedShell({
+        title: 'Блог',
+        lead: 'Статьи про маркетинг, рекламу и аналитику.',
+        eyebrow: 'Материалы Whale Wzrd',
+        children: articleItems
+          ? `        <div style="${generatedShellStyles.list}">
+${articleItems}
+        </div>`
+          : `        <p style="${generatedShellStyles.lead}">Статьи скоро появятся.</p>`,
+      }),
     }),
   );
 
@@ -280,17 +431,16 @@ ${articleItems || '      <p>Статьи скоро появятся.</p>'}
         canonicalPath: path,
         ogType: 'article',
         ogImage: article.image,
-        assetLinks,
-        bodyHtml: `    <article>
-      <header>
-        <h1>${escapeHtml(article.title)}</h1>
-        <p>${escapeHtml(article.description)}</p>
-        <p><strong>Категория:</strong> ${escapeHtml(article.category)} | <strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` | <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
-      </header>
-      <section>
+        baseHtml,
+        bodyHtml: renderGeneratedShell({
+          title: article.title,
+          lead: article.description,
+          eyebrow: article.category,
+          children: `        <p style="${generatedShellStyles.articleMeta}"><strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` · <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
+        <section style="${generatedShellStyles.articleBody}">
 ${article.content}
-      </section>
-    </article>`,
+        </section>`,
+        }),
       }),
     );
   }
@@ -315,20 +465,68 @@ Sitemap: ${SITE_URL}/sitemap.xml
   writeFileSync(join(DIST_DIR, 'robots.txt'), robots, 'utf8');
 }
 
+function routeIndexPath(route) {
+  return route === '/' ? join(DIST_DIR, 'index.html') : join(DIST_DIR, route.replace(/^\//, ''), 'index.html');
+}
+
+function assertFileContains(pathname, markers, label) {
+  if (!existsSync(pathname)) throw new Error(`${label} is missing at ${pathname}`);
+  const html = readFileSync(pathname, 'utf8');
+  const missing = markers.filter((marker) => !html.includes(marker));
+  if (missing.length > 0) {
+    throw new Error(`${label} is missing required markers: ${missing.join(', ')}`);
+  }
+}
+
+function validateGeneratedOutput() {
+  assertFileContains(routeIndexPath('/'), [
+    'facebook-domain-verification',
+    'feed.xml',
+    'googletagmanager.com',
+    'mc.yandex.ru',
+    'connect.facebook.net',
+    '<div id="root"',
+    'type="module"',
+  ], 'Generated home HTML');
+
+  assertFileContains(routeIndexPath('/meta-apps'), [
+    'Трафик для приложений из Meta Ads',
+    `${SITE_URL}/meta-apps`,
+  ], 'Generated /meta-apps HTML');
+
+  assertFileContains(routeIndexPath('/thank-you'), [
+    'noindex, nofollow, noarchive',
+    `${SITE_URL}/thank-you`,
+  ], 'Generated /thank-you HTML');
+
+  assertFileContains(routeIndexPath('/admin'), [
+    'noindex, nofollow, noarchive',
+    `${SITE_URL}/admin`,
+  ], 'Generated /admin HTML');
+
+  assertFileContains(join(DIST_DIR, '_redirects'), [
+    '/og-image.jpg /images/meta.jpg 200',
+  ], 'Generated redirects');
+  if (!existsSync(join(DIST_DIR, 'images', 'meta.jpg'))) {
+    throw new Error('dist/images/meta.jpg is missing. OG image rewrite target is unavailable.');
+  }
+}
+
 function main() {
   ensureDir(DIST_DIR);
 
-  const assetLinks = getViteAssetLinks();
+  const baseHtml = readViteIndexHtml();
   const articles = normalizeArticles(loadArticles());
 
-  renderStaticPages(assetLinks);
-  renderBlogPages(articles, assetLinks);
+  renderStaticPages(baseHtml);
+  renderBlogPages(articles, baseHtml);
 
   const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
   const allRoutes = [...STATIC_ROUTES, ...articleRoutes];
 
   writeSitemap(allRoutes);
   writeRobots();
+  validateGeneratedOutput();
 
   console.log(`✅ Generated ${allRoutes.length} static routes`);
 }

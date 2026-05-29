@@ -952,6 +952,13 @@ const SERVICE_CONTENT: Record<string, MetaPageContent> = {
     content_type: 'service',
     content_ids: ['meta-ads'],
   },
+  '/meta-apps': {
+    service: 'Meta App Traffic',
+    content_name: 'Meta app growth landing',
+    content_category: 'mobile_app_growth_service',
+    content_type: 'service',
+    content_ids: ['meta-apps'],
+  },
   '/google-ads': {
     service: 'Google Ads',
     content_name: 'Google Ads audit landing',
