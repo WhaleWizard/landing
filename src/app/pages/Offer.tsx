@@ -38,7 +38,7 @@ export default function Offer() {
             <h1 className="text-4xl md:text-5xl font-bold">
               Публичная<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> оферта</span>
             </h1>
-            <p className="text-muted-foreground mt-4">Дата последнего обновления: 12 апреля 2026 г.</p>
+            <p className="text-muted-foreground mt-4">Дата последнего обновления: 29 мая 2026 г.</p>
           </motion.div>
 
           <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary max-w-none space-y-6">
