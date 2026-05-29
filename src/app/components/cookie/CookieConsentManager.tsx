@@ -54,17 +54,17 @@ function Preferences({
       <div className="rounded-xl border border-border/70 bg-background/70 p-3">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-semibold">Necessary</p>
-            <p className="text-muted-foreground text-xs">Всегда активны: базовая работа сайта.</p>
+            <p className="font-semibold">Необходимые cookie</p>
+            <p className="text-muted-foreground text-xs">Всегда активны: работа сайта, формы, безопасность и сохранение настроек.</p>
           </div>
-          <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">Always on</span>
+          <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">Всегда включены</span>
         </div>
       </div>
 
       <label className="rounded-xl border border-border/70 bg-background/70 p-3 flex items-start justify-between gap-4 cursor-pointer">
         <div>
-          <p className="font-semibold">Analytics</p>
-          <p className="text-muted-foreground text-xs">Google Analytics / Яндекс Метрика.</p>
+          <p className="font-semibold">Аналитика</p>
+          <p className="text-muted-foreground text-xs">Google Analytics / Яндекс Метрика: посещаемость, ошибки и улучшение сайта.</p>
         </div>
         <input
           type="checkbox"
@@ -76,8 +76,8 @@ function Preferences({
 
       <label className="rounded-xl border border-border/70 bg-background/70 p-3 flex items-start justify-between gap-4 cursor-pointer">
         <div>
-          <p className="font-semibold">Marketing</p>
-          <p className="text-muted-foreground text-xs">Meta Pixel / TikTok Pixel / Ads tags.</p>
+          <p className="font-semibold">Маркетинг и атрибуция</p>
+          <p className="text-muted-foreground text-xs">Meta Pixel / TikTok Pixel / Ads tags: оценка эффективности рекламы и заявок.</p>
         </div>
         <input
           type="checkbox"
@@ -93,13 +93,13 @@ function Preferences({
 function PolicyNotice() {
   return (
     <p className="mt-3 text-[11px] md:text-xs text-muted-foreground leading-relaxed">
-      Используя сайт, вы соглашаетесь с{' '}
+      Мы используем необходимые cookie для работы сайта, а аналитические и маркетинговые технологии — в соответствии с вашим выбором. Подробнее:{' '}
       <a className="underline decoration-dotted hover:text-primary" href="/privacy-policy">
-        Политикой конфиденциальности
+        Политика конфиденциальности и обработки персональных данных
       </a>{' '}
       и{' '}
       <a className="underline decoration-dotted hover:text-primary" href="/cookie-policy">
-        политикой cookie
+        Политика cookie
       </a>
       .
     </p>
@@ -196,7 +196,7 @@ export default function CookieConsentManager() {
   const panelTitle = mode === 'banner' ? 'Мы используем cookie' : 'Настройки cookie';
 
   const description = useMemo(
-    () => 'Нужны для аналитики, маркетинга и корректной работы сайта. Вы можете изменить выбор в любой момент.',
+    () => 'Необходимые cookie работают всегда. Аналитику и маркетинговые технологии можно принять, отклонить или настроить; выбор можно изменить в любой момент.',
     [],
   );
 
@@ -225,7 +225,7 @@ export default function CookieConsentManager() {
           className="fixed bottom-2 left-2 md:bottom-4 md:left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-2 py-1.5 md:px-3 md:py-2 text-[11px] md:text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
           aria-label="Открыть настройки cookie"
         >
-          Cookie settings
+          Настройки Cookie
         </button>
       </>
     );
