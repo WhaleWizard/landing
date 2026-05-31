@@ -127,7 +127,6 @@ function Cases() {
 
   return (
     <section
-      id="cases"
       ref={sectionRef}
       className="relative py-16 md:py-24 overflow-hidden bg-muted/30"
       style={{ contain: 'layout style paint' }}

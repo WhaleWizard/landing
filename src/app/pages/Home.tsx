@@ -18,12 +18,17 @@ function SectionSkeleton({ height = 'min-h-[180px]' }: { height?: string }) {
 function DeferredSection({
   children,
   height = 'min-h-[180px]',
+  id,
 }: {
   children: ReactNode;
   height?: string;
+  id?: string;
 }) {
   return (
-    <section style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 720px' }}>
+    <section
+      id={id}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 720px', scrollMarginTop: '80px' }}
+    >
       <Suspense fallback={<SectionSkeleton height={height} />}>{children}</Suspense>
     </section>
   );
@@ -34,21 +39,21 @@ export default function Home() {
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <Hero />
 
-      <DeferredSection><Services /></DeferredSection>
-      <DeferredSection><Cases /></DeferredSection>
+      <DeferredSection id="services"><Services /></DeferredSection>
+      <DeferredSection id="cases"><Cases /></DeferredSection>
       <DeferredSection><CallToAction /></DeferredSection>
-      <DeferredSection><Testimonials /></DeferredSection>
+      <DeferredSection id="about"><Testimonials /></DeferredSection>
       <DeferredSection><Blog /></DeferredSection>
 
-      <section className="w-full flex justify-center py-12 md:py-16">
+      <section id="social" className="w-full flex justify-center py-12 md:py-16 scroll-mt-20">
         <div className="relative">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 blur-3xl opacity-40" />
           <DeferredSection height="min-h-[80px]"><SocialBar /></DeferredSection>
         </div>
       </section>
 
-      <DeferredSection height="min-h-[120px]"><CalculatorButtons /></DeferredSection>
-      <DeferredSection height="min-h-[240px]"><ContactForm /></DeferredSection>
+      <DeferredSection id="calculator-section" height="min-h-[120px]"><CalculatorButtons /></DeferredSection>
+      <DeferredSection id="contact" height="min-h-[240px]"><ContactForm /></DeferredSection>
       <DeferredSection height="min-h-[160px]"><Footer /></DeferredSection>
     </main>
   );

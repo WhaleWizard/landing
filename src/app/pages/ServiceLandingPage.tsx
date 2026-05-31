@@ -184,12 +184,17 @@ function SectionSkeleton({ height = 'min-h-[180px]' }: { height?: string }) {
 function DeferredSection({
   children,
   height = 'min-h-[180px]',
+  id,
 }: {
   children: ReactNode;
   height?: string;
+  id?: string;
 }) {
   return (
-    <section style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 720px' }}>
+    <section
+      id={id}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 720px', scrollMarginTop: '80px' }}
+    >
       <Suspense fallback={<SectionSkeleton height={height} />}>{children}</Suspense>
     </section>
   );
@@ -316,10 +321,10 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
       <SEO {...config.seo} />
       <Hero />
 
-      <DeferredSection><Services /></DeferredSection>
-      <DeferredSection><Cases /></DeferredSection>
+      <DeferredSection id="services"><Services /></DeferredSection>
+      <DeferredSection id="cases"><Cases /></DeferredSection>
       <DeferredSection><CallToAction /></DeferredSection>
-      <DeferredSection><Testimonials /></DeferredSection>
+      <DeferredSection id="about"><Testimonials /></DeferredSection>
       <ContactSection service={service} contact={config.contact} theme={theme} />
       <DeferredSection height="min-h-[160px]"><Footer /></DeferredSection>
     </main>
