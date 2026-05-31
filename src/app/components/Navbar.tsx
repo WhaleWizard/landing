@@ -10,13 +10,23 @@ interface NavbarProps {
   variant?: NavbarVariant;
 }
 
-type NavItem = {
+type RouteNavItem = {
+  type: 'route';
   label: string;
   href: string;
-  sectionId?: string;
 };
 
+type SectionNavItem = {
+  type: 'section';
+  label: string;
+  sectionId: string;
+  targetPath: string;
+};
+
+type NavItem = RouteNavItem | SectionNavItem;
+
 const NAVBAR_OFFSET = 80;
+const PENDING_SCROLL_KEY = 'ww_pending_scroll_section';
 
 function isPlainLeftClick(event: MouseEvent<HTMLElement>) {
   return event.button === 0 && !event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey;
@@ -70,6 +80,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     const scrollNow = () => {
       const element = document.getElementById(id);
       if (!element) return false;
+
       const y = element.getBoundingClientRect().top + window.scrollY - NAVBAR_OFFSET;
       window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
       return true;
@@ -78,6 +89,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     const scrollWhenReady = (attempt = 0) => {
       if (scrollNow()) return;
       if (attempt >= 100) return;
+
       window.setTimeout(() => {
         scrollWhenReady(attempt + 1);
       }, 50);
@@ -86,36 +98,26 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     window.requestAnimationFrame(() => scrollWhenReady());
   }, []);
 
-  const buildSectionHref = useCallback((id: string) => {
-    const basePath = variant === 'service' ? location.pathname : '/';
-    return `${basePath}#${id}`;
-  }, [location.pathname, variant]);
+  const getSectionPath = useCallback(() => (variant === 'service' ? location.pathname : '/'), [location.pathname, variant]);
 
-  const navigateToHref = useCallback((href: string, sectionId?: string) => {
-    const targetUrl = new URL(href, window.location.origin);
-    const targetPath = `${targetUrl.pathname}${targetUrl.search}`;
-    const targetHash = targetUrl.hash;
-    const currentPath = `${location.pathname}${location.search}`;
-    const nextUrl = `${targetPath}${targetHash}`;
+  const currentPath = `${location.pathname}${location.search}`;
 
-    if (!sectionId) {
-      navigate(nextUrl);
-      return;
-    }
-
+  const navigateToSection = useCallback((sectionId: string, targetPath: string) => {
     if (targetPath === currentPath) {
-      if (window.location.hash !== targetHash) {
-        navigate(nextUrl, { replace: false });
-      }
       scrollToSection(sectionId);
       return;
     }
 
-    window.sessionStorage.setItem('ww_pending_scroll_section', sectionId);
-    navigate(nextUrl);
-  }, [location.pathname, location.search, navigate, scrollToSection]);
+    window.sessionStorage.setItem(PENDING_SCROLL_KEY, sectionId);
+    navigate(targetPath);
+  }, [currentPath, navigate, scrollToSection]);
 
-  const handleNavClick = useCallback((href: string, sectionId?: string) => (event: MouseEvent<HTMLElement>) => {
+  const navigateToRoute = useCallback((href: string) => {
+    window.sessionStorage.removeItem(PENDING_SCROLL_KEY);
+    navigate(href);
+  }, [navigate]);
+
+  const handleRouteClick = useCallback((href: string) => (event: MouseEvent<HTMLElement>) => {
     if (!isPlainLeftClick(event)) return;
 
     const targetUrl = new URL(href, window.location.origin);
@@ -135,30 +137,125 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
     if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
+      window.setTimeout(() => navigateToRoute(href), 120);
+      return;
+    }
+
+    navigateToRoute(href);
+  }, [isMobileMenuOpen, navigateToRoute]);
+
+  const handleSectionClick = useCallback((sectionId: string, targetPath: string) => (event: MouseEvent<HTMLElement>) => {
+    if (!isPlainLeftClick(event)) return;
+    event.preventDefault();
+
+    const runNavigation = () => navigateToSection(sectionId, targetPath);
+
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false);
       window.setTimeout(runNavigation, 120);
       return;
     }
 
     runNavigation();
-  }, [isMobileMenuOpen, navigateToHref]);
+  }, [isMobileMenuOpen, navigateToSection]);
+
+  const makeSectionItem = useCallback((label: string, sectionId: string): SectionNavItem => ({
+    type: 'section',
+    label,
+    sectionId,
+    targetPath: getSectionPath(),
+  }), [getSectionPath]);
 
   const navItems: NavItem[] = variant === 'service'
     ? [
-      { label: 'Услуги', href: buildSectionHref('services'), sectionId: 'services' },
-      { label: 'Кейсы', href: buildSectionHref('cases'), sectionId: 'cases' },
-      { label: 'Отзывы', href: buildSectionHref('about'), sectionId: 'about' },
+      makeSectionItem('Услуги', 'services'),
+      makeSectionItem('Кейсы', 'cases'),
+      makeSectionItem('Отзывы', 'about'),
     ]
     : [
-      { label: 'Услуги', href: buildSectionHref('services'), sectionId: 'services' },
-      { label: 'Кейсы', href: buildSectionHref('cases'), sectionId: 'cases' },
-      { label: 'Блог', href: '/blog' },
-      { label: 'FAQ', href: '/faq' },
-      { label: 'Контакты', href: buildSectionHref('social'), sectionId: 'social' },
-      { label: 'Калькулятор', href: buildSectionHref('calculator-section'), sectionId: 'calculator-section' },
+      makeSectionItem('Услуги', 'services'),
+      makeSectionItem('Кейсы', 'cases'),
+      { type: 'route', label: 'Блог', href: '/blog' },
+      { type: 'route', label: 'FAQ', href: '/faq' },
+      makeSectionItem('Контакты', 'social'),
+      makeSectionItem('Калькулятор', 'calculator-section'),
     ];
 
-  const logoHref = buildSectionHref('hero');
-  const contactHref = buildSectionHref('contact');
+  const logoItem = makeSectionItem('Whale Wzrd', 'hero');
+  const contactItem = makeSectionItem('Получить консультацию', 'contact');
+
+  const renderDesktopNavItem = (item: NavItem) => {
+    const className = 'relative text-foreground/80 hover:text-primary transition-colors group bg-transparent border-0 p-0 cursor-pointer';
+
+    if (item.type === 'route') {
+      return (
+        <motion.a
+          key={item.href}
+          href={item.href}
+          onClick={handleRouteClick(item.href)}
+          className={className}
+          whileHover={{ y: -2 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        >
+          {item.label}
+          <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
+        </motion.a>
+      );
+    }
+
+    return (
+      <motion.button
+        key={`${item.targetPath}:${item.sectionId}`}
+        type="button"
+        onClick={handleSectionClick(item.sectionId, item.targetPath)}
+        className={className}
+        whileHover={{ y: -2 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+      >
+        {item.label}
+        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
+      </motion.button>
+    );
+  };
+
+  const renderMobileNavItem = (item: NavItem, idx: number) => {
+    const className = 'text-2xl text-foreground/80 hover:text-primary transition-colors relative group bg-transparent border-0 p-0 cursor-pointer';
+    const motionProps = {
+      initial: { opacity: 0, y: 10 },
+      animate: { opacity: 1, y: 0 },
+      exit: { opacity: 0, y: 6 },
+      transition: { delay: idx * 0.03, duration: 0.18 },
+      whileHover: { scale: 1.05 },
+    };
+
+    if (item.type === 'route') {
+      return (
+        <motion.a
+          key={item.href}
+          href={item.href}
+          onClick={handleRouteClick(item.href)}
+          className={className}
+          {...motionProps}
+        >
+          {item.label}
+          <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
+        </motion.a>
+      );
+    }
+
+    return (
+      <motion.button
+        key={`${item.targetPath}:${item.sectionId}`}
+        type="button"
+        onClick={handleSectionClick(item.sectionId, item.targetPath)}
+        className={className}
+        {...motionProps}
+      >
+        {item.label}
+        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
+      </motion.button>
+    );
+  };
 
   return (
     <>
@@ -173,38 +270,25 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           <div className="flex items-center justify-between h-20">
             {/* Логотип */}
             <div className="flex-shrink-0">
-              <a
-                href={logoHref}
-                onClick={handleNavClick(logoHref, 'hero')}
-                className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+              <button
+                type="button"
+                onClick={handleSectionClick(logoItem.sectionId, logoItem.targetPath)}
+                className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity border-0 p-0 cursor-pointer"
               >
-                Whale Wzrd
-              </a>
+                {logoItem.label}
+              </button>
             </div>
 
             {/* Десктопное меню */}
             <div className="hidden md:flex items-center space-x-8">
-              {navItems.map((item) => (
-                <motion.a
-                  key={item.href}
-                  href={item.href}
-                  onClick={handleNavClick(item.href, item.sectionId)}
-                  className="relative text-foreground/80 hover:text-primary transition-colors group"
-                  whileHover={{ y: -2 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                >
-                  {item.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-                </motion.a>
-              ))}
+              {navItems.map(renderDesktopNavItem)}
               <Button
-                asChild
+                type="button"
+                onClick={handleSectionClick(contactItem.sectionId, contactItem.targetPath)}
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
-                <a href={contactHref} onClick={handleNavClick(contactHref, 'contact')}>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                  <span className="relative">Получить консультацию</span>
-                </a>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                <span className="relative">{contactItem.label}</span>
               </Button>
             </div>
 
@@ -244,22 +328,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
               className="relative h-full flex flex-col items-center justify-center space-y-8"
               onClick={(e) => e.stopPropagation()}
             >
-              {navItems.map((item, idx) => (
-                <motion.a
-                  key={item.href}
-                  href={item.href}
-                  onClick={handleNavClick(item.href, item.sectionId)}
-                  className="text-2xl text-foreground/80 hover:text-primary transition-colors relative group"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ delay: idx * 0.03, duration: 0.18 }}
-                  whileHover={{ scale: 1.05 }}
-                >
-                  {item.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-                </motion.a>
-              ))}
+              {navItems.map(renderMobileNavItem)}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -267,14 +336,13 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                 transition={{ delay: 0.14, duration: 0.18 }}
               >
                 <Button
-                  asChild
+                  type="button"
                   size="lg"
+                  onClick={handleSectionClick(contactItem.sectionId, contactItem.targetPath)}
                   className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
                 >
-                  <a href={contactHref} onClick={handleNavClick(contactHref, 'contact')}>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                    <span className="relative">Получить консультацию</span>
-                  </a>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                  <span className="relative">{contactItem.label}</span>
                 </Button>
               </motion.div>
             </motion.div>
