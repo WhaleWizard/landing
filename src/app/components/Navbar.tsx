@@ -71,19 +71,19 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       const element = document.getElementById(id);
       if (!element) return false;
       const y = element.getBoundingClientRect().top + window.scrollY - NAVBAR_OFFSET;
-      window.scrollTo({ top: y, behavior: 'smooth' });
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
       return true;
     };
 
     const scrollWhenReady = (attempt = 0) => {
       if (scrollNow()) return;
-      if (attempt >= 60) return;
+      if (attempt >= 100) return;
       window.setTimeout(() => {
         scrollWhenReady(attempt + 1);
-      }, 100);
+      }, 50);
     };
 
-    scrollWhenReady();
+    window.requestAnimationFrame(() => scrollWhenReady());
   }, []);
 
   const buildSectionHref = useCallback((id: string) => {
@@ -94,17 +94,26 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const navigateToHref = useCallback((href: string, sectionId?: string) => {
     const targetUrl = new URL(href, window.location.origin);
     const targetPath = `${targetUrl.pathname}${targetUrl.search}`;
+    const targetHash = targetUrl.hash;
+    const currentPath = `${location.pathname}${location.search}`;
+    const nextUrl = `${targetPath}${targetHash}`;
 
-    if (sectionId) {
-      if (window.location.hash !== targetUrl.hash) {
-        navigate(`${targetPath}${targetUrl.hash}`, { replace: false });
+    if (!sectionId) {
+      navigate(nextUrl);
+      return;
+    }
+
+    if (targetPath === currentPath) {
+      if (window.location.hash !== targetHash) {
+        navigate(nextUrl, { replace: false });
       }
       scrollToSection(sectionId);
       return;
     }
 
-    navigate(`${targetPath}${targetUrl.hash}`);
-  }, [navigate, scrollToSection]);
+    window.sessionStorage.setItem('ww_pending_scroll_section', sectionId);
+    navigate(nextUrl);
+  }, [location.pathname, location.search, navigate, scrollToSection]);
 
   const handleNavClick = useCallback((href: string, sectionId?: string) => (event: MouseEvent<HTMLElement>) => {
     if (!isPlainLeftClick(event)) return;
@@ -122,14 +131,16 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
     event.preventDefault();
 
+    const runNavigation = () => navigateToHref(href, sectionId);
+
     if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
-      window.setTimeout(() => navigateToHref(href, sectionId), 80);
+      window.setTimeout(runNavigation, 120);
       return;
     }
 
-    navigateToHref(href, sectionId);
-  }, [isMobileMenuOpen, location.pathname, location.search, navigateToHref]);
+    runNavigation();
+  }, [isMobileMenuOpen, navigateToHref]);
 
   const navItems: NavItem[] = variant === 'service'
     ? [
@@ -142,7 +153,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       { label: 'Кейсы', href: buildSectionHref('cases'), sectionId: 'cases' },
       { label: 'Блог', href: '/blog' },
       { label: 'FAQ', href: '/faq' },
-      { label: 'Контакты', href: buildSectionHref('contact'), sectionId: 'contact' },
+      { label: 'Контакты', href: buildSectionHref('social'), sectionId: 'social' },
       { label: 'Калькулятор', href: buildSectionHref('calculator-section'), sectionId: 'calculator-section' },
     ];
 

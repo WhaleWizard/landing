@@ -195,7 +195,15 @@ function DeferredSection({
   );
 }
 
-function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProps, 'service' | 'contact' | 'theme'>) {
+function ContactSection({
+  service,
+  contact,
+  theme,
+}: {
+  service: ServiceType;
+  contact: ServicePageConfig['contact'];
+  theme: LandingTheme;
+}) {
   return (
     <section id="contact" className="relative py-16 md:py-24 overflow-hidden">
       <div
