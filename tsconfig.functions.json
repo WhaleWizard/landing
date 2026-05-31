@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["DOM", "DOM.Iterable", "ES2021"],
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": false,
+    "noEmit": true,
+    "allowJs": false,
+    "isolatedModules": true
+  },
+  "include": ["functions/**/*.ts", "src/types/cloudflare-pages.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

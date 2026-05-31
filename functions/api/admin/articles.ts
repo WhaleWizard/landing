@@ -3,6 +3,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
 import { fetchArticlesFromD1, writeArticlesToD1 } from '../../_lib/d1';
+import { shouldUseD1Articles } from '../../_lib/articles';
 import { json } from '../../_lib/http';
 import type { Article, Env } from '../../_lib/types';
 
@@ -103,6 +104,7 @@ function isValidArticlePayload(article: Article): boolean {
   if ((article.tags || []).length > 20) return false;
   if ((article.keyTakeaways || []).length > 20) return false;
   if ((article.faq || []).length > 20) return false;
+  if (article.status && article.status !== 'draft' && article.status !== 'published') return false;
   return true;
 }
 
@@ -177,7 +179,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   }
 
   try {
-    const useD1 = Boolean(env.DB);
+    const useD1 = shouldUseD1Articles(env);
     const existing = useD1 ? await fetchArticlesFromD1(env) : await fetchArticlesFromJsonBin(env);
 
     if (existing.length > 0 && payload.articles.length === 0) {

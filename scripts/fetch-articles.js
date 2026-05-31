@@ -13,11 +13,14 @@ import {
 // Production can require fresh JSONBin content without relying on provider-specific CI flags.
 const REQUIRE_FRESH_ARTICLES = process.env.REQUIRE_FRESH_ARTICLES === 'true' || process.env.STRICT_ARTICLES_FETCH === 'true';
 const ALLOW_FALLBACK_BUILD = process.env.ALLOW_FALLBACK_BUILD === 'true';
-const FAIL_ON_FALLBACK = REQUIRE_FRESH_ARTICLES && !ALLOW_FALLBACK_BUILD;
+const USE_D1_ARTICLES = process.env.USE_D1_ARTICLES === 'true';
+// When D1 is the runtime source of truth, build-time JSONBin is only a static SEO fallback.
+// Runtime Pages Functions will read current articles from D1 after deploy.
+const FAIL_ON_FALLBACK = REQUIRE_FRESH_ARTICLES && !ALLOW_FALLBACK_BUILD && !USE_D1_ARTICLES;
 
 function markFallbackBuildDisallowed() {
   console.error('❌ Fresh article content is required, but JSONBin was unavailable.');
-  console.error('ℹ️ Keep REQUIRE_FRESH_ARTICLES=true for production. Set ALLOW_FALLBACK_BUILD=true only for an intentional emergency fallback deploy.');
+  console.error('ℹ️ Keep REQUIRE_FRESH_ARTICLES=true for JSONBin-backed production. D1-backed production can build from static fallback because runtime reads D1.');
   process.exitCode = 1;
 }
 

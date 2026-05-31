@@ -19,6 +19,7 @@ interface D1Row {
   summary: string | null;
   key_takeaways_json: string | null;
   faq_json: string | null;
+  status: string | null;
 }
 
 function hasD1(env: Env): boolean {
@@ -51,6 +52,10 @@ function parseFaq(value: string | null): Array<{ question: string; answer: strin
   }
 }
 
+function normalizeArticleStatus(value: string | null | undefined): Article['status'] {
+  return value === 'draft' ? 'draft' : 'published';
+}
+
 function mapRowToArticle(row: D1Row): Article {
   return {
     id: Number(row.id),
@@ -70,6 +75,7 @@ function mapRowToArticle(row: D1Row): Article {
     summary: row.summary || undefined,
     keyTakeaways: parseArray(row.key_takeaways_json),
     faq: parseFaq(row.faq_json),
+    status: normalizeArticleStatus(row.status),
   };
 }
 
@@ -103,8 +109,8 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
       env.DB.prepare(
         `INSERT INTO articles (
           id, slug, title, category, read_time, date, description, content, image,
-          seo_title, seo_description, published_at, updated_at, tags_json, summary, key_takeaways_json, faq_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          seo_title, seo_description, published_at, updated_at, tags_json, summary, key_takeaways_json, faq_json, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(slug) DO UPDATE SET
           id = excluded.id,
           title = excluded.title,
@@ -121,7 +127,8 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
           tags_json = excluded.tags_json,
           summary = excluded.summary,
           key_takeaways_json = excluded.key_takeaways_json,
-          faq_json = excluded.faq_json`
+          faq_json = excluded.faq_json,
+          status = excluded.status`
       ).bind(
         article.id,
         article.slug,
@@ -140,6 +147,7 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
         article.summary || '',
         JSON.stringify(article.keyTakeaways || []),
         JSON.stringify(article.faq || []),
+        normalizeArticleStatus(article.status),
       ),
     );
   }

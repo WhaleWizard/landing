@@ -601,7 +601,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const rawBody = await request.text();
   const signatureMode = getTrackingSignatureMode(env);
   const signature = await verifyTrackingSignature(request, env, rawBody);
-  if (!signature.ok && signatureMode === 'enforce') {
+  if (signature.ok === false && signatureMode === 'enforce') {
     return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 

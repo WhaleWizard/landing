@@ -1,5 +1,5 @@
 import { CACHE_CONTROL, matchCache, putCache } from '../_lib/cache';
-import { fetchArticlesWithFallback } from '../_lib/articles';
+import { fetchArticlesWithFallback, filterVisibleArticles } from '../_lib/articles';
 import { json } from '../_lib/http';
 import type { Env } from '../_lib/types';
 
@@ -19,12 +19,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   try {
     const now = new Date().toISOString();
     const allArticles = await fetchArticlesWithFallback(env, request);
-
-    const visibleArticles = allArticles.filter((article) => {
-      if (article.status === 'draft') return false;
-      if (article.publishedAt && article.publishedAt > now) return false;
-      return true;
-    });
+    const visibleArticles = filterVisibleArticles(allArticles, now);
     visibleArticles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 
     const isEmpty = !Array.isArray(visibleArticles) || visibleArticles.length === 0;

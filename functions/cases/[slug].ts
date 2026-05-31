@@ -1,5 +1,5 @@
 import { CACHE_CONTROL, matchCache, putCache } from '../_lib/cache';
-import { fetchArticlesWithFallback } from '../_lib/articles';
+import { fetchArticlesWithFallback, filterVisibleArticles } from '../_lib/articles';
 import { isBotRequest, renderArticleHtml } from '../_lib/seo';
 import type { Env } from '../_lib/types';
 
@@ -26,7 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
   if (cached) return cached;
 
   try {
-    const articles = await fetchArticlesWithFallback(env, request);
+    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request));
     const article = articles.find((item) => item.slug === slug && item.category === 'Кейсы');
 
     if (!article) {
