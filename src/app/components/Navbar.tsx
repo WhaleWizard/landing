@@ -117,6 +117,18 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
   const handleNavClick = useCallback((href: string, sectionId?: string) => (event: MouseEvent<HTMLElement>) => {
     if (!isPlainLeftClick(event)) return;
+
+    const targetUrl = new URL(href, window.location.origin);
+    const targetPath = `${targetUrl.pathname}${targetUrl.search}`;
+    const currentPath = `${location.pathname}${location.search}`;
+
+    if (sectionId && targetPath !== currentPath) {
+      // Let the real anchor href handle cross-page hash navigation so the
+      // browser always lands on the intended section even after a cold load.
+      setIsMobileMenuOpen(false);
+      return;
+    }
+
     event.preventDefault();
 
     const runNavigation = () => navigateToHref(href, sectionId);
