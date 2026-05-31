@@ -23,6 +23,7 @@ export interface Article {
     question: string;
     answer: string;
   }>;
+  status?: 'draft' | 'published';
 }
 
 interface ArticlesResponse {

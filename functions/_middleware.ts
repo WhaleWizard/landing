@@ -17,7 +17,7 @@ function buildCsp(): string {
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://analytics.tiktok.com",
     "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://api.jsonbin.io https://script.google.com https://ipwho.is",
-    "frame-src 'self' https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net",
+    "frame-src 'self' https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
     "manifest-src 'self'",
     'upgrade-insecure-requests',
   ];

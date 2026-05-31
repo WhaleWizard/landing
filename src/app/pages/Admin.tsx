@@ -256,9 +256,12 @@ export default function Admin() {
     const form = new FormData();
     form.append('file', file);
     try {
-      const res = await fetch(`/api/admin/upload?password=${encodeURIComponent(password)}`, {
+      form.append('password', password);
+      const res = await fetch('/api/admin/upload', {
         method: 'POST',
+        headers: { 'X-Admin-Password': password },
         body: form,
+        credentials: 'same-origin',
       });
       if (!res.ok) return null;
       const data = await res.json();
@@ -319,7 +322,10 @@ export default function Admin() {
         if (normalizedArticle.slug) {
           await fetch('/api/admin/article-versions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Admin-Password': password,
+            },
             credentials: 'same-origin',
             body: JSON.stringify({ password, slug: normalizedArticle.slug, article: normalizedArticle }),
           }).catch(() => {});
