@@ -193,6 +193,7 @@ export default function CookieConsentManager() {
   }, []);
 
   const isVisible = mode !== 'hidden';
+  const isModal = mode === 'modal';
   const panelTitle = mode === 'banner' ? 'Мы используем cookie' : 'Настройки cookie';
 
   const description = useMemo(
@@ -234,13 +235,22 @@ export default function CookieConsentManager() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] pointer-events-none">
-      <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-[1px] pointer-events-auto"
-        onClick={() => setMode('modal')}
-      />
-      <section className="pointer-events-auto absolute bottom-4 left-1/2 w-[min(96vw,680px)] -translate-x-1/2 rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl p-4 md:p-5">
-        <h3 className="text-base md:text-lg font-semibold">{panelTitle}</h3>
+    <div className={isModal ? 'fixed inset-0 z-[70] pointer-events-none' : 'fixed inset-x-0 bottom-0 z-[70] pointer-events-none px-2 pb-4'}>
+      {isModal && (
+        <div
+          className="absolute inset-0 bg-black/30 backdrop-blur-[1px] pointer-events-auto"
+          aria-hidden="true"
+        />
+      )}
+      <section
+        role="dialog"
+        aria-modal={isModal}
+        aria-labelledby="cookie-consent-title"
+        className={isModal
+          ? 'pointer-events-auto absolute bottom-4 left-1/2 w-[min(96vw,680px)] -translate-x-1/2 rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl p-4 md:p-5'
+          : 'pointer-events-auto relative mx-auto w-[min(96vw,680px)] rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl p-4 md:p-5'}
+      >
+        <h3 id="cookie-consent-title" className="text-base md:text-lg font-semibold">{panelTitle}</h3>
         <p className="mt-1 text-xs md:text-sm text-muted-foreground">{description}</p>
 
         {(mode === 'modal' || mode === 'banner') && (
