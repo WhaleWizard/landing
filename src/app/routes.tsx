@@ -65,11 +65,27 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
 const NAVBAR_SCROLL_OFFSET = 80;
 const PENDING_SCROLL_KEY = 'ww_pending_scroll_section';
 
+function getPendingScrollSection() {
+  try {
+    return window.sessionStorage.getItem(PENDING_SCROLL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingScrollSection() {
+  try {
+    window.sessionStorage.removeItem(PENDING_SCROLL_KEY);
+  } catch {
+    // Storage can be blocked; hash-based navigation still works.
+  }
+}
+
 function ScrollToHash() {
   const location = useLocation();
 
   useEffect(() => {
-    const pendingSection = window.sessionStorage.getItem(PENDING_SCROLL_KEY);
+    const pendingSection = getPendingScrollSection();
     const hashSection = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
     const elementId = pendingSection || hashSection;
 
@@ -78,7 +94,7 @@ function ScrollToHash() {
     const scrollWhenReady = (attempt = 0) => {
       const element = document.getElementById(elementId);
       if (element) {
-        window.sessionStorage.removeItem(PENDING_SCROLL_KEY);
+        clearPendingScrollSection();
         const y = element.getBoundingClientRect().top + window.scrollY - NAVBAR_SCROLL_OFFSET;
         window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
         return;
