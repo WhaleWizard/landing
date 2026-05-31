@@ -94,15 +94,8 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const navigateToHref = useCallback((href: string, sectionId?: string) => {
     const targetUrl = new URL(href, window.location.origin);
     const targetPath = `${targetUrl.pathname}${targetUrl.search}`;
-    const currentPath = `${location.pathname}${location.search}`;
 
     if (sectionId) {
-      if (targetPath !== currentPath) {
-        navigate(`${targetPath}${targetUrl.hash}`);
-        window.setTimeout(() => scrollToSection(sectionId), 120);
-        return;
-      }
-
       if (window.location.hash !== targetUrl.hash) {
         navigate(`${targetPath}${targetUrl.hash}`, { replace: false });
       }
@@ -111,10 +104,22 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     }
 
     navigate(`${targetPath}${targetUrl.hash}`);
-  }, [location.pathname, location.search, navigate, scrollToSection]);
+  }, [navigate, scrollToSection]);
 
   const handleNavClick = useCallback((href: string, sectionId?: string) => (event: MouseEvent<HTMLElement>) => {
     if (!isPlainLeftClick(event)) return;
+
+    const targetUrl = new URL(href, window.location.origin);
+    const targetPath = `${targetUrl.pathname}${targetUrl.search}`;
+    const currentPath = `${location.pathname}${location.search}`;
+
+    if (sectionId && targetPath !== currentPath) {
+      // Let the real anchor href handle cross-page hash navigation so the
+      // browser always lands on the intended section even after a cold load.
+      setIsMobileMenuOpen(false);
+      return;
+    }
+
     event.preventDefault();
 
     if (isMobileMenuOpen) {
@@ -124,7 +129,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     }
 
     navigateToHref(href, sectionId);
-  }, [isMobileMenuOpen, navigateToHref]);
+  }, [isMobileMenuOpen, location.pathname, location.search, navigateToHref]);
 
   const navItems: NavItem[] = variant === 'service'
     ? [

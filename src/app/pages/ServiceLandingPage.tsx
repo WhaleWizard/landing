@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, Sparkles } from 'lucide-react';
-import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
@@ -28,8 +27,7 @@ type LandingTheme = {
   shadowClassName: string;
 };
 
-type ServiceLandingPageProps = {
-  service: ServiceType;
+type ServicePageConfig = {
   seo: {
     title: string;
     description: string;
@@ -42,7 +40,6 @@ type ServiceLandingPageProps = {
     description: string;
     bullets: string[];
   };
-  theme: LandingTheme;
 };
 
 const themes: Record<ServiceType, LandingTheme> = {
@@ -101,7 +98,7 @@ const themes: Record<ServiceType, LandingTheme> = {
   },
 };
 
-const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' | 'theme'>> = {
+const pageConfigs: Record<ServiceType, ServicePageConfig> = {
   'meta-ads': {
     seo: {
       title: 'Платный трафик из Meta Ads (Facebook/Instagram)',
@@ -309,7 +306,6 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
   return (
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden" style={cssVars}>
       <SEO {...config.seo} />
-      <Navbar variant="service" />
       <Hero />
 
       <DeferredSection><Services /></DeferredSection>
