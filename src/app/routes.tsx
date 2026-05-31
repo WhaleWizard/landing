@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-r
 import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
+import Navbar from './components/Navbar';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 
 const ThankYou = lazy(() => import('./pages/ThankYou'));
@@ -61,37 +62,51 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
 
 
 
+const NAVBAR_SCROLL_OFFSET = 80;
+const PENDING_SCROLL_KEY = 'ww_pending_scroll_section';
+
 function ScrollToHash() {
   const location = useLocation();
 
   useEffect(() => {
-    if (!location.hash) return;
+    const pendingSection = window.sessionStorage.getItem(PENDING_SCROLL_KEY);
+    const hashSection = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+    const elementId = pendingSection || hashSection;
 
-    const elementId = decodeURIComponent(location.hash.slice(1));
     if (!elementId) return;
 
     const scrollWhenReady = (attempt = 0) => {
       const element = document.getElementById(elementId);
       if (element) {
-        const y = element.getBoundingClientRect().top + window.scrollY - 80;
-        window.scrollTo({ top: y, behavior: 'smooth' });
+        window.sessionStorage.removeItem(PENDING_SCROLL_KEY);
+        const y = element.getBoundingClientRect().top + window.scrollY - NAVBAR_SCROLL_OFFSET;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
         return;
       }
 
-      if (attempt >= 60) return;
-      window.setTimeout(() => scrollWhenReady(attempt + 1), 100);
+      if (attempt >= 100) return;
+      window.setTimeout(() => scrollWhenReady(attempt + 1), 50);
     };
 
-    window.setTimeout(() => scrollWhenReady(), 0);
+    window.requestAnimationFrame(() => scrollWhenReady());
   }, [location.hash, location.pathname]);
 
   return null;
 }
 
+const SERVICE_NAV_PATHS = new Set(['/meta-ads', '/google-ads', '/consult', '/meta-apps']);
+const NAVBAR_HIDDEN_PATHS = new Set(['/admin']);
+
 function RootLayout() {
+  const location = useLocation();
+  const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
+  const shouldShowNavbar = !NAVBAR_HIDDEN_PATHS.has(normalizedPath);
+  const navbarVariant = SERVICE_NAV_PATHS.has(normalizedPath) ? 'service' : 'home';
+
   return (
     <>
       <ScrollToHash />
+      {shouldShowNavbar && <Navbar variant={navbarVariant} />}
       <Outlet />
       <Suspense fallback={null}>
         <CookieConsentManager />
