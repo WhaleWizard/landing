@@ -47,7 +47,7 @@ export default function MarketingGlossaryPage() {
       />
 
       <section className="relative overflow-hidden border-b border-border/50 bg-card/20">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
