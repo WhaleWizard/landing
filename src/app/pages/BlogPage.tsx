@@ -1,6 +1,6 @@
 // src/app/pages/BlogPage.tsx
-import { motion, useInView } from 'motion/react';
-import { Clock, ArrowRight, ArrowLeft, Calendar } from 'lucide-react';
+import { AnimatePresence, motion, useInView } from 'motion/react';
+import { AlertTriangle, Clock, ArrowRight, ArrowLeft, Calendar, Download, X } from 'lucide-react';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import SEO from '../components/SEO';
@@ -26,6 +26,28 @@ function buildArticleSeoDescription(article) {
   if (article?.seoDescription?.trim()) return article.seoDescription.trim();
   if (article?.summary?.trim()) return article.summary.trim();
   return article?.description || 'Практическая статья о рекламе и маркетинге.';
+}
+
+
+function isZipDownloadLink(href = '') {
+  if (!href) return false;
+  try {
+    const url = new URL(href, window.location.href);
+    return url.pathname.toLowerCase().endsWith('.zip');
+  } catch {
+    return String(href).split('?')[0].split('#')[0].toLowerCase().endsWith('.zip');
+  }
+}
+
+function getDownloadFileName(href = '') {
+  try {
+    const url = new URL(href, window.location.href);
+    const pathname = url.pathname.split('/').filter(Boolean).pop() || 'archive.zip';
+    return decodeURIComponent(pathname);
+  } catch {
+    const pathname = String(href).split('?')[0].split('#')[0].split('/').filter(Boolean).pop() || 'archive.zip';
+    return decodeURIComponent(pathname);
+  }
 }
 
 function extractRelatedArticles(allArticles, currentArticle) {
@@ -60,6 +82,7 @@ function BlogPageComponent() {
   const { articles: allArticles, loading } = useArticles();
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [pendingZipDownload, setPendingZipDownload] = useState(null);
   const contentRef = useRef(null);
   const sectionRef = useRef(null);
   const articleTitleRef = useRef<HTMLHeadingElement>(null);
@@ -96,10 +119,21 @@ function BlogPageComponent() {
     if (!contentRef.current || !selectedArticle) return;
     const handler = (e) => {
       const link = e.target.closest('a');
-      if (link?.getAttribute('href') === '/#contact') {
+      const href = link?.getAttribute('href') || '';
+      if (href === '/#contact') {
         e.preventDefault();
         navigate('/');
         setTimeout(() => scrollToWhenReady('contact'), 40);
+        return;
+      }
+
+      if (isZipDownloadLink(href)) {
+        e.preventDefault();
+        setPendingZipDownload({
+          href: link.href || href,
+          target: link.getAttribute('target') || '_blank',
+          fileName: getDownloadFileName(href),
+        });
       }
     };
     contentRef.current.addEventListener('click', handler);
@@ -117,6 +151,22 @@ function BlogPageComponent() {
     navigate('/');
     setTimeout(() => scrollToWhenReady('contact'), 40);
   }, [navigate, scrollToWhenReady]);
+
+  const closeZipWarning = useCallback(() => {
+    setPendingZipDownload(null);
+  }, []);
+
+  const confirmZipDownload = useCallback(() => {
+    if (!pendingZipDownload?.href) return;
+    const href = pendingZipDownload.href;
+    const target = pendingZipDownload.target;
+    setPendingZipDownload(null);
+    if (target === '_blank') {
+      window.open(href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.location.href = href;
+  }, [pendingZipDownload]);
 
   const normalizedQueryTokens = normalizeTokens(searchQuery);
   const filteredArticles = normalizedQueryTokens.length === 0
@@ -274,6 +324,83 @@ function BlogPageComponent() {
             </div>
           </motion.div>
         </section>
+        <AnimatePresence>
+          {pendingZipDownload && (
+            <>
+              <motion.div
+                className="fixed inset-0 z-[1000] bg-black/75 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={closeZipWarning}
+              />
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="zip-download-warning-title"
+                className="fixed left-1/2 top-1/2 z-[1001] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-amber-400/40 bg-card shadow-2xl shadow-amber-500/10"
+                initial={{ opacity: 0, scale: 0.92, y: 18 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 18 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+              >
+                <div className="relative p-5 sm:p-6">
+                  <button
+                    type="button"
+                    onClick={closeZipWarning}
+                    className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground transition-colors hover:bg-amber-400/10 hover:text-foreground"
+                    aria-label="Закрыть предупреждение"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+
+                  <div className="mb-5 flex items-start gap-4 pr-10">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-300 ring-1 ring-amber-300/40">
+                      <AlertTriangle className="h-8 w-8" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <h2 id="zip-download-warning-title" className="text-xl font-bold text-foreground">
+                        Проверьте ZIP-архив перед распаковкой
+                      </h2>
+                      <p className="mt-1 text-sm text-muted-foreground break-words">
+                        Файл: <span className="font-medium text-foreground">{pendingZipDownload.fileName}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-4 text-sm leading-relaxed text-foreground/90">
+                    <p>
+                      ZIP-архивы могут содержать разные файлы. Перед распаковкой всегда проверьте содержимое архива.
+                    </p>
+                    <ul className="mt-3 list-disc space-y-1 pl-5 text-muted-foreground">
+                      <li>Если файлы внутри не соответствуют описанию в статье — не открывайте их.</li>
+                      <li>Не запускайте установщики, скрипты или неизвестные программы из архива.</li>
+                      <li>Сначала проверьте архив антивирусом или системной защитой.</li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={closeZipWarning}
+                      className="rounded-xl border border-border px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmZipDownload}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-3 text-sm font-bold text-black shadow-lg shadow-amber-500/20 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Download className="h-4 w-4" />
+                      Всё понимаю, скачать ZIP
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </>
     );
   }

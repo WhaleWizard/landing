@@ -443,7 +443,7 @@ async function sendMetaPageView(
       ge: hashedGe ? [hashedGe] : undefined,
       madid: hashedMadid ? [hashedMadid] : undefined,
     },
-    opt_out: payload.marketing_consent === false,
+    opt_out: false,
     custom_data: {
       country: ctx.country,
       city: ctx.city,
@@ -569,7 +569,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const rawBody = await request.text();
   const signatureMode = getTrackingSignatureMode(env);
   const signature = await verifyTrackingSignature(request, env, rawBody);
-  if (!signature.ok && signatureMode === 'enforce') {
+  if (signature.ok === false && signatureMode === 'enforce') {
     return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 

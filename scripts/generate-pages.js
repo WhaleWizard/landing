@@ -15,6 +15,41 @@ const BUILD_DATE = new Date().toISOString().split('T')[0];
 const { window: sanitizerWindow } = parseHTML('<!doctype html><html><body></body></html>');
 const domPurify = createDOMPurify(sanitizerWindow);
 
+
+const SAFE_IFRAME_HOSTS = new Set(['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'youtube-nocookie.com', 'player.vimeo.com']);
+
+function isSafeIframeSrc(src = '') {
+  try {
+    const url = new URL(src);
+    return url.protocol === 'https:' && SAFE_IFRAME_HOSTS.has(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+domPurify.addHook('uponSanitizeElement', (node, data) => {
+  if (data.tagName === 'iframe') {
+    const src = node.getAttribute('src') || '';
+    if (!isSafeIframeSrc(src)) node.remove();
+  }
+});
+
+domPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.nodeName?.toLowerCase() === 'a') {
+    const href = node.getAttribute('href') || '';
+    const target = node.getAttribute('target') || '';
+    if (target === '_blank' || /^https?:\/\//i.test(href)) node.setAttribute('rel', 'noopener noreferrer');
+  }
+
+  if (node.nodeName?.toLowerCase() === 'iframe') {
+    const src = node.getAttribute('src') || '';
+    if (isSafeIframeSrc(src)) {
+      node.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+      node.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    }
+  }
+});
+
 const ARTICLE_HTML_SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
     'p', 'br', 'hr',
@@ -25,7 +60,6 @@ const ARTICLE_HTML_SANITIZE_CONFIG = {
     'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
     'details', 'summary', 'aside', 'section', 'div', 'span',
     'video', 'source', 'iframe',
-    'button', 'form', 'input', 'label', 'textarea', 'select', 'option',
     'svg', 'defs', 'linearGradient', 'stop', 'path',
   ],
   ALLOWED_ATTR: [
@@ -35,18 +69,21 @@ const ARTICLE_HTML_SANITIZE_CONFIG = {
     'colspan', 'rowspan', 'scope',
     'srcset', 'sizes',
     'type', 'controls', 'autoplay', 'loop', 'muted', 'playsinline', 'poster', 'preload',
-    'name', 'value', 'placeholder', 'for', 'disabled', 'checked', 'selected',
-    'rows', 'cols', 'maxlength', 'minlength', 'min', 'max', 'step',
-    'method', 'action',
     'allow', 'allowfullscreen', 'frameborder', 'sandbox', 'referrerpolicy',
     'viewBox', 'preserveAspectRatio', 'd', 'fill', 'stroke', 'stroke-width',
     'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
   ],
-  ALLOWED_URI_REGEXP: /^(?:(?:https?|ftp):\/\/|data:image\/)/i,
+  ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|data:image\/(?:png|jpe?g|webp|gif|avif);base64,|\/)/i,
 };
 
 function sanitizeArticleHtml(html = '') {
   return domPurify.sanitize(String(html || ''), ARTICLE_HTML_SANITIZE_CONFIG);
+}
+
+function isPublishedArticle(article, nowIso = new Date().toISOString()) {
+  if (article.status === 'draft') return false;
+  if (article.publishedAt && article.publishedAt > nowIso) return false;
+  return true;
 }
 
 // Reads articles from build cache first, then local fallback for deterministic SEO output
@@ -555,7 +592,7 @@ function main() {
   ensureDir(DIST_DIR);
 
   const baseHtml = readViteIndexHtml();
-  const articles = normalizeArticles(loadArticles());
+  const articles = normalizeArticles(loadArticles()).filter((article) => isPublishedArticle(article));
 
   renderStaticPages(baseHtml);
   renderBlogPages(articles, baseHtml);

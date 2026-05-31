@@ -78,6 +78,7 @@ function didArticleChange(previous: Article | undefined, next: Article): boolean
     'image',
     'seoTitle',
     'seoDescription',
+    'status',
   ];
 
   if (fieldsToCompare.some((field) => String(previous[field] || '') !== String(next[field] || ''))) {
@@ -147,6 +148,7 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       summary,
       keyTakeaways: extractKeyTakeaways(article),
       faq: extractFaq(article),
+      status: article.status === 'draft' ? 'draft' : 'published',
     };
   });
 }

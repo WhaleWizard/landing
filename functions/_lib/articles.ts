@@ -6,6 +6,24 @@ interface SeedPayload {
   articles?: unknown[];
 }
 
+function isEnabledFlag(value?: string): boolean {
+  return String(value || '').trim().toLowerCase() === 'true';
+}
+
+export function shouldUseD1Articles(env: Env): boolean {
+  return isEnabledFlag(env.USE_D1_ARTICLES) && Boolean(env.DB);
+}
+
+export function isPublishedArticle(article: Article, nowIso = new Date().toISOString()): boolean {
+  if (article.status === 'draft') return false;
+  if (article.publishedAt && article.publishedAt > nowIso) return false;
+  return true;
+}
+
+export function filterVisibleArticles(articles: Article[], nowIso = new Date().toISOString()): Article[] {
+  return articles.filter((article) => isPublishedArticle(article, nowIso));
+}
+
 async function fetchSeedArticles(siteUrl: string): Promise<Article[]> {
   try {
     const response = await fetch(`${siteUrl}/articles.seed.json`, {
@@ -29,8 +47,7 @@ async function fetchSeedArticles(siteUrl: string): Promise<Article[]> {
 }
 
 export async function fetchArticlesWithFallback(env: Env, request: Request): Promise<Article[]> {
-  const useD1 = Boolean(env.DB);
-  if (useD1) {
+  if (shouldUseD1Articles(env)) {
     try {
       const d1Articles = await fetchArticlesFromD1(env);
       if (d1Articles.length > 0) return d1Articles;
