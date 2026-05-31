@@ -1,5 +1,4 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 
 const Services = lazy(() => import('../components/Services'));
@@ -33,7 +32,6 @@ function DeferredSection({
 export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      <Navbar />
       <Hero />
 
       <DeferredSection><Services /></DeferredSection>
