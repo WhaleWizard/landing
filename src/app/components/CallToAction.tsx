@@ -14,7 +14,7 @@ function CallToAction() {
   return (
     <section className="relative py-12 md:py-16 overflow-hidden">
       {/* Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-secondary/5" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-secondary/5" />
       
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
@@ -25,7 +25,7 @@ function CallToAction() {
           className="relative p-6 md:p-8 rounded-2xl md:rounded-3xl bg-gradient-to-br from-card/80 via-card/60 to-card/80 backdrop-blur-xl border border-primary/30 shadow-2xl shadow-primary/10"
         >
           {/* Animated Border Glow */}
-          <div className="absolute inset-0 rounded-2xl md:rounded-3xl bg-gradient-to-r from-primary via-accent to-secondary opacity-20 blur-xl animate-pulse" />
+          <div className="pointer-events-none absolute inset-0 rounded-2xl md:rounded-3xl bg-gradient-to-r from-primary via-accent to-secondary opacity-20 blur-xl animate-pulse" />
           
           <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Left Content */}
@@ -50,7 +50,7 @@ function CallToAction() {
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden"
               >
                 {/* Button Shine Effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                 <span className="relative">Получить консультацию</span>
                 <ArrowDown className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-y-1 transition-transform relative" />
               </Button>

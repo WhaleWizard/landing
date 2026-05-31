@@ -56,8 +56,8 @@ export default function ThankYou() {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
 
       {/* Background Glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-primary/10 blur-[140px]" />
-      <div className="absolute bottom-0 right-1/2 translate-x-1/2 w-[600px] h-[600px] bg-accent/10 blur-[140px]" />
+      <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-primary/10 blur-[140px]" />
+      <div className="pointer-events-none absolute bottom-0 right-1/2 translate-x-1/2 w-[600px] h-[600px] bg-accent/10 blur-[140px]" />
 
       <div className="relative max-w-3xl w-full px-6 text-center">
 
@@ -76,7 +76,7 @@ export default function ThankYou() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-6 text-1xl md:text-4xl font-bold"
+          className="mt-6 text-3xl md:text-4xl font-bold"
         >
           Вы на шаг ближе к{' '}
           <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
@@ -106,7 +106,7 @@ export default function ThankYou() {
             href="https://www.whalewzrd.com/blog"
             className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-lg shadow-primary/30 overflow-hidden transition-transform hover:scale-105"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
 
             <span className="relative">Статьи и Кейсы</span>
             <ArrowRight className="w-4 h-4 relative group-hover:translate-x-1 transition-transform" />
@@ -126,9 +126,10 @@ export default function ThankYou() {
               href={social.link}
               onClick={() => trackContact(getThankYouContactChannel(social.name), 'thank_you', { social_label: social.name })}
               target="_blank"
+              rel="noopener noreferrer"
               className="group relative p-4 rounded-2xl border border-border bg-card/40 backdrop-blur-xl hover:scale-105 transition-all overflow-hidden"
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${social.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
+              <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${social.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
 
               <div className="relative flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-background/60 border border-border flex items-center justify-center group-hover:rotate-6 transition-transform">

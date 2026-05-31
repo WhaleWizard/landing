@@ -130,7 +130,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView }: LeftCo
       style={{ willChange: 'box-shadow' }}
     >
       <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary" />
-      <span className="text-xs md:text-sm text-primary">Perfomance-таргетинг</span>
+      <span className="text-xs md:text-sm text-primary">Performance-таргетинг</span>
     </motion.div>
 
     <h1 className="text-2xl sm:text-4xl lg:text-4xl xl:text-4xl font-bold leading-tight">

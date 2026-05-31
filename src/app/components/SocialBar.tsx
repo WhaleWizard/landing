@@ -18,7 +18,7 @@ const socialsDesktop = [
   { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
   { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
   { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
-  { icon: Phone, href: '#', label: 'WhatsApp', color: '#25D366' },
+  { icon: Phone, href: '#contact', label: 'WhatsApp', color: '#25D366' },
   { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#000000' },
   { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
 ];
@@ -26,7 +26,7 @@ const socialsDesktop = [
 const socialsMobileOrder = [
   { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
   { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
-  { icon: Phone, href: '#', label: 'WhatsApp', color: '#25D366' },
+  { icon: Phone, href: '#contact', label: 'WhatsApp', color: '#25D366' },
   { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#000000' },
   { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
   { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
@@ -41,6 +41,10 @@ function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | '
   if (normalized.includes('whatsapp')) return 'whatsapp';
   if (normalized.includes('email')) return 'email';
   return 'social';
+}
+
+function shouldOpenInNewTab(href: string): boolean {
+  return href.startsWith('http://') || href.startsWith('https://');
 }
 
 // Два повтора вместо трёх — достаточно для бесконечного скролла, снижает нагрузку
@@ -114,13 +118,14 @@ function SocialDock() {
         <div className="hidden md:flex justify-center flex-wrap gap-4">
           {socialsDesktop.map((s, i) => {
             const Icon = s.icon;
+            const opensInNewTab = shouldOpenInNewTab(s.href);
             return (
               <motion.a
                 key={i}
                 href={s.href}
                 onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
-                target="_blank"
-                rel="noopener noreferrer"
+                target={opensInNewTab ? '_blank' : undefined}
+                rel={opensInNewTab ? 'noopener noreferrer' : undefined}
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
@@ -156,13 +161,14 @@ function SocialDock() {
           >
             {socialsInfinite.map((s, i) => {
               const Icon = s.icon;
+              const opensInNewTab = shouldOpenInNewTab(s.href);
               return (
                 <motion.a
                   key={i}
                   href={s.href}
                   onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  target={opensInNewTab ? '_blank' : undefined}
+                  rel={opensInNewTab ? 'noopener noreferrer' : undefined}
                   initial={{ opacity: 0, scale: 0.9 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   transition={{ delay: (i % socialsMobileOrder.length) * 0.02, duration: 0.2 }}

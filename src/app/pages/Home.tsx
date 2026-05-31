@@ -44,7 +44,7 @@ export default function Home() {
 
       <section className="w-full flex justify-center py-12 md:py-16">
         <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 blur-3xl opacity-40" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 blur-3xl opacity-40" />
           <DeferredSection height="min-h-[80px]"><SocialBar /></DeferredSection>
         </div>
       </section>

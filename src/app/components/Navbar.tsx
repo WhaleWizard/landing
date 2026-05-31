@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo, type MouseEvent } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,6 +8,18 @@ type NavbarVariant = 'home' | 'service';
 
 interface NavbarProps {
   variant?: NavbarVariant;
+}
+
+type NavItem = {
+  label: string;
+  href: string;
+  sectionId?: string;
+};
+
+const NAVBAR_OFFSET = 80;
+
+function isPlainLeftClick(event: MouseEvent<HTMLElement>) {
+  return event.button === 0 && !event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey;
 }
 
 function Navbar({ variant = 'home' }: NavbarProps) {
@@ -58,8 +70,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     const scrollNow = () => {
       const element = document.getElementById(id);
       if (!element) return false;
-      const yOffset = -80;
-      const y = element.getBoundingClientRect().top + window.scrollY + yOffset;
+      const y = element.getBoundingClientRect().top + window.scrollY - NAVBAR_OFFSET;
       window.scrollTo({ top: y, behavior: 'smooth' });
       return true;
     };
@@ -72,47 +83,66 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       }, 100);
     };
 
-    const runScroll = () => {
-      if (scrollNow()) return;
+    scrollWhenReady();
+  }, []);
 
-      if (variant === 'service') {
-        scrollWhenReady();
+  const buildSectionHref = useCallback((id: string) => {
+    const basePath = variant === 'service' ? location.pathname : '/';
+    return `${basePath}#${id}`;
+  }, [location.pathname, variant]);
+
+  const navigateToHref = useCallback((href: string, sectionId?: string) => {
+    const targetUrl = new URL(href, window.location.origin);
+    const targetPath = `${targetUrl.pathname}${targetUrl.search}`;
+    const currentPath = `${location.pathname}${location.search}`;
+
+    if (sectionId) {
+      if (targetPath !== currentPath) {
+        navigate(`${targetPath}${targetUrl.hash}`);
+        window.setTimeout(() => scrollToSection(sectionId), 120);
         return;
       }
 
-      if (location.pathname !== '/') {
-        navigate('/');
-        window.setTimeout(() => {
-          scrollWhenReady();
-        }, 120);
-      } else {
-        scrollWhenReady();
+      if (window.location.hash !== targetUrl.hash) {
+        navigate(`${targetPath}${targetUrl.hash}`, { replace: false });
       }
-    };
-
-    if (isMobileMenuOpen) {
-      setIsMobileMenuOpen(false);
-      window.setTimeout(runScroll, 80);
+      scrollToSection(sectionId);
       return;
     }
 
-    runScroll();
-  }, [isMobileMenuOpen, location.pathname, navigate, variant]);
+    navigate(`${targetPath}${targetUrl.hash}`);
+  }, [location.pathname, location.search, navigate, scrollToSection]);
 
-  const navItems = variant === 'service'
+  const handleNavClick = useCallback((href: string, sectionId?: string) => (event: MouseEvent<HTMLElement>) => {
+    if (!isPlainLeftClick(event)) return;
+    event.preventDefault();
+
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false);
+      window.setTimeout(() => navigateToHref(href, sectionId), 80);
+      return;
+    }
+
+    navigateToHref(href, sectionId);
+  }, [isMobileMenuOpen, navigateToHref]);
+
+  const navItems: NavItem[] = variant === 'service'
     ? [
-      { label: 'Услуги', action: () => scrollToSection('services') },
-      { label: 'Кейсы', action: () => scrollToSection('cases') },
-      { label: 'Отзывы', action: () => scrollToSection('about') },
+      { label: 'Услуги', href: buildSectionHref('services'), sectionId: 'services' },
+      { label: 'Кейсы', href: buildSectionHref('cases'), sectionId: 'cases' },
+      { label: 'Отзывы', href: buildSectionHref('about'), sectionId: 'about' },
     ]
     : [
-      { label: 'Услуги', action: () => scrollToSection('services') },
-      { label: 'Кейсы', action: () => scrollToSection('cases') },
-      { label: 'Блог', action: () => navigate('/blog') },
-      { label: 'FAQ', action: () => navigate('/faq') },
-      { label: 'Контакты', action: () => scrollToSection('social') },
-      { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
+      { label: 'Услуги', href: buildSectionHref('services'), sectionId: 'services' },
+      { label: 'Кейсы', href: buildSectionHref('cases'), sectionId: 'cases' },
+      { label: 'Блог', href: '/blog' },
+      { label: 'FAQ', href: '/faq' },
+      { label: 'Контакты', href: buildSectionHref('contact'), sectionId: 'contact' },
+      { label: 'Калькулятор', href: buildSectionHref('calculator-section'), sectionId: 'calculator-section' },
     ];
+
+  const logoHref = buildSectionHref('hero');
+  const contactHref = buildSectionHref('contact');
 
   return (
     <>
@@ -127,34 +157,38 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           <div className="flex items-center justify-between h-20">
             {/* Логотип */}
             <div className="flex-shrink-0">
-              <button
-                onClick={() => scrollToSection('hero')}
+              <a
+                href={logoHref}
+                onClick={handleNavClick(logoHref, 'hero')}
                 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
               >
                 Whale Wzrd
-              </button>
+              </a>
             </div>
 
             {/* Десктопное меню */}
             <div className="hidden md:flex items-center space-x-8">
-              {navItems.map((item, idx) => (
-                <motion.button
-                  key={idx}
-                  onClick={item.action}
+              {navItems.map((item) => (
+                <motion.a
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleNavClick(item.href, item.sectionId)}
                   className="relative text-foreground/80 hover:text-primary transition-colors group"
                   whileHover={{ y: -2 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   {item.label}
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-                </motion.button>
+                </motion.a>
               ))}
               <Button
-                onClick={() => scrollToSection('contact')}
+                asChild
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                <span className="relative">Получить консультацию</span>
+                <a href={contactHref} onClick={handleNavClick(contactHref, 'contact')}>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                  <span className="relative">Получить консультацию</span>
+                </a>
               </Button>
             </div>
 
@@ -195,9 +229,10 @@ function Navbar({ variant = 'home' }: NavbarProps) {
               onClick={(e) => e.stopPropagation()}
             >
               {navItems.map((item, idx) => (
-                <motion.button
-                  key={idx}
-                  onClick={item.action}
+                <motion.a
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleNavClick(item.href, item.sectionId)}
                   className="text-2xl text-foreground/80 hover:text-primary transition-colors relative group"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -207,7 +242,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                 >
                   {item.label}
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-                </motion.button>
+                </motion.a>
               ))}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -216,15 +251,14 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                 transition={{ delay: 0.14, duration: 0.18 }}
               >
                 <Button
-                  onClick={() => {
-                    scrollToSection('contact');
-                    setIsMobileMenuOpen(false);
-                  }}
+                  asChild
                   size="lg"
                   className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                  <span className="relative">Получить консультацию</span>
+                  <a href={contactHref} onClick={handleNavClick(contactHref, 'contact')}>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                    <span className="relative">Получить консультацию</span>
+                  </a>
                 </Button>
               </motion.div>
             </motion.div>

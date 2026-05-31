@@ -143,7 +143,7 @@ function Services() {
               <span className="text-sm text-primary font-semibold">Что я предлагаю</span>
             </div>
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-              Услуги Perfomance{' '}
+              Услуги Performance{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 таргетолога
               </span>

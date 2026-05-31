@@ -53,10 +53,10 @@ function Footer() {
   return (
     <footer className="relative border-t border-border bg-card/30 backdrop-blur-sm overflow-hidden">
       {/* Background Glow */}
-      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[600px] h-48 bg-gradient-radial from-primary/10 via-transparent to-transparent blur-3xl" />
+      <div className="pointer-events-none absolute top-0 left-1/2 transform -translate-x-1/2 w-[600px] h-48 bg-gradient-radial from-primary/10 via-transparent to-transparent blur-3xl" />
 
       {/* Top Glow Line */}
-      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <div className="pointer-events-none absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
@@ -76,13 +76,12 @@ function Footer() {
               <Sparkles className="w-5 h-5 text-primary animate-pulse" />
             </div>
             <p className="text-sm text-muted-foreground">
-              Perfomance-таргетолог для роста вашего бизнеса через Google Ads и Meta Ads
+              Performance-таргетолог для роста вашего бизнеса через Google Ads и Meta Ads
             </p>
           </motion.div>
 
           {/* Services */}
           <motion.div
-            id="services"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -182,7 +181,7 @@ function Footer() {
 
               <li>
                 <button
-                  onClick={() => scrollToSection('social')}
+                  onClick={() => scrollToSection('contact')}
                   className={footerLinkClass}
                 >
                   Контакты
@@ -193,7 +192,6 @@ function Footer() {
 
           {/* Contact */}
           <motion.div
-            id="social"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}

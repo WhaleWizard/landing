@@ -19,7 +19,7 @@ const casesData = [
   {
     title: 'E-commerce',
     category: 'Google Ads + Meta Ads',
-    description: 'Продвижение товаров в уникальной связке Gooпle ads + Shopping ads + Meta ads',
+    description: 'Продвижение товаров в уникальной связке Google Ads + Shopping ads + Meta Ads',
     image: 'https://i.ibb.co/YBwdT5rQ/photo-2026-04-11-00-20-59.jpg',
     stats: [
       { label: 'Add to cart', value: '120.000+' },
