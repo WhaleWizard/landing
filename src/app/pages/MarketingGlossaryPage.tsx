@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { ArrowRight, BookOpenText, Filter, Search } from 'lucide-react';
@@ -9,12 +9,22 @@ import { Input } from '../components/ui/input';
 import { marketingGlossary, glossaryStats } from '../data/marketingGlossary';
 
 const INITIAL_VISIBLE = 60;
+const PENDING_SCROLL_KEY = 'ww_pending_scroll_section';
 
 export default function MarketingGlossaryPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [selectedChannel, setSelectedChannel] = useState('all');
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+
+  const goToContact = useCallback(() => {
+    try {
+      window.sessionStorage.setItem(PENDING_SCROLL_KEY, 'contact');
+    } catch {
+      // Storage can be blocked; the home route still opens normally.
+    }
+    navigate('/');
+  }, [navigate]);
 
   const channels = useMemo(
     () => ['all', ...Array.from(new Set(marketingGlossary.map((item) => item.channel)))],
@@ -193,7 +203,7 @@ export default function MarketingGlossaryPage() {
               </p>
             </div>
             <Button
-              onClick={() => navigate('/#contact')}
+              onClick={goToContact}
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
             >
               Связаться

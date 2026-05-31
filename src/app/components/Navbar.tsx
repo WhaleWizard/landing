@@ -21,7 +21,6 @@ type SectionNavItem = {
   label: string;
   sectionId: string;
   targetPath: string;
-  href: string;
 };
 
 type NavItem = RouteNavItem | SectionNavItem;
@@ -29,15 +28,11 @@ type NavItem = RouteNavItem | SectionNavItem;
 const NAVBAR_OFFSET = 80;
 const PENDING_SCROLL_KEY = 'ww_pending_scroll_section';
 
-function buildSectionHref(targetPath: string, sectionId: string) {
-  return `${targetPath}${targetPath.includes('#') ? '' : `#${sectionId}`}`;
-}
-
 function safeSetPendingScroll(sectionId: string) {
   try {
     window.sessionStorage.setItem(PENDING_SCROLL_KEY, sectionId);
   } catch {
-    // Storage can be blocked in strict privacy modes; hash navigation remains as a fallback.
+    // Storage can be blocked in strict privacy modes; direct navigation still works.
   }
 }
 
@@ -126,13 +121,15 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const navigateToSection = useCallback((sectionId: string, targetPath: string) => {
     if (targetPath === currentPath) {
       safeClearPendingScroll();
-      window.history.replaceState(null, '', buildSectionHref(targetPath, sectionId));
+      if (window.location.hash) {
+        window.history.replaceState(null, '', currentPath);
+      }
       scrollToSection(sectionId);
       return;
     }
 
     safeSetPendingScroll(sectionId);
-    navigate(buildSectionHref(targetPath, sectionId));
+    navigate(targetPath);
   }, [currentPath, navigate, scrollToSection]);
 
   const navigateToRoute = useCallback((href: string) => {
@@ -169,17 +166,12 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     runNavigation();
   }, [isMobileMenuOpen, navigateToSection]);
 
-  const makeSectionItem = useCallback((label: string, sectionId: string): SectionNavItem => {
-    const targetPath = getSectionPath();
-
-    return {
-      type: 'section',
-      label,
-      sectionId,
-      targetPath,
-      href: buildSectionHref(targetPath, sectionId),
-    };
-  }, [getSectionPath]);
+  const makeSectionItem = useCallback((label: string, sectionId: string): SectionNavItem => ({
+    type: 'section',
+    label,
+    sectionId,
+    targetPath: getSectionPath(),
+  }), [getSectionPath]);
 
   const navItems: NavItem[] = variant === 'service'
     ? [
@@ -219,9 +211,9 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     }
 
     return (
-      <motion.a
+      <motion.button
         key={`${item.targetPath}:${item.sectionId}`}
-        href={item.href}
+        type="button"
         onClick={handleSectionClick(item.sectionId, item.targetPath)}
         className={className}
         whileHover={{ y: -2 }}
@@ -229,7 +221,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       >
         {item.label}
         <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-      </motion.a>
+      </motion.button>
     );
   };
 
@@ -259,16 +251,16 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     }
 
     return (
-      <motion.a
+      <motion.button
         key={`${item.targetPath}:${item.sectionId}`}
-        href={item.href}
+        type="button"
         onClick={handleSectionClick(item.sectionId, item.targetPath)}
         className={className}
         {...motionProps}
       >
         {item.label}
         <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-      </motion.a>
+      </motion.button>
     );
   };
 
@@ -285,13 +277,13 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           <div className="flex items-center justify-between h-20">
             {/* Логотип */}
             <div className="flex-shrink-0">
-              <a
-                href={logoItem.href}
+              <button
+                type="button"
                 onClick={handleSectionClick(logoItem.sectionId, logoItem.targetPath)}
                 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity border-0 p-0 cursor-pointer"
               >
                 {logoItem.label}
-              </a>
+              </button>
             </div>
 
             {/* Десктопное меню */}

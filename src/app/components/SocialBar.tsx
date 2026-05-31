@@ -18,7 +18,7 @@ const socialsDesktop = [
   { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
   { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
   { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
-  { icon: Phone, href: '#contact', label: 'WhatsApp', color: '#25D366' },
+  { icon: Phone, href: 'contact', label: 'WhatsApp', color: '#25D366' },
   { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#000000' },
   { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
 ];
@@ -26,7 +26,7 @@ const socialsDesktop = [
 const socialsMobileOrder = [
   { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
   { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
-  { icon: Phone, href: '#contact', label: 'WhatsApp', color: '#25D366' },
+  { icon: Phone, href: 'contact', label: 'WhatsApp', color: '#25D366' },
   { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#000000' },
   { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
   { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
@@ -63,6 +63,14 @@ function SocialDock() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isTouch = useTouchDevice();
 
+  const scrollToContact = useCallback(() => {
+    const contactElement = document.getElementById('contact');
+    if (contactElement) {
+      const y = contactElement.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    }
+  }, []);
+
   // Показываем скроллбар только во время скролла на мобильных
   useEffect(() => {
     const container = scrollRef.current;
@@ -92,7 +100,6 @@ function SocialDock() {
 
   return (
     <motion.section
-      id="social"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
@@ -119,21 +126,13 @@ function SocialDock() {
           {socialsDesktop.map((s, i) => {
             const Icon = s.icon;
             const opensInNewTab = shouldOpenInNewTab(s.href);
-            return (
-              <motion.a
-                key={i}
-                href={s.href}
-                onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
-                target={opensInNewTab ? '_blank' : undefined}
-                rel={opensInNewTab ? 'noopener noreferrer' : undefined}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                {...desktopHover}
-                whileTap={{ scale: 0.95 }}
-                className="group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 hover:bg-primary/10"
-                style={{ transform: 'translateZ(0)' }}
-              >
+            const isContactShortcut = s.href === 'contact';
+            const handleClick = () => {
+              trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label });
+              if (isContactShortcut) scrollToContact();
+            };
+            const content = (
+              <>
                 <div className="relative">
                   <div className="p-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 group-hover:from-primary/30 group-hover:to-accent/30 transition-all duration-300">
                     <Icon className="w-6 h-6 text-foreground group-hover:text-primary transition-colors" />
@@ -142,6 +141,44 @@ function SocialDock() {
                 <span className="text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors">
                   {s.label}
                 </span>
+              </>
+            );
+
+            if (isContactShortcut) {
+              return (
+                <motion.button
+                  key={i}
+                  type="button"
+                  onClick={handleClick}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  {...desktopHover}
+                  whileTap={{ scale: 0.95 }}
+                  className="group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 hover:bg-primary/10 bg-transparent border-0 cursor-pointer text-inherit"
+                  style={{ transform: 'translateZ(0)' }}
+                >
+                  {content}
+                </motion.button>
+              );
+            }
+
+            return (
+              <motion.a
+                key={i}
+                href={s.href}
+                onClick={handleClick}
+                target={opensInNewTab ? '_blank' : undefined}
+                rel={opensInNewTab ? 'noopener noreferrer' : undefined}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                {...desktopHover}
+                whileTap={{ scale: 0.95 }}
+                className="group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 hover:bg-primary/10 bg-transparent border-0 cursor-pointer text-inherit"
+                style={{ transform: 'translateZ(0)' }}
+              >
+                {content}
               </motion.a>
             );
           })}
@@ -162,20 +199,13 @@ function SocialDock() {
             {socialsInfinite.map((s, i) => {
               const Icon = s.icon;
               const opensInNewTab = shouldOpenInNewTab(s.href);
-              return (
-                <motion.a
-                  key={i}
-                  href={s.href}
-                  onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
-                  target={opensInNewTab ? '_blank' : undefined}
-                  rel={opensInNewTab ? 'noopener noreferrer' : undefined}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: (i % socialsMobileOrder.length) * 0.02, duration: 0.2 }}
-                  {...mobileTap}
-                  className="flex-shrink-0 group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:bg-primary/10"
-                  style={{ zIndex: 20, transform: 'translateZ(0)' }}
-                >
+              const isContactShortcut = s.href === 'contact';
+              const handleClick = () => {
+                trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label });
+                if (isContactShortcut) scrollToContact();
+              };
+              const content = (
+                <>
                   <div className="relative">
                     <div className="p-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 transition-all duration-300 active:from-primary/30 active:to-accent/30">
                       <Icon className="w-6 h-6 text-foreground transition-colors" />
@@ -184,6 +214,42 @@ function SocialDock() {
                   <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
                     {s.label}
                   </span>
+                </>
+              );
+
+              if (isContactShortcut) {
+                return (
+                  <motion.button
+                    key={i}
+                    type="button"
+                    onClick={handleClick}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: (i % socialsMobileOrder.length) * 0.02, duration: 0.2 }}
+                    {...mobileTap}
+                    className="flex-shrink-0 group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:bg-primary/10 bg-transparent border-0 cursor-pointer text-inherit"
+                    style={{ zIndex: 20, transform: 'translateZ(0)' }}
+                  >
+                    {content}
+                  </motion.button>
+                );
+              }
+
+              return (
+                <motion.a
+                  key={i}
+                  href={s.href}
+                  onClick={handleClick}
+                  target={opensInNewTab ? '_blank' : undefined}
+                  rel={opensInNewTab ? 'noopener noreferrer' : undefined}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: (i % socialsMobileOrder.length) * 0.02, duration: 0.2 }}
+                  {...mobileTap}
+                  className="flex-shrink-0 group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:bg-primary/10 bg-transparent border-0 cursor-pointer text-inherit"
+                  style={{ zIndex: 20, transform: 'translateZ(0)' }}
+                >
+                  {content}
                 </motion.a>
               );
             })}

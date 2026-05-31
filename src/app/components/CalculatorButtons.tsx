@@ -25,7 +25,6 @@ export default function CalculatorButtons() {
 
   return (
     <section 
-      id="calculator-section" 
       className="relative py-16 md:py-24 overflow-hidden"
       style={{ scrollMarginTop: '80px' }}
     >

@@ -125,7 +125,7 @@ function Services() {
 
   return (
     <>
-      <section id="services" ref={sectionRef} className="relative py-16 md:py-24 overflow-hidden">
+      <section ref={sectionRef} className="relative py-16 md:py-24 overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" style={{ animationDelay: '1s' }} />
         <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent pointer-events-none -z-10 md:hidden" />

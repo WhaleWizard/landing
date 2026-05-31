@@ -77,7 +77,7 @@ function clearPendingScrollSection() {
   try {
     window.sessionStorage.removeItem(PENDING_SCROLL_KEY);
   } catch {
-    // Storage can be blocked; hash-based navigation still works.
+    // Storage can be blocked; direct route navigation still works.
   }
 }
 
@@ -95,6 +95,9 @@ function ScrollToHash() {
       const element = document.getElementById(elementId);
       if (element) {
         clearPendingScrollSection();
+        if (hashSection) {
+          window.history.replaceState(null, '', `${location.pathname}${location.search}`);
+        }
         const y = element.getBoundingClientRect().top + window.scrollY - NAVBAR_SCROLL_OFFSET;
         window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
         return;

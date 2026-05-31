@@ -240,7 +240,6 @@ function ContactForm() {
 
   return (
     <section
-      id="contact"
       ref={sectionRef}
       className="relative py-16 md:py-24 overflow-hidden"
       style={{ contain: 'layout style paint' }}
