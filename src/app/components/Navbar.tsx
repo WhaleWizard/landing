@@ -17,10 +17,53 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const location = useLocation();
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    let rafId = 0;
+
+    const updateScrollState = () => {
+      rafId = 0;
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    const handleScroll = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(updateScrollState);
+    };
+
+    updateScrollState();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarCompensation = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    if (scrollbarCompensation > 0) {
+      document.body.style.paddingRight = `${scrollbarCompensation}px`;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [isMobileMenuOpen]);
 
   const scrollToSection = useCallback((id: string) => {
     const scrollNow = () => {
@@ -124,8 +167,12 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
             {/* Мобильное меню */}
             <button
+              type="button"
               className="md:hidden p-2 rounded-lg bg-card/50 backdrop-blur-sm border border-border"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-navigation"
+              aria-label={isMobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
             >
               {isMobileMenuOpen ? <X className="w-6 h-6 text-foreground" /> : <Menu className="w-6 h-6 text-foreground" />}
             </button>
@@ -146,6 +193,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           >
             <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
             <motion.div
+              id="mobile-navigation"
               initial={{ y: 16, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 12, opacity: 0 }}
