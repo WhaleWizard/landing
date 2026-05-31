@@ -21,12 +21,33 @@ type SectionNavItem = {
   label: string;
   sectionId: string;
   targetPath: string;
+  href: string;
 };
 
 type NavItem = RouteNavItem | SectionNavItem;
 
 const NAVBAR_OFFSET = 80;
 const PENDING_SCROLL_KEY = 'ww_pending_scroll_section';
+
+function buildSectionHref(targetPath: string, sectionId: string) {
+  return `${targetPath}${targetPath.includes('#') ? '' : `#${sectionId}`}`;
+}
+
+function safeSetPendingScroll(sectionId: string) {
+  try {
+    window.sessionStorage.setItem(PENDING_SCROLL_KEY, sectionId);
+  } catch {
+    // Storage can be blocked in strict privacy modes; hash navigation remains as a fallback.
+  }
+}
+
+function safeClearPendingScroll() {
+  try {
+    window.sessionStorage.removeItem(PENDING_SCROLL_KEY);
+  } catch {
+    // Ignore storage access errors so navigation never breaks.
+  }
+}
 
 function isPlainLeftClick(event: MouseEvent<HTMLElement>) {
   return event.button === 0 && !event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey;
@@ -104,36 +125,25 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
   const navigateToSection = useCallback((sectionId: string, targetPath: string) => {
     if (targetPath === currentPath) {
+      safeClearPendingScroll();
+      window.history.replaceState(null, '', buildSectionHref(targetPath, sectionId));
       scrollToSection(sectionId);
       return;
     }
 
-    window.sessionStorage.setItem(PENDING_SCROLL_KEY, sectionId);
-    navigate(targetPath);
+    safeSetPendingScroll(sectionId);
+    navigate(buildSectionHref(targetPath, sectionId));
   }, [currentPath, navigate, scrollToSection]);
 
   const navigateToRoute = useCallback((href: string) => {
-    window.sessionStorage.removeItem(PENDING_SCROLL_KEY);
+    safeClearPendingScroll();
     navigate(href);
   }, [navigate]);
 
   const handleRouteClick = useCallback((href: string) => (event: MouseEvent<HTMLElement>) => {
     if (!isPlainLeftClick(event)) return;
 
-    const targetUrl = new URL(href, window.location.origin);
-    const targetPath = `${targetUrl.pathname}${targetUrl.search}`;
-    const currentPath = `${location.pathname}${location.search}`;
-
-    if (sectionId && targetPath !== currentPath) {
-      // Let the real anchor href handle cross-page hash navigation so the
-      // browser always lands on the intended section even after a cold load.
-      setIsMobileMenuOpen(false);
-      return;
-    }
-
     event.preventDefault();
-
-    const runNavigation = () => navigateToHref(href, sectionId);
 
     if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
@@ -159,12 +169,17 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     runNavigation();
   }, [isMobileMenuOpen, navigateToSection]);
 
-  const makeSectionItem = useCallback((label: string, sectionId: string): SectionNavItem => ({
-    type: 'section',
-    label,
-    sectionId,
-    targetPath: getSectionPath(),
-  }), [getSectionPath]);
+  const makeSectionItem = useCallback((label: string, sectionId: string): SectionNavItem => {
+    const targetPath = getSectionPath();
+
+    return {
+      type: 'section',
+      label,
+      sectionId,
+      targetPath,
+      href: buildSectionHref(targetPath, sectionId),
+    };
+  }, [getSectionPath]);
 
   const navItems: NavItem[] = variant === 'service'
     ? [
@@ -204,9 +219,9 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     }
 
     return (
-      <motion.button
+      <motion.a
         key={`${item.targetPath}:${item.sectionId}`}
-        type="button"
+        href={item.href}
         onClick={handleSectionClick(item.sectionId, item.targetPath)}
         className={className}
         whileHover={{ y: -2 }}
@@ -214,7 +229,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       >
         {item.label}
         <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-      </motion.button>
+      </motion.a>
     );
   };
 
@@ -244,16 +259,16 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     }
 
     return (
-      <motion.button
+      <motion.a
         key={`${item.targetPath}:${item.sectionId}`}
-        type="button"
+        href={item.href}
         onClick={handleSectionClick(item.sectionId, item.targetPath)}
         className={className}
         {...motionProps}
       >
         {item.label}
         <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-      </motion.button>
+      </motion.a>
     );
   };
 
@@ -270,13 +285,13 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           <div className="flex items-center justify-between h-20">
             {/* Логотип */}
             <div className="flex-shrink-0">
-              <button
-                type="button"
+              <a
+                href={logoItem.href}
                 onClick={handleSectionClick(logoItem.sectionId, logoItem.targetPath)}
                 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity border-0 p-0 cursor-pointer"
               >
                 {logoItem.label}
-              </button>
+              </a>
             </div>
 
             {/* Десктопное меню */}
