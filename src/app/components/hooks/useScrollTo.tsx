@@ -14,8 +14,8 @@ export function useScrollTo() {
 
   const scrollToWhenReady = useCallback((elementId: string, options?: { offset?: number; attempts?: number; intervalMs?: number }) => {
     const offset = options?.offset ?? 80;
-    const attempts = options?.attempts ?? 12;
-    const intervalMs = options?.intervalMs ?? 80;
+    const attempts = options?.attempts ?? 60;
+    const intervalMs = options?.intervalMs ?? 100;
 
     const tryScroll = (attempt: number) => {
       const element = document.getElementById(elementId);

@@ -31,14 +31,23 @@ function Footer() {
       return true;
     };
 
+    const scrollWhenReady = (attempt = 0) => {
+      if (scrollNow()) return;
+      if (attempt >= 60) return;
+      window.setTimeout(() => scrollWhenReady(attempt + 1), 100);
+    };
+
     if (scrollNow()) return;
 
     if (location.pathname !== '/') {
       navigate('/');
       window.setTimeout(() => {
-        scrollNow();
+        scrollWhenReady();
       }, 120);
+      return;
     }
+
+    scrollWhenReady();
   }, [location.pathname, navigate]);
 
   return (

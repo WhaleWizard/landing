@@ -41,15 +41,6 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   useEffect(() => {
     if (!isMobileMenuOpen) return;
 
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollbarCompensation = window.innerWidth - document.documentElement.clientWidth;
-
-    document.body.style.overflow = 'hidden';
-    if (scrollbarCompensation > 0) {
-      document.body.style.paddingRight = `${scrollbarCompensation}px`;
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsMobileMenuOpen(false);
@@ -60,8 +51,6 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
     };
   }, [isMobileMenuOpen]);
 
@@ -77,34 +66,38 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
     const scrollWhenReady = (attempt = 0) => {
       if (scrollNow()) return;
-      if (attempt >= 12) return;
+      if (attempt >= 60) return;
       window.setTimeout(() => {
         scrollWhenReady(attempt + 1);
-      }, 80);
+      }, 100);
     };
 
-    if (scrollNow()) {
-      setIsMobileMenuOpen(false);
-      return;
-    }
+    const runScroll = () => {
+      if (scrollNow()) return;
 
-    if (variant === 'service') {
-      scrollWhenReady();
-      setIsMobileMenuOpen(false);
-      return;
-    }
-
-    if (location.pathname !== '/') {
-      navigate('/');
-      window.setTimeout(() => {
+      if (variant === 'service') {
         scrollWhenReady();
-      }, 40);
-    } else {
-      scrollWhenReady();
+        return;
+      }
+
+      if (location.pathname !== '/') {
+        navigate('/');
+        window.setTimeout(() => {
+          scrollWhenReady();
+        }, 120);
+      } else {
+        scrollWhenReady();
+      }
+    };
+
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false);
+      window.setTimeout(runScroll, 80);
+      return;
     }
 
-    setIsMobileMenuOpen(false);
-  }, [location.pathname, navigate, variant]);
+    runScroll();
+  }, [isMobileMenuOpen, location.pathname, navigate, variant]);
 
   const navItems = variant === 'service'
     ? [
