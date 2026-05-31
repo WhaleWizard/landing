@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-r
 import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
+import Navbar from './components/Navbar';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 
 const ThankYou = lazy(() => import('./pages/ThankYou'));
@@ -88,10 +89,19 @@ function ScrollToHash() {
   return null;
 }
 
+const SERVICE_NAV_PATHS = new Set(['/meta-ads', '/google-ads', '/consult', '/meta-apps']);
+const NAVBAR_HIDDEN_PATHS = new Set(['/admin']);
+
 function RootLayout() {
+  const location = useLocation();
+  const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
+  const shouldShowNavbar = !NAVBAR_HIDDEN_PATHS.has(normalizedPath);
+  const navbarVariant = SERVICE_NAV_PATHS.has(normalizedPath) ? 'service' : 'home';
+
   return (
     <>
       <ScrollToHash />
+      {shouldShowNavbar && <Navbar variant={navbarVariant} />}
       <Outlet />
       <Suspense fallback={null}>
         <CookieConsentManager />
