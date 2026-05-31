@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { motion } from 'motion/react';
 
 type BackgroundVariant = 
@@ -201,14 +201,15 @@ GridGlowBackground.displayName = 'GridGlowBackground';
 // Particles - floating particles
 const ParticlesBackground = memo(({ color, intensity }: { color: keyof typeof colorPalettes; intensity: number }) => {
   const palette = colorPalettes[color];
-  const particles = Array.from({ length: 20 }, (_, i) => ({
+  const particles = useMemo(() => Array.from({ length: 20 }, (_, i) => ({
     id: i,
     size: Math.random() * 4 + 2,
     x: Math.random() * 100,
     y: Math.random() * 100,
+    driftX: Math.random() * 20 - 10,
     duration: Math.random() * 10 + 10,
     delay: Math.random() * 5,
-  }));
+  })), []);
 
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -226,7 +227,7 @@ const ParticlesBackground = memo(({ color, intensity }: { color: keyof typeof co
           }}
           animate={{
             y: [0, -30, 0],
-            x: [0, Math.random() * 20 - 10, 0],
+            x: [0, p.driftX, 0],
             opacity: [0.3 * intensity, 0.7 * intensity, 0.3 * intensity],
           }}
           transition={{
@@ -273,14 +274,14 @@ GradientMeshBackground.displayName = 'GradientMeshBackground';
 // Cosmic Dust - space dust effect
 const CosmicDustBackground = memo(({ color, intensity }: { color: keyof typeof colorPalettes; intensity: number }) => {
   const palette = colorPalettes[color];
-  const stars = Array.from({ length: 50 }, (_, i) => ({
+  const stars = useMemo(() => Array.from({ length: 50 }, (_, i) => ({
     id: i,
     size: Math.random() * 2 + 1,
     x: Math.random() * 100,
     y: Math.random() * 100,
     duration: Math.random() * 3 + 2,
     delay: Math.random() * 2,
-  }));
+  })), []);
 
   return (
     <div className="absolute inset-0 overflow-hidden">

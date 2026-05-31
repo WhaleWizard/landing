@@ -140,6 +140,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-x: hidden;
+    text-rendering: optimizeLegibility;
   }
 
   button,
@@ -156,6 +158,8 @@
   html {
     font-size: var(--font-size);
     scroll-behavior: smooth;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
   }
 
   h1 {
@@ -220,5 +224,21 @@
   }
   100% {
     background-position: 0 50%;
+  }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

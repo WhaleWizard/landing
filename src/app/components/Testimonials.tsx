@@ -76,7 +76,9 @@ function Testimonials() {
 
   // Обработчики свайпа
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+    const startX = e.touches[0].clientX;
+    touchStartX.current = startX;
+    touchEndX.current = startX;
   }, []);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {

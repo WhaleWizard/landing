@@ -79,21 +79,30 @@ function Services() {
     setCurrentIndex((prev) => (prev - 1 + servicesData.length) % servicesData.length);
   }, []);
 
-  const handleTouchStart = (e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    const startX = e.touches[0].clientX;
+    touchStartX.current = startX;
+    touchEndX.current = startX;
+  }, []);
 
-  const handleTouchMove = (e: TouchEvent) => {
+  const handleTouchMove = useCallback((e: TouchEvent) => {
     touchEndX.current = e.touches[0].clientX;
-  };
+  }, []);
 
-  const handleTouchEnd = () => {
-    if (touchStartX.current - touchEndX.current > 50) {
-      nextSlide();
-    } else if (touchEndX.current - touchStartX.current > 50) {
-      prevSlide();
+  const handleTouchEnd = useCallback(() => {
+    const delta = touchStartX.current - touchEndX.current;
+
+    if (Math.abs(delta) > 50) {
+      if (delta > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
     }
-  };
+
+    touchStartX.current = 0;
+    touchEndX.current = 0;
+  }, [nextSlide, prevSlide]);
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);

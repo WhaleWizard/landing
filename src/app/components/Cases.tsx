@@ -94,7 +94,9 @@ function Cases() {
   }, []);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+    const startX = e.touches[0].clientX;
+    touchStartX.current = startX;
+    touchEndX.current = startX;
   }, []);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -102,11 +104,18 @@ function Cases() {
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (touchStartX.current - touchEndX.current > 50) {
-      nextSlide();
-    } else if (touchEndX.current - touchStartX.current > 50) {
-      prevSlide();
+    const delta = touchStartX.current - touchEndX.current;
+
+    if (Math.abs(delta) > 50) {
+      if (delta > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
     }
+
+    touchStartX.current = 0;
+    touchEndX.current = 0;
   }, [nextSlide, prevSlide]);
 
   // Отключаем hover-анимации на тач-устройствах

@@ -17,10 +17,42 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const location = useLocation();
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    let rafId = 0;
+
+    const updateScrollState = () => {
+      rafId = 0;
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    const handleScroll = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(updateScrollState);
+    };
+
+    updateScrollState();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileMenuOpen]);
 
   const scrollToSection = useCallback((id: string) => {
     const scrollNow = () => {
@@ -34,34 +66,38 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
     const scrollWhenReady = (attempt = 0) => {
       if (scrollNow()) return;
-      if (attempt >= 12) return;
+      if (attempt >= 60) return;
       window.setTimeout(() => {
         scrollWhenReady(attempt + 1);
-      }, 80);
+      }, 100);
     };
 
-    if (scrollNow()) {
-      setIsMobileMenuOpen(false);
-      return;
-    }
+    const runScroll = () => {
+      if (scrollNow()) return;
 
-    if (variant === 'service') {
-      scrollWhenReady();
-      setIsMobileMenuOpen(false);
-      return;
-    }
-
-    if (location.pathname !== '/') {
-      navigate('/');
-      window.setTimeout(() => {
+      if (variant === 'service') {
         scrollWhenReady();
-      }, 40);
-    } else {
-      scrollWhenReady();
+        return;
+      }
+
+      if (location.pathname !== '/') {
+        navigate('/');
+        window.setTimeout(() => {
+          scrollWhenReady();
+        }, 120);
+      } else {
+        scrollWhenReady();
+      }
+    };
+
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false);
+      window.setTimeout(runScroll, 80);
+      return;
     }
 
-    setIsMobileMenuOpen(false);
-  }, [location.pathname, navigate, variant]);
+    runScroll();
+  }, [isMobileMenuOpen, location.pathname, navigate, variant]);
 
   const navItems = variant === 'service'
     ? [
@@ -124,8 +160,12 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
             {/* Мобильное меню */}
             <button
+              type="button"
               className="md:hidden p-2 rounded-lg bg-card/50 backdrop-blur-sm border border-border"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-navigation"
+              aria-label={isMobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
             >
               {isMobileMenuOpen ? <X className="w-6 h-6 text-foreground" /> : <Menu className="w-6 h-6 text-foreground" />}
             </button>
@@ -146,6 +186,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           >
             <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
             <motion.div
+              id="mobile-navigation"
               initial={{ y: 16, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 12, opacity: 0 }}

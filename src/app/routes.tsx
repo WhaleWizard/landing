@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, useRouteError } from 'react-router';
+import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-router';
 import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
@@ -60,9 +60,38 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
 }
 
 
+
+function ScrollToHash() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!location.hash) return;
+
+    const elementId = decodeURIComponent(location.hash.slice(1));
+    if (!elementId) return;
+
+    const scrollWhenReady = (attempt = 0) => {
+      const element = document.getElementById(elementId);
+      if (element) {
+        const y = element.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+        return;
+      }
+
+      if (attempt >= 60) return;
+      window.setTimeout(() => scrollWhenReady(attempt + 1), 100);
+    };
+
+    window.setTimeout(() => scrollWhenReady(), 0);
+  }, [location.hash, location.pathname]);
+
+  return null;
+}
+
 function RootLayout() {
   return (
     <>
+      <ScrollToHash />
       <Outlet />
       <Suspense fallback={null}>
         <CookieConsentManager />

@@ -29,6 +29,7 @@ export default function InteractiveBackground({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
+  const dimensionsRef = useRef({ width: 0, height: 0 });
   const animationRef = useRef<number>();
   const isVisibleRef = useRef(true);
 
@@ -44,7 +45,9 @@ export default function InteractiveBackground({
   }, [variant]);
 
   const initParticles = useCallback((width: number, height: number) => {
-    particlesRef.current = Array.from({ length: particleCount }, () => ({
+    const effectiveParticleCount = Math.min(particleCount, width < 640 ? 36 : 64);
+
+    particlesRef.current = Array.from({ length: effectiveParticleCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
       vx: (Math.random() - 0.5) * 0.5,
@@ -74,11 +77,14 @@ export default function InteractiveBackground({
       ctx.scale(dpr, dpr);
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
+      dimensionsRef.current = { width: rect.width, height: rect.height };
       initParticles(rect.width, rect.height);
     };
 
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+
+    const resizeObserver = new ResizeObserver(resizeCanvas);
+    resizeObserver.observe(canvas);
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -88,7 +94,7 @@ export default function InteractiveBackground({
     );
     observer.observe(canvas);
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       mouseRef.current = {
         x: e.clientX - rect.left,
@@ -97,7 +103,7 @@ export default function InteractiveBackground({
     };
 
     if (interactive) {
-      canvas.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('pointermove', handlePointerMove, { passive: true });
     }
 
     const fps = lowPowerMode ? 24 : 30;
@@ -116,8 +122,13 @@ export default function InteractiveBackground({
       }
       lastFrameTime = time;
 
-      const rect = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
+      const { width, height } = dimensionsRef.current;
+      if (!width || !height) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      ctx.clearRect(0, 0, width, height);
 
       // Draw connections
       ctx.lineWidth = 0.5;
@@ -167,8 +178,8 @@ export default function InteractiveBackground({
         p.life += 1;
         if (p.life > p.maxLife) {
           p.life = 0;
-          p.x = Math.random() * rect.width;
-          p.y = Math.random() * rect.height;
+          p.x = Math.random() * width;
+          p.y = Math.random() * height;
         }
 
         // Pulse opacity
@@ -188,10 +199,10 @@ export default function InteractiveBackground({
         p.vy += (Math.random() - 0.5) * 0.02;
 
         // Boundary wrap
-        if (p.x < 0) p.x = rect.width;
-        if (p.x > rect.width) p.x = 0;
-        if (p.y < 0) p.y = rect.height;
-        if (p.y > rect.height) p.y = 0;
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
 
         // Draw particle with glow
         ctx.save();
@@ -222,10 +233,10 @@ export default function InteractiveBackground({
     animationRef.current = requestAnimationFrame(animate);
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      resizeObserver.disconnect();
       observer.disconnect();
       if (interactive) {
-        canvas.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('pointermove', handlePointerMove);
       }
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
