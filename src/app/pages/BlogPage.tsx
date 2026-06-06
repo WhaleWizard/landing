@@ -240,7 +240,7 @@ function BlogPageComponent() {
                 src={selectedArticle.image}
                 alt={selectedArticle.title}
                 loading="eager"
-                fetchpriority="high"
+                fetchPriority="high"
                 className="w-full h-auto object-cover max-h-[500px]"
                 onError={(event) => {
                   const target = event.currentTarget;

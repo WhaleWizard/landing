@@ -284,7 +284,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
       await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
       (window as Window & { dataLayer?: unknown[] }).dataLayer = (window as Window & { dataLayer?: unknown[] }).dataLayer || [];
       function gtag(...args: unknown[]) {
-        ((window as Window & { dataLayer: unknown[] }).dataLayer).push(args);
+        ((window as unknown as Window & { dataLayer: unknown[] }).dataLayer).push(args);
       }
       (window as Window & { gtag?: (...args: unknown[]) => void }).gtag = gtag;
       gtag('js', new Date());
@@ -297,7 +297,7 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
 
   if (!useTagManagerRuntime && ymId && !ymLoaded) {
     try {
-      const win = window as Window & {
+      const win = window as unknown as Window & {
         ym?: ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
         dataLayer?: unknown[];
         [key: `yaCounter${number}`]: unknown;
