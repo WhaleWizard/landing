@@ -27,3 +27,28 @@
   0%, 100% { opacity: 0.25; }
   50% { opacity: 0.6; }
 }
+
+@layer components {
+  .legal-consent-copy {
+    max-width: 66ch;
+    text-wrap: pretty;
+    overflow-wrap: normal;
+    letter-spacing: 0.005em;
+  }
+
+  .legal-consent-link {
+    display: inline;
+    font: inherit;
+    line-height: inherit;
+    text-wrap: pretty;
+    transition-property: color, text-decoration-color, opacity;
+    transition-duration: var(--motion-fast);
+  }
+
+  @media (max-width: 480px) {
+    .legal-consent-copy {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+  }
+}
