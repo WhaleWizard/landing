@@ -7,7 +7,6 @@ type Testimonial = {
   company: string;
   position: string;
   text: string;
-  rating: number;
 };
 
 const testimonialsData: Testimonial[] = [
@@ -16,56 +15,48 @@ const testimonialsData: Testimonial[] = [
     company: 'Studio Forma',
     position: 'Digital Producer',
     text: 'Мне нравится, что ты вникаешь в проект. Не просто “запустили и всё”, а реально разбирал мою ситуацию. По заявкам стало лучше, чем было.',
-    rating: 5,
   },
   {
     name: 'Кэтрин',
     company: 'Nova Events',
     position: 'Project Manager',
     text: 'Работаем уже 4 год, результаты устраивают. Пытались так же параллельно тестировать других таргетологов, пока твои результаты лучшие.',
-    rating: 5,
   },
   {
     name: 'Дмитрий',
     company: 'DMD Consulting',
     position: 'CEO',
     text: 'Результат есть, заявки есть. Пока все устраивает в сотрудничестве: понятные отчёты, быстрые правки и нормальная коммуникация по рекламе.',
-    rating: 5,
   },
   {
     name: 'Анна Морозова',
     company: 'Lumi Beauty Clinic',
     position: 'Маркетинг-директор',
     text: 'До запуска было много нецелевых обращений. После переработки креативов и аудиторий заявки стали качественнее, администраторы начали быстрее закрывать записи.',
-    rating: 5,
   },
   {
     name: 'Игорь Савельев',
     company: 'ProFit Gym',
     position: 'Управляющий партнёр',
     text: 'Нужно было заполнить новый филиал без хаоса в рекламе. Получили понятную воронку, отдельные кампании под абонементы и стабильный поток заявок.',
-    rating: 5,
   },
   {
     name: 'Мария Коваль',
     company: 'Urban Keys Realty',
     position: 'Head of Sales',
     text: 'Понравилось, что сначала разобрали экономику и путь клиента, а уже потом запускали кампании. Лиды стали предсказуемее, менеджерам проще планировать нагрузку.',
-    rating: 5,
   },
   {
     name: 'Алексей Романов',
     company: 'TechLine B2B',
     position: 'Коммерческий директор',
     text: 'Для B2B-ниши было важно не просто получить клики, а привести адекватные заявки. После тестов офферов и ретаргетинга появились обращения от нужных компаний.',
-    rating: 5,
   },
   {
     name: 'Елена Гриценко',
     company: 'KidsLab School',
     position: 'Основатель',
     text: 'Запускали набор на курсы в сжатые сроки. Кампании быстро донастраивались по фактическим заявкам, поэтому бюджет не расползался на случайный трафик.',
-    rating: 5,
   },
 ];
 
@@ -80,32 +71,28 @@ const getInitials = (name: string) => {
 
 const cardStyles = [
   {
-    shell: 'border-primary/35 hover:border-primary/70 shadow-primary/10',
-    glow: 'from-primary/20 via-primary/5 to-accent/15',
-    line: 'from-primary via-accent to-secondary',
-    avatar: 'from-primary/35 to-primary/10 border-primary/40 ring-primary/35',
-    badge: 'bg-primary/10 text-primary border-primary/20',
+    accent: 'bg-primary',
+    chip: 'bg-primary/10 text-primary border-primary/15',
+    avatar: 'bg-primary/10 border-primary/20 text-primary',
+    hover: 'hover:border-primary/35 hover:shadow-primary/10',
   },
   {
-    shell: 'border-accent/35 hover:border-accent/70 shadow-accent/10',
-    glow: 'from-accent/20 via-accent/5 to-secondary/15',
-    line: 'from-accent via-secondary to-primary',
-    avatar: 'from-accent/35 to-accent/10 border-accent/40 ring-accent/35',
-    badge: 'bg-accent/10 text-accent border-accent/20',
+    accent: 'bg-accent',
+    chip: 'bg-accent/10 text-accent border-accent/15',
+    avatar: 'bg-accent/10 border-accent/20 text-accent',
+    hover: 'hover:border-accent/35 hover:shadow-accent/10',
   },
   {
-    shell: 'border-secondary/35 hover:border-secondary/70 shadow-secondary/10',
-    glow: 'from-secondary/20 via-secondary/5 to-primary/15',
-    line: 'from-secondary via-primary to-accent',
-    avatar: 'from-secondary/35 to-secondary/10 border-secondary/40 ring-secondary/35',
-    badge: 'bg-secondary/10 text-secondary border-secondary/20',
+    accent: 'bg-secondary',
+    chip: 'bg-secondary/10 text-secondary border-secondary/15',
+    avatar: 'bg-secondary/10 border-secondary/20 text-secondary',
+    hover: 'hover:border-secondary/35 hover:shadow-secondary/10',
   },
   {
-    shell: 'border-primary/25 hover:border-accent/60 shadow-primary/10',
-    glow: 'from-primary/15 via-accent/10 to-transparent',
-    line: 'from-primary via-white/50 to-accent',
-    avatar: 'from-primary/30 to-accent/15 border-primary/40 ring-primary/30',
-    badge: 'bg-card/70 text-foreground border-primary/20',
+    accent: 'bg-foreground/70',
+    chip: 'bg-card/80 text-foreground border-border',
+    avatar: 'bg-card/90 border-border text-foreground',
+    hover: 'hover:border-foreground/20 hover:shadow-foreground/5',
   },
 ];
 
@@ -123,32 +110,25 @@ function TestimonialCard({ testimonial, index, compact = false }: { testimonial:
   const style = cardStyles[index % cardStyles.length];
 
   return (
-    <div className={`relative h-full overflow-hidden rounded-2xl lg:rounded-3xl border bg-card/60 backdrop-blur-md shadow-xl transition-all duration-300 ${style.shell}`}>
-      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${style.line}`} />
-      <div className={`absolute inset-0 bg-gradient-to-br ${style.glow} opacity-70`} />
-      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-foreground/5 blur-2xl" />
+    <article className={`relative h-full overflow-hidden rounded-3xl border border-border/80 bg-card/55 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${style.hover}`}>
+      <div className={`absolute left-6 top-6 h-10 w-1 rounded-full ${style.accent}`} />
 
-      <div className={`relative flex h-full flex-col ${compact ? 'p-5' : 'p-6 lg:p-7'}`}>
+      <div className={`relative flex h-full flex-col ${compact ? 'p-5 pl-9' : 'p-6 pl-10 lg:p-7 lg:pl-11'}`}>
         <div className="mb-5 flex items-start justify-between gap-4">
-          <div className={`inline-flex max-w-[78%] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${style.badge}`}>
+          <div className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${style.chip}`}>
             <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
             <span className="truncate">{testimonial.company}</span>
           </div>
-          <div className="flex flex-shrink-0 items-center gap-0.5 text-[13px] text-accent" aria-label={`${testimonial.rating} из 5`}>
-            {Array.from({ length: testimonial.rating }).map((_, starIndex) => (
-              <span key={starIndex}>★</span>
-            ))}
-          </div>
+          <Quote className="h-7 w-7 flex-shrink-0 text-foreground/15" aria-hidden="true" />
         </div>
 
-        <Quote className={`${compact ? 'mb-3 h-7 w-7' : 'mb-4 h-8 w-8'} text-primary/35`} />
         <p className={`${compact ? 'text-sm' : 'text-base lg:text-[17px]'} flex-1 leading-relaxed text-foreground/90`}>
-          «{testimonial.text}»
+          {testimonial.text}
         </p>
 
-        <div className="mt-6 flex items-center gap-4 border-t border-border/50 pt-5">
-          <div className={`relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-gradient-to-br ring-2 ${style.avatar}`}>
-            <span className="text-base font-bold text-foreground/85">{initials}</span>
+        <div className="mt-7 flex items-center gap-4 border-t border-border/45 pt-5">
+          <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border ${style.avatar}`}>
+            <span className="text-base font-semibold">{initials}</span>
           </div>
           <div className="min-w-0 flex-1">
             <div className={`${compact ? 'text-sm' : 'text-base'} truncate font-semibold text-foreground`}>{testimonial.name}</div>
@@ -156,7 +136,7 @@ function TestimonialCard({ testimonial, index, compact = false }: { testimonial:
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -260,10 +240,7 @@ function Testimonials() {
 
         {/* Десктопная версия — горизонтальная лента карточек */}
         <div className="hidden md:block">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div className="text-sm text-muted-foreground">
-              Листайте отзывы — каждая карточка показывает компанию, роль клиента и реальный контекст работы.
-            </div>
+          <div className="mb-5 flex justify-end gap-3">
             <div className="flex gap-3">
               <button
                 onClick={() => scrollDesktopTestimonials('prev')}
@@ -284,7 +261,7 @@ function Testimonials() {
 
           <div
             ref={desktopScrollerRef}
-            className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 [scrollbar-width:thin] [scrollbar-color:var(--primary)_transparent]"
+            className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
             {testimonialsData.map((testimonial, index) => (
               <motion.div
@@ -294,7 +271,7 @@ function Testimonials() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: (index % 4) * 0.08 }}
-                className="min-h-[360px] w-[min(390px,calc(100vw-4rem))] flex-shrink-0 snap-start group"
+                className="min-h-[340px] w-[min(380px,calc(100vw-4rem))] flex-shrink-0 snap-start group"
               >
                 <TestimonialCard testimonial={testimonial} index={index} />
               </motion.div>
@@ -323,7 +300,7 @@ function Testimonials() {
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.5 }}
-                    className="relative min-h-[390px]"
+                    className="relative min-h-[360px]"
                   >
                     <TestimonialCard testimonial={testimonial} index={index} compact />
                   </motion.div>
