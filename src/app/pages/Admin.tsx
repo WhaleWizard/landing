@@ -140,7 +140,9 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
 
   return (
     <div
-      ref={(node) => drag(drop(node))}
+      ref={(node) => {
+        drag(drop(node));
+      }}
       className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'} ${isDragging ? 'opacity-60' : ''}`}
     >
       <button className="p-1.5 rounded-lg text-[var(--adm-fg)]/50 cursor-grab active:cursor-grabbing" title="Перетащить">

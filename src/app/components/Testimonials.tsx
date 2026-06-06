@@ -1,25 +1,62 @@
 import { motion, useInView } from 'motion/react';
-import { Sparkles, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2 } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, TouchEvent } from 'react';
 
-const testimonialsData = [
+type Testimonial = {
+  name: string;
+  company: string;
+  position: string;
+  text: string;
+};
+
+const testimonialsData: Testimonial[] = [
   {
     name: 'Светлана',
+    company: 'Studio Forma',
     position: 'Digital Producer',
     text: 'Мне нравится, что ты вникаешь в проект. Не просто “запустили и всё”, а реально разбирал мою ситуацию. По заявкам стало лучше, чем было.',
-    rating: 5,
   },
   {
     name: 'Кэтрин',
+    company: 'Nova Events',
     position: 'Project Manager',
-    text: 'Работаем уже 4 год, результаты устраивают. Пытались так же паралельно тестирвоать других таргетологов, пока твои результаты лучшие',
-    rating: 5,
+    text: 'Работаем уже 4 год, результаты устраивают. Пытались так же параллельно тестировать других таргетологов, пока твои результаты лучшие.',
   },
   {
     name: 'Дмитрий',
+    company: 'DMD Consulting',
     position: 'CEO',
-    text: 'Результат есть, завявки есть. Пока все устраивает в сотрудничестве',
-    rating: 5,
+    text: 'Результат есть, заявки есть. Пока все устраивает в сотрудничестве: понятные отчёты, быстрые правки и нормальная коммуникация по рекламе.',
+  },
+  {
+    name: 'Анна Морозова',
+    company: 'Lumi Beauty Clinic',
+    position: 'Маркетинг-директор',
+    text: 'До запуска было много нецелевых обращений. После переработки креативов и аудиторий заявки стали качественнее, администраторы начали быстрее закрывать записи.',
+  },
+  {
+    name: 'Игорь Савельев',
+    company: 'ProFit Gym',
+    position: 'Управляющий партнёр',
+    text: 'Нужно было заполнить новый филиал без хаоса в рекламе. Получили понятную воронку, отдельные кампании под абонементы и стабильный поток заявок.',
+  },
+  {
+    name: 'Мария Коваль',
+    company: 'Urban Keys Realty',
+    position: 'Head of Sales',
+    text: 'Понравилось, что сначала разобрали экономику и путь клиента, а уже потом запускали кампании. Лиды стали предсказуемее, менеджерам проще планировать нагрузку.',
+  },
+  {
+    name: 'Алексей Романов',
+    company: 'TechLine B2B',
+    position: 'Коммерческий директор',
+    text: 'Для B2B-ниши было важно не просто получить клики, а привести адекватные заявки. После тестов офферов и ретаргетинга появились обращения от нужных компаний.',
+  },
+  {
+    name: 'Елена Гриценко',
+    company: 'KidsLab School',
+    position: 'Основатель',
+    text: 'Запускали набор на курсы в сжатые сроки. Кампании быстро донастраивались по фактическим заявкам, поэтому бюджет не расползался на случайный трафик.',
   },
 ];
 
@@ -32,10 +69,31 @@ const getInitials = (name: string) => {
     .slice(0, 2);
 };
 
-const avatarColors = [
-  'from-primary/30 to-primary/10 border-primary/40',
-  'from-accent/30 to-accent/10 border-accent/40',
-  'from-secondary/30 to-secondary/10 border-secondary/40',
+const cardStyles = [
+  {
+    accent: 'bg-primary',
+    chip: 'bg-primary/10 text-primary border-primary/15',
+    avatar: 'bg-primary/10 border-primary/20 text-primary',
+    hover: 'hover:border-primary/35 hover:shadow-primary/10',
+  },
+  {
+    accent: 'bg-accent',
+    chip: 'bg-accent/10 text-accent border-accent/15',
+    avatar: 'bg-accent/10 border-accent/20 text-accent',
+    hover: 'hover:border-accent/35 hover:shadow-accent/10',
+  },
+  {
+    accent: 'bg-secondary',
+    chip: 'bg-secondary/10 text-secondary border-secondary/15',
+    avatar: 'bg-secondary/10 border-secondary/20 text-secondary',
+    hover: 'hover:border-secondary/35 hover:shadow-secondary/10',
+  },
+  {
+    accent: 'bg-foreground/70',
+    chip: 'bg-card/80 text-foreground border-border',
+    avatar: 'bg-card/90 border-border text-foreground',
+    hover: 'hover:border-foreground/20 hover:shadow-foreground/5',
+  },
 ];
 
 // Хук для определения тач-устройства
@@ -47,9 +105,45 @@ const useTouchDevice = () => {
   return isTouch;
 };
 
+function TestimonialCard({ testimonial, index, compact = false }: { testimonial: Testimonial; index: number; compact?: boolean }) {
+  const initials = getInitials(testimonial.name);
+  const style = cardStyles[index % cardStyles.length];
+
+  return (
+    <article className={`relative h-full overflow-hidden rounded-3xl border border-border/80 bg-card/55 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${style.hover}`}>
+      <div className={`absolute left-6 top-6 h-10 w-1 rounded-full ${style.accent}`} />
+
+      <div className={`relative flex h-full flex-col ${compact ? 'p-5 pl-9' : 'p-6 pl-10 lg:p-7 lg:pl-11'}`}>
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${style.chip}`}>
+            <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{testimonial.company}</span>
+          </div>
+          <Quote className="h-7 w-7 flex-shrink-0 text-foreground/15" aria-hidden="true" />
+        </div>
+
+        <p className={`${compact ? 'text-sm' : 'text-base lg:text-[17px]'} flex-1 leading-relaxed text-foreground/90`}>
+          {testimonial.text}
+        </p>
+
+        <div className="mt-7 flex items-center gap-4 border-t border-border/45 pt-5">
+          <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border ${style.avatar}`}>
+            <span className="text-base font-semibold">{initials}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className={`${compact ? 'text-sm' : 'text-base'} truncate font-semibold text-foreground`}>{testimonial.name}</div>
+            <div className="mt-0.5 truncate text-xs md:text-sm text-muted-foreground">{testimonial.position}</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
+  const desktopScrollerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const isTouch = useTouchDevice();
 
@@ -63,6 +157,17 @@ function Testimonials() {
 
   const prevSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + testimonialsData.length) % testimonialsData.length);
+  }, []);
+
+  const scrollDesktopTestimonials = useCallback((direction: 'prev' | 'next') => {
+    const scroller = desktopScrollerRef.current;
+    if (!scroller) return;
+
+    const cardWidth = scroller.querySelector<HTMLElement>('[data-testimonial-card]')?.offsetWidth ?? 360;
+    scroller.scrollBy({
+      left: direction === 'next' ? cardWidth + 24 : -(cardWidth + 24),
+      behavior: 'smooth',
+    });
   }, []);
 
   // Автоскролл только когда секция видна
@@ -133,43 +238,45 @@ function Testimonials() {
           </p>
         </motion.div>
 
-        {/* Десктопная версия — сетка из трёх карточек */}
-        <div className="hidden md:grid md:grid-cols-3 gap-6 lg:gap-8">
-          {testimonialsData.map((testimonial, index) => {
-            const initials = getInitials(testimonial.name);
-            const avatarColor = avatarColors[index % avatarColors.length];
-            return (
+        {/* Десктопная версия — горизонтальная лента карточек */}
+        <div className="hidden md:block">
+          <div className="mb-5 flex justify-end gap-3">
+            <div className="flex gap-3">
+              <button
+                onClick={() => scrollDesktopTestimonials('prev')}
+                className="p-2.5 rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
+                aria-label="Previous testimonials"
+              >
+                <ChevronLeft className="w-5 h-5 text-primary" />
+              </button>
+              <button
+                onClick={() => scrollDesktopTestimonials('next')}
+                className="p-2.5 rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
+                aria-label="Next testimonials"
+              >
+                <ChevronRight className="w-5 h-5 text-primary" />
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={desktopScrollerRef}
+            className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {testimonialsData.map((testimonial, index) => (
               <motion.div
-                key={index}
+                key={`${testimonial.company}-${testimonial.name}`}
+                data-testimonial-card
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="relative group"
+                transition={{ duration: 0.5, delay: (index % 4) * 0.08 }}
+                className="min-h-[340px] w-[min(380px,calc(100vw-4rem))] flex-shrink-0 snap-start group"
               >
-                <div className="relative p-6 lg:p-8 rounded-2xl lg:rounded-3xl bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-300 h-full flex flex-col overflow-hidden">
-                  {/* Цветная линия сверху — исправлено: теперь внутри карточки, корректно прилегает */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
-                  <div className="absolute inset-0 rounded-2xl lg:rounded-3xl bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10" />
-
-                  <div className="relative flex flex-col h-full">
-                    <p className="text-base lg:text-lg text-foreground/90 leading-relaxed mb-6 flex-1">
-                      "{testimonial.text}"
-                    </p>
-                    <div className="flex items-center gap-4 pt-6 border-t border-border/50">
-                      <div className={`relative w-12 h-12 lg:w-14 lg:h-14 flex-shrink-0 rounded-full overflow-hidden ring-2 ring-primary/30 group-hover:ring-primary/60 transition-all bg-gradient-to-br ${avatarColor} flex items-center justify-center`}>
-                        <span className="text-lg font-bold text-foreground/80">{initials}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-base lg:text-lg font-semibold text-foreground">{testimonial.name}</div>
-                        <div className="text-sm text-muted-foreground">{testimonial.position}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <TestimonialCard testimonial={testimonial} index={index} />
               </motion.div>
-            );
-          })}
+            ))}
+          </div>
         </div>
 
         {/* Мобильная версия — карусель с тач-свайпом */}
@@ -186,44 +293,19 @@ function Testimonials() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               style={{ willChange: 'transform' }}
             >
-              {testimonialsData.map((testimonial, index) => {
-                const initials = getInitials(testimonial.name);
-                const avatarColor = avatarColors[index % avatarColors.length];
-                return (
-                  <div key={index} className="w-full flex-shrink-0 px-2">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.5 }}
-                      className="relative"
-                    >
-                      <div className="relative p-5 rounded-2xl bg-card/60 backdrop-blur-md border-2 border-primary/30 shadow-xl shadow-primary/10 overflow-hidden">
-                        {/* Цветная линия сверху — исправлено */}
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5 rounded-2xl -z-10" />
-
-                        <div className="relative pt-2">
-                          <p className="text-sm text-foreground/90 leading-relaxed mb-6">
-                            "{testimonial.text}"
-                          </p>
-                          <div className="flex items-center gap-3 pt-5 border-t border-border/50">
-                            <div className={`relative w-12 h-12 flex-shrink-0 rounded-full overflow-hidden ring-2 ring-primary/40 bg-gradient-to-br ${avatarColor} flex items-center justify-center`}>
-                              <span className="text-base font-bold text-foreground/80">{initials}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold text-foreground">{testimonial.name}</div>
-                              <div className="text-xs text-muted-foreground">{testimonial.position}</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-primary via-accent to-secondary opacity-30" />
-                      </div>
-                    </motion.div>
-                  </div>
-                );
-              })}
+              {testimonialsData.map((testimonial, index) => (
+                <div key={`${testimonial.company}-${testimonial.name}`} className="w-full flex-shrink-0 px-2">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5 }}
+                    className="relative min-h-[360px]"
+                  >
+                    <TestimonialCard testimonial={testimonial} index={index} compact />
+                  </motion.div>
+                </div>
+              ))}
             </motion.div>
           </div>
 
