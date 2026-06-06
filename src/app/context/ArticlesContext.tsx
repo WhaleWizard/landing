@@ -70,18 +70,23 @@ export const ArticlesProvider = ({ children }: Props) => {
       void loadArticles();
     };
 
-    if ('requestIdleCallback' in window) {
-      const idleId = window.requestIdleCallback(run, { timeout: 1200 });
+    const idleWindow = window as Window & typeof globalThis & {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    if (typeof idleWindow.requestIdleCallback === 'function') {
+      const idleId = idleWindow.requestIdleCallback(run, { timeout: 1200 });
       return () => {
         cancelled = true;
-        window.cancelIdleCallback(idleId);
+        idleWindow.cancelIdleCallback?.(idleId);
       };
     }
 
-    const timer = window.setTimeout(run, 600);
+    const timer = globalThis.setTimeout(run, 600);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      globalThis.clearTimeout(timer);
     };
   }, []);
 

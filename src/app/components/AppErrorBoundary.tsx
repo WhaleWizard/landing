@@ -1,9 +1,9 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import React, { type ErrorInfo, type ReactNode } from 'react';
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean; message: string };
 
-export default class AppErrorBoundary extends Component<Props, State> {
+export default class AppErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, message: '' };
 
   static getDerivedStateFromError(error: Error): State {
