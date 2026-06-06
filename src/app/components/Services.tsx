@@ -110,11 +110,11 @@ function Services({ content }: { content?: ServicesContent }) {
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % serviceCards.length);
-  }, []);
+  }, [serviceCards.length]);
 
   const prevSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + serviceCards.length) % serviceCards.length);
-  }, []);
+  }, [serviceCards.length]);
 
   const handleTouchStart = (e: TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -164,19 +164,19 @@ function Services({ content }: { content?: ServicesContent }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-12 md:mb-16 relative z-20"
+            className="text-center mb-10 md:mb-14 relative z-20"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-4 md:mb-6">
               <Target className="w-4 h-4 text-primary" />
               <span className="text-sm text-primary font-semibold">{sectionContent.badge}</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+            <h2 className="mx-auto max-w-4xl text-balance text-2xl sm:text-3xl md:text-4xl lg:text-[44px] font-bold leading-tight tracking-[-0.02em] mb-3 md:mb-4">
               {sectionContent.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 {sectionContent.titleAccent}
               </span>
             </h2>
-            <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-1xl mx-auto">
+            <p className="mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed">
               {sectionContent.description}
             </p>
           </motion.div>
@@ -215,10 +215,10 @@ function Services({ content }: { content?: ServicesContent }) {
                       />
                     </div>
 
-                    <h3 className="text-xl md:text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
+                    <h3 className="min-h-[3.25rem] text-balance text-xl md:text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">
                       {service.title}
                     </h3>
-                    <p className="text-sm md:text-base text-muted-foreground mb-6 leading-relaxed">
+                    <p className="md:min-h-[4.5rem] text-pretty text-sm md:text-base text-muted-foreground mb-6 leading-relaxed">
                       {service.description}
                     </p>
 
@@ -235,7 +235,7 @@ function Services({ content }: { content?: ServicesContent }) {
                           <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
                             <Sparkles className="w-3 h-3 text-primary" />
                           </div>
-                          <span className="text-sm text-foreground/80">{feature}</span>
+                          <span className="text-sm leading-snug text-foreground/80 text-pretty">{feature}</span>
                         </motion.div>
                       ))}
                     </div>
@@ -298,10 +298,10 @@ function Services({ content }: { content?: ServicesContent }) {
                             </div>
                           </div>
 
-                          <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                          <h3 className="text-balance text-xl sm:text-2xl font-bold leading-tight mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
                             {service.title}
                           </h3>
-                          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                          <p className="text-pretty text-sm text-muted-foreground mb-5 leading-relaxed">
                             {service.description}
                           </p>
 
@@ -311,7 +311,7 @@ function Services({ content }: { content?: ServicesContent }) {
                                 <div className="flex-shrink-0 w-5 h-5 rounded bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
                                   <Sparkles className="w-2.5 h-2.5 text-primary" />
                                 </div>
-                                <span className="text-xs text-foreground/90 leading-tight">{feature}</span>
+                                <span className="text-[11px] sm:text-xs text-foreground/90 leading-tight text-pretty break-words">{feature}</span>
                               </div>
                             ))}
                           </div>
@@ -418,7 +418,7 @@ function Services({ content }: { content?: ServicesContent }) {
                        overflow-hidden transition-all hover:scale-105 active:scale-95 w-full sm:w-auto text-sm sm:text-base"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-            <span className="relative">{modalContent.button}</span>
+            <span className="relative text-center leading-tight">{modalContent.button}</span>
             <span className="relative group-hover:translate-x-1 transition-transform">→</span>
           </button>
         </div>

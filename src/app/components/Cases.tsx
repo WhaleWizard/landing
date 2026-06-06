@@ -113,11 +113,11 @@ function Cases({ content }: { content?: CasesContent }) {
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % caseItems.length);
-  }, []);
+  }, [caseItems.length]);
 
   const prevSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + caseItems.length) % caseItems.length);
-  }, []);
+  }, [caseItems.length]);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -159,19 +159,19 @@ function Cases({ content }: { content?: CasesContent }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-12 md:mb-16"
+          className="text-center mb-10 md:mb-14"
         >
           <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-4 md:mb-6">
             <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-primary" />
             <span className="text-xs md:text-sm text-primary">{sectionContent.badge}</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+          <h2 className="mx-auto max-w-4xl text-balance text-2xl sm:text-3xl md:text-4xl lg:text-[44px] font-bold leading-tight tracking-[-0.02em] mb-3 md:mb-4">
             {sectionContent.titlePrefix}{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
               {sectionContent.titleAccent}
             </span>
           </h2>
-          <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed">
             {sectionContent.description}
           </p>
         </motion.div>
@@ -223,11 +223,11 @@ function Cases({ content }: { content?: CasesContent }) {
               </div>
 
               <div className="p-5 md:p-6 space-y-4">
-                <h3 className="text-lg md:text-xl font-bold group-hover:text-primary transition-colors flex items-start justify-between">
+                <h3 className="min-h-[3rem] text-balance text-lg md:text-xl font-bold leading-tight group-hover:text-primary transition-colors flex items-start justify-between gap-3">
                   {item.title}
                   <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1" />
                 </h3>
-                <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                <p className="md:min-h-[4.25rem] text-pretty text-sm md:text-base text-muted-foreground leading-relaxed">
                   {item.description}
                 </p>
 
@@ -299,8 +299,8 @@ function Cases({ content }: { content?: CasesContent }) {
                     </div>
 
                     <div className="p-5 space-y-4">
-                      <h3 className="text-xl font-bold">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                      <h3 className="text-balance text-xl font-bold leading-tight">{item.title}</h3>
+                      <p className="text-pretty text-sm text-muted-foreground leading-relaxed">{item.description}</p>
                       <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
                         {item.stats.map((stat, idx) => (
                           <div key={idx} className="relative p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 backdrop-blur-sm border border-primary/20">
@@ -368,7 +368,7 @@ function Cases({ content }: { content?: CasesContent }) {
             className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 px-8 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-            <span className="relative text-sm md:text-base lg:text-lg">Перейти ко всем кейсам</span>
+            <span className="relative text-center text-sm md:text-base lg:text-lg leading-tight">Перейти ко всем кейсам</span>
             <ArrowRight className="w-4 h-4 md:w-5 md:h-5 relative group-hover:translate-x-1 transition-transform" />
           </button>
         </div>

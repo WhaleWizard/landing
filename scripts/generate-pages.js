@@ -390,7 +390,7 @@ function renderStaticPages(baseHtml) {
     {
       route: '/meta-apps',
       title: 'Трафик для приложений из Meta Ads (Facebook/Instagram) | Whale Wzrd',
-      description: 'Привлекаю установки и целевые события в мобильных приложениях через Meta Ads: App Install, App Events, MMP/SKAN, креативы и масштабирование.',
+      description: 'Привлекаю установки и целевые события в приложениях через Meta Ads: App Events, MMP/SKAN, креативы и масштабирование.',
       h1: 'Трафик для приложений из Meta Ads',
       lead: 'Уникальная страница app growth: установки, app events, MMP/SKAN, mobile-креативы и масштабирование по KPI приложения.',
     },

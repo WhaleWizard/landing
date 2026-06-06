@@ -101,8 +101,8 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-primary/20 flex items-center justify-center pointer-events-none">
         <Sparkles className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-primary" />
       </div>
-      <div className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">{stats[0]?.value}</div>
-      <div className="text-xs sm:text-xs md:text-sm text-muted-foreground">{stats[0]?.label}</div>
+      <div className="pr-6 text-lg sm:text-2xl md:text-3xl font-bold leading-none text-primary">{stats[0]?.value}</div>
+      <div className="mt-1 min-h-8 text-[11px] sm:text-xs md:text-sm leading-tight text-muted-foreground text-pretty">{stats[0]?.label}</div>
     </motion.div>
 
     <motion.div
@@ -114,8 +114,8 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-accent/20 flex items-center justify-center pointer-events-none">
         <TrendingUp className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-accent" />
       </div>
-      <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent">{stats[1]?.value}</div>
-      <div className="text-xs sm:text-xs md:text-sm text-muted-foreground">{stats[1]?.label}</div>
+      <div className="pr-6 text-lg sm:text-2xl md:text-3xl font-bold leading-none text-accent">{stats[1]?.value}</div>
+      <div className="mt-1 min-h-8 text-[11px] sm:text-xs md:text-sm leading-tight text-muted-foreground text-pretty">{stats[1]?.label}</div>
     </motion.div>
 
     <motion.div
@@ -127,8 +127,8 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-secondary/20 flex items-center justify-center pointer-events-none">
         <BarChart3 className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-secondary" />
       </div>
-      <div className="text-xl sm:text-2xl md:text-3xl font-bold text-secondary">{stats[2]?.value}</div>
-      <div className="text-xs sm:text-xs md:text-sm text-muted-foreground">{stats[2]?.label}</div>
+      <div className="pr-6 text-lg sm:text-2xl md:text-3xl font-bold leading-none text-secondary">{stats[2]?.value}</div>
+      <div className="mt-1 min-h-8 text-[11px] sm:text-xs md:text-sm leading-tight text-muted-foreground text-pretty">{stats[2]?.label}</div>
     </motion.div>
   </div>
 ));
@@ -146,7 +146,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
     initial={{ opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.8 }}
-    className="space-y-6 md:space-y-8 order-2 lg:order-1"
+    className="max-w-2xl space-y-5 md:space-y-7 order-2 lg:order-1"
   >
     <motion.div
       className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
@@ -164,7 +164,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </motion.div>
 
-    <h1 className="text-2xl sm:text-4xl lg:text-4xl xl:text-4xl font-bold leading-tight">
+    <h1 className="max-w-2xl text-balance text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-bold leading-[1.08] tracking-[-0.03em]">
       {content.titlePrefix}{' '}
       <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
         {content.titleAccent}
@@ -173,7 +173,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
 
     <div className="space-y-3">
       {content.paragraphs.map((paragraph, index) => (
-        <p key={index} className="text-base md:text-lg lg:text-xl text-muted-foreground leading-relaxed">
+        <p key={index} className="max-w-xl text-pretty text-base md:text-lg lg:text-lg text-muted-foreground leading-relaxed">
           {paragraph}
         </p>
       ))}
@@ -186,7 +186,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
         className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-        <span className="relative">{content.primaryButton}</span>
+        <span className="relative text-center leading-tight">{content.primaryButton}</span>
         <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform relative" />
       </Button>
       <Button
@@ -195,7 +195,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
         onClick={onScrollToCases}
         className="border-primary/30 hover:bg-primary/10 backdrop-blur-sm text-sm md:text-base"
       >
-        {content.secondaryButton}
+        <span className="text-center leading-tight">{content.secondaryButton}</span>
       </Button>
     </div>
 

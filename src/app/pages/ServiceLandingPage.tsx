@@ -127,9 +127,9 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       titlePrefix: 'Приведу заявки через',
       titleAccent: 'Facebook & Instagram',
       paragraphs: [
-        'Запускаю и масштабирую Meta Ads для бизнесов, которым нужны заявки, продажи и понятная окупаемость, а не просто клики и охваты.',
+        'Запускаю и масштабирую Meta Ads для заявок, продаж и понятной окупаемости — без фокуса на пустые клики.',
         'Фокус на системе: оффер, креативы, аудитории, Pixel, Conversions API, ретаргетинг и оптимизация по качеству лидов.',
-        'Беру на себя стратегию, тесты гипотез, креативные связки, аналитику и ежедневную оптимизацию кампаний.',
+        'Беру на себя стратегию, креативные тесты, аналитику и ежедневную оптимизацию кампаний.',
       ],
       primaryButton: 'Получить аудит Meta Ads',
       secondaryButton: 'Кейсы Meta Ads',
@@ -143,7 +143,7 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       badge: 'Что входит в Meta Ads',
       titlePrefix: 'Система привлечения',
       titleAccent: 'из Meta',
-      description: 'От стратегии и креативов до Pixel/CAPI, ретаргетинга и масштабирования рабочих связок.',
+      description: 'Стратегия, креативы, Pixel/CAPI, ретаргетинг и масштабирование рабочих связок.',
       cards: [
         {
           icon: Target,
@@ -283,8 +283,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       titlePrefix: 'Приведу клиентов из',
       titleAccent: 'Google Ads',
       paragraphs: [
-        'Настраиваю Google Search, Shopping, Performance Max и YouTube так, чтобы реклама работала на заявки и продажи, а не просто покупала клики.',
-        'Фокус на структуре кампаний, семантике, минус-словах, конверсиях, качестве трафика и понятной экономике CPA/ROAS.',
+        'Настраиваю Search, Shopping, Performance Max и YouTube так, чтобы реклама приводила заявки и продажи.',
+        'Фокус на структуре кампаний, семантике, минус-словах, конверсиях и понятной экономике CPA/ROAS.',
         'Подходит бизнесам, где уже есть спрос: услуги, e-commerce, локальные проекты, B2B и ниши с поисковыми запросами.',
       ],
       primaryButton: 'Получить аудит Google Ads',
@@ -299,7 +299,7 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       badge: 'Что входит в Google Ads',
       titlePrefix: 'Система привлечения',
       titleAccent: 'из Google',
-      description: 'Поиск, Shopping, Performance Max, YouTube и аналитика — с контролем запросов, конверсий и окупаемости.',
+      description: 'Search, Shopping, Performance Max, YouTube и аналитика — с контролем запросов, конверсий и окупаемости.',
       cards: [
         {
           icon: Search,
@@ -431,7 +431,7 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
   'meta-apps': {
     seo: {
       title: 'Трафик для приложений из Meta Ads (Facebook/Instagram)',
-      description: 'Привлекаю установки и целевые события в мобильных приложениях через Meta Ads: App Install, App Events, MMP/SKAN, креативы и масштабирование.',
+      description: 'Привлекаю установки и целевые события в приложениях через Meta Ads: App Events, MMP/SKAN, креативы и масштабирование.',
       url: '/meta-apps',
     },
     hero: {
@@ -439,8 +439,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       titlePrefix: 'Приведу пользователей в',
       titleAccent: 'мобильное приложение',
       paragraphs: [
-        'Запускаю user acquisition для приложений через Facebook и Instagram: установки, регистрации, trial, purchase, subscription и другие целевые события.',
-        'Фокус не на дешёвых install, а на качестве пользователей, событиях, MMP/SKAN, mobile-креативах и масштабировании по KPI приложения.',
+        'Запускаю Meta Ads для установок, регистраций, trial, покупок и подписок — с фокусом на post-install события.',
+        'Фокус не на дешёвых install, а на качестве пользователей, MMP/SKAN, mobile-креативах и KPI приложения.',
         'Подходит приложениям, где важны CPI, CPA, ROAS, retention, LTV и прозрачная связь рекламы с app funnel.',
       ],
       primaryButton: 'Получить app growth-разбор',
@@ -455,7 +455,7 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       badge: 'Что входит в app growth',
       titlePrefix: 'Meta Ads для',
       titleAccent: 'мобильных приложений',
-      description: 'App Install, App Events, MMP/SKAN, креативы под мобильные плейсменты и масштабирование по событиям приложения.',
+      description: 'App Events, MMP/SKAN, mobile-креативы и масштабирование по целевым событиям приложения.',
       cards: [
         {
           icon: Target,
@@ -595,8 +595,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       titlePrefix: 'Помогу таргетологу собрать',
       titleAccent: 'систему роста',
       paragraphs: [
-        'Разберу вашу ситуацию как специалиста: позиционирование, портфолио, оффер, поиск клиентов, продажи и точки, которые мешают расти.',
-        'Вместо общих советов — конкретный план действий: что исправить в упаковке, где искать клиентов и как продавать услуги дороже.',
+        'Разберу позиционирование, портфолио, оффер, поиск клиентов и продажи — без воды и общих советов.',
+        'В конце — конкретный план: что исправить в упаковке, где искать клиентов и как продавать услуги дороже.',
         'Подходит новичкам и практикующим таргетологам, которые хотят стабильнее получать клиентов и выйти на понятный доход.',
       ],
       primaryButton: 'Записаться на консультацию',
@@ -611,7 +611,7 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       badge: 'Что разбираем',
       titlePrefix: 'Консультация для',
       titleAccent: 'таргетолога',
-      description: 'Позиционирование, упаковка, оффер, поиск клиентов, продажи и личный план роста без воды.',
+      description: 'Позиционирование, упаковка, оффер, поиск клиентов, продажи и личный план роста.',
       cards: [
         {
           icon: Users,
@@ -787,14 +787,14 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
               <span className={`text-sm font-semibold ${theme.labelClassName}`}>{contact.badge}</span>
             </div>
 
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight text-balance">
+            <h2 className="text-balance text-3xl md:text-4xl lg:text-[44px] font-bold mb-6 leading-tight tracking-[-0.02em]">
               {contact.titlePrefix}{' '}
               <span className={`bg-gradient-to-r ${theme.titleGradientClassName} bg-clip-text text-transparent`}>
                 {contact.titleAccent}
               </span>
             </h2>
 
-            <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-balance leading-relaxed">
+            <p className="text-muted-foreground text-base md:text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-pretty leading-relaxed">
               {contact.description}
             </p>
 
