@@ -1,11 +1,12 @@
 import { motion } from 'motion/react';
-import { Activity, ArrowDown, CheckCircle2, Gamepad2, Gauge, Layers3, Repeat2, Rocket, Smartphone, Sparkles, Zap } from 'lucide-react';
+import { Activity, ArrowDown, CheckCircle2, Gauge, Layers3, Rocket, Smartphone, Sparkles, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import ServiceHeroArt from '../components/ServiceHeroArt';
 
 const appMetrics = [
   { value: '-31%', label: 'снижение CPI после креативных тестов' },
@@ -95,28 +96,14 @@ export default function MetaAppsPage() {
           <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }} className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"><Rocket className="w-4 h-4 text-primary" /><span className="text-sm font-semibold text-primary">App Growth через Meta Ads</span></div>
             <div className="space-y-5">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-balance">Масштабируйте установки и <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">целевые события</span> в приложении</h1>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.95] tracking-[-0.045em] text-balance"><span className="block">Масштабируйте</span><span className="mt-2 block text-foreground/90">установки и</span><span className="mt-2 block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">целевые события</span></h1>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl">Запускаю Meta Ads для приложений не “на дешёвые установки”, а на рост качественных пользователей: registration, trial, subscribe, purchase и другие in-app events.</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3"><Button size="lg" onClick={scrollToContact} className="bg-gradient-to-r from-primary to-accent hover:opacity-90">Получить стратегию app growth <ArrowDown className="ml-2 w-5 h-5" /></Button><Button size="lg" variant="outline" onClick={scrollToCases} className="border-primary/30 hover:bg-primary/10">Смотреть app-кейсы</Button></div>
             <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl">{appMetrics.map((item) => <div key={item.label} className="rounded-2xl border border-border bg-card/70 p-4 backdrop-blur-sm"><div className="text-2xl md:text-3xl font-bold text-primary">{item.value}</div><div className="text-xs md:text-sm text-muted-foreground">{item.label}</div></div>)}</div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7, delay: 0.1 }} className="relative mx-auto w-full max-w-md">
-            <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-primary/30 via-accent/20 to-secondary/25 blur-3xl" />
-            <div className="relative rounded-[3rem] border border-primary/25 bg-card/85 p-4 shadow-2xl shadow-primary/20 backdrop-blur-xl">
-              <div className="rounded-[2.4rem] border border-border bg-background/70 p-5">
-                <div className="flex items-center justify-between mb-6"><div><p className="text-sm text-muted-foreground">App event funnel</p><p className="text-xl font-bold">Quality users</p></div><Smartphone className="w-9 h-9 text-primary" /></div>
-                {[
-                  ['Install', '100%'],
-                  ['Registration', '48%'],
-                  ['Trial start', '18%'],
-                  ['Purchase', '7.6%'],
-                ].map(([label, value]) => <div key={label} className="mb-4"><div className="flex justify-between text-sm mb-2"><span>{label}</span><span className="text-primary font-semibold">{value}</span></div><div className="h-3 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-primary via-accent to-secondary" style={{ width: value }} /></div></div>)}
-                <div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-primary/10 border border-primary/20 p-3"><Gamepad2 className="w-5 h-5 text-primary mb-2" /><p className="text-xs text-muted-foreground">creative testing</p></div><div className="rounded-2xl bg-accent/10 border border-accent/20 p-3"><Repeat2 className="w-5 h-5 text-accent mb-2" /><p className="text-xs text-muted-foreground">event loops</p></div></div>
-              </div>
-            </div>
-          </motion.div>
+          <ServiceHeroArt variant="meta-apps" />
         </div>
       </section>
 

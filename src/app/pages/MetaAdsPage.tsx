@@ -1,11 +1,12 @@
 import { motion } from 'motion/react';
-import { ArrowDown, BarChart3, CheckCircle2, Megaphone, MousePointerClick, ShieldCheck, Sparkles, Target, TrendingUp, Zap } from 'lucide-react';
+import { ArrowDown, CheckCircle2, Megaphone, MousePointerClick, ShieldCheck, Sparkles, Target, TrendingUp, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import ServiceHeroArt from '../components/ServiceHeroArt';
 
 const heroStats = [
   { value: '65k+', label: 'лидов в Meta Ads' },
@@ -113,9 +114,10 @@ export default function MetaAdsPage() {
               <span className="text-sm font-semibold text-primary">Performance Meta Ads</span>
             </div>
             <div className="space-y-5">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-balance">
-                Приведу клиентов из{' '}
-                <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">Instagram и Facebook</span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.95] tracking-[-0.045em] text-balance">
+                <span className="block">Приведу клиентов</span>
+                <span className="mt-2 block text-foreground/90">из Instagram</span>
+                <span className="mt-2 block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">и Facebook</span>
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl">
                 Настраиваю Meta Ads как систему продаж: оффер, креативы, Pixel, CAPI, ретаргетинг и ежедневная оптимизация под заявки, покупки или сообщения.
@@ -139,33 +141,7 @@ export default function MetaAdsPage() {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7, delay: 0.1 }} className="relative">
-            <div className="absolute -inset-6 rounded-[2rem] bg-gradient-to-br from-primary/30 via-accent/20 to-secondary/20 blur-3xl" />
-            <div className="relative rounded-[2rem] border border-primary/20 bg-card/80 backdrop-blur-xl p-6 shadow-2xl shadow-primary/20">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <p className="text-sm text-muted-foreground">Campaign health</p>
-                  <p className="text-2xl font-bold">Meta Growth System</p>
-                </div>
-                <div className="w-12 h-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-primary" />
-                </div>
-              </div>
-              <div className="space-y-4">
-                {['Creative testing', 'Pixel + CAPI events', 'Retargeting layers', 'Scaling winners'].map((item, index) => (
-                  <div key={item} className="rounded-2xl border border-border bg-background/55 p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold">{item}</span>
-                      <span className="text-primary text-sm">{82 + index * 4}%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${82 + index * 4}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
+          <ServiceHeroArt variant="meta-ads" />
         </div>
       </section>
 

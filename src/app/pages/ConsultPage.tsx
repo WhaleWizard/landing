@@ -1,10 +1,11 @@
 import { motion } from 'motion/react';
-import { ArrowDown, BookOpenCheck, Briefcase, CheckCircle2, ClipboardList, MessageCircle, Route, Sparkles, Target, TrendingUp, Users } from 'lucide-react';
+import { ArrowDown, BookOpenCheck, Briefcase, CheckCircle2, ClipboardList, MessageCircle, Sparkles, Target, TrendingUp, Users } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import { Button } from '../components/ui/button';
+import ServiceHeroArt from '../components/ServiceHeroArt';
 
 const stats = [
   { value: '60–90', label: 'минут личного разбора' },
@@ -53,18 +54,12 @@ export default function ConsultPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-[1fr_.9fr] gap-12 items-center">
           <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }} className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"><MessageCircle className="w-4 h-4 text-primary" /><span className="text-sm font-semibold text-primary">Личная консультация</span></div>
-            <div className="space-y-5"><h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-balance">Помогу таргетологу найти клиентов и собрать <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">понятный план роста</span></h1><p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl">За 60–90 минут разберём вашу ситуацию: позиционирование, оффер, портфолио, цену, поиск клиентов и действия, которые нужно сделать в ближайшие 30 дней.</p></div>
+            <div className="space-y-5"><h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.95] tracking-[-0.045em] text-balance"><span className="block">Помогу таргетологу</span><span className="mt-2 block text-foreground/90">найти клиентов</span><span className="mt-2 block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">и план роста</span></h1><p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl">За 60–90 минут разберём вашу ситуацию: позиционирование, оффер, портфолио, цену, поиск клиентов и действия, которые нужно сделать в ближайшие 30 дней.</p></div>
             <div className="flex flex-col sm:flex-row gap-3"><Button size="lg" onClick={scrollToContact} className="bg-gradient-to-r from-primary to-accent hover:opacity-90">Записаться на консультацию <ArrowDown className="ml-2 w-5 h-5" /></Button><Button size="lg" variant="outline" onClick={scrollToCases} className="border-primary/30 hover:bg-primary/10">Что можно разобрать</Button></div>
             <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl">{stats.map((item) => <div key={item.label} className="rounded-2xl border border-border bg-card/70 p-4 backdrop-blur-sm"><div className="text-2xl md:text-3xl font-bold text-primary">{item.value}</div><div className="text-xs md:text-sm text-muted-foreground">{item.label}</div></div>)}</div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7 }} className="relative">
-            <div className="absolute -inset-8 rounded-[2rem] bg-gradient-to-br from-primary/30 via-accent/20 to-secondary/20 blur-3xl" />
-            <div className="relative rounded-[2rem] border border-primary/20 bg-card/85 p-6 backdrop-blur-xl shadow-2xl shadow-primary/20">
-              <div className="flex items-center justify-between mb-8"><div><p className="text-sm text-muted-foreground">Consultation map</p><p className="text-2xl font-bold">From chaos to plan</p></div><Route className="w-10 h-10 text-primary" /></div>
-              {['Позиционирование', 'Оффер', 'Портфолио', 'Клиенты', 'План на 30 дней'].map((item, index) => <div key={item} className="flex items-center gap-4 mb-5"><div className="w-10 h-10 rounded-xl bg-primary/15 text-primary font-bold flex items-center justify-center">{index + 1}</div><div className="flex-1 rounded-2xl border border-border bg-background/60 p-4 font-medium">{item}</div></div>)}
-            </div>
-          </motion.div>
+          <ServiceHeroArt variant="consult" />
         </div>
       </section>
 
