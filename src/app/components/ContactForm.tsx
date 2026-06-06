@@ -28,6 +28,7 @@ import {
 import Modal from './Modal';
 import PrivacyPolicyContent from './legal/PrivacyPolicyContent';
 import OfferContent from './legal/OfferContent';
+import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
 import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
@@ -604,32 +605,22 @@ function ContactForm() {
                     </div>
 
                     {/* Чекбокс согласия */}
-                    <div className="flex items-start gap-3">
+                    <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2.5 sm:gap-3 rounded-xl border border-border/30 bg-background/20 px-3 py-2.5 sm:border-0 sm:bg-transparent sm:p-0">
                       <input
                         type="checkbox"
                         id="consent"
                         name="consent"
                         checked={agreed}
                         onChange={(e) => setAgreed(e.target.checked)}
-                        className="mt-1 w-4 h-4 text-primary bg-white border-border/70 rounded focus:ring-primary/20"
+                        aria-describedby="contact-form-consent-copy"
+                        className="mt-0.5 w-4 h-4 text-primary bg-white border-border/70 rounded focus:ring-primary/20"
                       />
-                      <label htmlFor="consent" className="text-xs text-muted-foreground leading-relaxed">
-                        Я даю согласие на обработку моих персональных данных для обработки заявки и обратной связи со мной в соответствии с{' '}
-                        <span
-                          onClick={() => setShowPrivacyModal(true)}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          Политикой конфиденциальности и обработки персональных данных
-                        </span>{' '}
-                        и подтверждаю ознакомление с{' '}
-                        <span
-                          onClick={() => setShowOfferModal(true)}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          Публичной офертой
-                        </span>
-                        .
-                      </label>
+                      <LegalConsentCopy
+                        id="contact-form-consent-copy"
+                        className="max-w-[64ch]"
+                        onPrivacyClick={() => setShowPrivacyModal(true)}
+                        onOfferClick={() => setShowOfferModal(true)}
+                      />
                     </div>
 
                     {/* Кнопка отправки */}

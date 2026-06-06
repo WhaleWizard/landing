@@ -24,6 +24,7 @@ import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, t
 import Modal from './Modal';
 import PrivacyPolicyContent from './legal/PrivacyPolicyContent';
 import OfferContent from './legal/OfferContent';
+import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
 import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 
@@ -478,9 +479,11 @@ function LandingForm({
               )}
 
               {/* Agreement */}
-              <div className="flex items-start gap-3">
+              <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2.5 sm:gap-3 rounded-xl border border-border/30 bg-background/20 px-3 py-2.5 sm:border-0 sm:bg-transparent sm:p-0">
                 <button
                   type="button"
+                  aria-pressed={agreed}
+                  aria-label="Согласие на обработку персональных данных"
                   onClick={() => setAgreed(!agreed)}
                   className={`mt-0.5 h-5 w-5 shrink-0 aspect-square rounded-[4px] border-2 p-0 flex items-center justify-center transition-all ${
                     agreed
@@ -490,24 +493,10 @@ function LandingForm({
                 >
                   {agreed && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                 </button>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Я даю согласие на обработку моих персональных данных для обработки заявки и обратной связи со мной в соответствии с{' '}
-                  <button
-                    type="button"
-                    onClick={() => setShowPrivacyModal(true)}
-                    className="text-primary hover:underline bg-transparent border-0 p-0 cursor-pointer text-left align-baseline"
-                  >
-                    Политикой конфиденциальности и обработки персональных данных
-                  </button>{' '}
-                  и подтверждаю ознакомление с{' '}
-                  <button
-                    type="button"
-                    onClick={() => setShowOfferModal(true)}
-                    className="text-primary hover:underline bg-transparent border-0 p-0 cursor-pointer text-left align-baseline"
-                  >
-                    Публичной офертой
-                  </button>
-                </p>
+                <LegalConsentCopy
+                  onPrivacyClick={() => setShowPrivacyModal(true)}
+                  onOfferClick={() => setShowOfferModal(true)}
+                />
               </div>
 
               {/* Submit */}
