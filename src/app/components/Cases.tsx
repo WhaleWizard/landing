@@ -4,7 +4,25 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
-const casesData = [
+export type CaseStat = { label: string; value: string };
+
+export type CaseItem = {
+  title: string;
+  category: string;
+  description: string;
+  image: string;
+  stats: CaseStat[];
+};
+
+export type CasesContent = {
+  badge: string;
+  titlePrefix: string;
+  titleAccent: string;
+  description: string;
+  items: CaseItem[];
+};
+
+const casesData: CaseItem[] = [
   {
     title: 'Premium Concierge Service',
     category: 'Meta Ads',
@@ -75,7 +93,15 @@ const useMobile = () => {
   return isMobile;
 };
 
-function Cases() {
+function Cases({ content }: { content?: CasesContent }) {
+  const sectionContent = content ?? {
+    badge: 'Результат моей работы',
+    titlePrefix: 'Кейсы с',
+    titleAccent: 'наилучшей результативностью',
+    description: 'Конкретные результаты, подтверждённые цифрами и аналитикой. Больше кейсов и подробный разбор можете найти в блоге или в соц. сетях',
+    items: casesData,
+  };
+  const caseItems = sectionContent.items;
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -86,11 +112,11 @@ function Cases() {
   const isMobile = useMobile();
 
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % casesData.length);
+    setCurrentIndex((prev) => (prev + 1) % caseItems.length);
   }, []);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + casesData.length) % casesData.length);
+    setCurrentIndex((prev) => (prev - 1 + caseItems.length) % caseItems.length);
   }, []);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
@@ -137,22 +163,22 @@ function Cases() {
         >
           <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-4 md:mb-6">
             <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-primary" />
-            <span className="text-xs md:text-sm text-primary">Результат моей работы</span>
+            <span className="text-xs md:text-sm text-primary">{sectionContent.badge}</span>
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-            Кейсы с{' '}
+            {sectionContent.titlePrefix}{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-              наилучшей результативностью
+              {sectionContent.titleAccent}
             </span>
           </h2>
           <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Конкретные результаты, подтверждённые цифрами и аналитикой. Больше кейсов и подробный разбор можете найти в блоге или в соц. сетях
+            {sectionContent.description}
           </p>
         </motion.div>
 
         {/* Desktop Grid */}
         <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8">
-          {casesData.map((item, index) => (
+          {caseItems.map((item, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 30 }}
@@ -241,7 +267,7 @@ function Cases() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               style={{ willChange: 'transform', transform: 'translateZ(0)' }}
             >
-              {casesData.map((item, index) => (
+              {caseItems.map((item, index) => (
                 <div key={index} className="w-full flex-shrink-0 px-2">
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -268,7 +294,7 @@ function Cases() {
                         <span className="text-xs text-primary font-semibold">{item.category}</span>
                       </div>
                       <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">
-                        <span className="text-xs font-bold text-primary">{index + 1}/{casesData.length}</span>
+                        <span className="text-xs font-bold text-primary">{index + 1}/{caseItems.length}</span>
                       </div>
                     </div>
 
@@ -295,7 +321,7 @@ function Cases() {
           </div>
 
           <div className="flex justify-center gap-2 mt-6">
-            {casesData.map((_, index) => (
+            {caseItems.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentIndex(index)}

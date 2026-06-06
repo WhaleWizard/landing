@@ -1,10 +1,37 @@
 import { motion, useInView } from 'motion/react';
-import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info } from 'lucide-react';
+import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info, type LucideIcon } from 'lucide-react';
 import { useState, useRef, TouchEvent, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import Modal from './Modal';
 
-const servicesData = [
+export type ServiceCardContent = {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  features: string[];
+  gradient: string;
+};
+
+export type ServiceDetailedSection = {
+  title: string;
+  icon: LucideIcon;
+  text: string;
+};
+
+export type ServicesContent = {
+  badge: string;
+  titlePrefix: string;
+  titleAccent: string;
+  description: string;
+  cards: ServiceCardContent[];
+  detailed: {
+    title: string;
+    button: string;
+    sections: ServiceDetailedSection[];
+  };
+};
+
+const servicesData: ServiceCardContent[] = [
   {
     icon: BarChart3,
     title: 'Google Ads',
@@ -36,7 +63,7 @@ const servicesData = [
 ];
 
 // Детальное описание услуг (общее для всех карточек)
-const detailedContent = {
+const detailedContent: ServicesContent['detailed'] = {
   title: 'Как я работаю',
   sections: [
     {
@@ -62,7 +89,17 @@ const detailedContent = {
   ],
 };
 
-function Services() {
+function Services({ content }: { content?: ServicesContent }) {
+  const sectionContent = content ?? {
+    badge: 'Что я предлагаю',
+    titlePrefix: 'Услуги Perfomance',
+    titleAccent: 'таргетолога',
+    description: 'Комплексное управление рекламными кампаниями для максимального результата',
+    cards: servicesData,
+    detailed: detailedContent,
+  };
+  const serviceCards = sectionContent.cards;
+  const modalContent = sectionContent.detailed;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const touchStartX = useRef(0);
@@ -72,11 +109,11 @@ function Services() {
   const navigate = useNavigate();
 
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % servicesData.length);
+    setCurrentIndex((prev) => (prev + 1) % serviceCards.length);
   }, []);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + servicesData.length) % servicesData.length);
+    setCurrentIndex((prev) => (prev - 1 + serviceCards.length) % serviceCards.length);
   }, []);
 
   const handleTouchStart = (e: TouchEvent) => {
@@ -131,22 +168,22 @@ function Services() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-4 md:mb-6">
               <Target className="w-4 h-4 text-primary" />
-              <span className="text-sm text-primary font-semibold">Что я предлагаю</span>
+              <span className="text-sm text-primary font-semibold">{sectionContent.badge}</span>
             </div>
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-              Услуги Perfomance{' '}
+              {sectionContent.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                таргетолога
+                {sectionContent.titleAccent}
               </span>
             </h2>
             <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-1xl mx-auto">
-              Комплексное управление рекламными кампаниями для максимального результата
+              {sectionContent.description}
             </p>
           </motion.div>
 
           {/* Desktop Grid */}
           <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8">
-            {servicesData.map((service, index) => (
+            {serviceCards.map((service, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 30 }}
@@ -237,7 +274,7 @@ function Services() {
                 animate={{ x: `-${currentIndex * 100}%` }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
               >
-                {servicesData.map((service, index) => (
+                {serviceCards.map((service, index) => (
                   <div key={index} className="w-full flex-shrink-0 px-2">
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -257,7 +294,7 @@ function Services() {
                               <service.icon className="w-7 h-7 text-white" />
                             </div>
                             <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">
-                              <span className="text-xs font-bold text-primary">{index + 1}/{servicesData.length}</span>
+                              <span className="text-xs font-bold text-primary">{index + 1}/{serviceCards.length}</span>
                             </div>
                           </div>
 
@@ -301,7 +338,7 @@ function Services() {
             </div>
 
             <div className="flex justify-center gap-2 mt-6">
-              {servicesData.map((_, index) => (
+              {serviceCards.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentIndex(index)}
@@ -344,9 +381,9 @@ function Services() {
       </section>
 
       {/* Модальное окно с кнопкой внизу (уменьшенной на мобильных) */}
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={detailedContent.title}>
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={modalContent.title}>
         <div className="space-y-8">
-          {detailedContent.sections.map((section, idx) => {
+          {modalContent.sections.map((section, idx) => {
             const Icon = section.icon;
             const gradientClasses = [
               'from-primary to-accent',
@@ -381,7 +418,7 @@ function Services() {
                        overflow-hidden transition-all hover:scale-105 active:scale-95 w-full sm:w-auto text-sm sm:text-base"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-            <span className="relative">Записаться на консультацию</span>
+            <span className="relative">{modalContent.button}</span>
             <span className="relative group-hover:translate-x-1 transition-transform">→</span>
           </button>
         </div>
