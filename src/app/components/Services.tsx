@@ -1,10 +1,37 @@
 import { motion, useInView } from 'motion/react';
-import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info } from 'lucide-react';
+import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info, type LucideIcon } from 'lucide-react';
 import { useState, useRef, TouchEvent, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import Modal from './Modal';
 
-const servicesData = [
+export type ServiceCardContent = {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  features: string[];
+  gradient: string;
+};
+
+export type ServiceDetailedSection = {
+  title: string;
+  icon: LucideIcon;
+  text: string;
+};
+
+export type ServicesContent = {
+  badge: string;
+  titlePrefix: string;
+  titleAccent: string;
+  description: string;
+  cards: ServiceCardContent[];
+  detailed: {
+    title: string;
+    button: string;
+    sections: ServiceDetailedSection[];
+  };
+};
+
+const servicesData: ServiceCardContent[] = [
   {
     icon: BarChart3,
     title: 'Google Ads',
@@ -36,7 +63,7 @@ const servicesData = [
 ];
 
 // Детальное описание услуг (общее для всех карточек)
-const detailedContent = {
+const detailedContent: ServicesContent['detailed'] = {
   title: 'Как я работаю',
   sections: [
     {
@@ -62,7 +89,17 @@ const detailedContent = {
   ],
 };
 
-function Services() {
+function Services({ content }: { content?: ServicesContent }) {
+  const sectionContent = content ?? {
+    badge: 'Что я предлагаю',
+    titlePrefix: 'Услуги Perfomance',
+    titleAccent: 'таргетолога',
+    description: 'Комплексное управление рекламными кампаниями для максимального результата',
+    cards: servicesData,
+    detailed: detailedContent,
+  };
+  const serviceCards = sectionContent.cards;
+  const modalContent = sectionContent.detailed;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const touchStartX = useRef(0);
@@ -72,12 +109,12 @@ function Services() {
   const navigate = useNavigate();
 
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % servicesData.length);
-  }, []);
+    setCurrentIndex((prev) => (prev + 1) % serviceCards.length);
+  }, [serviceCards.length]);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + servicesData.length) % servicesData.length);
-  }, []);
+    setCurrentIndex((prev) => (prev - 1 + serviceCards.length) % serviceCards.length);
+  }, [serviceCards.length]);
 
   const handleTouchStart = (e: TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -127,26 +164,26 @@ function Services() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-12 md:mb-16 relative z-20"
+            className="text-center mb-10 md:mb-14 relative z-20"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-4 md:mb-6">
               <Target className="w-4 h-4 text-primary" />
-              <span className="text-sm text-primary font-semibold">Что я предлагаю</span>
+              <span className="text-sm text-primary font-semibold">{sectionContent.badge}</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-              Услуги Perfomance{' '}
+            <h2 className="mx-auto max-w-4xl text-balance text-2xl sm:text-3xl md:text-4xl lg:text-[44px] font-bold leading-tight tracking-[-0.02em] mb-3 md:mb-4">
+              {sectionContent.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                таргетолога
+                {sectionContent.titleAccent}
               </span>
             </h2>
-            <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-1xl mx-auto">
-              Комплексное управление рекламными кампаниями для максимального результата
+            <p className="mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed">
+              {sectionContent.description}
             </p>
           </motion.div>
 
           {/* Desktop Grid */}
           <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8">
-            {servicesData.map((service, index) => (
+            {serviceCards.map((service, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 30 }}
@@ -178,10 +215,10 @@ function Services() {
                       />
                     </div>
 
-                    <h3 className="text-xl md:text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
+                    <h3 className="min-h-[3.25rem] text-balance text-xl md:text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">
                       {service.title}
                     </h3>
-                    <p className="text-sm md:text-base text-muted-foreground mb-6 leading-relaxed">
+                    <p className="md:min-h-[4.5rem] text-pretty text-sm md:text-base text-muted-foreground mb-6 leading-relaxed">
                       {service.description}
                     </p>
 
@@ -198,7 +235,7 @@ function Services() {
                           <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
                             <Sparkles className="w-3 h-3 text-primary" />
                           </div>
-                          <span className="text-sm text-foreground/80">{feature}</span>
+                          <span className="text-sm leading-snug text-foreground/80 text-pretty">{feature}</span>
                         </motion.div>
                       ))}
                     </div>
@@ -237,7 +274,7 @@ function Services() {
                 animate={{ x: `-${currentIndex * 100}%` }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
               >
-                {servicesData.map((service, index) => (
+                {serviceCards.map((service, index) => (
                   <div key={index} className="w-full flex-shrink-0 px-2">
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -257,14 +294,14 @@ function Services() {
                               <service.icon className="w-7 h-7 text-white" />
                             </div>
                             <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">
-                              <span className="text-xs font-bold text-primary">{index + 1}/{servicesData.length}</span>
+                              <span className="text-xs font-bold text-primary">{index + 1}/{serviceCards.length}</span>
                             </div>
                           </div>
 
-                          <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                          <h3 className="text-balance text-xl sm:text-2xl font-bold leading-tight mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
                             {service.title}
                           </h3>
-                          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                          <p className="text-pretty text-sm text-muted-foreground mb-5 leading-relaxed">
                             {service.description}
                           </p>
 
@@ -274,7 +311,7 @@ function Services() {
                                 <div className="flex-shrink-0 w-5 h-5 rounded bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
                                   <Sparkles className="w-2.5 h-2.5 text-primary" />
                                 </div>
-                                <span className="text-xs text-foreground/90 leading-tight">{feature}</span>
+                                <span className="text-[11px] sm:text-xs text-foreground/90 leading-tight text-pretty break-words">{feature}</span>
                               </div>
                             ))}
                           </div>
@@ -301,7 +338,7 @@ function Services() {
             </div>
 
             <div className="flex justify-center gap-2 mt-6">
-              {servicesData.map((_, index) => (
+              {serviceCards.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentIndex(index)}
@@ -344,9 +381,9 @@ function Services() {
       </section>
 
       {/* Модальное окно с кнопкой внизу (уменьшенной на мобильных) */}
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={detailedContent.title}>
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={modalContent.title}>
         <div className="space-y-8">
-          {detailedContent.sections.map((section, idx) => {
+          {modalContent.sections.map((section, idx) => {
             const Icon = section.icon;
             const gradientClasses = [
               'from-primary to-accent',
@@ -381,7 +418,7 @@ function Services() {
                        overflow-hidden transition-all hover:scale-105 active:scale-95 w-full sm:w-auto text-sm sm:text-base"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-            <span className="relative">Записаться на консультацию</span>
+            <span className="relative text-center leading-tight">{modalContent.button}</span>
             <span className="relative group-hover:translate-x-1 transition-transform">→</span>
           </button>
         </div>

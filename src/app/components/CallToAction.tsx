@@ -4,7 +4,21 @@ import { Button } from './ui/button';
 import { memo, useCallback } from 'react';
 import { useScrollTo } from './hooks/useScrollTo';
 
-function CallToAction() {
+export type CallToActionContent = {
+  badge: string;
+  title: string;
+  description: string;
+  button: string;
+};
+
+const defaultContent: CallToActionContent = {
+  badge: 'Начните сейчас',
+  title: 'Готовы увеличить продажи?',
+  description: 'Оставьте заявку на бесплатную консультацию',
+  button: 'Получить консультацию',
+};
+
+function CallToAction({ content = defaultContent }: { content?: CallToActionContent }) {
   const { scrollToWhenReady } = useScrollTo();
 
   const scrollToContact = useCallback(() => {
@@ -32,13 +46,13 @@ function CallToAction() {
             <div className="text-center md:text-left space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-xs md:text-sm text-primary font-semibold">Начните сейчас</span>
+                <span className="text-xs md:text-sm text-primary font-semibold">{content.badge}</span>
               </div>
-              <h3 className="text-xl md:text-2xl lg:text-3xl font-bold">
-                Готовы увеличить продажи?
+              <h3 className="text-balance text-xl md:text-2xl lg:text-3xl font-bold leading-tight tracking-[-0.01em]">
+                {content.title}
               </h3>
-              <p className="text-sm md:text-base text-muted-foreground">
-                Оставьте заявку на бесплатную консультацию
+              <p className="text-pretty text-sm md:text-base text-muted-foreground leading-relaxed">
+                {content.description}
               </p>
             </div>
 
@@ -51,7 +65,7 @@ function CallToAction() {
               >
                 {/* Button Shine Effect */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                <span className="relative">Получить консультацию</span>
+                <span className="relative text-center leading-tight">{content.button}</span>
                 <ArrowDown className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-y-1 transition-transform relative" />
               </Button>
             </div>
