@@ -265,14 +265,14 @@ function Testimonials() {
         </motion.div>
 
         {/* Десктопная версия — горизонтальная лента карточек */}
-        <div className="hidden md:block relative">
-          <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="relative left-1/2 hidden w-screen -translate-x-1/2 md:block">
+          <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               whileInView={{ opacity: 0.8, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.35 }}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-background/40 backdrop-blur-sm"
+              className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/40 px-3 py-1 backdrop-blur-sm"
             >
               <MoveHorizontal className="h-3.5 w-3.5 text-primary" />
               <motion.div
@@ -300,15 +300,17 @@ function Testimonials() {
             </div>
           </div>
 
-          <div className="relative -mx-5 md:-mx-10">
-            <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-16 bg-gradient-to-r from-background via-background/70 to-transparent md:w-32" />
-            <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-16 bg-gradient-to-l from-background via-background/70 to-transparent md:w-32" />
+          <div className="relative w-screen overflow-hidden">
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background via-background/55 to-transparent lg:w-40" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
             <div
               ref={desktopScrollerRef}
-              className="flex snap-x snap-proximity scroll-smooth scroll-px-5 gap-5 overflow-x-auto overflow-y-hidden px-5 pb-10 pt-6 md:gap-7 md:px-10 md:scroll-px-10"
+              className="flex snap-x snap-proximity scroll-smooth gap-5 overflow-x-auto overflow-y-hidden pb-10 pt-6 md:gap-7"
               style={{
+                paddingInline: 'max(1.25rem, calc((100vw - 80rem) / 2 + 2rem))',
+                scrollPaddingInline: 'max(1.25rem, calc((100vw - 80rem) / 2 + 2rem))',
                 scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)',
+                scrollbarColor: 'rgba(139, 92, 246, 0.65) transparent',
                 WebkitOverflowScrolling: 'touch',
                 cursor: 'grab',
                 willChange: 'scroll-position',
