@@ -72,7 +72,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     : [
       { label: 'Услуги', action: () => scrollToSection('services') },
       { label: 'Кейсы', action: () => scrollToSection('cases') },
-      { label: 'Блог', action: () => navigate('/blog') },
+      { label: 'Блог', action: () => scrollToSection('blog') },
       { label: 'Отзывы', action: () => scrollToSection('about') },
       { label: 'FAQ', action: () => navigate('/faq') },
       { label: 'Контакты', action: () => scrollToSection('social') },
