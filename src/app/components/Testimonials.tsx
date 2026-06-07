@@ -142,6 +142,7 @@ function TestimonialCard({ testimonial, index, compact = false }: { testimonial:
 
 function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isDesktopScrollbarVisible, setIsDesktopScrollbarVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
@@ -150,6 +151,18 @@ function Testimonials() {
   // Для свайпа
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const desktopScrollbarTimerRef = useRef<number | null>(null);
+
+  const revealDesktopScrollbar = useCallback(() => {
+    setIsDesktopScrollbarVisible(true);
+    if (desktopScrollbarTimerRef.current !== null) {
+      window.clearTimeout(desktopScrollbarTimerRef.current);
+    }
+    desktopScrollbarTimerRef.current = window.setTimeout(() => {
+      setIsDesktopScrollbarVisible(false);
+      desktopScrollbarTimerRef.current = null;
+    }, 900);
+  }, []);
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % testimonialsData.length);
@@ -163,6 +176,8 @@ function Testimonials() {
     const scroller = desktopScrollerRef.current;
     if (!scroller) return;
 
+    revealDesktopScrollbar();
+
     const card = scroller.querySelector<HTMLElement>('[data-testimonial-card]');
     const gap = parseFloat(window.getComputedStyle(scroller).columnGap) || 28;
     const cardWidth = card?.offsetWidth ?? 380;
@@ -170,7 +185,7 @@ function Testimonials() {
       left: direction === 'next' ? cardWidth + gap : -(cardWidth + gap),
       behavior: 'smooth',
     });
-  }, []);
+  }, [revealDesktopScrollbar]);
 
   useEffect(() => {
     const scroller = desktopScrollerRef.current;
@@ -189,11 +204,20 @@ function Testimonials() {
       if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
 
       e.preventDefault();
+      revealDesktopScrollbar();
       scroller.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
     };
 
     scroller.addEventListener('wheel', handleWheel, { passive: false });
     return () => scroller.removeEventListener('wheel', handleWheel);
+  }, [revealDesktopScrollbar]);
+
+  useEffect(() => {
+    return () => {
+      if (desktopScrollbarTimerRef.current !== null) {
+        window.clearTimeout(desktopScrollbarTimerRef.current);
+      }
+    };
   }, []);
 
   // Автоскролл только когда секция видна
@@ -300,17 +324,18 @@ function Testimonials() {
             </div>
           </div>
 
-          <div className="relative w-screen overflow-hidden">
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background via-background/55 to-transparent lg:w-40" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
+          <div className="relative w-screen">
+            <div className="testimonials-edge-fade pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background via-background/55 to-transparent lg:w-40" />
+            <div className="testimonials-edge-fade pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
             <div
               ref={desktopScrollerRef}
-              className="flex snap-x snap-proximity scroll-smooth gap-5 overflow-x-auto overflow-y-hidden pb-10 pt-6 md:gap-7"
+              className="testimonials-desktop-scroller flex snap-x snap-proximity scroll-smooth gap-5 overflow-x-auto overflow-y-hidden px-5 pb-10 pt-6 md:gap-7 md:px-10"
+              data-scrollbar-visible={isDesktopScrollbarVisible ? 'true' : 'false'}
+              onScroll={revealDesktopScrollbar}
               style={{
-                paddingInline: 'max(1.25rem, calc((100vw - 80rem) / 2 + 2rem))',
-                scrollPaddingInline: 'max(1.25rem, calc((100vw - 80rem) / 2 + 2rem))',
+                scrollPaddingInline: '2.5rem',
                 scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(139, 92, 246, 0.65) transparent',
+                scrollbarColor: isDesktopScrollbarVisible ? 'rgba(139, 92, 246, 0.65) transparent' : 'rgba(139, 92, 246, 0) transparent',
                 WebkitOverflowScrolling: 'touch',
                 cursor: 'grab',
                 willChange: 'scroll-position',
@@ -332,6 +357,35 @@ function Testimonials() {
             </div>
           </div>
         </div>
+
+        <style>{`
+          .testimonials-edge-fade {
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+          }
+          .testimonials-desktop-scroller::-webkit-scrollbar {
+            height: 4px;
+          }
+          .testimonials-desktop-scroller::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+          }
+          .testimonials-desktop-scroller::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
+            border-radius: 10px;
+            opacity: 0;
+            transition: opacity 220ms ease;
+          }
+          .testimonials-desktop-scroller[data-scrollbar-visible='true']::-webkit-scrollbar-thumb {
+            opacity: 1;
+          }
+          .testimonials-desktop-scroller[data-scrollbar-visible='false']::-webkit-scrollbar-thumb {
+            background: transparent;
+          }
+          .testimonials-desktop-scroller:active {
+            cursor: grabbing;
+          }
+        `}</style>
 
         {/* Мобильная версия — карусель с тач-свайпом */}
         <div className="md:hidden relative">
