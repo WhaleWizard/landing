@@ -11,52 +11,94 @@ type Testimonial = {
 
 const testimonialsData: Testimonial[] = [
   {
-    name: 'Светлана',
-    company: 'Studio Forma',
-    position: 'Digital Producer',
+    name: 'Радмир',
+    company: 'StepN',
+    position: 'StepN Partner',
     text: 'Мне нравится, что ты вникаешь в проект. Не просто “запустили и всё”, а реально разбирал мою ситуацию. По заявкам стало лучше, чем было.',
   },
   {
-    name: 'Кэтрин',
-    company: 'Nova Events',
-    position: 'Project Manager',
+    name: 'Тина',
+    company: 'Inter Agency',
+    position: 'Head of Marketing',
     text: 'Работаем уже 4 год, результаты устраивают. Пытались так же параллельно тестировать других таргетологов, пока твои результаты лучшие.',
   },
   {
-    name: 'Дмитрий',
-    company: 'DMD Consulting',
-    position: 'CEO',
+    name: 'Макс',
+    company: 'Toor',
+    position: 'Head of Marketing',
     text: 'Результат есть, заявки есть. Пока все устраивает в сотрудничестве: понятные отчёты, быстрые правки и нормальная коммуникация по рекламе.',
   },
   {
-    name: 'Анна Морозова',
-    company: 'Lumi Beauty Clinic',
-    position: 'Маркетинг-директор',
+    name: 'Кетрин',
+    company: 'BlackF',
+    position: 'Head of Marketing',
     text: 'До запуска было много нецелевых обращений. После переработки креативов и аудиторий заявки стали качественнее, администраторы начали быстрее закрывать записи.',
   },
   {
-    name: 'Игорь Савельев',
-    company: 'ProFit Gym',
-    position: 'Управляющий партнёр',
+    name: 'Анатолий',
+    company: 'Spectre',
+    position: 'Founder',
     text: 'Нужно было заполнить новый филиал без хаоса в рекламе. Получили понятную воронку, отдельные кампании под абонементы и стабильный поток заявок.',
   },
   {
-    name: 'Мария Коваль',
-    company: 'Urban Keys Realty',
-    position: 'Head of Sales',
+    name: 'Дмитрий',
+    company: 'Vectrum',
+    position: 'CEO',
     text: 'Понравилось, что сначала разобрали экономику и путь клиента, а уже потом запускали кампании. Лиды стали предсказуемее, менеджерам проще планировать нагрузку.',
   },
   {
-    name: 'Алексей Романов',
-    company: 'TechLine B2B',
-    position: 'Коммерческий директор',
+    name: 'Олег',
+    company: 'TakeProfit',
+    position: 'Owner',
     text: 'Для B2B-ниши было важно не просто получить клики, а привести адекватные заявки. После тестов офферов и ретаргетинга появились обращения от нужных компаний.',
   },
   {
-    name: 'Елена Гриценко',
-    company: 'KidsLab School',
-    position: 'Основатель',
+    name: 'Евгений',
+    company: 'Korolev School',
+    position: 'Founder',
     text: 'Запускали набор на курсы в сжатые сроки. Кампании быстро донастраивались по фактическим заявкам, поэтому бюджет не расползался на случайный трафик.',
+  },
+  {
+    name: 'Руслан',
+    company: 'Buyuk Zamon',
+    position: 'CEO',
+    text: 'После настройки рекламы стало понятнее, какие связки работают лучше. Команда быстро видела результаты тестов и могла спокойно планировать следующие шаги.',
+  },
+  {
+    name: 'Юрий',
+    company: 'Sky Monsion',
+    position: 'Founder',
+    text: 'Понравился системный подход: сначала разобрали цели и аудитории, затем аккуратно протестировали гипотезы. Реклама стала управляемее, без лишней суеты.',
+  },
+  {
+    name: 'Джасур',
+    company: 'CTI Invest',
+    position: 'Head of Marketing',
+    text: 'Важно было получать не просто трафик, а обращения от людей, которым действительно интересен продукт. После оптимизации кампаний качество лидов заметно выросло.',
+  },
+  {
+    name: 'Навид',
+    company: 'New Reality',
+    position: 'Founder',
+    text: 'Быстро нашли рабочие аудитории и креативы. Отчёты были понятными, а решения по бюджету принимались на основе цифр, а не предположений.',
+  },
+  {
+    name: 'Ева',
+    company: 'Obnimat',
+    position: 'Founder',
+    text: 'Запуск прошёл спокойно: структура кампаний была понятной, правки внедрялись быстро. В итоге получили более стабильный поток заявок без перегрева бюджета.',
+  },
+  {
+    name: 'Натэлла',
+    company: 'MillionZaEfir',
+    position: 'Founder',
+    text: 'Отдельно ценно, что была работа не только с рекламой, но и с оффером. После доработок заявки стали приходить ровнее и с более понятной мотивацией.',
+  },
+  {
+    name: 'Анна',
+    company: 'Bliss Agency',
+    position: 'CEO',
+    text: 'Коммуникация была быстрой и по делу. Кампании запускались аккуратно, тесты фиксировались, а по результатам сразу было понятно, что масштабировать дальше.',
   },
 ];
 
@@ -142,6 +184,7 @@ function TestimonialCard({ testimonial, index, compact = false }: { testimonial:
 
 function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isDesktopScrollbarVisible, setIsDesktopScrollbarVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
@@ -150,6 +193,18 @@ function Testimonials() {
   // Для свайпа
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const desktopScrollbarTimerRef = useRef<number | null>(null);
+
+  const revealDesktopScrollbar = useCallback(() => {
+    setIsDesktopScrollbarVisible(true);
+    if (desktopScrollbarTimerRef.current !== null) {
+      window.clearTimeout(desktopScrollbarTimerRef.current);
+    }
+    desktopScrollbarTimerRef.current = window.setTimeout(() => {
+      setIsDesktopScrollbarVisible(false);
+      desktopScrollbarTimerRef.current = null;
+    }, 900);
+  }, []);
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % testimonialsData.length);
@@ -163,6 +218,8 @@ function Testimonials() {
     const scroller = desktopScrollerRef.current;
     if (!scroller) return;
 
+    revealDesktopScrollbar();
+
     const card = scroller.querySelector<HTMLElement>('[data-testimonial-card]');
     const gap = parseFloat(window.getComputedStyle(scroller).columnGap) || 28;
     const cardWidth = card?.offsetWidth ?? 380;
@@ -170,7 +227,7 @@ function Testimonials() {
       left: direction === 'next' ? cardWidth + gap : -(cardWidth + gap),
       behavior: 'smooth',
     });
-  }, []);
+  }, [revealDesktopScrollbar]);
 
   useEffect(() => {
     const scroller = desktopScrollerRef.current;
@@ -189,11 +246,20 @@ function Testimonials() {
       if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
 
       e.preventDefault();
+      revealDesktopScrollbar();
       scroller.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
     };
 
     scroller.addEventListener('wheel', handleWheel, { passive: false });
     return () => scroller.removeEventListener('wheel', handleWheel);
+  }, [revealDesktopScrollbar]);
+
+  useEffect(() => {
+    return () => {
+      if (desktopScrollbarTimerRef.current !== null) {
+        window.clearTimeout(desktopScrollbarTimerRef.current);
+      }
+    };
   }, []);
 
   // Автоскролл только когда секция видна
@@ -300,17 +366,18 @@ function Testimonials() {
             </div>
           </div>
 
-          <div className="relative w-screen overflow-hidden">
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background via-background/55 to-transparent lg:w-40" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
+          <div className="relative w-screen">
+            <div className="testimonials-edge-fade pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background via-background/55 to-transparent lg:w-40" />
+            <div className="testimonials-edge-fade pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
             <div
               ref={desktopScrollerRef}
-              className="flex snap-x snap-proximity scroll-smooth gap-5 overflow-x-auto overflow-y-hidden pb-10 pt-6 md:gap-7"
+              className="testimonials-desktop-scroller flex snap-x snap-proximity scroll-smooth gap-5 overflow-x-auto overflow-y-hidden px-5 pb-10 pt-6 md:gap-7 md:px-10"
+              data-scrollbar-visible={isDesktopScrollbarVisible ? 'true' : 'false'}
+              onScroll={revealDesktopScrollbar}
               style={{
-                paddingInline: 'max(1.25rem, calc((100vw - 80rem) / 2 + 2rem))',
-                scrollPaddingInline: 'max(1.25rem, calc((100vw - 80rem) / 2 + 2rem))',
+                scrollPaddingInline: '2.5rem',
                 scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(139, 92, 246, 0.65) transparent',
+                scrollbarColor: isDesktopScrollbarVisible ? 'rgba(139, 92, 246, 0.65) transparent' : 'rgba(139, 92, 246, 0) transparent',
                 WebkitOverflowScrolling: 'touch',
                 cursor: 'grab',
                 willChange: 'scroll-position',
@@ -332,6 +399,35 @@ function Testimonials() {
             </div>
           </div>
         </div>
+
+        <style>{`
+          .testimonials-edge-fade {
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+          }
+          .testimonials-desktop-scroller::-webkit-scrollbar {
+            height: 4px;
+          }
+          .testimonials-desktop-scroller::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+          }
+          .testimonials-desktop-scroller::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
+            border-radius: 10px;
+            opacity: 0;
+            transition: opacity 220ms ease;
+          }
+          .testimonials-desktop-scroller[data-scrollbar-visible='true']::-webkit-scrollbar-thumb {
+            opacity: 1;
+          }
+          .testimonials-desktop-scroller[data-scrollbar-visible='false']::-webkit-scrollbar-thumb {
+            background: transparent;
+          }
+          .testimonials-desktop-scroller:active {
+            cursor: grabbing;
+          }
+        `}</style>
 
         {/* Мобильная версия — карусель с тач-свайпом */}
         <div className="md:hidden relative">
