@@ -1,5 +1,5 @@
 import { motion, useInView } from 'motion/react';
-import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2 } from 'lucide-react';
+import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, TouchEvent } from 'react';
 
 type Testimonial = {
@@ -163,11 +163,37 @@ function Testimonials() {
     const scroller = desktopScrollerRef.current;
     if (!scroller) return;
 
-    const cardWidth = scroller.querySelector<HTMLElement>('[data-testimonial-card]')?.offsetWidth ?? 360;
+    const card = scroller.querySelector<HTMLElement>('[data-testimonial-card]');
+    const gap = parseFloat(window.getComputedStyle(scroller).columnGap) || 28;
+    const cardWidth = card?.offsetWidth ?? 380;
     scroller.scrollBy({
-      left: direction === 'next' ? cardWidth + 24 : -(cardWidth + 24),
+      left: direction === 'next' ? cardWidth + gap : -(cardWidth + gap),
       behavior: 'smooth',
     });
+  }, []);
+
+  useEffect(() => {
+    const scroller = desktopScrollerRef.current;
+    if (!scroller) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+      const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
+      if (maxScrollLeft <= 0) return;
+
+      const nextScrollLeft = scroller.scrollLeft + e.deltaY;
+      const isAtStart = scroller.scrollLeft <= 0;
+      const isAtEnd = scroller.scrollLeft >= maxScrollLeft;
+
+      if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
+
+      e.preventDefault();
+      scroller.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
+    };
+
+    scroller.addEventListener('wheel', handleWheel, { passive: false });
+    return () => scroller.removeEventListener('wheel', handleWheel);
   }, []);
 
   // Автоскролл только когда секция видна
@@ -240,7 +266,22 @@ function Testimonials() {
 
         {/* Десктопная версия — горизонтальная лента карточек */}
         <div className="hidden md:block relative">
-          <div className="mb-5 flex justify-end gap-3">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              whileInView={{ opacity: 0.8, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.35 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-background/40 backdrop-blur-sm"
+            >
+              <MoveHorizontal className="h-3.5 w-3.5 text-primary" />
+              <motion.div
+                className="h-1.5 w-10 rounded-full bg-gradient-to-r from-primary/30 via-primary/80 to-primary/30"
+                animate={{ x: [-4, 4, -4] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </motion.div>
+
             <div className="flex gap-3">
               <button
                 onClick={() => scrollDesktopTestimonials('prev')}
@@ -259,25 +300,34 @@ function Testimonials() {
             </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-0 left-0 top-16 z-10 w-10 bg-gradient-to-r from-background via-background/70 to-transparent" />
-          <div className="pointer-events-none absolute bottom-0 right-0 top-16 z-10 w-10 bg-gradient-to-l from-background via-background/70 to-transparent" />
-          <div
-            ref={desktopScrollerRef}
-            className="flex snap-x snap-mandatory scroll-px-6 gap-5 overflow-x-auto px-6 py-5 -mx-6 -my-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {testimonialsData.map((testimonial, index) => (
-              <motion.div
-                key={`${testimonial.company}-${testimonial.name}`}
-                data-testimonial-card
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: (index % 4) * 0.08 }}
-                className="min-h-[340px] w-[min(380px,calc(100vw-4rem))] flex-shrink-0 snap-start group"
-              >
-                <TestimonialCard testimonial={testimonial} index={index} />
-              </motion.div>
-            ))}
+          <div className="relative -mx-5 md:-mx-10">
+            <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-16 bg-gradient-to-r from-background via-background/70 to-transparent md:w-32" />
+            <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-16 bg-gradient-to-l from-background via-background/70 to-transparent md:w-32" />
+            <div
+              ref={desktopScrollerRef}
+              className="flex snap-x snap-proximity scroll-smooth scroll-px-5 gap-5 overflow-x-auto overflow-y-hidden px-5 pb-10 pt-6 md:gap-7 md:px-10 md:scroll-px-10"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)',
+                WebkitOverflowScrolling: 'touch',
+                cursor: 'grab',
+                willChange: 'scroll-position',
+              }}
+            >
+              {testimonialsData.map((testimonial, index) => (
+                <motion.div
+                  key={`${testimonial.company}-${testimonial.name}`}
+                  data-testimonial-card
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: (index % 4) * 0.08 }}
+                  className="min-h-[340px] w-[min(380px,calc(100vw-4rem))] flex-shrink-0 snap-start group"
+                >
+                  <TestimonialCard testimonial={testimonial} index={index} />
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
 
