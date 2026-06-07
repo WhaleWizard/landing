@@ -73,6 +73,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       { label: 'Услуги', action: () => scrollToSection('services') },
       { label: 'Кейсы', action: () => scrollToSection('cases') },
       { label: 'Блог', action: () => navigate('/blog') },
+      { label: 'Отзывы', action: () => scrollToSection('about') },
       { label: 'FAQ', action: () => navigate('/faq') },
       { label: 'Контакты', action: () => scrollToSection('social') },
       { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
@@ -100,7 +101,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
             </div>
 
             {/* Десктопное меню */}
-            <div className="hidden md:flex items-center space-x-8">
+            <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
               {navItems.map((item, idx) => (
                 <motion.button
                   key={idx}
@@ -124,7 +125,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
             {/* Мобильное меню */}
             <button
-              className="md:hidden p-2 rounded-lg bg-card/50 backdrop-blur-sm border border-border"
+              className="lg:hidden p-2 rounded-lg bg-card/50 backdrop-blur-sm border border-border"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? <X className="w-6 h-6 text-foreground" /> : <Menu className="w-6 h-6 text-foreground" />}
@@ -141,7 +142,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.16 }}
-            className="fixed inset-0 z-40 md:hidden"
+            className="fixed inset-0 z-40 lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
