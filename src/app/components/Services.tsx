@@ -154,10 +154,10 @@ function Services({ content }: { content?: ServicesContent }) {
 
   return (
     <>
-      <section id="services" ref={sectionRef} className="relative py-16 md:py-24 overflow-hidden">
+      <section id="services" ref={sectionRef} className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent pointer-events-none -z-10 md:hidden" />
+        <div className="absolute inset-x-0 top-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent pointer-events-none -z-10 md:hidden" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -183,7 +183,7 @@ function Services({ content }: { content?: ServicesContent }) {
           </motion.div>
 
           {/* Desktop Grid */}
-          <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8">
+          <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8 overflow-visible">
             {serviceCards.map((service, index) => (
               <motion.div
                 key={index}
@@ -265,7 +265,7 @@ function Services({ content }: { content?: ServicesContent }) {
           {/* Mobile Carousel */}
           <div className="md:hidden relative">
             <div 
-              className="relative overflow-hidden"
+              className="relative -m-4 overflow-hidden p-4"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}

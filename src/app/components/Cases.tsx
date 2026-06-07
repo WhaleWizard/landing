@@ -146,8 +146,8 @@ function Cases({ content }: { content?: CasesContent }) {
     <section
       id="cases"
       ref={sectionRef}
-      className="relative py-16 md:py-24 overflow-hidden bg-muted/30"
-      style={{ contain: 'layout style paint' }}
+      className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible bg-muted/30"
+      style={{ contain: 'layout style' }}
     >
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] md:w-[800px] md:h-[800px] bg-gradient-radial from-primary/5 via-transparent to-transparent rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" />
@@ -177,7 +177,7 @@ function Cases({ content }: { content?: CasesContent }) {
         </motion.div>
 
         {/* Desktop Grid */}
-        <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8">
+        <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8 overflow-visible">
           {caseItems.map((item, index) => (
             <motion.div
               key={index}
@@ -256,7 +256,7 @@ function Cases({ content }: { content?: CasesContent }) {
         {/* Mobile Carousel */}
         <div className="md:hidden relative">
           <div 
-            className="relative overflow-hidden"
+            className="relative -m-4 overflow-hidden p-4"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}

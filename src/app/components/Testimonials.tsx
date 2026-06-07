@@ -208,11 +208,11 @@ function Testimonials() {
     <section
       id="about"
       ref={sectionRef}
-      className="relative py-16 md:py-24 overflow-hidden"
-      style={{ contain: 'layout style paint' }}
+      className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible"
+      style={{ contain: 'layout style' }}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/20 to-transparent pointer-events-none -z-10" />
-      <div className="absolute top-1/3 left-0 w-full h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent pointer-events-none -z-10" />
+      <div className="absolute inset-x-0 top-10 h-px bg-gradient-to-r from-transparent via-accent/15 to-transparent pointer-events-none -z-10 md:top-14" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
         {/* Заголовок */}
@@ -239,7 +239,7 @@ function Testimonials() {
         </motion.div>
 
         {/* Десктопная версия — горизонтальная лента карточек */}
-        <div className="hidden md:block">
+        <div className="hidden md:block relative">
           <div className="mb-5 flex justify-end gap-3">
             <div className="flex gap-3">
               <button
@@ -259,9 +259,11 @@ function Testimonials() {
             </div>
           </div>
 
+          <div className="pointer-events-none absolute bottom-0 left-0 top-16 z-10 w-10 bg-gradient-to-r from-background via-background/70 to-transparent" />
+          <div className="pointer-events-none absolute bottom-0 right-0 top-16 z-10 w-10 bg-gradient-to-l from-background via-background/70 to-transparent" />
           <div
             ref={desktopScrollerRef}
-            className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="flex snap-x snap-mandatory scroll-px-6 gap-5 overflow-x-auto px-6 py-5 -mx-6 -my-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
             {testimonialsData.map((testimonial, index) => (
               <motion.div
@@ -282,7 +284,7 @@ function Testimonials() {
         {/* Мобильная версия — карусель с тач-свайпом */}
         <div className="md:hidden relative">
           <div
-            className="relative overflow-hidden"
+            className="relative -m-4 overflow-hidden p-4"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
