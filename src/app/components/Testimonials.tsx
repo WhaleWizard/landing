@@ -324,9 +324,9 @@ function Testimonials() {
             </div>
           </div>
 
-          <div className="relative w-screen overflow-hidden">
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background via-background/55 to-transparent lg:w-40" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
+          <div className="relative w-screen">
+            <div className="testimonials-edge-fade pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background via-background/55 to-transparent lg:w-40" />
+            <div className="testimonials-edge-fade pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
             <div
               ref={desktopScrollerRef}
               className="testimonials-desktop-scroller flex snap-x snap-proximity scroll-smooth gap-5 overflow-x-auto overflow-y-hidden px-5 pb-10 pt-6 md:gap-7 md:px-10"
@@ -359,6 +359,10 @@ function Testimonials() {
         </div>
 
         <style>{`
+          .testimonials-edge-fade {
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+          }
           .testimonials-desktop-scroller::-webkit-scrollbar {
             height: 4px;
           }
