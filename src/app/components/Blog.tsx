@@ -43,7 +43,7 @@ function Blog() {
   if (loading) return <div className="py-16 text-center text-muted-foreground">Загрузка статей...</div>;
 
   return (
-    <section id="blog" className="relative py-16 md:py-24 overflow-hidden">
+    <section id="blog" className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible">
       <div className="absolute top-1/2 right-0 transform -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-accent/10 via-transparent to-transparent rounded-full blur-3xl" />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 md:mb-16">
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="text-center">
@@ -74,9 +74,9 @@ function Blog() {
             />
           </div>
         </motion.div>
-        <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background/60 via-background/30 to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background/60 via-background/30 to-transparent z-10 pointer-events-none" />
-        <div ref={scrollContainerRef} className="flex gap-5 md:gap-7 overflow-x-auto scroll-smooth pb-8 px-4 md:px-8" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)', WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
+        <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
+        <div ref={scrollContainerRef} className="flex gap-5 md:gap-7 overflow-x-auto scroll-smooth px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)', WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
           {articles.map((article) => (
             <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
