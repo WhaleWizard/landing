@@ -345,7 +345,7 @@ function LandingForm({
                   Телефон / WhatsApp *
                 </label>
                 <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
-                  <div className="w-[170px] sm:w-[220px] shrink-0">
+                  <div className="w-[118px] sm:w-[220px] shrink-0">
                     <Select value={phoneCode} onValueChange={setPhoneCode}>
                       <SelectTrigger
                         aria-label="Код страны"
@@ -488,7 +488,7 @@ function LandingForm({
                   className={`mt-0.5 h-5 w-5 shrink-0 aspect-square rounded-[4px] border-2 p-0 flex items-center justify-center transition-all ${
                     agreed
                       ? 'bg-primary border-primary'
-                      : 'border-border/70 bg-white hover:border-primary/50'
+                      : 'border-border/70 bg-background hover:border-primary/50'
                   }`}
                 >
                   {agreed && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}

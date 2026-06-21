@@ -76,7 +76,7 @@ function Blog() {
         </motion.div>
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
-        <div ref={scrollContainerRef} className="flex gap-5 md:gap-7 overflow-x-auto scroll-smooth px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)', WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
+        <div ref={scrollContainerRef} className="blog-carousel-scroll flex gap-5 md:gap-7 overflow-x-auto scroll-smooth px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)', WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
           {articles.map((article) => (
             <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
@@ -106,12 +106,12 @@ function Blog() {
         </div>
       </div>
       <style>{`
-        .overflow-x-auto::-webkit-scrollbar { height: 4px; }
-        .overflow-x-auto::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; margin: 0 20px; }
-        .overflow-x-auto::-webkit-scrollbar-thumb { background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6); border-radius: 10px; }
-        .overflow-x-auto::-webkit-scrollbar-thumb:hover { background: linear-gradient(90deg, #a78bfa, #818cf8, #60a5fa); }
-        .overflow-x-auto { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; cursor: grab; }
-        .overflow-x-auto:active { cursor: grabbing; }
+        .blog-carousel-scroll::-webkit-scrollbar { height: 4px; }
+        .blog-carousel-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; margin: 0 20px; }
+        .blog-carousel-scroll::-webkit-scrollbar-thumb { background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6); border-radius: 10px; }
+        .blog-carousel-scroll::-webkit-scrollbar-thumb:hover { background: linear-gradient(90deg, #a78bfa, #818cf8, #60a5fa); }
+        .blog-carousel-scroll { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; cursor: grab; }
+        .blog-carousel-scroll:active { cursor: grabbing; }
       `}</style>
       <div className="relative mt-14 md:mt-20 flex justify-center">
           <button

@@ -83,7 +83,7 @@ export default function CalculatorButtons() {
           <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
           <div
             ref={scrollContainerRef}
-            className="flex gap-5 overflow-x-auto scroll-smooth pb-4"
+            className="roi-calculator-scroll flex gap-5 overflow-x-auto scroll-smooth pb-4"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)',
@@ -129,26 +129,29 @@ export default function CalculatorButtons() {
               </div>
             </motion.button>
           </div>
+          <p className="mt-3 text-center text-xs text-muted-foreground/60">
+            ← Листайте, чтобы увидеть все варианты →
+          </p>
         </div>
 
         <style>{`
-          .overflow-x-auto::-webkit-scrollbar {
+          .roi-calculator-scroll::-webkit-scrollbar {
             height: 3px;
           }
-          .overflow-x-auto::-webkit-scrollbar-track {
+          .roi-calculator-scroll::-webkit-scrollbar-track {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 10px;
           }
-          .overflow-x-auto::-webkit-scrollbar-thumb {
+          .roi-calculator-scroll::-webkit-scrollbar-thumb {
             background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
             border-radius: 10px;
           }
-          .overflow-x-auto {
+          .roi-calculator-scroll {
             scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;
             cursor: grab;
           }
-          .overflow-x-auto:active {
+          .roi-calculator-scroll:active {
             cursor: grabbing;
           }
         `}</style>

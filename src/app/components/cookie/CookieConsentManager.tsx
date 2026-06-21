@@ -222,10 +222,11 @@ export default function CookieConsentManager() {
         <button
           type="button"
           onClick={openCookieSettings}
-          className="fixed bottom-2 left-2 md:bottom-4 md:left-4 z-[60] rounded-full border border-border/60 bg-card/85 px-2 py-1.5 md:px-3 md:py-2 text-[11px] md:text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
+          className="fixed bottom-2 left-2 md:bottom-4 md:left-4 z-[55] rounded-full border border-border/60 bg-card/85 px-2 py-1.5 md:px-3 md:py-2 text-[11px] md:text-xs text-muted-foreground backdrop-blur hover:text-primary transition-colors"
           aria-label="Открыть настройки cookie"
         >
-          Настройки Cookie
+          <span className="sm:hidden">Cookie</span>
+          <span className="hidden sm:inline">Настройки Cookie</span>
         </button>
       </>
     );
@@ -239,7 +240,7 @@ export default function CookieConsentManager() {
         className="absolute inset-0 bg-black/30 backdrop-blur-[1px] pointer-events-auto"
         onClick={() => setMode('modal')}
       />
-      <section className="pointer-events-auto absolute bottom-4 left-1/2 w-[min(96vw,680px)] -translate-x-1/2 rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl p-4 md:p-5">
+      <section className="pointer-events-auto absolute bottom-3 md:bottom-4 left-1/2 w-[min(94vw,680px)] -translate-x-1/2 rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl p-3 md:p-5">
         <h3 className="text-base md:text-lg font-semibold">{panelTitle}</h3>
         <p className="mt-1 text-xs md:text-sm text-muted-foreground">{description}</p>
 
@@ -256,7 +257,7 @@ export default function CookieConsentManager() {
 
         <PolicyNotice />
 
-        <div className="mt-4 flex flex-wrap gap-2 justify-end">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <button
             type="button"
             onClick={rejectAll}

@@ -415,7 +415,7 @@ function ContactForm() {
                     <div className="relative">
                       <label htmlFor="contact-phone" className="block text-sm mb-2 font-medium">Телефон *</label>
                       <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
-                        <div className="w-[170px] sm:w-[220px] shrink-0">
+                        <div className="w-[118px] sm:w-[220px] shrink-0">
                         <Select value={phoneCode} onValueChange={setPhoneCode}>
                           <SelectTrigger
                             aria-label="Код страны"
@@ -613,7 +613,7 @@ function ContactForm() {
                         checked={agreed}
                         onChange={(e) => setAgreed(e.target.checked)}
                         aria-describedby="contact-form-consent-copy"
-                        className="mt-0.5 w-4 h-4 text-primary bg-white border-border/70 rounded focus:ring-primary/20"
+                        className="mt-0.5 w-4 h-4 accent-primary bg-background border-border/70 rounded focus:ring-primary/20"
                       />
                       <LegalConsentCopy
                         id="contact-form-consent-copy"

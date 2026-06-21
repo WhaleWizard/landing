@@ -142,7 +142,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.16 }}
-            className="fixed inset-0 z-40 lg:hidden"
+            className="fixed inset-0 z-[60] lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
