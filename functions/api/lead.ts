@@ -605,7 +605,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 
-  const normalized = normalizeLeadPayload((JSON.parse(rawBody || '{}')) as LeadPayload);
+  let parsedPayload: LeadPayload;
+  try {
+    parsedPayload = JSON.parse(rawBody || '{}') as LeadPayload;
+  } catch {
+    return json(
+      { success: false, error: 'invalid_json' },
+      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+
+  const normalized = normalizeLeadPayload(parsedPayload);
   const rateLimited = await enforceRateLimit(request, 'lead');
   if (rateLimited) {
     waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'rate_limited', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), marketing_consent: normalized.marketing_consent }));

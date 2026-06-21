@@ -248,9 +248,9 @@ function ContactForm() {
     >
       {inView && (
         <>
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" />
+          <div className="pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" />
           <div
-            className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse"
+            className="pointer-events-none absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse"
             style={{ animationDelay: '1s' }}
           />
         </>
@@ -312,10 +312,10 @@ function ContactForm() {
             transition={{ duration: 0.6 }}
           >
             <div className="relative p-6 md:p-8 rounded-3xl bg-card/50 backdrop-blur-xl border border-border shadow-2xl">
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 opacity-50" />
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-primary/5 to-accent/5 animate-pulse" />
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-3xl blur-2xl" />
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-accent/20 to-transparent rounded-3xl blur-2xl" />
+              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 opacity-50" />
+              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-tr from-primary/5 to-accent/5 animate-pulse" />
+              <div className="pointer-events-none absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-3xl blur-2xl" />
+              <div className="pointer-events-none absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-accent/20 to-transparent rounded-3xl blur-2xl" />
 
               <div className="relative">
                 {isSubmitted ? (
@@ -605,16 +605,18 @@ function ContactForm() {
                     </div>
 
                     {/* Чекбокс согласия */}
-                    <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2.5 sm:gap-3 rounded-xl border border-border/30 bg-background/20 px-3 py-2.5 sm:border-0 sm:bg-transparent sm:p-0">
-                      <input
-                        type="checkbox"
-                        id="consent"
-                        name="consent"
-                        checked={agreed}
-                        onChange={(e) => setAgreed(e.target.checked)}
-                        aria-describedby="contact-form-consent-copy"
-                        className="mt-0.5 w-4 h-4 accent-primary bg-background border-border/70 rounded focus:ring-primary/20"
-                      />
+                    <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2.5 sm:gap-3 rounded-xl border border-border/30 bg-background/20 px-3 py-2.5 sm:border-0 sm:bg-transparent sm:p-0">
+                      <label htmlFor="consent" className="flex h-11 w-11 cursor-pointer items-start justify-start pt-3">
+                        <input
+                          type="checkbox"
+                          id="consent"
+                          name="consent"
+                          checked={agreed}
+                          onChange={(e) => setAgreed(e.target.checked)}
+                          aria-describedby="contact-form-consent-copy"
+                          className="h-5 w-5 accent-primary bg-background border-border/70 rounded focus:ring-primary/20"
+                        />
+                      </label>
                       <LegalConsentCopy
                         id="contact-form-consent-copy"
                         className="max-w-[64ch]"
