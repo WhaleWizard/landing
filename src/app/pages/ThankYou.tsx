@@ -53,7 +53,7 @@ export default function ThankYou() {
         url="/thank-you"
         noIndex
       />
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
+      <section className="relative min-h-screen flex items-center justify-center overflow-x-hidden bg-background py-20">
 
       {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-primary/10 blur-[140px]" />
@@ -76,7 +76,7 @@ export default function ThankYou() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-6 text-1xl md:text-4xl font-bold"
+          className="mt-6 text-2xl sm:text-3xl md:text-4xl font-bold"
         >
           Вы на шаг ближе к{' '}
           <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
@@ -118,7 +118,7 @@ export default function ThankYou() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-4"
+          className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
         >
           {socialLinks.map((social, i) => (
             <a

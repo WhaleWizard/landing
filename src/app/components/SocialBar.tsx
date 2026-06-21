@@ -146,7 +146,7 @@ function SocialDock() {
         <div className="md:hidden relative overflow-visible">
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto overflow-y-visible scroll-smooth pb-8"
+            className="social-bar-scroll flex gap-4 overflow-x-auto overflow-y-visible scroll-smooth pb-8"
             style={{
               scrollbarWidth: 'thin',
               WebkitOverflowScrolling: 'touch',
@@ -192,17 +192,17 @@ function SocialDock() {
 
       <style>{`
         @media (max-width: 767px) {
-          .overflow-x-auto {
+          .social-bar-scroll {
             scrollbar-width: thin;
             scrollbar-color: rgba(139, 92, 246, 0) transparent;
           }
-          .overflow-x-auto::-webkit-scrollbar {
+          .social-bar-scroll::-webkit-scrollbar {
             height: 2px;
           }
-          .overflow-x-auto::-webkit-scrollbar-track {
+          .social-bar-scroll::-webkit-scrollbar-track {
             background: transparent;
           }
-          .overflow-x-auto::-webkit-scrollbar-thumb {
+          .social-bar-scroll::-webkit-scrollbar-thumb {
             background: #8b5cf6;
             border-radius: 4px;
             opacity: var(--scrollbar-opacity, 0);
