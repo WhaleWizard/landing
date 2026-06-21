@@ -91,44 +91,44 @@ const defaultHeroContent: HeroContent = {
 };
 
 const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
-  <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 pt-6 md:pt-8">
+  <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 pt-5 md:pt-8">
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.3, duration: 0.5 }}
-      className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 backdrop-blur-sm"
+      className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 backdrop-blur-sm overflow-hidden"
     >
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-primary/20 flex items-center justify-center pointer-events-none">
         <Sparkles className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-primary" />
       </div>
-      <div className="pr-6 text-lg sm:text-2xl md:text-3xl font-bold leading-none text-primary">{stats[0]?.value}</div>
-      <div className="mt-1 min-h-8 text-[11px] sm:text-xs md:text-sm leading-tight text-muted-foreground text-pretty">{stats[0]?.label}</div>
+      <div className="pr-5 text-[17px] sm:text-2xl md:text-3xl font-semibold md:font-bold leading-none text-primary tracking-[-0.02em]">{stats[0]?.value}</div>
+      <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[0]?.label}</div>
     </motion.div>
 
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.4, duration: 0.5 }}
-      className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 backdrop-blur-sm"
+      className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 backdrop-blur-sm overflow-hidden"
     >
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-accent/20 flex items-center justify-center pointer-events-none">
         <TrendingUp className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-accent" />
       </div>
-      <div className="pr-6 text-lg sm:text-2xl md:text-3xl font-bold leading-none text-accent">{stats[1]?.value}</div>
-      <div className="mt-1 min-h-8 text-[11px] sm:text-xs md:text-sm leading-tight text-muted-foreground text-pretty">{stats[1]?.label}</div>
+      <div className="pr-5 text-[17px] sm:text-2xl md:text-3xl font-semibold md:font-bold leading-none text-accent tracking-[-0.02em]">{stats[1]?.value}</div>
+      <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[1]?.label}</div>
     </motion.div>
 
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.5, duration: 0.5 }}
-      className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20 backdrop-blur-sm"
+      className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20 backdrop-blur-sm overflow-hidden"
     >
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-secondary/20 flex items-center justify-center pointer-events-none">
         <BarChart3 className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-secondary" />
       </div>
-      <div className="pr-6 text-lg sm:text-2xl md:text-3xl font-bold leading-none text-secondary">{stats[2]?.value}</div>
-      <div className="mt-1 min-h-8 text-[11px] sm:text-xs md:text-sm leading-tight text-muted-foreground text-pretty">{stats[2]?.label}</div>
+      <div className="pr-5 text-[17px] sm:text-2xl md:text-3xl font-semibold md:font-bold leading-none text-secondary tracking-[-0.02em]">{stats[2]?.value}</div>
+      <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[2]?.label}</div>
     </motion.div>
   </div>
 ));
@@ -164,7 +164,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </motion.div>
 
-    <h1 className="max-w-2xl text-balance text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-bold leading-[1.08] tracking-[-0.03em]">
+    <h1 className="max-w-2xl text-balance text-[clamp(2rem,9vw,2.75rem)] lg:text-[42px] xl:text-[46px] font-semibold md:font-bold leading-[1.08] tracking-[-0.025em] md:tracking-[-0.03em]">
       {content.titlePrefix}{' '}
       <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
         {content.titleAccent}
@@ -173,7 +173,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
 
     <div className="space-y-3">
       {content.paragraphs.map((paragraph, index) => (
-        <p key={index} className="max-w-xl text-pretty text-base md:text-lg lg:text-lg text-muted-foreground leading-relaxed">
+        <p key={index} className="max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-7 md:leading-relaxed">
           {paragraph}
         </p>
       ))}
@@ -248,7 +248,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
-      className="relative order-1 lg:order-2 h-[400px] md:h-[600px]"
+      className="relative order-1 lg:order-2 h-[360px] sm:h-[400px] md:h-[600px]"
     >
       <div className="absolute inset-0 flex items-center justify-center overflow-visible">
         {/* Ambient glow */}
@@ -380,16 +380,16 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.8, duration: 0.8, type: 'spring' }}
-        className="absolute top-2 left-0 md:top-6 md:left-2 w-36 sm:w-44 md:w-56 z-10 group"
+        className="absolute top-3 left-1 md:top-6 md:left-2 w-32 sm:w-44 md:w-56 z-10 group"
       >
-        <div className="relative p-3 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-primary/30 overflow-hidden">
+        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-primary/25 overflow-hidden shadow-lg shadow-black/10">
           <div className="absolute top-0 right-0 w-16 h-16 bg-primary/20 blur-2xl rounded-full pointer-events-none" />
           <div className="flex items-start justify-between mb-3 md:mb-4 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium mb-0.5">
                 Google Ads
               </div>
-              <div className="text-xs sm:text-sm md:text-base text-muted-foreground/80">
+              <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
                 total ad spend
               </div>
             </div>
@@ -401,7 +401,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             </motion.div>
           </div>
           <motion.div
-            className="text-xl sm:text-2xl md:text-3xl font-bold text-primary mb-3 md:mb-4 relative z-10"
+            className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-primary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.5 }}
@@ -435,9 +435,9 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.9, duration: 0.8, type: 'spring' }}
-        className="absolute top-0 right-0 md:top-4 md:right-4 w-32 sm:w-36 md:w-44 z-10 group"
+        className="absolute top-1 right-1 md:top-4 md:right-4 w-28 sm:w-36 md:w-44 z-10 group"
       >
-        <div className="relative p-3 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-accent/30 overflow-hidden">
+        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-accent/25 overflow-hidden shadow-lg shadow-black/10">
           <motion.div
             className="absolute -top-8 -right-8 w-24 h-24 bg-accent/20 blur-3xl rounded-full pointer-events-none"
             animate={inView ? { scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] } : {}}
@@ -449,7 +449,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-accent/60 font-medium mb-0.5">
                 ROAS
               </div>
-              <div className="text-xs sm:text-sm md:text-base text-muted-foreground/80">
+              <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
                 в среднем
               </div>
             </div>
@@ -461,7 +461,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             </motion.div>
           </div>
           <motion.div
-            className="text-3xl sm:text-4xl md:text-5xl font-bold text-accent mb-2 md:mb-3 relative z-10 leading-none"
+            className="text-2xl sm:text-4xl md:text-5xl font-semibold md:font-bold text-accent mb-2 md:mb-3 relative z-10 leading-none tracking-[-0.03em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.3, duration: 0.5 }}
@@ -497,9 +497,9 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1.0, duration: 0.8, type: 'spring' }}
-        className="absolute bottom-6 left-0 md:bottom-10 md:left-4 w-36 sm:w-44 md:w-56 z-10 group"
+        className="absolute bottom-8 left-1 md:bottom-10 md:left-4 w-32 sm:w-44 md:w-56 z-10 group"
       >
-        <div className="relative p-3 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-secondary/30 overflow-hidden">
+        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-secondary/25 overflow-hidden shadow-lg shadow-black/10">
           <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-secondary/40 rounded-tl-2xl pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-secondary/40 rounded-br-2xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-20 h-20 bg-secondary/20 blur-3xl rounded-full pointer-events-none" />
@@ -508,7 +508,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-secondary/60 font-medium mb-0.5">
                 Meta Ads
               </div>
-              <div className="text-xs sm:text-sm md:text-base text-muted-foreground/80">
+              <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
                 total ad spend
               </div>
             </div>
@@ -520,7 +520,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             </motion.div>
           </div>
           <motion.div
-            className="text-xl sm:text-2xl md:text-3xl font-bold text-secondary mb-3 md:mb-4 relative z-10"
+            className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-secondary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.4, duration: 0.5 }}
@@ -553,9 +553,9 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1.1, duration: 0.8, type: 'spring' }}
-        className="absolute bottom-14 right-0 md:bottom-20 md:right-2 w-28 sm:w-32 md:w-40 z-10 group"
+        className="absolute bottom-16 right-1 md:bottom-20 md:right-2 w-24 sm:w-32 md:w-40 z-10 group"
       >
-        <div className="relative p-3 md:p-4 rounded-2xl bg-background/95 backdrop-blur-2xl border border-primary/30 overflow-hidden">
+        <div className="relative p-2.5 md:p-4 rounded-2xl bg-background/95 backdrop-blur-2xl border border-primary/25 overflow-hidden shadow-lg shadow-black/10">
           <motion.div
             className="absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent pointer-events-none"
             animate={inView ? { scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] } : {}}
@@ -587,7 +587,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             </motion.div>
           </div>
           <motion.div
-            className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary relative z-10 leading-none"
+            className="text-2xl sm:text-4xl md:text-5xl font-semibold md:font-bold text-primary relative z-10 leading-none tracking-[-0.03em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.5, duration: 0.5 }}

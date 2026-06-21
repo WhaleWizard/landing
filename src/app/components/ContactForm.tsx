@@ -614,7 +614,7 @@ function ContactForm() {
                           checked={agreed}
                           onChange={(e) => setAgreed(e.target.checked)}
                           aria-describedby="contact-form-consent-copy"
-                          className="h-5 w-5 accent-primary bg-background border-border/70 rounded focus:ring-primary/20"
+                          className="consent-checkbox h-5 w-5"
                         />
                       </label>
                       <LegalConsentCopy
