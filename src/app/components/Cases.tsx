@@ -165,7 +165,7 @@ function Cases({ content }: { content?: CasesContent }) {
             <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-primary" />
             <span className="text-xs md:text-sm text-primary">{sectionContent.badge}</span>
           </div>
-          <h2 className="mx-auto max-w-4xl text-balance text-2xl sm:text-3xl md:text-4xl lg:text-[44px] font-bold leading-tight tracking-[-0.02em] mb-3 md:mb-4">
+          <h2 className="mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4">
             {sectionContent.titlePrefix}{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
               {sectionContent.titleAccent}
@@ -274,7 +274,7 @@ function Cases({ content }: { content?: CasesContent }) {
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.5 }}
-                    className="relative overflow-hidden rounded-2xl bg-card border-2 border-primary/30 shadow-2xl shadow-primary/10"
+                    className="relative overflow-hidden rounded-2xl bg-card/90 border border-primary/25 shadow-xl shadow-primary/10"
                     style={{ transform: 'translateZ(0)' }}
                   >
                     <div className="relative h-52 overflow-hidden">
@@ -298,17 +298,17 @@ function Cases({ content }: { content?: CasesContent }) {
                       </div>
                     </div>
 
-                    <div className="p-5 space-y-4">
-                      <h3 className="text-balance text-xl font-bold leading-tight">{item.title}</h3>
-                      <p className="text-pretty text-sm text-muted-foreground leading-relaxed">{item.description}</p>
-                      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
+                    <div className="p-[1.125rem] space-y-3.5">
+                      <h3 className="text-balance text-[1.18rem] font-semibold leading-[1.15]">{item.title}</h3>
+                      <p className="text-pretty text-[13px] text-muted-foreground leading-6">{item.description}</p>
+                      <div className="grid grid-cols-3 gap-1.5 min-[390px]:gap-2 pt-3 border-t border-border/50">
                         {item.stats.map((stat, idx) => (
-                          <div key={idx} className="relative p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 backdrop-blur-sm border border-primary/20">
+                          <div key={idx} className="relative p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 backdrop-blur-sm border border-primary/15 overflow-hidden">
                             <div className="absolute top-1 right-1 w-3 h-3 rounded bg-primary/30 flex items-center justify-center">
                               <Sparkles className="w-2 h-2 text-primary" />
                             </div>
                             <div className="text-[10px] text-muted-foreground mb-1">{stat.label}</div>
-                            <div className="text-sm font-bold text-primary">{stat.value}</div>
+                            <div className="text-xs min-[390px]:text-sm font-semibold text-primary tracking-[-0.01em]">{stat.value}</div>
                           </div>
                         ))}
                       </div>

@@ -171,7 +171,7 @@ function Services({ content }: { content?: ServicesContent }) {
               <Target className="w-4 h-4 text-primary" />
               <span className="text-sm text-primary font-semibold">{sectionContent.badge}</span>
             </div>
-            <h2 className="mx-auto max-w-4xl text-balance text-2xl sm:text-3xl md:text-4xl lg:text-[44px] font-bold leading-tight tracking-[-0.02em] mb-3 md:mb-4">
+            <h2 className="mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4">
               {sectionContent.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 {sectionContent.titleAccent}
@@ -284,13 +284,13 @@ function Services({ content }: { content?: ServicesContent }) {
                       transition={{ duration: 0.5 }}
                       className="relative"
                     >
-                      <div className="relative p-6 rounded-2xl bg-card/60 backdrop-blur-md border-2 border-primary/30 shadow-2xl shadow-primary/10 overflow-hidden flex flex-col">
+                      <div className="relative p-[1.125rem] rounded-2xl bg-card/70 backdrop-blur-md border border-primary/25 shadow-xl shadow-primary/10 overflow-hidden flex flex-col">
                         <div className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-5`} />
                         <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${service.gradient}`} />
                         <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${service.gradient} opacity-10 blur-2xl`} />
 
                         <div className="relative z-10">
-                          <div className="flex items-center justify-between mb-5">
+                          <div className="flex items-center justify-between mb-4">
                             <div className={`p-3 rounded-xl bg-gradient-to-br ${service.gradient} shadow-lg`}>
                               <service.icon className="w-7 h-7 text-white" />
                             </div>
@@ -299,20 +299,20 @@ function Services({ content }: { content?: ServicesContent }) {
                             </div>
                           </div>
 
-                          <h3 className="text-balance text-xl sm:text-2xl font-bold leading-tight mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                          <h3 className="text-balance text-[1.18rem] sm:text-2xl font-semibold leading-[1.15] mb-2.5 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
                             {service.title}
                           </h3>
-                          <p className="text-pretty text-sm text-muted-foreground mb-5 leading-relaxed">
+                          <p className="text-pretty text-[13px] sm:text-sm text-muted-foreground mb-4 leading-6">
                             {service.description}
                           </p>
 
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2">
                             {service.features.map((feature, idx) => (
-                              <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-card/40 border border-primary/20">
+                              <div key={idx} className="flex items-center gap-2 p-2.5 min-[390px]:p-2 rounded-lg bg-card/35 border border-primary/15">
                                 <div className="flex-shrink-0 w-5 h-5 rounded bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
                                   <Sparkles className="w-2.5 h-2.5 text-primary" />
                                 </div>
-                                <span className="text-[11px] sm:text-xs text-foreground/90 leading-tight text-pretty break-words">{feature}</span>
+                                <span className="text-[11px] sm:text-xs text-foreground/80 leading-snug text-pretty break-words font-normal">{feature}</span>
                               </div>
                             ))}
                           </div>
@@ -383,7 +383,7 @@ function Services({ content }: { content?: ServicesContent }) {
 
       {/* Модальное окно с кнопкой внизу (уменьшенной на мобильных) */}
       <Modal isOpen={isModalOpen} onClose={closeModal} title={modalContent.title}>
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {modalContent.sections.map((section, idx) => {
             const Icon = section.icon;
             const gradientClasses = [
@@ -394,15 +394,15 @@ function Services({ content }: { content?: ServicesContent }) {
             ];
             return (
               <div key={idx} className="group/section">
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-start gap-3 mb-3 sm:mb-4">
                   <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/30 group-hover/section:scale-110 transition-transform">
                     <Icon className="w-5 h-5 text-primary" />
                   </div>
-                  <h3 className={`text-lg md:text-xl font-bold bg-gradient-to-r ${gradientClasses[idx % gradientClasses.length]} bg-clip-text text-transparent`}>
+                  <h3 className={`text-base md:text-xl font-semibold md:font-bold leading-tight text-balance bg-gradient-to-r ${gradientClasses[idx % gradientClasses.length]} bg-clip-text text-transparent`}>
                     {section.title}
                   </h3>
                 </div>
-                <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed pl-2 border-l-2 border-primary/20">
+                <div className="text-[13px] sm:text-sm text-muted-foreground whitespace-pre-line leading-6 sm:leading-relaxed pl-3 border-l border-primary/20 font-normal">
                   {section.text}
                 </div>
               </div>
