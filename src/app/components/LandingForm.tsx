@@ -487,11 +487,11 @@ function LandingForm({
                   onClick={() => setAgreed(!agreed)}
                   className={`mt-0.5 h-5 w-5 shrink-0 aspect-square rounded-[4px] border-2 p-0 flex items-center justify-center transition-all ${
                     agreed
-                      ? 'bg-primary border-primary'
-                      : 'border-border/70 bg-background hover:border-primary/50'
+                      ? 'border-primary bg-white shadow-[0_0_0_3px_rgba(139,92,246,0.14)]'
+                      : 'border-primary/45 bg-white shadow-sm hover:border-primary/70'
                   }`}
                 >
-                  {agreed && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                  {agreed && <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />}
                 </button>
                 <LegalConsentCopy
                   onPrivacyClick={() => setShowPrivacyModal(true)}

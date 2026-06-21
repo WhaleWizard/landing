@@ -111,10 +111,10 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-2xl max-h-[calc(100dvh-2rem)] md:max-h-[85vh] bg-card border border-primary/30 rounded-2xl shadow-2xl z-[1001] overflow-hidden flex flex-col ${dialogClassName ?? ''}`}
+            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-2xl max-h-[calc(100dvh-1.5rem)] md:max-h-[85vh] bg-card border border-primary/25 rounded-2xl shadow-2xl z-[1001] overflow-hidden flex flex-col ${dialogClassName ?? ''}`}
           >
-            <div className="flex justify-between items-center p-4 border-b border-border">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <div className="flex justify-between items-start gap-3 p-4 sm:p-5 border-b border-border">
+              <h2 className="text-lg sm:text-xl font-semibold leading-tight text-balance bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {title}
               </h2>
               <motion.button
@@ -127,7 +127,7 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
                 <X className="w-5 h-5 text-muted-foreground" />
               </motion.button>
             </div>
-            <div className={`p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto modal-scroll ${bodyClassName ?? ''}`}>
+            <div className={`p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto modal-scroll ${bodyClassName ?? ''}`}>
               {children}
             </div>
             <div className="p-4 border-t border-border flex justify-end">

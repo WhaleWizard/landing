@@ -124,8 +124,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
     },
     hero: {
       badge: 'Meta Ads для бизнеса',
-      titlePrefix: 'Приведу заявки через',
-      titleAccent: 'Facebook & Instagram',
+      titlePrefix: 'Приведу заявки',
+      titleAccent: 'через Facebook & Instagram',
       paragraphs: [
         'Запускаю и масштабирую Meta Ads для заявок, продаж и понятной окупаемости — без фокуса на пустые клики.',
         'Фокус на системе: оффер, креативы, аудитории, Pixel, Conversions API, ретаргетинг и оптимизация по качеству лидов.',
@@ -280,8 +280,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
     },
     hero: {
       badge: 'Google Ads для горячего спроса',
-      titlePrefix: 'Приведу клиентов из',
-      titleAccent: 'Google Ads',
+      titlePrefix: 'Приведу клиентов',
+      titleAccent: 'из Google Ads',
       paragraphs: [
         'Настраиваю Search, Shopping, Performance Max и YouTube так, чтобы реклама приводила заявки и продажи.',
         'Фокус на структуре кампаний, семантике, минус-словах, конверсиях и понятной экономике CPA/ROAS.',
@@ -436,8 +436,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
     },
     hero: {
       badge: 'Meta Ads для приложений',
-      titlePrefix: 'Приведу пользователей в',
-      titleAccent: 'мобильное приложение',
+      titlePrefix: 'Приведу пользователей',
+      titleAccent: 'в мобильное приложение',
       paragraphs: [
         'Запускаю Meta Ads для установок, регистраций, trial, покупок и подписок — с фокусом на post-install события.',
         'Фокус не на дешёвых install, а на качестве пользователей, MMP/SKAN, mobile-креативах и KPI приложения.',
@@ -592,8 +592,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
     },
     hero: {
       badge: 'Личная консультация',
-      titlePrefix: 'Помогу таргетологу собрать',
-      titleAccent: 'систему роста',
+      titlePrefix: 'Помогу таргетологу',
+      titleAccent: 'собрать систему роста',
       paragraphs: [
         'Разберу позиционирование, портфолио, оффер, поиск клиентов и продажи — без воды и общих советов.',
         'В конце — конкретный план: что исправить в упаковке, где искать клиентов и как продавать услуги дороже.',
