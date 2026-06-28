@@ -872,7 +872,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden" style={cssVars}>
       <SEO {...config.seo} />
       <Navbar variant="service" />
-      <Hero content={config.hero} />
+      <Hero content={config.hero} visual={service === 'meta-apps' ? 'meta-apps' : 'default'} />
 
       <DeferredSection><Services content={config.services} /></DeferredSection>
       <DeferredSection><Cases content={config.cases} /></DeferredSection>

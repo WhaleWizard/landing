@@ -1,7 +1,9 @@
-import { memo, useCallback, useRef, useEffect, useState, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type ReactNode } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
+
+const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
 
 // ─── Static particle data — computed once, never on re-render ──────────────
 const PARTICLE_DATA = Array.from({ length: 12 }, (_, i) => ({
@@ -637,7 +639,9 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
 });
 RightPanel.displayName = 'RightPanel';
 
-function Hero({ content = defaultHeroContent }: { content?: HeroContent }) {
+type HeroVisual = 'default' | 'meta-apps';
+
+function Hero({ content = defaultHeroContent, visual = 'default' }: { content?: HeroContent; visual?: HeroVisual }) {
   const sectionRef     = useRef<HTMLElement>(null);
   const inView         = useInView(sectionRef, { margin: '0px 0px -10% 0px', once: false });
   const prefersReduced = useReducedMotion();
@@ -669,7 +673,13 @@ function Hero({ content = defaultHeroContent }: { content?: HeroContent }) {
             inView={resolvedInView}
             content={content}
           />
-          <RightPanel inView={resolvedInView} />
+          {visual === 'meta-apps' ? (
+            <Suspense fallback={<div className="order-1 lg:order-2 h-[430px] sm:h-[500px] md:h-[620px] lg:h-[660px]" />}>
+              <MetaAppsHeroVisual inView={resolvedInView} />
+            </Suspense>
+          ) : (
+            <RightPanel inView={resolvedInView} />
+          )}
         </div>
       </div>
     </section>
