@@ -1,10 +1,20 @@
 import { useState, useEffect, useCallback, memo } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Briefcase, Trophy, Newspaper, Star, HelpCircle, Phone, Calculator, ChevronRight } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 
 type NavbarVariant = 'home' | 'service';
+
+const NAV_ICONS: Record<string, typeof Briefcase> = {
+  'Услуги': Briefcase,
+  'Кейсы': Trophy,
+  'Блог': Newspaper,
+  'Отзывы': Star,
+  'FAQ': HelpCircle,
+  'Контакты': Phone,
+  'Калькулятор': Calculator,
+};
 
 interface NavbarProps {
   variant?: NavbarVariant;
@@ -134,46 +144,73 @@ function Navbar({ variant = 'home' }: NavbarProps) {
         </div>
       </nav>
 
-      {/* Мобильное меню */}
+      {/* Мобильное меню — выезжающая панель */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.16 }}
+            transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[60] lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
+            <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
             <motion.div
-              initial={{ y: 16, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 12, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="relative h-full flex flex-col items-center justify-center space-y-8"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+              className="absolute right-0 top-0 flex h-full w-[85%] max-w-sm flex-col border-l border-border bg-card/95 shadow-2xl backdrop-blur-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              {navItems.map((item, idx) => (
-                <motion.button
-                  key={idx}
-                  onClick={item.action}
-                  className="text-2xl text-foreground/80 hover:text-primary transition-colors relative group"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ delay: idx * 0.03, duration: 0.18 }}
-                  whileHover={{ scale: 1.05 }}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+
+              <div className="flex items-center justify-between px-5 py-5 border-b border-border/60">
+                <span className="text-lg font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+                  Whale Wizard
+                </span>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-2 rounded-lg bg-background/60 border border-border hover:border-primary/40 transition-colors"
+                  aria-label="Закрыть меню"
                 >
-                  {item.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
-                </motion.button>
-              ))}
+                  <X className="w-5 h-5 text-foreground" />
+                </button>
+              </div>
+
+              <nav className="flex-1 overflow-y-auto px-3 py-3">
+                {navItems.map((item, idx) => {
+                  const Icon = NAV_ICONS[item.label] ?? Briefcase;
+                  return (
+                    <motion.button
+                      key={idx}
+                      onClick={item.action}
+                      initial={{ opacity: 0, x: 16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 12 }}
+                      transition={{ delay: idx * 0.035, duration: 0.2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-primary/10 active:bg-primary/15"
+                    >
+                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
+                        <Icon className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="flex-1 text-[15px] font-medium text-foreground/90 transition-colors group-hover:text-foreground">
+                        {item.label}
+                      </span>
+                      <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground/50 transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
+                    </motion.button>
+                  );
+                })}
+              </nav>
+
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
                 transition={{ delay: 0.14, duration: 0.18 }}
+                className="border-t border-border/60 p-4"
               >
                 <Button
                   onClick={() => {
@@ -181,7 +218,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                     setIsMobileMenuOpen(false);
                   }}
                   size="lg"
-                  className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
                   <span className="relative">Получить консультацию</span>
