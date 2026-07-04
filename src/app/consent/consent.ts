@@ -1359,7 +1359,15 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
   const ymId = getYandexMetrikaId();
 
   if (win.gtag && gaId) {
-    win.gtag('config', gaId, { page_path: path });
+    // Повторный `config` на смене SPA-роута не создаёт хит в GA4 (это устаревший
+    // паттерн из Universal Analytics) — данные тихо не долетали до Google.
+    // Нужен именно gtag('event', 'page_view', ...).
+    win.gtag('event', 'page_view', {
+      send_to: gaId,
+      page_path: path,
+      page_location: window.location.origin + path,
+      page_title: document.title,
+    });
   }
 
   if (win.ym && ymId) {
