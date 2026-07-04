@@ -2,7 +2,7 @@ export default function OfferContent() {
   return (
     <>
       <p>
-        Настоящий документ является публичной офертой <strong>Whale Wzrd</strong> (далее — «Исполнитель»), адресованной
+        Настоящий документ является публичной офертой <strong>Whale Wizard</strong> (далее — «Исполнитель»), адресованной
         любому физическому лицу, индивидуальному предпринимателю, самозанятому лицу или юридическому лицу (далее —
         «Заказчик»), о заключении договора на оказание услуг по настройке, ведению, аудиту и оптимизации рекламных
         кампаний в системах <strong>Google Ads</strong>, <strong>Meta Ads</strong> (Facebook/Instagram), а также связанных
@@ -27,7 +27,7 @@ export default function OfferContent() {
         Акцепта.
       </p>
       <p>
-        1.4. <strong>Исполнитель</strong> — Whale Wzrd. Данные Исполнителя указываются в Оферте, счёте, задании, акте,
+        1.4. <strong>Исполнитель</strong> — Whale Wizard. Данные Исполнителя указываются в Оферте, счёте, задании, акте,
         переписке или ином документе, направленном Заказчику.
       </p>
       <p>
@@ -304,7 +304,7 @@ export default function OfferContent() {
         сайту и иную информацию Заказчика, помеченную как конфиденциальная или очевидно являющуюся конфиденциальной.
       </p>
       <p>
-        15.2. Оператором персональных данных является Whale Wzrd. Контакты по вопросам обработки данных: email{' '}
+        15.2. Оператором персональных данных является Whale Wizard. Контакты по вопросам обработки данных: email{' '}
         <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a>, Telegram{' '}
         <a href="https://t.me/white_rsh">@white_rsh</a>. Если требуется контактный номер Оператора, используется Telegram:
         @white_rsh.
@@ -431,7 +431,7 @@ export default function OfferContent() {
 
       <h2>21. Данные Исполнителя и Заказчика</h2>
       <p>
-        21.1. <strong>Данные Исполнителя:</strong> Whale Wzrd; email:{' '}
+        21.1. <strong>Данные Исполнителя:</strong> Whale Wizard; email:{' '}
         <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a>; Telegram:{' '}
         <a href="https://t.me/white_rsh">@white_rsh</a>. Иные данные Исполнителя могут быть указаны в счёте, Задании,
         акте, переписке или ином документе, направленном Заказчику.

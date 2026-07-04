@@ -259,8 +259,69 @@ function normalizeArticles(rawArticles) {
   });
 }
 
-function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, ogType = 'website', ogImage, noIndex = false }) {
-  const canonicalUrl = `${SITE_URL}${canonicalPath}`;
+// Cloudflare Pages отдаёт статические директории только по адресу со слэшем на
+// конце (/meta-ads -> 308 -> /meta-ads/) — редиректит и файлы, и /blog/:slug тут
+// не участвуют: они не пре-рендерятся статикой, их отдаёт functions/blog/[slug].ts
+// напрямую, без редиректа. canonical/OG/sitemap должны указывать сразу на
+// реально отдаваемый адрес, а не на тот, что тут же редиректит сам на себя.
+function withTrailingSlashIfStaticRoute(path) {
+  if (path === '/') return path;
+  if (/\.[a-z0-9]+$/i.test(path)) return path;
+  if (/^\/(blog|cases)\/.+/.test(path)) return path;
+  return path.endsWith('/') ? path : `${path}/`;
+}
+
+function buildOrganizationJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ProfessionalService',
+    name: 'Whale Wizard',
+    url: SITE_URL,
+    logo: `${SITE_URL}/og-image.jpg`,
+    image: `${SITE_URL}/og-image.jpg`,
+    areaServed: ['RU', 'US', 'AE', 'TR', 'EU'],
+    serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],
+    sameAs: ['https://t.me/white_rsh'],
+  };
+}
+
+function buildWebsiteJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Whale Wizard',
+    url: SITE_URL,
+    inLanguage: 'ru',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${SITE_URL}/blog?search={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  };
+}
+
+function buildFaqJsonLd(faqs = []) {
+  if (!faqs.length) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+    })),
+  };
+}
+
+function renderJsonLdScripts(schemas = []) {
+  return schemas
+    .filter(Boolean)
+    .map((schema) => `<script type="application/ld+json">${JSON.stringify(schema)}</script>`)
+    .join('\n  ');
+}
+
+function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, ogType = 'website', ogImage, noIndex = false, extraJsonLd = [] }) {
+  const canonicalUrl = `${SITE_URL}${withTrailingSlashIfStaticRoute(canonicalPath)}`;
   const imageUrl = toAbsoluteUrl(ogImage || '/og-image.jpg');
   let html = baseHtml;
 
@@ -272,7 +333,7 @@ function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, o
   html = upsertPropertyMeta(html, 'og:type', ogType);
   html = upsertPropertyMeta(html, 'og:url', canonicalUrl);
   html = upsertPropertyMeta(html, 'og:image', imageUrl);
-  html = upsertPropertyMeta(html, 'og:site_name', 'Whale Wzrd');
+  html = upsertPropertyMeta(html, 'og:site_name', 'Whale Wizard');
   html = upsertPropertyMeta(html, 'og:locale', 'ru_RU');
   html = upsertNamedMeta(html, 'twitter:card', 'summary_large_image');
   html = upsertNamedMeta(html, 'twitter:title', title);
@@ -280,6 +341,11 @@ function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, o
   html = upsertNamedMeta(html, 'twitter:image', imageUrl);
   html = upsertNamedMeta(html, 'twitter:url', canonicalUrl);
   html = upsertCanonical(html, canonicalUrl);
+
+  if (!noIndex) {
+    const jsonLdHtml = renderJsonLdScripts([buildOrganizationJsonLd(), buildWebsiteJsonLd(), ...extraJsonLd]);
+    if (jsonLdHtml) html = insertBeforeHeadClose(html, jsonLdHtml);
+  }
 
   const rootHtml = `  <div id="root">\n${bodyHtml}\n  </div>`;
   if (/<div id="root"><\/div>/i.test(html)) {
@@ -364,7 +430,7 @@ const generatedShellStyles = {
   articleBody: 'margin-top:34px;padding-top:28px;border-top:1px solid rgba(255,255,255,.12);color:rgba(226,232,240,.86);line-height:1.72;font-size:16px',
 };
 
-function renderGeneratedShell({ eyebrow = 'Whale Wzrd', title, lead, children = '', sections = [] }) {
+function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, children = '', sections = [] }) {
   const sectionsHtml = sections
     .map(
       (s) => `
@@ -533,7 +599,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
   const staticPages = [
     {
       route: '/',
-      title: 'Whale Wzrd | Performance-таргетолог',
+      title: 'Whale Wizard | Performance-таргетолог',
       description: 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.',
       h1: 'Performance-таргетолог',
       lead: 'Настраиваю и масштабирую рекламу в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
@@ -544,21 +610,21 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/calculator',
-      title: 'Калькулятор рекламы | Whale Wzrd',
+      title: 'Калькулятор рекламы | Whale Wizard',
       description: 'Калькулятор бюджета и стоимости рекламных работ.',
       h1: 'Калькулятор рекламы',
       lead: 'Оценка бюджета и стоимости работ.',
     },
     {
       route: '/roi-calculator',
-      title: 'Калькулятор ROAS и ROMI | Whale Wzrd',
+      title: 'Калькулятор ROAS и ROMI | Whale Wizard',
       description: 'Расчёт окупаемости рекламы по ключевым метрикам.',
       h1: 'Калькулятор ROAS и ROMI',
       lead: 'Прогноз окупаемости рекламных кампаний и unit-экономики.',
     },
     {
       route: '/meta-ads',
-      title: 'Платный трафик из Meta Ads (Facebook/Instagram) | Whale Wzrd',
+      title: 'Платный трафик из Meta Ads (Facebook/Instagram) | Whale Wizard',
       description: 'Стабильные заявки из Facebook и Instagram без слива бюджета. Настрою Meta Ads по системе: оффер, креативы, Pixel, CAPI и оптимизация лидов.',
       h1: 'Платный трафик из Meta Ads',
       lead: 'Уникальная страница услуги Meta Ads: Facebook/Instagram, креативы, Pixel/CAPI, ретаргетинг и заявка на аудит Meta Ads.',
@@ -566,7 +632,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/google-ads',
-      title: 'Контекстная реклама Google Ads | Whale Wzrd',
+      title: 'Контекстная реклама Google Ads | Whale Wizard',
       description: 'Настрою Google Ads, который приносит клиентов из горячего спроса. Search, Shopping, Performance Max, YouTube, аналитика и оптимизация CPA/ROAS.',
       h1: 'Контекстная реклама Google Ads',
       lead: 'Уникальная страница услуги Google Ads: Search, Shopping, Performance Max, аналитика, оптимизация CPA/ROAS и заявка на аудит.',
@@ -574,7 +640,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/consult',
-      title: 'Консультация для таргетологов | Whale Wzrd',
+      title: 'Консультация для таргетологов | Whale Wizard',
       description: 'Личная консультация для таргетологов: позиционирование, упаковка услуг, поиск клиентов, оффер, продажи и план роста дохода.',
       h1: 'Консультация для таргетологов',
       lead: 'Уникальная страница консультации: упаковка специалиста, поиск клиентов, продажи и заявка на личный разбор.',
@@ -582,7 +648,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/meta-apps',
-      title: 'Трафик для приложений из Meta Ads (Facebook/Instagram) | Whale Wzrd',
+      title: 'Трафик для приложений из Meta Ads (Facebook/Instagram) | Whale Wizard',
       description: 'Привлекаю установки и целевые события в приложениях через Meta Ads: App Events, MMP/SKAN, креативы и масштабирование.',
       h1: 'Трафик для приложений из Meta Ads',
       lead: 'Уникальная страница app growth: установки, app events, MMP/SKAN, mobile-креативы и масштабирование по KPI приложения.',
@@ -590,15 +656,16 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/faq',
-      title: 'FAQ по рекламе | Whale Wzrd',
+      title: 'FAQ по рекламе | Whale Wizard',
       description: 'Ответы по бюджетам, срокам, аналитике и масштабированию.',
       h1: 'FAQ по рекламе',
       lead: 'Практические ответы по Google Ads, Meta Ads, GEO и AEO.',
       sections: [{ heading: null, bodyHtml: renderFaqListHtml(content.faqs) }],
+      extraJsonLd: [buildFaqJsonLd(content.faqs)],
     },
     {
       route: '/marketing-glossary',
-      title: 'Словарь маркетинговых метрик | Whale Wzrd',
+      title: 'Словарь маркетинговых метрик | Whale Wizard',
       description: 'Справочник терминов по SEO, AEO, GEO, аналитике и рекламе.',
       h1: 'Словарь маркетинговых метрик',
       lead: 'База терминов с простыми объяснениями и формулами.',
@@ -606,7 +673,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/privacy-policy',
-      title: 'Политика конфиденциальности | Whale Wzrd',
+      title: 'Политика конфиденциальности | Whale Wizard',
       description: 'Правила обработки персональных данных.',
       h1: 'Политика конфиденциальности',
       lead: 'Условия обработки персональных данных.',
@@ -614,7 +681,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/offer',
-      title: 'Публичная оферта | Whale Wzrd',
+      title: 'Публичная оферта | Whale Wizard',
       description: 'Условия предоставления услуг и порядок взаимодействия.',
       h1: 'Публичная оферта',
       lead: 'Официальные условия оказания услуг.',
@@ -622,7 +689,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/cookie-policy',
-      title: 'Политика cookie | Whale Wzrd',
+      title: 'Политика cookie | Whale Wizard',
       description: 'Информация о cookie и управлении согласиями.',
       h1: 'Политика cookie',
       lead: 'Правила использования cookie и аналитических технологий.',
@@ -630,7 +697,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/thank-you',
-      title: 'Спасибо за заявку | Whale Wzrd',
+      title: 'Спасибо за заявку | Whale Wizard',
       description: 'Страница подтверждения отправки заявки.',
       h1: 'Спасибо за заявку',
       lead: 'Заявка отправлена. Эта служебная страница закрыта от индексации.',
@@ -638,7 +705,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/admin',
-      title: 'Admin | Whale Wzrd',
+      title: 'Admin | Whale Wizard',
       description: 'Служебная панель управления контентом.',
       h1: 'Admin',
       lead: 'Служебная панель управления контентом. Эта страница закрыта от индексации.',
@@ -654,11 +721,12 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
         description: page.description,
         canonicalPath: page.route,
         noIndex: Boolean(page.noIndex),
+        extraJsonLd: page.extraJsonLd || [],
         baseHtml,
         bodyHtml: renderGeneratedShell({
           title: page.h1,
           lead: page.lead,
-          eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wzrd',
+          eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wizard',
           sections: page.sections || [],
         }),
       }),
@@ -679,14 +747,14 @@ function renderBlogPages(articles, baseHtml) {
   writeRoute(
     '/blog',
     htmlTemplate({
-      title: 'Блог | Whale Wzrd',
+      title: 'Блог | Whale Wizard',
       description: 'Статьи про маркетинг, рекламу и аналитику.',
       canonicalPath: '/blog',
       baseHtml,
       bodyHtml: renderGeneratedShell({
         title: 'Блог',
         lead: 'Статьи про маркетинг, рекламу и аналитику.',
-        eyebrow: 'Материалы Whale Wzrd',
+        eyebrow: 'Материалы Whale Wizard',
         children: articleItems
           ? `        <div style="${generatedShellStyles.list}">
 ${articleItems}
@@ -702,7 +770,7 @@ ${articleItems}
     writeRoute(
       path,
       htmlTemplate({
-        title: `${article.title} | Whale Wzrd`,
+        title: `${article.title} | Whale Wizard`,
         description: article.description,
         canonicalPath: path,
         ogType: 'article',
@@ -725,7 +793,7 @@ ${sanitizeArticleHtml(article.content)}
 function writeSitemap(routes) {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${routes.map((route) => `  <url><loc>${xmlEscape(`${SITE_URL}${route}`)}</loc><lastmod>${BUILD_DATE}</lastmod></url>`).join('\n')}
+${routes.map((route) => `  <url><loc>${xmlEscape(`${SITE_URL}${withTrailingSlashIfStaticRoute(route)}`)}</loc><lastmod>${BUILD_DATE}</lastmod></url>`).join('\n')}
 </urlset>`;
 
   writeFileSync(join(DIST_DIR, 'sitemap.xml'), xml, 'utf8');
@@ -763,21 +831,29 @@ function validateGeneratedOutput() {
     'connect.facebook.net',
     '<div id="root"',
     'type="module"',
+    'application/ld+json',
+    '"@type":"ProfessionalService"',
+    '"@type":"WebSite"',
   ], 'Generated home HTML');
 
   assertFileContains(routeIndexPath('/meta-apps'), [
     'Трафик для приложений из Meta Ads',
-    `${SITE_URL}/meta-apps`,
+    `${SITE_URL}/meta-apps/`,
   ], 'Generated /meta-apps HTML');
+
+  assertFileContains(routeIndexPath('/faq'), [
+    'application/ld+json',
+    '"@type":"FAQPage"',
+  ], 'Generated /faq HTML');
 
   assertFileContains(routeIndexPath('/thank-you'), [
     'noindex, nofollow, noarchive',
-    `${SITE_URL}/thank-you`,
+    `${SITE_URL}/thank-you/`,
   ], 'Generated /thank-you HTML');
 
   assertFileContains(routeIndexPath('/admin'), [
     'noindex, nofollow, noarchive',
-    `${SITE_URL}/admin`,
+    `${SITE_URL}/admin/`,
   ], 'Generated /admin HTML');
 
   assertFileContains(join(DIST_DIR, '_redirects'), [

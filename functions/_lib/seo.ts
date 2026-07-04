@@ -98,11 +98,11 @@ function articleJsonLd(siteUrl: string, article: Article): string {
       mainEntityOfPage: canonical,
       author: {
         '@type': 'Person',
-        name: 'Whale Wzrd',
+        name: 'Whale Wizard',
       },
       publisher: {
         '@type': 'Organization',
-        name: 'Whale Wzrd',
+        name: 'Whale Wizard',
         logo: {
           '@type': 'ImageObject',
           url: `${siteUrl}/og-image.jpg`,
@@ -175,7 +175,7 @@ function faqJsonLd(article: Article): string | null {
 export function renderArticleHtml(siteUrl: string, article: Article): string {
   const canonical = `${siteUrl}/blog/${article.slug}`;
   const ogImage = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
-  const title = `${buildSeoTitle(article)} | Whale Wzrd`;
+  const title = `${buildSeoTitle(article)} | Whale Wizard`;
   const description = buildSeoDescription(article);
   const faqJson = faqJsonLd(article);
   const keyTakeaways = (article.keyTakeaways || []).filter(Boolean);
@@ -270,9 +270,9 @@ export function renderFeedXml(siteUrl: string, articles: Article[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>
-  <title>Whale Wzrd Blog</title>
+  <title>Whale Wizard Blog</title>
   <link>${xmlEscape(`${siteUrl}/blog`)}</link>
-  <description>Новые статьи Whale Wzrd</description>
+  <description>Новые статьи Whale Wizard</description>
   <language>ru-RU</language>
 ${items}
 </channel>

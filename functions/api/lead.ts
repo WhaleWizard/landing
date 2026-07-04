@@ -6,6 +6,7 @@ import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } fro
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
 import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
+import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 
 interface LeadPayload {
   name?: string;
@@ -39,6 +40,8 @@ interface LeadPayload {
   last_touch_url?: string;
   last_touch_at?: string;
   session_id?: string;
+  ga_client_id?: string;
+  yandex_client_id?: string;
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
@@ -157,19 +160,21 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
     lead_source_page: sanitizeText(payload.lead_source_page || '', 512),
     event_id: sanitizeText(payload.event_id || '', 64),
     hp_trap: sanitizeText(payload.hp_trap || '', 10),
-    page_url: sanitizeText(payload.page_url || '', 2048),
-    page_location: sanitizeText(payload.page_location || '', 2048),
-    referrer: sanitizeText(payload.referrer || '', 2048),
+    page_url: sanitizeText(sanitizeUrlQueryParams(payload.page_url) || '', 2048),
+    page_location: sanitizeText(sanitizeUrlQueryParams(payload.page_location) || '', 2048),
+    referrer: sanitizeText(sanitizeUrlQueryParams(payload.referrer) || '', 2048),
     external_id: sanitizeText(payload.external_id || '', 128),
     fbp: sanitizeText(payload.fbp || '', 128),
     fbc: sanitizeText(payload.fbc || '', 256),
     fbclid: sanitizeText(payload.fbclid || '', 512),
-    landing_page_url: sanitizeText(payload.landing_page_url || '', 2048),
-    first_touch_url: sanitizeText(payload.first_touch_url || '', 2048),
+    landing_page_url: sanitizeText(sanitizeUrlQueryParams(payload.landing_page_url) || '', 2048),
+    first_touch_url: sanitizeText(sanitizeUrlQueryParams(payload.first_touch_url) || '', 2048),
     first_touch_at: sanitizeText(payload.first_touch_at || '', 40),
-    last_touch_url: sanitizeText(payload.last_touch_url || '', 2048),
+    last_touch_url: sanitizeText(sanitizeUrlQueryParams(payload.last_touch_url) || '', 2048),
     last_touch_at: sanitizeText(payload.last_touch_at || '', 40),
     session_id: sanitizeText(payload.session_id || '', 128),
+    ga_client_id: sanitizeText(payload.ga_client_id || '', 128),
+    yandex_client_id: sanitizeText(payload.yandex_client_id || '', 128),
     utm_source: sanitizeText(payload.utm_source || '', 200),
     utm_medium: sanitizeText(payload.utm_medium || '', 200),
     utm_campaign: sanitizeText(payload.utm_campaign || '', 200),
@@ -523,6 +528,8 @@ async function sendMetaConversionEvent(
       last_touch_url: sanitizeUrlForMeta(payload.last_touch_url),
       last_touch_at: payload.last_touch_at,
       session_id: payload.session_id,
+      ga_client_id: payload.ga_client_id,
+      yandex_client_id: payload.yandex_client_id,
       content_name: payload.page_title || payload.service,
       content_type: payload.content_type || 'lead',
       content_ids: payload.content_ids || (payload.service_slug ? [payload.service_slug] : undefined),

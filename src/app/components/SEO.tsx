@@ -18,14 +18,14 @@ const toAbsoluteUrl = (path: string): string => {
 };
 
 export default function SEO({
-  title = 'Whale Wzrd | Performance-таргетолог',
+  title = 'Whale Wizard | Performance-таргетолог',
   description = 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит первые заявки уже в период теста и масштабируется в прибыль. $2M+ рекламного бюджета в управлении • 500 000+ лидов. Средняя окупаемость — 240% (e-commerce и B2C). Беру на себя всё: стратегия, креативы, аналитика и оптимизация. Настройка google ads и Настройка Meta ads.',
   image = '/og-image.jpg',
   url = '/',
   type = 'website',
   noIndex = false,
 }: SEOProps) {
-  const siteTitle = 'Whale Wzrd';
+  const siteTitle = 'Whale Wizard';
   const fullTitle = title === siteTitle ? title : `${title} | ${siteTitle}`;
 
   const absoluteUrl = toAbsoluteUrl(url);

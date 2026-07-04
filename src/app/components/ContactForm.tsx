@@ -18,6 +18,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
+  getAnalyticsClientIds,
   getMetaBrowserContext,
   rememberMetaLeadIdentifiers,
   trackEngagedView,
@@ -31,6 +32,7 @@ import OfferContent from './legal/OfferContent';
 import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
 import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
+import { queueLeadForRetry } from '../utils/leadRetryQueue';
 
 const budgetOptions = [
   {
@@ -163,30 +165,33 @@ function ContactForm() {
 
       const eventId = crypto.randomUUID();
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
+      const analyticsClientIds = await getAnalyticsClientIds();
+      const leadPayload = {
+        ...metaBrowserContext,
+        ...analyticsClientIds,
+        name: formData.name,
+        email: formData.email,
+        phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`,
+        budget: formData.budget,
+        message: formData.message,
+        contactMethod: contactMethod,
+        telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
+        service: 'WhaleWzrd main landing',
+        service_slug: 'home',
+        form_id: 'home_contact_form',
+        form_variant: 'home_contact_v1',
+        lead_source_page: window.location.pathname,
+        event_id: eventId,
+        hp_trap: hpTrap,
+        page_url: window.location.href,
+        referrer: document.referrer || undefined,
+      };
 
       try {
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...metaBrowserContext,
-            name: formData.name,
-            email: formData.email,
-            phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`,
-            budget: formData.budget,
-            message: formData.message,
-            contactMethod: contactMethod,
-            telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
-            service: 'WhaleWzrd main landing',
-            service_slug: 'home',
-            form_id: 'home_contact_form',
-            form_variant: 'home_contact_v1',
-            lead_source_page: window.location.pathname,
-            event_id: eventId,
-            hp_trap: hpTrap,
-            page_url: window.location.href,
-            referrer: document.referrer || undefined,
-          }),
+          body: JSON.stringify(leadPayload),
         });
         if (!res.ok) {
           const payload = await res.json().catch(() => null);
@@ -213,8 +218,20 @@ function ContactForm() {
         setTimeout(() => navigate('/thank-you'), 800);
       } catch (error) {
         console.error(error);
-        const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
-        alert(message);
+        if (error instanceof TypeError) {
+          // fetch не смог достучаться до сервера (нет сети/офлайн) — не потеряем заявку,
+          // сохраним и отправим автоматически при восстановлении связи.
+          queueLeadForRetry(API_ROUTES.lead, leadPayload);
+          setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
+          setTelegramUsername('');
+          setHpTrap('');
+          setContactMethod('telegram');
+          setAgreed(false);
+          alert('Нет соединения с интернетом. Заявка сохранена и будет отправлена автоматически, как только появится связь.');
+        } else {
+          const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
+          alert(message);
+        }
       } finally {
         setIsSubmitting(false);
       }

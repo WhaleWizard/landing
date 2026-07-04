@@ -8,7 +8,7 @@ export default function CookiePolicyContent() {
       </p>
       <p>
         Настоящая Политика cookie является частью <a href="/privacy-policy">Политики конфиденциальности и обработки персональных данных</a>.
-        По вопросам cookie можно написать Whale Wzrd на email <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a> или в Telegram{' '}
+        По вопросам cookie можно написать Whale Wizard на email <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a> или в Telegram{' '}
         <a href="https://t.me/white_rsh">@white_rsh</a>.
       </p>
 
@@ -97,7 +97,7 @@ export default function CookiePolicyContent() {
       <h2>7. Сторонние сервисы</h2>
       <p>
         Сторонние сервисы аналитики, рекламы, мессенджеров и инфраструктуры могут устанавливать собственные cookie или использовать
-        собственные идентификаторы. Их обработка регулируется их политиками конфиденциальности и cookie. Whale Wzrd не продает данные
+        собственные идентификаторы. Их обработка регулируется их политиками конфиденциальности и cookie. Whale Wizard не продает данные
         пользователей третьим лицам и использует такие сервисы только для работы сайта, обработки заявок, аналитики, безопасности и
         оценки эффективности рекламы.
       </p>

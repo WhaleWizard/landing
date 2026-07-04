@@ -1,4 +1,4 @@
-# Whale Wzrd — LLM Context Pack (for AI assistants)
+# Whale Wizard — LLM Context Pack (for AI assistants)
 
 Site: https://www.whalewzrd.com
 Primary language: Russian (ru)
@@ -6,7 +6,7 @@ Secondary language style: concise English terms are acceptable (ROI, CPL, ROAS, 
 Business type: Personal brand website of a performance marketer / paid acquisition consultant
 
 ## 1) What this site is
-Whale Wzrd is a lead-generation and authority website for a performance marketing specialist focused on:
+Whale Wizard is a lead-generation and authority website for a performance marketing specialist focused on:
 - Google Ads
 - Meta Ads (Facebook/Instagram)
 - Analytics (GA4, GTM, Yandex Metrika, pixel/CAPI)
@@ -113,13 +113,13 @@ If user asks for content without extra details, assume:
 
 ## 10) Reusable prompt templates (for ChatGPT/LLM)
 Template A — landing block copy:
-"Ты маркетинг-стратег для сайта Whale Wzrd. Напиши [тип блока] для аудитории [ниша], с фокусом на [KPI], в тоне экспертно и без завышенных обещаний. Добавь 3-5 конкретных выгод, 2 CTA и короткий блок про аналитику (GA4/GTM/пиксели)."
+"Ты маркетинг-стратег для сайта Whale Wizard. Напиши [тип блока] для аудитории [ниша], с фокусом на [KPI], в тоне экспертно и без завышенных обещаний. Добавь 3-5 конкретных выгод, 2 CTA и короткий блок про аналитику (GA4/GTM/пиксели)."
 
 Template B — ad strategy draft:
 "Собери черновик performance-стратегии для клиента [ниша/оффер/гео/средний чек]. Каналы: Google Ads + Meta Ads. Дай структуру: гипотезы, воронка, трекинг, план тестов на 30 дней, KPI, риски и критерии масштабирования."
 
 Template C — blog SEO brief:
-"Сделай SEO-бриф для статьи блога Whale Wzrd на тему [тема]. Нужны: search intent, H1-H3 структура, FAQ, ключевые тезисы, лид-магнит CTA в конце, и блок 'что отслеживать в аналитике'."
+"Сделай SEO-бриф для статьи блога Whale Wizard на тему [тема]. Нужны: search intent, H1-H3 структура, FAQ, ключевые тезисы, лид-магнит CTA в конце, и блок 'что отслеживать в аналитике'."
 
 Template D — audit response:
 "Проведи mini-аудит рекламной системы для [тип бизнеса] по данным: [вставить данные]. Выдай: 10 проблем по приоритету, быстрые wins за 7 дней, план на 30 дней, и прогноз влияния на CPL/CAC без гарантий." 

@@ -8,32 +8,22 @@ import {
   Phone,
   Music,
   Mail,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
-import { useRef, useEffect, memo, useCallback } from 'react';
+import { useRef, memo, useCallback } from 'react';
 import { trackContact } from '../consent/consent';
 
-const socialsDesktop = [
+const socials = [
+  { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
   { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
   { icon: Youtube, href: 'https://youtube.com/@whalewzrd', label: 'YouTube', color: '#FF0000' },
-  { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
   { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
   { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
   { icon: Phone, href: '#', label: 'WhatsApp', color: '#25D366' },
-  { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#000000' },
+  { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#FE2C55' },
   { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
 ];
-
-const socialsMobileOrder = [
-  { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
-  { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
-  { icon: Phone, href: '#', label: 'WhatsApp', color: '#25D366' },
-  { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#000000' },
-  { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
-  { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
-  { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
-  { icon: Youtube, href: 'https://youtube.com/@whalewzrd', label: 'YouTube', color: '#FF0000' },
-];
-
 
 function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | 'phone' | 'social' {
   const normalized = label.toLowerCase();
@@ -43,48 +33,21 @@ function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | '
   return 'social';
 }
 
-// Два повтора вместо трёх — достаточно для бесконечного скролла, снижает нагрузку
-const socialsInfinite = [...socialsMobileOrder, ...socialsMobileOrder];
-
-// Хук для определения тач-устройства
-const useTouchDevice = () => {
-  const isTouch = useRef(false);
-  useEffect(() => {
-    isTouch.current = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  }, []);
-  return isTouch.current;
-};
-
 function SocialDock() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const isTouch = useTouchDevice();
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Показываем скроллбар только во время скролла на мобильных
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
+  const scrollByCard = useCallback((direction: 'prev' | 'next') => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
 
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const showScrollbar = () => {
-      container.style.scrollbarColor = '#8b5cf6 transparent';
-      container.style.setProperty('--scrollbar-opacity', '0.6');
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        container.style.scrollbarColor = 'rgba(139, 92, 246, 0) transparent';
-        container.style.setProperty('--scrollbar-opacity', '0');
-      }, 1000);
-    };
-
-    container.addEventListener('scroll', showScrollbar, { passive: true });
-    return () => {
-      container.removeEventListener('scroll', showScrollbar);
-      clearTimeout(timeoutId);
-    };
+    const card = scroller.querySelector<HTMLElement>('[data-social-card]');
+    const gap = parseFloat(window.getComputedStyle(scroller).columnGap) || 16;
+    const cardWidth = card?.offsetWidth ?? 96;
+    scroller.scrollBy({
+      left: direction === 'next' ? (cardWidth + gap) * 2 : -(cardWidth + gap) * 2,
+      behavior: 'smooth',
+    });
   }, []);
-
-  // Оптимизация: анимации на тач-устройствах отключаем hover, оставляем только tap
-  const desktopHover = !isTouch ? { whileHover: { y: -5, scale: 1.1 } } : {};
-  const mobileTap = { whileTap: { scale: 0.95 } };
 
   return (
     <motion.section
@@ -97,44 +60,66 @@ function SocialDock() {
       style={{ contain: 'layout style paint' }}
     >
       <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center mb-8">
-          <h2 className="text-xl md:text-2xl font-medium mb-2">
-            Подробнее о моей работе{' '}
-            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-              в соцсетях
-            </span>
-          </h2>
-          <p className="text-muted-foreground text-xs md:text-sm">
-            <span className="md:hidden">→ Листай вправо, чтобы увидеть все ←</span>
-            <span className="hidden md:inline">Нажми на иконку, чтобы перейти</span>
-          </p>
+        <div className="mb-8 flex items-center justify-between gap-4 lg:justify-center">
+          <div className="lg:text-center">
+            <h2 className="text-xl md:text-2xl font-medium mb-1.5">
+              Подробнее о моей работе{' '}
+              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+                в соцсетях
+              </span>
+            </h2>
+            <p className="text-muted-foreground text-xs md:text-sm">
+              <span className="lg:hidden">Свайпни или пролистай, чтобы увидеть все каналы</span>
+              <span className="hidden lg:inline">Все каналы, где я делюсь опытом и разбираю кейсы</span>
+            </p>
+          </div>
+
+          <div className="hidden sm:flex lg:hidden gap-2 flex-shrink-0">
+            <button
+              onClick={() => scrollByCard('prev')}
+              className="p-2.5 rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
+              aria-label="Прокрутить назад"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => scrollByCard('next')}
+              className="p-2.5 rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
+              aria-label="Прокрутить вперёд"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Десктопная версия */}
-        <div className="hidden md:flex justify-center flex-wrap gap-4">
-          {socialsDesktop.map((s, i) => {
+        <div
+          ref={scrollerRef}
+          className="scrollbar-brand flex gap-4 overflow-x-auto scroll-smooth pb-5 pt-1 lg:justify-center"
+          style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}
+        >
+          {socials.map((s, i) => {
             const Icon = s.icon;
             return (
               <motion.a
-                key={i}
+                key={s.label}
+                data-social-card
                 href={s.href}
                 onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
                 target="_blank"
                 rel="noopener noreferrer"
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                {...desktopHover}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.04, duration: 0.3 }}
                 whileTap={{ scale: 0.95 }}
-                className="group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 hover:bg-primary/10"
-                style={{ transform: 'translateZ(0)' }}
+                className={`social-card social-card-${i} group flex-shrink-0 flex flex-col items-center gap-2.5 w-[84px] md:w-[96px] rounded-2xl border border-border/70 bg-card/40 backdrop-blur-sm p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
               >
-                <div className="relative">
-                  <div className="p-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 group-hover:from-primary/30 group-hover:to-accent/30 transition-all duration-300">
-                    <Icon className="w-6 h-6 text-foreground group-hover:text-primary transition-colors" />
-                  </div>
-                </div>
-                <span className="text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                <Icon
+                  className="social-icon w-6 h-6 md:w-7 md:h-7 transition-colors duration-300"
+                  style={{ color: s.color }}
+                  aria-hidden="true"
+                />
+                <span className="text-[11px] md:text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors whitespace-nowrap">
                   {s.label}
                 </span>
               </motion.a>
@@ -142,72 +127,20 @@ function SocialDock() {
           })}
         </div>
 
-        {/* Мобильная версия с горизонтальным скроллом */}
-        <div className="md:hidden relative overflow-visible">
-          <div
-            ref={scrollRef}
-            className="social-bar-scroll scrollbar-brand flex gap-4 overflow-x-auto overflow-y-visible scroll-smooth pb-8"
-            style={{
-              WebkitOverflowScrolling: 'touch',
-              cursor: 'grab',
-              transform: 'translateZ(0)',
-            }}
-          >
-            {socialsInfinite.map((s, i) => {
-              const Icon = s.icon;
-              return (
-                <motion.a
-                  key={i}
-                  href={s.href}
-                  onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: (i % socialsMobileOrder.length) * 0.02, duration: 0.2 }}
-                  {...mobileTap}
-                  className="flex-shrink-0 group relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:bg-primary/10"
-                  style={{ zIndex: 20, transform: 'translateZ(0)' }}
-                >
-                  <div className="relative">
-                    <div className="p-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 transition-all duration-300 active:from-primary/30 active:to-accent/30">
-                      <Icon className="w-6 h-6 text-foreground transition-colors" />
-                    </div>
-                  </div>
-                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {s.label}
-                  </span>
-                </motion.a>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="text-center text-xs text-muted-foreground/50 mt-6">
+        <div className="text-center text-xs text-muted-foreground/50 mt-2">
           <span className="md:hidden">✨ Подпишись, чтобы не пропустить важные новости ✨</span>
           <span className="hidden md:inline">Все соцсети в одном месте</span>
         </div>
       </div>
 
       <style>{`
-        @media (max-width: 767px) {
-          .social-bar-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(139, 92, 246, 0) transparent;
-          }
-          .social-bar-scroll::-webkit-scrollbar {
-            height: 2px;
-          }
-          .social-bar-scroll::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          .social-bar-scroll::-webkit-scrollbar-thumb {
-            background: #8b5cf6;
-            border-radius: 4px;
-            opacity: var(--scrollbar-opacity, 0);
-            transition: opacity 0.2s;
-          }
+        ${socials.map((s, i) => `
+        .social-card-${i}:hover {
+          border-color: ${s.color}80;
+          background-color: ${s.color}1f;
+          box-shadow: 0 12px 28px -14px ${s.color}99;
         }
+        `).join('')}
       `}</style>
     </motion.section>
   );

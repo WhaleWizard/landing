@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
     <>
       <SEO
         title="Политика конфиденциальности и обработки персональных данных"
-        description="Порядок обработки персональных данных, cookie, аналитики и заявок на сайте Whale Wzrd."
+        description="Порядок обработки персональных данных, cookie, аналитики и заявок на сайте Whale Wizard."
         url="/privacy-policy"
       />
       <section className="min-h-screen bg-background py-20 px-4 sm:px-6">

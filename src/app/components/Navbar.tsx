@@ -96,7 +96,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                 onClick={() => scrollToSection('hero')}
                 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
               >
-                Whale Wzrd
+                Whale Wizard
               </button>
             </div>
 

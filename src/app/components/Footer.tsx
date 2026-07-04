@@ -62,7 +62,7 @@ function Footer() {
           >
             <div className="flex items-center gap-2">
               <h3 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                Whale Wzrd
+                Whale Wizard
               </h3>
               <Sparkles className="w-5 h-5 text-primary animate-pulse" />
             </div>

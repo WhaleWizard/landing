@@ -6,6 +6,7 @@ import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } fro
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
 import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
+import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 
 interface PageViewPayload {
   event_id?: string;
@@ -119,9 +120,9 @@ function createFbcFromPageUrl(pageUrl: string | undefined, eventTime: number): s
 function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
   return {
     event_id: sanitizeText(payload.event_id || '', 64),
-    page_url: sanitizeText(payload.page_url || '', 2048),
-    page_location: sanitizeText(payload.page_location || '', 2048),
-    referrer: sanitizeText(payload.referrer || '', 2048),
+    page_url: sanitizeText(sanitizeUrlQueryParams(payload.page_url) || '', 2048),
+    page_location: sanitizeText(sanitizeUrlQueryParams(payload.page_location) || '', 2048),
+    referrer: sanitizeText(sanitizeUrlQueryParams(payload.referrer) || '', 2048),
     external_id: sanitizeText(payload.external_id || '', 128),
     em: sanitizeText(payload.em || '', 64),
     ph: sanitizeText(payload.ph || '', 64),
@@ -130,10 +131,10 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
     fbp: sanitizeText(payload.fbp || '', 128),
     fbc: sanitizeText(payload.fbc || '', 256),
     fbclid: sanitizeText(payload.fbclid || '', 512),
-    landing_page_url: sanitizeText(payload.landing_page_url || '', 2048),
-    first_touch_url: sanitizeText(payload.first_touch_url || '', 2048),
+    landing_page_url: sanitizeText(sanitizeUrlQueryParams(payload.landing_page_url) || '', 2048),
+    first_touch_url: sanitizeText(sanitizeUrlQueryParams(payload.first_touch_url) || '', 2048),
     first_touch_at: sanitizeText(payload.first_touch_at || '', 40),
-    last_touch_url: sanitizeText(payload.last_touch_url || '', 2048),
+    last_touch_url: sanitizeText(sanitizeUrlQueryParams(payload.last_touch_url) || '', 2048),
     last_touch_at: sanitizeText(payload.last_touch_at || '', 40),
     session_id: sanitizeText(payload.session_id || '', 128),
     utm_source: sanitizeText(payload.utm_source || '', 200),

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-"Whale Wzrd" (whalewzrd.com) — a Russian-language performance-marketing agency site: landing pages for Google Ads / Meta Ads / consulting, a blog + case studies (CMS-backed), lead-gen forms, an ROI/budget calculator, a marketing glossary/FAQ, legal pages, and an admin CMS. Frontend is a React SPA; backend is Cloudflare Pages Functions. Originally scaffolded via Figma Make (`ATTRIBUTIONS.md` credits shadcn/ui and Unsplash).
+"Whale Wizard" (whalewzrd.com) — a Russian-language performance-marketing agency site: landing pages for Google Ads / Meta Ads / consulting, a blog + case studies (CMS-backed), lead-gen forms, an ROI/budget calculator, a marketing glossary/FAQ, legal pages, and an admin CMS. Frontend is a React SPA; backend is Cloudflare Pages Functions. Originally scaffolded via Figma Make (`ATTRIBUTIONS.md` credits shadcn/ui and Unsplash).
 
 Git remote: `github.com/WhaleWizard/landing`, default branch `main`.
 

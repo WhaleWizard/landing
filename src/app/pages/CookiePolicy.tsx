@@ -15,7 +15,7 @@ export default function CookiePolicy() {
     <>
       <SEO
         title="Политика использования файлов cookie"
-        description="Cookie, localStorage, аналитика, рекламные пиксели и управление согласием на сайте Whale Wzrd."
+        description="Cookie, localStorage, аналитика, рекламные пиксели и управление согласием на сайте Whale Wizard."
         url="/cookie-policy"
       />
       <section className="min-h-screen bg-background py-20 px-4 sm:px-6">

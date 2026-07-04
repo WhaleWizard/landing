@@ -20,13 +20,14 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
+import { getAnalyticsClientIds, getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import Modal from './Modal';
 import PrivacyPolicyContent from './legal/PrivacyPolicyContent';
 import OfferContent from './legal/OfferContent';
 import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
 import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
+import { queueLeadForRetry } from '../utils/leadRetryQueue';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 
@@ -170,39 +171,42 @@ function LandingForm({
 
       const eventId = crypto.randomUUID();
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
+      const analyticsClientIds = await getAnalyticsClientIds();
       const contactPayload = normalizeContactForLead(formData.contact);
       const email = formData.email.trim();
       const phone = `${phoneCode}${formData.phone.replace(/\D/g, '')}`;
       const websiteDomain = extractWebsiteDomain(formData.website);
+      const leadPayload = {
+        ...metaBrowserContext,
+        ...analyticsClientIds,
+        ...contactPayload,
+        email,
+        phone,
+        name: formData.name,
+        message: service === 'consult'
+          ? `Опыт: ${formData.experience}\nПроблема: ${formData.problem}`
+          : `Сайт: ${formData.website}\nБюджет: ${formData.budget}`,
+        budget: formData.budget,
+        website: formData.website,
+        website_domain: websiteDomain,
+        experience: formData.experience,
+        problem: formData.problem,
+        service: serviceLabels[service],
+        service_slug: service,
+        form_id: 'service_landing_form',
+        form_variant: 'service_landing_v1',
+        lead_source_page: window.location.pathname,
+        event_id: eventId,
+        hp_trap: hpTrap,
+        page_url: window.location.href,
+        referrer: document.referrer || undefined,
+      };
 
       try {
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...metaBrowserContext,
-            ...contactPayload,
-            email,
-            phone,
-            name: formData.name,
-            message: service === 'consult' 
-              ? `Опыт: ${formData.experience}\nПроблема: ${formData.problem}`
-              : `Сайт: ${formData.website}\nБюджет: ${formData.budget}`,
-            budget: formData.budget,
-            website: formData.website,
-            website_domain: websiteDomain,
-            experience: formData.experience,
-            problem: formData.problem,
-            service: serviceLabels[service],
-            service_slug: service,
-            form_id: 'service_landing_form',
-            form_variant: 'service_landing_v1',
-            lead_source_page: window.location.pathname,
-            event_id: eventId,
-            hp_trap: hpTrap,
-            page_url: window.location.href,
-            referrer: document.referrer || undefined,
-          }),
+          body: JSON.stringify(leadPayload),
         });
         if (!res.ok) {
           const payload = await res.json().catch(() => null);
@@ -229,8 +233,16 @@ function LandingForm({
         setTimeout(() => navigate('/thank-you'), 800);
       } catch (error) {
         console.error(error);
-        const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
-        alert(message);
+        if (error instanceof TypeError) {
+          queueLeadForRetry(API_ROUTES.lead, leadPayload);
+          setFormData({ name: '', email: '', phone: '', contact: '', website: '', budget: '', experience: '', problem: '' });
+          setHpTrap('');
+          setAgreed(false);
+          alert('Нет соединения с интернетом. Заявка сохранена и будет отправлена автоматически, как только появится связь.');
+        } else {
+          const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
+          alert(message);
+        }
       } finally {
         setIsSubmitting(false);
       }

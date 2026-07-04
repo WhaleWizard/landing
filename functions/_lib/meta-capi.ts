@@ -64,7 +64,11 @@ export function isTrustedTrackingRequest(request: Request, env: Env): boolean {
   if (originHost && originHost === siteHost) return true;
   if (refererHost && refererHost === siteHost) return true;
 
-  return !origin && !referer;
+  // Раньше здесь было `return !origin && !referer` — доверяли запросу, если
+  // ОБА заголовка отсутствуют. Браузер их всегда проставляет сам; отсутствие
+  // обоих — типичный признак прямого скрипта/curl, а не реального визита.
+  // Такой запрос не должен автоматически считаться доверенным.
+  return false;
 }
 
 function safeHost(value: string | null): string | undefined {

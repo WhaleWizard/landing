@@ -161,8 +161,13 @@ export async function resolveGeo(): Promise<GeoResolution | null> {
 }
 
 export function requiresConsentByDefault(): boolean {
-  // Fallback mode: if geo resolution fails, do not block analytics entirely.
-  // Regulated regions are still handled by /api/geo and explicit consent banner.
+  // НАМЕРЕННОЕ бизнес-решение владельца сайта, НЕ баг — не менять.
+  // Если /api/geo и резервный ipwho.is не смогли определить регион, сайт
+  // НЕ показывает баннер согласия и включает аналитику/маркетинг автоматически
+  // (см. вызов saveConsent(..., 'region_auto') в CookieConsentManager.tsx).
+  // Для регулируемых регионов (EEA/UK и т.п.), которые /api/geo определяет
+  // успешно, баннер согласия по-прежнему показывается как положено.
+  // Решение сознательно принято владельцем — не переводить в true "для надёжности".
   return false;
 }
 
@@ -250,6 +255,43 @@ function shouldUseTagManagerForAnalytics(): boolean {
   return false;
 }
 
+let consentDefaultSet = false;
+
+function gtagShim(): (...args: unknown[]) => void {
+  const win = window as Window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void };
+  win.dataLayer = win.dataLayer || [];
+  if (!win.gtag) {
+    win.gtag = (...args: unknown[]) => {
+      (win.dataLayer as unknown[]).push(args);
+    };
+  }
+  return win.gtag;
+}
+
+// Google Consent Mode v2. Должно вызываться максимально рано (до/во время
+// первого рендера), ещё до того как известно, даст ли пользователь согласие —
+// поэтому это отдельная функция, а не часть ensureAnalyticsLoaded().
+export function setDefaultConsentState(): void {
+  if (consentDefaultSet) return;
+  consentDefaultSet = true;
+  gtagShim()('consent', 'default', {
+    ad_storage: 'denied',
+    analytics_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    wait_for_update: 500,
+  });
+}
+
+export function updateConsentState(categories: Pick<ConsentCategories, 'analytics' | 'marketing'>): void {
+  gtagShim()('consent', 'update', {
+    analytics_storage: categories.analytics ? 'granted' : 'denied',
+    ad_storage: categories.marketing ? 'granted' : 'denied',
+    ad_user_data: categories.marketing ? 'granted' : 'denied',
+    ad_personalization: categories.marketing ? 'granted' : 'denied',
+  });
+}
+
 export async function ensureAnalyticsLoaded(): Promise<void> {
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
@@ -320,7 +362,6 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
 
       if (!hasExistingCounter) {
         win.ym(ymId, 'init', {
-          ssr: true,
           webvisor: true,
           clickmap: true,
           ecommerce: 'dataLayer',
@@ -1450,6 +1491,51 @@ export function trackLead(eventId?: string, eventData: Record<string, unknown> =
     win.fbq?.('track', 'Lead', browserLeadEventData);
   }
   win.ttq?.track?.('SubmitForm');
+}
+
+// GA4/Yandex client_id — нужны на бэкенде, чтобы можно было сопоставить лид
+// (пришедший через /api/lead) с конкретным браузерным визитом в GA4/Метрике.
+// Оба вызова асинхронные callback-based API — оборачиваем в Promise с таймаутом,
+// чтобы зависший gtag/ym не задерживал отправку формы.
+export async function getAnalyticsClientIds(): Promise<{ ga_client_id?: string; yandex_client_id?: string }> {
+  const win = window as Window & {
+    gtag?: (...args: unknown[]) => void;
+    ym?: (...args: unknown[]) => void;
+  };
+
+  const gaId = getGoogleAnalyticsId();
+  const ymId = getYandexMetrikaId();
+
+  const gaClientId = new Promise<string | undefined>((resolve) => {
+    if (!win.gtag || !gaId) return resolve(undefined);
+    const timer = setTimeout(() => resolve(undefined), 400);
+    try {
+      win.gtag('get', gaId, 'client_id', (clientId: string) => {
+        clearTimeout(timer);
+        resolve(clientId || undefined);
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve(undefined);
+    }
+  });
+
+  const yandexClientId = new Promise<string | undefined>((resolve) => {
+    if (!win.ym || !ymId) return resolve(undefined);
+    const timer = setTimeout(() => resolve(undefined), 400);
+    try {
+      win.ym(ymId, 'getClientID', (clientId: string) => {
+        clearTimeout(timer);
+        resolve(clientId || undefined);
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve(undefined);
+    }
+  });
+
+  const [ga_client_id, yandex_client_id] = await Promise.all([gaClientId, yandexClientId]);
+  return { ga_client_id, yandex_client_id };
 }
 
 export function trackThankYouConversion(): void {

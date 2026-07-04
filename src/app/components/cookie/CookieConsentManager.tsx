@@ -9,8 +9,10 @@ import {
   requiresConsentByDefault,
   resolveGeo,
   saveConsent,
+  setDefaultConsentState,
   trackPageView,
   trackServiceViewContent,
+  updateConsentState,
   type ConsentCategories,
   type ConsentRecord,
 } from '../../consent/consent';
@@ -18,6 +20,7 @@ import {
 type BannerMode = 'hidden' | 'banner' | 'modal';
 
 function applyConsent(consent: ConsentRecord): void {
+  updateConsentState(consent.categories);
   const tasks: Promise<void>[] = [];
 
   if (consent.categories.analytics) {
@@ -126,6 +129,10 @@ export default function CookieConsentManager() {
   );
 
   useEffect(() => {
+    // Google Consent Mode v2: default-состояние должно быть выставлено раньше
+    // любого решения по согласию — до того, как мы даже узнаем регион/выбор пользователя.
+    setDefaultConsentState();
+
     const existing = loadConsent();
     if (existing) {
       consentRef.current = existing;
@@ -151,6 +158,9 @@ export default function CookieConsentManager() {
         if (requiresConsent) {
           setMode('banner');
         } else {
+          // НАМЕРЕННОЕ решение владельца, НЕ баг: для нерегулируемых регионов
+          // (и когда geo вообще не определился) баннер не показывается, а
+          // аналитика/маркетинг включаются автоматически — см. requiresConsentByDefault().
           const autoConsent = saveConsent({ analytics: true, marketing: true }, resolvedRegion, 'region_auto');
           consentRef.current = autoConsent;
           setAnalytics(true);

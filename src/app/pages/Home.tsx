@@ -43,7 +43,7 @@ export default function Home() {
       <DeferredSection><Blog /></DeferredSection>
 
       <section className="w-full flex justify-center py-12 md:py-16">
-        <div className="relative">
+        <div className="relative w-full min-w-0">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 blur-3xl opacity-40" />
           <DeferredSection height="min-h-[80px]"><SocialBar /></DeferredSection>
         </div>
