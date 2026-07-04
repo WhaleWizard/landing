@@ -6,14 +6,14 @@ import SEO from '../components/SEO';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { trackFaqOpen } from '../consent/consent';
 
-interface FaqItem {
+export interface FaqItem {
   question: string;
   answer: string;
   details: string[];
   category: 'Старт' | 'Бюджет' | 'Результат' | 'Аналитика' | 'GEO/AEO' | 'Процесс';
 }
 
-const faqs: FaqItem[] = [
+export const faqs: FaqItem[] = [
   {
     category: 'Старт',
     question: 'Сколько времени нужно, чтобы запустить рекламу после заявки?',
@@ -528,7 +528,7 @@ export default function FAQPage() {
                   </button>
                 </DialogTrigger>
 
-                <DialogContent className="sm:max-w-2xl border-border bg-background/95 backdrop-blur-xl max-h-[85vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-2xl border-border bg-background/95 backdrop-blur-xl max-h-[85vh] overflow-y-auto scrollbar-brand">
                   <DialogHeader>
                     <DialogTitle className="text-xl leading-snug">{faq.question}</DialogTitle>
                     <DialogDescription className="text-base text-foreground/90">{faq.answer}</DialogDescription>

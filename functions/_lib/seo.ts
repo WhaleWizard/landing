@@ -1,11 +1,17 @@
 import type { Article } from './types';
 import { sanitizeArticleHtml } from './sanitize';
 
-const BOT_UA_PATTERN = /(googlebot|googleother|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebot|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|applebot|ia_archiver|gptbot|chatgpt-user|ccbot|claudebot|anthropic-ai|perplexitybot|youbot|bytespider|cohere-ai|amazonbot)/i;
+const BOT_UA_PATTERN = /(googlebot|googleother|google-extended|bingbot|yandexbot|duckduckbot|baiduspider|petalbot|slurp|facebot|meta-externalagent|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|discordbot|telegrambot|whatsapp|applebot|ia_archiver|archive\.org_bot|gptbot|chatgpt-user|oai-searchbot|ccbot|claudebot|claude-web|anthropic-ai|perplexitybot|perplexity-user|youbot|bytespider|cohere-ai|cohere-training-data-crawler|amazonbot|diffbot|timpibot|omgili|omgilibot|webzio-extended|semrushbot|ahrefsbot|mj12bot|dotbot|seekportbot|imagesiftbot|grok|xai-|mistralai-user|bravebot|bravesearch)/i;
+
+// У большинства настоящих браузеров в User-Agent есть "Mozilla/5.0" — простые HTTP-клиенты,
+// SDK и многие ИИ-агенты (в т.ч. ещё не внесённые в список выше) его не подделывают.
+const LOOKS_LIKE_BROWSER = /mozilla\/5\.0/i;
 
 export function isBotRequest(request: Request): boolean {
   const userAgent = request.headers.get('user-agent') || '';
-  return BOT_UA_PATTERN.test(userAgent);
+  if (!userAgent) return true;
+  if (BOT_UA_PATTERN.test(userAgent)) return true;
+  return !LOOKS_LIKE_BROWSER.test(userAgent);
 }
 
 function escapeHtml(value = ''): string {

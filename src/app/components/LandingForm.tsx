@@ -77,6 +77,12 @@ function extractWebsiteDomain(value: string): string | undefined {
   }
 }
 
+const websiteFieldConfig: Record<'meta-ads' | 'google-ads' | 'meta-apps', { label: string; placeholder: string }> = {
+  'google-ads': { label: 'Сайт', placeholder: 'example.com' },
+  'meta-ads': { label: 'Сайт, ниша или Instagram', placeholder: 'example.com, ниша или @instagram' },
+  'meta-apps': { label: 'Название приложения или Instagram', placeholder: 'Название приложения или @instagram' },
+};
+
 const budgetOptions = [
   { value: 'до $1000', label: 'до $1000' },
   { value: '$1к-10к', label: '$1к-10к' },
@@ -396,9 +402,9 @@ function LandingForm({
                 <>
                   {renderField(
                     'website',
-                    'Сайт / Ниша',
+                    websiteFieldConfig[service].label,
                     <Globe className="w-4 h-4 text-primary" />,
-                    'example.com или описание ниши'
+                    websiteFieldConfig[service].placeholder
                   )}
 
                   {/* Budget Select */}

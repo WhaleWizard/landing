@@ -83,10 +83,8 @@ export default function CalculatorButtons() {
           <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
           <div
             ref={scrollContainerRef}
-            className="roi-calculator-scroll flex gap-5 overflow-x-auto scroll-smooth pb-4"
+            className="roi-calculator-scroll scrollbar-brand flex gap-5 overflow-x-auto scroll-smooth pb-4"
             style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)',
               WebkitOverflowScrolling: 'touch',
               cursor: 'grab',
             }}
@@ -135,17 +133,6 @@ export default function CalculatorButtons() {
         </div>
 
         <style>{`
-          .roi-calculator-scroll::-webkit-scrollbar {
-            height: 3px;
-          }
-          .roi-calculator-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-          }
-          .roi-calculator-scroll::-webkit-scrollbar-thumb {
-            background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
-            border-radius: 10px;
-          }
           .roi-calculator-scroll {
             scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;

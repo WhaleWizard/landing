@@ -496,7 +496,7 @@ export default function Admin() {
                 <p className="text-sm text-[var(--adm-fg)]/60">Загрузка...</p>
               ) : (
                 <DndProvider backend={HTML5Backend}>
-                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
                     {filtered.filter((article) => adminSectionFilter === 'all' ? true : adminSectionFilter === 'cases' ? article.category === 'Кейсы' : article.category !== 'Кейсы').map((article) => {
                       const articleIndex = articles.findIndex((item) => item.slug === article.slug);
                       return (

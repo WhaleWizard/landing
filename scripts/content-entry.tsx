@@ -1,0 +1,10 @@
+export { faqs } from '../src/app/pages/FAQPage';
+export { marketingGlossary } from '../src/app/data/marketingGlossary';
+export { pageConfigs } from '../src/app/pages/ServiceLandingPage';
+export { defaultHeroContent } from '../src/app/components/Hero';
+export { defaultServicesContent } from '../src/app/components/Services';
+export { defaultCasesContent } from '../src/app/components/Cases';
+export { testimonialsData } from '../src/app/components/Testimonials';
+export { default as PrivacyPolicyContent } from '../src/app/components/legal/PrivacyPolicyContent';
+export { default as OfferContent } from '../src/app/components/legal/OfferContent';
+export { default as CookiePolicyContent } from '../src/app/components/legal/CookiePolicyContent';

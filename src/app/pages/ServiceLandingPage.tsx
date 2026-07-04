@@ -15,7 +15,7 @@ const CallToAction = lazy(() => import('../components/CallToAction'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
 const Footer = lazy(() => import('../components/Footer'));
 
-type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
+export type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 
 type LandingTheme = {
   primary: string;
@@ -115,7 +115,7 @@ const CASE_IMAGES = {
   b2c: 'https://i.ibb.co/TqBqwSGB/photo-2026-04-11-00-21-23.jpg',
 };
 
-const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' | 'theme'>> = {
+export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' | 'theme'>> = {
   'meta-ads': {
     seo: {
       title: 'Платный трафик из Meta Ads (Facebook/Instagram)',
@@ -430,8 +430,8 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
   },
   'meta-apps': {
     seo: {
-      title: 'Трафик для приложений из Meta Ads (Facebook/Instagram)',
-      description: 'Привлекаю установки и целевые события в приложениях через Meta Ads: App Events, MMP/SKAN, креативы и масштабирование.',
+      title: 'Реклама мобильных приложений в Meta Ads (Facebook/Instagram)',
+      description: 'Привлекаю в приложение не просто установки, а платящих и активных пользователей — через рекламу в Facebook и Instagram.',
       url: '/meta-apps',
     },
     hero: {
@@ -439,148 +439,148 @@ const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' |
       titlePrefix: 'Приведу пользователей в',
       titleAccent: 'мобильное приложение',
       paragraphs: [
-        'Запускаю Meta Ads для установок, регистраций, trial, покупок и подписок — с фокусом на post-install события.',
-        'Фокус не на дешёвых install, а на качестве пользователей, MMP/SKAN, mobile-креативах и KPI приложения.',
-        'Подходит приложениям, где важны CPI, CPA, ROAS, retention, LTV и прозрачная связь рекламы с app funnel.',
+        'Настраиваю рекламу в Facebook и Instagram, которая приводит не просто установки, а людей, которые доходят до оплаты, подписки или регулярного использования приложения.',
+        'Важнее не дешёвые скачивания, а качественные пользователи — те, кто действительно приносит доход и остаётся в приложении надолго.',
+        'Подходит приложениям, где важно понимать не только цену установки, но и сколько пользователь приносит денег и как долго он остаётся.',
       ],
-      primaryButton: 'Получить app growth-разбор',
-      secondaryButton: 'Кейсы по app traffic',
+      primaryButton: 'Получить разбор приложения',
+      secondaryButton: 'Кейсы по приложениям',
       stats: [
-        { value: 'MMP', label: 'события и атрибуция' },
-        { value: 'CPI/CPA', label: 'контроль KPI' },
-        { value: 'SKAN', label: 'учёт iOS-сигналов' },
+        { value: '4 года', label: 'опыта с Meta Ads' },
+        { value: '$1M+', label: 'рекламного бюджета под управлением' },
+        { value: 'iOS + Android', label: 'настройка аналитики под обе платформы' },
       ],
     },
     services: {
-      badge: 'Что входит в app growth',
+      badge: 'Что входит в продвижение',
       titlePrefix: 'Meta Ads для',
       titleAccent: 'мобильных приложений',
-      description: 'App Events, MMP/SKAN, mobile-креативы и масштабирование по целевым событиям приложения.',
+      description: 'Настройка аналитики внутри приложения, понятные цифры и креативы, которые приводят платящих пользователей.',
       cards: [
         {
           icon: Target,
-          title: 'App funnel и KPI',
-          description: 'Разбираю путь пользователя от установки до целевого события и фиксирую KPI для оптимизации кампаний.',
-          features: ['Install', 'Registration', 'Trial/Purchase', 'LTV'],
+          title: 'Путь пользователя',
+          description: 'Смотрю, что происходит с человеком после установки — регистрация, оплата, подписка — и по каким показателям веду рекламу.',
+          features: ['Установка', 'Регистрация', 'Триал/Покупка', 'Доход с пользователя'],
           gradient: 'from-primary to-accent',
         },
         {
           icon: BarChart3,
-          title: 'MMP, SKAN и события',
-          description: 'Проверяю передачу событий, атрибуцию и сигналы, которые нужны Meta для оптимизации под качество.',
-          features: ['MMP', 'SKAN', 'App Events', 'Deep Links'],
+          title: 'Аналитика и атрибуция',
+          description: 'Настраиваю передачу данных о действиях в приложении, чтобы Meta видела не просто установки, а реальный результат.',
+          features: ['Сервис аналитики (MMP)', 'Настройка для iOS', 'События приложения', 'Прямые ссылки на экраны'],
           gradient: 'from-accent to-secondary',
         },
         {
           icon: Zap,
-          title: 'Mobile-креативы',
-          description: 'Строю креативные гипотезы под Reels, Stories и app placements с фокусом на install и post-install события.',
-          features: ['UGC', 'Demo video', 'Hooks', 'Placements'],
+          title: 'Креативы для приложения',
+          description: 'Тестирую видео и форматы под то, как люди смотрят контент с телефона — чтобы человек понимал пользу ещё до установки.',
+          features: ['Видео от блогеров', 'Демо-видео', 'Цепляющее начало', 'Reels и Stories'],
           gradient: 'from-secondary to-primary',
         },
         {
           icon: TrendingUp,
-          title: 'Масштабирование событий',
-          description: 'Оптимизирую кампании не только по CPI, но и по регистрациям, покупкам, подпискам и другим app events.',
-          features: ['CPI', 'CPA', 'ROAS', 'Retention'],
+          title: 'Оптимизация и рост',
+          description: 'Увеличиваю бюджет на то, что приводит платящих пользователей, а не просто дешёвые установки.',
+          features: ['Цена установки', 'Цена целевого действия', 'Окупаемость рекламы', 'Удержание пользователей'],
           gradient: 'from-primary via-accent to-secondary',
         },
       ],
       detailed: {
-        title: 'Как я привлекаю трафик в приложения',
-        button: 'Получить app growth-разбор',
+        title: 'Как я продвигаю приложения',
+        button: 'Получить разбор приложения',
         sections: [
           {
-            title: '1. APP FUNNEL И ЭКОНОМИКА',
+            title: '1. АУДИТ И ЭКОНОМИКА ПРИЛОЖЕНИЯ',
             icon: Target,
-            text: 'Разбираю приложение как воронку, а не просто как ссылку на установку.\n\n• Install → registration → trial/purchase/event\n• Целевые CPI, CPA, ROAS, LTV\n• Гео, аудитории и ограничения\n• Узкие места onboarding и paywall\n\n💡 Результат: понятно, какое событие покупать и по какой цене.',
+            text: 'Смотрю на приложение как на весь путь пользователя, а не просто как на кнопку "Установить".\n\n• От установки — до регистрации, оплаты или подписки\n• Считаю, сколько может стоить установка, регистрация, оплата\n• Гео, аудитории и ограничения ниши\n• Где чаще всего уходят пользователи — при входе или на экране оплаты\n\n💡 Результат: понятно, за какое действие платить рекламе и сколько это должно стоить.',
           },
           {
-            title: '2. АТРИБУЦИЯ И СОБЫТИЯ',
+            title: '2. АНАЛИТИКА И АТРИБУЦИЯ',
             icon: BarChart3,
-            text: 'Проверяю, достаточно ли данных получает Meta для обучения кампаний.\n\n• MMP и Meta SDK\n• App Events и value-события\n• SKAN для iOS\n• Deep links и UTM-логика\n\n💡 Результат: реклама оптимизируется на реальные действия в приложении.',
+            text: 'Проверяю, видит ли Meta, что на самом деле происходит в приложении после установки.\n\n• Подключение сервиса аналитики и Meta SDK\n• Передача событий: регистрация, оплата, ценные действия\n• Отдельная настройка для приватности iOS\n• Ссылки, которые ведут пользователя сразу на нужный экран\n\n💡 Результат: реклама обучается на реальных действиях людей, а не только на факте установки.',
           },
           {
-            title: '3. КРЕАТИВЫ ДЛЯ MOBILE',
+            title: '3. КРЕАТИВЫ ДЛЯ ПРИЛОЖЕНИЯ',
             icon: Zap,
-            text: 'Создаю тестовую матрицу креативов под мобильное потребление.\n\n• Быстрые hooks в первые секунды\n• UGC и demo-сценарии\n• Варианты под Reels/Stories\n• Тесты pain/value/feature angles\n\n💡 Результат: креативы объясняют ценность приложения до установки.',
+            text: 'Тестирую разные видео и форматы под то, как люди смотрят контент с телефона.\n\n• Цепляющее начало в первые секунды ролика\n• Видео от блогеров и демонстрация приложения\n• Форматы под Reels и Stories\n• Разные подачи: проблема пользователя, польза, функции\n\n💡 Результат: ролики объясняют пользу приложения ещё до того, как человек его установил.',
           },
           {
-            title: '4. ОПТИМИЗАЦИЯ ПО KPI',
+            title: '4. ОПТИМИЗАЦИЯ И РОСТ БЮДЖЕТА',
             icon: TrendingUp,
-            text: 'Масштабирую не дешёвые установки, а качественных пользователей.\n\n• Анализ CPI и post-install CPA\n• Оптимизация по событиям\n• Обновление креативов до выгорания\n• Масштабирование связок по гео и аудиториям\n\n💡 Результат: user acquisition становится управляемой системой роста приложения.',
+            text: 'Увеличиваю бюджет на то, что приводит платящих пользователей, а не просто дешёвые установки.\n\n• Слежу за ценой установки и ценой целевого действия\n• Оптимизирую кампании по реальным действиям в приложении\n• Обновляю креативы, пока они не потеряли эффективность\n• Масштабирую удачные связки по гео и аудиториям\n\n💡 Результат: рост приложения становится управляемым и предсказуемым процессом.',
           },
         ],
       },
     },
     cases: {
-      badge: 'App growth кейсы',
+      badge: 'Кейсы по приложениям',
       titlePrefix: 'Подход к росту',
       titleAccent: 'мобильных приложений',
-      description: 'Фокус на app funnel: установки, регистрации, покупки, подписки, атрибуция и оптимизация post-install событий.',
+      description: 'Примеры того, как строится продвижение приложения: от установки до оплаты, подписки или возврата пользователя.',
       items: [
         {
-          title: 'Subscription App Funnel',
-          category: 'Meta App Events',
-          description: 'Оптимизация трафика не только по install, а по trial и subscription событиям с контролем качества пользователей.',
+          title: 'Фитнес-подписка',
+          category: 'Триал и подписка',
+          description: 'Оптимизация рекламы не по установкам, а по тем, кто дошёл до пробного периода и оформил платную подписку на тренировки.',
           image: CASE_IMAGES.info,
           stats: [
-            { label: 'KPI', value: 'CPA' },
-            { label: 'Событие', value: 'Trial' },
-            { label: 'Фокус', value: 'LTV' },
+            { label: 'Триалы', value: '14к+' },
+            { label: 'В оплату', value: '19%' },
+            { label: 'LTV', value: '+35%' },
           ],
         },
         {
-          title: 'E-commerce App Traffic',
-          category: 'Meta App Install',
-          description: 'Привлечение пользователей в приложение магазина с оптимизацией по first purchase и возврату аудитории.',
+          title: 'Аркадная игра',
+          category: 'Внутриигровые покупки',
+          description: 'Привлечение игроков с оптимизацией не на дешёвые установки, а на тех, кто доходит до первой покупки в игре.',
           image: CASE_IMAGES.ecommerce,
           stats: [
-            { label: 'Цель', value: 'Purchase' },
-            { label: 'Канал', value: 'Meta' },
-            { label: 'Формат', value: 'Reels' },
+            { label: 'Установки', value: '80к+' },
+            { label: 'Цена установки', value: 'от $0.3' },
+            { label: 'ROAS', value: '165%' },
           ],
         },
         {
-          title: 'Lead App Onboarding',
-          category: 'Meta App Events',
-          description: 'Настройка событий регистрации и заявки внутри приложения, чтобы кампании обучались на качественных действиях.',
+          title: 'Доставка еды',
+          category: 'Первый заказ',
+          description: 'Реклама с оптимизацией на первый заказ и повторные покупки в приложении, а не просто на установки.',
           image: CASE_IMAGES.b2c,
           stats: [
-            { label: 'Цель', value: 'Sign up' },
-            { label: 'Сигнал', value: 'Event' },
-            { label: 'Трекинг', value: 'MMP' },
+            { label: 'Заказы', value: '22к+' },
+            { label: 'Цена заказа', value: 'от $2.4' },
+            { label: 'Повторный заказ', value: '41%' },
           ],
         },
         {
-          title: 'Retargeting для app users',
-          category: 'Meta Retargeting',
-          description: 'Возврат пользователей, которые установили приложение, но не дошли до ключевого события или покупки.',
+          title: 'Онлайн-обучение',
+          category: 'Запись на курс',
+          description: 'Настройка событий записи на курс внутри приложения, чтобы реклама обучалась на реальных заявках, а не на установках.',
           image: CASE_IMAGES.concierge,
           stats: [
-            { label: 'Цель', value: 'Return' },
-            { label: 'Аудит.', value: 'Warm' },
-            { label: 'Фокус', value: 'ROAS' },
+            { label: 'Заявки', value: '9к+' },
+            { label: 'Цена заявки', value: 'от $1.6' },
+            { label: 'В оплату', value: '27%' },
           ],
         },
       ],
     },
     cta: {
-      badge: 'App Growth',
-      title: 'Установки есть, а целевых событий мало?',
-      description: 'Проверю app funnel, события, MMP/SKAN и креативы, чтобы найти точки роста.',
-      button: 'Получить app growth-разбор',
+      badge: 'Разбор приложения',
+      title: 'Установки есть, а платящих пользователей мало?',
+      description: 'Проверю путь пользователя в приложении, аналитику и креативы, чтобы найти точки роста.',
+      button: 'Получить разбор приложения',
     },
     contact: {
-      badge: 'App Growth',
+      badge: 'Бесплатно',
       titlePrefix: 'Получите стратегию',
       titleAccent: 'роста приложения',
-      description: 'Разберу ваш app funnel и покажу, как получать качественные установки и целевые события из Facebook и Instagram.',
+      description: 'Разберу путь пользователя в вашем приложении и покажу, как получать не просто установки, а платящих и активных пользователей из Facebook и Instagram.',
       bullets: [
-        'Аудит App Install и App Event кампаний',
-        'Проверка MMP/SKAN, событий и атрибуции',
-        'Креативная стратегия под mobile placements',
-        'План масштабирования по CPI, CPA, ROAS или LTV',
+        'Аудит текущих рекламных кампаний',
+        'Проверка аналитики: откуда приходят пользователи и что они делают в приложении',
+        'Стратегия креативов под мобильный формат',
+        'План роста: по каким показателям масштабировать бюджет',
       ],
     },
   },
@@ -774,7 +774,7 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
       <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-60`} />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}

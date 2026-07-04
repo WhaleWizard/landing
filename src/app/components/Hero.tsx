@@ -74,7 +74,7 @@ export type HeroContent = {
   stats: HeroStat[];
 };
 
-const defaultHeroContent: HeroContent = {
+export const defaultHeroContent: HeroContent = {
   badge: 'Perfomance-таргетинг',
   titlePrefix: 'Увеличу поток клиентов через',
   titleAccent: 'Google Ads & Meta Ads',
@@ -92,7 +92,16 @@ const defaultHeroContent: HeroContent = {
   ],
 };
 
-const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
+function valueSizeClass(stats: HeroStat[]) {
+  const hasLongValue = stats.some((stat) => (stat?.value?.length ?? 0) > 8);
+  return hasLongValue
+    ? 'text-[12px] sm:text-sm md:text-base whitespace-nowrap'
+    : 'text-[17px] sm:text-2xl md:text-3xl';
+}
+
+const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
+  const sizeClass = valueSizeClass(stats);
+  return (
   <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 pt-5 md:pt-8">
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
@@ -103,7 +112,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-primary/20 flex items-center justify-center pointer-events-none">
         <Sparkles className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-primary" />
       </div>
-      <div className="pr-5 text-[17px] sm:text-2xl md:text-3xl font-semibold md:font-bold leading-none text-primary tracking-[-0.02em]">{stats[0]?.value}</div>
+      <div className={`pr-5 ${sizeClass} font-semibold md:font-bold leading-none text-primary tracking-[-0.02em]`}>{stats[0]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[0]?.label}</div>
     </motion.div>
 
@@ -116,7 +125,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-accent/20 flex items-center justify-center pointer-events-none">
         <TrendingUp className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-accent" />
       </div>
-      <div className="pr-5 text-[17px] sm:text-2xl md:text-3xl font-semibold md:font-bold leading-none text-accent tracking-[-0.02em]">{stats[1]?.value}</div>
+      <div className={`pr-5 ${sizeClass} font-semibold md:font-bold leading-none text-accent tracking-[-0.02em]`}>{stats[1]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[1]?.label}</div>
     </motion.div>
 
@@ -129,11 +138,12 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => (
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-secondary/20 flex items-center justify-center pointer-events-none">
         <BarChart3 className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-secondary" />
       </div>
-      <div className="pr-5 text-[17px] sm:text-2xl md:text-3xl font-semibold md:font-bold leading-none text-secondary tracking-[-0.02em]">{stats[2]?.value}</div>
+      <div className={`pr-5 ${sizeClass} font-semibold md:font-bold leading-none text-secondary tracking-[-0.02em]`}>{stats[2]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[2]?.label}</div>
     </motion.div>
   </div>
-));
+  );
+});
 StatsRow.displayName = 'StatsRow';
 
 interface LeftContentProps {
@@ -166,7 +176,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </motion.div>
 
-    <h1 className="max-w-2xl text-balance text-[clamp(2rem,9vw,2.75rem)] lg:text-[42px] xl:text-[46px] font-semibold md:font-bold leading-[1.08] tracking-[-0.025em] md:tracking-[-0.03em]">
+    <h1 className="max-w-2xl text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.2] tracking-[-0.025em] md:tracking-[-0.03em]">
       {content.titlePrefix}{' '}
       <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
         {content.titleAccent}
@@ -527,7 +537,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.4, duration: 0.5 }}
           >
-            $1,200,00+
+            $1,200,000+
           </motion.div>
           <div className="flex items-center gap-1 md:gap-1.5 relative z-10">
             {[80, 95, 100, 70, 90].map((scale, i) => (

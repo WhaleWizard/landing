@@ -146,9 +146,8 @@ function SocialDock() {
         <div className="md:hidden relative overflow-visible">
           <div
             ref={scrollRef}
-            className="social-bar-scroll flex gap-4 overflow-x-auto overflow-y-visible scroll-smooth pb-8"
+            className="social-bar-scroll scrollbar-brand flex gap-4 overflow-x-auto overflow-y-visible scroll-smooth pb-8"
             style={{
-              scrollbarWidth: 'thin',
               WebkitOverflowScrolling: 'touch',
               cursor: 'grab',
               transform: 'translateZ(0)',

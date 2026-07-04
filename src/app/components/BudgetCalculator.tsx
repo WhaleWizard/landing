@@ -74,7 +74,7 @@ export default function BudgetCalculator() {
             <Calculator className="w-4 h-4 text-primary" />
             <span className="text-xs md:text-sm text-primary font-semibold">Рассчитайте стоимость</span>
           </div>
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
             Калькулятор{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
               бюджета рекламы

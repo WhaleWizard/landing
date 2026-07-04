@@ -56,7 +56,7 @@ export default function MarketingGlossaryPage() {
             className="max-w-4xl"
           >
             <p className="text-primary font-medium mb-3">Маркетинговый FAQ-словарь</p>
-            <h1 className="text-3xl md:text-5xl font-bold mb-4 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
               Полный словарь метрик для <span className="text-primary">Google Ads, SEO, AEO, GEO, Meta Ads</span>
             </h1>
             <p className="text-muted-foreground text-base md:text-lg max-w-3xl">

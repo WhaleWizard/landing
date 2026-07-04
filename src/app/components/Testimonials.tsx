@@ -2,14 +2,14 @@ import { motion, useInView } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, TouchEvent } from 'react';
 
-type Testimonial = {
+export type Testimonial = {
   name: string;
   company: string;
   position: string;
   text: string;
 };
 
-const testimonialsData: Testimonial[] = [
+export const testimonialsData: Testimonial[] = [
   {
     name: 'Радмир',
     company: 'StepN',

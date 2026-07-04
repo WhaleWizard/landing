@@ -93,14 +93,16 @@ const useMobile = () => {
   return isMobile;
 };
 
+export const defaultCasesContent: CasesContent = {
+  badge: 'Результат моей работы',
+  titlePrefix: 'Кейсы с',
+  titleAccent: 'наилучшей результативностью',
+  description: 'Конкретные результаты, подтверждённые цифрами и аналитикой. Больше кейсов и подробный разбор можете найти в блоге или в соц. сетях',
+  items: casesData,
+};
+
 function Cases({ content }: { content?: CasesContent }) {
-  const sectionContent = content ?? {
-    badge: 'Результат моей работы',
-    titlePrefix: 'Кейсы с',
-    titleAccent: 'наилучшей результативностью',
-    description: 'Конкретные результаты, подтверждённые цифрами и аналитикой. Больше кейсов и подробный разбор можете найти в блоге или в соц. сетях',
-    items: casesData,
-  };
+  const sectionContent = content ?? defaultCasesContent;
   const caseItems = sectionContent.items;
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);

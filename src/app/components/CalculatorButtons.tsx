@@ -108,10 +108,8 @@ export default function CalculatorButtons() {
         <div className="md:hidden relative">
           <div
             ref={scrollContainerRef}
-            className="calculator-buttons-scroll flex gap-4 overflow-x-auto scroll-smooth pb-5 -mx-4 px-4"
+            className="calculator-buttons-scroll scrollbar-brand flex gap-4 overflow-x-auto scroll-smooth pb-5 -mx-4 px-4"
             style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05)',
               WebkitOverflowScrolling: 'touch',
               cursor: 'grab',
             }}
@@ -162,17 +160,6 @@ export default function CalculatorButtons() {
         </div>
 
         <style>{`
-          .calculator-buttons-scroll::-webkit-scrollbar {
-            height: 3px;
-          }
-          .calculator-buttons-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-          }
-          .calculator-buttons-scroll::-webkit-scrollbar-thumb {
-            background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
-            border-radius: 10px;
-          }
           .calculator-buttons-scroll {
             scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;

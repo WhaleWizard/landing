@@ -90,15 +90,17 @@ const detailedContent: ServicesContent['detailed'] = {
   ],
 };
 
+export const defaultServicesContent: ServicesContent = {
+  badge: 'Что я предлагаю',
+  titlePrefix: 'Услуги Perfomance',
+  titleAccent: 'таргетолога',
+  description: 'Комплексное управление рекламными кампаниями для максимального результата',
+  cards: servicesData,
+  detailed: detailedContent,
+};
+
 function Services({ content }: { content?: ServicesContent }) {
-  const sectionContent = content ?? {
-    badge: 'Что я предлагаю',
-    titlePrefix: 'Услуги Perfomance',
-    titleAccent: 'таргетолога',
-    description: 'Комплексное управление рекламными кампаниями для максимального результата',
-    cards: servicesData,
-    detailed: detailedContent,
-  };
+  const sectionContent = content ?? defaultServicesContent;
   const serviceCards = sectionContent.cards;
   const modalContent = sectionContent.detailed;
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -216,7 +218,7 @@ function Services({ content }: { content?: ServicesContent }) {
                       />
                     </div>
 
-                    <h3 className="min-h-[3.25rem] text-balance text-xl md:text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">
+                    <h3 className={`min-h-[3.25rem] text-balance font-bold leading-tight mb-3 group-hover:text-primary transition-colors ${service.title.length > 20 ? 'text-lg md:text-xl' : 'text-xl md:text-2xl'}`}>
                       {service.title}
                     </h3>
                     <p className="md:min-h-[4.5rem] text-pretty text-sm md:text-base text-muted-foreground mb-6 leading-relaxed">
@@ -299,7 +301,7 @@ function Services({ content }: { content?: ServicesContent }) {
                             </div>
                           </div>
 
-                          <h3 className="text-balance text-[1.18rem] sm:text-2xl font-semibold leading-[1.15] mb-2.5 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                          <h3 className={`text-balance font-semibold leading-[1.15] mb-2.5 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text ${service.title.length > 20 ? 'text-[1.02rem] sm:text-xl' : 'text-[1.18rem] sm:text-2xl'}`}>
                             {service.title}
                           </h3>
                           <p className="text-pretty text-[13px] sm:text-sm text-muted-foreground mb-4 leading-6">

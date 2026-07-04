@@ -1,7 +1,10 @@
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
+import React from 'react';
+import ReactDOMServer from 'react-dom/server';
 import {
   DIST_DIR,
   BUILD_ARTICLES_PATH,
@@ -9,6 +12,36 @@ import {
   SITE_URL,
   STATIC_ROUTES,
 } from './config.js';
+
+const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
+
+// Собирает scripts/content-entry.tsx (реэкспорт реальных данных/легальных текстов
+// из src/app) в обычный ESM-модуль, чтобы взять из него настоящий контент
+// для статической генерации — без запуска React-рендера всего приложения.
+async function loadSiteContent() {
+  const esbuild = await import('esbuild');
+  const outfile = join(SCRIPTS_DIR, '.content-entry.build.mjs');
+
+  await esbuild.build({
+    entryPoints: [join(SCRIPTS_DIR, 'content-entry.tsx')],
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    jsx: 'automatic',
+    outfile,
+    // Бандлим только локальные исходники сайта; все пакеты из node_modules
+    // (react, radix, motion, three и их транзитивные зависимости) резолвятся
+    // самим Node через обычный import — так не нужно перечислять их вручную.
+    packages: 'external',
+    logLevel: 'silent',
+  });
+
+  try {
+    return await import(`${pathToFileURL(outfile).href}?t=${Date.now()}`);
+  } finally {
+    try { unlinkSync(outfile); } catch { /* временный файл, не критично */ }
+  }
+}
 
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
@@ -331,19 +364,172 @@ const generatedShellStyles = {
   articleBody: 'margin-top:34px;padding-top:28px;border-top:1px solid rgba(255,255,255,.12);color:rgba(226,232,240,.86);line-height:1.72;font-size:16px',
 };
 
-function renderGeneratedShell({ eyebrow = 'Whale Wzrd', title, lead, children = '' }) {
+function renderGeneratedShell({ eyebrow = 'Whale Wzrd', title, lead, children = '', sections = [] }) {
+  const sectionsHtml = sections
+    .map(
+      (s) => `
+        <section style="margin-top:30px;padding-top:24px;border-top:1px solid rgba(255,255,255,.10)">
+          ${s.heading ? `<h2 style="margin:0 0 14px;font-size:19px;font-weight:800;letter-spacing:-.01em">${escapeHtml(s.heading)}</h2>` : ''}
+          ${s.bodyHtml}
+        </section>`,
+    )
+    .join('');
+
   return `    <main style="${generatedShellStyles.main}">
-      <section style="${generatedShellStyles.card}">
+      <section style="${generatedShellStyles.card}${sections.length ? ';width:min(100%,920px)' : ''}">
         <p style="${generatedShellStyles.eyebrow}">${escapeHtml(eyebrow)}</p>
         <h1 style="${generatedShellStyles.title}">${escapeHtml(title)}</h1>
         <p style="${generatedShellStyles.lead}">${escapeHtml(lead)}</p>
-${children}
+${children}${sectionsHtml}
         <div style="${generatedShellStyles.footer}" aria-hidden="true"><span style="${generatedShellStyles.dot}"></span><span>Загружаем интерактивную версию сайта…</span></div>
       </section>
     </main>`;
 }
 
-function renderStaticPages(baseHtml) {
+// ─── Рендер разделов из реальных данных сайта (для ботов/ИИ без выполнения JS) ──
+
+const contentStyles = {
+  cardBox: 'padding:14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03)',
+  heading3: 'margin:0 0 6px;font-size:15px;font-weight:700',
+  body: 'margin:0;color:rgba(226,232,240,.82);line-height:1.65',
+  muted: 'color:rgba(148,163,184,.75);font-size:13px',
+  statValue: 'font-weight:800;font-size:21px',
+  statLabel: 'font-size:12px;color:rgba(148,163,184,.75)',
+};
+
+function renderStatsHtml(stats = []) {
+  if (!stats.length) return '';
+  return `<div style="display:flex;gap:26px;margin-top:18px;flex-wrap:wrap">${stats
+    .map((s) => `<div><div style="${contentStyles.statValue}">${escapeHtml(s.value)}</div><div style="${contentStyles.statLabel}">${escapeHtml(s.label)}</div></div>`)
+    .join('')}</div>`;
+}
+
+function renderParagraphsHtml(paragraphs = []) {
+  return paragraphs.map((p) => `<p style="margin:0 0 12px;${contentStyles.body}">${escapeHtml(String(p))}</p>`).join('');
+}
+
+function renderHeroBodyHtml(hero) {
+  const headline = hero.titlePrefix || hero.titleAccent
+    ? `<p style="margin:0 0 14px;font-size:19px;font-weight:800;letter-spacing:-.01em">${escapeHtml(hero.titlePrefix || '')} ${escapeHtml(hero.titleAccent || '')}</p>`
+    : '';
+  return `${headline}${renderParagraphsHtml(hero.paragraphs)}${renderStatsHtml(hero.stats)}`;
+}
+
+function renderServiceCardsHtml(cards = []) {
+  return `<div style="display:grid;gap:14px">${cards
+    .map(
+      (c) => `
+        <div style="${contentStyles.cardBox}">
+          <h3 style="${contentStyles.heading3}">${escapeHtml(c.title)}</h3>
+          <p style="${contentStyles.body};margin-bottom:8px">${escapeHtml(c.description)}</p>
+          <p style="${contentStyles.muted}">${(c.features || []).map((f) => escapeHtml(f)).join(' · ')}</p>
+        </div>`,
+    )
+    .join('')}</div>`;
+}
+
+function renderCaseItemsHtml(items = []) {
+  return `<div style="display:grid;gap:14px">${items
+    .map(
+      (c) => `
+        <div style="${contentStyles.cardBox}">
+          <h3 style="${contentStyles.heading3}">${escapeHtml(c.title)} <span style="font-weight:400;${contentStyles.muted}">· ${escapeHtml(c.category)}</span></h3>
+          <p style="${contentStyles.body};margin-bottom:8px">${escapeHtml(c.description)}</p>
+          <p style="${contentStyles.muted}">${(c.stats || []).map((s) => `${escapeHtml(s.label)}: <strong>${escapeHtml(s.value)}</strong>`).join(' · ')}</p>
+        </div>`,
+    )
+    .join('')}</div>`;
+}
+
+function renderTestimonialsHtml(items = []) {
+  return `<div style="display:grid;gap:14px">${items
+    .map(
+      (t) => `
+        <div style="${contentStyles.cardBox}">
+          <p style="${contentStyles.body};margin-bottom:8px">«${escapeHtml(t.text)}»</p>
+          <p style="${contentStyles.muted}">${escapeHtml(t.name)}, ${escapeHtml(t.position)} — ${escapeHtml(t.company)}</p>
+        </div>`,
+    )
+    .join('')}</div>`;
+}
+
+function renderFaqListHtml(faqs = []) {
+  return faqs
+    .map(
+      (f) => `
+        <details style="${contentStyles.cardBox};margin-bottom:12px">
+          <summary style="cursor:pointer;font-weight:700;font-size:15px">${escapeHtml(f.question)}</summary>
+          <p style="margin:10px 0 0;${contentStyles.body}">${escapeHtml(f.answer)}</p>
+          ${(f.details || []).length ? `<ul style="margin:8px 0 0;padding-left:20px;${contentStyles.body}">${f.details.map((d) => `<li>${escapeHtml(d)}</li>`).join('')}</ul>` : ''}
+        </details>`,
+    )
+    .join('');
+}
+
+function renderGlossaryListHtml(terms = []) {
+  return `<div style="display:grid;gap:12px">${terms
+    .map(
+      (t) => `
+        <div style="${contentStyles.cardBox}">
+          <h3 style="${contentStyles.heading3}">${escapeHtml(t.term)}${t.abbreviation ? ` (${escapeHtml(t.abbreviation)})` : ''} <span style="font-weight:400;${contentStyles.muted}">· ${escapeHtml(t.channel)}</span></h3>
+          <p style="${contentStyles.body}">${escapeHtml(t.definition)}</p>
+          ${t.formula ? `<p style="margin-top:6px;${contentStyles.muted}"><code>${escapeHtml(t.formula)}</code></p>` : ''}
+        </div>`,
+    )
+    .join('')}</div>`;
+}
+
+function renderServicePageSections(config) {
+  return [
+    { heading: null, bodyHtml: renderHeroBodyHtml(config.hero) },
+    {
+      heading: config.services.titlePrefix ? `${config.services.titlePrefix} ${config.services.titleAccent}` : 'Что входит',
+      bodyHtml: `<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.services.description)}</p>${renderServiceCardsHtml(config.services.cards)}`,
+    },
+    {
+      heading: config.cases.titlePrefix ? `${config.cases.titlePrefix} ${config.cases.titleAccent}` : 'Кейсы',
+      bodyHtml: `<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.cases.description)}</p>${renderCaseItemsHtml(config.cases.items)}`,
+    },
+    { heading: config.cta.title, bodyHtml: `<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>` },
+    {
+      heading: 'Оставить заявку',
+      bodyHtml: `<p style="${contentStyles.body};margin-bottom:10px">${escapeHtml(config.contact.description)}</p><ul style="margin:0;padding-left:20px;${contentStyles.body}">${config.contact.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`,
+    },
+  ];
+}
+
+function renderHomeSections(content, latestArticles) {
+  const sections = [
+    { heading: null, bodyHtml: renderHeroBodyHtml(content.hero) },
+    { heading: 'Услуги', bodyHtml: renderServiceCardsHtml(content.services.cards) },
+    { heading: 'Кейсы', bodyHtml: renderCaseItemsHtml(content.cases.items) },
+    { heading: 'Отзывы клиентов', bodyHtml: renderTestimonialsHtml(content.testimonials) },
+  ];
+
+  if (latestArticles.length) {
+    sections.push({
+      heading: 'Последние статьи блога',
+      bodyHtml: `<div style="display:grid;gap:10px">${latestArticles
+        .slice(0, 6)
+        .map((a) => `<a href="/blog/${a.slug}" style="display:block;${contentStyles.cardBox};color:#f8fafc;text-decoration:none">${escapeHtml(a.title)}</a>`)
+        .join('')}</div>`,
+    });
+  }
+
+  return sections;
+}
+
+function renderLegalSection(reactComponent) {
+  const innerHtml = ReactDOMServer.renderToStaticMarkup(React.createElement(reactComponent));
+  return [
+    {
+      heading: null,
+      bodyHtml: `<div style="color:rgba(226,232,240,.85);line-height:1.75">${innerHtml}</div><style>h2{margin:22px 0 10px;font-size:18px} ul,ol{padding-left:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid rgba(255,255,255,.14);padding:8px 10px;text-align:left;font-size:13px} code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px}</style>`,
+    },
+  ];
+}
+
+function renderStaticPages(baseHtml, { content, latestArticles }) {
   const staticPages = [
     {
       route: '/',
@@ -351,6 +537,10 @@ function renderStaticPages(baseHtml) {
       description: 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.',
       h1: 'Performance-таргетолог',
       lead: 'Настраиваю и масштабирую рекламу в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
+      sections: renderHomeSections(
+        { hero: content.defaultHeroContent, services: content.defaultServicesContent, cases: content.defaultCasesContent, testimonials: content.testimonialsData },
+        latestArticles,
+      ),
     },
     {
       route: '/calculator',
@@ -372,6 +562,7 @@ function renderStaticPages(baseHtml) {
       description: 'Стабильные заявки из Facebook и Instagram без слива бюджета. Настрою Meta Ads по системе: оффер, креативы, Pixel, CAPI и оптимизация лидов.',
       h1: 'Платный трафик из Meta Ads',
       lead: 'Уникальная страница услуги Meta Ads: Facebook/Instagram, креативы, Pixel/CAPI, ретаргетинг и заявка на аудит Meta Ads.',
+      sections: renderServicePageSections(content.pageConfigs['meta-ads']),
     },
     {
       route: '/google-ads',
@@ -379,6 +570,7 @@ function renderStaticPages(baseHtml) {
       description: 'Настрою Google Ads, который приносит клиентов из горячего спроса. Search, Shopping, Performance Max, YouTube, аналитика и оптимизация CPA/ROAS.',
       h1: 'Контекстная реклама Google Ads',
       lead: 'Уникальная страница услуги Google Ads: Search, Shopping, Performance Max, аналитика, оптимизация CPA/ROAS и заявка на аудит.',
+      sections: renderServicePageSections(content.pageConfigs['google-ads']),
     },
     {
       route: '/consult',
@@ -386,6 +578,7 @@ function renderStaticPages(baseHtml) {
       description: 'Личная консультация для таргетологов: позиционирование, упаковка услуг, поиск клиентов, оффер, продажи и план роста дохода.',
       h1: 'Консультация для таргетологов',
       lead: 'Уникальная страница консультации: упаковка специалиста, поиск клиентов, продажи и заявка на личный разбор.',
+      sections: renderServicePageSections(content.pageConfigs['consult']),
     },
     {
       route: '/meta-apps',
@@ -393,6 +586,7 @@ function renderStaticPages(baseHtml) {
       description: 'Привлекаю установки и целевые события в приложениях через Meta Ads: App Events, MMP/SKAN, креативы и масштабирование.',
       h1: 'Трафик для приложений из Meta Ads',
       lead: 'Уникальная страница app growth: установки, app events, MMP/SKAN, mobile-креативы и масштабирование по KPI приложения.',
+      sections: renderServicePageSections(content.pageConfigs['meta-apps']),
     },
     {
       route: '/faq',
@@ -400,6 +594,7 @@ function renderStaticPages(baseHtml) {
       description: 'Ответы по бюджетам, срокам, аналитике и масштабированию.',
       h1: 'FAQ по рекламе',
       lead: 'Практические ответы по Google Ads, Meta Ads, GEO и AEO.',
+      sections: [{ heading: null, bodyHtml: renderFaqListHtml(content.faqs) }],
     },
     {
       route: '/marketing-glossary',
@@ -407,6 +602,7 @@ function renderStaticPages(baseHtml) {
       description: 'Справочник терминов по SEO, AEO, GEO, аналитике и рекламе.',
       h1: 'Словарь маркетинговых метрик',
       lead: 'База терминов с простыми объяснениями и формулами.',
+      sections: [{ heading: null, bodyHtml: renderGlossaryListHtml(content.marketingGlossary) }],
     },
     {
       route: '/privacy-policy',
@@ -414,6 +610,7 @@ function renderStaticPages(baseHtml) {
       description: 'Правила обработки персональных данных.',
       h1: 'Политика конфиденциальности',
       lead: 'Условия обработки персональных данных.',
+      sections: renderLegalSection(content.PrivacyPolicyContent),
     },
     {
       route: '/offer',
@@ -421,6 +618,7 @@ function renderStaticPages(baseHtml) {
       description: 'Условия предоставления услуг и порядок взаимодействия.',
       h1: 'Публичная оферта',
       lead: 'Официальные условия оказания услуг.',
+      sections: renderLegalSection(content.OfferContent),
     },
     {
       route: '/cookie-policy',
@@ -428,6 +626,7 @@ function renderStaticPages(baseHtml) {
       description: 'Информация о cookie и управлении согласиями.',
       h1: 'Политика cookie',
       lead: 'Правила использования cookie и аналитических технологий.',
+      sections: renderLegalSection(content.CookiePolicyContent),
     },
     {
       route: '/thank-you',
@@ -460,6 +659,7 @@ function renderStaticPages(baseHtml) {
           title: page.h1,
           lead: page.lead,
           eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wzrd',
+          sections: page.sections || [],
         }),
       }),
     );
@@ -588,13 +788,14 @@ function validateGeneratedOutput() {
   }
 }
 
-function main() {
+async function main() {
   ensureDir(DIST_DIR);
 
   const baseHtml = readViteIndexHtml();
   const articles = normalizeArticles(loadArticles()).filter((article) => isPublishedArticle(article));
+  const content = await loadSiteContent();
 
-  renderStaticPages(baseHtml);
+  renderStaticPages(baseHtml, { content, latestArticles: articles });
   renderBlogPages(articles, baseHtml);
 
   const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
@@ -607,4 +808,7 @@ function main() {
   console.log(`✅ Generated ${allRoutes.length} static routes`);
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

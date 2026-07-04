@@ -9,15 +9,24 @@
   .bg-gradient-radial {
     background-image: radial-gradient(var(--tw-gradient-stops));
   }
-  .scrollbar-thin {
+  .scrollbar-brand {
     scrollbar-width: thin;
+    scrollbar-color: rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05);
   }
-  .scrollbar-track-transparent::-webkit-scrollbar-track {
-    background: transparent;
+  .scrollbar-brand::-webkit-scrollbar {
+    height: 4px;
+    width: 4px;
   }
-  .scrollbar-thumb-primary::-webkit-scrollbar-thumb {
-    background: #8b5cf6;
+  .scrollbar-brand::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
     border-radius: 10px;
+  }
+  .scrollbar-brand::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
+    border-radius: 10px;
+  }
+  .scrollbar-brand::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #a78bfa, #818cf8, #60a5fa);
   }
   
   /* Smooth whale container fade */

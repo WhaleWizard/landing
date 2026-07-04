@@ -420,7 +420,7 @@ function BlogPageComponent() {
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-end mb-4"><button onClick={goHome} className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
-            <h1 className="text-4xl md:text-6xl font-bold">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
               {isCasesRoute ? 'Кейсы с ' : 'Блог о '}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {isCasesRoute ? 'результатами' : 'маркетинге'}
