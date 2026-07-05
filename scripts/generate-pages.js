@@ -159,6 +159,44 @@ function toAbsoluteUrl(value = '') {
   return url.startsWith('/') ? `${SITE_URL}${url}` : `${SITE_URL}/${url}`;
 }
 
+function isCaseArticle(article) {
+  return String(article?.category || '').trim().toLowerCase() === 'кейсы';
+}
+
+function getArticleSectionPath(article) {
+  return isCaseArticle(article) ? '/cases' : '/blog';
+}
+
+function getArticlePath(article) {
+  return `${getArticleSectionPath(article)}/${article.slug}`;
+}
+
+function getSectionLabel(sectionPath) {
+  return sectionPath === '/cases' ? 'Кейсы' : 'Блог';
+}
+
+function toIsoDate(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const direct = new Date(raw);
+  if (!Number.isNaN(direct.getTime())) return direct.toISOString().slice(0, 10);
+
+  const ddmmyyyy = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, dd, mm, yyyy] = ddmmyyyy;
+    const parsed = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}T00:00:00Z`);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  }
+
+  return null;
+}
+
+function resolveArticleDate(article) {
+  return toIsoDate(article.updatedAt) || toIsoDate(article.publishedAt) || toIsoDate(article.date);
+}
+
 function toSafeSlug(rawSlug, fallback) {
   const normalized = String(rawSlug || fallback || '')
     .normalize('NFKD')
@@ -214,6 +252,14 @@ function upsertCanonical(html, canonicalUrl) {
   );
 }
 
+function upsertAlternate(html, hrefLang, href) {
+  return upsertTag(
+    html,
+    new RegExp(`<link\\s+[^>]*rel=["']alternate["'][^>]*hreflang=["']${hrefLang}["'][^>]*>`, 'i'),
+    `<link rel="alternate" hreflang="${escapeHtml(hrefLang)}" href="${escapeHtml(href)}" />`,
+  );
+}
+
 function readArticles(pathname) {
   if (!existsSync(pathname)) return null;
 
@@ -245,6 +291,15 @@ function normalizeArticles(rawArticles) {
     usedSlugs.add(uniqueSlug);
 
     const content = article?.content || '<p>Контент статьи отсутствует.</p>';
+    const description = stripHtml(article?.description || content).slice(0, 160);
+    const faq = Array.isArray(article?.faq)
+      ? article.faq
+        .map((item) => ({
+          question: String(item?.question || '').trim(),
+          answer: String(item?.answer || '').trim(),
+        }))
+        .filter((item) => item.question && item.answer)
+      : [];
 
     return {
       slug: uniqueSlug,
@@ -254,7 +309,16 @@ function normalizeArticles(rawArticles) {
       date: article?.date || BUILD_DATE,
       readTime: article?.readTime || '',
       image: article?.image || `${SITE_URL}/og-image.jpg`,
-      description: stripHtml(article?.description || content).slice(0, 160),
+      description,
+      seoTitle: article?.seoTitle || article?.title || `Статья ${index + 1}`,
+      seoDescription: article?.seoDescription || description,
+      publishedAt: article?.publishedAt || '',
+      updatedAt: article?.updatedAt || article?.publishedAt || '',
+      status: article?.status === 'draft' ? 'draft' : 'published',
+      tags: Array.isArray(article?.tags) ? article.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
+      summary: article?.summary || '',
+      keyTakeaways: Array.isArray(article?.keyTakeaways) ? article.keyTakeaways.map((item) => String(item).trim()).filter(Boolean) : [],
+      faq,
     };
   });
 }
@@ -313,6 +377,64 @@ function buildFaqJsonLd(faqs = []) {
   };
 }
 
+function buildArticleJsonLd(article) {
+  const path = getArticlePath(article);
+  const canonical = `${SITE_URL}${path}`;
+  const resolvedDate = resolveArticleDate(article);
+  return {
+    '@context': 'https://schema.org',
+    '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
+    headline: article.seoTitle || article.title,
+    description: article.seoDescription || article.description,
+    image: [toAbsoluteUrl(article.image || '/og-image.jpg')],
+    ...(resolvedDate ? { datePublished: resolvedDate, dateModified: resolvedDate } : {}),
+    mainEntityOfPage: canonical,
+    author: {
+      '@type': 'Person',
+      name: 'Whale Wizard',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Whale Wizard',
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_URL}/og-image.jpg`,
+      },
+    },
+    keywords: article.tags || [],
+    articleSection: article.category,
+  };
+}
+
+function buildBreadcrumbJsonLd(article) {
+  const sectionPath = getArticleSectionPath(article);
+  const sectionLabel = getSectionLabel(sectionPath);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Главная',
+        item: `${SITE_URL}/`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: sectionLabel,
+        item: `${SITE_URL}${withTrailingSlashIfStaticRoute(sectionPath)}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: article.title,
+        item: `${SITE_URL}${getArticlePath(article)}`,
+      },
+    ],
+  };
+}
+
 function renderJsonLdScripts(schemas = []) {
   return schemas
     .filter(Boolean)
@@ -341,6 +463,8 @@ function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, o
   html = upsertNamedMeta(html, 'twitter:image', imageUrl);
   html = upsertNamedMeta(html, 'twitter:url', canonicalUrl);
   html = upsertCanonical(html, canonicalUrl);
+  html = upsertAlternate(html, 'ru', canonicalUrl);
+  html = upsertAlternate(html, 'x-default', canonicalUrl);
 
   if (!noIndex) {
     const jsonLdHtml = renderJsonLdScripts([buildOrganizationJsonLd(), buildWebsiteJsonLd(), ...extraJsonLd]);
@@ -577,7 +701,7 @@ function renderHomeSections(content, latestArticles) {
       heading: 'Последние статьи блога',
       bodyHtml: `<div style="display:grid;gap:10px">${latestArticles
         .slice(0, 6)
-        .map((a) => `<a href="/blog/${a.slug}" style="display:block;${contentStyles.cardBox};color:#f8fafc;text-decoration:none">${escapeHtml(a.title)}</a>`)
+        .map((a) => `<a href="${getArticlePath(a)}" style="display:block;${contentStyles.cardBox};color:#f8fafc;text-decoration:none">${escapeHtml(a.title)}</a>`)
         .join('')}</div>`,
     });
   }
@@ -734,10 +858,10 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
   }
 }
 
-function renderBlogPages(articles, baseHtml) {
+function renderArticleListPage({ articles, route, title, description, h1, lead, eyebrow, emptyText }, baseHtml) {
   const articleItems = articles
     .map(
-      (article) => `          <a href="/blog/${article.slug}" style="${generatedShellStyles.item}">
+      (article) => `          <a href="${getArticlePath(article)}" style="${generatedShellStyles.item}">
             <strong>${escapeHtml(article.title)}</strong>
             <span style="${generatedShellStyles.muted}">${escapeHtml(article.description)}</span>
           </a>`,
@@ -745,40 +869,50 @@ function renderBlogPages(articles, baseHtml) {
     .join('\n');
 
   writeRoute(
-    '/blog',
+    route,
     htmlTemplate({
-      title: 'Блог | Whale Wizard',
-      description: 'Статьи про маркетинг, рекламу и аналитику.',
-      canonicalPath: '/blog',
+      title,
+      description,
+      canonicalPath: route,
       baseHtml,
       bodyHtml: renderGeneratedShell({
-        title: 'Блог',
-        lead: 'Статьи про маркетинг, рекламу и аналитику.',
-        eyebrow: 'Материалы Whale Wizard',
+        title: h1,
+        lead,
+        eyebrow,
         children: articleItems
           ? `        <div style="${generatedShellStyles.list}">
 ${articleItems}
         </div>`
-          : `        <p style="${generatedShellStyles.lead}">Статьи скоро появятся.</p>`,
+          : `        <p style="${generatedShellStyles.lead}">${escapeHtml(emptyText)}</p>`,
       }),
     }),
   );
+}
 
+function renderArticlePages(articles, baseHtml) {
   for (const article of articles) {
-    const path = `/blog/${article.slug}`;
+    const path = getArticlePath(article);
+    const articleTitle = `${article.seoTitle || article.title} | Whale Wizard`;
+    const articleDescription = article.seoDescription || article.description;
+    const articleFaqJsonLd = buildFaqJsonLd(article.faq || []);
 
     writeRoute(
       path,
       htmlTemplate({
-        title: `${article.title} | Whale Wizard`,
-        description: article.description,
+        title: articleTitle,
+        description: articleDescription,
         canonicalPath: path,
         ogType: 'article',
         ogImage: article.image,
+        extraJsonLd: [
+          buildArticleJsonLd(article),
+          buildBreadcrumbJsonLd(article),
+          articleFaqJsonLd,
+        ],
         baseHtml,
         bodyHtml: renderGeneratedShell({
           title: article.title,
-          lead: article.description,
+          lead: articleDescription,
           eyebrow: article.category,
           children: `        <p style="${generatedShellStyles.articleMeta}"><strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` · <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
         <section style="${generatedShellStyles.articleBody}">
@@ -790,10 +924,40 @@ ${sanitizeArticleHtml(article.content)}
   }
 }
 
+function renderBlogPages(articles, baseHtml) {
+  const blogArticles = articles.filter((article) => !isCaseArticle(article));
+  const caseArticles = articles.filter(isCaseArticle);
+
+  renderArticleListPage({
+    articles: blogArticles,
+    route: '/blog',
+    title: 'Блог | Whale Wizard',
+    description: 'Статьи про маркетинг, рекламу и аналитику.',
+    h1: 'Блог',
+    lead: 'Статьи про маркетинг, рекламу и аналитику.',
+    eyebrow: 'Материалы Whale Wizard',
+    emptyText: 'Статьи скоро появятся.',
+  }, baseHtml);
+
+  renderArticleListPage({
+    articles: caseArticles,
+    route: '/cases',
+    title: 'Кейсы по маркетингу | Whale Wizard',
+    description: 'Практические кейсы с результатами, метриками и выводами.',
+    h1: 'Кейсы с результатами',
+    lead: 'Реальные проекты: гипотезы, внедрения, цифры и выводы по росту.',
+    eyebrow: 'Кейсы Whale Wizard',
+    emptyText: 'Кейсы скоро появятся.',
+  }, baseHtml);
+
+  renderArticlePages(articles, baseHtml);
+}
+
 function writeSitemap(routes) {
+  const uniqueRoutes = [...new Set(routes)];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${routes.map((route) => `  <url><loc>${xmlEscape(`${SITE_URL}${withTrailingSlashIfStaticRoute(route)}`)}</loc><lastmod>${BUILD_DATE}</lastmod></url>`).join('\n')}
+${uniqueRoutes.map((route) => `  <url><loc>${xmlEscape(`${SITE_URL}${withTrailingSlashIfStaticRoute(route)}`)}</loc><lastmod>${BUILD_DATE}</lastmod></url>`).join('\n')}
 </urlset>`;
 
   writeFileSync(join(DIST_DIR, 'sitemap.xml'), xml, 'utf8');
@@ -846,6 +1010,11 @@ function validateGeneratedOutput() {
     '"@type":"FAQPage"',
   ], 'Generated /faq HTML');
 
+  assertFileContains(routeIndexPath('/cases'), [
+    `${SITE_URL}/cases/`,
+    'Практические кейсы',
+  ], 'Generated /cases HTML');
+
   assertFileContains(routeIndexPath('/thank-you'), [
     'noindex, nofollow, noarchive',
     `${SITE_URL}/thank-you/`,
@@ -874,8 +1043,8 @@ async function main() {
   renderStaticPages(baseHtml, { content, latestArticles: articles });
   renderBlogPages(articles, baseHtml);
 
-  const articleRoutes = articles.map((article) => `/blog/${article.slug}`);
-  const allRoutes = [...STATIC_ROUTES, ...articleRoutes];
+  const articleRoutes = articles.map((article) => getArticlePath(article));
+  const allRoutes = [...new Set([...STATIC_ROUTES, ...articleRoutes])];
 
   writeSitemap(allRoutes);
   writeRobots();

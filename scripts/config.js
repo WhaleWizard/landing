@@ -10,8 +10,10 @@ export const DIST_DIR = join(ROOT_DIR, 'dist');
 
 export const BUILD_ARTICLES_PATH = join(DATA_DIR, 'articles.build.json');
 export const LOCAL_ARTICLES_PATH = join(DATA_DIR, 'articles.local.json');
+export const PUBLIC_SEED_PATH = join(ROOT_DIR, 'public', 'articles.seed.json');
 
 export const SITE_URL = (process.env.SITE_URL || 'https://www.whalewzrd.com').replace(/\/$/, '');
+export const PUBLIC_ARTICLES_URL = process.env.ARTICLES_PUBLIC_URL || `${SITE_URL}/api/articles?cache=no-store`;
 export const JSONBIN_BIN_ID = process.env.JSONBIN_BIN_ID || '69de47b136566621a8b15081';
 export const JSONBIN_URL = process.env.JSONBIN_URL || `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`;
 
@@ -22,6 +24,7 @@ export const TIMEOUT_MS = Number(process.env.ARTICLES_FETCH_TIMEOUT_MS || 10000)
 export const STATIC_ROUTES = [
   '/',
   '/blog',
+  '/cases',
   '/faq',
   '/marketing-glossary',
   '/calculator',

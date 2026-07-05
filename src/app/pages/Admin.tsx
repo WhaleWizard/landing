@@ -238,7 +238,8 @@ export default function Admin() {
 
   const handleTitleChange = (title: string) => {
     if (!editingArticle) return;
-    const newSlug = !slugManuallyEdited ? transliterate(title) : editingArticle.slug;
+    const shouldAutogenerateSlug = !slugManuallyEdited && (!editingArticle.id || !editingArticle.slug);
+    const newSlug = shouldAutogenerateSlug ? transliterate(title) : editingArticle.slug;
     setEditingArticle({ ...editingArticle, title, slug: newSlug });
   };
 

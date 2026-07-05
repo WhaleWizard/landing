@@ -38,6 +38,22 @@ function toAbsoluteUrl(siteUrl: string, path: string): string {
   return `${siteUrl}/${path}`;
 }
 
+export function isCaseArticle(article: Article): boolean {
+  return String(article.category || '').trim().toLowerCase() === 'кейсы';
+}
+
+export function getArticleSectionPath(article: Article): '/blog' | '/cases' {
+  return isCaseArticle(article) ? '/cases' : '/blog';
+}
+
+export function getArticlePath(article: Article): string {
+  return `${getArticleSectionPath(article)}/${article.slug}`;
+}
+
+function getSectionLabel(sectionPath: '/blog' | '/cases'): string {
+  return sectionPath === '/cases' ? 'Кейсы' : 'Блог';
+}
+
 function toIsoDate(value?: string): string | null {
   if (!value) return null;
   const raw = String(value).trim();
@@ -77,15 +93,15 @@ function buildSeoDescription(article: Article): string {
   return article.description || 'Практическая статья о маркетинге и рекламе.';
 }
 
-function articleJsonLd(siteUrl: string, article: Article): string {
-  const canonical = `${siteUrl}/blog/${article.slug}`;
+function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
+  const canonical = `${siteUrl}${sectionPath}/${article.slug}`;
   const image = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
   const resolvedDate = resolveArticleDate(article);
 
   return JSON.stringify(
     {
       '@context': 'https://schema.org',
-      '@type': 'BlogPosting',
+      '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
       headline: buildSeoTitle(article),
       description: buildSeoDescription(article),
       image: [image],
@@ -116,7 +132,9 @@ function articleJsonLd(siteUrl: string, article: Article): string {
   );
 }
 
-function breadcrumbJsonLd(siteUrl: string, article: Article): string {
+function breadcrumbJsonLd(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
+  const sectionLabel = getSectionLabel(sectionPath);
+
   return JSON.stringify(
     {
       '@context': 'https://schema.org',
@@ -131,14 +149,14 @@ function breadcrumbJsonLd(siteUrl: string, article: Article): string {
         {
           '@type': 'ListItem',
           position: 2,
-          name: 'Блог',
-          item: `${siteUrl}/blog`,
+          name: sectionLabel,
+          item: `${siteUrl}${sectionPath}`,
         },
         {
           '@type': 'ListItem',
           position: 3,
           name: article.title,
-          item: `${siteUrl}/blog/${article.slug}`,
+          item: `${siteUrl}${sectionPath}/${article.slug}`,
         },
       ],
     },
@@ -172,12 +190,15 @@ function faqJsonLd(article: Article): string | null {
   );
 }
 
-export function renderArticleHtml(siteUrl: string, article: Article): string {
-  const canonical = `${siteUrl}/blog/${article.slug}`;
+export function renderArticleHtml(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
+  const canonical = `${siteUrl}${sectionPath}/${article.slug}`;
+  const sectionLabel = getSectionLabel(sectionPath);
   const ogImage = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
   const title = `${buildSeoTitle(article)} | Whale Wizard`;
   const description = buildSeoDescription(article);
   const faqJson = faqJsonLd(article);
+  const publishedTime = toIsoDate(article.publishedAt || article.date);
+  const modifiedTime = toIsoDate(article.updatedAt || article.publishedAt || article.date);
   const keyTakeaways = (article.keyTakeaways || []).filter(Boolean);
   const faqItems = (article.faq || []).filter((item) => item?.question && item?.answer);
   const safeContent = sanitizeArticleHtml(article.content || '');
@@ -189,24 +210,33 @@ export function renderArticleHtml(siteUrl: string, article: Article): string {
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(description)}" />
+  <meta name="robots" content="index, follow" />
   <meta property="og:title" content="${escapeHtml(title)}" />
   <meta property="og:description" content="${escapeHtml(description)}" />
   <meta property="og:type" content="article" />
   <meta property="og:url" content="${escapeHtml(canonical)}" />
   <meta property="og:image" content="${escapeHtml(ogImage)}" />
+  <meta property="og:site_name" content="Whale Wizard" />
+  <meta property="og:locale" content="ru_RU" />
+  ${publishedTime ? `<meta property="article:published_time" content="${escapeHtml(publishedTime)}" />` : ''}
+  ${modifiedTime ? `<meta property="article:modified_time" content="${escapeHtml(modifiedTime)}" />` : ''}
+  ${article.category ? `<meta property="article:section" content="${escapeHtml(article.category)}" />` : ''}
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
   <meta name="twitter:image" content="${escapeHtml(ogImage)}" />
+  <meta name="twitter:url" content="${escapeHtml(canonical)}" />
   <link rel="canonical" href="${escapeHtml(canonical)}" />
-  <script type="application/ld+json">${articleJsonLd(siteUrl, article)}</script>
-  <script type="application/ld+json">${breadcrumbJsonLd(siteUrl, article)}</script>
+  <link rel="alternate" hreflang="ru" href="${escapeHtml(canonical)}" />
+  <link rel="alternate" hreflang="x-default" href="${escapeHtml(canonical)}" />
+  <script type="application/ld+json">${articleJsonLd(siteUrl, article, sectionPath)}</script>
+  <script type="application/ld+json">${breadcrumbJsonLd(siteUrl, article, sectionPath)}</script>
   ${faqJson ? `<script type="application/ld+json">${faqJson}</script>` : ''}
 </head>
 <body>
   <main>
     <nav aria-label="breadcrumb">
-      <a href="/">Главная</a> › <a href="/blog">Блог</a> › <span>${escapeHtml(article.title)}</span>
+      <a href="/">Главная</a> › <a href="${sectionPath}">${sectionLabel}</a> › <span>${escapeHtml(article.title)}</span>
     </nav>
     <article>
       <header>
@@ -226,16 +256,52 @@ ${safeContent}
 </html>`;
 }
 
+export function renderArticleNotFoundHtml(siteUrl: string, sectionPath: '/blog' | '/cases'): string {
+  const sectionLabel = getSectionLabel(sectionPath);
+  const canonical = `${siteUrl}${sectionPath}`;
+
+  return `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Статья не найдена | Whale Wizard</title>
+  <meta name="robots" content="noindex, follow, noarchive" />
+  <link rel="canonical" href="${escapeHtml(canonical)}" />
+</head>
+<body>
+  <main>
+    <h1>Статья не найдена</h1>
+    <p>Материал недоступен или URL был изменён.</p>
+    <a href="${sectionPath}">Вернуться в ${escapeHtml(sectionLabel)}</a>
+  </main>
+</body>
+</html>`;
+}
+
+export function findArticleBySlugPrefix(articles: Article[], slug: string, sectionPath: '/blog' | '/cases'): Article | null {
+  const normalizedSlug = String(slug || '').trim();
+  if (!normalizedSlug) return null;
+
+  const candidates = articles.filter((article) => (
+    getArticleSectionPath(article) === sectionPath &&
+    article.slug.startsWith(`${normalizedSlug}-`)
+  ));
+
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
 export function renderSitemapXml(siteUrl: string, routes: string[], articleDates: Record<string, string>): string {
   const defaultLastmod = new Date().toISOString().slice(0, 10);
+  const uniqueRoutes = [...new Set(routes)];
 
-  const urls = routes
+  const urls = uniqueRoutes
     .map((route) => {
       const loc = xmlEscape(`${siteUrl}${route}`);
       const lastmod = toIsoDate(articleDates[route]) || defaultLastmod;
-      const isBlogArticle = route.startsWith('/blog/') && route !== '/blog';
-      const priority = isBlogArticle ? '0.8' : route === '/' ? '1.0' : '0.7';
-      const changefreq = isBlogArticle ? 'weekly' : route === '/' ? 'daily' : 'monthly';
+      const isArticle = /^\/(blog|cases)\/[^/]+$/.test(route);
+      const priority = isArticle ? '0.8' : route === '/' ? '1.0' : '0.7';
+      const changefreq = isArticle ? 'weekly' : route === '/' ? 'daily' : 'monthly';
       return `  <url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
     })
     .join('\n');
@@ -253,7 +319,7 @@ export function renderFeedXml(siteUrl: string, articles: Article[]): string {
   const items = sorted
     .slice(0, 100)
     .map((article) => {
-      const link = `${siteUrl}/blog/${article.slug}`;
+      const link = `${siteUrl}${getArticlePath(article)}`;
       const isoDate = resolveArticleDate(article);
       const pubDate = isoDate ? new Date(`${isoDate}T00:00:00Z`).toUTCString() : new Date().toUTCString();
       const description = buildSeoDescription(article);

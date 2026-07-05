@@ -1,7 +1,9 @@
 import { CACHE_CONTROL, matchCache, putCache } from '../_lib/cache';
 import { fetchArticlesWithFallback, filterVisibleArticles } from '../_lib/articles';
-import { isBotRequest, renderArticleHtml } from '../_lib/seo';
+import { findArticleBySlugPrefix, getArticlePath, isBotRequest, renderArticleHtml, renderArticleNotFoundHtml } from '../_lib/seo';
 import type { Env } from '../_lib/types';
+
+const SECTION_PATH = '/cases';
 
 function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');
@@ -19,7 +21,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
   }
 
   const slug = String(params.slug || '').trim();
-  if (!slug) return next(spaIndexRequest);
+  if (!slug) {
+    return new Response(renderArticleNotFoundHtml(getSiteUrl(env, request), SECTION_PATH), {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': CACHE_CONTROL.noStore,
+      },
+    });
+  }
 
   const cacheKey = new Request(request.url, { method: 'GET' });
   const cached = await matchCache(cacheKey);
@@ -28,13 +38,24 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
   try {
     const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request));
     const article = articles.find((item) => item.slug === slug && item.category === 'Кейсы');
+    const siteUrl = getSiteUrl(env, request);
 
     if (!article) {
-      return next(spaIndexRequest);
+      const redirectArticle = findArticleBySlugPrefix(articles, slug, SECTION_PATH);
+      if (redirectArticle) {
+        return Response.redirect(`${siteUrl}${getArticlePath(redirectArticle)}`, 301);
+      }
+
+      return new Response(renderArticleNotFoundHtml(siteUrl, SECTION_PATH), {
+        status: 404,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': CACHE_CONTROL.noStore,
+        },
+      });
     }
 
-    const siteUrl = getSiteUrl(env, request);
-    const html = renderArticleHtml(siteUrl, article);
+    const html = renderArticleHtml(siteUrl, article, SECTION_PATH);
 
     const response = new Response(html, {
       headers: {
@@ -46,6 +67,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
     waitUntil(putCache(cacheKey, response));
     return response;
   } catch {
-    return next(spaIndexRequest);
+    return new Response(renderArticleNotFoundHtml(getSiteUrl(env, request), SECTION_PATH), {
+      status: 503,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': CACHE_CONTROL.noStore,
+        'Retry-After': '300',
+      },
+    });
   }
 };
