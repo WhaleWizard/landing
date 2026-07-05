@@ -247,7 +247,7 @@ function LandingForm({
         setIsSubmitting(false);
       }
     },
-    [formData, navigate, agreed, service, hpTrap],
+    [formData, navigate, agreed, service, hpTrap, phoneCode],
   );
 
   const renderField = (

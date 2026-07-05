@@ -179,6 +179,7 @@ let gtmLoaded = false;
 let analyticsConfigLogged = false;
 let lastTrackedPath = '';
 let lastTrackedAt = 0;
+let engagedViewTimerId: number | undefined;
 
 const DEFAULT_GTM_ID = 'GTM-T88BWXVV';
 const DEFAULT_GA_MEASUREMENT_ID = 'G-ZV18R9DLVC';
@@ -1345,6 +1346,13 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
   lastTrackedPath = trackingKey;
   lastTrackedAt = now;
 
+  // Пользователь ушёл со страницы раньше 10 секунд — отменяем отложенный
+  // engaged_view предыдущей страницы, иначе он засчитается новой.
+  if (engagedViewTimerId !== undefined) {
+    window.clearTimeout(engagedViewTimerId);
+    engagedViewTimerId = undefined;
+  }
+
   const eventId = crypto.randomUUID(); // уникальный ID для дедупликации
 
   const win = window as Window & {
@@ -1413,7 +1421,8 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
     ...browserContext,
   });
 
-  window.setTimeout(() => {
+  engagedViewTimerId = window.setTimeout(() => {
+    engagedViewTimerId = undefined;
     trackEngagedView('time_10s', { engagement_seconds: 10 });
   }, 10_000);
 }

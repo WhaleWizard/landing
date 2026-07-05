@@ -1,6 +1,8 @@
 import { motion, useInView } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
-import { useState, useEffect, useRef, memo, useCallback, TouchEvent } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, TouchEvent, lazy, Suspense } from 'react';
+
+const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
 export type Testimonial = {
   name: string;
@@ -303,8 +305,14 @@ function Testimonials() {
       className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible"
       style={{ contain: 'layout style' }}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/20 to-transparent pointer-events-none -z-10" />
-      <div className="absolute inset-x-0 top-10 h-px bg-gradient-to-r from-transparent via-accent/15 to-transparent pointer-events-none -z-10 md:top-14" />
+      {/* Без -z-10: с ним слои рисовались позади непрозрачного фона страницы и были не видны */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/20 to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 top-10 h-px bg-gradient-to-r from-transparent via-accent/15 to-transparent pointer-events-none md:top-14" />
+
+      {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
+      <Suspense fallback={null}>
+        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+      </Suspense>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
         {/* Заголовок */}

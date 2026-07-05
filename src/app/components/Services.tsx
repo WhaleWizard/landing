@@ -1,8 +1,10 @@
 import { motion, useInView } from 'motion/react';
 import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info, type LucideIcon } from 'lucide-react';
-import { useState, useRef, TouchEvent, memo, useCallback } from 'react';
+import { useState, useRef, TouchEvent, memo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router';
 import Modal from './Modal';
+
+const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
 export type ServiceCardContent = {
   icon: LucideIcon;
@@ -157,9 +159,22 @@ function Services({ content }: { content?: ServicesContent }) {
   return (
     <>
       <section id="services" ref={sectionRef} className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none -z-10" style={{ animationDelay: '1s' }} />
-        <div className="absolute inset-x-0 top-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent pointer-events-none -z-10 md:hidden" />
+        {/* Орбы без отрицательного z-index: с -z-10 они рисовались позади
+            непрозрачного фона страницы и были не видны. Пауза вне вьюпорта. */}
+        <div
+          className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
+          style={{ animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+        />
+        <div
+          className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
+          style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+        />
+        <div className="absolute inset-x-0 top-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent pointer-events-none md:hidden" />
+
+        {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
+        <Suspense fallback={null}>
+          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+        </Suspense>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div

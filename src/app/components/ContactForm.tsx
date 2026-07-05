@@ -236,7 +236,7 @@ function ContactForm() {
         setIsSubmitting(false);
       }
     },
-    [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap],
+    [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap, phoneCode],
   );
 
   const handleSetTelegramUsername = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
