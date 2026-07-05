@@ -1,8 +1,10 @@
 import { Mail, MessageSquare, ExternalLink, Sparkles } from 'lucide-react';
-import { motion } from 'motion/react';
-import { memo, useCallback } from 'react';
+import { motion, useInView } from 'motion/react';
+import { memo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
+
+const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
 const footerHeadingClass = 'font-semibold mb-4 flex items-center gap-2';
 const footerListClass = 'space-y-2 text-sm font-semibold text-muted-foreground';
@@ -15,6 +17,8 @@ const footerLegalLinkClass =
 function Footer() {
   const navigate = useNavigate();
   const location = useLocation();
+  const footerRef = useRef<HTMLElement>(null);
+  const inView = useInView(footerRef, { once: false, margin: '0px 0px -10% 0px' });
 
   const scrollToSection = useCallback((id: string) => {
     const scrollNow = () => {
@@ -42,12 +46,17 @@ function Footer() {
   }, [location.pathname, navigate]);
 
   return (
-    <footer className="relative border-t border-border bg-card/30 backdrop-blur-sm overflow-hidden">
+    <footer ref={footerRef} className="relative border-t border-border bg-card/30 backdrop-blur-sm overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[600px] h-48 bg-gradient-radial from-primary/10 via-transparent to-transparent blur-3xl" />
 
       {/* Top Glow Line */}
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
+      {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
+      <Suspense fallback={null}>
+        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+      </Suspense>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
