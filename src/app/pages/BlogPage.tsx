@@ -1,13 +1,15 @@
 // src/app/pages/BlogPage.tsx
-import { AnimatePresence, motion, useInView } from 'motion/react';
-import { AlertTriangle, Clock, ArrowRight, ArrowLeft, Calendar, Download, X } from 'lucide-react';
+import { AnimatePresence, motion, useInView, useScroll, useSpring } from 'motion/react';
+import { AlertTriangle, Clock, ArrowRight, ArrowLeft, Calendar, Download, X, ListTree, Sparkles } from 'lucide-react';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { useEffect, useState, useRef, useCallback, memo } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense } from 'react';
 import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { useScrollTo } from '../components/hooks/useScrollTo';
+
+const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 
 function normalizeTokens(value = '') {
   return String(value)
@@ -81,13 +83,38 @@ function BlogPageComponent() {
   const routeBase = isCasesRoute ? '/cases' : '/blog';
   const { articles: allArticles, loading } = useArticles();
   const [selectedArticle, setSelectedArticle] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  // Поддержка /blog?search=… — этот формат заявлен в JSON-LD SearchAction (SEO.tsx)
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
+  const [activeCategory, setActiveCategory] = useState('');
   const [pendingZipDownload, setPendingZipDownload] = useState(null);
   const contentRef = useRef(null);
   const sectionRef = useRef(null);
   const articleTitleRef = useRef<HTMLHeadingElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const { scrollToWhenReady } = useScrollTo();
+
+  // Прогресс чтения статьи — тонкая полоса под шапкой
+  const { scrollYProgress } = useScroll();
+  const readingProgress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.4 });
+
+  // Санитизация + оглавление: проставляем id всем h2, чтобы работали якоря
+  const { articleHtml, toc } = useMemo(() => {
+    if (!selectedArticle) return { articleHtml: '', toc: [] };
+    const safe = sanitizeHtml(selectedArticle.content || '');
+    try {
+      const doc = new DOMParser().parseFromString(safe, 'text/html');
+      const headings = Array.from(doc.body.querySelectorAll('h2'));
+      const items = headings.map((heading, index) => {
+        const text = heading.textContent?.trim() || `Раздел ${index + 1}`;
+        const id = heading.id || `razdel-${index + 1}`;
+        heading.id = id;
+        return { id, text };
+      });
+      return { articleHtml: doc.body.innerHTML, toc: items };
+    } catch {
+      return { articleHtml: safe, toc: [] };
+    }
+  }, [selectedArticle]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -168,21 +195,26 @@ function BlogPageComponent() {
     window.location.href = href;
   }, [pendingZipDownload]);
 
+  // Сначала раздел (блог/кейсы), затем категория, затем поиск — раньше поиск
+  // игнорировал раздел и на /cases находил статьи блога.
+  const scopedArticles = allArticles.filter((article) => (isCasesRoute ? article.category === 'Кейсы' : article.category !== 'Кейсы'));
+  const categories = [...new Set(scopedArticles.map((article) => article.category).filter(Boolean))];
   const normalizedQueryTokens = normalizeTokens(searchQuery);
-  const filteredArticles = normalizedQueryTokens.length === 0
-    ? allArticles.filter((article) => (isCasesRoute ? article.category === 'Кейсы' : article.category !== 'Кейсы'))
-    : allArticles.filter((article) => {
-      const haystack = normalizeTokens([
-        article.title,
-        article.description,
-        article.category,
-        Array.isArray(article.tags) ? article.tags.join(' ') : '',
-        article.summary || '',
-      ].join(' '));
+  const filteredArticles = scopedArticles.filter((article) => {
+    if (activeCategory && article.category !== activeCategory) return false;
+    if (normalizedQueryTokens.length === 0) return true;
 
-      const haystackSet = new Set(haystack);
-      return normalizedQueryTokens.every((token) => haystackSet.has(token));
-    });
+    const haystack = normalizeTokens([
+      article.title,
+      article.description,
+      article.category,
+      Array.isArray(article.tags) ? article.tags.join(' ') : '',
+      article.summary || '',
+    ].join(' '));
+
+    const haystackSet = new Set(haystack);
+    return normalizedQueryTokens.every((token) => haystackSet.has(token));
+  });
 
   if (loading) return <RouteSkeleton />;
 
@@ -190,7 +222,6 @@ function BlogPageComponent() {
     const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
     const seoTitle = buildArticleSeoTitle(selectedArticle);
     const seoDescription = buildArticleSeoDescription(selectedArticle);
-    const safeArticleContent = sanitizeHtml(selectedArticle.content || '');
 
     return (
       <>
@@ -200,15 +231,25 @@ function BlogPageComponent() {
           url={`${routeBase}/${selectedArticle.slug}`}
           type="article"
         />
+        {/* Прогресс чтения — поверх всего, тонкая градиентная полоса */}
+        <motion.div
+          aria-hidden="true"
+          className="fixed top-0 left-0 right-0 z-[60] h-1 origin-left bg-gradient-to-r from-primary via-accent to-secondary"
+          style={{ scaleX: readingProgress }}
+        />
         <section
           ref={sectionRef}
           data-blog-ui="true"
           className="blog-page blog-page--article min-h-screen bg-background"
           style={{ contain: 'layout style paint' }}
         >
-          <div className="relative overflow-visible pt-16 pb-12 md:pt-24 md:pb-20">
+          <div className="relative overflow-hidden pt-16 pb-12 md:pt-24 md:pb-20">
             <div className="absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
             <div className="absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
+            {/* Плексус-сеть только в шапке статьи — под текстом статьи её нет, чтобы не мешать чтению */}
+            <Suspense fallback={null}>
+              <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+            </Suspense>
             <div className="relative max-w-4xl mx-auto px-4 sm:px-6">
               <div className="flex flex-col gap-3 mb-4 md:mb-0 md:block">
                 <nav className="text-xs text-muted-foreground" aria-label="breadcrumb">
@@ -270,10 +311,35 @@ function BlogPageComponent() {
               </section>
             )}
 
+            {toc.length >= 3 && (
+              <details className="blog-toc group mb-8 rounded-2xl border border-border bg-card/40 open:bg-card/60 transition-colors">
+                <summary className="blog-touch-target flex cursor-pointer list-none items-center gap-2 px-5 py-4 font-semibold text-foreground">
+                  <ListTree className="h-5 w-5 text-primary" aria-hidden="true" />
+                  Содержание
+                  <span className="ml-auto text-xs font-normal text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+                </summary>
+                <nav aria-label="Оглавление статьи" className="px-5 pb-4">
+                  <ol className="space-y-1.5 border-t border-border/60 pt-3">
+                    {toc.map((item, index) => (
+                      <li key={item.id}>
+                        <a
+                          href={`#${item.id}`}
+                          className="blog-toc-link flex items-baseline gap-2.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                        >
+                          <span className="text-xs tabular-nums text-primary/70">{String(index + 1).padStart(2, '0')}</span>
+                          <span>{item.text}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              </details>
+            )}
+
             <div
               ref={contentRef}
               className="blog-article-content max-w-none"
-              dangerouslySetInnerHTML={{ __html: safeArticleContent }}
+              dangerouslySetInnerHTML={{ __html: articleHtml }}
             />
 
             {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
@@ -312,15 +378,29 @@ function BlogPageComponent() {
               </aside>
             )}
 
-            <div className="mt-12 pt-8 border-t border-border text-center">
-              <p className="text-muted-foreground mb-5">Понравилась статья? Остались вопросы?</p>
-              <button
-                onClick={goToContact}
-                className="blog-touch-target group relative inline-flex items-center justify-center gap-3 px-7 md:px-10 py-3 md:py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-                <span className="relative text-sm md:text-base">Получи бесплатную консультацию</span>
-              </button>
+            {/* Финальный CTA с плексус-сетью — после текста, чтению не мешает */}
+            <div className="relative mt-12 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-b from-primary/10 via-card/60 to-card/80 px-5 py-10 text-center sm:px-8 md:py-12">
+              <Suspense fallback={null}>
+                <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+              </Suspense>
+              <div className="relative z-10">
+                <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  Бесплатная консультация
+                </div>
+                <h2 className="text-xl font-bold text-foreground sm:text-2xl">Понравилась статья? Остались вопросы?</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
+                  Разберём ваш проект, рекламные кампании и точки роста — без обязательств.
+                </p>
+                <button
+                  onClick={goToContact}
+                  className="blog-touch-target group relative mt-6 inline-flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-accent px-7 py-3 font-semibold text-white shadow-xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 cursor-pointer md:px-10 md:py-4"
+                >
+                  <div className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-[120%]" />
+                  <span className="relative text-sm md:text-base">Получить консультацию</span>
+                  <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </motion.div>
         </section>
@@ -413,13 +493,23 @@ function BlogPageComponent() {
         url={routeBase}
       />
       <section
+        ref={sectionRef}
         data-blog-ui="true"
-        className="blog-page blog-page--list min-h-screen bg-background py-20 px-4 sm:px-6"
+        className="blog-page blog-page--list relative min-h-screen overflow-hidden bg-background py-20 px-4 sm:px-6"
         style={{ contain: 'layout style paint' }}
       >
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-end mb-4"><button onClick={goHome} className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
+        {/* Плексус-сеть на весь список: карточки почти непрозрачные, сеть видна в промежутках и не мешает чтению */}
+        <Suspense fallback={null}>
+          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+        </Suspense>
+
+        <div className="relative z-10 max-w-6xl mx-auto">
+          <div className="flex justify-end mb-4"><button onClick={goHome} className="blog-touch-target text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10 md:mb-14">
+            <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              {isCasesRoute ? `Кейсы · ${scopedArticles.length}` : `База знаний · ${scopedArticles.length} статей`}
+            </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
               {isCasesRoute ? 'Кейсы с ' : 'Блог о '}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -432,7 +522,8 @@ function BlogPageComponent() {
                 : 'Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса'}
             </p>
           </motion.div>
-          <div className="mb-8">
+
+          <div className="mb-5">
             <label htmlFor="blog-search" className="sr-only">Поиск по статьям</label>
             <input
               id="blog-search"
@@ -440,13 +531,38 @@ function BlogPageComponent() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Поиск по ключевым словам: CPA, Meta Ads, ROAS..."
-              className="w-full rounded-xl border border-border bg-card/70 px-4 py-3 text-sm md:text-base outline-none ring-0 focus:border-primary"
+              className="w-full rounded-xl border border-border bg-card/70 px-4 py-3 text-sm md:text-base outline-none ring-0 focus:border-primary backdrop-blur-sm"
             />
           </div>
-          {filteredArticles.length === 0 ? (
+
+          {categories.length > 1 && (
+            <div className="blog-category-chips -mx-1 mb-8 flex gap-2 overflow-x-auto px-1 pb-2" role="tablist" aria-label="Категории статей">
+              <button
+                role="tab"
+                aria-selected={activeCategory === ''}
+                onClick={() => setActiveCategory('')}
+                className={`blog-touch-target shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${activeCategory === '' ? 'border-primary bg-primary/20 text-primary' : 'border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'}`}
+              >
+                Все
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  role="tab"
+                  aria-selected={activeCategory === category}
+                  onClick={() => setActiveCategory(activeCategory === category ? '' : category)}
+                  className={`blog-touch-target shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${activeCategory === category ? 'border-primary bg-primary/20 text-primary' : 'border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'}`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {scopedArticles.length === 0 ? (
             <div className="rounded-2xl border border-border bg-card/70 p-8 text-center">
               <h2 className="text-xl font-semibold mb-2">Статьи скоро появятся</h2>
-              <p className="text-muted-foreground mb-4">Сейчас блог временно пуст. Напишите нам — подскажем решение под ваш кейс.</p>
+              <p className="text-muted-foreground mb-4">Сейчас раздел временно пуст. Напишите нам — подскажем решение под ваш кейс.</p>
               <button
                 onClick={goToContact}
                 className="blog-touch-target inline-flex items-center justify-center px-5 py-3 rounded-xl font-medium text-white bg-gradient-to-r from-primary to-accent hover:opacity-95 transition-opacity"
@@ -457,24 +573,58 @@ function BlogPageComponent() {
           ) : filteredArticles.length === 0 ? (
             <div className="rounded-2xl border border-border bg-card/70 p-8 text-center">
               <h2 className="text-xl font-semibold mb-2">Ничего не найдено</h2>
-              <p className="text-muted-foreground mb-4">Попробуйте другое ключевое слово или сократите запрос.</p>
+              <p className="text-muted-foreground mb-4">Попробуйте другое ключевое слово или сбросьте фильтр категории.</p>
+              <button
+                onClick={() => { setSearchQuery(''); setActiveCategory(''); }}
+                className="blog-touch-target inline-flex items-center justify-center rounded-xl border border-border px-5 py-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+              >
+                Сбросить фильтры
+              </button>
             </div>
           ) : (
             <div className="blog-list-grid grid md:grid-cols-2 gap-6 md:gap-8">
               {filteredArticles.map((article, i) => (
-                <motion.div key={article.slug} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="group relative cursor-pointer" onClick={() => navigate(`${routeBase}/${article.slug}`)}>
-                  <div className="blog-card p-5 md:p-6 rounded-2xl border border-border bg-card/70 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{article.category}</span>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground"><Clock className="w-3 h-3" />{article.readTime}</div>
+                <motion.article
+                  key={article.slug}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: Math.min(i, 6) * 0.05 }}
+                  className="group relative cursor-pointer"
+                  onClick={() => navigate(`${routeBase}/${article.slug}`)}
+                >
+                  <div className="blog-card h-full flex flex-col overflow-hidden rounded-2xl border border-border bg-card/70 backdrop-blur-sm transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10">
+                    <div className="blog-card-cover relative aspect-[16/9] overflow-hidden">
+                      <img
+                        src={article.image}
+                        alt=""
+                        loading={i < 2 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                        onError={(event) => {
+                          const target = event.currentTarget;
+                          if (target.dataset.fallbackApplied === 'true') return;
+                          target.dataset.fallbackApplied = 'true';
+                          target.src = '/og-image.jpg';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" aria-hidden="true" />
+                      <span className="absolute left-3 bottom-3 rounded-full bg-black/55 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">{article.category}</span>
                     </div>
-                    <h2 className="text-xl md:text-2xl font-bold group-hover:text-primary transition-colors line-clamp-2">{article.title}</h2>
-                    <p className="text-muted-foreground mt-3 text-sm leading-relaxed line-clamp-3 flex-1">{article.description}</p>
-                    <div className="mt-5 flex items-center gap-2 text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span>Читать статью</span><ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <div className="blog-card-body flex flex-1 flex-col p-5 md:p-6">
+                      <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" aria-hidden="true" />{article.date}</span>
+                        <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" aria-hidden="true" />{article.readTime}</span>
+                      </div>
+                      <h2 className="text-lg md:text-xl font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2">{article.title}</h2>
+                      <p className="text-muted-foreground mt-2.5 text-sm leading-relaxed line-clamp-3 flex-1">{article.description}</p>
+                      <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                        <span>{isCasesRoute ? 'Смотреть кейс' : 'Читать статью'}</span>
+                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                      </div>
                     </div>
                   </div>
-                </motion.div>
+                </motion.article>
               ))}
             </div>
           )}

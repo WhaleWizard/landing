@@ -56,6 +56,8 @@
   letter-spacing: 0.01em;
   margin-top: 1.75em;
   margin-bottom: 0.75em;
+  /* Якоря из оглавления не должны прятаться под фиксированной шапкой */
+  scroll-margin-top: 96px;
 }
 
 [data-blog-ui='true'] .blog-article-content :where(p, li) {
@@ -135,6 +137,21 @@
   min-width: 44px;
 }
 
+/* Category chips: horizontal scroll without a visible scrollbar (mobile-first). */
+[data-blog-ui='true'] .blog-category-chips {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-blog-ui='true'] .blog-category-chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* TOC: hide the native details marker in Safari; the custom chevron is in JSX. */
+[data-blog-ui='true'] .blog-toc summary::-webkit-details-marker {
+  display: none;
+}
+
 @media (max-width: 768px) {
   [data-blog-ui='true'].blog-page {
     padding-left: 16px !important;
@@ -148,6 +165,9 @@
 
   [data-blog-ui='true'] .blog-card {
     border-radius: 16px;
+  }
+
+  [data-blog-ui='true'] .blog-card .blog-card-body {
     padding: 18px;
   }
 
@@ -172,7 +192,7 @@
     padding-top: 64px !important;
   }
 
-  [data-blog-ui='true'] .blog-card {
+  [data-blog-ui='true'] .blog-card .blog-card-body {
     padding: 16px;
   }
 
