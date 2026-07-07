@@ -32,6 +32,7 @@ interface ArticleEditorProps {
   content: string;
   onChange: (html: string) => void;
   onUpload?: (file: File) => Promise<string | null>;
+  readOnly?: boolean;
 }
 
 const DRAG_TYPE = 'WW_BLOCK';
@@ -437,7 +438,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
   );
 });
 
-export default function ArticleEditor({ content, onChange, onUpload }: ArticleEditorProps) {
+export default function ArticleEditor({ content, onChange, onUpload, readOnly = false }: ArticleEditorProps) {
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => parseHtmlToBlocks(content));
   const [history, setHistory] = useState<{ past: ContentBlock[][]; future: ContentBlock[][] }>({ past: [], future: [] });
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -455,6 +456,7 @@ export default function ArticleEditor({ content, onChange, onUpload }: ArticleEd
   const htmlOutput = useMemo(() => sanitizeHtml(blocks.map(blockToHtml).join('\n')), [blocks]);
 
   useEffect(() => {
+    if (readOnly) return;
     if (htmlOutput === content) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
@@ -462,7 +464,7 @@ export default function ArticleEditor({ content, onChange, onUpload }: ArticleEd
       onChange(htmlOutput);
     }, 220);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [htmlOutput, content, onChange]);
+  }, [htmlOutput, content, onChange, readOnly]);
 
   const toggleMarkdown = useCallback(() => {
     if (markdownMode) {
@@ -580,6 +582,15 @@ export default function ArticleEditor({ content, onChange, onUpload }: ArticleEd
       };
     });
   }, [blocks]);
+
+  if (readOnly) {
+    return (
+      <div className="rounded-xl border border-primary/20 bg-card/20 p-4">
+        <div className="mb-3 text-sm font-medium">Просмотр статьи</div>
+        <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
+      </div>
+    );
+  }
 
   return (
     <DndProvider backend={HTML5Backend}>

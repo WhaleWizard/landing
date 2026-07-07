@@ -35,6 +35,13 @@ function normalizeIsoDate(raw: string | undefined, fallback: string): string {
   return parsed.toISOString();
 }
 
+function normalizeOptionalIsoDate(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString();
+}
+
 function extractTags(article: Partial<Article>): string[] {
   if (Array.isArray(article.tags)) {
     return article.tags
@@ -116,7 +123,6 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
 
     usedSlugs.add(uniqueSlug);
 
-    const nowIso = new Date().toISOString();
     const safeContent = sanitizeArticleHtml(article.content || '<p>Контент статьи отсутствует.</p>');
     const fallbackDescription = stripHtml(article.description || safeContent).slice(0, 160);
     const seoDescription = (article.seoDescription || fallbackDescription).slice(0, 170);
@@ -142,8 +148,8 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       image: article.image || '/og-image.jpg',
       seoTitle: (article.seoTitle || article.title || `Статья ${index + 1}`).slice(0, 70),
       seoDescription,
-      publishedAt: normalizeIsoDate(article.publishedAt, nowIso),
-      updatedAt: normalizeIsoDate(article.updatedAt, nowIso),
+      publishedAt: normalizeOptionalIsoDate(article.publishedAt),
+      updatedAt: normalizeOptionalIsoDate(article.updatedAt),
       tags: extractTags(article),
       summary,
       keyTakeaways: extractKeyTakeaways(article),
@@ -153,7 +159,7 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
   });
 }
 
-function applyFreshnessMetadata(normalized: Article[], previousArticles: Article[]): Article[] {
+export function applyFreshnessMetadata(normalized: Article[], previousArticles: Article[]): Article[] {
   const previousBySlug = new Map(previousArticles.map((article) => [article.slug, article]));
   const nowIso = new Date().toISOString();
 

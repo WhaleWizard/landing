@@ -1,4 +1,4 @@
-import { normalizeArticles } from './jsonbin';
+import { applyFreshnessMetadata, normalizeArticles } from './jsonbin';
 import type { Article, Env } from './types';
 
 interface D1Row {
@@ -92,7 +92,7 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
     throw new Error('D1 is not configured');
   }
 
-  const normalized = normalizeArticles(rawArticles);
+  const normalized = applyFreshnessMetadata(normalizeArticles(rawArticles), existingArticles);
   const nowIso = new Date().toISOString();
   const existingBySlug = new Map(existingArticles.map((article) => [article.slug, article]));
 

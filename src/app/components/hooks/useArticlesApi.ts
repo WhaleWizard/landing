@@ -41,6 +41,12 @@ interface AdminUpdateResponse {
   invalidationFailedCount?: number;
 }
 
+interface AdminArticlesResponse {
+  success: boolean;
+  articles: Article[];
+  error?: string;
+}
+
 function articleIdentityKey(article: Article, index: number): string {
   const slug = String(article?.slug || '').trim();
   if (slug) return `slug:${slug}`;
@@ -84,6 +90,11 @@ function sanitizeArticles(source: Article[]): Article[] {
   return unique.filter((article) => hasValidSlug(article?.slug) && hasImage(article?.image));
 }
 
+function sanitizeAdminArticles(source: Article[]): Article[] {
+  const unique = dedupeBySlug(asArticleArray(source));
+  return unique.filter((article) => hasValidSlug(article?.slug));
+}
+
 function asIsoTimestamp(value?: string): number {
   if (!value) return 0;
   const ts = Date.parse(value);
@@ -96,6 +107,10 @@ function articleRecencyScore(article?: Article): number {
     asIsoTimestamp(article.updatedAt),
     asIsoTimestamp(article.publishedAt),
   );
+}
+
+function datasetRecencyScore(articles: Article[]): number {
+  return articles.reduce((freshest, article) => Math.max(freshest, articleRecencyScore(article)), 0);
 }
 
 function pickPreferredArticle(current: Article | undefined, incoming: Article): Article {
@@ -212,6 +227,17 @@ async function resolveFallbackArticles(): Promise<Article[]> {
   return merged;
 }
 
+async function preferRicherLocalSeed(primaryArticles: Article[]): Promise<Article[]> {
+  const localSeed = await fetchLocalSeedFallback().then((articles) => sanitizeArticles(articles));
+  if (
+    localSeed.length > primaryArticles.length &&
+    datasetRecencyScore(primaryArticles) <= datasetRecencyScore(localSeed)
+  ) {
+    return localSeed;
+  }
+  return primaryArticles;
+}
+
 export const fetchArticles = async (options?: { bypassCache?: boolean }): Promise<Article[]> => {
   try {
     const endpoint = options?.bypassCache
@@ -231,9 +257,11 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
     if (primaryArticles.length > 0) {
-      // API is source of truth for admin operations. Do not restore deleted records from stale fallbacks.
-      saveLocalArticlesBackup(primaryArticles);
-      return primaryArticles;
+      const articles = options?.bypassCache
+        ? primaryArticles
+        : await preferRicherLocalSeed(primaryArticles);
+      saveLocalArticlesBackup(articles);
+      return articles;
     }
 
     return resolveFallbackArticles();
@@ -241,6 +269,25 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     console.error('fetchArticles error:', error);
     return resolveFallbackArticles();
   }
+};
+
+export const fetchAdminArticles = async (password: string): Promise<Article[]> => {
+  const res = await fetch(`${API_ROUTES.adminArticles}?_=${Date.now()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Password': password,
+    },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+
+  const payload = (await res.json().catch(() => null)) as AdminArticlesResponse | null;
+  if (!res.ok || !payload?.success) {
+    throw new Error(payload?.error || `HTTP ${res.status}`);
+  }
+
+  return sanitizeAdminArticles(asArticleArray(payload.articles));
 };
 
 export const saveArticles = async (articles: Article[], password: string): Promise<AdminUpdateResponse> => {

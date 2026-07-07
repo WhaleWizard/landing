@@ -3,7 +3,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
 import { fetchArticlesFromD1, writeArticlesToD1 } from '../../_lib/d1';
-import { shouldUseD1Articles } from '../../_lib/articles';
+import { fetchArticlesWithFallback, shouldUseD1Articles } from '../../_lib/articles';
 import { json } from '../../_lib/http';
 import type { Article, Env } from '../../_lib/types';
 
@@ -20,6 +20,7 @@ const MAX_ARTICLES = 500;
 const MAX_CONTENT_LENGTH = 120_000;
 const MAX_TEXT_LENGTH = 2_000;
 const ALLOWED_INDEXNOW_HOSTS = new Set(['api.indexnow.org']);
+const PROTECTED_ARTICLE_SLUG = 'kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh';
 
 function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');
@@ -108,6 +109,41 @@ function isValidArticlePayload(article: Article): boolean {
   return true;
 }
 
+function findProtectedArticle(articles: Article[]): Article | undefined {
+  return articles.find((article) => article.slug === PROTECTED_ARTICLE_SLUG);
+}
+
+function comparableProtectedArticle(article: Article): Record<string, unknown> {
+  return {
+    slug: article.slug || '',
+    title: article.title || '',
+    category: article.category || '',
+    readTime: article.readTime || '',
+    date: article.date || '',
+    description: article.description || '',
+    content: article.content || '',
+    image: article.image || '',
+    seoTitle: article.seoTitle || '',
+    seoDescription: article.seoDescription || '',
+    publishedAt: article.publishedAt || '',
+    tags: article.tags || [],
+    summary: article.summary || '',
+    keyTakeaways: article.keyTakeaways || [],
+    faq: article.faq || [],
+    status: article.status || 'published',
+  };
+}
+
+function isProtectedArticleUnchanged(existing: Article[], incoming: Article[]): boolean {
+  const currentProtected = findProtectedArticle(existing);
+  if (!currentProtected) return true;
+
+  const nextProtected = findProtectedArticle(incoming);
+  if (!nextProtected) return false;
+
+  return JSON.stringify(comparableProtectedArticle(currentProtected)) === JSON.stringify(comparableProtectedArticle(nextProtected));
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
@@ -131,6 +167,46 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       headers: { 'Cache-Control': CACHE_CONTROL.noStore },
     },
   );
+};
+
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  const rateLimited = await enforceRateLimit(request, 'admin');
+  if (rateLimited) return rateLimited;
+
+  const password = String(request.headers.get('X-Admin-Password') || '');
+
+  if (!verifyAdminPassword(password, env)) {
+    return json(
+      { success: false, error: 'Unauthorized' },
+      {
+        status: 401,
+        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
+      },
+    );
+  }
+
+  try {
+    const articles = await fetchArticlesWithFallback(env, request);
+    articles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+
+    return json(
+      { success: true, articles },
+      {
+        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
+      },
+    );
+  } catch (error) {
+    return json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to load admin articles',
+      },
+      {
+        status: 502,
+        headers: { 'Cache-Control': CACHE_CONTROL.noStore },
+      },
+    );
+  }
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
@@ -181,6 +257,19 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   try {
     const useD1 = shouldUseD1Articles(env);
     const existing = useD1 ? await fetchArticlesFromD1(env) : await fetchArticlesFromJsonBin(env);
+
+    if (!isProtectedArticleUnchanged(existing, payload.articles)) {
+      return json(
+        {
+          success: false,
+          error: `Protected article "${PROTECTED_ARTICLE_SLUG}" cannot be changed through admin updates`,
+        },
+        {
+          status: 409,
+          headers: { 'Cache-Control': CACHE_CONTROL.noStore },
+        },
+      );
+    }
 
     if (existing.length > 0 && payload.articles.length === 0) {
       return json(

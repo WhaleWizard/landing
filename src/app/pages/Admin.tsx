@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
-  Search, Copy, Calendar, EyeOff, Upload, GripVertical
+  Search, Copy, Calendar, EyeOff, Upload, GripVertical,
+  ShieldCheck, ExternalLink
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -37,6 +38,50 @@ async function verifyAdminPassword(password: string): Promise<boolean> {
   return Boolean(payload?.success);
 }
 
+const PROTECTED_ARTICLE_SLUG = 'kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh';
+const CASES_CATEGORY = 'Кейсы';
+
+function isProtectedArticle(article?: Pick<Article, 'slug'> | null): boolean {
+  return article?.slug === PROTECTED_ARTICLE_SLUG;
+}
+
+function stripHtmlToText(html = ''): string {
+  return String(html)
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function countWords(text = ''): number {
+  const normalized = text.trim();
+  return normalized ? normalized.split(/\s+/).length : 0;
+}
+
+function snapshotArticle(article: Article | null): string {
+  if (!article) return '';
+  return JSON.stringify({
+    id: article.id || 0,
+    slug: article.slug || '',
+    title: article.title || '',
+    category: article.category || '',
+    readTime: article.readTime || '',
+    date: article.date || '',
+    description: article.description || '',
+    summary: article.summary || '',
+    content: article.content || '',
+    image: article.image || '',
+    seoTitle: article.seoTitle || '',
+    seoDescription: article.seoDescription || '',
+    publishedAt: article.publishedAt || '',
+    status: article.status || 'published',
+    tags: article.tags || [],
+    keyTakeaways: article.keyTakeaways || [],
+    faq: article.faq || [],
+  });
+}
+
 const themeTokens = {
   light: {
     '--adm-bg': '#f6f7fb',
@@ -68,6 +113,24 @@ const themeTokens = {
   }
 };
 
+interface AdminThemeContextValue {
+  mode: 'light' | 'dark';
+  toggleMode: () => void;
+}
+
+const AdminThemeContext = createContext<AdminThemeContextValue | null>(null);
+
+function useAdminTheme() {
+  const context = useContext(AdminThemeContext);
+  if (!context) {
+    return {
+      mode: 'light' as const,
+      toggleMode: () => {},
+    };
+  }
+  return context;
+}
+
 function AdminThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<'light' | 'dark'>(() => {
     const stored = localStorage.getItem('ww-admin-theme');
@@ -78,6 +141,10 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('ww-admin-theme', mode);
   }, [mode]);
+
+  const toggleMode = useCallback(() => {
+    setMode((current) => (current === 'dark' ? 'light' : 'dark'));
+  }, []);
 
   const vars = themeTokens[mode] as React.CSSProperties;
 
@@ -99,11 +166,27 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div style={{ ...vars, minHeight: '100vh' }} className="transition-colors duration-300">
-      <div className="bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
-        {children}
+    <AdminThemeContext.Provider value={{ mode, toggleMode }}>
+      <div style={{ ...vars, minHeight: '100vh' }} className="transition-colors duration-300">
+        <div className="bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
+          {children}
+        </div>
       </div>
-    </div>
+    </AdminThemeContext.Provider>
+  );
+}
+
+function AdminThemeToggleButton() {
+  const { mode, toggleMode } = useAdminTheme();
+  return (
+    <button
+      type="button"
+      onClick={toggleMode}
+      className="px-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)]"
+      title={mode === 'dark' ? 'Включить светлую тему' : 'Включить темную тему'}
+    >
+      {mode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
   );
 }
 
@@ -118,25 +201,27 @@ interface AdminArticleItemProps {
   onDuplicate: (article: Article) => void;
   onDelete: (slug: string) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
+  locked: boolean;
 }
 
 
-function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove }: AdminArticleItemProps) {
+function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove, locked }: AdminArticleItemProps) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ADMIN_DND_TYPE,
     item: { index },
+    canDrag: !locked,
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  }), [index]);
+  }), [index, locked]);
 
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ADMIN_DND_TYPE,
     drop: (dragged: { index: number }) => {
-      if (dragged.index === index) return;
+      if (locked || dragged.index === index) return;
       onMove(dragged.index, index);
       dragged.index = index;
     },
     collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
-  }), [index, onMove]);
+  }), [index, locked, onMove]);
 
   return (
     <div
@@ -145,12 +230,19 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
       }}
       className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'} ${isDragging ? 'opacity-60' : ''}`}
     >
-      <button className="p-1.5 rounded-lg text-[var(--adm-fg)]/50 cursor-grab active:cursor-grabbing" title="Перетащить">
-        <GripVertical className="w-4 h-4" />
+      <button
+        className={`p-1.5 rounded-lg text-[var(--adm-fg)]/50 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'}`}
+        title={locked ? 'Статья защищена от изменений' : 'Перетащить'}
+        disabled={locked}
+      >
+        {locked ? <ShieldCheck className="w-4 h-4" /> : <GripVertical className="w-4 h-4" />}
       </button>
       <button onClick={() => onEdit(article)} className="flex-1 text-left truncate">
         <div className="font-medium truncate flex items-center gap-2">
           {article.title}
+          {locked && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]">защищена</span>
+          )}
           {article.status === 'draft' ? (
             <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">черновик</span>
           ) : article.publishedAt && new Date(article.publishedAt) > new Date() ? (
@@ -161,10 +253,20 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
         </div>
         <div className="text-xs text-[var(--adm-fg)]/60 truncate">{article.slug}</div>
       </button>
-      <button onClick={() => onDuplicate(article)} className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60" title="Дублировать">
+      <button
+        onClick={() => onDuplicate(article)}
+        disabled={locked}
+        className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-40 disabled:cursor-not-allowed"
+        title={locked ? 'Защищенную статью нельзя дублировать' : 'Дублировать'}
+      >
         <Copy className="w-4 h-4" />
       </button>
-      <button onClick={() => onDelete(article.slug)} className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors" title="Удалить">
+      <button
+        onClick={() => onDelete(article.slug)}
+        disabled={locked}
+        className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        title={locked ? 'Защищенную статью нельзя удалить' : 'Удалить'}
+      >
         <Trash2 className="w-4 h-4" />
       </button>
     </div>
@@ -189,16 +291,68 @@ export default function Admin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const { articles, loading, forceRefreshArticles, updateArticles } = useArticles();
+  const { articles, loading, forceRefreshAdminArticles, updateArticles } = useArticles();
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [savedArticleSnapshot, setSavedArticleSnapshot] = useState('');
   const [sourceLabel, setSourceLabel] = useState<string>('unknown');
   const navigate = useNavigate();
   const faqText = editingArticle?.faq?.map((item) => `${item.question}::${item.answer}`).join('\n') || '';
   const takeawaysText = editingArticle?.keyTakeaways?.join('\n') || '';
+  const tagsText = editingArticle?.tags?.join('\n') || '';
 
   const { query, setQuery, filtered } = useFilteredArticles(articles);
   const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
+  const currentArticleSnapshot = useMemo(() => snapshotArticle(editingArticle), [editingArticle]);
+  const hasUnsavedChanges = Boolean(editingArticle && currentArticleSnapshot !== savedArticleSnapshot);
+  const isEditingProtected = Boolean(
+    editingArticle && (
+      isProtectedArticle(editingArticle) ||
+      articles.some((article) => article.id === editingArticle.id && isProtectedArticle(article))
+    )
+  );
+  const filteredBySection = useMemo(() => {
+    return filtered.filter((article) => (
+      adminSectionFilter === 'all'
+        ? true
+        : adminSectionFilter === 'cases'
+          ? article.category === CASES_CATEGORY
+          : article.category !== CASES_CATEGORY
+    ));
+  }, [adminSectionFilter, filtered]);
+  const articleStats = useMemo(() => {
+    const drafts = articles.filter((article) => article.status === 'draft').length;
+    const planned = articles.filter((article) => (
+      article.status !== 'draft' &&
+      article.publishedAt &&
+      new Date(article.publishedAt) > new Date()
+    )).length;
+    return { total: articles.length, drafts, planned, shown: filteredBySection.length };
+  }, [articles, filteredBySection.length]);
+  const contentStats = useMemo(() => {
+    const text = stripHtmlToText(editingArticle?.content || '');
+    return {
+      words: countWords(text),
+      chars: text.length,
+      seoTitle: (editingArticle?.seoTitle || '').length,
+      seoDescription: (editingArticle?.seoDescription || '').length,
+      description: (editingArticle?.description || '').length,
+    };
+  }, [editingArticle?.content, editingArticle?.description, editingArticle?.seoDescription, editingArticle?.seoTitle]);
+
+  const openArticleEditor = useCallback((article: Article, options?: { dirty?: boolean; slugEdited?: boolean }) => {
+    const draft = { ...article };
+    setEditingArticle(draft);
+    setSavedArticleSnapshot(options?.dirty ? '' : snapshotArticle(draft));
+    setSlugManuallyEdited(Boolean(options?.slugEdited));
+  }, []);
+
+  const closeArticleEditor = useCallback(() => {
+    if (hasUnsavedChanges && !confirm('Есть несохраненные изменения. Закрыть редактор?')) return;
+    setEditingArticle(null);
+    setSavedArticleSnapshot('');
+    setSlugManuallyEdited(false);
+  }, [hasUnsavedChanges]);
 
   const refreshHealth = async () => {
     try {
@@ -224,6 +378,7 @@ export default function Admin() {
     try {
       const ok = await verifyAdminPassword(password);
       if (ok) {
+        await forceRefreshAdminArticles(password);
         setIsAuthenticated(true);
         setError('');
       } else {
@@ -250,9 +405,7 @@ export default function Admin() {
   };
 
   const handleContentChange = (html: string) => {
-    if (editingArticle) {
-      setEditingArticle({ ...editingArticle, content: html });
-    }
+    setEditingArticle((current) => current ? { ...current, content: html } : current);
   };
 
   const uploadFile = async (file: File): Promise<string | null> => {
@@ -266,16 +419,25 @@ export default function Admin() {
         body: form,
         credentials: 'same-origin',
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || `HTTP ${res.status}`);
+      }
       const data = await res.json();
       return data.url || null;
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      alert('Ошибка загрузки файла: ' + message);
       return null;
     }
   };
 
   const handleSave = async (status: Article['status'] = 'published') => {
     if (!editingArticle) return;
+    if (isEditingProtected) {
+      alert('Эта статья защищена от изменений. Ее нельзя сохранять, удалять или перетаскивать через админку.');
+      return;
+    }
     if (!editingArticle.title.trim()) {
       alert('Введите заголовок');
       return;
@@ -288,6 +450,12 @@ export default function Admin() {
     const normalizedArticle: Article = {
       ...editingArticle,
       status,
+      title: editingArticle.title.trim(),
+      slug: editingArticle.slug.trim(),
+      description: editingArticle.description?.trim() || '',
+      seoTitle: editingArticle.seoTitle?.trim() || undefined,
+      seoDescription: editingArticle.seoDescription?.trim() || undefined,
+      tags: (editingArticle.tags || []).map((item) => item.trim()).filter(Boolean).slice(0, 20),
       summary: editingArticle.summary?.trim() || editingArticle.description?.trim() || '',
       keyTakeaways: (editingArticle.keyTakeaways || []).map((item) => item.trim()).filter(Boolean),
       faq: (editingArticle.faq || [])
@@ -335,8 +503,9 @@ export default function Admin() {
         }
         alert(status === 'draft' ? 'Черновик сохранён!' : 'Сохранено!');
         setEditingArticle(null);
+        setSavedArticleSnapshot('');
         setSlugManuallyEdited(false);
-        await forceRefreshArticles();
+        await forceRefreshAdminArticles(password);
         await refreshHealth();
       } else {
         alert('Ошибка сохранения. Проверьте консоль (F12)');
@@ -349,13 +518,17 @@ export default function Admin() {
   };
 
   const handleDelete = async (slug: string) => {
+    if (slug === PROTECTED_ARTICLE_SLUG) {
+      alert('Эта статья защищена от удаления.');
+      return;
+    }
     if (!confirm('Удалить статью?')) return;
     const updated = articles.filter(a => a.slug !== slug);
     try {
       const success = await updateArticles(updated, password);
       if (success) {
         if (editingArticle?.slug === slug) setEditingArticle(null);
-        await forceRefreshArticles();
+        await forceRefreshAdminArticles(password);
         await refreshHealth();
       } else {
         alert('Ошибка удаления');
@@ -367,46 +540,63 @@ export default function Admin() {
   };
 
   const handleDuplicate = (article: Article) => {
+    if (isProtectedArticle(article)) {
+      alert('Защищенную статью нельзя дублировать.');
+      return;
+    }
     const newSlug = `${article.slug}-copy`;
-    setEditingArticle({
+    openArticleEditor({
       ...article,
       id: 0,
       slug: newSlug,
       title: `${article.title} (копия)`,
       date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
-    });
-    setSlugManuallyEdited(true);
+    }, { dirty: true, slugEdited: true });
   };
 
 
   const moveArticle = useCallback((fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= articles.length || toIndex >= articles.length) return;
+    const protectedIndex = articles.findIndex(isProtectedArticle);
+    const crossesProtectedArticle = protectedIndex >= 0 && (
+      (fromIndex < protectedIndex && toIndex >= protectedIndex) ||
+      (fromIndex > protectedIndex && toIndex <= protectedIndex)
+    );
+    if (crossesProtectedArticle) {
+      alert('Нельзя сдвигать защищенную статью. Перемещайте материалы только выше или ниже нее.');
+      return;
+    }
     const reordered = [...articles];
     const [moved] = reordered.splice(fromIndex, 1);
+    const target = articles[toIndex];
+    if (isProtectedArticle(moved) || isProtectedArticle(target)) {
+      alert('Защищенную статью нельзя перетаскивать или сдвигать.');
+      return;
+    }
     reordered.splice(toIndex, 0, moved);
     updateArticles(reordered, password).then(async (success) => {
       if (!success) {
         alert('Не удалось сохранить новый порядок статей');
       }
-      await forceRefreshArticles();
+      await forceRefreshAdminArticles(password);
       await refreshHealth();
     }).catch(async (err) => {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       alert('Ошибка при смене порядка: ' + message);
-      await forceRefreshArticles();
+      await forceRefreshAdminArticles(password);
     });
-  }, [articles, forceRefreshArticles, password, updateArticles]);
+  }, [articles, forceRefreshAdminArticles, password, updateArticles]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (editingArticle) {
+      if (hasUnsavedChanges) {
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [editingArticle]);
+  }, [hasUnsavedChanges]);
 
   if (!isAuthenticated) {
     return (
@@ -418,13 +608,7 @@ export default function Admin() {
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--adm-primary)] to-[var(--adm-primary-strong)] flex items-center justify-center">
                 <Lock className="w-8 h-8 text-white" />
               </div>
-              <button onClick={() => {
-                const newMode = localStorage.getItem('ww-admin-theme') === 'dark' ? 'light' : 'dark';
-                localStorage.setItem('ww-admin-theme', newMode);
-                window.location.reload();
-              }} className="px-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)]">
-                {localStorage.getItem('ww-admin-theme') === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
+              <AdminThemeToggleButton />
             </div>
             <h2 className="text-2xl font-semibold text-center mb-2">Вход в админку</h2>
             <p className="text-center text-sm text-[var(--adm-fg)]/70 mb-6">Безопасный вход в CMS для управления контентом.</p>
@@ -449,15 +633,9 @@ export default function Admin() {
           <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-3xl font-semibold bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Управление статьями</h1>
             <div className="flex items-center gap-3">
-              <button onClick={() => {
-                const newMode = localStorage.getItem('ww-admin-theme') === 'dark' ? 'light' : 'dark';
-                localStorage.setItem('ww-admin-theme', newMode);
-                window.location.reload();
-              }} className="px-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)]">
-                {localStorage.getItem('ww-admin-theme') === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
+              <AdminThemeToggleButton />
               <span className="text-xs px-2.5 py-1.5 rounded-full bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] border border-[var(--adm-primary)]/30">Источник: {sourceLabel}</span>
-              <button onClick={async () => { await forceRefreshArticles(); await refreshHealth(); }} className="text-sm text-[var(--adm-fg)]/70 hover:text-[var(--adm-primary)] transition-colors">Обновить из API (no-cache)</button>
+              <button onClick={async () => { await forceRefreshAdminArticles(password); await refreshHealth(); }} className="text-sm text-[var(--adm-fg)]/70 hover:text-[var(--adm-primary)] transition-colors">Обновить из API (no-cache)</button>
               <button onClick={() => navigate('/')} className="text-sm text-[var(--adm-fg)]/70 hover:text-[var(--adm-primary)] transition-colors">← На главную</button>
             </div>
           </div>
@@ -467,16 +645,33 @@ export default function Admin() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">Статьи</h2>
                 <button onClick={() => {
-                  setEditingArticle({
+                  openArticleEditor({
                     id: 0, slug: '', title: '', category: 'Блог', readTime: '5 мин',
                     date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
-                    description: '', summary: '', keyTakeaways: [], faq: [], content: '', image: '',
+                    description: '', summary: '', keyTakeaways: [], faq: [], tags: [], content: '', image: '',
                     status: 'published'
-                  });
-                  setSlugManuallyEdited(false);
+                  }, { dirty: true });
                 }} className="p-2 rounded-lg bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] hover:bg-[var(--adm-primary)]/30 transition-all">
                   <Plus className="w-4 h-4" />
                 </button>
+              </div>
+              <div className="mb-3 grid grid-cols-4 gap-2 text-center">
+                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                  <div className="text-sm font-semibold">{articleStats.total}</div>
+                  <div className="text-[10px] text-[var(--adm-fg)]/55">всего</div>
+                </div>
+                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                  <div className="text-sm font-semibold">{articleStats.shown}</div>
+                  <div className="text-[10px] text-[var(--adm-fg)]/55">видно</div>
+                </div>
+                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                  <div className="text-sm font-semibold">{articleStats.drafts}</div>
+                  <div className="text-[10px] text-[var(--adm-fg)]/55">черн.</div>
+                </div>
+                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                  <div className="text-sm font-semibold">{articleStats.planned}</div>
+                  <div className="text-[10px] text-[var(--adm-fg)]/55">план</div>
+                </div>
               </div>
               <div className="mb-3 flex gap-2">
                 <button onClick={() => setAdminSectionFilter('all')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='all' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Все</button>
@@ -498,17 +693,23 @@ export default function Admin() {
               ) : (
                 <DndProvider backend={HTML5Backend}>
                   <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
-                    {filtered.filter((article) => adminSectionFilter === 'all' ? true : adminSectionFilter === 'cases' ? article.category === 'Кейсы' : article.category !== 'Кейсы').map((article) => {
+                    {filteredBySection.length === 0 && (
+                      <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 p-4 text-sm text-[var(--adm-fg)]/60">
+                        Ничего не найдено. Проверьте поиск или фильтр раздела.
+                      </div>
+                    )}
+                    {filteredBySection.map((article) => {
                       const articleIndex = articles.findIndex((item) => item.slug === article.slug);
                       return (
                         <AdminArticleItem
                           key={article.slug}
                           article={article}
                           index={articleIndex}
-                          onEdit={(item) => { setEditingArticle(item); setSlugManuallyEdited(false); }}
+                          onEdit={(item) => openArticleEditor(item)}
                           onDuplicate={handleDuplicate}
                           onDelete={handleDelete}
                           onMove={moveArticle}
+                          locked={isProtectedArticle(article)}
                         />
                       );
                     })}
@@ -520,6 +721,35 @@ export default function Admin() {
             <div className="lg:col-span-2 p-6 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-lg">
               {editingArticle ? (
                 <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-4 py-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                        <span>{editingArticle.id ? 'Редактирование статьи' : 'Новая статья'}</span>
+                        {hasUnsavedChanges && <span className="text-xs rounded-full bg-yellow-500/15 px-2 py-0.5 text-yellow-500">есть изменения</span>}
+                        {isEditingProtected && <span className="text-xs rounded-full bg-[var(--adm-primary)]/20 px-2 py-0.5 text-[var(--adm-primary)]">защищена</span>}
+                      </div>
+                      <div className="mt-1 text-xs text-[var(--adm-fg)]/55">
+                        {contentStats.words} слов / {contentStats.chars} знаков в тексте
+                      </div>
+                    </div>
+                    {editingArticle.slug && (
+                      <button
+                        type="button"
+                        onClick={() => window.open(`/blog/${editingArticle.slug}`, '_blank', 'noopener,noreferrer')}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] px-3 py-2 text-sm text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50"
+                      >
+                        <ExternalLink className="h-4 w-4" /> Открыть статью
+                      </button>
+                    )}
+                  </div>
+
+                  {isEditingProtected && (
+                    <div className="rounded-xl border border-[var(--adm-primary)]/30 bg-[var(--adm-primary)]/10 px-4 py-3 text-sm text-[var(--adm-fg)]/80">
+                      Эта статья защищена: ее нельзя сохранять, удалять, дублировать или перемещать. Можно только открыть и проверить содержимое.
+                    </div>
+                  )}
+
+                  <fieldset disabled={isEditingProtected} className={`space-y-4 ${isEditingProtected ? 'opacity-70' : ''}`}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Заголовок</label>
@@ -581,6 +811,51 @@ export default function Admin() {
                     <textarea value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                   </div>
 
+                  <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/25 p-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-[var(--adm-fg)]/90">SEO</h3>
+                      <div className="text-xs text-[var(--adm-fg)]/55">
+                        title {contentStats.seoTitle}/70 · description {contentStats.seoDescription}/170 · intro {contentStats.description}/160
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">SEO title</label>
+                      <input
+                        type="text"
+                        value={editingArticle.seoTitle || ''}
+                        maxLength={120}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, seoTitle: e.target.value })}
+                        placeholder={editingArticle.title}
+                        className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
+                      />
+                      <p className="mt-1 text-xs text-[var(--adm-fg)]/50">Лучше держать в районе 50-70 знаков. API пропустит до 120.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">SEO description</label>
+                      <textarea
+                        value={editingArticle.seoDescription || ''}
+                        maxLength={220}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, seoDescription: e.target.value })}
+                        placeholder={editingArticle.description}
+                        rows={3}
+                        className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
+                      />
+                      <p className="mt-1 text-xs text-[var(--adm-fg)]/50">Лучше держать в районе 140-170 знаков. API пропустит до 220.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Теги (по одному на строку)</label>
+                      <textarea
+                        value={tagsText}
+                        onChange={(e) => {
+                          const tags = e.target.value.split('\n').map((line) => line.trim()).filter(Boolean);
+                          setEditingArticle({ ...editingArticle, tags });
+                        }}
+                        rows={3}
+                        className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Ключевые тезисы (по одному на строку)</label>
                     <textarea
@@ -630,7 +905,6 @@ export default function Admin() {
                             if (!file) return;
                             const url = await uploadFile(file);
                             if (url) setEditingArticle({ ...editingArticle, image: url });
-                            else alert('Ошибка загрузки');
                           }}
                         />
                       </label>
@@ -645,17 +919,18 @@ export default function Admin() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Содержание статьи</label>
-                    <ArticleEditor content={editingArticle.content} onChange={handleContentChange} onUpload={uploadFile} />
+                    <ArticleEditor content={editingArticle.content} onChange={handleContentChange} onUpload={uploadFile} readOnly={isEditingProtected} />
                   </div>
+                  </fieldset>
 
                   <div className="flex gap-3">
-                    <button onClick={() => handleSave('published')} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg">
+                    <button onClick={() => handleSave('published')} disabled={isEditingProtected} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                       <Save className="w-4 h-4" /> Сохранить и опубликовать
                     </button>
-                    <button onClick={() => handleSave('draft')} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all flex items-center gap-2">
+                    <button onClick={() => handleSave('draft')} disabled={isEditingProtected} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                       <EyeOff className="w-4 h-4" /> Черновик
                     </button>
-                    <button onClick={() => setEditingArticle(null)} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all">Отмена</button>
+                    <button onClick={closeArticleEditor} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all">Отмена</button>
                   </div>
                 </div>
               ) : (

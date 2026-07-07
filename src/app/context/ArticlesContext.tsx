@@ -1,12 +1,13 @@
 // src/app/context/ArticlesContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { fetchArticles, saveArticles, Article } from '../components/hooks/useArticlesApi';
+import { fetchAdminArticles, fetchArticles, saveArticles, Article } from '../components/hooks/useArticlesApi';
 
 interface ArticlesContextType {
   articles: Article[];
   loading: boolean;
   refreshArticles: () => Promise<void>;
   forceRefreshArticles: () => Promise<void>;
+  forceRefreshAdminArticles: (password: string) => Promise<void>;
   updateArticles: (newArticles: Article[], password: string) => Promise<boolean>;
 }
 
@@ -40,6 +41,13 @@ export const ArticlesProvider = ({ children }: Props) => {
   const forceRefreshArticles = async () => {
     setLoading(true);
     const data = await fetchArticles({ bypassCache: true });
+    setArticles(data);
+    setLoading(false);
+  };
+
+  const forceRefreshAdminArticles = async (password: string) => {
+    setLoading(true);
+    const data = await fetchAdminArticles(password);
     setArticles(data);
     setLoading(false);
   };
@@ -91,7 +99,7 @@ export const ArticlesProvider = ({ children }: Props) => {
   }, []);
 
   return (
-    <ArticlesContext.Provider value={{ articles, loading, refreshArticles, forceRefreshArticles, updateArticles }}>
+    <ArticlesContext.Provider value={{ articles, loading, refreshArticles, forceRefreshArticles, forceRefreshAdminArticles, updateArticles }}>
       {children}
     </ArticlesContext.Provider>
   );
