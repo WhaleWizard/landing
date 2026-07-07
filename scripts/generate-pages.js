@@ -343,6 +343,8 @@ function buildOrganizationJsonLd() {
     url: SITE_URL,
     logo: `${SITE_URL}/og-image.jpg`,
     image: `${SITE_URL}/og-image.jpg`,
+    description: 'Performance-маркетинг: настройка и масштабирование рекламы в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
+    email: 'whalewzrd@gmail.com',
     areaServed: ['RU', 'US', 'AE', 'TR', 'EU'],
     serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],
     sameAs: ['https://t.me/white_rsh'],
@@ -968,6 +970,9 @@ function writeRobots() {
 Allow: /
 Disallow: /admin
 Sitemap: ${SITE_URL}/sitemap.xml
+
+# AI assistants: machine-readable site context and content index
+# ${SITE_URL}/llms.txt
 `;
 
   writeFileSync(join(DIST_DIR, 'robots.txt'), robots, 'utf8');
@@ -1031,6 +1036,39 @@ function validateGeneratedOutput() {
   }
 }
 
+// Дописывает в dist/llms.txt автогенерируемый индекс всех статей и кейсов,
+// чтобы ИИ-ассистенты видели полное оглавление контента без обхода сайта.
+function appendLlmsContentIndex(articles) {
+  const llmsPath = join(DIST_DIR, 'llms.txt');
+  if (!existsSync(llmsPath)) return;
+
+  const lines = [
+    '',
+    '## 14) Content index (auto-generated at build)',
+    '',
+    `Generated: ${BUILD_DATE}. Total published items: ${articles.length}.`,
+    '',
+  ];
+
+  const blogArticles = articles.filter((article) => !isCaseArticle(article));
+  const caseArticles = articles.filter((article) => isCaseArticle(article));
+
+  lines.push('### Blog articles');
+  for (const article of blogArticles) {
+    lines.push(`- ${SITE_URL}${getArticlePath(article)} — ${article.seoTitle || article.title}: ${article.seoDescription || article.description}`);
+  }
+
+  if (caseArticles.length > 0) {
+    lines.push('', '### Case studies');
+    for (const article of caseArticles) {
+      lines.push(`- ${SITE_URL}${getArticlePath(article)} — ${article.seoTitle || article.title}: ${article.seoDescription || article.description}`);
+    }
+  }
+
+  const existing = readFileSync(llmsPath, 'utf8');
+  writeFileSync(llmsPath, `${existing.trimEnd()}\n${lines.join('\n')}\n`, 'utf8');
+}
+
 async function main() {
   ensureDir(DIST_DIR);
 
@@ -1046,6 +1084,7 @@ async function main() {
 
   writeSitemap(allRoutes);
   writeRobots();
+  appendLlmsContentIndex(articles);
   validateGeneratedOutput();
 
   console.log(`✅ Generated ${allRoutes.length} static routes`);

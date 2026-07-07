@@ -103,6 +103,8 @@ export default function SEO({
       url: SITE_URL,
       logo: `${SITE_URL}/og-image.jpg`,
       image: absoluteImage,
+      description: 'Performance-маркетинг: настройка и масштабирование рекламы в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
+      email: 'whalewzrd@gmail.com',
       areaServed: ['RU', 'US', 'AE', 'TR', 'EU'],
       serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],
       sameAs: ['https://t.me/white_rsh'],

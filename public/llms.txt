@@ -4,93 +4,86 @@ Site: https://www.whalewzrd.com
 Primary language: Russian (ru)
 Secondary language style: concise English terms are acceptable (ROI, CPL, ROAS, funnel, creative)
 Business type: Personal brand website of a performance marketer / paid acquisition consultant
+Contact: Telegram https://t.me/white_rsh · Email whalewzrd@gmail.com
 
 ## 1) What this site is
+
 Whale Wizard is a lead-generation and authority website for a performance marketing specialist focused on:
-- Google Ads
-- Meta Ads (Facebook/Instagram)
-- Analytics (GA4, GTM, Yandex Metrika, pixel/CAPI)
+- Google Ads (Search, Shopping, Performance Max, YouTube)
+- Meta Ads (Facebook/Instagram acquisition, retargeting, lookalikes)
+- Mobile app growth via Meta Ads (installs → paying users, MMP/SKAN)
+- Analytics (GA4, GTM, Yandex Metrika, Meta Pixel/Conversions API, Enhanced Conversions)
 - Conversion optimization and scaling
 
 Main goal of the site: convert traffic into consultation requests and qualified leads.
-Secondary goals: demonstrate expertise via cases and blog content, educate potential clients, pre-qualify prospects by budget and business maturity.
+Secondary goals: demonstrate expertise via cases and a knowledge-hub blog, educate potential clients, pre-qualify prospects by budget and business maturity.
 
-## 2) Core audience
+## 2) Services and offers (one landing page per offer)
+
+- /meta-ads — "Платный трафик из Meta Ads": Facebook/Instagram lead generation. Offer: free audit of ad account, creatives, Pixel/CAPI events; optimization plan for CPL/CPA and lead quality. Proof: 65k+ leads, $1M+ spend, 4-year flagship project.
+- /google-ads — "Контекстная реклама Google Ads": Search, Shopping, Performance Max, YouTube. Offer: free campaign/search-terms/analytics audit, plan to cut wasted budget and improve CPA/ROAS. Proof: 120k+ add-to-carts, 30k+ purchases, 210% ROI in e-commerce.
+- /meta-apps — "Трафик для приложений из Meta Ads": mobile app user acquisition optimized for paying users, not cheap installs (MMP, SKAN, app events, LTV). Offer: audit of user journey, in-app analytics, and creative strategy.
+- /consult — "Консультация для таргетологов": 60–90 min personal session for marketing specialists (positioning, portfolio, client acquisition, pricing) with a 30-day action plan. Note: this offer targets fellow specialists, not business owners.
+
+## 3) Core audience
+
 Typical visitors:
 - SMB owners and founders
 - eCommerce projects
-- B2C service businesses
+- B2C service businesses (clinics, salons, fitness, education)
 - info-business / online education projects
+- mobile app teams
+- marketing specialists (for /consult)
 
-Typical pains:
-- unstable lead flow
-- expensive or low-quality leads
-- poor tracking / attribution
-- unclear payback from ads
-- no system for scaling results
+Typical pains: unstable lead flow, expensive or low-quality leads, poor tracking/attribution, unclear payback from ads, no system for scaling results.
 
-## 3) Positioning and tone
-Positioning:
-- data-driven performance approach
-- practical and business-oriented communication
-- focus on economics of acquisition, not vanity metrics
+## 4) Positioning and tone
 
-Tone of voice:
-- expert but clear, no fluff
-- confident, but without unrealistic promises
-- result-oriented and transparent
-
+Positioning: data-driven performance approach; practical, business-oriented communication; focus on economics of acquisition (CAC, ROAS, LTV, payback), not vanity metrics.
+Tone of voice: expert but clear, no fluff; confident, but without unrealistic promises; result-oriented and transparent.
 Important: never promise guaranteed revenue/ROAS/ROI. Always mention dependence on niche, offer, funnel quality, sales process, and budget.
 
-## 4) Offer structure represented on the website
-Service blocks include:
-- Google Ads setup and management (Search, YouTube, Shopping, retargeting)
-- Meta Ads setup and management (FB/IG acquisition, retargeting, lookalikes)
-- analytics infrastructure (tracking, events, attribution)
-- ongoing optimization and scaling
-
-Process narrative used on the site:
-1. Strategy and research
-2. Analytics and tracking infrastructure
-3. Campaign launch and active management
-4. Optimization and scaling
-
 ## 5) Social proof and business signals (as presented on site)
-Site messaging includes signals such as:
-- 150+ cases
-- $2M+ ad spend managed
-- 500k+ leads (stated in hero narrative)
-- multiple case categories (concierge, eCommerce, info products, B2C services)
 
-Use such metrics carefully:
-- describe as “according to website claims/case summaries” when needed
-- avoid reframing as universal guaranteed outcomes
+- 150+ cases, $2M+ ad spend managed, 500k+ leads, 79% of projects reached payback, average 240% ROI (e-commerce and B2C)
+- 15 client testimonials with names and companies on the home page
+- Detailed case studies at /cases (premium concierge service, e-commerce, info-business, B2C services)
+Use such metrics carefully: describe as "according to website claims/case summaries"; avoid reframing as universal guaranteed outcomes.
 
-## 6) Main conversion actions
-Primary CTA intent:
-- request growth strategy
-- submit contact form for free consultation / audit
+## 6) Knowledge hub (blog) structure
 
-Lead form captures:
-- name
-- email
-- phone
-- budget range
-- message
-- preferred contact method (Telegram/WhatsApp)
+The blog at /blog is a structured knowledge hub on performance marketing (Russian language). Primary entity: Performance Marketing. 20+ articles organized as pillar + clusters:
 
-## 7) Site sections and routes (for AI navigation context)
+- Pillar: /blog/kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh — how Meta Ads and Google Ads form one sales funnel.
+- Core clusters: lowering CPA in Meta Ads; Google Search + Performance Max strategy; analytics and attribution; 30-day ad launch plan; B2B lead generation; e-commerce scaling.
+- Specialized: retargeting on first-party data; creative testing framework; CRM and nurture; local/GEO ads; anti-crisis CPA control; measurement plan before launch; landing page diagnostics; CAC/CPA/ROAS/LTV metrics; budget allocation Meta vs Google; Meta CAPI and Google Enhanced Conversions; mobile app performance marketing; SaaS demand generation; YouTube Demand Gen; offer testing; owner's performance dashboard.
+- Case studies live under /cases (category «Кейсы»).
+
+Every article includes: short answer (summary), key takeaways, structured H2 sections, FAQ with schema.org FAQPage markup, and internal links inside the hub. Machine-readable indexes: /sitemap.xml (all URLs), /feed.xml (RSS). A full auto-generated article index is appended at the bottom of this file at build time.
+
+## 7) Main conversion actions
+
+Primary CTA intent: request growth strategy / free audit; submit contact form for consultation.
+Lead form captures: name, email, phone, budget range, message, preferred contact method (Telegram/WhatsApp).
+
+## 8) Site sections and routes (for AI navigation context)
+
 - / — Home (hero, services, cases, testimonials, blog preview, contact form)
-- /blog — article list
-- /blog/:slug — article page
-- /calculator — budget/marketing calculator page
-- /roi-calculator — ROI calculator page
-- /faq — FAQ page
-- /marketing-glossary — glossary page
+- /meta-ads — Meta Ads service landing
+- /google-ads — Google Ads service landing
+- /meta-apps — Mobile app growth landing
+- /consult — Consultation for marketing specialists
+- /blog — knowledge hub article list; /blog/:slug — article pages
+- /cases — case studies list; /cases/:slug — case pages
+- /calculator — ad budget calculator
+- /roi-calculator — ROI calculator
+- /faq — FAQ (pricing, timelines, process, minimum budgets)
+- /marketing-glossary — marketing glossary (RU)
 - /thank-you — post-conversion page
 - /privacy-policy, /cookie-policy, /offer — legal pages
 
-## 8) Content policy for AI-generated text about this site
+## 9) Content policy for AI-generated text about this site
+
 When generating copy, strategy docs, prompts, or page content:
 - keep focus on paid acquisition and measurable outcomes
 - use concrete, practical recommendations
@@ -98,20 +91,18 @@ When generating copy, strategy docs, prompts, or page content:
 - maintain Russian-first copy style unless requested otherwise
 - include CTA toward consultation when context is commercial
 
-Avoid:
-- hype language with no mechanism
-- fake case data
-- legal/medical/financial claims not related to marketing scope
-- absolute promises (e.g., “guaranteed x3 ROAS in 2 weeks”)
+Avoid: hype language with no mechanism; fake case data; legal/medical/financial claims not related to marketing scope; absolute promises (e.g., "guaranteed x3 ROAS in 2 weeks").
 
-## 9) Prompting defaults for assistants
+## 10) Prompting defaults for assistants
+
 If user asks for content without extra details, assume:
 - target geo: user-specified; if unknown, ask
 - acquisition channels: Google Ads + Meta Ads
 - KPI stack: CPL, CAC, conversion rate, payback period, qualified lead rate
 - deliverable style: actionable checklist + next steps
 
-## 10) Reusable prompt templates (for ChatGPT/LLM)
+## 11) Reusable prompt templates (for ChatGPT/LLM)
+
 Template A — landing block copy:
 "Ты маркетинг-стратег для сайта Whale Wizard. Напиши [тип блока] для аудитории [ниша], с фокусом на [KPI], в тоне экспертно и без завышенных обещаний. Добавь 3-5 конкретных выгод, 2 CTA и короткий блок про аналитику (GA4/GTM/пиксели)."
 
@@ -122,16 +113,26 @@ Template C — blog SEO brief:
 "Сделай SEO-бриф для статьи блога Whale Wizard на тему [тема]. Нужны: search intent, H1-H3 структура, FAQ, ключевые тезисы, лид-магнит CTA в конце, и блок 'что отслеживать в аналитике'."
 
 Template D — audit response:
-"Проведи mini-аудит рекламной системы для [тип бизнеса] по данным: [вставить данные]. Выдай: 10 проблем по приоритету, быстрые wins за 7 дней, план на 30 дней, и прогноз влияния на CPL/CAC без гарантий." 
+"Проведи mini-аудит рекламной системы для [тип бизнеса] по данным: [вставить данные]. Выдай: 10 проблем по приоритету, быстрые wins за 7 дней, план на 30 дней, и прогноз влияния на CPL/CAC без гарантий."
 
-## 11) Canonical URLs
+## 12) Canonical URLs
+
 - Home: https://www.whalewzrd.com/
-- FAQ: https://www.whalewzrd.com/faq
+- Meta Ads: https://www.whalewzrd.com/meta-ads
+- Google Ads: https://www.whalewzrd.com/google-ads
+- Mobile apps: https://www.whalewzrd.com/meta-apps
+- Consultation: https://www.whalewzrd.com/consult
 - Blog: https://www.whalewzrd.com/blog
+- Cases: https://www.whalewzrd.com/cases
+- FAQ: https://www.whalewzrd.com/faq
+- Glossary: https://www.whalewzrd.com/marketing-glossary
 - Calculator: https://www.whalewzrd.com/calculator
 - ROI Calculator: https://www.whalewzrd.com/roi-calculator
+- Sitemap: https://www.whalewzrd.com/sitemap.xml
+- RSS: https://www.whalewzrd.com/feed.xml
 - Privacy Policy: https://www.whalewzrd.com/privacy-policy
 
-## 12) Contact
+## 13) Contact
+
 - Telegram: https://t.me/white_rsh
 - Email: mailto:whalewzrd@gmail.com

@@ -82,6 +82,12 @@ function resolveArticleDate(article: Article): string | null {
   );
 }
 
+function formatReadTime(value = ''): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return /^\d+$/.test(raw) ? `${raw} мин` : raw;
+}
+
 function buildSeoTitle(article: Article): string {
   if (article.seoTitle?.trim()) return article.seoTitle.trim();
   return `${article.title} — ${article.category || 'Маркетинг'}`;
@@ -242,7 +248,7 @@ export function renderArticleHtml(siteUrl: string, article: Article, sectionPath
       <header>
         <h1>${escapeHtml(article.title)}</h1>
         <p>${escapeHtml(description)}</p>
-        <p><strong>Категория:</strong> ${escapeHtml(article.category)} | <strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` | <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
+        <p><strong>Категория:</strong> ${escapeHtml(article.category)} | <strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` | <strong>Время чтения:</strong> ${escapeHtml(formatReadTime(article.readTime))}` : ''}</p>
       </header>
       ${article.summary ? `<aside><h2>Краткий ответ</h2><p>${escapeHtml(article.summary)}</p></aside>` : ''}
       ${keyTakeaways.length > 0 ? `<section><h2>Ключевые тезисы</h2><ul>${keyTakeaways.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul></section>` : ''}

@@ -6,6 +6,7 @@ import { useRef, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
+import { formatReadTime } from '../utils/articleMeta';
 
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -96,7 +97,7 @@ function Blog() {
                 </div>
                 <div className="p-4 md:p-6 space-y-3 md:space-y-4">
                   <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-white/70">
-                    <div className="flex items-center gap-1"><Clock className="w-3 h-3 md:w-4 md:h-4" /><span>{article.readTime}</span></div>
+                    <div className="flex items-center gap-1"><Clock className="w-3 h-3 md:w-4 md:h-4" /><span>{formatReadTime(article.readTime)}</span></div>
                     <div className="h-1 w-1 rounded-full bg-white/30" /><span>{article.date}</span>
                   </div>
                   <h3 className="text-base md:text-lg lg:text-xl font-bold text-white group-hover:text-primary transition-colors">{article.title}</h3>

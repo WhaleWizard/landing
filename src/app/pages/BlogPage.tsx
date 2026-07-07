@@ -8,6 +8,7 @@ import { useArticles } from '../context/ArticlesContext';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
+import { formatReadTime } from '../utils/articleMeta';
 import { useScrollTo } from '../components/hooks/useScrollTo';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
@@ -291,7 +292,7 @@ function BlogPageComponent() {
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-5">
                 <div className="flex flex-wrap items-center gap-3 text-sm">
                   <span className="px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">{selectedArticle.category}</span>
-                  <div className="flex items-center gap-1 text-muted-foreground"><Clock className="w-4 h-4" /><span>{selectedArticle.readTime}</span></div>
+                  <div className="flex items-center gap-1 text-muted-foreground"><Clock className="w-4 h-4" /><span>{formatReadTime(selectedArticle.readTime)}</span></div>
                   <div className="flex items-center gap-1 text-muted-foreground"><Calendar className="w-4 h-4" /><span>{selectedArticle.date}</span></div>
                 </div>
                 <h1 ref={articleTitleRef} tabIndex={-1} className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent focus:outline-none">{selectedArticle.title}</h1>
@@ -640,7 +641,7 @@ function BlogPageComponent() {
                     <div className="blog-card-body flex flex-1 flex-col p-5 md:p-6">
                       <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" aria-hidden="true" />{article.date}</span>
-                        <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" aria-hidden="true" />{article.readTime}</span>
+                        <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" aria-hidden="true" />{formatReadTime(article.readTime)}</span>
                       </div>
                       <h2 className="text-lg md:text-xl font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2">{article.title}</h2>
                       <p className="text-muted-foreground mt-2.5 text-sm leading-relaxed line-clamp-3 flex-1">{article.description}</p>
