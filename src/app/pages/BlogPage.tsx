@@ -7,9 +7,40 @@ import SEO from '../components/SEO';
 import { useArticles } from '../context/ArticlesContext';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
+import { hasCustomCover } from '../utils/articleCover';
 import { useScrollTo } from '../components/hooks/useScrollTo';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
+
+// useInView должен наблюдать элемент, который монтируется ВМЕСТЕ с хуком.
+// Раньше ref висел на секции, которая появлялась после скелетона загрузки —
+// observer привязывался к null, inView навсегда оставался false, и плексус
+// с орбами стояли замороженными. Обёртки ниже монтируют ref и хук синхронно.
+function InViewPlexus() {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: false, margin: '0px 0px -10% 0px' });
+  return (
+    <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0">
+      <Suspense fallback={null}>
+        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+      </Suspense>
+    </div>
+  );
+}
+
+function ArticleHeroBackdrop() {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: false, margin: '0px 0px -10% 0px' });
+  return (
+    <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0">
+      <div className="absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
+      <div className="absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
+      <Suspense fallback={null}>
+        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+      </Suspense>
+    </div>
+  );
+}
 
 function normalizeTokens(value = '') {
   return String(value)
@@ -88,9 +119,7 @@ function BlogPageComponent() {
   const [activeCategory, setActiveCategory] = useState('');
   const [pendingZipDownload, setPendingZipDownload] = useState(null);
   const contentRef = useRef(null);
-  const sectionRef = useRef(null);
   const articleTitleRef = useRef<HTMLHeadingElement>(null);
-  const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const { scrollToWhenReady } = useScrollTo();
 
   // Прогресс чтения статьи — тонкая полоса под шапкой
@@ -238,18 +267,13 @@ function BlogPageComponent() {
           style={{ scaleX: readingProgress }}
         />
         <section
-          ref={sectionRef}
           data-blog-ui="true"
           className="blog-page blog-page--article min-h-screen bg-background"
           style={{ contain: 'layout style paint' }}
         >
           <div className="relative overflow-hidden pt-16 pb-12 md:pt-24 md:pb-20">
-            <div className="absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
-            <div className="absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
-            {/* Плексус-сеть только в шапке статьи — под текстом статьи её нет, чтобы не мешать чтению */}
-            <Suspense fallback={null}>
-              <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
-            </Suspense>
+            {/* Орбы + плексус только в шапке статьи — под текстом их нет, чтобы не мешать чтению */}
+            <ArticleHeroBackdrop />
             <div className="relative max-w-4xl mx-auto px-4 sm:px-6">
               <div className="flex flex-col gap-3 mb-4 md:mb-0 md:block">
                 <nav className="text-xs text-muted-foreground" aria-label="breadcrumb">
@@ -275,23 +299,24 @@ function BlogPageComponent() {
               </motion.div>
             </div>
           </div>
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
-            <div className="rounded-2xl overflow-hidden border border-border shadow-2xl">
-              <img
-                src={selectedArticle.image}
-                alt={selectedArticle.title}
-                loading="eager"
-                fetchPriority="high"
-                className="w-full h-auto object-cover max-h-[500px]"
-                onError={(event) => {
-                  const target = event.currentTarget;
-                  if (target.dataset.fallbackApplied === 'true') return;
-                  target.dataset.fallbackApplied = 'true';
-                  target.src = '/og-image.jpg';
-                }}
-              />
-            </div>
-          </motion.div>
+          {hasCustomCover(selectedArticle.image) && (
+            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
+              <div className="blog-hero-cover rounded-2xl overflow-hidden border border-border shadow-2xl">
+                <img
+                  src={selectedArticle.image}
+                  alt={selectedArticle.title}
+                  loading="eager"
+                  fetchPriority="high"
+                  className="w-full h-auto object-cover max-h-[500px]"
+                  onError={(event) => {
+                    // Битая обложка — прячем весь блок, статья начинается с текста
+                    const wrap = event.currentTarget.closest('.blog-hero-cover');
+                    if (wrap instanceof HTMLElement) wrap.style.display = 'none';
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap max-w-3xl mx-auto px-4 sm:px-6 pb-20">
             {selectedArticle.summary && (
               <aside className="mb-8 rounded-2xl border border-primary/30 bg-primary/10 p-5">
@@ -380,9 +405,7 @@ function BlogPageComponent() {
 
             {/* Финальный CTA с плексус-сетью — после текста, чтению не мешает */}
             <div className="relative mt-12 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-b from-primary/10 via-card/60 to-card/80 px-5 py-10 text-center sm:px-8 md:py-12">
-              <Suspense fallback={null}>
-                <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
-              </Suspense>
+              <InViewPlexus />
               <div className="relative z-10">
                 <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
                   <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -493,15 +516,12 @@ function BlogPageComponent() {
         url={routeBase}
       />
       <section
-        ref={sectionRef}
         data-blog-ui="true"
         className="blog-page blog-page--list relative min-h-screen overflow-hidden bg-background py-20 px-4 sm:px-6"
         style={{ contain: 'layout style paint' }}
       >
         {/* Плексус-сеть на весь список: карточки почти непрозрачные, сеть видна в промежутках и не мешает чтению */}
-        <Suspense fallback={null}>
-          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
-        </Suspense>
+        <InViewPlexus />
 
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="flex justify-end mb-4"><button onClick={goHome} className="blog-touch-target text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none">← На главную</button></div>
@@ -594,21 +614,27 @@ function BlogPageComponent() {
                   onClick={() => navigate(`${routeBase}/${article.slug}`)}
                 >
                   <div className="blog-card h-full flex flex-col overflow-hidden rounded-2xl border border-border bg-card/70 backdrop-blur-sm transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10">
-                    <div className="blog-card-cover relative aspect-[16/9] overflow-hidden">
-                      <img
-                        src={article.image}
-                        alt=""
-                        loading={i < 2 ? 'eager' : 'lazy'}
-                        decoding="async"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                        onError={(event) => {
-                          const target = event.currentTarget;
-                          if (target.dataset.fallbackApplied === 'true') return;
-                          target.dataset.fallbackApplied = 'true';
-                          target.src = '/og-image.jpg';
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" aria-hidden="true" />
+                    <div className="blog-card-cover relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-[#181430] via-[#121220] to-[#0d1726]">
+                      {/* Градиентная подложка видна для статей без своей обложки и при ошибке загрузки картинки */}
+                      <div className="absolute -top-10 -left-10 h-44 w-44 rounded-full bg-primary/25 blur-3xl" aria-hidden="true" />
+                      <div className="absolute -bottom-12 -right-8 h-48 w-48 rounded-full bg-accent/20 blur-3xl" aria-hidden="true" />
+                      <span className="absolute inset-0 flex select-none items-center justify-center text-3xl md:text-4xl font-black tracking-tight text-foreground/[0.08]" aria-hidden="true">Whale Wizard</span>
+                      {hasCustomCover(article.image) && (
+                        <>
+                          <img
+                            src={article.image}
+                            alt=""
+                            loading={i < 2 ? 'eager' : 'lazy'}
+                            decoding="async"
+                            className="relative h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                            onError={(event) => {
+                              // Битая обложка — прячем картинку, остаётся градиентная подложка
+                              event.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" aria-hidden="true" />
+                        </>
+                      )}
                       <span className="absolute left-3 bottom-3 rounded-full bg-black/55 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">{article.category}</span>
                     </div>
                     <div className="blog-card-body flex flex-1 flex-col p-5 md:p-6">

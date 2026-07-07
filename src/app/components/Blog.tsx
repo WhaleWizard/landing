@@ -5,6 +5,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useRef, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
+import { hasCustomCover } from '../utils/articleCover';
 
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -80,8 +81,14 @@ function Blog() {
           {articles.map((article) => (
             <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
-                <div className="relative h-44 sm:h-48 md:h-56 overflow-hidden">
-                  <ImageWithFallback src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                <div className="relative h-44 sm:h-48 md:h-56 overflow-hidden bg-gradient-to-br from-[#181430] via-[#121220] to-[#0d1726]">
+                  {/* Статьи без своей обложки получают градиентную подложку вместо повторяющегося брендового изображения */}
+                  <div className="absolute -top-10 -left-10 h-40 w-40 rounded-full bg-primary/25 blur-3xl" aria-hidden="true" />
+                  <div className="absolute -bottom-12 -right-8 h-44 w-44 rounded-full bg-accent/20 blur-3xl" aria-hidden="true" />
+                  <span className="absolute inset-0 flex select-none items-center justify-center text-2xl font-black tracking-tight text-white/[0.08]" aria-hidden="true">Whale Wizard</span>
+                  {hasCustomCover(article.image) && (
+                    <ImageWithFallback src={article.image} alt={article.title} className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 py-1 md:px-4 md:py-2 rounded-full bg-primary/30 backdrop-blur-md border border-white/20">
                     <span className="text-xs md:text-sm font-semibold text-white">{article.category}</span>

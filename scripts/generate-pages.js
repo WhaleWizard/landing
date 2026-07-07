@@ -1025,11 +1025,9 @@ function validateGeneratedOutput() {
     `${SITE_URL}/admin/`,
   ], 'Generated /admin HTML');
 
-  assertFileContains(join(DIST_DIR, '_redirects'), [
-    '/og-image.jpg /images/meta.jpg 200',
-  ], 'Generated redirects');
-  if (!existsSync(join(DIST_DIR, 'images', 'meta.jpg'))) {
-    throw new Error('dist/images/meta.jpg is missing. OG image rewrite target is unavailable.');
+  // og-image.jpg теперь реальный файл в public/, редирект на images/meta.jpg удалён
+  if (!existsSync(join(DIST_DIR, 'og-image.jpg'))) {
+    throw new Error('dist/og-image.jpg is missing. OG image is unavailable.');
   }
 }
 
