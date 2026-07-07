@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
-  ShieldCheck, ExternalLink
+  ShieldCheck, ExternalLink, History, RotateCcw
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -80,6 +80,112 @@ function snapshotArticle(article: Article | null): string {
     keyTakeaways: article.keyTakeaways || [],
     faq: article.faq || [],
   });
+}
+
+// Автосохранение черновика: страховка от закрытия вкладки/падения браузера.
+const EDITOR_BACKUP_KEY = 'ww-admin-editor-backup-v1';
+
+type EditorBackup = { article: Article; savedAt: number };
+
+function readEditorBackup(): EditorBackup | null {
+  try {
+    const raw = localStorage.getItem(EDITOR_BACKUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as EditorBackup;
+    if (!parsed?.article || typeof parsed.article !== 'object' || !parsed.savedAt) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function formatVersionDate(raw: string): string {
+  // SQLite CURRENT_TIMESTAMP отдаёт UTC без таймзоны — приводим к ISO с Z
+  const isoCandidate = raw.includes('T') ? raw : `${raw.replace(' ', 'T')}Z`;
+  const parsed = new Date(isoCandidate);
+  return Number.isNaN(parsed.getTime()) ? raw : parsed.toLocaleString('ru-RU');
+}
+
+type ArticleVersionRow = { id: number; slug: string; version_data: string; created_at: string };
+
+interface ArticleVersionsPanelProps {
+  slug: string;
+  password: string;
+  onRestore: (article: Article) => void;
+}
+
+function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPanelProps) {
+  const [versions, setVersions] = useState<ArticleVersionRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadVersions = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/article-versions?slug=${encodeURIComponent(slug)}`, {
+        headers: { 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok || !payload?.success) {
+        throw new Error(res.status === 503 ? 'История версий доступна только на продакшене (нужна база D1)' : payload?.error || `HTTP ${res.status}`);
+      }
+      setVersions(Array.isArray(payload.versions) ? payload.versions : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить версии');
+      setVersions(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [password, slug]);
+
+  const restoreVersion = (row: ArticleVersionRow) => {
+    try {
+      const parsed = JSON.parse(row.version_data) as Article;
+      if (!parsed || typeof parsed !== 'object' || !parsed.title) throw new Error('invalid payload');
+      if (!confirm(`Восстановить версию от ${formatVersionDate(row.created_at)}? Текущие несохранённые изменения в редакторе будут заменены.`)) return;
+      onRestore(parsed);
+    } catch {
+      alert('Не удалось прочитать данные этой версии.');
+    }
+  };
+
+  return (
+    <details className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/25">
+      <summary
+        onClick={() => { if (versions === null && !loading) void loadVersions(); }}
+        className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-semibold text-[var(--adm-fg)]/90"
+      >
+        <History className="w-4 h-4" /> История версий
+      </summary>
+      <div className="space-y-2 px-4 pb-4">
+        {loading && <div className="text-sm text-[var(--adm-fg)]/60">Загрузка…</div>}
+        {error && (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--adm-danger)]">
+            <span>{error}</span>
+            <button type="button" onClick={() => void loadVersions()} className="rounded-lg border border-[var(--adm-border)] px-3 py-1 text-xs text-[var(--adm-fg)]/80 hover:bg-[var(--adm-muted)]/50">Повторить</button>
+          </div>
+        )}
+        {versions?.length === 0 && !loading && !error && (
+          <div className="text-sm text-[var(--adm-fg)]/60">Версий пока нет — они появляются после каждого сохранения.</div>
+        )}
+        {(versions || []).map((row) => (
+          <div key={row.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-card)] px-3 py-2">
+            <span className="text-sm text-[var(--adm-fg)]/80">{formatVersionDate(row.created_at)}</span>
+            <button
+              type="button"
+              onClick={() => restoreVersion(row)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs text-[var(--adm-fg)] hover:bg-[var(--adm-primary)]/10 hover:text-[var(--adm-primary)] transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Восстановить
+            </button>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 const themeTokens = {
@@ -347,12 +453,39 @@ export default function Admin() {
     setSlugManuallyEdited(Boolean(options?.slugEdited));
   }, []);
 
+  const [editorBackup, setEditorBackup] = useState<EditorBackup | null>(() => readEditorBackup());
+
+  const clearEditorBackup = useCallback(() => {
+    try {
+      localStorage.removeItem(EDITOR_BACKUP_KEY);
+    } catch {
+      // storage может быть недоступен — не критично
+    }
+    setEditorBackup(null);
+  }, []);
+
+  // Автосохранение открытого черновика раз в ~800мс после изменений
+  useEffect(() => {
+    if (!editingArticle || !hasUnsavedChanges || isEditingProtected) return;
+    const timer = window.setTimeout(() => {
+      try {
+        const backup: EditorBackup = { article: editingArticle, savedAt: Date.now() };
+        localStorage.setItem(EDITOR_BACKUP_KEY, JSON.stringify(backup));
+        setEditorBackup(backup);
+      } catch {
+        // например, переполнен localStorage — просто пропускаем
+      }
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [editingArticle, hasUnsavedChanges, isEditingProtected]);
+
   const closeArticleEditor = useCallback(() => {
     if (hasUnsavedChanges && !confirm('Есть несохраненные изменения. Закрыть редактор?')) return;
     setEditingArticle(null);
     setSavedArticleSnapshot('');
     setSlugManuallyEdited(false);
-  }, [hasUnsavedChanges]);
+    clearEditorBackup();
+  }, [hasUnsavedChanges, clearEditorBackup]);
 
   const refreshHealth = async () => {
     try {
@@ -505,6 +638,7 @@ export default function Admin() {
         setEditingArticle(null);
         setSavedArticleSnapshot('');
         setSlugManuallyEdited(false);
+        clearEditorBackup();
         await forceRefreshAdminArticles(password);
         await refreshHealth();
       } else {
@@ -923,6 +1057,19 @@ export default function Admin() {
                   </div>
                   </fieldset>
 
+                  {Boolean(editingArticle.id) && editingArticle.slug && !isEditingProtected && (
+                    <ArticleVersionsPanel
+                      key={editingArticle.slug}
+                      slug={editingArticle.slug}
+                      password={password}
+                      onRestore={(article) => {
+                        // Восстановленная версия применяется как несохранённые изменения:
+                        // snapshot не трогаем, чтобы сработала защита от случайного закрытия.
+                        setEditingArticle({ ...article, id: editingArticle.id, slug: editingArticle.slug });
+                      }}
+                    />
+                  )}
+
                   <div className="flex gap-3">
                     <button onClick={() => handleSave('published')} disabled={isEditingProtected} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                       <Save className="w-4 h-4" /> Сохранить и опубликовать
@@ -934,7 +1081,30 @@ export default function Admin() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-12 text-[var(--adm-fg)]/60">Выберите статью из списка или создайте новую</div>
+                <div className="space-y-6 py-6">
+                  {editorBackup && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+                      <div className="text-sm text-[var(--adm-fg)]/85">
+                        Найден автосохранённый черновик «{editorBackup.article.title || 'Без названия'}» от {new Date(editorBackup.savedAt).toLocaleString('ru-RU')}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openArticleEditor(editorBackup.article, { dirty: true, slugEdited: true })}
+                          className="rounded-lg bg-[var(--adm-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                        >
+                          Восстановить
+                        </button>
+                        <button
+                          onClick={() => { if (confirm('Удалить автосохранённый черновик?')) clearEditorBackup(); }}
+                          className="rounded-lg border border-[var(--adm-border)] px-4 py-2 text-sm text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50 transition-colors"
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-center py-6 text-[var(--adm-fg)]/60">Выберите статью из списка или создайте новую</div>
+                </div>
               )}
             </div>
           </div>

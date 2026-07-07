@@ -26,7 +26,7 @@ const CONFIG = {
   ],
   ALLOWED_ATTR: [
     'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading',
-    'width', 'height', 'data-ww-block',
+    'width', 'height', 'data-ww-block', 'data-ww-tone',
     'id', 'role', 'aria-label',
     'colspan', 'rowspan', 'scope',
     'srcset', 'sizes',

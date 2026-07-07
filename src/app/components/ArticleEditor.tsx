@@ -6,6 +6,10 @@ import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 type BlockType = 'heading' | 'paragraph' | 'accent' | 'card' | 'quote' | 'image' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
 type HeadingLevel = 2 | 3;
+// Тон карточки. Сайт всегда тёмный, поэтому «белый» вариант обязан прописывать
+// тёмный цвет текста инлайном прямо на <p> — иначе текст унаследует почти белый
+// --blog-text из blog-readable.css и станет невидимым на белом фоне.
+type CardTone = 'dark' | 'light' | 'accent';
 
 interface MediaItem {
   url: string;
@@ -17,6 +21,7 @@ interface ContentBlock {
   type: BlockType;
   text?: string;
   level?: HeadingLevel;
+  tone?: CardTone;
   imageUrl?: string;
   imageAlt?: string;
   items?: MediaItem[];
@@ -76,8 +81,16 @@ function blockToHtml(block: ContentBlock): string {
       return `<p data-ww-block="paragraph" style="margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;">${escapeHtml(block.text || '')}</p>`;
     case 'accent':
       return `<div data-ww-block="accent" style="margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;"><p style="margin:0;line-height:1.8;">${escapeHtml(block.text || '')}</p></div>`;
-    case 'card':
+    case 'card': {
+      const tone: CardTone = block.tone === 'light' || block.tone === 'accent' ? block.tone : 'dark';
+      if (tone === 'light') {
+        return `<div data-ww-block="card" data-ww-tone="light" style="margin:1.1em 0;padding:1em 1.15em;background:#f7f8fb;border:1px solid rgba(10,12,20,.1);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;color:#141824;">${escapeHtml(block.text || '')}</p></div>`;
+      }
+      if (tone === 'accent') {
+        return `<div data-ww-block="card" data-ww-tone="accent" style="margin:1.1em 0;padding:1em 1.15em;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.28);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;">${escapeHtml(block.text || '')}</p></div>`;
+      }
       return `<div data-ww-block="card" style="margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;">${escapeHtml(block.text || '')}</p></div>`;
+    }
     case 'quote':
       return `<blockquote data-ww-block="quote" style="margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;">${escapeHtml(block.text || '')}</blockquote>`;
     case 'image': {
@@ -124,7 +137,11 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
   const wwType = node.getAttribute('data-ww-block');
 
   if (wwType === 'accent') return { id: uid(), type: 'accent', text: node.textContent?.trim() || '' };
-  if (wwType === 'card') return { id: uid(), type: 'card', text: node.textContent?.trim() || '' };
+  if (wwType === 'card') {
+    const rawTone = node.getAttribute('data-ww-tone');
+    const tone: CardTone = rawTone === 'light' || rawTone === 'accent' ? rawTone : 'dark';
+    return { id: uid(), type: 'card', tone, text: node.textContent?.trim() || '' };
+  }
   if (wwType === 'downloadButton') {
     const link = node.querySelector('a');
     return { id: uid(), type: 'downloadButton', downloadUrl: link?.getAttribute('href') || '', downloadLabel: link?.textContent?.trim() || 'Скачать' };
@@ -286,19 +303,19 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
     <div
       ref={ref}
       onClick={() => onSelect(block.id)}
-      className={`rounded-xl border bg-card/30 p-3 space-y-3 transition ${selected ? 'border-primary/70 ring-1 ring-primary/40' : 'border-border'} ${isOver && canDrop ? 'border-primary/80' : ''}`}
+      className={`rounded-xl border bg-[var(--adm-card)] p-3 space-y-3 transition ${selected ? 'border-[var(--adm-primary)]/70 ring-1 ring-[var(--adm-primary)]/40' : 'border-[var(--adm-border)]'} ${isOver && canDrop ? 'border-[var(--adm-primary)]/80' : ''}`}
       style={{ opacity: isDragging ? 0.45 : 1 }}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="inline-flex items-center gap-2">
-          <button type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 cursor-grab active:cursor-grabbing" title="Перетащить">
+          <button type="button" className="rounded-md p-1.5 text-[var(--adm-fg)]/60 hover:bg-[var(--adm-primary)]/10 cursor-grab active:cursor-grabbing" title="Перетащить">
             <GripVertical className="h-4 w-4" />
           </button>
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Блок #{index + 1}</span>
+          <span className="text-xs uppercase tracking-wide text-[var(--adm-fg)]/60">Блок #{index + 1}</span>
           <select
             value={block.type}
             onChange={(e) => onUpdate(block.id, { type: e.target.value as BlockType, ...(e.target.value === 'heading' ? { level: 2 } : {}) })}
-            className="rounded-md border border-border bg-background/60 px-2 py-1 text-sm"
+            className="rounded-md border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm"
           >
             {(Object.keys(BLOCK_LABELS) as BlockType[]).map((type) => (
               <option key={type} value={type}>{BLOCK_LABELS[type]}</option>
@@ -306,20 +323,35 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
           </select>
         </div>
         <div className="inline-flex items-center gap-1">
-          <button onClick={() => onMoveArrow(index, -1)} className="rounded-md p-1.5 hover:bg-primary/10" title="Вверх"><ArrowUp className="h-4 w-4" /></button>
-          <button onClick={() => onMoveArrow(index, 1)} className="rounded-md p-1.5 hover:bg-primary/10" title="Вниз"><ArrowDown className="h-4 w-4" /></button>
-          <button onClick={() => onDuplicate(block.id)} className="rounded-md p-1.5 hover:bg-primary/10" title="Дублировать"><Copy className="h-4 w-4" /></button>
-          <button onClick={() => onDelete(block.id)} className="rounded-md p-1.5 text-red-400 hover:bg-red-500/10" title="Удалить"><Trash2 className="h-4 w-4" /></button>
+          <button onClick={() => onMoveArrow(index, -1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вверх"><ArrowUp className="h-4 w-4" /></button>
+          <button onClick={() => onMoveArrow(index, 1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вниз"><ArrowDown className="h-4 w-4" /></button>
+          <button onClick={() => onDuplicate(block.id)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Дублировать"><Copy className="h-4 w-4" /></button>
+          <button onClick={() => onDelete(block.id)} className="rounded-md p-1.5 text-[var(--adm-danger)] hover:bg-[var(--adm-danger)]/10" title="Удалить"><Trash2 className="h-4 w-4" /></button>
         </div>
       </div>
 
       {block.type === 'heading' && (
         <div className="grid gap-2 sm:grid-cols-[120px_1fr]">
-          <select value={block.level || 2} onChange={(e) => onUpdate(block.id, { level: Number(e.target.value) as HeadingLevel })} className="rounded-lg border border-border bg-background/60 px-3 py-2 text-sm">
+          <select value={block.level || 2} onChange={(e) => onUpdate(block.id, { level: Number(e.target.value) as HeadingLevel })} className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm">
             <option value={2}>H2</option>
             <option value={3}>H3</option>
           </select>
-          <input type="text" value={block.text || ''} onChange={(e) => onUpdate(block.id, { text: e.target.value })} placeholder="Текст заголовка" className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm" />
+          <input type="text" value={block.text || ''} onChange={(e) => onUpdate(block.id, { text: e.target.value })} placeholder="Текст заголовка" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+        </div>
+      )}
+
+      {block.type === 'card' && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[var(--adm-fg)]/60">Фон карточки</span>
+          <select
+            value={block.tone || 'dark'}
+            onChange={(e) => onUpdate(block.id, { tone: e.target.value as CardTone })}
+            className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-1.5 text-sm text-[var(--adm-fg)]"
+          >
+            <option value="dark">Тёмный (стекло)</option>
+            <option value="light">Белый</option>
+            <option value="accent">Фиолетовый акцент</option>
+          </select>
         </div>
       )}
 
@@ -330,17 +362,17 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
           onPaste={handlePaste}
           rows={block.type === 'quote' ? 3 : 5}
           placeholder="Введите текст блока"
-          className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm resize-y"
+          className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm text-[var(--adm-fg)] resize-y"
         />
       )}
 
       {block.type === 'image' && (
         <div className="space-y-2">
-          <input type="url" value={block.imageUrl || ''} onChange={(e) => onUpdate(block.id, { imageUrl: e.target.value })} placeholder="https://i.ibb.co/.../image.jpg" className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm" />
-          <input type="text" value={block.imageAlt || ''} onChange={(e) => onUpdate(block.id, { imageAlt: e.target.value })} placeholder="Alt текст изображения" className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm" />
+          <input type="url" value={block.imageUrl || ''} onChange={(e) => onUpdate(block.id, { imageUrl: e.target.value })} placeholder="https://i.ibb.co/.../image.jpg" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input type="text" value={block.imageAlt || ''} onChange={(e) => onUpdate(block.id, { imageAlt: e.target.value })} placeholder="Alt текст изображения" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
           {onUpload && (
             <div className="flex gap-2 items-end">
-              <label className="cursor-pointer px-3 py-2 rounded-lg border border-border bg-background/60 hover:bg-primary/10 transition flex items-center gap-1">
+              <label className="cursor-pointer px-3 py-2 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] hover:bg-[var(--adm-primary)]/10 transition flex items-center gap-1">
                 <Upload className="w-4 h-4" />
                 <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                   const file = e.target.files?.[0];
@@ -356,14 +388,14 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'video' && (
         <div className="space-y-2">
-          <input type="url" value={block.videoUrl || ''} onChange={(e) => onUpdate(block.id, { videoUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm" />
-          <input type="text" value={block.videoTitle || ''} onChange={(e) => onUpdate(block.id, { videoTitle: e.target.value })} placeholder="Название видео (необязательно)" className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm" />
+          <input type="url" value={block.videoUrl || ''} onChange={(e) => onUpdate(block.id, { videoUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input type="text" value={block.videoTitle || ''} onChange={(e) => onUpdate(block.id, { videoTitle: e.target.value })} placeholder="Название видео (необязательно)" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
         </div>
       )}
 
       {block.type === 'gallery' && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Каждый URL с новой строки</p>
+          <p className="text-xs text-[var(--adm-fg)]/60">Каждый URL с новой строки</p>
           <textarea
             value={(block.items || []).map((item) => item.url).join('\n')}
             onChange={(e) => {
@@ -373,11 +405,11 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
             }}
             rows={5}
             placeholder={"https://i.ibb.co/.../image1.jpg\nhttps://i.ibb.co/.../image2.jpg"}
-            className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm resize-y"
+            className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm resize-y"
           />
           {onUpload && (
             <div className="flex gap-2 items-end">
-              <label className="cursor-pointer px-3 py-2 rounded-lg border border-border bg-background/60 hover:bg-primary/10 transition flex items-center gap-1">
+              <label className="cursor-pointer px-3 py-2 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] hover:bg-[var(--adm-primary)]/10 transition flex items-center gap-1">
                 <Upload className="w-4 h-4" />
                 <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
                   const files = e.target.files;
@@ -399,11 +431,11 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'downloadButton' && (
         <div className="space-y-2">
-          <input type="text" value={block.downloadLabel || ''} onChange={(e) => onUpdate(block.id, { downloadLabel: e.target.value })} placeholder="Текст кнопки" className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm" />
+          <input type="text" value={block.downloadLabel || ''} onChange={(e) => onUpdate(block.id, { downloadLabel: e.target.value })} placeholder="Текст кнопки" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
           <div className="flex gap-2">
-            <input type="url" value={block.downloadUrl || ''} onChange={(e) => onUpdate(block.id, { downloadUrl: e.target.value })} placeholder="Ссылка на файл" className="flex-1 rounded-lg border border-border bg-background/60 px-3 py-2 text-sm" />
+            <input type="url" value={block.downloadUrl || ''} onChange={(e) => onUpdate(block.id, { downloadUrl: e.target.value })} placeholder="Ссылка на файл" className="flex-1 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
             {onUpload && (
-              <label className="cursor-pointer px-3 py-2 rounded-lg border border-border bg-background/60 hover:bg-primary/10 transition flex items-center gap-1">
+              <label className="cursor-pointer px-3 py-2 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] hover:bg-[var(--adm-primary)]/10 transition flex items-center gap-1">
                 <Upload className="w-4 h-4" />
                 <input type="file" className="hidden" onChange={async (e) => {
                   const file = e.target.files?.[0];
@@ -420,8 +452,8 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
       {block.type === 'spacer' && (
         <div className="flex items-center gap-3">
           <input type="range" min={8} max={120} value={block.space || 24} onChange={(e) => onUpdate(block.id, { space: Number(e.target.value) })} className="w-full" />
-          <input type="number" min={8} max={120} value={block.space || 24} onChange={(e) => onUpdate(block.id, { space: Number(e.target.value) })} className="w-20 rounded-lg border border-border bg-background/60 px-2 py-1 text-sm" />
-          <span className="text-xs text-muted-foreground">px</span>
+          <input type="number" min={8} max={120} value={block.space || 24} onChange={(e) => onUpdate(block.id, { space: Number(e.target.value) })} className="w-20 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm" />
+          <span className="text-xs text-[var(--adm-fg)]/60">px</span>
         </div>
       )}
 
@@ -431,7 +463,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
           onChange={(e) => onUpdate(block.id, { html: e.target.value })}
           rows={7}
           placeholder="<div>Ваш HTML...</div>"
-          className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-xs font-mono resize-y"
+          className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-xs font-mono resize-y"
         />
       )}
     </div>
@@ -585,9 +617,12 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
 
   if (readOnly) {
     return (
-      <div className="rounded-xl border border-primary/20 bg-card/20 p-4">
-        <div className="mb-3 text-sm font-medium">Просмотр статьи</div>
-        <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
+      <div className="rounded-xl border border-[var(--adm-border)] p-4 bg-[var(--adm-card)]">
+        <div className="mb-3 text-sm font-medium text-[var(--adm-fg)]">Просмотр статьи</div>
+        {/* data-blog-ui даёт реальные тёмные стили блога независимо от темы админки */}
+        <div data-blog-ui="true" className="rounded-xl p-4 sm:p-6">
+          <div className="blog-article-content max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
+        </div>
       </div>
     );
   }
@@ -595,13 +630,13 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="space-y-4">
-        <div className="rounded-xl border border-border bg-card/40 backdrop-blur-sm p-3">
+        <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-sm text-muted-foreground">Добавить блок</span>
+            <span className="text-sm text-[var(--adm-fg)]/60">Добавить блок</span>
             <div className="inline-flex items-center gap-1">
-              <button onClick={undo} disabled={history.past.length === 0} className="rounded-md p-1.5 hover:bg-primary/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)"><Undo2 className="h-4 w-4" /></button>
-              <button onClick={redo} disabled={history.future.length === 0} className="rounded-md p-1.5 hover:bg-primary/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)"><Redo2 className="h-4 w-4" /></button>
-              <button onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-border ml-2 px-2 hover:bg-primary/10">
+              <button onClick={undo} disabled={history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)"><Undo2 className="h-4 w-4" /></button>
+              <button onClick={redo} disabled={history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)"><Redo2 className="h-4 w-4" /></button>
+              <button onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-2 px-2 hover:bg-[var(--adm-primary)]/10">
                 {markdownMode ? 'Визуальный' : 'Markdown'}
               </button>
             </div>
@@ -612,27 +647,27 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
                 key={type}
                 type="button"
                 onClick={() => addBlock(type)}
-                className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary/50 hover:bg-primary/10 transition"
+                className="inline-flex items-center gap-1 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-sm hover:border-[var(--adm-primary)]/50 hover:bg-[var(--adm-primary)]/10 transition"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {BLOCK_LABELS[type]}
               </button>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-[11px] text-[var(--adm-fg)]/60">
             Горячие клавиши: Alt+Shift+↑/↓, Ctrl+Enter (новый блок), Ctrl+Z/Y. Markdown: нажмите кнопку для переключения.
           </p>
         </div>
 
         {markdownMode ? (
-          <div className="rounded-xl border border-border p-4">
+          <div className="rounded-xl border border-[var(--adm-border)] p-4">
             <textarea
               value={mdText}
               onChange={(e) => setMdText(e.target.value)}
-              className="w-full h-64 rounded-lg border border-border bg-background/60 px-3 py-2 text-sm font-mono resize-y"
+              className="w-full h-64 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm font-mono resize-y"
               placeholder="# Заголовок..."
             />
-            <button onClick={toggleMarkdown} className="mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground">Применить разметку</button>
+            <button onClick={toggleMarkdown} className="mt-2 px-4 py-2 rounded-lg bg-[var(--adm-primary)] text-white">Применить разметку</button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -654,9 +689,12 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
           </div>
         )}
 
-        <div className="rounded-xl border border-primary/20 bg-card/20 p-4">
-          <div className="mb-3 text-sm font-medium">Предпросмотр (как будет выглядеть статья)</div>
-          <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary prose-strong:text-primary max-w-none" dangerouslySetInnerHTML={{ __html: htmlOutput }} />
+        <div className="rounded-xl border border-[var(--adm-border)] p-4 bg-[var(--adm-card)]">
+          <div className="mb-3 text-sm font-medium text-[var(--adm-fg)]">Предпросмотр (как будет выглядеть статья на сайте)</div>
+          {/* data-blog-ui даёт реальные тёмные стили блога независимо от темы админки */}
+          <div data-blog-ui="true" className="rounded-xl p-4 sm:p-6">
+            <div className="blog-article-content max-w-none" dangerouslySetInnerHTML={{ __html: htmlOutput }} />
+          </div>
         </div>
       </div>
     </DndProvider>
