@@ -1,3 +1,33 @@
+export interface CaseMetric {
+  value: string;
+  label: string;
+}
+
+export interface CaseBeforeAfter {
+  label: string;
+  from: string;
+  to: string;
+  delta?: string;
+}
+
+// Структурированные поля кейса для страницы /cases (статья категории «Кейсы»).
+export interface CaseData {
+  niche?: string;
+  sources?: string[];
+  period?: string;
+  budgetLabel?: string;
+  budgetValue?: number;
+  leadsValue?: number;
+  roiValue?: number;
+  headline?: string;
+  headlineLabel?: string;
+  trend?: string;
+  metrics?: CaseMetric[];
+  beforeAfter?: CaseBeforeAfter;
+  chartPoints?: number[];
+  featured?: boolean;
+}
+
 export interface Article {
   id: number;
   slug: string;
@@ -20,6 +50,7 @@ export interface Article {
     answer: string;
   }>;
   status?: 'draft' | 'published';
+  caseData?: CaseData;
   downloads?: Array<{
     url: string;
     label: string;

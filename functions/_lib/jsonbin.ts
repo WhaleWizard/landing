@@ -1,5 +1,63 @@
-import type { Article, Env } from './types';
+import type { Article, CaseData, Env } from './types';
 import { sanitizeArticleHtml } from './sanitize';
+
+// Нормализация кейс-полей: обрезаем строки, отбрасываем мусорные значения.
+export function normalizeCaseData(raw: unknown): CaseData | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const src = raw as Record<string, unknown>;
+  const str = (value: unknown, max: number): string | undefined => {
+    const s = String(value ?? '').trim();
+    return s ? s.slice(0, max) : undefined;
+  };
+  const num = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+  const sources = Array.isArray(src.sources)
+    ? src.sources.map((s) => String(s).trim().toLowerCase()).filter(Boolean).slice(0, 4)
+    : undefined;
+
+  const metrics = Array.isArray(src.metrics)
+    ? src.metrics
+        .map((m) => {
+          const metric = (m ?? {}) as Record<string, unknown>;
+          return { value: str(metric.value, 40) || '', label: str(metric.label, 60) || '' };
+        })
+        .filter((m) => m.value && m.label)
+        .slice(0, 3)
+    : undefined;
+
+  let beforeAfter: CaseData['beforeAfter'];
+  if (src.beforeAfter && typeof src.beforeAfter === 'object') {
+    const ba = src.beforeAfter as Record<string, unknown>;
+    const label = str(ba.label, 60);
+    const from = str(ba.from, 40);
+    const to = str(ba.to, 40);
+    if (label && from && to) beforeAfter = { label, from, to, delta: str(ba.delta, 20) };
+  }
+
+  const chartPoints = Array.isArray(src.chartPoints)
+    ? src.chartPoints.map(Number).filter(Number.isFinite).slice(0, 24)
+    : undefined;
+
+  const data: CaseData = {
+    niche: str(src.niche, 60),
+    sources: sources?.length ? sources : undefined,
+    period: str(src.period, 60),
+    budgetLabel: str(src.budgetLabel, 40),
+    budgetValue: num(src.budgetValue),
+    leadsValue: num(src.leadsValue),
+    roiValue: num(src.roiValue),
+    headline: str(src.headline, 40),
+    headlineLabel: str(src.headlineLabel, 60),
+    trend: str(src.trend, 40),
+    metrics: metrics?.length ? metrics : undefined,
+    beforeAfter,
+    chartPoints: chartPoints && chartPoints.length >= 2 ? chartPoints : undefined,
+    featured: src.featured === true ? true : undefined,
+  };
+
+  return Object.values(data).some((value) => value !== undefined) ? data : undefined;
+}
 
 interface JsonBinConfig {
   binId: string;
@@ -102,7 +160,9 @@ function didArticleChange(previous: Article | undefined, next: Article): boolean
 
   const prevFaq = JSON.stringify(previous.faq || []);
   const nextFaq = JSON.stringify(next.faq || []);
-  return prevFaq !== nextFaq;
+  if (prevFaq !== nextFaq) return true;
+
+  return JSON.stringify(previous.caseData || null) !== JSON.stringify(next.caseData || null);
 }
 
 export function normalizeArticles(rawArticles: unknown[]): Article[] {
@@ -155,6 +215,7 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       keyTakeaways: extractKeyTakeaways(article),
       faq: extractFaq(article),
       status: article.status === 'draft' ? 'draft' : 'published',
+      caseData: normalizeCaseData(article.caseData),
     };
   });
 }

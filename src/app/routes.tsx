@@ -6,6 +6,7 @@ const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsen
 
 const ThankYou = lazy(() => import('./pages/ThankYou'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
+const CasesPage = lazy(() => import('./pages/CasesPage'));
 const Calculator = lazy(() => import('./pages/Calculator'));
 const RoiPage = lazy(() => import('./pages/RoiPage'));
 const Admin = lazy(() => import('./pages/Admin'));
@@ -92,7 +93,7 @@ export const router = createBrowserRouter([
       { path: 'thank-you', element: <LazyWrapper><ThankYou /></LazyWrapper> },
       { path: 'blog', element: <LazyWrapper><BlogPage /></LazyWrapper> },
       { path: 'blog/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
-      { path: 'cases', element: <LazyWrapper><BlogPage /></LazyWrapper> },
+      { path: 'cases', element: <LazyWrapper><CasesPage /></LazyWrapper> },
       { path: 'cases/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
       { path: 'admin', element: <LazyWrapper><Admin /></LazyWrapper> },
       { path: 'privacy-policy', element: <LazyWrapper><PrivacyPolicy /></LazyWrapper> },

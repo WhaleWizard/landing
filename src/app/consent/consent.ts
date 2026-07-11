@@ -1587,6 +1587,23 @@ export async function getAnalyticsClientIds(): Promise<{ ga_client_id?: string; 
   return { ga_client_id, yandex_client_id };
 }
 
+// Клик по фильтру на странице кейсов: собираем интерес к нишам/источникам —
+// из этого строятся аудитории ретаргетинга «интересовался кейсами X».
+export function trackCaseFilter(kind: 'niche' | 'source', value: string): void {
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+
+  if (Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({ event: 'case_filter', filter_kind: kind, filter_value: value });
+  }
+
+  if (!hasMarketingConsent()) return;
+  win.fbq?.('trackCustom', 'CaseFilter', {
+    content_category: 'cases',
+    filter_kind: kind,
+    filter_value: value,
+  });
+}
+
 export function trackThankYouConversion(): void {
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;

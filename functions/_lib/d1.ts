@@ -1,4 +1,4 @@
-import { applyFreshnessMetadata, normalizeArticles } from './jsonbin';
+import { applyFreshnessMetadata, normalizeArticles, normalizeCaseData } from './jsonbin';
 import type { Article, Env } from './types';
 
 interface D1Row {
@@ -20,10 +20,26 @@ interface D1Row {
   key_takeaways_json: string | null;
   faq_json: string | null;
   status: string | null;
+  case_data_json?: string | null;
 }
 
 function hasD1(env: Env): boolean {
   return Boolean(env.DB);
+}
+
+// Колонка case_data_json появляется миграцией 0007. Проверяем её наличие,
+// чтобы код работал и до применения миграции (кейс-поля просто не сохранятся).
+let articlesColumnsCache: { columns: Set<string>; expiresAt: number } | null = null;
+
+async function getArticlesColumns(db: D1Database): Promise<Set<string>> {
+  const now = Date.now();
+  if (articlesColumnsCache && articlesColumnsCache.expiresAt > now) {
+    return articlesColumnsCache.columns;
+  }
+  const result = await db.prepare('PRAGMA table_info(articles)').all<{ name: string }>();
+  const columns = new Set((result.results || []).map((column) => column.name).filter(Boolean));
+  articlesColumnsCache = { columns, expiresAt: now + 5 * 60 * 1000 };
+  return columns;
 }
 
 function parseArray(value: string | null): string[] {
@@ -52,6 +68,15 @@ function parseFaq(value: string | null): Array<{ question: string; answer: strin
   }
 }
 
+function parseCaseData(value: string | null | undefined): Article['caseData'] {
+  if (!value) return undefined;
+  try {
+    return normalizeCaseData(JSON.parse(value));
+  } catch {
+    return undefined;
+  }
+}
+
 function normalizeArticleStatus(value: string | null | undefined): Article['status'] {
   return value === 'draft' ? 'draft' : 'published';
 }
@@ -76,6 +101,7 @@ function mapRowToArticle(row: D1Row): Article {
     keyTakeaways: parseArray(row.key_takeaways_json),
     faq: parseFaq(row.faq_json),
     status: normalizeArticleStatus(row.status),
+    caseData: parseCaseData(row.case_data_json),
   };
 }
 
@@ -95,6 +121,26 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
   const normalized = applyFreshnessMetadata(normalizeArticles(rawArticles), existingArticles);
   const nowIso = new Date().toISOString();
   const existingBySlug = new Map(existingArticles.map((article) => [article.slug, article]));
+  const hasCaseColumn = (await getArticlesColumns(env.DB)).has('case_data_json');
+
+  const baseColumns = [
+    'id', 'slug', 'title', 'category', 'read_time', 'date', 'description', 'content', 'image',
+    'seo_title', 'seo_description', 'published_at', 'updated_at', 'tags_json', 'summary',
+    'key_takeaways_json', 'faq_json', 'status',
+  ];
+  const columns = hasCaseColumn ? [...baseColumns, 'case_data_json'] : baseColumns;
+  const placeholders = columns.map(() => '?').join(', ');
+  const updateSet = columns
+    .filter((column) => column !== 'id' && column !== 'slug')
+    .map((column) => (
+      column === 'published_at'
+        ? 'published_at = COALESCE(articles.published_at, excluded.published_at)'
+        : `${column} = excluded.${column}`
+    ));
+  updateSet.unshift('id = excluded.id');
+
+  const insertSql = `INSERT INTO articles (${columns.join(', ')}) VALUES (${placeholders})
+    ON CONFLICT(slug) DO UPDATE SET ${updateSet.join(', ')}`;
 
   const statements = [];
   const seen = new Set<string>();
@@ -105,51 +151,31 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
     const publishedAt = previous?.publishedAt || article.publishedAt || nowIso;
     const updatedAt = article.updatedAt || nowIso;
 
-    statements.push(
-      env.DB.prepare(
-        `INSERT INTO articles (
-          id, slug, title, category, read_time, date, description, content, image,
-          seo_title, seo_description, published_at, updated_at, tags_json, summary, key_takeaways_json, faq_json, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(slug) DO UPDATE SET
-          id = excluded.id,
-          title = excluded.title,
-          category = excluded.category,
-          read_time = excluded.read_time,
-          date = excluded.date,
-          description = excluded.description,
-          content = excluded.content,
-          image = excluded.image,
-          seo_title = excluded.seo_title,
-          seo_description = excluded.seo_description,
-          published_at = COALESCE(articles.published_at, excluded.published_at),
-          updated_at = excluded.updated_at,
-          tags_json = excluded.tags_json,
-          summary = excluded.summary,
-          key_takeaways_json = excluded.key_takeaways_json,
-          faq_json = excluded.faq_json,
-          status = excluded.status`
-      ).bind(
-        article.id,
-        article.slug,
-        article.title,
-        article.category,
-        article.readTime || '',
-        article.date,
-        article.description,
-        article.content,
-        article.image || '/og-image.jpg',
-        article.seoTitle || article.title,
-        article.seoDescription || article.description,
-        publishedAt,
-        updatedAt,
-        JSON.stringify(article.tags || []),
-        article.summary || '',
-        JSON.stringify(article.keyTakeaways || []),
-        JSON.stringify(article.faq || []),
-        normalizeArticleStatus(article.status),
-      ),
-    );
+    const values: Array<string | number | null> = [
+      article.id,
+      article.slug,
+      article.title,
+      article.category,
+      article.readTime || '',
+      article.date,
+      article.description,
+      article.content,
+      article.image || '/og-image.jpg',
+      article.seoTitle || article.title,
+      article.seoDescription || article.description,
+      publishedAt,
+      updatedAt,
+      JSON.stringify(article.tags || []),
+      article.summary || '',
+      JSON.stringify(article.keyTakeaways || []),
+      JSON.stringify(article.faq || []),
+      normalizeArticleStatus(article.status) as string,
+    ];
+    if (hasCaseColumn) {
+      values.push(article.caseData ? JSON.stringify(article.caseData) : null);
+    }
+
+    statements.push(env.DB.prepare(insertSql).bind(...values));
   }
 
   if (existingArticles.length > 0 && normalized.length > 0) {

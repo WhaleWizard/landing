@@ -875,7 +875,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
       <Hero content={config.hero} visual={service === 'meta-apps' ? 'meta-apps' : 'default'} />
 
       <DeferredSection><Services content={config.services} /></DeferredSection>
-      <DeferredSection><Cases content={config.cases} /></DeferredSection>
+      <DeferredSection><Cases content={config.cases} moreHref={`/cases?from=${service}`} /></DeferredSection>
       <DeferredSection><CallToAction content={config.cta} /></DeferredSection>
       <DeferredSection><Testimonials /></DeferredSection>
       <ContactSection service={service} contact={config.contact} theme={theme} />

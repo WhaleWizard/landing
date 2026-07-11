@@ -142,6 +142,7 @@ function isValidArticlePayload(article: Article): boolean {
   if ((article.keyTakeaways || []).length > 20) return false;
   if ((article.faq || []).length > 20) return false;
   if (article.status && article.status !== 'draft' && article.status !== 'published') return false;
+  if (article.caseData && JSON.stringify(article.caseData).length > 4_000) return false;
   return true;
 }
 

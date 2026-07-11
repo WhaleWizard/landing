@@ -12,6 +12,7 @@ import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../components/hooks/useArticlesApi';
 import { API_ROUTES } from '../config';
 import ArticleEditor from '../components/ArticleEditor';
+import CaseFieldsEditor from '../components/CaseFieldsEditor';
 import SEO from '../components/SEO';
 
 function transliterate(text: string): string {
@@ -79,6 +80,7 @@ function snapshotArticle(article: Article | null): string {
     tags: article.tags || [],
     keyTakeaways: article.keyTakeaways || [],
     faq: article.faq || [],
+    caseData: article.caseData || null,
   });
 }
 
@@ -411,6 +413,17 @@ export default function Admin() {
   const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
   const currentArticleSnapshot = useMemo(() => snapshotArticle(editingArticle), [editingArticle]);
   const hasUnsavedChanges = Boolean(editingArticle && currentArticleSnapshot !== savedArticleSnapshot);
+
+  // Ниши для подсказки в редакторе кейса: собираются из уже существующих кейсов,
+  // новую нишу можно просто вписать — она появится в списке после сохранения.
+  const knownNiches = useMemo(() => {
+    const set = new Set<string>();
+    articles.forEach((article) => {
+      const niche = article.caseData?.niche?.trim();
+      if (article.category === CASES_CATEGORY && niche) set.add(niche);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'));
+  }, [articles]);
   const isEditingProtected = Boolean(
     editingArticle && (
       isProtectedArticle(editingArticle) ||
@@ -935,6 +948,14 @@ export default function Admin() {
                       className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                     />
                   </div>
+
+                  {editingArticle.category === CASES_CATEGORY && (
+                    <CaseFieldsEditor
+                      value={editingArticle.caseData}
+                      niches={knownNiches}
+                      onChange={(caseData) => setEditingArticle({ ...editingArticle, caseData })}
+                    />
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Краткое описание</label>

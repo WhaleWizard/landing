@@ -362,3 +362,54 @@
 .legal-sec-body table tbody tr:nth-child(even) {
   background: rgba(255, 255, 255, 0.03);
 }
+
+/* ── Страница кейсов: карточки-дашборды ── */
+.cse-card { background: linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.05)); }
+.cse-card::before {
+  content: '';
+  position: absolute;
+  inset: -45%;
+  opacity: 0;
+  transition: opacity .35s;
+  background: conic-gradient(from 210deg, var(--primary), var(--accent), transparent 32%, transparent 68%, var(--primary));
+}
+.cse-card:hover::before,
+.cse-card:focus-visible::before { opacity: 1; }
+@media (min-width: 1024px) {
+  .cse-featured { grid-column: span 2; }
+}
+.cse-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 7px;
+  border: 1px solid;
+}
+.cse-tag i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.cse-tag-niche { color: #c4b5fd; border-color: rgba(139,92,246,.4); background: rgba(139,92,246,.1); }
+.cse-tag-niche i { background: linear-gradient(135deg, var(--primary), var(--accent)); }
+.cse-tag-meta { color: #8fc6ff; border-color: rgba(8,102,255,.45); background: rgba(8,102,255,.1); }
+.cse-tag-meta i { background: linear-gradient(135deg, #0866ff, #00d2ff); }
+.cse-tag-google { color: #ffd9a0; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+.cse-tag-google i { background: linear-gradient(135deg, #fbbf24, #ef4444); }
+.cse-tag-other { color: #c9d2ea; border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.06); }
+.cse-tag-other i { background: linear-gradient(135deg, #94a3b8, #e2e8f0); }
+.cse-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: cse-draw 1.1s .15s cubic-bezier(.3,.6,.4,1) forwards;
+}
+@keyframes cse-draw { to { stroke-dashoffset: 0; } }
+.cse-blip { animation: cse-blip 2.4s ease-in-out infinite; }
+@keyframes cse-blip { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.cse-open::after { content: '→'; transition: transform .2s; }
+.cse-card:hover .cse-open::after { transform: translateX(4px); }
+@media (prefers-reduced-motion: reduce) {
+  .cse-draw { animation: none; stroke-dashoffset: 0; }
+  .cse-blip { animation: none; }
+}
