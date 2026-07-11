@@ -267,7 +267,7 @@ export default function CookieConsentManager() {
         role="dialog"
         aria-modal="true"
         aria-label="Настройки cookie"
-        className="ww-banner-enter pointer-events-auto absolute bottom-3 md:bottom-5 left-1/2 w-[min(94vw,440px)] -translate-x-1/2"
+        className="ww-banner-enter pointer-events-auto absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] md:bottom-5 mx-auto w-[min(94vw,440px)]"
       >
         <div className="ww-cookie-frame shadow-2xl">
           <div className="relative rounded-[19px] bg-[#0b0c1a]/95 px-4 py-4 backdrop-blur-xl sm:px-5">
