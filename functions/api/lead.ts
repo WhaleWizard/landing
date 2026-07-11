@@ -4,7 +4,7 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
-import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
+import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 
@@ -567,6 +567,11 @@ async function sendMetaConversionEvent(
     data: [event],
   });
 
+  // В outbox кладём готовое тело запроса к Graph API: при сбое обработчик
+  // очереди (processMetaOutbox) дошлёт его без контекста исходного запроса.
+  const outboxId = `lead:${payload.event_id}`;
+  await enqueueMetaEvent(env, { id: outboxId, event_name: 'Lead', event_id: payload.event_id || outboxId, payload_json: body });
+
   try {
     const response = await fetchMetaWithRetry(
       `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
@@ -580,11 +585,13 @@ async function sendMetaConversionEvent(
 
     if (!response.ok) {
       const errorText = await response.text();
+      await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), `HTTP ${response.status}: ${errorText.slice(0, 300)}`);
       await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
       await markMetaEventSent(env, 'Lead', payload.event_id);
+      await markOutboxSent(env, outboxId);
       await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.log('[Meta CAPI] Lead server event sent successfully', {
         fbtrace_id: result?.fbtrace_id,
@@ -592,7 +599,9 @@ async function sendMetaConversionEvent(
       });
     }
   } catch (error) {
-    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    const message = error instanceof Error ? error.message : String(error);
+    await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
+    await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending Lead event:', error);
   }
 }
@@ -623,6 +632,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   const normalized = normalizeLeadPayload(parsedPayload);
+  // Без event_id все лиды делили бы одну запись outbox ('lead:') и ломали дедупликацию.
+  if (!normalized.event_id) {
+    normalized.event_id = crypto.randomUUID();
+  }
   const rateLimited = await enforceRateLimit(request, 'lead');
   if (rateLimited) {
     waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'rate_limited', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), marketing_consent: normalized.marketing_consent }));
@@ -662,14 +675,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   waitUntil(crmTask);
 
   if (normalized.marketing_consent) {
-    const outboxId = `lead:${normalized.event_id}`;
-    waitUntil(enqueueMetaEvent(env, { id: outboxId, event_name: 'Lead', event_id: normalized.event_id || outboxId, payload_json: JSON.stringify(normalized) }));
-    waitUntil(sendMetaConversionEvent(normalized, env, request)
-      .then(() => markOutboxSent(env, outboxId))
-      .catch(async (e) => {
-        const now = Math.floor(Date.now() / 1000);
-        await markOutboxRetry(env, outboxId, 1, now + 60, e instanceof Error ? e.message : String(e));
-      }));
+    // Запись в outbox и отметки sent/retry делает сам sendMetaConversionEvent:
+    // раньше событие помечалось «отправленным» даже при ошибке Meta.
+    waitUntil(sendMetaConversionEvent(normalized, env, request));
   } else {
     waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), has_email: Boolean(normalized.email), has_phone: Boolean(normalized.phone), marketing_consent: false, consent_version: normalized.consent_version, consent_source: normalized.consent_source, consent_region: normalized.consent_region, consent_timestamp: normalized.consent_timestamp }));
   }

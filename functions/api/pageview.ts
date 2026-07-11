@@ -4,7 +4,7 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
-import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
+import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent, processMetaOutbox } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 
@@ -506,6 +506,11 @@ async function sendMetaPageView(
     data: [event],
   });
 
+  // В outbox кладём готовое тело запроса к Graph API: при сбое обработчик
+  // очереди (processMetaOutbox) дошлёт его без контекста исходного запроса.
+  const outboxId = `pv:${payload.event_id}`;
+  await enqueueMetaEvent(env, { id: outboxId, event_name: 'PageView', event_id: payload.event_id || outboxId, payload_json: body });
+
   try {
     const response = await fetchMetaWithRetry(
       `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
@@ -519,11 +524,13 @@ async function sendMetaPageView(
 
     if (!response.ok) {
       const errorText = await response.text();
+      await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), `HTTP ${response.status}: ${errorText.slice(0, 300)}`);
       await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
       await markMetaEventSent(env, 'PageView', eventId);
+      await markOutboxSent(env, outboxId);
       await recordMetaDiagnostics(env, {
         event_name: 'PageView',
         event_id: eventId,
@@ -552,7 +559,9 @@ async function sendMetaPageView(
       });
     }
   } catch (error) {
-    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    const message = error instanceof Error ? error.message : String(error);
+    await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
+    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending PageView event:', error);
   }
 }
@@ -574,7 +583,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 
-  const payload = normalizePageViewPayload((JSON.parse(rawBody || '{}')) as PageViewPayload);
+  let parsedBody: PageViewPayload;
+  try {
+    parsedBody = JSON.parse(rawBody || '{}') as PageViewPayload;
+  } catch {
+    return json(
+      { success: false, error: 'invalid_json' },
+      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+  const payload = normalizePageViewPayload(parsedBody);
 
   if (!payload.event_id) {
     return json(
@@ -583,15 +601,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  const outboxId = `pv:${payload.event_id}`;
-  waitUntil(enqueueMetaEvent(env, { id: outboxId, event_name: 'PageView', event_id: payload.event_id || outboxId, payload_json: JSON.stringify(payload) }));
-  // Отправляем асинхронно, не замедляя клиентскую навигацию
-  waitUntil(sendMetaPageView(payload, env, request)
-    .then(() => markOutboxSent(env, outboxId))
-    .catch(async (e) => {
-      const now = Math.floor(Date.now() / 1000);
-      await markOutboxRetry(env, outboxId, 1, now + 60, e instanceof Error ? e.message : String(e));
-    }));
+  // Отправляем асинхронно, не замедляя клиентскую навигацию.
+  // Запись в outbox и отметки sent/retry делает сам sendMetaPageView.
+  waitUntil(sendMetaPageView(payload, env, request));
+  // Заодно фоном дошлём события, не доставленные в Meta ранее.
+  waitUntil(processMetaOutbox(env, 3).catch(() => undefined));
 
   return json(
     { success: true },

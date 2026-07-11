@@ -1,6 +1,6 @@
 import { CACHE_CONTROL, matchCache, putCache } from '../_lib/cache';
 import { fetchArticlesWithFallback, filterVisibleArticles } from '../_lib/articles';
-import { findArticleBySlugPrefix, getArticlePath, isBotRequest, renderArticleHtml, renderArticleNotFoundHtml } from '../_lib/seo';
+import { findArticleBySlugPrefix, getArticlePath, getArticleSectionPath, isBotRequest, renderArticleHtml, renderArticleNotFoundHtml } from '../_lib/seo';
 import type { Env } from '../_lib/types';
 
 const SECTION_PATH = '/blog';
@@ -37,7 +37,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
 
   try {
     const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request));
-    const article = articles.find((item) => item.slug === slug && item.category !== 'Кейсы');
+    const article = articles.find((item) => item.slug === slug && getArticleSectionPath(item) === SECTION_PATH);
     const siteUrl = getSiteUrl(env, request);
 
     if (!article) {

@@ -4,7 +4,7 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
-import { enqueueMetaEvent, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
+import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 
@@ -545,6 +545,11 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
     data: [event],
   });
 
+  // В outbox кладём готовое тело запроса к Graph API: при сбое обработчик
+  // очереди (processMetaOutbox) дошлёт его без контекста исходного запроса.
+  const outboxId = `me:${payload.event_name}:${payload.event_id}`;
+  await enqueueMetaEvent(env, { id: outboxId, event_name: payload.event_name || 'ViewContent', event_id: payload.event_id || outboxId, payload_json: body });
+
   try {
     const response = await fetchMetaWithRetry(
       `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
@@ -558,11 +563,13 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
 
     if (!response.ok) {
       const errorText = await response.text();
+      await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), `HTTP ${response.status}: ${errorText.slice(0, 300)}`);
       await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] ${payload.event_name} event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
       await markMetaEventSent(env, payload.event_name, payload.event_id);
+      await markOutboxSent(env, outboxId);
       await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
         fbtrace_id: result?.fbtrace_id,
@@ -570,7 +577,9 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       });
     }
   } catch (error) {
-    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: error instanceof Error ? error.message : String(error), page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    const message = error instanceof Error ? error.message : String(error);
+    await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
+    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error(`[Meta CAPI] Error sending ${payload.event_name} event:`, error);
   }
 }
@@ -589,7 +598,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 
-  const payload = normalizeMetaEventPayload((JSON.parse(rawBody || '{}')) as MetaEventPayload);
+  let parsedBody: MetaEventPayload;
+  try {
+    parsedBody = JSON.parse(rawBody || '{}') as MetaEventPayload;
+  } catch {
+    return json(
+      { success: false, error: 'invalid_json' },
+      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+  const payload = normalizeMetaEventPayload(parsedBody);
 
   const rateLimited = await enforceRateLimit(request, 'meta_event');
   if (rateLimited) {
@@ -612,14 +630,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  const outboxId = `me:${payload.event_name}:${payload.event_id}`;
-  waitUntil(enqueueMetaEvent(env, { id: outboxId, event_name: payload.event_name, event_id: payload.event_id, payload_json: JSON.stringify(payload) }));
-  waitUntil(sendMetaEvent(payload, env, request)
-    .then(() => markOutboxSent(env, outboxId))
-    .catch(async (e) => {
-      const now = Math.floor(Date.now() / 1000);
-      await markOutboxRetry(env, outboxId, 1, now + 60, e instanceof Error ? e.message : String(e));
-    }));
+  // Запись в outbox и отметки sent/retry делает сам sendMetaEvent:
+  // раньше событие помечалось «отправленным» даже при ошибке Meta.
+  waitUntil(sendMetaEvent(payload, env, request));
 
   return json(
     { success: true },

@@ -31,7 +31,7 @@ import PrivacyPolicyContent from './legal/PrivacyPolicyContent';
 import OfferContent from './legal/OfferContent';
 import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
-import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
+import { buildFullPhone, COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
 
 const budgetOptions = [
@@ -166,12 +166,13 @@ function ContactForm() {
       const eventId = crypto.randomUUID();
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const analyticsClientIds = await getAnalyticsClientIds();
+      const fullPhone = buildFullPhone(phoneCode, formData.phone);
       const leadPayload = {
         ...metaBrowserContext,
         ...analyticsClientIds,
         name: formData.name,
         email: formData.email,
-        phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`,
+        phone: fullPhone,
         budget: formData.budget,
         message: formData.message,
         contactMethod: contactMethod,
@@ -199,7 +200,7 @@ function ContactForm() {
         }
 
         setIsSubmitted(true);
-        await rememberMetaLeadIdentifiers({ email: formData.email, phone: `${phoneCode}${formData.phone.replace(/\D/g, '')}`, name: formData.name });
+        await rememberMetaLeadIdentifiers({ email: formData.email, phone: fullPhone, name: formData.name });
         setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
         setTelegramUsername('');
         setHpTrap('');

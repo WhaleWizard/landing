@@ -3,7 +3,8 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
 import { fetchArticlesFromD1, writeArticlesToD1 } from '../../_lib/d1';
-import { fetchArticlesWithFallback, shouldUseD1Articles } from '../../_lib/articles';
+import { fetchArticlesWithFallback, isPublishedArticle, shouldUseD1Articles } from '../../_lib/articles';
+import { getArticlePath } from '../../_lib/seo';
 import { json } from '../../_lib/http';
 import type { Article, Env } from '../../_lib/types';
 
@@ -34,14 +35,45 @@ interface CacheInvalidationReport {
   failed: string[];
 }
 
-async function invalidateSeoCaches(siteUrl: string, articleSlugs: string[]): Promise<CacheInvalidationReport> {
-  const targets = [
+function buildSeoCacheTargets(siteUrl: string, articleSlugs: string[]): string[] {
+  return [
     `${siteUrl}/api/articles`,
     `${siteUrl}/sitemap.xml`,
     `${siteUrl}/feed.xml`,
     ...articleSlugs.flatMap((slug) => [`${siteUrl}/blog/${slug}`, `${siteUrl}/cases/${slug}`]),
   ];
+}
 
+// caches.default.delete() чистит кэш только текущего дата-центра Cloudflare.
+// Для глобальной очистки нужен API-вызов purge_cache — работает, если заданы
+// CF_ZONE_ID и CF_CACHE_PURGE_TOKEN (токен с правом Zone.Cache Purge).
+async function purgeCloudflareEdgeCache(env: Env, urls: string[]): Promise<{ attempted: boolean; ok: boolean; error?: string }> {
+  const zoneId = env.CF_ZONE_ID;
+  const apiToken = env.CF_CACHE_PURGE_TOKEN;
+  if (!zoneId || !apiToken) return { attempted: false, ok: false };
+
+  try {
+    // Cloudflare ограничивает purge_by_url 30 адресами за вызов.
+    for (let offset = 0; offset < urls.length; offset += 30) {
+      const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiToken}`,
+        },
+        body: JSON.stringify({ files: urls.slice(offset, offset + 30) }),
+      });
+      if (!response.ok) {
+        return { attempted: true, ok: false, error: `HTTP ${response.status}` };
+      }
+    }
+    return { attempted: true, ok: true };
+  } catch (error) {
+    return { attempted: true, ok: false, error: error instanceof Error ? error.message : 'purge failed' };
+  }
+}
+
+async function invalidateSeoCaches(targets: string[]): Promise<CacheInvalidationReport> {
   const settled = await Promise.allSettled(targets.map((url) => deleteCacheByUrl(url)));
   const successful: string[] = [];
   const failed: string[] = [];
@@ -72,7 +104,11 @@ async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Articl
     return;
   }
   const host = new URL(siteUrl).host;
-  const urls = updatedArticles.map((article) => `${siteUrl}/blog/${article.slug}`);
+  // Только опубликованные статьи и их реальные адреса: кейсы живут на /cases/,
+  // а черновики отдают 404 — пинговать их бессмысленно.
+  const urls = updatedArticles
+    .filter((article) => isPublishedArticle(article))
+    .map((article) => `${siteUrl}${getArticlePath(article)}`);
 
   if (urls.length === 0) return;
 
@@ -293,9 +329,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
 
     const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
     const siteUrl = getSiteUrl(env, request);
+    const cacheTargets = buildSeoCacheTargets(siteUrl, allSlugs);
 
-    const invalidationPromise = invalidateSeoCaches(siteUrl, allSlugs);
+    const invalidationPromise = invalidateSeoCaches(cacheTargets);
     waitUntil(invalidationPromise.then(() => undefined));
+    waitUntil(purgeCloudflareEdgeCache(env, cacheTargets).then(() => undefined));
     waitUntil(notifyIndexNow(env, siteUrl, updated));
 
     const invalidationReport = await invalidationPromise;
@@ -305,6 +343,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
         success: true,
         articles: updated,
         cacheInvalidationAttempted: true,
+        globalPurgeConfigured: Boolean(env.CF_ZONE_ID && env.CF_CACHE_PURGE_TOKEN),
         siteUrlUsed: siteUrl,
         requestOrigin: new URL(request.url).origin.replace(/\/$/, ''),
         invalidatedPathsCount: invalidationReport.successful.length,

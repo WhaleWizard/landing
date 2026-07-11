@@ -97,7 +97,7 @@ const ARTICLE_HTML_SANITIZE_CONFIG = {
   ],
   ALLOWED_ATTR: [
     'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading',
-    'width', 'height', 'data-ww-block',
+    'width', 'height', 'data-ww-block', 'data-ww-tone',
     'id', 'role', 'aria-label',
     'colspan', 'rowspan', 'scope',
     'srcset', 'sizes',
@@ -382,14 +382,17 @@ function buildFaqJsonLd(faqs = []) {
 function buildArticleJsonLd(article) {
   const path = getArticlePath(article);
   const canonical = `${SITE_URL}${path}`;
-  const resolvedDate = resolveArticleDate(article);
+  // datePublished — дата первой публикации, dateModified двигается при правках.
+  const publishedDate = toIsoDate(article.publishedAt) || toIsoDate(article.date);
+  const modifiedDate = toIsoDate(article.updatedAt) || publishedDate;
   return {
     '@context': 'https://schema.org',
     '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
     headline: article.seoTitle || article.title,
     description: article.seoDescription || article.description,
     image: [toAbsoluteUrl(article.image || '/og-image.jpg')],
-    ...(resolvedDate ? { datePublished: resolvedDate, dateModified: resolvedDate } : {}),
+    ...(publishedDate ? { datePublished: publishedDate } : {}),
+    ...(modifiedDate ? { dateModified: modifiedDate } : {}),
     mainEntityOfPage: canonical,
     author: {
       '@type': 'Person',
@@ -1076,7 +1079,12 @@ async function main() {
   const articles = normalizeArticles(loadArticles()).filter((article) => isPublishedArticle(article));
   const content = await loadSiteContent();
 
-  renderStaticPages(baseHtml, { content, latestArticles: articles });
+  // Для блока «Последние статьи блога» — действительно последние по дате,
+  // а не первые по порядку массива из админки.
+  const latestArticles = [...articles].sort((a, b) =>
+    String(resolveArticleDate(b) || '').localeCompare(String(resolveArticleDate(a) || '')));
+
+  renderStaticPages(baseHtml, { content, latestArticles });
   renderBlogPages(articles, baseHtml);
 
   const articleRoutes = articles.map((article) => getArticlePath(article));

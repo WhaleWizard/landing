@@ -102,7 +102,10 @@ function buildSeoDescription(article: Article): string {
 function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
   const canonical = `${siteUrl}${sectionPath}/${article.slug}`;
   const image = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
-  const resolvedDate = resolveArticleDate(article);
+  // datePublished должен оставаться датой первой публикации,
+  // а dateModified — двигаться при правках.
+  const publishedDate = toIsoDate(article.publishedAt) || toIsoDate(article.date);
+  const modifiedDate = toIsoDate(article.updatedAt) || publishedDate;
 
   return JSON.stringify(
     {
@@ -111,12 +114,8 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
       headline: buildSeoTitle(article),
       description: buildSeoDescription(article),
       image: [image],
-      ...(resolvedDate
-        ? {
-            datePublished: resolvedDate,
-            dateModified: resolvedDate,
-          }
-        : {}),
+      ...(publishedDate ? { datePublished: publishedDate } : {}),
+      ...(modifiedDate ? { dateModified: modifiedDate } : {}),
       mainEntityOfPage: canonical,
       author: {
         '@type': 'Person',

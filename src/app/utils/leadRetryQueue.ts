@@ -46,23 +46,27 @@ export async function flushLeadQueue(): Promise<void> {
 
   flushing = true;
   try {
-    const queue = readQueue().filter((item) => Date.now() - item.queuedAt < MAX_AGE_MS);
-    if (!queue.length) return;
+    const batch = readQueue().filter((item) => Date.now() - item.queuedAt < MAX_AGE_MS);
+    if (!batch.length) return;
 
-    const remaining: QueuedLead[] = [];
-    for (const item of queue) {
+    const delivered = new Set<string>();
+    for (const item of batch) {
       try {
         const res = await fetch(item.endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(item.payload),
         });
-        if (!res.ok) remaining.push(item);
+        if (res.ok) delivered.add(item.id);
       } catch {
-        remaining.push(item);
+        // остаётся в очереди до следующей попытки
       }
     }
-    writeQueue(remaining);
+
+    // Перечитываем очередь перед записью: пока шла отправка, могла добавиться
+    // новая заявка — старый вариант перезаписывал её результатом этой пачки.
+    const current = readQueue();
+    writeQueue(current.filter((item) => !delivered.has(item.id) && Date.now() - item.queuedAt < MAX_AGE_MS));
   } finally {
     flushing = false;
   }

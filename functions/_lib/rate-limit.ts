@@ -14,8 +14,11 @@ const RATE_LIMIT_PROFILES: Record<string, RateLimitProfile> = {
   admin: { windowSeconds: 60, maxRequests: 30 },
 };
 
-function makeRateLimitCacheKey(scope: string, ip: string): Request {
-  return new Request(`https://internal-rate-limit.local/${scope}/ip/${ip}`);
+// Ключ включает номер окна: у каждого окна свой счётчик, который истекает сам.
+// Раньше TTL продлевался при каждом запросе, из-за чего счётчик не сбрасывался,
+// пока запросы шли чаще windowSeconds, и честный трафик со временем получал 429.
+function makeRateLimitCacheKey(scope: string, ip: string, windowIndex: number): Request {
+  return new Request(`https://internal-rate-limit.local/${scope}/ip/${ip}/window/${windowIndex}`);
 }
 
 export function getRateLimitProfile(scope?: string): RateLimitProfile {
@@ -27,10 +30,13 @@ export async function enforceRateLimit(request: Request, scope = 'default'): Pro
   const ip = getClientIp(request);
   const cache = caches.default;
   const profile = getRateLimitProfile(scope);
-  const key = makeRateLimitCacheKey(scope, ip);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const windowIndex = Math.floor(nowSeconds / profile.windowSeconds);
+  const secondsUntilWindowEnd = profile.windowSeconds - (nowSeconds % profile.windowSeconds);
+  const key = makeRateLimitCacheKey(scope, ip, windowIndex);
 
   const existing = await cache.match(key);
-  const currentCount = existing ? Number(await existing.text()) : 0;
+  const currentCount = existing ? Number(await existing.text()) || 0 : 0;
   const nextCount = currentCount + 1;
 
   if (nextCount > profile.maxRequests) {
@@ -39,7 +45,7 @@ export async function enforceRateLimit(request: Request, scope = 'default'): Pro
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
-        'Retry-After': String(profile.windowSeconds),
+        'Retry-After': String(secondsUntilWindowEnd),
       },
     });
   }

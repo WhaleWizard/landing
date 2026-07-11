@@ -152,7 +152,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       status: response.ok ? 'sent' : 'failed',
       events_received: parsed?.events_received,
       fbtrace_id: parsed?.fbtrace_id,
-      error_code: parsed?.error?.code || response.status,
+      error_code: response.ok ? undefined : (parsed?.error?.code || response.status),
       error_message: response.ok ? undefined : (parsed?.error?.message || resultText),
       page_url: eventSourceUrl,
       service: 'meta_capi_test_event',

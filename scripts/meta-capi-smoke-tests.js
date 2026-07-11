@@ -15,6 +15,7 @@ const files = {
   diagnosticsFunnel: readFileSync('functions/api/meta-diagnostics-funnel.ts', 'utf8'),
   diagnosticsAnomalies: readFileSync('functions/api/meta-diagnostics-anomalies.ts', 'utf8'),
   diagnosticsWriter: readFileSync('functions/_lib/meta-diagnostics.ts', 'utf8'),
+  outbox: readFileSync('functions/_lib/meta-outbox.ts', 'utf8'),
   envTypes: readFileSync('functions/_lib/types.ts', 'utf8'),
   envExample: readFileSync('.env.example', 'utf8'),
   cloudflareSetupDoc: readFileSync('docs/META_CAPI_CLOUDFLARE_SETUP.md', 'utf8'),
@@ -211,9 +212,6 @@ mustContain('Meta diagnostics alerts endpoint', files.diagnosticsAlerts, [
   'traffic_without_leads',
 ]);
 
-console.log('Meta CAPI smoke tests passed');
-
-
 mustContain('Meta diagnostics funnel endpoint', files.diagnosticsFunnel, [
   'FUNNEL_STEPS',
   'conversion_from_prev_rate',
@@ -225,3 +223,33 @@ mustContain('Meta diagnostics anomalies endpoint', files.diagnosticsAnomalies, [
   'fbc_rate_drop',
   'consent_rate_drop',
 ]);
+
+// Outbox: очередь недоставленных событий должна иметь обработчик повторов,
+// а «sent» должен ставиться только при успешном ответе Meta.
+mustContain('Meta outbox replay', files.outbox, [
+  'processMetaOutbox',
+  'getOutboxRetryDelaySeconds',
+  "status='dead_letter'",
+  'wasMetaEventAlreadySent',
+]);
+mustContain('Lead outbox stores final Graph API body', files.lead, [
+  'payload_json: body',
+  'markOutboxRetry',
+  'markOutboxSent(env, outboxId)',
+]);
+mustContain('PageView outbox stores final Graph API body', files.pageview, [
+  'payload_json: body',
+  'markOutboxRetry',
+  'markOutboxSent(env, outboxId)',
+  'processMetaOutbox(env, 3)',
+]);
+mustContain('Meta-event outbox stores final Graph API body', files.metaEvent, [
+  'payload_json: body',
+  'markOutboxRetry',
+  'markOutboxSent(env, outboxId)',
+]);
+assert.ok(!files.lead.includes('.then(() => markOutboxSent'), 'Lead must not mark outbox sent unconditionally');
+assert.ok(!files.pageview.includes('.then(() => markOutboxSent'), 'PageView must not mark outbox sent unconditionally');
+assert.ok(!files.metaEvent.includes('.then(() => markOutboxSent'), 'Meta-event must not mark outbox sent unconditionally');
+
+console.log('Meta CAPI smoke tests passed');

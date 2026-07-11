@@ -41,6 +41,10 @@ export interface Env {
   SITE_URL?: string;
   INDEXNOW_KEY?: string;
   INDEXNOW_ENDPOINT?: string;
+  // Глобальная очистка кэша Cloudflare после сохранения статей (опционально):
+  // без них чистится только кэш текущего дата-центра.
+  CF_ZONE_ID?: string;
+  CF_CACHE_PURGE_TOKEN?: string;
   // Meta Conversions API
   META_CAPI_ACCESS_TOKEN?: string;
   META_CAPI_TEST_CODE?: string;

@@ -185,3 +185,14 @@ https://whalewzrd.com/api/meta-diagnostics-summary?hours=24&secret=YOUR_META_CAP
    - `/api/meta-diagnostics-coverage?hours=24&secret=...`
 4. Ответ `/api/meta-test-event` с `fbtrace_id`.
 5. Скрин Meta Events Manager → Test Events / Diagnostics / Event Match Quality.
+
+## 10. Outbox: повторная доставка событий при сбоях Meta
+
+Каждое server-событие перед отправкой записывается в таблицу D1 `meta_outbox` (готовое тело запроса к Graph API). Если Meta ответила ошибкой или запрос упал, запись остаётся со статусом `retry` и досылается позже с экспоненциальной задержкой (до 8 попыток, затем `dead_letter`; события старше 6 дней не досылаются — Meta не принимает их для `action_source=website`).
+
+Очередь обрабатывается двумя путями:
+
+- автоматически: при каждом запросе `/api/pageview` фоном досылается до 3 записей;
+- вручную/по расписанию: `POST /api/meta-outbox-process?limit=25` с заголовком `x-meta-debug-secret: <META_CAPI_DEBUG_SECRET>` — подходит для внешнего cron/пингера на случай простоя трафика.
+
+Ответ эндпоинта: `{ processed, sent, retried, dead }`. Дедупликация повторной отправки — через `META_CAPI_IDEMPOTENCY` и `event_id` (Meta дополнительно дедуплицирует на своей стороне в течение 48 часов).

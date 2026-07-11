@@ -86,3 +86,12 @@ export const COUNTRY_DIAL_CODES: Record<string, string> = COUNTRY_PHONE_OPTIONS.
   acc[item.code] = item.dial;
   return acc;
 }, {} as Record<string, string>);
+
+// Пользователь мог ввести номер сразу с кодом страны («+7 926…») —
+// тогда код из селектора не добавляем, иначе он задвоится.
+export function buildFullPhone(code: string, rawPhone: string): string {
+  const trimmed = rawPhone.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return '';
+  return trimmed.startsWith('+') ? `+${digits}` : `${code}${digits}`;
+}

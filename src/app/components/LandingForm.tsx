@@ -26,7 +26,7 @@ import PrivacyPolicyContent from './legal/PrivacyPolicyContent';
 import OfferContent from './legal/OfferContent';
 import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
-import { COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
+import { buildFullPhone, COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
@@ -174,7 +174,7 @@ function LandingForm({
       const analyticsClientIds = await getAnalyticsClientIds();
       const contactPayload = normalizeContactForLead(formData.contact);
       const email = formData.email.trim();
-      const phone = `${phoneCode}${formData.phone.replace(/\D/g, '')}`;
+      const phone = buildFullPhone(phoneCode, formData.phone);
       const websiteDomain = extractWebsiteDomain(formData.website);
       const leadPayload = {
         ...metaBrowserContext,
