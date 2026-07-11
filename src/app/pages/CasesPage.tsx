@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { Sparkles } from 'lucide-react';
+import { ArrowUpDown, Sparkles } from 'lucide-react';
 import SEO from '../components/SEO';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useArticles } from '../context/ArticlesContext';
 import { trackCaseFilter } from '../consent/consent';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
@@ -94,6 +95,14 @@ const SHOWCASE: CaseView[] = [
     },
   },
 ];
+
+// Куда возвращает кнопка «Назад» в зависимости от того, откуда пришли.
+const BACK_TARGETS: Record<string, { path: string; label: string }> = {
+  'meta-apps': { path: '/meta-apps', label: 'Meta Apps' },
+  'meta-ads': { path: '/meta-ads', label: 'Meta Ads' },
+  'google-ads': { path: '/google-ads', label: 'Google Ads' },
+  'consult': { path: '/consult', label: 'Консультации' },
+};
 
 // Контекстный вход со страниц услуг: /cases?from=meta-apps
 const ENTRIES: Record<string, { srcs: string[]; nicheHints: string[]; text: string }> = {
@@ -250,6 +259,9 @@ export default function CasesPage() {
   const [sources, setSources] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<'roi' | 'budget' | 'fresh'>('roi');
   const [entry, setEntry] = useState<string | null>(null);
+  // origin живёт отдельно от entry: плашка контекста сбрасывается при работе
+  // с фильтрами, а кнопка «Назад» должна помнить исходную страницу до конца.
+  const [origin, setOrigin] = useState<string | null>(null);
 
   const adminCases = useMemo<CaseView[]>(() => (
     articles
@@ -281,6 +293,7 @@ export default function CasesPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const from = params.get('from');
+    if (from && BACK_TARGETS[from]) setOrigin(from);
     if (from && ENTRIES[from]) {
       setEntry(from);
       const preset = ENTRIES[from];
@@ -301,10 +314,10 @@ export default function CasesPage() {
     const params = new URLSearchParams();
     if (niches.size) params.set('niche', Array.from(niches).join(','));
     if (sources.size) params.set('src', Array.from(sources).join(','));
-    if (entry) params.set('from', entry);
+    if (origin) params.set('from', origin);
     const qs = params.toString();
     window.history.replaceState(null, '', `/cases${qs ? `?${qs}` : ''}`);
-  }, [niches, sources, entry]);
+  }, [niches, sources, origin]);
 
   const filtered = useMemo(() => {
     const list = cases.filter((c) => (
@@ -352,7 +365,11 @@ export default function CasesPage() {
 
   const clearAll = useCallback(() => { setEntry(null); setNiches(new Set()); setSources(new Set()); }, []);
 
-  const goHome = useCallback(() => { navigate('/'); window.scrollTo({ top: 0 }); }, [navigate]);
+  const backTarget = origin ? BACK_TARGETS[origin] : null;
+  const goBack = useCallback(() => {
+    navigate(backTarget ? backTarget.path : '/');
+    window.scrollTo({ top: 0 });
+  }, [navigate, backTarget]);
 
   const openCase = useCallback((item: CaseView) => {
     if (item.slug) {
@@ -379,7 +396,9 @@ export default function CasesPage() {
 
         <div className="relative z-10 mx-auto max-w-6xl">
           <div className="mb-4 flex justify-end">
-            <button onClick={goHome} className="cursor-pointer border-none bg-transparent text-sm text-muted-foreground transition-colors hover:text-primary">← На главную</button>
+            <button onClick={goBack} className="cursor-pointer border-none bg-transparent text-sm text-muted-foreground transition-colors hover:text-primary">
+              {backTarget ? `← Назад к ${backTarget.label}` : '← На главную'}
+            </button>
           </div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center md:mb-10">
@@ -442,12 +461,20 @@ export default function CasesPage() {
               </div>
             )}
             <div className="ml-auto flex items-center gap-2.5">
-              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Сортировка"
-                className="cursor-pointer rounded-xl border border-border bg-card/60 px-2.5 py-1.5 text-xs font-semibold text-foreground">
-                <option value="roi">Сначала высокий ROI</option>
-                <option value="budget">Сначала крупный бюджет</option>
-                <option value="fresh">Сначала свежие</option>
-              </select>
+              <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+                <SelectTrigger
+                  aria-label="Сортировка"
+                  className="h-9 w-auto gap-2 rounded-full border-border/70 bg-card/60 px-3.5 text-xs font-semibold backdrop-blur-sm transition-colors hover:border-primary/50 hover:text-foreground focus-visible:ring-primary/30"
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5 flex-none text-primary" aria-hidden="true" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end" className="rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
+                  <SelectItem value="roi" className="rounded-lg py-2 text-sm">Сначала высокий ROI</SelectItem>
+                  <SelectItem value="budget" className="rounded-lg py-2 text-sm">Сначала крупный бюджет</SelectItem>
+                  <SelectItem value="fresh" className="rounded-lg py-2 text-sm">Сначала свежие</SelectItem>
+                </SelectContent>
+              </Select>
               {hasFilters && (
                 <button onClick={clearAll} className="cursor-pointer border-none bg-transparent text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground">
                   сбросить
