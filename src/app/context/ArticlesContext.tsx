@@ -66,12 +66,9 @@ export const ArticlesProvider = ({ children }: Props) => {
       return;
     }
 
-    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-    if (!isDesktop) {
-      loadArticles();
-      return;
-    }
-
+    // Загрузку статей откладываем до простоя браузера НА ВСЕХ устройствах:
+    // раньше мобильные (самые слабые) грузили список сразу, конкурируя
+    // с отрисовкой первого экрана.
     let cancelled = false;
     const run = () => {
       if (cancelled) return;

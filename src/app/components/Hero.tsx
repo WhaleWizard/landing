@@ -276,34 +276,20 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
 
         {/* Main image — оптимизированная загрузка */}
         <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-          <picture>
-            <source
-              srcSet="
-                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?format=webp&width=720 720w,
-                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?format=webp&width=960 960w,
-                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?format=webp&width=1280 1280w
-              "
-              sizes="(max-width: 768px) 100vw, 50vw"
-              type="image/webp"
-            />
-            <img
-              src="https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg"
-              srcSet="
-                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?width=720 720w,
-                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?width=960 960w,
-                https://i.ibb.co/0jn4R1kS/photo-2026-04-10-23-38-24.jpg?width=1280 1280w
-              "
-              sizes="(max-width: 768px) 100vw, 50vw"
-              alt="Performance marketer portrait"
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-              width={960}
-              height={1200}
-              className="w-full h-full object-cover"
-              style={{ objectPosition: 'center center' }}
-            />
-          </picture>
+          {/* Один реальный файл вместо фиктивного srcset: параметры ?width на
+              статике игнорировались, а несовпадение URL с preload давало бы
+              двойную загрузку. Файл 746x720 — как раз под контейнер. */}
+          <img
+            src="/images/hero-portrait.jpg"
+            alt="Performance marketer portrait"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            width={746}
+            height={720}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: 'center center' }}
+          />
         </div>
 
         {/* Neon rim light */}

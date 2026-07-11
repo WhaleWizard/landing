@@ -109,10 +109,10 @@ const themes: Record<ServiceType, LandingTheme> = {
 };
 
 const CASE_IMAGES = {
-  concierge: 'https://i.ibb.co/vCrb62rL/photo-2026-04-11-00-20-15.jpg',
-  ecommerce: 'https://i.ibb.co/YBwdT5rQ/photo-2026-04-11-00-20-59.jpg',
-  info: 'https://i.ibb.co/F4q65TQk/photo-2026-04-11-00-20-39.jpg',
-  b2c: 'https://i.ibb.co/TqBqwSGB/photo-2026-04-11-00-21-23.jpg',
+  concierge: '/images/case-concierge.jpg',
+  ecommerce: '/images/case-ecommerce.jpg',
+  info: '/images/case-infobusiness.jpg',
+  b2c: '/images/case-b2c.jpg',
 };
 
 export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' | 'theme'>> = {

@@ -27,7 +27,7 @@ const casesData: CaseItem[] = [
     title: 'Premium Concierge Service',
     category: 'Meta Ads',
     description: 'Привлечение исключительно квалифицированных лидов для премиум-консьерж сервиса с высокой конверсией в общение.',
-    image: 'https://i.ibb.co/vCrb62rL/photo-2026-04-11-00-20-15.jpg',
+    image: '/images/case-concierge.jpg',
     stats: [
       { label: 'Срок работы', value: '4 года' },
       { label: 'Лиды', value: '65к+' },
@@ -38,7 +38,7 @@ const casesData: CaseItem[] = [
     title: 'E-commerce',
     category: 'Google Ads + Meta Ads',
     description: 'Продвижение товаров в уникальной связке Google Ads + Shopping Ads + Meta Ads',
-    image: 'https://i.ibb.co/YBwdT5rQ/photo-2026-04-11-00-20-59.jpg',
+    image: '/images/case-ecommerce.jpg',
     stats: [
       { label: 'Add to cart', value: '120.000+' },
       { label: 'Покупки', value: '30.000+' },
@@ -49,7 +49,7 @@ const casesData: CaseItem[] = [
     title: 'Инфобизнес',
     category: 'Google Ads + Meta Ads',
     description: 'Продвигал инфопродукты на русскоязычную аудиторию по всему миру',
-    image: 'https://i.ibb.co/F4q65TQk/photo-2026-04-11-00-20-39.jpg',
+    image: '/images/case-infobusiness.jpg',
     stats: [
       { label: 'Ad Spend', value: '$600к +' },
       { label: 'CPL', value: 'до $5' },
@@ -60,7 +60,7 @@ const casesData: CaseItem[] = [
     title: 'B2C услуги',
     category: 'Google Ads + Meta Ads',
     description: 'Уникальные стратегии продвижения для вашего бизнеса',
-    image: 'https://i.ibb.co/TqBqwSGB/photo-2026-04-11-00-21-23.jpg',
+    image: '/images/case-b2c.jpg',
     stats: [
       { label: 'Проектов', value: '50+' },
       { label: 'CPL', value: 'до $25' },
@@ -68,9 +68,6 @@ const casesData: CaseItem[] = [
     ],
   },
 ];
-
-const buildResponsiveImageSet = (baseUrl: string) =>
-  `${baseUrl}?width=480 480w, ${baseUrl}?width=768 768w, ${baseUrl}?width=1024 1024w`;
 
 // Хук для определения тач-устройства
 const useTouchDevice = () => {
@@ -203,8 +200,6 @@ function Cases({ content }: { content?: CasesContent }) {
                 <ImageWithFallback
                   src={item.image}
                   alt={item.title}
-                  srcSet={buildResponsiveImageSet(item.image)}
-                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   loading="lazy"
                   fetchPriority="low"
@@ -283,8 +278,6 @@ function Cases({ content }: { content?: CasesContent }) {
                       <ImageWithFallback
                         src={item.image}
                         alt={item.title}
-                        srcSet={buildResponsiveImageSet(item.image)}
-                        sizes="100vw"
                         className="w-full h-full object-cover"
                         loading="lazy"
                         fetchPriority="low"

@@ -1,4 +1,4 @@
-import { useState, useCallback, memo, useRef, useEffect } from 'react';
+import { useState, useCallback, memo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence, useInView } from 'motion/react';
 import {
@@ -27,8 +27,10 @@ import {
   trackLeadFormView,
 } from '../consent/consent';
 import Modal from './Modal';
-import PrivacyPolicyContent from './legal/PrivacyPolicyContent';
-import OfferContent from './legal/OfferContent';
+// Тексты политики и оферты (~65 КБ кода) нужны только при открытии модалок —
+// грузим лениво, а не в общем чанке формы на каждом визите.
+const PrivacyPolicyContent = lazy(() => import('./legal/PrivacyPolicyContent'));
+const OfferContent = lazy(() => import('./legal/OfferContent'));
 import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
 import { buildFullPhone, COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
@@ -683,7 +685,9 @@ function ContactForm() {
         dialogClassName="max-w-4xl"
         bodyClassName="prose prose-invert prose-sm max-w-none"
       >
-        <PrivacyPolicyContent />
+        <Suspense fallback={null}>
+          <PrivacyPolicyContent />
+        </Suspense>
       </Modal>
 
       {/* Модальное окно Публичной оферты */}
@@ -694,7 +698,9 @@ function ContactForm() {
         dialogClassName="max-w-4xl"
         bodyClassName="prose prose-invert prose-sm max-w-none"
       >
-        <OfferContent />
+        <Suspense fallback={null}>
+          <OfferContent />
+        </Suspense>
       </Modal>
     </section>
   );
