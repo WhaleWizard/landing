@@ -26,6 +26,7 @@ const META_FIRST_TOUCH_KEY = 'ww_meta_first_touch_v1';
 const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
 const META_SESSION_ID_KEY = 'ww_meta_session_id_v1';
 const META_FBC_KEY = 'ww_meta_fbc_v1';
+const META_FBP_KEY = 'ww_meta_fbp_v1';
 const META_ATTRIBUTION_KEY = 'ww_meta_attribution_v1';
 const META_USER_DATA_KEY = 'ww_meta_user_data_v1';
 const CONSENT_TTL_DAYS = 180;
@@ -675,6 +676,37 @@ function getOrCreateFbc(fbclid: string | undefined): string | undefined {
   return value;
 }
 
+// Если пиксель заблокирован (ad blocker) или ещё не успел поставить cookie _fbp,
+// генерируем fbp сами по официальному формату Meta (fb.1.{время в мс}.{случайное число})
+// и сохраняем, чтобы значение было стабильным между страницами и визитами.
+// Meta это явно разрешает; только при согласии на маркетинг.
+function trySetFbpCookie(value: string): void {
+  try {
+    const host = window.location.hostname;
+    const rootDomain = host.split('.').slice(-2).join('.');
+    document.cookie = `_fbp=${encodeURIComponent(value)}; Max-Age=${90 * 24 * 60 * 60}; Path=/; Domain=.${rootDomain}; SameSite=Lax; Secure`;
+  } catch {
+    // cookie может быть недоступна — достаточно localStorage
+  }
+}
+
+function getOrCreateFbp(): string | undefined {
+  const cookieFbp = getCookieValue('_fbp');
+  if (cookieFbp) return cookieFbp;
+  if (!hasMarketingConsent()) return undefined;
+
+  const stored = safeReadLocalStorage(META_FBP_KEY);
+  if (stored) {
+    trySetFbpCookie(stored);
+    return stored;
+  }
+
+  const generated = `fb.1.${Date.now()}.${Math.floor(Math.random() * 2147483647)}`;
+  safeWriteLocalStorage(META_FBP_KEY, generated);
+  trySetFbpCookie(generated);
+  return generated;
+}
+
 type StoredSession = {
   id: string;
   lastSeenAt: number;
@@ -860,7 +892,7 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     ph: storedUserData.ph,
     fn: storedUserData.fn,
     ln: storedUserData.ln,
-    fbp: getCookieValue('_fbp'),
+    fbp: getOrCreateFbp(),
     fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
     fbclid,
     ...consentSnapshot,
