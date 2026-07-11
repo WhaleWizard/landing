@@ -109,10 +109,6 @@ function articleRecencyScore(article?: Article): number {
   );
 }
 
-function datasetRecencyScore(articles: Article[]): number {
-  return articles.reduce((freshest, article) => Math.max(freshest, articleRecencyScore(article)), 0);
-}
-
 function pickPreferredArticle(current: Article | undefined, incoming: Article): Article {
   if (!current) return incoming;
 
@@ -197,7 +193,9 @@ async function resolveFallbackArticles(): Promise<Article[]> {
 
   // Быстрый путь: если уже есть локальные данные — возвращаем их сразу,
   // чтобы не блокировать UI медленными внешними запросами.
-  const quickSource = [localSeed, localBackup].find((source) => source.length > 0) || [];
+  // Бэкап приоритетнее seed: он записан из последнего успешного ответа API,
+  // поэтому отражает удаления, сделанные после сборки сайта.
+  const quickSource = [localBackup, localSeed].find((source) => source.length > 0) || [];
   if (quickSource.length > 0) {
     saveLocalArticlesBackup(quickSource);
     return quickSource;
@@ -206,7 +204,7 @@ async function resolveFallbackArticles(): Promise<Article[]> {
   const publicFallback = await fetchPublicJsonBinFallback().then((articles) => sanitizeArticles(articles));
 
   // Prefer a single freshest non-empty fallback source to avoid mixing stale and current datasets.
-  const preferredSource = [publicFallback, localSeed, localBackup].find((source) => source.length > 0) || [];
+  const preferredSource = [publicFallback, localBackup, localSeed].find((source) => source.length > 0) || [];
   if (preferredSource.length > 0) {
     saveLocalArticlesBackup(preferredSource);
     return preferredSource;
@@ -225,17 +223,6 @@ async function resolveFallbackArticles(): Promise<Article[]> {
   const merged = Array.from(mergedMap.values());
   if (merged.length > 0) saveLocalArticlesBackup(merged);
   return merged;
-}
-
-async function preferRicherLocalSeed(primaryArticles: Article[]): Promise<Article[]> {
-  const localSeed = await fetchLocalSeedFallback().then((articles) => sanitizeArticles(articles));
-  if (
-    localSeed.length > primaryArticles.length &&
-    datasetRecencyScore(primaryArticles) <= datasetRecencyScore(localSeed)
-  ) {
-    return localSeed;
-  }
-  return primaryArticles;
 }
 
 export const fetchArticles = async (options?: { bypassCache?: boolean }): Promise<Article[]> => {
@@ -257,11 +244,9 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
 
     if (primaryArticles.length > 0) {
-      const articles = options?.bypassCache
-        ? primaryArticles
-        : await preferRicherLocalSeed(primaryArticles);
-      saveLocalArticlesBackup(articles);
-      return articles;
+      // API is source of truth for admin operations. Do not restore deleted records from stale fallbacks.
+      saveLocalArticlesBackup(primaryArticles);
+      return primaryArticles;
     }
 
     return resolveFallbackArticles();

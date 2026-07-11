@@ -16,8 +16,6 @@ import {
 const REQUIRE_FRESH_ARTICLES = process.env.REQUIRE_FRESH_ARTICLES === 'true' || process.env.STRICT_ARTICLES_FETCH === 'true';
 const ALLOW_FALLBACK_BUILD = process.env.ALLOW_FALLBACK_BUILD === 'true';
 const USE_D1_ARTICLES = process.env.USE_D1_ARTICLES === 'true';
-const HAS_EXPLICIT_PUBLIC_SOURCE = Boolean(process.env.ARTICLES_PUBLIC_URL);
-const HAS_EXPLICIT_JSONBIN_SOURCE = Boolean(process.env.JSONBIN_URL || process.env.JSONBIN_BIN_ID);
 // When D1 is the runtime source of truth, build-time JSONBin is only a static SEO fallback.
 // Runtime Pages Functions will read current articles from D1 after deploy.
 const FAIL_ON_FALLBACK = REQUIRE_FRESH_ARTICLES && !ALLOW_FALLBACK_BUILD && !USE_D1_ARTICLES;
@@ -145,13 +143,6 @@ async function main() {
     const payload = await response.json();
     const articles = Array.isArray(payload?.articles) ? payload.articles : [];
     if (articles.length > 0) {
-      const fallback = pickFallbackSource();
-      if (!HAS_EXPLICIT_PUBLIC_SOURCE && fallback && fallback.articles.length > articles.length) {
-        writeBuildArticles(fallback.articles, fallback.source);
-        console.warn(`⚠️ Public articles API returned ${articles.length} articles. Using richer ${fallback.source}: ${fallback.articles.length} articles.`);
-        return;
-      }
-
       writeBuildArticles(articles, 'public-api');
       console.log(`✅ Articles fetched from public API: ${articles.length}`);
       return;
@@ -164,14 +155,9 @@ async function main() {
   }
 
   try {
+    // JSONBin — живой источник; локальные файлы могут содержать статьи,
+    // уже удалённые через админку, поэтому «богатый» fallback им не заменяем.
     const articles = await fetchArticlesFromJsonBin();
-    const fallback = pickFallbackSource();
-    if (!HAS_EXPLICIT_JSONBIN_SOURCE && fallback && fallback.articles.length > articles.length) {
-      writeBuildArticles(fallback.articles, fallback.source);
-      console.warn(`⚠️ Default JSONBin returned ${articles.length} articles. Using richer ${fallback.source}: ${fallback.articles.length} articles.`);
-      return;
-    }
-
     writeBuildArticles(articles, 'jsonbin');
     console.log(`✅ Articles fetched from JSONBin: ${articles.length}`);
     return;

@@ -50,41 +50,15 @@ async function fetchSeedArticles(siteUrl: string): Promise<Article[]> {
   }
 }
 
-function toTimestamp(value?: string): number {
-  if (!value) return 0;
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function getDatasetFreshness(articles: Article[]): number {
-  return articles.reduce((freshest, article) => Math.max(
-    freshest,
-    toTimestamp(article.updatedAt),
-    toTimestamp(article.publishedAt),
-  ), 0);
-}
-
-async function preferRicherSeed(primary: Article[], seedPromise: Promise<Article[]>, sourceName: string): Promise<Article[]> {
-  const seedArticles = await seedPromise;
-  const primaryFreshness = getDatasetFreshness(primary);
-  const seedFreshness = getDatasetFreshness(seedArticles);
-
-  if (seedArticles.length > primary.length && primaryFreshness <= seedFreshness) {
-    console.warn(`[articles] ${sourceName} returned ${primary.length} articles. Using richer static seed: ${seedArticles.length} articles.`);
-    return seedArticles;
-  }
-
-  return primary;
-}
-
+// D1/JSONBin — источник истины; seed используется только когда основные
+// хранилища пусты или недоступны. «Предпочтение богатого seed» из миграции
+// knowledge hub удалено: после переноса 26 статей оно только воскрешало бы
+// удалённые через админку материалы.
 export async function fetchArticlesWithFallback(env: Env, request: Request): Promise<Article[]> {
-  const siteUrl = getSiteUrl(env, request);
-  const seedArticlesPromise = fetchSeedArticles(siteUrl);
-
   if (shouldUseD1Articles(env)) {
     try {
       const d1Articles = await fetchArticlesFromD1(env);
-      if (d1Articles.length > 0) return preferRicherSeed(d1Articles, seedArticlesPromise, 'D1');
+      if (d1Articles.length > 0) return d1Articles;
       console.warn('[articles] D1 returned empty dataset, continuing fallback chain.');
     } catch {
       console.error('[articles] Failed to read from D1, continuing fallback chain.');
@@ -93,11 +67,11 @@ export async function fetchArticlesWithFallback(env: Env, request: Request): Pro
 
   try {
     const primary = await fetchArticlesFromJsonBin(env);
-    if (primary.length > 0) return preferRicherSeed(primary, seedArticlesPromise, 'JsonBin');
+    if (primary.length > 0) return primary;
     console.warn('[articles] JsonBin returned empty dataset, continuing fallback chain.');
   } catch {
     console.error('[articles] Failed to read from JsonBin, continuing fallback chain.');
   }
 
-  return seedArticlesPromise;
+  return fetchSeedArticles(getSiteUrl(env, request));
 }
