@@ -101,3 +101,75 @@
     }
   }
 }
+
+/* ── Куки-баннер: живая градиентная рамка и блик (вариант «живая рамка») ── */
+@property --ww-ang {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.ww-cookie-frame {
+  position: relative;
+  border-radius: 20px;
+  padding: 1.5px;
+  overflow: hidden;
+}
+
+.ww-cookie-frame::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(
+    from var(--ww-ang),
+    var(--primary),
+    var(--accent),
+    transparent 30%,
+    transparent 70%,
+    var(--primary)
+  );
+  animation: ww-border-spin 6s linear infinite;
+}
+
+@keyframes ww-border-spin {
+  to { --ww-ang: 360deg; }
+}
+
+/* Браузеры без @property: статичная градиентная рамка вместо вращения */
+@supports not (background: conic-gradient(from var(--ww-ang, 0deg), red, blue)) {
+  .ww-cookie-frame::before {
+    animation: none;
+    background: linear-gradient(120deg, var(--primary), var(--accent));
+  }
+}
+
+.ww-sheen {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-130%);
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
+  animation: ww-sheen-slide 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ww-sheen-slide {
+  0%, 55% { transform: translateX(-130%); }
+  75%, 100% { transform: translateX(130%); }
+}
+
+@keyframes ww-banner-rise {
+  from { transform: translate(-50%, 115%); opacity: 0.4; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.ww-banner-enter {
+  animation: ww-banner-rise 0.55s cubic-bezier(0.2, 0.9, 0.25, 1.05) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ww-cookie-frame::before,
+  .ww-sheen,
+  .ww-banner-enter {
+    animation: none;
+  }
+}
