@@ -19,7 +19,21 @@ interface LeadRow {
   last_submitted_at?: string | null;
   quality?: string;
   marketing_consent?: number;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
 }
+
+// Подписи UTM-меток для карточки заявки
+const UTM_LABELS: Array<{ key: 'utm_source' | 'utm_medium' | 'utm_campaign' | 'utm_content' | 'utm_term'; label: string }> = [
+  { key: 'utm_source', label: 'источник' },
+  { key: 'utm_medium', label: 'канал' },
+  { key: 'utm_campaign', label: 'кампания' },
+  { key: 'utm_content', label: 'объявление' },
+  { key: 'utm_term', label: 'ключ' },
+];
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'new', label: 'новая' },
@@ -198,6 +212,16 @@ export default function AdminLeads({ password }: { password: string }) {
                     {lead.service && <span>Услуга: {lead.service}</span>}
                     {lead.page_path && <span>Со страницы: {lead.page_path}</span>}
                   </div>
+                  {UTM_LABELS.some(({ key }) => lead[key]) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {UTM_LABELS.map(({ key, label }) => lead[key] ? (
+                        <span key={key} className="inline-flex items-center gap-1 rounded-full border border-[var(--adm-primary)]/25 bg-[var(--adm-primary)]/8 px-2 py-0.5 text-[11px]">
+                          <span className="text-[var(--adm-fg)]/45">{label}:</span>
+                          <span className="font-medium text-[var(--adm-primary)]">{lead[key]}</span>
+                        </span>
+                      ) : null)}
+                    </div>
+                  )}
                   {lead.message && <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[var(--adm-fg)]/85">{lead.message}</p>}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">

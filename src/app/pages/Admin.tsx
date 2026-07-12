@@ -1,11 +1,11 @@
-import { useEffect, useState, useMemo, useCallback, createContext, useContext } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
   ShieldCheck, ExternalLink, History, RotateCcw,
-  LayoutDashboard, Newspaper, Briefcase, Inbox, Images
+  LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -17,9 +17,10 @@ import CaseFieldsEditor from '../components/CaseFieldsEditor';
 import AdminDashboard from '../components/admin/AdminDashboard';
 import AdminLeads from '../components/admin/AdminLeads';
 import AdminMedia from '../components/admin/AdminMedia';
+import AdminHealth from '../components/admin/AdminHealth';
 import SEO from '../components/SEO';
 
-type AdminView = 'dashboard' | 'articles' | 'leads' | 'media';
+type AdminView = 'dashboard' | 'articles' | 'leads' | 'media' | 'health';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -315,34 +316,49 @@ interface AdminArticleItemProps {
   onDuplicate: (article: Article) => void;
   onDelete: (slug: string) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
+  onDragEnd: () => void;
   locked: boolean;
 }
 
 
-function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove, locked }: AdminArticleItemProps) {
+function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove, onDragEnd, locked }: AdminArticleItemProps) {
+  const ref = useRef<HTMLDivElement>(null);
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ADMIN_DND_TYPE,
     item: { index },
     canDrag: !locked,
+    end: () => onDragEnd(),
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  }), [index, locked]);
+  }), [index, locked, onDragEnd]);
 
+  // Перестановка происходит уже при наведении (а не при отпускании):
+  // соседние статьи плавно сдвигаются, видно направление перемещения.
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ADMIN_DND_TYPE,
-    drop: (dragged: { index: number }) => {
-      if (locked || dragged.index === index) return;
+    hover: (dragged: { index: number }, monitor) => {
+      if (locked || !ref.current || dragged.index === index) return;
+      const rect = ref.current.getBoundingClientRect();
+      const middleY = (rect.bottom - rect.top) / 2;
+      const offset = monitor.getClientOffset();
+      if (!offset) return;
+      const hoverY = offset.y - rect.top;
+      if (dragged.index < index && hoverY < middleY) return;
+      if (dragged.index > index && hoverY > middleY) return;
       onMove(dragged.index, index);
       dragged.index = index;
     },
     collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
   }), [index, locked, onMove]);
 
+  drag(drop(ref));
+
   return (
-    <div
-      ref={(node) => {
-        drag(drop(node));
-      }}
-      className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'} ${isDragging ? 'opacity-60' : ''}`}
+    <motion.div
+      ref={ref}
+      layout
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className={`flex items-center gap-2 p-2.5 rounded-xl border ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'}`}
+      style={{ opacity: isDragging ? 0.35 : 1 }}
     >
       <button
         className={`p-1.5 rounded-lg text-[var(--adm-fg)]/50 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'}`}
@@ -383,8 +399,15 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
       >
         <Trash2 className="w-4 h-4" />
       </button>
-    </div>
+    </motion.div>
   );
+}
+
+function moveArrayItem<T>(array: T[], fromIndex: number, toIndex: number): T[] {
+  const copy = [...array];
+  const [item] = copy.splice(fromIndex, 1);
+  copy.splice(toIndex, 0, item);
+  return copy;
 }
 
 function useFilteredArticles(articles: Article[]) {
@@ -415,7 +438,17 @@ export default function Admin() {
   const takeawaysText = editingArticle?.keyTakeaways?.join('\n') || '';
   const tagsText = editingArticle?.tags?.join('\n') || '';
 
-  const { query, setQuery, filtered } = useFilteredArticles(articles);
+  // Черновик порядка на время перетаскивания: список перестраивается на лету
+  // (с анимацией), в базу порядок уходит один раз — при отпускании.
+  const [draftOrder, setDraftOrderState] = useState<Article[] | null>(null);
+  const draftOrderRef = useRef<Article[] | null>(null);
+  const setDraftOrder = useCallback((value: Article[] | null) => {
+    draftOrderRef.current = value;
+    setDraftOrderState(value);
+  }, []);
+  const orderedArticles = draftOrder ?? articles;
+
+  const { query, setQuery, filtered } = useFilteredArticles(orderedArticles);
   const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
   const currentArticleSnapshot = useMemo(() => snapshotArticle(editingArticle), [editingArticle]);
@@ -709,37 +742,44 @@ export default function Admin() {
   };
 
 
+  // Визуальная перестановка при наведении (во время перетаскивания)
   const moveArticle = useCallback((fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= articles.length || toIndex >= articles.length) return;
-    const protectedIndex = articles.findIndex(isProtectedArticle);
+    const base = draftOrderRef.current ?? articles;
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= base.length || toIndex >= base.length) return;
+    if (isProtectedArticle(base[fromIndex]) || isProtectedArticle(base[toIndex])) return;
+    const protectedIndex = base.findIndex(isProtectedArticle);
     const crossesProtectedArticle = protectedIndex >= 0 && (
       (fromIndex < protectedIndex && toIndex >= protectedIndex) ||
       (fromIndex > protectedIndex && toIndex <= protectedIndex)
     );
-    if (crossesProtectedArticle) {
-      alert('Нельзя сдвигать защищенную статью. Перемещайте материалы только выше или ниже нее.');
+    if (crossesProtectedArticle) return; // тихо не пускаем через защищённую статью
+    setDraftOrder(moveArrayItem(base, fromIndex, toIndex));
+  }, [articles, setDraftOrder]);
+
+  // Сохранение нового порядка — один раз, когда статью отпустили
+  const commitArticleOrder = useCallback(async () => {
+    const draft = draftOrderRef.current;
+    if (!draft) return;
+    const changed = draft.some((article, index) => article.slug !== articles[index]?.slug);
+    if (!changed) {
+      setDraftOrder(null);
       return;
     }
-    const reordered = [...articles];
-    const [moved] = reordered.splice(fromIndex, 1);
-    const target = articles[toIndex];
-    if (isProtectedArticle(moved) || isProtectedArticle(target)) {
-      alert('Защищенную статью нельзя перетаскивать или сдвигать.');
-      return;
-    }
-    reordered.splice(toIndex, 0, moved);
-    updateArticles(reordered, password).then(async (success) => {
+    try {
+      const success = await updateArticles(draft, password);
       if (!success) {
         alert('Не удалось сохранить новый порядок статей');
       }
       await forceRefreshAdminArticles(password);
       await refreshHealth();
-    }).catch(async (err) => {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       alert('Ошибка при смене порядка: ' + message);
       await forceRefreshAdminArticles(password);
-    });
-  }, [articles, forceRefreshAdminArticles, password, updateArticles]);
+    } finally {
+      setDraftOrder(null);
+    }
+  }, [articles, forceRefreshAdminArticles, password, setDraftOrder, updateArticles]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -803,6 +843,7 @@ export default function Admin() {
                   { key: 'cases', label: 'Кейсы', icon: Briefcase, active: adminView === 'articles' && adminSectionFilter === 'cases', onClick: () => { setAdminView('articles'); setAdminSectionFilter('cases'); } },
                   { key: 'leads', label: 'Заявки', icon: Inbox, active: adminView === 'leads', onClick: () => setAdminView('leads') },
                   { key: 'media', label: 'Медиатека', icon: Images, active: adminView === 'media', onClick: () => setAdminView('media') },
+                  { key: 'health', label: 'Проверка', icon: Stethoscope, active: adminView === 'health', onClick: () => setAdminView('health') },
                 ] as const).map((item) => (
                   <button
                     key={item.key}
@@ -819,6 +860,7 @@ export default function Admin() {
               {adminView === 'dashboard' && <AdminDashboard password={password} />}
               {adminView === 'leads' && <AdminLeads password={password} />}
               {adminView === 'media' && <AdminMedia password={password} />}
+              {adminView === 'health' && <AdminHealth password={password} />}
 
               {adminView === 'articles' && (
           <div className="grid lg:grid-cols-3 gap-8">
@@ -882,7 +924,7 @@ export default function Admin() {
                       </div>
                     )}
                     {filteredBySection.map((article) => {
-                      const articleIndex = articles.findIndex((item) => item.slug === article.slug);
+                      const articleIndex = orderedArticles.findIndex((item) => item.slug === article.slug);
                       return (
                         <AdminArticleItem
                           key={article.slug}
@@ -892,6 +934,7 @@ export default function Admin() {
                           onDuplicate={handleDuplicate}
                           onDelete={handleDelete}
                           onMove={moveArticle}
+                          onDragEnd={() => void commitArticleOrder()}
                           locked={isProtectedArticle(article)}
                         />
                       );

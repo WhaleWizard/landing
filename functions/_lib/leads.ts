@@ -19,6 +19,12 @@ export interface LeadRecord {
   page_url?: string;
   external_id?: string;
   marketing_consent?: boolean;
+  // Источник лида (миграция 0011)
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
 }
 
 // Колонки таблицы leads зависят от применённых миграций (0008/0009/0010).
@@ -76,6 +82,7 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     if (cols.size === 0) return fallback; // таблицы ещё нет (миграция 0008 не применена)
     const hasDedupe = cols.has('submissions_count') && cols.has('last_submitted_at'); // 0009
     const hasMetaContext = cols.has('marketing_consent'); // 0010
+    const hasUtm = cols.has('utm_source'); // 0011
 
     let existing: { id: number; submissions_count: number; message: string } | null = null;
     const keys = contactKeys(lead.email, lead.phone, lead.telegramUsername);
@@ -149,6 +156,23 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
           lead.marketing_consent === true ? 1 : 0,
         );
       }
+      if (hasUtm) {
+        // Повторная заявка = новый источник: обновляем метки, если они пришли
+        set.push(
+          "utm_source = CASE WHEN ? != '' THEN ? ELSE utm_source END",
+          "utm_medium = CASE WHEN ? != '' THEN ? ELSE utm_medium END",
+          "utm_campaign = CASE WHEN ? != '' THEN ? ELSE utm_campaign END",
+          "utm_content = CASE WHEN ? != '' THEN ? ELSE utm_content END",
+          "utm_term = CASE WHEN ? != '' THEN ? ELSE utm_term END",
+        );
+        values.push(
+          lead.utm_source || '', lead.utm_source || '',
+          lead.utm_medium || '', lead.utm_medium || '',
+          lead.utm_campaign || '', lead.utm_campaign || '',
+          lead.utm_content || '', lead.utm_content || '',
+          lead.utm_term || '', lead.utm_term || '',
+        );
+      }
       values.push(existing.id);
       await env.DB.prepare(`UPDATE leads SET ${set.join(', ')} WHERE id = ?`).bind(...values).run();
       return { repeat: true, submissionsCount: newCount };
@@ -176,6 +200,11 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       insertCols.push('fbp', 'fbc', 'event_source_url', 'external_id', 'marketing_consent');
       placeholders.push('?', '?', '?', '?', '?');
       insertVals.push(lead.fbp || '', lead.fbc || '', lead.page_url || '', lead.external_id || '', lead.marketing_consent === true ? 1 : 0);
+    }
+    if (hasUtm) {
+      insertCols.push('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term');
+      placeholders.push('?', '?', '?', '?', '?');
+      insertVals.push(lead.utm_source || '', lead.utm_medium || '', lead.utm_campaign || '', lead.utm_content || '', lead.utm_term || '');
     }
     await env.DB.prepare(
       `INSERT INTO leads (${insertCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT(event_id) DO NOTHING`
@@ -219,6 +248,9 @@ export function buildLeadTelegramText(lead: LeadRecord, stored?: StoreLeadResult
   }
   if (lead.service) lines.push(`Услуга: ${lead.service}`);
   if (lead.page_path) lines.push(`Страница: ${lead.page_path}`);
+  const utm = [lead.utm_source, lead.utm_medium, lead.utm_campaign].filter(Boolean).join(' / ');
+  if (utm) lines.push(`📍 Источник: ${utm}`);
+  if (lead.utm_content) lines.push(`Объявление: ${lead.utm_content}`);
   return lines.map(escapeTelegramHtml).join('\n');
 }
 
