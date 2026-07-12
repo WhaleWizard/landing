@@ -660,16 +660,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  // Копия заявки в D1 — для раздела «Заявки» в админке.
-  // Ошибки записи не мешают доставке уведомления.
-  waitUntil(storeLead(env, normalized));
-
   // Уведомление о заявке: напрямую в Telegram (секреты в Cloudflare),
   // а пока TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID не заданы — на старый
   // Google Apps Script, чтобы ничего не сломалось при переезде.
   const crmTask = (async () => {
+    // Сначала пишем в D1 (с дедупликацией повторных заявок) — тогда
+    // Telegram-сообщение знает, что контакт уже оставлял заявку.
+    const stored = await storeLead(env, normalized);
     if (isTelegramConfigured(env)) {
-      const result = await sendLeadToTelegram(env, normalized);
+      const result = await sendLeadToTelegram(env, normalized, stored);
       if (result.ok) {
         await markLeadTelegramDelivered(env, normalized.event_id);
       }

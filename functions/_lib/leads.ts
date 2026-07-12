@@ -13,6 +13,27 @@ export interface LeadRecord {
   message?: string;
   service?: string;
   page_path?: string;
+  // Контекст для последующих событий качества лида в Meta (миграция 0010)
+  fbp?: string;
+  fbc?: string;
+  page_url?: string;
+  external_id?: string;
+  marketing_consent?: boolean;
+}
+
+// Колонки таблицы leads зависят от применённых миграций (0008/0009/0010).
+// Проверяем фактический состав, чтобы код работал при любом их сочетании.
+let leadsColumnsCache: { columns: Set<string>; expiresAt: number } | null = null;
+
+export async function getLeadsColumns(db: D1Database): Promise<Set<string>> {
+  const now = Date.now();
+  if (leadsColumnsCache && leadsColumnsCache.expiresAt > now) {
+    return leadsColumnsCache.columns;
+  }
+  const result = await db.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
+  const columns = new Set((result.results || []).map((column) => column.name).filter(Boolean));
+  leadsColumnsCache = { columns, expiresAt: now + 5 * 60 * 1000 };
+  return columns;
 }
 
 function hasLeadsTableError(error: unknown): boolean {
@@ -20,16 +41,121 @@ function hasLeadsTableError(error: unknown): boolean {
   return /no such table/i.test(message);
 }
 
-// Сохранение заявки в D1. Ошибки не роняют обработку лида:
-// до применения миграции 0008 (или без D1) заявки просто не пишутся в базу.
-export async function storeLead(env: Env, lead: LeadRecord): Promise<void> {
-  if (!env.DB) return;
+function hasMissingColumnError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such column|has no column/i.test(message);
+}
+
+export interface StoreLeadResult {
+  repeat: boolean;
+  submissionsCount: number;
+}
+
+// Ключи для поиска повторной заявки от того же человека
+function contactKeys(email?: string, phone?: string, telegram?: string) {
+  return {
+    email: String(email || '').trim().toLowerCase(),
+    phone: String(phone || '').replace(/\D/g, ''),
+    telegram: String(telegram || '').trim().toLowerCase().replace(/^@/, ''),
+  };
+}
+
+const MAX_STORED_MESSAGE = 4000;
+
+// Сохранение заявки в D1 с дедупликацией: если контакт (email / телефон /
+// telegram) уже оставлял заявку — не создаём дубль, а «поднимаем» старую:
+// счётчик +1, статус снова «новая», новое сообщение дописывается к истории.
+// Ошибки не роняют обработку лида: до миграций 0008/0009 (или без D1)
+// код тихо деградирует.
+export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadResult> {
+  const fallback: StoreLeadResult = { repeat: false, submissionsCount: 1 };
+  if (!env.DB) return fallback;
+
   try {
-    await env.DB.prepare(
-      `INSERT INTO leads (event_id, name, email, phone, telegram_username, contact_method, budget, message, service, page_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(event_id) DO NOTHING`
-    ).bind(
+    const cols = await getLeadsColumns(env.DB);
+    if (cols.size === 0) return fallback; // таблицы ещё нет (миграция 0008 не применена)
+    const hasDedupe = cols.has('submissions_count') && cols.has('last_submitted_at'); // 0009
+    const hasMetaContext = cols.has('marketing_consent'); // 0010
+
+    let existing: { id: number; submissions_count: number; message: string } | null = null;
+    const keys = contactKeys(lead.email, lead.phone, lead.telegramUsername);
+    if (hasDedupe && (keys.email || keys.phone || keys.telegram)) {
+      // Заявок немного — сверяем контакты в коде, чтобы одинаково
+      // нормализовать телефоны вида "+7 (999) ..." и "79 99...".
+      const recent = await env.DB.prepare(
+        'SELECT id, email, phone, telegram_username, submissions_count, message FROM leads ORDER BY id DESC LIMIT 500'
+      ).all<{ id: number; email: string; phone: string; telegram_username: string; submissions_count: number; message: string }>();
+      for (const row of recent.results || []) {
+        const rowKeys = contactKeys(row.email, row.phone, row.telegram_username);
+        const sameEmail = keys.email && rowKeys.email === keys.email;
+        const samePhone = keys.phone && rowKeys.phone === keys.phone;
+        const sameTelegram = keys.telegram && rowKeys.telegram === keys.telegram;
+        if (sameEmail || samePhone || sameTelegram) {
+          existing = { id: row.id, submissions_count: Number(row.submissions_count || 1), message: String(row.message || '') };
+          break;
+        }
+      }
+    }
+
+    if (existing) {
+      const newCount = existing.submissions_count + 1;
+      const dateLabel = new Date().toLocaleDateString('ru-RU');
+      const addition = lead.message ? `— повторная заявка ${dateLabel}: ${lead.message}` : `— повторная заявка ${dateLabel}`;
+      const mergedMessage = `${existing.message}\n${addition}`.trim().slice(-MAX_STORED_MESSAGE);
+
+      const set: string[] = [
+        'submissions_count = ?',
+        "last_submitted_at = datetime('now')",
+        "updated_at = datetime('now')",
+        "status = 'new'",
+        'telegram_delivered = 0',
+        'event_id = ?',
+        "name = CASE WHEN ? != '' THEN ? ELSE name END",
+        "email = CASE WHEN ? != '' THEN ? ELSE email END",
+        "phone = CASE WHEN ? != '' THEN ? ELSE phone END",
+        "telegram_username = CASE WHEN ? != '' THEN ? ELSE telegram_username END",
+        "budget = CASE WHEN ? != '' THEN ? ELSE budget END",
+        "service = CASE WHEN ? != '' THEN ? ELSE service END",
+        "page_path = CASE WHEN ? != '' THEN ? ELSE page_path END",
+        'message = ?',
+      ];
+      // порядок значений строго повторяет порядок «?» в списке set выше
+      const values: Array<string | number> = [
+        newCount,
+        lead.event_id || crypto.randomUUID(),
+        lead.name || '', lead.name || '',
+        lead.email || '', lead.email || '',
+        lead.phone || '', lead.phone || '',
+        lead.telegramUsername || '', lead.telegramUsername || '',
+        lead.budget || '', lead.budget || '',
+        lead.service || '', lead.service || '',
+        lead.page_path || '', lead.page_path || '',
+        mergedMessage,
+      ];
+      if (hasMetaContext) {
+        // Повторная заявка = свежий клик по рекламе: обновляем метки и согласие
+        set.push(
+          "fbp = CASE WHEN ? != '' THEN ? ELSE fbp END",
+          "fbc = CASE WHEN ? != '' THEN ? ELSE fbc END",
+          "event_source_url = CASE WHEN ? != '' THEN ? ELSE event_source_url END",
+          "external_id = CASE WHEN ? != '' THEN ? ELSE external_id END",
+          'marketing_consent = ?',
+        );
+        values.push(
+          lead.fbp || '', lead.fbp || '',
+          lead.fbc || '', lead.fbc || '',
+          lead.page_url || '', lead.page_url || '',
+          lead.external_id || '', lead.external_id || '',
+          lead.marketing_consent === true ? 1 : 0,
+        );
+      }
+      values.push(existing.id);
+      await env.DB.prepare(`UPDATE leads SET ${set.join(', ')} WHERE id = ?`).bind(...values).run();
+      return { repeat: true, submissionsCount: newCount };
+    }
+
+    const insertCols = ['event_id', 'name', 'email', 'phone', 'telegram_username', 'contact_method', 'budget', 'message', 'service', 'page_path'];
+    const insertVals: Array<string | number> = [
       lead.event_id || crypto.randomUUID(),
       lead.name || '',
       lead.email || '',
@@ -40,11 +166,26 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<void> {
       lead.message || '',
       lead.service || '',
       lead.page_path || '',
-    ).run();
+    ];
+    const placeholders = insertCols.map(() => '?');
+    if (hasDedupe) {
+      insertCols.push('last_submitted_at');
+      placeholders.push("datetime('now')");
+    }
+    if (hasMetaContext) {
+      insertCols.push('fbp', 'fbc', 'event_source_url', 'external_id', 'marketing_consent');
+      placeholders.push('?', '?', '?', '?', '?');
+      insertVals.push(lead.fbp || '', lead.fbc || '', lead.page_url || '', lead.external_id || '', lead.marketing_consent === true ? 1 : 0);
+    }
+    await env.DB.prepare(
+      `INSERT INTO leads (${insertCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT(event_id) DO NOTHING`
+    ).bind(...insertVals).run();
+    return fallback;
   } catch (error) {
-    if (!hasLeadsTableError(error)) {
+    if (!hasLeadsTableError(error) && !hasMissingColumnError(error)) {
       console.error('[Leads] Failed to store lead in D1:', error);
     }
+    return fallback;
   }
 }
 
@@ -63,9 +204,9 @@ function escapeTelegramHtml(value: string): string {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function buildLeadTelegramText(lead: LeadRecord): string {
+export function buildLeadTelegramText(lead: LeadRecord, stored?: StoreLeadResult): string {
   const lines = [
-    '🚀 Новая заявка',
+    stored?.repeat ? `🔁 Повторная заявка (№${stored.submissionsCount} от этого контакта)` : '🚀 Новая заявка',
     `Имя: ${lead.name || 'не указано'}`,
     `Email: ${lead.email || 'не указан'}`,
     `Телефон: ${lead.phone || 'не указан'}`,
@@ -87,7 +228,7 @@ export function isTelegramConfigured(env: Env): boolean {
 
 // Прямая отправка заявки в Telegram из Cloudflare (вместо Google Apps Script).
 // Токен и chat_id живут в секретах Cloudflare Pages, не в коде.
-export async function sendLeadToTelegram(env: Env, lead: LeadRecord): Promise<{ ok: boolean; error?: string }> {
+export async function sendLeadToTelegram(env: Env, lead: LeadRecord, stored?: StoreLeadResult): Promise<{ ok: boolean; error?: string }> {
   const token = env.TELEGRAM_BOT_TOKEN;
   const chatId = env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) {
@@ -99,7 +240,7 @@ export async function sendLeadToTelegram(env: Env, lead: LeadRecord): Promise<{ 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
-        text: buildLeadTelegramText(lead),
+        text: buildLeadTelegramText(lead, stored),
         parse_mode: 'HTML',
       }),
     });

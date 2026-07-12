@@ -28,6 +28,23 @@ Cloudflare Dashboard → Storage & Databases → D1 → база сайта → 
 
 Медиатека и дашборд работают на существующих биндингах (`BUCKET`, `DB`). Все admin-эндпоинты защищены `ADMIN_PASSWORD` (заголовок `X-Admin-Password`) и rate-limit'ом.
 
+## Качество лидов → Meta (QualifiedLead / UnqualifiedLead)
+
+Кнопки «целевой»/«нецелевой» в разделе «Заявки» отправляют в Meta CAPI события
+`QualifiedLead` / `UnqualifiedLead` (`functions/_lib/lead-quality.ts`):
+
+- только если посетитель дал marketing_consent вместе с заявкой (флаг хранится в leads);
+- PII уходит как SHA-256 хеши (email/phone/external_id) + fbp/fbc клика;
+- `action_source: system_generated`, `event_id: lq:<quality>:<lead_id>` — повторные клики дедуплицируются;
+- при сбое событие лежит в `meta_outbox` и досылается фоном, статус ответа Meta показывается в админке.
+
+Требуются миграции 0009 (метка quality) и 0010 (fbp/fbc/consent-контекст).
+Снятие метки событие не отправляет — «отозвать» событие в Meta нельзя.
+
+Использование в рекламе: Events Manager → пиксель → события появятся после
+первой отметки; далее Custom Conversions на QualifiedLead для отчётов и,
+при достаточном объёме (~10+/нед на кампанию), оптимизации кампаний.
+
 ## Поведение без настройки
 
 - Нет миграции → разделы «Дашборд»/«Заявки» показывают понятную заглушку (503), сайт работает как раньше.
