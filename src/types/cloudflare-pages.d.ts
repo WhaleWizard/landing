@@ -41,8 +41,35 @@ declare interface R2PutOptions {
   customMetadata?: Record<string, string>;
 }
 
+declare interface R2Object {
+  key: string;
+  size: number;
+  uploaded: Date | string;
+  httpMetadata?: {
+    contentType?: string;
+    cacheControl?: string;
+    contentDisposition?: string;
+  };
+  customMetadata?: Record<string, string>;
+}
+
+declare interface R2Objects {
+  objects: R2Object[];
+  truncated: boolean;
+  cursor?: string;
+}
+
+declare interface R2ListOptions {
+  prefix?: string;
+  limit?: number;
+  cursor?: string;
+  include?: Array<'httpMetadata' | 'customMetadata'>;
+}
+
 declare interface R2Bucket {
   put(key: string, value: ReadableStream | ArrayBuffer | string | Blob, options?: R2PutOptions): Promise<unknown>;
+  list(options?: R2ListOptions): Promise<R2Objects>;
+  delete(key: string): Promise<void>;
 }
 
 type PagesFunction<Env = unknown> = (context: {

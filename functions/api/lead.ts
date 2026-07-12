@@ -7,6 +7,7 @@ import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi'
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
+import { isTelegramConfigured, markLeadTelegramDelivered, sendLeadToTelegram, storeLead } from '../_lib/leads';
 
 interface LeadPayload {
   name?: string;
@@ -659,18 +660,37 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  const crmTask = fetch(DEFAULT_LEAD_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    body: JSON.stringify(normalized),
-    cf: { cacheEverything: false, cacheTtl: 0 },
-  })
-    .then(async (response) => {
+  // Копия заявки в D1 — для раздела «Заявки» в админке.
+  // Ошибки записи не мешают доставке уведомления.
+  waitUntil(storeLead(env, normalized));
+
+  // Уведомление о заявке: напрямую в Telegram (секреты в Cloudflare),
+  // а пока TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID не заданы — на старый
+  // Google Apps Script, чтобы ничего не сломалось при переезде.
+  const crmTask = (async () => {
+    if (isTelegramConfigured(env)) {
+      const result = await sendLeadToTelegram(env, normalized);
+      if (result.ok) {
+        await markLeadTelegramDelivered(env, normalized.event_id);
+      }
+      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: result.ok ? 'sent' : 'failed', error_message: result.ok ? undefined : result.error, page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
+      return;
+    }
+    try {
+      const response = await fetch(DEFAULT_LEAD_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify(normalized),
+        cf: { cacheEverything: false, cacheTtl: 0 },
+      });
+      if (response.ok) {
+        await markLeadTelegramDelivered(env, normalized.event_id);
+      }
       await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: response.ok ? 'sent' : 'failed', error_message: response.ok ? undefined : `lead_crm_http_${response.status}`, page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
-    })
-    .catch(async () => {
+    } catch {
       await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'failed', error_message: 'lead_crm_network_error', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
-    });
+    }
+  })();
 
   waitUntil(crmTask);
 

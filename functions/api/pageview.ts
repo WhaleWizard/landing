@@ -7,6 +7,7 @@ import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi'
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent, processMetaOutbox } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
+import { recordPageStats } from '../_lib/leads';
 
 interface PageViewPayload {
   event_id?: string;
@@ -600,6 +601,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
+
+  // Первичная статистика посещений для админки: агрегаты без личных данных
+  // (не зависит от marketing_consent — cookies не используются, PII не хранится).
+  waitUntil(recordPageStats(env, payload.page_path || payload.page_url, request));
 
   // Отправляем асинхронно, не замедляя клиентскую навигацию.
   // Запись в outbox и отметки sent/retry делает сам sendMetaPageView.

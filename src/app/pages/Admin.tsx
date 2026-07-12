@@ -4,7 +4,8 @@ import { motion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
-  ShieldCheck, ExternalLink, History, RotateCcw
+  ShieldCheck, ExternalLink, History, RotateCcw,
+  LayoutDashboard, Newspaper, Briefcase, Inbox, Images
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -13,7 +14,12 @@ import { Article } from '../components/hooks/useArticlesApi';
 import { API_ROUTES } from '../config';
 import ArticleEditor from '../components/ArticleEditor';
 import CaseFieldsEditor from '../components/CaseFieldsEditor';
+import AdminDashboard from '../components/admin/AdminDashboard';
+import AdminLeads from '../components/admin/AdminLeads';
+import AdminMedia from '../components/admin/AdminMedia';
 import SEO from '../components/SEO';
+
+type AdminView = 'dashboard' | 'articles' | 'leads' | 'media';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -411,6 +417,7 @@ export default function Admin() {
 
   const { query, setQuery, filtered } = useFilteredArticles(articles);
   const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
+  const [adminView, setAdminView] = useState<AdminView>('dashboard');
   const currentArticleSnapshot = useMemo(() => snapshotArticle(editingArticle), [editingArticle]);
   const hasUnsavedChanges = Boolean(editingArticle && currentArticleSnapshot !== savedArticleSnapshot);
 
@@ -778,7 +785,7 @@ export default function Admin() {
       <div className="py-12 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-            <h1 className="text-3xl font-semibold bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Управление статьями</h1>
+            <h1 className="text-3xl font-semibold bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Админка Whale Wizard</h1>
             <div className="flex items-center gap-3">
               <AdminThemeToggleButton />
               <span className="text-xs px-2.5 py-1.5 rounded-full bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] border border-[var(--adm-primary)]/30">Источник: {sourceLabel}</span>
@@ -787,13 +794,42 @@ export default function Admin() {
             </div>
           </div>
 
+          <div className="flex flex-col lg:flex-row gap-6">
+            <aside className="lg:w-52 shrink-0">
+              <nav className="flex lg:flex-col gap-1.5 overflow-x-auto rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-2 shadow-lg lg:sticky lg:top-4">
+                {([
+                  { key: 'dashboard', label: 'Дашборд', icon: LayoutDashboard, active: adminView === 'dashboard', onClick: () => setAdminView('dashboard') },
+                  { key: 'articles', label: 'Статьи', icon: Newspaper, active: adminView === 'articles' && adminSectionFilter !== 'cases', onClick: () => { setAdminView('articles'); setAdminSectionFilter('blog'); } },
+                  { key: 'cases', label: 'Кейсы', icon: Briefcase, active: adminView === 'articles' && adminSectionFilter === 'cases', onClick: () => { setAdminView('articles'); setAdminSectionFilter('cases'); } },
+                  { key: 'leads', label: 'Заявки', icon: Inbox, active: adminView === 'leads', onClick: () => setAdminView('leads') },
+                  { key: 'media', label: 'Медиатека', icon: Images, active: adminView === 'media', onClick: () => setAdminView('media') },
+                ] as const).map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={item.onClick}
+                    className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${item.active ? 'bg-[var(--adm-primary)]/15 font-semibold text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50'}`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" /> {item.label}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+
+            <div className="min-w-0 flex-1">
+              {adminView === 'dashboard' && <AdminDashboard password={password} />}
+              {adminView === 'leads' && <AdminLeads password={password} />}
+              {adminView === 'media' && <AdminMedia password={password} />}
+
+              {adminView === 'articles' && (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-lg">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">Статьи</h2>
                 <button onClick={() => {
                   openArticleEditor({
-                    id: 0, slug: '', title: '', category: 'Блог', readTime: '5 мин',
+                    // Раздел новой статьи подстраивается под активный фильтр:
+                    // включён фильтр «Кейсы» — сразу создаём кейс
+                    id: 0, slug: '', title: '', category: adminSectionFilter === 'cases' ? CASES_CATEGORY : 'Блог', readTime: '5 мин',
                     date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
                     description: '', summary: '', keyTakeaways: [], faq: [], tags: [], content: '', image: '',
                     status: 'published'
@@ -1126,6 +1162,9 @@ export default function Admin() {
                   )}
                   <div className="text-center py-6 text-[var(--adm-fg)]/60">Выберите статью из списка или создайте новую</div>
                 </div>
+              )}
+            </div>
+          </div>
               )}
             </div>
           </div>

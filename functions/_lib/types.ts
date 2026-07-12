@@ -94,4 +94,8 @@ export interface Env {
   // Pixel IDs
   VITE_META_PIXEL_ID?: string;
   VITE_TIKTOK_PIXEL_ID?: string;
+  // Уведомления о заявках в Telegram (секреты Cloudflare Pages).
+  // Если не заданы — заявка уходит на старый Google Apps Script (fallback).
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 }
