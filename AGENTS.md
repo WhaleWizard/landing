@@ -23,19 +23,19 @@ npm run generate:pages                   # статические SEO-стран
 npx -p typescript tsc -p tsconfig.functions.json --noEmit   # проверка типов functions/ (typescript не в devDeps)
 ```
 
-Чего в проекте НЕТ (не предполагать): lint/ESLint, корневого tsconfig.json (типы проверяются только в functions/), CI (.github/workflows), мониторинга ошибок (Sentry). Поэтому `npm run build` — основная проверка любой правки; для всего, что касается трекинга (`_lib/meta-*`, `api/meta-*`, `api/lead`, `api/pageview`, consent) — обязательно ещё `npm run test:meta-capi`.
+Чего в проекте НЕТ (не предполагать): lint/ESLint, корневого tsconfig.json (типы проверяются только в functions/), CI (.github/workflows), мониторинга ошибок (Sentry). Поэтому `npm run build` — основная проверка любой правки; для всего, что касается трекинга (`_lib/meta-*`, `_lib/leads`, `_lib/lead-quality`, `api/meta-*`, `api/lead`, `api/pageview`, consent) — обязательно ещё `npm run test:meta-capi`.
 
 ## Архитектура
 
 ### SPA (src/) и edge-бэкенд (functions/)
 
 - `src/app/` — React 18 + React Router 7. `routes.tsx` — дерево роутов, всё кроме Home лениво через `React.lazy`. `RouteErrorBoundary` ловит устаревшие чанки после деплоя и перезагружает страницу один раз.
-  - `components/` — фичи: Hero, Navbar, ContactForm, LandingForm, калькуляторы, Blog, Cases, ArticleEditor (Tiptap), SEO.tsx, cookie/ (баннер согласия), legal/.
+  - `components/` — фичи: Hero, Navbar, ContactForm, LandingForm, калькуляторы, Blog, Cases, ArticleEditor (блочный редактор), admin/ (Дашборд/Заявки/Медиатека), SEO.tsx, cookie/ (баннер согласия), legal/.
   - `components/ui/` — shadcn/ui-примитивы, считать вендорными: не переписывать, следовать их паттернам.
   - `pages/` — по одной на роут; `BlogPage` обслуживает и /blog, и /cases.
   - `consent/consent.ts` — ядро трекинга: согласие, загрузка пикселей, track*-функции, сбор контекста для CAPI.
   - `utils/` — sanitizeHtml (DOMPurify для CMS-статей), phoneCountry (коды стран + buildFullPhone), leadRetryQueue (офлайн-очередь заявок в localStorage).
-- `functions/` — Cloudflare Pages Functions, роутинг по файлам. `_middleware.ts` на каждом запросе: 301 с whalewzrd.com на www + security-заголовки/CSP. `functions/_lib/` — общая серверная логика (не роутится): articles, auth, d1, jsonbin, meta-capi, meta-diagnostics, meta-outbox, meta-pii, rate-limit, sanitize, seo, tracking-signature, cache, http, url-sanitize, types (контракт Env).
+- `functions/` — Cloudflare Pages Functions, роутинг по файлам. `_middleware.ts` на каждом запросе: 301 с whalewzrd.com на www + security-заголовки/CSP. `functions/_lib/` — общая серверная логика (не роутится): articles, auth, d1, jsonbin, leads (заявки + статистика посещений), lead-quality (события качества лида в Meta), meta-capi, meta-diagnostics, meta-outbox, meta-pii, rate-limit, sanitize, seo, tracking-signature, cache, http, url-sanitize, types (контракт Env).
 - `wrangler.toml` нет — все биндинги (D1 `DB`, R2 `BUCKET`, KV, секреты) настраиваются в Cloudflare Pages. Полный список — в `README.md` и `.env.example`.
 
 ### Статьи: два источника с fallback-цепочкой
@@ -56,9 +56,17 @@ npx -p typescript tsc -p tsconfig.functions.json --noEmit   # проверка �
 
 Диагностика — `api/meta-diagnostics-*` (KV `META_CAPI_DIAGNOSTICS` / `META_CAPI_IDEMPOTENCY` / `META_CAPI_NONCE` + D1). Серверные события уходят только при `marketing_consent=true` — не ослаблять.
 
+### Заявки и первичная статистика
+
+`/api/lead`: заявка валидируется → пишется в D1 `leads` (`_lib/leads.ts`; дедупликация по email/телефону/telegram — повторная заявка поднимает существующую со счётчиком, а не создаёт дубль) → уведомление в Telegram напрямую через Bot API (секреты `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; если не заданы — fallback на старый Google Apps Script). `storeLead` определяет применённые миграции через PRAGMA и работает при любом их наборе.
+
+Кнопки «целевой/нецелевой» в админке шлют в Meta CAPI события `QualifiedLead`/`UnqualifiedLead` (`_lib/lead-quality.ts`): только при marketing_consent, сохранённом с заявкой; PII — SHA-256 хеши + fbp/fbc; outbox-досылка и дедупликация по `event_id`. Consent-гейт не ослаблять.
+
+`/api/pageview` дополнительно пишет агрегаты посещаемости в D1 (`page_stats_daily`, `visitor_hashes_daily` — суточный хеш IP+UA+соль, сырые IP/UA не хранятся, хеши чистятся через 90 дней). Дашборд админки читает их из `api/admin/stats`.
+
 ### Админка
 
-`/admin` — клиентская CMS статей (Tiptap), бэкенд `functions/api/admin/*`. Аутентификация — общий `ADMIN_PASSWORD` (`_lib/auth.ts`), передаётся в теле/заголовке, НИКОГДА в query string. Загрузки в R2: лимит 15 МБ, белый список MIME (JPEG/PNG/WebP/GIF/AVIF/PDF/ZIP/DOCX/XLSX/PPTX); SVG/HTML/JS/XML заблокированы намеренно против stored-XSS — не ослаблять. После сохранения статей кэш чистится локально + глобально через Cloudflare API, если заданы `CF_ZONE_ID` и `CF_CACHE_PURGE_TOKEN`.
+`/admin` — SPA с разделами Дашборд / Статьи / Кейсы / Заявки / Медиатека (компоненты в `src/app/components/admin/`), бэкенд `functions/api/admin/*` (articles, article-versions, upload, leads, media, stats). Аутентификация — общий `ADMIN_PASSWORD` (`_lib/auth.ts`), передаётся в теле/заголовке `X-Admin-Password`, НИКОГДА в query string. Загрузки в R2: лимит 15 МБ, белый список MIME (JPEG/PNG/WebP/GIF/AVIF/PDF/ZIP/DOCX/XLSX/PPTX); SVG/HTML/JS/XML заблокированы намеренно против stored-XSS — не ослаблять. Медиатека листает и удаляет только префикс `uploads/`. После сохранения статей кэш чистится локально + глобально через Cloudflare API, если заданы `CF_ZONE_ID` и `CF_CACHE_PURGE_TOKEN`. Настройка разделов v2 — `docs/ADMIN_SETUP_V2.md`.
 
 ## Грабли
 
@@ -66,6 +74,7 @@ npx -p typescript tsc -p tsconfig.functions.json --noEmit   # проверка �
 - HTML статей всегда через санитайзеры; их ТРИ и списки должны совпадать: `functions/_lib/sanitize.ts`, `src/app/utils/sanitizeHtml.ts`, конфиг в `scripts/generate-pages.js`.
 - Алиас `@/` → `src/` (vite.config.ts). `figma:asset/...` — наследие Figma Make; для новых ассетов использовать обычные импорты.
 - Смоук-тесты test:meta-capi проверяют наличие точных строк в исходниках — при рефакторинге трекинга они могут упасть на переименовании; это сигнал обновить и код, и тест осознанно.
+- Код в статьях — только через блок «Код» редактора (содержимое экранируется). Вставка кода в «HTML (fallback)» молча вырежется санитайзером (`<script>` и теги удаляются, остаются пустые рамки).
 
 ## Известные открытые проблемы
 

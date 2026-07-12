@@ -35,6 +35,8 @@ Set these environment variables in Cloudflare Pages project settings:
 - `VITE_TIKTOK_PIXEL_ID` (optional, TikTok Pixel ID for client build)
 - `DB` (D1 binding, optional while migrating)
 - `USE_D1_ARTICLES` (`true` to read/write articles from D1; requires `DB` binding)
+- `TELEGRAM_BOT_TOKEN` (secret; direct Telegram lead notifications from `/api/lead`)
+- `TELEGRAM_CHAT_ID` (secret; chat that receives lead notifications; while both are unset, leads fall back to the legacy Google Apps Script proxy)
 
 
 ## Article freshness guard for production deploys
@@ -65,7 +67,7 @@ Required production bindings for the current Cloudflare setup:
 - R2 bucket binding `BUCKET`
 - KV namespace bindings `META_CAPI_DIAGNOSTICS`, `META_CAPI_IDEMPOTENCY`, and `META_CAPI_NONCE` for Meta CAPI diagnostics/idempotency/nonce storage
 
-After deploying these changes, apply `migrations/0006_articles_status_and_versions.sql` to the D1 database. This migration preserves draft/published status and creates private article version history.
+After deploying these changes, apply all SQL migrations in `migrations/` in numeric order through the latest one. Highlights: `0006` — draft/published status and article version history; `0008` — leads table and cookieless page-view aggregates for the admin dashboard; `0009` — lead dedupe counters and quality marks; `0010` — click context (fbp/fbc/consent) for Meta lead-quality events. Admin v2 setup details: `docs/ADMIN_SETUP_V2.md`.
 
 ## Analytics events
 
