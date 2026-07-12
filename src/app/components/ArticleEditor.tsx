@@ -4,7 +4,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 
-type BlockType = 'heading' | 'paragraph' | 'accent' | 'card' | 'quote' | 'image' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
+type BlockType = 'heading' | 'paragraph' | 'accent' | 'card' | 'quote' | 'code' | 'image' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
 type HeadingLevel = 2 | 3;
 // Тон карточки. Сайт всегда тёмный, поэтому «белый» вариант обязан прописывать
 // тёмный цвет текста инлайном прямо на <p> — иначе текст унаследует почти белый
@@ -49,6 +49,7 @@ const BLOCK_LABELS: Record<BlockType, string> = {
   accent: 'Акцентный абзац',
   card: 'Полупрозрачная карточка',
   quote: 'Цитата',
+  code: 'Код',
   image: 'Изображение',
   video: 'Видео',
   gallery: 'Галерея изображений',
@@ -93,6 +94,13 @@ function blockToHtml(block: ContentBlock): string {
     }
     case 'quote':
       return `<blockquote data-ww-block="quote" style="margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;">${escapeHtml(block.text || '')}</blockquote>`;
+    case 'code': {
+      // Код экранируется целиком: <, > и & превращаются в текст, поэтому
+      // санитайзер ничего не вырежет (например, пример пикселя со <script>).
+      const codeText = String(block.text || '').replace(/\r\n/g, '\n');
+      if (!codeText.trim()) return '';
+      return `<pre data-ww-block="code" style="margin:1.2em 0;padding:1em 1.15em;background:#0f1014;border:1px solid rgba(255,255,255,.14);border-radius:0.9rem;overflow-x:auto;"><code style="display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Courier New',monospace;font-size:0.88rem;line-height:1.7;color:#e7e9f2;white-space:pre;background:transparent;border:none;">${escapeHtml(codeText)}</code></pre>`;
+    }
     case 'image': {
       const src = String(block.imageUrl || '').trim();
       if (!src) return '';
@@ -136,6 +144,12 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
   const tag = node.tagName.toLowerCase();
   const wwType = node.getAttribute('data-ww-block');
 
+  if (wwType === 'code' || tag === 'pre') {
+    // Текст кода берём как есть (без trim по строкам), убираем только крайние переводы строк
+    const codeEl = node.querySelector('code');
+    const codeText = (codeEl ?? node).textContent ?? '';
+    return { id: uid(), type: 'code', text: codeText.replace(/^\n+|\n+$/g, '') };
+  }
   if (wwType === 'accent') return { id: uid(), type: 'accent', text: node.textContent?.trim() || '' };
   if (wwType === 'card') {
     const rawTone = node.getAttribute('data-ww-tone');
@@ -214,7 +228,19 @@ function markdownToBlocks(md: string): ContentBlock[] {
   const blocks: ContentBlock[] = [];
   const lines = md.split('\n');
   let buffer = '';
+  let codeLines: string[] | null = null; // не null — внутри ```-блока
   for (const line of lines) {
+    if (/^```/.test(line.trim())) {
+      if (codeLines === null) {
+        if (buffer.trim()) { blocks.push({ id: uid(), type: 'paragraph', text: buffer.trim() }); buffer = ''; }
+        codeLines = [];
+      } else {
+        blocks.push({ id: uid(), type: 'code', text: codeLines.join('\n') });
+        codeLines = null;
+      }
+      continue;
+    }
+    if (codeLines !== null) { codeLines.push(line); continue; }
     if (/^###\s/.test(line)) {
       if (buffer.trim()) { blocks.push({ id: uid(), type: 'paragraph', text: buffer.trim() }); buffer = ''; }
       blocks.push({ id: uid(), type: 'heading', level: 3, text: line.replace(/^###\s/, '') });
@@ -231,6 +257,7 @@ function markdownToBlocks(md: string): ContentBlock[] {
       buffer += line + '\n';
     }
   }
+  if (codeLines !== null && codeLines.length > 0) blocks.push({ id: uid(), type: 'code', text: codeLines.join('\n') });
   if (buffer.trim()) blocks.push({ id: uid(), type: 'paragraph', text: buffer.trim() });
   return blocks.length > 0 ? blocks : [{ id: uid(), type: 'paragraph', text: '' }];
 }
@@ -363,6 +390,17 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
           rows={block.type === 'quote' ? 3 : 5}
           placeholder="Введите текст блока"
           className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm text-[var(--adm-fg)] resize-y"
+        />
+      )}
+
+      {block.type === 'code' && (
+        <textarea
+          value={block.text || ''}
+          onChange={(e) => onUpdate(block.id, { text: e.target.value })}
+          rows={8}
+          spellCheck={false}
+          placeholder={'Вставьте код: пример пикселя, событие CAPI, фрагмент настройки…'}
+          className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-xs font-mono text-[var(--adm-fg)] resize-y whitespace-pre"
         />
       )}
 
@@ -507,6 +545,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
       const md = blocks.map(block => {
         if (block.type === 'heading') return `${'#'.repeat(block.level || 2)} ${block.text}`;
         if (block.type === 'quote') return `> ${block.text}`;
+        if (block.type === 'code') return '```\n' + (block.text || '') + '\n```';
         if (block.type === 'spacer') return '---';
         return block.text || '';
       }).join('\n\n');

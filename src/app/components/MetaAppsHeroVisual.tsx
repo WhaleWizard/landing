@@ -86,16 +86,18 @@ function Sparkline({ inView }: { inView: boolean }) {
 function PhoneScreen({ inView }: { inView: boolean }) {
   return (
     <div className="flex h-full flex-col gap-2 md:gap-2.5 p-3 md:p-4 pt-7 md:pt-8">
-      {/* Всплывающий пуш о новой установке */}
+      {/* Всплывающий пуш о новой установке. Ложится поверх статус-бара и
+          динамического острова (как настоящий iOS-баннер), а не на шапку
+          приложения — иначе текст пуша накладывается на «Whale App». */}
       {inView && (
         <motion.div
-          className="absolute inset-x-2 top-7 md:inset-x-3 md:top-9 z-20"
+          className="absolute inset-x-1.5 top-1.5 md:inset-x-2 md:top-2 z-40"
           initial={{ y: -60, opacity: 0 }}
           animate={{ y: [-60, 0, 0, -60], opacity: [0, 1, 1, 0] }}
           transition={{ duration: 6, times: [0, 0.12, 0.85, 1], repeat: Infinity, repeatDelay: 3.5, delay: 2.5, ease: 'easeInOut' }}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-[#161c30]/95 px-2 py-1.5 md:px-2.5 md:py-2 backdrop-blur-xl shadow-lg shadow-black/50">
+          <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-[#161c30] px-2 py-1.5 md:px-2.5 md:py-2 shadow-lg shadow-black/50">
             <div className="flex h-5 w-5 md:h-6 md:w-6 shrink-0 items-center justify-center rounded-md md:rounded-lg bg-gradient-to-br from-primary to-accent">
               <Download className="h-2.5 w-2.5 md:h-3 md:w-3 text-white" />
             </div>

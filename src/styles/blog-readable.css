@@ -118,6 +118,35 @@
   border: 1px solid var(--blog-border);
 }
 
+/* Блоки кода: отступы, скролл по горизонтали и моноширинный шрифт,
+   чтобы вставленный код читался, а не сливался в пустую полоску. */
+[data-blog-ui='true'] .blog-article-content :where(pre) {
+  margin: 1.2em 0;
+  padding: 1em 1.15em;
+  border-radius: 0.9rem;
+  overflow-x: auto;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  white-space: pre;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-blog-ui='true'] .blog-article-content :where(pre) code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+}
+
+/* Инлайн-код внутри абзацев */
+[data-blog-ui='true'] .blog-article-content :where(:not(pre) > code) {
+  padding: 0.12em 0.4em;
+  border-radius: 0.35em;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+}
+
 [data-blog-ui='true'] .blog-article-content :where(table) {
   display: block;
   width: 100%;
