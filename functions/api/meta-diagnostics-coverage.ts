@@ -65,12 +65,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         COALESCE(NULLIF(page_path, ''), '(unknown)') AS page_path,
         event_name,
         COUNT(*) AS total,
-        SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
+        SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
         SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped,
         MAX(created_at) AS latest_created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
+        AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
         AND event_name IN (${CORE_EVENTS.map(() => '?').join(', ')})
       GROUP BY page_path, event_name
       ORDER BY page_path ASC, event_name ASC

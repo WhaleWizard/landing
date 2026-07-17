@@ -80,6 +80,7 @@ export function saveConsent(
 
   localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
   document.cookie = `${CONSENT_KEY}=1; Max-Age=${CONSENT_TTL_DAYS * 24 * 60 * 60}; Path=/; SameSite=Lax; Secure`;
+  if (!consent.categories.marketing) clearMetaMarketingStorage();
 
   return consent;
 }
@@ -87,6 +88,39 @@ export function saveConsent(
 export function clearConsent(): void {
   localStorage.removeItem(CONSENT_KEY);
   document.cookie = `${CONSENT_KEY}=; Max-Age=0; Path=/; SameSite=Lax; Secure`;
+  clearMetaMarketingStorage();
+}
+
+function clearMetaMarketingStorage(): void {
+  try {
+    for (const key of [
+      META_EXTERNAL_ID_KEY,
+      META_FIRST_TOUCH_KEY,
+      META_LAST_TOUCH_KEY,
+      META_SESSION_ID_KEY,
+      META_FBC_KEY,
+      META_FBP_KEY,
+      META_ATTRIBUTION_KEY,
+      META_USER_DATA_KEY,
+    ]) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage may be unavailable in private/restricted browser contexts.
+  }
+
+  try {
+    const host = window.location.hostname;
+    const rootDomain = host.split('.').slice(-2).join('.');
+    for (const cookieName of ['_fbp', '_fbc']) {
+      document.cookie = `${cookieName}=; Max-Age=0; Path=/; SameSite=Lax; Secure`;
+      if (host.includes('.') && !/^\d+(?:\.\d+){3}$/.test(host)) {
+        document.cookie = `${cookieName}=; Max-Age=0; Path=/; Domain=.${rootDomain}; SameSite=Lax; Secure`;
+      }
+    }
+  } catch {
+    // Cookie access may be unavailable.
+  }
 }
 
 export function openCookieSettings(): void {
@@ -292,6 +326,14 @@ export function updateConsentState(categories: Pick<ConsentCategories, 'analytic
     ad_user_data: categories.marketing ? 'granted' : 'denied',
     ad_personalization: categories.marketing ? 'granted' : 'denied',
   });
+
+  const win = window as Window & {
+    fbq?: (...args: unknown[]) => void;
+    ttq?: { enableCookie?: () => void; disableCookie?: () => void };
+  };
+  win.fbq?.('consent', categories.marketing ? 'grant' : 'revoke');
+  if (categories.marketing) win.ttq?.enableCookie?.();
+  else win.ttq?.disableCookie?.();
 }
 
 export async function ensureAnalyticsLoaded(): Promise<void> {
@@ -658,6 +700,7 @@ function readStoredFbc(now = Date.now()): StoredFbc | undefined {
 }
 
 function getOrCreateFbc(fbclid: string | undefined): string | undefined {
+  if (!hasMarketingConsent()) return undefined;
   const now = Date.now();
   const stored = readStoredFbc(now);
 
@@ -691,9 +734,9 @@ function trySetFbpCookie(value: string): void {
 }
 
 function getOrCreateFbp(): string | undefined {
+  if (!hasMarketingConsent()) return undefined;
   const cookieFbp = getCookieValue('_fbp');
   if (cookieFbp) return cookieFbp;
-  if (!hasMarketingConsent()) return undefined;
 
   const stored = safeReadLocalStorage(META_FBP_KEY);
   if (stored) {
@@ -773,6 +816,7 @@ function captureTouchPoint(url: string): { firstTouch: TouchPoint; lastTouch: To
 }
 
 function getOrCreateMetaExternalId(): string | undefined {
+  if (!hasMarketingConsent()) return undefined;
   const existing = safeReadLocalStorage(META_EXTERNAL_ID_KEY);
   if (existing) return existing;
 
@@ -854,39 +898,47 @@ function hasMarketingConsent(): boolean {
   return getConsentSnapshot().marketing_consent === true;
 }
 
-function readUrlParam(currentUrl: URL, key: string): string | undefined {
-  const value = currentUrl.searchParams.get(key);
-  return value ? value.trim() || undefined : undefined;
+function hasAnalyticsConsent(): boolean {
+  return loadConsent()?.categories.analytics === true;
 }
 
-function getExtendedMetaContext(currentUrl: URL): Pick<MetaBrowserContext, 'zp' | 'ge' | 'dobd' | 'dobm' | 'doby' | 'madid' | 'lead_id' | 'search_string'> {
-  const ge = readUrlParam(currentUrl, 'ge') || readUrlParam(currentUrl, 'gender');
-  const normalizedGe = ge ? (ge.toLowerCase().startsWith('m') || ge === 'м' ? 'm' : ge.toLowerCase().startsWith('f') || ge === 'ж' ? 'f' : undefined) : undefined;
-  return {
-    zp: readUrlParam(currentUrl, 'zp') || readUrlParam(currentUrl, 'zip') || readUrlParam(currentUrl, 'postal_code'),
-    ge: normalizedGe,
-    dobd: readUrlParam(currentUrl, 'dobd'),
-    dobm: readUrlParam(currentUrl, 'dobm'),
-    doby: readUrlParam(currentUrl, 'doby'),
-    madid: readUrlParam(currentUrl, 'madid'),
-    lead_id: readUrlParam(currentUrl, 'lead_id'),
-    search_string: readUrlParam(currentUrl, 'search') || readUrlParam(currentUrl, 'q'),
-  };
+const INTERNAL_CASES_QUERY_PARAMS = ['q', 'niche', 'src', 'result', 'sort', 'from', 'all'] as const;
+
+function getTrackingPageUrl(rawUrl = window.location.href): string {
+  const url = new URL(rawUrl);
+  if (url.pathname === '/cases' || url.pathname.startsWith('/cases/')) {
+    INTERNAL_CASES_QUERY_PARAMS.forEach((param) => url.searchParams.delete(param));
+  }
+  return url.href;
 }
 
 export function getMetaBrowserContext(pagePath = window.location.pathname): MetaBrowserContext {
   const currentUrl = new URL(window.location.href);
+  const trackingPageUrl = getTrackingPageUrl(currentUrl.href);
+  const trackingUrl = new URL(trackingPageUrl);
+  const consentSnapshot = getConsentSnapshot();
+  const baseContext: MetaBrowserContext = {
+    page_title: document.title || undefined,
+    page_path: pagePath,
+    page_location: `${trackingUrl.origin}${trackingUrl.pathname}`,
+    referrer: document.referrer || undefined,
+    ...consentSnapshot,
+    event_time: Math.floor(Date.now() / 1000),
+  };
+
+  // До согласия не создаём и не читаем рекламные идентификаторы, сессии,
+  // touch-points и атрибуцию из localStorage. Базовый контекст нужен форме,
+  // но не превращает отказ от маркетинга в скрытое профилирование.
+  if (!consentSnapshot.marketing_consent) return baseContext;
+
   const attribution = getAttributionWithFallback(currentUrl);
   const fbclid = attribution.fbclid;
-  const { firstTouch, lastTouch } = captureTouchPoint(window.location.href);
-  const consentSnapshot = getConsentSnapshot();
+  const { firstTouch, lastTouch } = captureTouchPoint(trackingPageUrl);
   const storedUserData = getStoredMetaUserData();
 
   return {
-    page_title: document.title || undefined,
-    page_path: pagePath,
-    page_location: window.location.href,
-    referrer: document.referrer || undefined,
+    ...baseContext,
+    page_location: trackingPageUrl,
     external_id: getOrCreateMetaExternalId(),
     em: storedUserData.em,
     ph: storedUserData.ph,
@@ -909,7 +961,6 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     viewport_height: window.innerHeight,
     device_pixel_ratio: window.devicePixelRatio,
     timezone_offset: new Date().getTimezoneOffset(),
-    event_time: Math.floor(Date.now() / 1000),
     utm_source: attribution.utm_source,
     utm_medium: attribution.utm_medium,
     utm_campaign: attribution.utm_campaign,
@@ -920,7 +971,6 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     wbraid: attribution.wbraid,
     gbraid: attribution.gbraid,
     yclid: attribution.yclid,
-    ...getExtendedMetaContext(currentUrl),
   };
 }
 
@@ -1079,6 +1129,13 @@ const SERVICE_CONTENT: Record<string, MetaPageContent> = {
     content_type: 'article_index',
     content_ids: ['blog'],
   },
+  '/cases': {
+    service: 'Marketing case library',
+    content_name: 'Case study library',
+    content_category: 'case_library',
+    content_type: 'article_index',
+    content_ids: ['cases'],
+  },
   '/faq': {
     service: 'FAQ',
     content_name: 'FAQ page',
@@ -1148,6 +1205,17 @@ function getMetaPageContent(path: string): MetaPageContent {
     };
   }
 
+  if (pathname.startsWith('/cases/')) {
+    const caseSlug = slugifyContentId(pathname.slice('/cases/'.length));
+    return {
+      service: 'Marketing case study',
+      content_name: document.title || `Case study ${caseSlug}`,
+      content_category: 'case_article',
+      content_type: 'article',
+      content_ids: [`case-${caseSlug}`],
+    };
+  }
+
   const genericId = slugifyContentId(pathname);
   return {
     service: 'WhaleWzrd site page',
@@ -1201,7 +1269,7 @@ export function trackServiceViewContent(path: string, options: { marketing?: boo
   sendServerMetaEvent({
     event_name: 'ViewContent',
     event_id: eventId,
-    page_url: window.location.href,
+    page_url: getTrackingPageUrl(),
     ...browserContext,
     ...eventData,
   });
@@ -1241,7 +1309,7 @@ export function trackFormStart(serviceSlug: string, extraData: Record<string, un
   sendServerMetaEvent({
     event_name: 'FormStart',
     event_id: eventId,
-    page_url: window.location.href,
+    page_url: getTrackingPageUrl(),
     ...browserContext,
     ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
   });
@@ -1285,7 +1353,7 @@ export function trackLeadFormView(serviceSlug: string): boolean {
   sendServerMetaEvent({
     event_name: 'LeadFormView',
     event_id: eventId,
-    page_url: window.location.href,
+    page_url: getTrackingPageUrl(),
     ...browserContext,
     ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
   });
@@ -1325,7 +1393,7 @@ export function trackEngagedView(reason: 'time_10s' | 'scroll_50' | 'form_view',
   sendServerMetaEvent({
     event_name: 'EngagedView',
     event_id: eventId,
-    page_url: window.location.href,
+    page_url: getTrackingPageUrl(),
     ...browserContext,
     ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
   });
@@ -1362,7 +1430,7 @@ export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone
   sendServerMetaEvent({
     event_name: 'Contact',
     event_id: eventId,
-    page_url: window.location.href,
+    page_url: getTrackingPageUrl(),
     ...browserContext,
     ...(eventData as Omit<ServerMetaEventPayload, keyof MetaBrowserContext | 'event_name' | 'event_id' | 'page_url'>),
   });
@@ -1397,6 +1465,8 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
 
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
+  const analyticsPageUrl = new URL(getTrackingPageUrl());
+  const analyticsPagePath = `${analyticsPageUrl.pathname}${analyticsPageUrl.search}`;
 
   if (win.gtag && gaId) {
     // Повторный `config` на смене SPA-роута не создаёт хит в GA4 (это устаревший
@@ -1404,14 +1474,14 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
     // Нужен именно gtag('event', 'page_view', ...).
     win.gtag('event', 'page_view', {
       send_to: gaId,
-      page_path: path,
-      page_location: window.location.origin + path,
+      page_path: analyticsPagePath,
+      page_location: analyticsPageUrl.href,
       page_title: document.title,
     });
   }
 
   if (win.ym && ymId) {
-    win.ym(ymId, 'hit', path);
+    win.ym(ymId, 'hit', analyticsPagePath);
   }
 
   if (Array.isArray(win.dataLayer)) {
@@ -1419,7 +1489,7 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
       event: 'virtual_pageview',
       event_id: eventId,
       page_path: path,
-      page_location: window.location.href,
+      page_location: getTrackingPageUrl(),
     });
   }
 
@@ -1443,7 +1513,7 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
   // Отправляем серверный PageView через наш API (устойчиво к быстрым переходам)
   sendServerPageView({
     event_id: eventId,
-    page_url: window.location.href,
+    page_url: getTrackingPageUrl(),
     service: pageContent.service,
     service_slug: pageContent.content_ids?.[0],
     content_name: pageContent.content_name,
@@ -1587,21 +1657,46 @@ export async function getAnalyticsClientIds(): Promise<{ ga_client_id?: string; 
   return { ga_client_id, yandex_client_id };
 }
 
-// Клик по фильтру на странице кейсов: собираем интерес к нишам/источникам —
-// из этого строятся аудитории ретаргетинга «интересовался кейсами X».
-export function trackCaseFilter(kind: 'niche' | 'source', value: string): void {
-  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+// Точное значение фильтра передаём во внешнюю аналитику только для заранее
+// проверенного нейтрального списка. Свободные CMS-значения остаются в UI.
+const META_SAFE_CASE_FILTER_VALUES = new Set([
+  'google',
+  'meta',
+  'tiktok',
+  'e-commerce',
+  'инфопродукты',
+  'премиум-сервисы',
+  'b2c-услуги',
+  'лидогенерация',
+  'квалификация',
+  'продажи',
+  'рост roi',
+  'снижение cpl',
+]);
 
-  if (Array.isArray(win.dataLayer)) {
-    win.dataLayer.push({ event: 'case_filter', filter_kind: kind, filter_value: value });
+export function isMetaSafeCaseFilterValue(value: string): boolean {
+  return META_SAFE_CASE_FILTER_VALUES.has(value.trim().toLocaleLowerCase('ru'));
+}
+
+export function trackCaseFilter(kind: 'niche' | 'source' | 'result', value: string): void {
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+  const safeValue = isMetaSafeCaseFilterValue(value) ? value : undefined;
+
+  if (hasAnalyticsConsent() && Array.isArray(win.dataLayer)) {
+    win.dataLayer.push({
+      event: 'case_filter',
+      filter_kind: kind,
+      ...(safeValue ? { filter_value: safeValue } : {}),
+    });
   }
 
   if (!hasMarketingConsent()) return;
-  win.fbq?.('trackCustom', 'CaseFilter', {
+  const metaData: Record<string, string> = {
     content_category: 'cases',
     filter_kind: kind,
-    filter_value: value,
-  });
+  };
+  if (safeValue) metaData.filter_value = safeValue;
+  win.fbq?.('trackCustom', 'CaseFilter', metaData);
 }
 
 export function trackThankYouConversion(): void {

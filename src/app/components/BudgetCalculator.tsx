@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { Calculator, TrendingUp, Target, Users, Zap, CheckCircle2, DollarSign, BarChart3 } from 'lucide-react';
+import { calculateServicePrice, type ServicePricingGoal } from '../utils/servicePricing';
 
 const platforms = [
   { id: 'google', name: 'Google Ads', icon: BarChart3, gradient: 'from-primary to-accent' },
@@ -9,39 +10,26 @@ const platforms = [
 ];
 
 const goals = [
-  { id: 'leads', name: 'Лиды / Заявки', icon: Users, description: 'Сбор контактов для отдела продаж. Подходит для услуг, консультаций, b2b.' },
-  { id: 'sales', name: 'Продажи', icon: TrendingUp, description: 'Прямые продажи в интернет-магазине. Оптимально для e-commerce.' },
-  { id: 'traffic', name: 'Трафик', icon: Zap, description: 'Увеличение посещаемости сайта. Для блогов, медиа, информационных порталов.' },
+  { id: 'leads', name: 'Заявки', icon: Users, description: 'Контакты с последующей квалификацией. Для услуг, консультаций и B2B.' },
+  { id: 'sales', name: 'Продажи', icon: TrendingUp, description: 'Оплаченные заказы в интернет-магазине или другом e-commerce-проекте.' },
+  { id: 'traffic', name: 'Трафик', icon: Zap, description: 'Целевые посещения сайта без оптимизации кампаний по заявкам или покупкам.' },
 ];
 
 export default function BudgetCalculator() {
   const navigate = useNavigate();
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['google', 'meta']);
   const [budget, setBudget] = useState(1000);
-  const [goal, setGoal] = useState('leads');
+  const [goal, setGoal] = useState<ServicePricingGoal>('leads');
   const [showResult, setShowResult] = useState(false);
 
   const togglePlatform = (id: string) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
+    setSelectedPlatforms((prev) => {
+      if (!prev.includes(id)) return [...prev, id];
+      return prev.length === 1 ? prev : prev.filter((platform) => platform !== id);
+    });
   };
 
-  const calculatePrice = () => {
-    let basePrice = 0;
-    if (selectedPlatforms.length === 1) basePrice = 600;
-    if (selectedPlatforms.length === 2) basePrice = 900;
-    
-    if (budget >= 5000) basePrice += 200;
-    if (budget >= 10000) basePrice += 300;
-    
-    if (goal === 'sales') basePrice += 200;
-    if (goal === 'leads') basePrice += 200;
-    
-    return basePrice;
-  };
-
-  const price = calculatePrice();
+  const price = calculateServicePrice(selectedPlatforms.length, budget, goal);
 
   const handleCalculate = () => {
     setShowResult(true);
@@ -72,16 +60,16 @@ export default function BudgetCalculator() {
         >
           <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-4">
             <Calculator className="w-4 h-4 text-primary" />
-            <span className="text-xs md:text-sm text-primary font-semibold">Рассчитайте стоимость</span>
+            <span className="text-xs md:text-sm text-primary font-semibold">Ориентир по стоимости</span>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-            Калькулятор{' '}
+            Оценка стоимости{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-              бюджета рекламы
+              ведения рекламы
             </span>
           </h1>
           <p className="text-sm md:text-base text-muted-foreground mt-3 max-w-2xl mx-auto">
-            Подберите оптимальный пакет под ваш бизнес. Укажите параметры и получите примерную стоимость услуг.
+            Укажите площадки, рекламный бюджет и задачу. Калькулятор покажет ориентир по стоимости ведения — точный объём работ согласуем после разбора проекта.
           </p>
         </motion.div>
 
@@ -97,6 +85,7 @@ export default function BudgetCalculator() {
                   <button
                     key={p.id}
                     onClick={() => togglePlatform(p.id)}
+                    aria-pressed={isSelected}
                     className={`flex items-center gap-2 px-4 py-2.5 md:px-5 md:py-3 rounded-xl border transition-all duration-300 text-sm md:text-base ${
                       isSelected
                         ? `bg-gradient-to-r ${p.gradient} border-transparent shadow-lg shadow-primary/30 text-white`
@@ -115,7 +104,7 @@ export default function BudgetCalculator() {
           {/* Бюджет слайдер */}
           <div className="mb-6 md:mb-8">
             <label className="block text-sm font-medium mb-3">
-              Месячный бюджет на рекламу: <span className="text-primary font-bold">${budget.toLocaleString()}</span>
+              Рекламный бюджет в месяц: <span className="text-primary font-bold">${budget.toLocaleString()}</span>
             </label>
             <input
               type="range"
@@ -144,7 +133,8 @@ export default function BudgetCalculator() {
                 return (
                   <button
                     key={g.id}
-                    onClick={() => setGoal(g.id)}
+                    onClick={() => setGoal(g.id as ServicePricingGoal)}
+                    aria-pressed={isSelected}
                     className={`text-left p-3 md:p-4 rounded-xl border transition-all duration-300 ${
                       isSelected
                         ? 'bg-primary/10 border-primary shadow-lg shadow-primary/20'
@@ -168,7 +158,7 @@ export default function BudgetCalculator() {
             className="w-full py-3 md:py-4 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group"
           >
             <Calculator className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
-            Рассчитать стоимость
+            Получить ориентир
           </button>
 
           <AnimatePresence>
@@ -182,11 +172,11 @@ export default function BudgetCalculator() {
               >
                 <h3 className="text-lg md:text-xl font-bold mb-4 flex items-center gap-2">
                   <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                  Примерная стоимость услуг
+                  Ориентировочная стоимость работы
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <p className="text-muted-foreground text-xs md:text-sm">Настройка и ведение</p>
+                    <p className="text-muted-foreground text-xs md:text-sm">Ведение рекламы</p>
                     <p className="text-2xl md:text-3xl font-bold text-primary">${price}</p>
                     <p className="text-xs text-muted-foreground">в месяц</p>
                   </div>
@@ -198,13 +188,13 @@ export default function BudgetCalculator() {
                 </div>
                 <div className="border-t border-border/50 pt-4 mt-2">
                   <p className="text-xs md:text-sm text-muted-foreground mb-3">
-                    <strong className="text-foreground">Что входит:</strong> полная настройка кампаний, создание креативов, ежедневная оптимизация, еженедельные отчёты, A/B тестирование.
+                    <strong className="text-foreground">Обычно входит:</strong> настройка и ведение кампаний, аналитика, проверка гипотез, офферы, ТЗ на креативы и отчёт. Дизайн, съёмка, монтаж и дополнительные интеграции — отдельно.
                   </p>
                   <button
                     onClick={goToContact}
                     className="w-full py-2.5 md:py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2"
                   >
-                    Заказать консультацию →
+                    Обсудить проект →
                   </button>
                 </div>
               </motion.div>
@@ -213,7 +203,7 @@ export default function BudgetCalculator() {
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-6">
-          *Стоимость является ориентировочной и может быть скорректирована после аудита.
+          *Это предварительный расчёт, а не публичная оферта. Точная стоимость зависит от структуры аккаунта, аналитики и объёма работ.
         </p>
       </div>
     </section>

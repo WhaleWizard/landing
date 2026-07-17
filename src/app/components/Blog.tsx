@@ -12,6 +12,7 @@ function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { articles, loading } = useArticles();
+  const blogArticles = articles.filter((article) => article.category !== 'Кейсы');
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -42,7 +43,7 @@ function Blog() {
     });
   }, [navigate]);
 
-  if (loading) return <div className="py-16 text-center text-muted-foreground">Загрузка статей...</div>;
+  if (loading) return <div className="py-16 text-center text-muted-foreground">Загружаю материалы...</div>;
 
   return (
     <section id="blog" className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible">
@@ -51,12 +52,15 @@ function Blog() {
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-accent/10 border border-accent/20 backdrop-blur-sm mb-4 md:mb-6">
             <BookOpen className="w-3 h-3 md:w-4 md:h-4 text-accent" />
-            <span className="text-xs md:text-sm text-accent">Полезные материалы</span>
+            <span className="text-xs md:text-sm text-accent">Статьи и разборы</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-            Блог о <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">таргетированной рекламе</span>
+          <h2 className="text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+            Практика рекламы{' '}
+            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">и аналитики</span>
           </h2>
-          <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">Экспертные статьи, стратегии и кейсы из практики</p>
+          <p className="text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
+            Разбираю запуски, аналитику и решения, которые влияют на заявки и продажи.
+          </p>
         </motion.div>
       </div>
       <div className="relative w-full">
@@ -79,7 +83,7 @@ function Blog() {
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div ref={scrollContainerRef} className="blog-carousel-scroll scrollbar-brand flex gap-5 md:gap-7 overflow-x-auto scroll-smooth px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
-          {articles.map((article) => (
+          {blogArticles.map((article) => (
             <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
                 <div className="relative h-44 sm:h-48 md:h-56 overflow-hidden bg-gradient-to-br from-[#181430] via-[#121220] to-[#0d1726]">
@@ -103,7 +107,7 @@ function Blog() {
                   <h3 className="text-base md:text-lg lg:text-xl font-bold text-white group-hover:text-primary transition-colors">{article.title}</h3>
                   <p className="text-xs md:text-sm text-white/60 leading-relaxed line-clamp-2">{article.description}</p>
                   <div className="flex items-center gap-2 text-xs md:text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="font-semibold">Читать далее</span>
+                    <span className="font-semibold">Открыть материал</span>
                     <ArrowRight className="w-3 h-3 md:w-4 md:h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
@@ -124,7 +128,7 @@ function Blog() {
             className="group relative inline-flex items-center justify-center gap-3 px-10 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-          <span className="relative text-sm md:text-base lg:text-lg">Перейти ко всем статьям</span>
+          <span className="relative text-sm md:text-base lg:text-lg">Смотреть все материалы</span>
           <ArrowRight className="w-4 h-4 md:w-5 md:h-5 relative group-hover:translate-x-1 transition-transform" />
         </button>
       </div>

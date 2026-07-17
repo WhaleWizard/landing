@@ -19,7 +19,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select';
 import { getAnalyticsClientIds, getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import Modal from './Modal';
 import LegalConsentCopy from './LegalConsentCopy';
@@ -28,7 +28,12 @@ import LegalConsentCopy from './LegalConsentCopy';
 const PrivacyPolicyContent = lazy(() => import('./legal/PrivacyPolicyContent'));
 const OfferContent = lazy(() => import('./legal/OfferContent'));
 import { API_ROUTES } from '../config';
-import { buildFullPhone, COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
+import {
+  buildFullPhone,
+  COUNTRY_PHONE_OPTIONS,
+  DEFAULT_COUNTRY_PHONE_CODE,
+  getCountryPhoneOption,
+} from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
@@ -43,7 +48,14 @@ const serviceLabels: Record<ServiceType, string> = {
   'meta-ads': 'Meta Ads',
   'google-ads': 'Google Ads',
   'consult': 'Консультация',
-  'meta-apps': 'Meta App Traffic',
+  'meta-apps': 'Продвижение приложения в Meta',
+};
+
+const formCopy: Record<ServiceType, { title: string; button: string }> = {
+  'google-ads': { title: 'Обсудить Google Ads', button: 'Отправить на разбор' },
+  'meta-ads': { title: 'Обсудить Meta Ads', button: 'Отправить на разбор' },
+  'meta-apps': { title: 'Обсудить продвижение приложения', button: 'Отправить на разбор' },
+  consult: { title: 'Записаться на разбор', button: 'Отправить запрос' },
 };
 
 function normalizeContactForLead(contact: string): {
@@ -58,12 +70,15 @@ function normalizeContactForLead(contact: string): {
   const looksLikeTelegram = value.startsWith('@') || /^https?:\/\/(t\.me|telegram\.me)\//i.test(value);
   const looksLikeEmail = emailPattern.test(value);
   const looksLikePhone = digits.length >= 8;
+  const hasTelegramContact = Boolean(value) && (
+    looksLikeTelegram || (!looksLikeEmail && !looksLikePhone)
+  );
 
   return {
     email: looksLikeEmail ? value : undefined,
     phone: looksLikePhone ? value : undefined,
-    telegramUsername: looksLikeTelegram || (!looksLikeEmail && !looksLikePhone) ? value : undefined,
-    contactMethod: looksLikePhone && !looksLikeTelegram ? 'whatsapp' : 'telegram',
+    telegramUsername: hasTelegramContact ? value : undefined,
+    contactMethod: hasTelegramContact ? 'telegram' : 'whatsapp',
   };
 }
 
@@ -81,23 +96,25 @@ function extractWebsiteDomain(value: string): string | undefined {
 }
 
 const websiteFieldConfig: Record<'meta-ads' | 'google-ads' | 'meta-apps', { label: string; placeholder: string }> = {
-  'google-ads': { label: 'Сайт', placeholder: 'example.com' },
-  'meta-ads': { label: 'Сайт, ниша или Instagram', placeholder: 'example.com, ниша или @instagram' },
-  'meta-apps': { label: 'Название приложения или Instagram', placeholder: 'Название приложения или @instagram' },
+  'google-ads': { label: 'Сайт или посадочная страница', placeholder: 'example.com' },
+  'meta-ads': { label: 'Сайт или Instagram', placeholder: 'example.com или @account' },
+  'meta-apps': { label: 'Ссылка на приложение', placeholder: 'App Store или Google Play' },
 };
 
 const budgetOptions = [
-  { value: 'до $1000', label: 'до $1000' },
-  { value: '$1к-10к', label: '$1к-10к' },
-  { value: '$10к-100к', label: '$10к-100к' },
-  { value: '$100к+', label: '$100к+' },
+  { value: 'до $1000', label: 'до $1 000' },
+  { value: '$1к-10к', label: '$1 000–10 000' },
+  { value: '$10к-100к', label: '$10 000–100 000' },
+  { value: '$100к+', label: '$100 000+' },
 ];
 
 function LandingForm({ 
   service, 
-  title = 'Оставить заявку',
-  buttonText = 'Отправить заявку'
+  title,
+  buttonText,
 }: LandingFormProps) {
+  const resolvedTitle = title ?? formCopy[service].title;
+  const resolvedButtonText = buttonText ?? formCopy[service].button;
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -109,7 +126,7 @@ function LandingForm({
     problem: '',
   });
   const [hpTrap, setHpTrap] = useState('');
-  const [phoneCode, setPhoneCode] = useState('+1');
+  const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE_CODE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -118,7 +135,9 @@ function LandingForm({
   const [showOfferModal, setShowOfferModal] = useState(false);
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
-  const selectedPhoneOption = COUNTRY_PHONE_OPTIONS.find((option) => option.dial === phoneCode);
+  const selectedPhoneOption = getCountryPhoneOption(phoneCountryCode)
+    ?? getCountryPhoneOption(DEFAULT_COUNTRY_PHONE_CODE);
+  const phoneCode = selectedPhoneOption?.dial ?? '+1';
   const selectedPhoneFlag = selectedPhoneOption?.label.split(' ')[0] ?? '';
   const selectedPhoneCodeLabel = selectedPhoneOption ? `${selectedPhoneOption.code} ${selectedPhoneOption.dial}` : phoneCode;
 
@@ -132,8 +151,8 @@ function LandingForm({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!active || !data?.countryCode) return;
-        const dial = COUNTRY_DIAL_CODES[String(data.countryCode).toUpperCase()];
-        if (dial) setPhoneCode(dial);
+        const countryCode = String(data.countryCode).toUpperCase();
+        if (getCountryPhoneOption(countryCode)) setPhoneCountryCode(countryCode);
       })
       .catch(() => undefined);
     return () => {
@@ -240,7 +259,7 @@ function LandingForm({
           setFormData({ name: '', email: '', phone: '', contact: '', website: '', budget: '', experience: '', problem: '' });
           setHpTrap('');
           setAgreed(false);
-          alert('Нет соединения с интернетом. Заявка сохранена и будет отправлена автоматически, как только появится связь.');
+          alert('Сейчас нет связи. Заявка сохранена в этом браузере; после восстановления интернета сайт попробует отправить её автоматически.');
         } else {
           const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
           alert(message);
@@ -261,9 +280,9 @@ function LandingForm({
     type = 'text'
   ) => (
     <div className="relative">
-      <label htmlFor={`field-${name}`} className="block text-sm mb-2 font-medium flex items-center gap-2">
-        {icon}
-        {label} {required && '*'}
+      <label htmlFor={`field-${name}`} className="flex min-w-0 items-start gap-2 text-sm mb-2 font-medium leading-snug">
+        <span className="mt-0.5 shrink-0">{icon}</span>
+        <span className="min-w-0 text-pretty">{label} {required && '*'}</span>
       </label>
       <div className="relative">
         <Input
@@ -302,7 +321,7 @@ function LandingForm({
       className="relative"
       style={{ perspective: '1000px' }}
     >
-      <div className="relative p-6 md:p-8 rounded-3xl bg-card/50 backdrop-blur-xl border border-border shadow-2xl overflow-hidden">
+      <div className="relative p-4 sm:p-6 md:p-8 rounded-3xl bg-card/50 backdrop-blur-xl border border-border shadow-2xl overflow-hidden">
         {/* Background effects */}
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 opacity-50" />
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-primary/5 to-accent/5 animate-pulse" />
@@ -312,6 +331,8 @@ function LandingForm({
         <div className="relative z-10">
           {isSubmitted ? (
             <motion.div
+              role="status"
+              aria-live="polite"
               className="text-center py-12 space-y-4"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -323,15 +344,15 @@ function LandingForm({
                 </div>
                 <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-accent opacity-50 animate-ping" />
               </div>
-              <h3 className="text-xl md:text-2xl font-bold">Спасибо за заявку!</h3>
-              <p className="text-sm md:text-base text-muted-foreground">Я свяжусь с вами в ближайшее время</p>
+              <h3 className="text-xl md:text-2xl font-bold">Заявка отправлена</h3>
+              <p className="text-sm md:text-base text-muted-foreground">Посмотрю вводные и свяжусь по указанному контакту.</p>
             </motion.div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="space-y-5">
               {/* Title */}
               <div className="text-center mb-6">
                 <h3 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                  {title}
+                  {resolvedTitle}
                 </h3>
               </div>
 
@@ -365,18 +386,19 @@ function LandingForm({
                   Телефон / WhatsApp *
                 </label>
                 <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
-                  <div className="w-[118px] sm:w-[220px] shrink-0">
-                    <Select value={phoneCode} onValueChange={setPhoneCode}>
+                  <div className="w-[104px] sm:w-[220px] shrink-0">
+                    <Select value={phoneCountryCode} onValueChange={setPhoneCountryCode}>
                       <SelectTrigger
-                        aria-label="Код страны"
-                        className="h-10 rounded-lg border-border/40 bg-background/70 text-xs sm:text-sm font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25"
+                        aria-label="Страна и код телефона"
+                        style={{ height: '2.75rem' }}
+                        className="h-11 rounded-lg border-border/40 bg-background/70 text-xs sm:text-sm font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25"
                       >
                         <span className="truncate sm:hidden">{selectedPhoneFlag ? `${selectedPhoneFlag} ${phoneCode}` : phoneCode}</span>
                         <span className="hidden truncate sm:inline">{selectedPhoneCodeLabel}</span>
                       </SelectTrigger>
                       <SelectContent className="max-h-80 rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
                         {COUNTRY_PHONE_OPTIONS.map((option) => (
-                          <SelectItem key={`${option.code}-${option.dial}`} value={option.dial} className="rounded-lg py-2 text-sm">
+                          <SelectItem key={option.code} value={option.code} className="rounded-lg py-2 text-sm">
                             {option.label}
                           </SelectItem>
                         ))}
@@ -397,7 +419,7 @@ function LandingForm({
                     onBlur={() => setFocusedField(null)}
                     placeholder="555 000 0000"
                     autoComplete="tel-national"
-                    className="h-10 border-border/40 bg-background/70 focus:border-primary/50 focus:bg-background/80 transition-all backdrop-blur-sm pl-4"
+                    className="h-11 min-w-0 flex-1 border-border/40 bg-background/70 focus:border-primary/50 focus:bg-background/80 transition-all backdrop-blur-sm pl-3 sm:pl-4"
                   />
                 </div>
               </div>
@@ -405,9 +427,9 @@ function LandingForm({
               {/* Contact */}
               {renderField(
                 'contact',
-                'Telegram / дополнительный контакт',
+                'Telegram, если удобнее',
                 <MessageCircle className="w-4 h-4 text-primary" />,
-                '@username или ссылка на мессенджер',
+                '@username или ссылка на Telegram',
                 false
               )}
 
@@ -423,16 +445,17 @@ function LandingForm({
 
                   {/* Budget Select */}
                   <div className="relative">
-                    <p className="block text-sm mb-2 font-medium flex items-center gap-2">
+                    <p className="flex min-w-0 items-start gap-2 text-sm mb-2 font-medium leading-snug">
                       <DollarSign className="w-4 h-4 text-primary" />
-                      Месячный бюджет
+                      Бюджет на рекламу в месяц
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2">
                       {budgetOptions.map((option) => (
                         <motion.button
                           key={option.value}
                           type="button"
                           onClick={() => setFormData(prev => ({ ...prev, budget: option.value }))}
+                          aria-pressed={formData.budget === option.value}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           className={`p-3 rounded-xl border text-sm font-medium transition-all ${
@@ -462,15 +485,15 @@ function LandingForm({
                 <>
                   {renderField(
                     'experience',
-                    'Опыт в таргете',
+                    'Ваш опыт',
                     <Briefcase className="w-4 h-4 text-primary" />,
-                    'Новичок / 1 год / 3+ года...'
+                    'Например: 8 месяцев, 3 проекта'
                   )}
 
                   <div className="relative">
                     <label htmlFor="landing-problem" className="block text-sm mb-2 font-medium flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-primary" />
-                      Главная проблема *
+                      Что хотите разобрать? *
                     </label>
                     <div className="relative">
                       <Textarea
@@ -481,7 +504,7 @@ function LandingForm({
                         onChange={handleChange}
                         onFocus={() => setFocusedField('problem')}
                         onBlur={() => setFocusedField(null)}
-                        placeholder="Опишите вашу главную проблему..."
+                        placeholder="Например: не могу сформулировать оффер и регулярно находить клиентов"
                         autoComplete="off"
                         rows={3}
                         className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"
@@ -499,21 +522,31 @@ function LandingForm({
               )}
 
               {/* Agreement */}
-              <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2.5 sm:gap-3 rounded-xl border border-border/30 bg-background/20 px-3 py-2.5 sm:border-0 sm:bg-transparent sm:p-0">
-                <button
-                  type="button"
-                  aria-pressed={agreed}
-                  aria-label="Согласие на обработку персональных данных"
-                  onClick={() => setAgreed(!agreed)}
-                  className={`mt-0.5 h-5 w-5 shrink-0 aspect-square rounded-[4px] border-2 p-0 flex items-center justify-center transition-all ${
-                    agreed
-                      ? 'border-primary bg-white shadow-[0_0_0_3px_rgba(139,92,246,0.14)]'
-                      : 'border-primary/45 bg-white shadow-sm hover:border-primary/70'
-                  }`}
-                >
-                  {agreed && <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />}
-                </button>
+              <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2.5 sm:gap-3 rounded-xl border border-border/30 bg-background/20 px-3 py-2.5 sm:border-0 sm:bg-transparent sm:p-0">
+                <label htmlFor="landing-form-consent" className="relative flex h-11 w-11 shrink-0 cursor-pointer items-start justify-start pt-3">
+                  <input
+                    id="landing-form-consent"
+                    name="consent"
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(event) => setAgreed(event.target.checked)}
+                    aria-label="Согласие на обработку персональных данных"
+                    aria-describedby="landing-form-consent-copy"
+                    className="peer sr-only"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className={`flex h-5 w-5 items-center justify-center rounded-[4px] border-2 bg-white transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background ${
+                      agreed
+                        ? 'border-primary shadow-[0_0_0_3px_rgba(139,92,246,0.14)]'
+                        : 'border-primary/45 shadow-sm hover:border-primary/70'
+                    }`}
+                  >
+                    {agreed && <Check className="h-3.5 w-3.5 text-primary" strokeWidth={3} />}
+                  </span>
+                </label>
                 <LegalConsentCopy
+                  id="landing-form-consent-copy"
                   onPrivacyClick={() => setShowPrivacyModal(true)}
                   onOfferClick={() => setShowOfferModal(true)}
                 />
@@ -524,14 +557,18 @@ function LandingForm({
                 <Button
                   type="submit"
                   disabled={isSubmitting || !agreed}
+                  aria-busy={isSubmitting}
                   className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30 h-12 text-base"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
                   {isSubmitting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <>
+                      <Loader2 aria-hidden="true" className="mr-2 h-5 w-5 animate-spin" />
+                      <span className="relative">Отправка…</span>
+                    </>
                   ) : (
                     <>
-                      <span className="relative">{buttonText}</span>
+                      <span className="relative">{resolvedButtonText}</span>
                       <Send className="ml-2 w-4 h-4 relative group-hover:translate-x-1 transition-transform" />
                     </>
                   )}

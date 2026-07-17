@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { transform } from 'esbuild';
 
 const files = {
   contactForm: readFileSync('src/app/components/ContactForm.tsx', 'utf8'),
@@ -16,6 +17,12 @@ const files = {
   diagnosticsAnomalies: readFileSync('functions/api/meta-diagnostics-anomalies.ts', 'utf8'),
   diagnosticsWriter: readFileSync('functions/_lib/meta-diagnostics.ts', 'utf8'),
   outbox: readFileSync('functions/_lib/meta-outbox.ts', 'utf8'),
+  metaCapi: readFileSync('functions/_lib/meta-capi.ts', 'utf8'),
+  leadQuality: readFileSync('functions/_lib/lead-quality.ts', 'utf8'),
+  adminLeadsApi: readFileSync('functions/api/admin/leads.ts', 'utf8'),
+  adminLeadsUi: readFileSync('src/app/components/admin/AdminLeads.tsx', 'utf8'),
+  adminHealth: readFileSync('functions/api/admin/health.ts', 'utf8'),
+  adminMetaCenter: readFileSync('functions/api/admin/meta-center.ts', 'utf8'),
   envTypes: readFileSync('functions/_lib/types.ts', 'utf8'),
   envExample: readFileSync('.env.example', 'utf8'),
   cloudflareSetupDoc: readFileSync('docs/META_CAPI_CLOUDFLARE_SETUP.md', 'utf8'),
@@ -26,6 +33,22 @@ function mustContain(name, source, needles) {
     assert.ok(source.includes(needle), `${name} must include ${needle}`);
   }
 }
+
+const compiledMetaCapi = await transform(files.metaCapi, {
+  loader: 'ts',
+  format: 'esm',
+  target: 'es2022',
+});
+const metaCapiRuntime = await import(`data:text/javascript;base64,${Buffer.from(compiledMetaCapi.code).toString('base64')}`);
+
+assert.equal(metaCapiRuntime.isRetryableMetaResponse(400, { error: { is_transient: true, code: 100 } }), true, 'Meta is_transient=true must retry even on HTTP 400');
+assert.equal(metaCapiRuntime.isRetryableMetaResponse(400, { error: { is_transient: 'true' } }), true, 'String Meta transient flag must be accepted');
+assert.equal(metaCapiRuntime.isRetryableMetaResponse(400, { error: { code: 613 } }), true, 'Known Meta rate-limit code must retry');
+assert.equal(metaCapiRuntime.isRetryableMetaResponse(400, { error: { error_subcode: 1815107 } }), true, 'Known transient Meta subcode must retry');
+assert.equal(metaCapiRuntime.isRetryableMetaResponse(400, { error: { code: 100, error_subcode: 2804019, is_transient: false } }), false, 'Explicit permanent CAPI validation error must dead-letter');
+assert.equal(metaCapiRuntime.isRetryableMetaResponse(429, null), true, 'HTTP 429 must retry');
+assert.equal(metaCapiRuntime.isRetryableMetaResponse(503, null), true, 'HTTP 5xx must retry');
+assert.equal(metaCapiRuntime.parseMetaApiReceipt('not-json'), null, 'Malformed Graph body must not be treated as structured error data');
 
 mustContain('PageView CAPI payload', files.pageview, [
   "event_name: 'PageView'",
@@ -169,6 +192,10 @@ mustContain('Meta CAPI test endpoint coverage', files.metaTestEvent, [
   "'LeadFormView'",
   "'EngagedView'",
   "'Contact'",
+  "'QualifiedLead'",
+  "'UnqualifiedLead'",
+  'original_event_data',
+  'isConfirmedMetaReceipt',
   'test_event_code: testCode',
   'recordMetaDiagnostics',
 ]);
@@ -231,7 +258,28 @@ mustContain('Meta outbox replay', files.outbox, [
   'getOutboxRetryDelaySeconds',
   "status='dead_letter'",
   'wasMetaEventAlreadySent',
+  'ON CONFLICT(id) DO UPDATE SET',
+  "WHERE meta_outbox.status='dead_letter'",
+  'payload_json=excluded.payload_json',
+  'attempts=0',
+  "next_retry_at=strftime('%s','now')",
+  'last_error=NULL',
+  "created_at=strftime('%s','now')",
+  'sent_at=NULL',
 ]);
+mustContain('Meta Graph transient error classification', files.metaCapi + files.outbox + files.leadQuality, [
+  'parseMetaApiReceipt',
+  'isRetryableMetaResponse',
+  'is_transient',
+  'error_subcode',
+  'RETRYABLE_META_ERROR_CODES',
+  'RETRYABLE_META_ERROR_SUBCODES',
+  'markOutboxDeadLetter',
+]);
+assert.ok(
+  files.outbox.includes("response.status >= 400 && response.status < 500 && !isRetryableMetaResponse(response.status, receipt)"),
+  'Outbox must analyze the Graph error body before dead-lettering a 4xx response',
+);
 mustContain('Lead outbox stores final Graph API body', files.lead, [
   'payload_json: body',
   'markOutboxRetry',
@@ -251,5 +299,58 @@ mustContain('Meta-event outbox stores final Graph API body', files.metaEvent, [
 assert.ok(!files.lead.includes('.then(() => markOutboxSent'), 'Lead must not mark outbox sent unconditionally');
 assert.ok(!files.pageview.includes('.then(() => markOutboxSent'), 'PageView must not mark outbox sent unconditionally');
 assert.ok(!files.metaEvent.includes('.then(() => markOutboxSent'), 'Meta-event must not mark outbox sent unconditionally');
+
+mustContain('Confirmed Meta receipt gate', files.metaCapi + files.outbox + files.lead + files.pageview + files.metaEvent, [
+  'isConfirmedMetaReceipt',
+  'events_received',
+  'Meta 2xx without events_received confirmation',
+]);
+
+mustContain('Lead quality CAPI payload', files.leadQuality, [
+  "'QualifiedLead'",
+  "'UnqualifiedLead'",
+  'original_event_data',
+  "event_name: 'Lead'",
+  'event_id: originalLeadEventId',
+  'getMetaDataProcessingOptions(env)',
+  'hashedFirstName',
+  'hashedLastName',
+  'Number(lead.marketing_consent || 0) !== 1',
+  'isConfirmedMetaReceipt(receipt)',
+]);
+
+mustContain('Persistent lead quality delivery status', files.adminLeadsApi + files.adminLeadsUi, [
+  'quality_meta_status',
+  'quality_meta_event_id',
+  "Meta: доставлено",
+  "Meta: повторная отправка",
+  "Meta: не доставлено",
+]);
+
+mustContain('Meta outbox operational health', files.outbox + files.adminHealth, [
+  'configuration_error',
+  "status = 'dead_letter'",
+  "status = 'retry'",
+  'recordOutboxDelivery',
+]);
+mustContain('Honest outbox retry recovery proof', files.adminMetaCenter, [
+  "status='sent' AND attempts > 1",
+  'recovered_after_retry',
+  'latest_recovered',
+]);
+assert.ok(
+  !files.adminMetaCenter.includes('sent_at >= created_at'),
+  'Admin Meta center must not infer a retry from elapsed grace time alone',
+);
+
+mustContain('Consent-gated advertising storage', files.consent, [
+  'if (!consentSnapshot.marketing_consent) return baseContext;',
+  'if (!hasMarketingConsent()) return undefined;',
+  'clearMetaMarketingStorage',
+  "win.fbq?.('consent', categories.marketing ? 'grant' : 'revoke')",
+]);
+assert.ok(!files.consent.includes('getExtendedMetaContext'), 'Unverified sensitive URL parameters must not be forwarded to Meta');
+assert.ok(!files.lead.includes('lead_crm_http_'), 'CRM delivery must not be written as a Meta CAPI diagnostic');
+assert.ok(!files.lead.includes('lead_crm_network_error'), 'CRM network failures must not be written as Meta CAPI diagnostics');
 
 console.log('Meta CAPI smoke tests passed');

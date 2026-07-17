@@ -44,9 +44,9 @@ function RouteErrorBoundary() {
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }}>
       <div>
-        <h1>Страница обновилась</h1>
-        <p>Сайт был обновлён. Пожалуйста, обновите страницу.</p>
-        <button type="button" onClick={() => window.location.reload()}>Обновить</button>
+        <h1>Страница не загрузилась</h1>
+        <p>Попробуйте обновить страницу. Если ошибка повторится, вернитесь на главную.</p>
+        <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
       </div>
     </div>
   );

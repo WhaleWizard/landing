@@ -3,7 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
+import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
@@ -590,14 +590,21 @@ async function sendMetaConversionEvent(
       await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] Lead event failed with HTTP ${response.status}: ${errorText}`);
     } else {
-      const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
-      await markMetaEventSent(env, 'Lead', payload.event_id);
-      await markOutboxSent(env, outboxId);
-      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
-      console.log('[Meta CAPI] Lead server event sent successfully', {
-        fbtrace_id: result?.fbtrace_id,
-        events_received: result?.events_received,
-      });
+      const result = await response.json().catch(() => null) as MetaApiReceipt | null;
+      if (!isConfirmedMetaReceipt(result)) {
+        const message = `Meta 2xx without events_received confirmation: ${JSON.stringify(result).slice(0, 300)}`;
+        await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
+        await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        console.error('[Meta CAPI] Lead event returned no delivery confirmation', result);
+      } else {
+        await markMetaEventSent(env, 'Lead', payload.event_id);
+        await markOutboxSent(env, outboxId);
+        await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result.events_received, fbtrace_id: result.fbtrace_id, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        console.log('[Meta CAPI] Lead server event sent successfully', {
+          fbtrace_id: result.fbtrace_id,
+          events_received: result.events_received,
+        });
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -672,7 +679,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       if (result.ok) {
         await markLeadTelegramDelivered(env, normalized.event_id);
       }
-      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: result.ok ? 'sent' : 'failed', error_message: result.ok ? undefined : result.error, page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
+      if (!result.ok) console.error('[Lead CRM] Telegram delivery failed:', result.error);
       return;
     }
     try {
@@ -685,9 +692,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       if (response.ok) {
         await markLeadTelegramDelivered(env, normalized.event_id);
       }
-      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: response.ok ? 'sent' : 'failed', error_message: response.ok ? undefined : `lead_crm_http_${response.status}`, page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
-    } catch {
-      await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'failed', error_message: 'lead_crm_network_error', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized) });
+      if (!response.ok) console.error(`[Lead CRM] Fallback delivery failed with HTTP ${response.status}`);
+    } catch (error) {
+      console.error('[Lead CRM] Fallback delivery network error:', error);
     }
   })();
 

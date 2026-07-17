@@ -5,7 +5,8 @@ import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
   ShieldCheck, ExternalLink, History, RotateCcw,
-  LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope
+  LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
+  Activity, BarChart3, PanelsTopLeft
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -14,13 +15,16 @@ import { Article } from '../components/hooks/useArticlesApi';
 import { API_ROUTES } from '../config';
 import ArticleEditor from '../components/ArticleEditor';
 import CaseFieldsEditor from '../components/CaseFieldsEditor';
-import AdminDashboard from '../components/admin/AdminDashboard';
 import AdminLeads from '../components/admin/AdminLeads';
 import AdminMedia from '../components/admin/AdminMedia';
 import AdminHealth from '../components/admin/AdminHealth';
+import AdminToday from '../components/admin/AdminToday';
+import AdminMetaCenter from '../components/admin/AdminMetaCenter';
+import AdminAttribution from '../components/admin/AdminAttribution';
+import AdminContentControl from '../components/admin/AdminContentControl';
 import SEO from '../components/SEO';
 
-type AdminView = 'dashboard' | 'articles' | 'leads' | 'media' | 'health';
+type AdminView = 'dashboard' | 'articles' | 'leads' | 'media' | 'health' | 'meta' | 'attribution' | 'content';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -199,31 +203,63 @@ function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPane
 
 const themeTokens = {
   light: {
-    '--adm-bg': '#f6f7fb',
-    '--adm-fg': '#1a2030',
-    '--adm-card': '#ffffff',
-    '--adm-muted': '#eef1f8',
-    '--adm-border': '#d8deec',
-    '--adm-primary': '#6d5efc',
-    '--adm-primary-strong': '#5e50f0',
-    '--adm-danger': '#e0567a',
-    '--adm-textarea-bg': '#ffffff',
-    '--adm-input-bg': '#ffffff',
-    '--adm-button-bg': '#6d5efc',
+    '--adm-surface-canvas': '#f4f6fb',
+    '--adm-surface-elevated': '#ffffff',
+    '--adm-surface-raised': '#fbfcff',
+    '--adm-surface-subtle': '#edf1f7',
+    '--adm-text-primary': '#171c28',
+    '--adm-text-secondary': '#566075',
+    '--adm-text-tertiary': '#7b8599',
+    '--adm-border-subtle': '#dce2ec',
+    '--adm-border-strong': '#c8d0de',
+    '--adm-primary': '#6958e8',
+    '--adm-primary-strong': '#5544d5',
+    '--adm-success': '#14795b',
+    '--adm-warning': '#ad6800',
+    '--adm-danger': '#d34867',
+    '--adm-info': '#2874c8',
+    '--adm-shadow-xs': '0 1px 2px rgba(24, 31, 47, 0.04)',
+    '--adm-shadow-sm': '0 8px 24px rgba(24, 31, 47, 0.06)',
+    '--adm-shadow-md': '0 16px 36px rgba(24, 31, 47, 0.09)',
+    '--adm-shadow-lg': '0 22px 52px rgba(24, 31, 47, 0.14)',
+    '--adm-bg': 'var(--adm-surface-canvas)',
+    '--adm-fg': 'var(--adm-text-primary)',
+    '--adm-card': 'var(--adm-surface-elevated)',
+    '--adm-muted': 'var(--adm-surface-subtle)',
+    '--adm-border': 'var(--adm-border-subtle)',
+    '--adm-textarea-bg': 'var(--adm-surface-raised)',
+    '--adm-input-bg': 'var(--adm-surface-raised)',
+    '--adm-button-bg': 'var(--adm-primary)',
     '--adm-button-text': '#ffffff',
   },
   dark: {
-    '--adm-bg': '#10141e',
-    '--adm-fg': '#e8ecf4',
-    '--adm-card': '#161c2a',
-    '--adm-muted': '#212a3c',
-    '--adm-border': 'rgba(135, 147, 180, 0.28)',
-    '--adm-primary': '#8f83ff',
-    '--adm-primary-strong': '#7f72ff',
-    '--adm-danger': '#ff7f9e',
-    '--adm-textarea-bg': '#10141e',
-    '--adm-input-bg': '#10141e',
-    '--adm-button-bg': '#8f83ff',
+    '--adm-surface-canvas': '#0d1119',
+    '--adm-surface-elevated': '#151b26',
+    '--adm-surface-raised': '#111722',
+    '--adm-surface-subtle': '#202938',
+    '--adm-text-primary': '#eef2f8',
+    '--adm-text-secondary': '#acb5c6',
+    '--adm-text-tertiary': '#7f8a9f',
+    '--adm-border-subtle': 'rgba(148, 163, 190, 0.21)',
+    '--adm-border-strong': 'rgba(159, 174, 202, 0.36)',
+    '--adm-primary': '#9185ff',
+    '--adm-primary-strong': '#7466ed',
+    '--adm-success': '#51c69a',
+    '--adm-warning': '#f2b55f',
+    '--adm-danger': '#ff7898',
+    '--adm-info': '#6db5ff',
+    '--adm-shadow-xs': '0 1px 2px rgba(0, 0, 0, 0.22)',
+    '--adm-shadow-sm': '0 10px 28px rgba(0, 0, 0, 0.2)',
+    '--adm-shadow-md': '0 18px 42px rgba(0, 0, 0, 0.28)',
+    '--adm-shadow-lg': '0 24px 58px rgba(0, 0, 0, 0.36)',
+    '--adm-bg': 'var(--adm-surface-canvas)',
+    '--adm-fg': 'var(--adm-text-primary)',
+    '--adm-card': 'var(--adm-surface-elevated)',
+    '--adm-muted': 'var(--adm-surface-subtle)',
+    '--adm-border': 'var(--adm-border-subtle)',
+    '--adm-textarea-bg': 'var(--adm-surface-raised)',
+    '--adm-input-bg': 'var(--adm-surface-raised)',
+    '--adm-button-bg': 'var(--adm-primary)',
     '--adm-button-text': '#ffffff',
   }
 };
@@ -263,27 +299,10 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
 
   const vars = themeTokens[mode] as React.CSSProperties;
 
-  useEffect(() => {
-    if (!document.getElementById('prism-css')) {
-      const link = document.createElement('link');
-      link.id = 'prism-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css';
-      document.head.appendChild(link);
-    }
-    if (!document.getElementById('prism-js')) {
-      const script = document.createElement('script');
-      script.id = 'prism-js';
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js';
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  }, []);
-
   return (
     <AdminThemeContext.Provider value={{ mode, toggleMode }}>
-      <div style={{ ...vars, minHeight: '100vh' }} className="transition-colors duration-300">
-        <div className="bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
+      <div style={{ ...vars, minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode}>
+        <div className="admin-shell bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
           {children}
         </div>
       </div>
@@ -297,8 +316,9 @@ function AdminThemeToggleButton() {
     <button
       type="button"
       onClick={toggleMode}
-      className="px-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)]"
+      className="admin-button h-10 w-10 p-0"
       title={mode === 'dark' ? 'Включить светлую тему' : 'Включить темную тему'}
+      aria-label={mode === 'dark' ? 'Включить светлую тему' : 'Включить темную тему'}
     >
       {mode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
     </button>
@@ -361,13 +381,15 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
       style={{ opacity: isDragging ? 0.35 : 1 }}
     >
       <button
+        type="button"
         className={`p-1.5 rounded-lg text-[var(--adm-fg)]/50 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'}`}
         title={locked ? 'Статья защищена от изменений' : 'Перетащить'}
+        aria-label={locked ? 'Статья защищена от перемещения' : 'Перетащить статью'}
         disabled={locked}
       >
         {locked ? <ShieldCheck className="w-4 h-4" /> : <GripVertical className="w-4 h-4" />}
       </button>
-      <button onClick={() => onEdit(article)} className="flex-1 text-left truncate">
+      <button type="button" onClick={() => onEdit(article)} className="flex-1 text-left truncate" aria-label={`Редактировать: ${article.title}`}>
         <div className="font-medium truncate flex items-center gap-2">
           {article.title}
           {locked && (
@@ -384,6 +406,7 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
         <div className="text-xs text-[var(--adm-fg)]/60 truncate">{article.slug}</div>
       </button>
       <button
+        type="button"
         onClick={() => onDuplicate(article)}
         disabled={locked}
         className="p-1.5 rounded-lg hover:bg-[var(--adm-primary)]/10 text-[var(--adm-fg)]/60 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -392,6 +415,7 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
         <Copy className="w-4 h-4" />
       </button>
       <button
+        type="button"
         onClick={() => onDelete(article.slug)}
         disabled={locked}
         className="p-1.5 rounded-lg hover:bg-[var(--adm-danger)]/10 text-[var(--adm-danger)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -796,25 +820,26 @@ export default function Admin() {
     return (
       <AdminThemeProvider>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-        <div className="flex items-center justify-center p-4 min-h-screen">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md p-8 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-2xl">
+        <main className="flex items-center justify-center p-4 min-h-screen">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="admin-panel w-full max-w-md p-6 sm:p-8">
             <div className="flex justify-between items-center mb-6">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--adm-primary)] to-[var(--adm-primary-strong)] flex items-center justify-center">
                 <Lock className="w-8 h-8 text-white" />
               </div>
               <AdminThemeToggleButton />
             </div>
-            <h2 className="text-2xl font-semibold text-center mb-2">Вход в админку</h2>
+            <h1 className="text-2xl text-center mb-2">Вход в админку</h1>
             <p className="text-center text-sm text-[var(--adm-fg)]/70 mb-6">Безопасный вход в CMS для управления контентом.</p>
             <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/54 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50" autoFocus />
-              {error && <p className="text-[var(--adm-danger)] text-sm text-center">{error}</p>}
-              <button type="submit" disabled={authLoading} className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all">
+              <label htmlFor="admin-password" className="block text-sm font-semibold text-[var(--adm-fg)]/80">Пароль администратора</label>
+              <input id="admin-password" name="password" type="password" autoComplete="current-password" placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/54 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50" autoFocus />
+              {error && <p className="text-[var(--adm-danger)] text-sm text-center" role="alert">{error}</p>}
+              <button type="submit" disabled={authLoading} className="admin-button admin-button--primary w-full">
                 <LogIn className="w-5 h-5" /> {authLoading ? 'Проверка...' : 'Войти'}
               </button>
             </form>
           </motion.div>
-        </div>
+        </main>
       </AdminThemeProvider>
     );
   }
@@ -822,32 +847,40 @@ export default function Admin() {
   return (
     <AdminThemeProvider>
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-      <div className="py-12 px-4">
+      <main className="px-4 py-6 sm:py-8 lg:py-10">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-            <h1 className="text-3xl font-semibold bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Админка Whale Wizard</h1>
-            <div className="flex items-center gap-3">
-              <AdminThemeToggleButton />
-              <span className="text-xs px-2.5 py-1.5 rounded-full bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] border border-[var(--adm-primary)]/30">Источник: {sourceLabel}</span>
-              <button onClick={async () => { await forceRefreshAdminArticles(password); await refreshHealth(); }} className="text-sm text-[var(--adm-fg)]/70 hover:text-[var(--adm-primary)] transition-colors">Обновить из API (no-cache)</button>
-              <button onClick={() => navigate('/')} className="text-sm text-[var(--adm-fg)]/70 hover:text-[var(--adm-primary)] transition-colors">← На главную</button>
+          <header className="admin-header">
+            <div>
+              <p className="admin-eyebrow">Control center</p>
+              <h1 className="admin-header__title bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Whale Wizard</h1>
             </div>
-          </div>
+            <div className="admin-header__actions">
+              <AdminThemeToggleButton />
+              <span className="admin-source-pill admin-state">Источник: {sourceLabel}</span>
+              <button type="button" onClick={async () => { await forceRefreshAdminArticles(password); await refreshHealth(); }} className="admin-button admin-button--quiet">Обновить данные</button>
+              <button type="button" onClick={() => navigate('/')} className="admin-button admin-button--quiet">← На сайт</button>
+            </div>
+          </header>
 
-          <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
             <aside className="lg:w-52 shrink-0">
-              <nav className="flex lg:flex-col gap-1.5 overflow-x-auto rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-2 shadow-lg lg:sticky lg:top-4">
+              <nav aria-label="Разделы админки" className="admin-sidebar-nav flex lg:flex-col gap-1.5 overflow-x-auto rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-2 lg:sticky lg:top-4">
                 {([
-                  { key: 'dashboard', label: 'Дашборд', icon: LayoutDashboard, active: adminView === 'dashboard', onClick: () => setAdminView('dashboard') },
+                  { key: 'dashboard', label: 'Сегодня', icon: LayoutDashboard, active: adminView === 'dashboard', onClick: () => setAdminView('dashboard') },
+                  { key: 'attribution', label: 'Воронка', icon: BarChart3, active: adminView === 'attribution', onClick: () => setAdminView('attribution') },
+                  { key: 'meta', label: 'Meta CAPI', icon: Activity, active: adminView === 'meta', onClick: () => setAdminView('meta') },
                   { key: 'articles', label: 'Статьи', icon: Newspaper, active: adminView === 'articles' && adminSectionFilter !== 'cases', onClick: () => { setAdminView('articles'); setAdminSectionFilter('blog'); } },
                   { key: 'cases', label: 'Кейсы', icon: Briefcase, active: adminView === 'articles' && adminSectionFilter === 'cases', onClick: () => { setAdminView('articles'); setAdminSectionFilter('cases'); } },
+                  { key: 'content', label: 'Тексты сайта', icon: PanelsTopLeft, active: adminView === 'content', onClick: () => setAdminView('content') },
                   { key: 'leads', label: 'Заявки', icon: Inbox, active: adminView === 'leads', onClick: () => setAdminView('leads') },
                   { key: 'media', label: 'Медиатека', icon: Images, active: adminView === 'media', onClick: () => setAdminView('media') },
                   { key: 'health', label: 'Проверка', icon: Stethoscope, active: adminView === 'health', onClick: () => setAdminView('health') },
                 ] as const).map((item) => (
                   <button
+                    type="button"
                     key={item.key}
                     onClick={item.onClick}
+                    aria-current={item.active ? 'page' : undefined}
                     className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${item.active ? 'bg-[var(--adm-primary)]/15 font-semibold text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50'}`}
                   >
                     <item.icon className="h-4 w-4 shrink-0" /> {item.label}
@@ -857,16 +890,33 @@ export default function Admin() {
             </aside>
 
             <div className="min-w-0 flex-1">
-              {adminView === 'dashboard' && <AdminDashboard password={password} />}
+              {adminView === 'dashboard' && (
+                <AdminToday
+                  password={password}
+                  onNavigate={(destination) => {
+                    if (destination === 'articles') {
+                      setAdminSectionFilter('all');
+                      setAdminView('articles');
+                    } else {
+                      setAdminView(destination);
+                    }
+                  }}
+                />
+              )}
+              {adminView === 'attribution' && <AdminAttribution password={password} />}
+              {adminView === 'meta' && <AdminMetaCenter password={password} />}
+              {adminView === 'content' && <AdminContentControl password={password} />}
               {adminView === 'leads' && <AdminLeads password={password} />}
               {adminView === 'media' && <AdminMedia password={password} />}
               {adminView === 'health' && <AdminHealth password={password} />}
 
               {adminView === 'articles' && (
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1 p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-lg">
+          <div className="admin-editor-layout grid lg:grid-cols-3">
+            <div className="admin-editor-list lg:col-span-1 p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">Статьи</h2>
+                <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">
+                  {adminSectionFilter === 'cases' ? 'Кейсы' : adminSectionFilter === 'all' ? 'Все публикации' : 'Статьи'}
+                </h2>
                 <button onClick={() => {
                   openArticleEditor({
                     // Раздел новой статьи подстраивается под активный фильтр:
@@ -876,36 +926,37 @@ export default function Admin() {
                     description: '', summary: '', keyTakeaways: [], faq: [], tags: [], content: '', image: '',
                     status: 'published'
                   }, { dirty: true });
-                }} className="p-2 rounded-lg bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] hover:bg-[var(--adm-primary)]/30 transition-all">
+                }} className="admin-button h-10 w-10 p-0 text-[var(--adm-primary)]" aria-label="Создать публикацию" title="Создать публикацию">
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
               <div className="mb-3 grid grid-cols-4 gap-2 text-center">
                 <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.total}</div>
-                  <div className="text-[10px] text-[var(--adm-fg)]/55">всего</div>
+                  <div className="admin-meta">всего</div>
                 </div>
                 <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.shown}</div>
-                  <div className="text-[10px] text-[var(--adm-fg)]/55">видно</div>
+                  <div className="admin-meta">видно</div>
                 </div>
                 <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.drafts}</div>
-                  <div className="text-[10px] text-[var(--adm-fg)]/55">черн.</div>
+                  <div className="admin-meta">черн.</div>
                 </div>
                 <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.planned}</div>
-                  <div className="text-[10px] text-[var(--adm-fg)]/55">план</div>
+                  <div className="admin-meta">план</div>
                 </div>
               </div>
               <div className="mb-3 flex gap-2">
-                <button onClick={() => setAdminSectionFilter('all')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='all' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Все</button>
-                <button onClick={() => setAdminSectionFilter('blog')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='blog' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Блог</button>
-                <button onClick={() => setAdminSectionFilter('cases')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='cases' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Кейсы</button>
+                <button type="button" aria-pressed={adminSectionFilter === 'all'} onClick={() => setAdminSectionFilter('all')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='all' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Все</button>
+                <button type="button" aria-pressed={adminSectionFilter === 'blog'} onClick={() => setAdminSectionFilter('blog')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='blog' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Блог</button>
+                <button type="button" aria-pressed={adminSectionFilter === 'cases'} onClick={() => setAdminSectionFilter('cases')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='cases' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Кейсы</button>
               </div>
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--adm-fg)]/40" />
                 <input
+                  aria-label="Поиск публикаций"
                   type="text"
                   placeholder="Поиск..."
                   value={query}
@@ -944,10 +995,10 @@ export default function Admin() {
               )}
             </div>
 
-            <div className="lg:col-span-2 p-6 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)] shadow-lg">
+            <div className="admin-editor-main lg:col-span-2 p-4 sm:p-6 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
               {editingArticle ? (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-4 py-3">
+                  <div className="admin-editor-toolbar flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/90 px-4 py-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                         <span>{editingArticle.id ? 'Редактирование статьи' : 'Новая статья'}</span>
@@ -979,31 +1030,32 @@ export default function Admin() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Заголовок</label>
-                      <input type="text" value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                      <input aria-label="Заголовок публикации" type="text" value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Раздел публикации</label>
-                      <select value={editingArticle.category || 'Блог'} onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all">
+                      <select aria-label="Раздел публикации" value={editingArticle.category || 'Блог'} onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all">
                         <option value="Блог">Блог</option>
                         <option value="Кейсы">Кейсы</option>
                       </select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Время чтения</label>
-                      <input type="text" value={editingArticle.readTime} onChange={(e) => setEditingArticle({ ...editingArticle, readTime: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                      <input aria-label="Время чтения" type="text" value={editingArticle.readTime} onChange={(e) => setEditingArticle({ ...editingArticle, readTime: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Дата</label>
-                      <input type="text" value={editingArticle.date} onChange={(e) => setEditingArticle({ ...editingArticle, date: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                      <input aria-label="Дата публикации текстом" type="text" value={editingArticle.date} onChange={(e) => setEditingArticle({ ...editingArticle, date: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     <label className="text-sm font-medium text-[var(--adm-fg)]/80">Статус:</label>
                     <select
+                      aria-label="Статус публикации"
                       value={editingArticle.status || 'published'}
                       onChange={(e) => setEditingArticle({ ...editingArticle, status: e.target.value as Article['status'] })}
                       className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] px-3 py-2 text-sm"
@@ -1021,6 +1073,7 @@ export default function Admin() {
                       <Calendar className="w-4 h-4" /> Дата публикации (оставьте пустой для немедленной)
                     </label>
                     <input
+                      aria-label="Дата и время публикации"
                       type="datetime-local"
                       value={editingArticle.publishedAt ? editingArticle.publishedAt.slice(0, 16) : ''}
                       onChange={(e) => setEditingArticle({ ...editingArticle, publishedAt: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
@@ -1038,11 +1091,11 @@ export default function Admin() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Краткое описание</label>
-                    <textarea value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <textarea aria-label="Краткое описание" value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Краткое описание (AEO)</label>
-                    <textarea value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <textarea aria-label="Краткое описание AEO" value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                   </div>
 
                   <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/25 p-4 space-y-4">
@@ -1055,6 +1108,7 @@ export default function Admin() {
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">SEO title</label>
                       <input
+                        aria-label="SEO title"
                         type="text"
                         value={editingArticle.seoTitle || ''}
                         maxLength={120}
@@ -1067,6 +1121,7 @@ export default function Admin() {
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">SEO description</label>
                       <textarea
+                        aria-label="SEO description"
                         value={editingArticle.seoDescription || ''}
                         maxLength={220}
                         onChange={(e) => setEditingArticle({ ...editingArticle, seoDescription: e.target.value })}
@@ -1079,6 +1134,7 @@ export default function Admin() {
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Теги (по одному на строку)</label>
                       <textarea
+                        aria-label="Теги публикации"
                         value={tagsText}
                         onChange={(e) => {
                           const tags = e.target.value.split('\n').map((line) => line.trim()).filter(Boolean);
@@ -1093,6 +1149,7 @@ export default function Admin() {
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Ключевые тезисы (по одному на строку)</label>
                     <textarea
+                      aria-label="Ключевые тезисы"
                       value={takeawaysText}
                       onChange={(e) => {
                         const keyTakeaways = e.target.value.split('\n').map((line) => line.trim()).filter(Boolean);
@@ -1106,6 +1163,7 @@ export default function Admin() {
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">FAQ (формат: вопрос::ответ, каждая пара с новой строки)</label>
                     <textarea
+                      aria-label="FAQ публикации"
                       value={faqText}
                       onChange={(e) => {
                         const faq = e.target.value
@@ -1126,12 +1184,13 @@ export default function Admin() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">URL обложки</label>
-                    <div className="flex gap-2">
-                      <input type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className="flex-1 w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <div className="admin-mobile-stack flex gap-2">
+                      <input aria-label="URL обложки" type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className="flex-1 w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                       <label className="cursor-pointer px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50 text-[var(--adm-fg)] transition-all flex items-center gap-2">
                         <Upload className="w-4 h-4" />
                         <input
                           type="file"
+                          aria-label="Загрузить обложку"
                           accept="image/*"
                           className="hidden"
                           onChange={async (e) => {
@@ -1147,7 +1206,7 @@ export default function Admin() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Slug (URL-адрес статьи)</label>
-                    <input type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <input aria-label="Slug публикации" type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                     <p className="text-xs text-[var(--adm-fg)]/50 mt-1">Автоматически из заголовка (если не трогать вручную). Только латиница и дефисы.</p>
                   </div>
 
@@ -1170,7 +1229,7 @@ export default function Admin() {
                     />
                   )}
 
-                  <div className="flex gap-3">
+                  <div className="admin-editor-actions flex gap-3">
                     <button onClick={() => handleSave('published')} disabled={isEditingProtected} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                       <Save className="w-4 h-4" /> Сохранить и опубликовать
                     </button>
@@ -1212,7 +1271,7 @@ export default function Admin() {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </AdminThemeProvider>
   );
 }

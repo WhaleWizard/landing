@@ -17,9 +17,22 @@ const toAbsoluteUrl = (path: string): string => {
   return path.startsWith('/') ? `${SITE_URL}${path}` : `${SITE_URL}/${path}`;
 };
 
+const toCanonicalUrl = (path: string): string => {
+  const url = new URL(toAbsoluteUrl(path));
+  const pathname = url.pathname;
+  const isFile = /\.[a-z0-9]+$/i.test(pathname);
+  const isArticle = /^\/(blog|cases)\/[^/]+$/.test(pathname);
+
+  if (pathname !== '/' && !isFile && !isArticle && !pathname.endsWith('/')) {
+    url.pathname = `${pathname}/`;
+  }
+
+  return url.toString();
+};
+
 export default function SEO({
-  title = 'Whale Wizard | Performance-таргетолог',
-  description = 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит первые заявки уже в период теста и масштабируется в прибыль. $2M+ рекламного бюджета в управлении • 500 000+ лидов. Средняя окупаемость — 240% (e-commerce и B2C). Беру на себя всё: стратегия, креативы, аналитика и оптимизация. Настройка google ads и Настройка Meta ads.',
+  title = 'Performance-маркетинг в Google Ads и Meta Ads',
+  description = 'Настраиваю и веду рекламу в Google Ads и Meta Ads: аналитика, события, креативы и оптимизация по заявкам и продажам. Работаю с бизнесом, e-commerce и мобильными приложениями.',
   image = '/og-image.jpg',
   url = '/',
   type = 'website',
@@ -28,7 +41,7 @@ export default function SEO({
   const siteTitle = 'Whale Wizard';
   const fullTitle = title === siteTitle ? title : `${title} | ${siteTitle}`;
 
-  const absoluteUrl = toAbsoluteUrl(url);
+  const absoluteUrl = toCanonicalUrl(url);
   const absoluteImage = toAbsoluteUrl(image);
 
   useEffect(() => {
@@ -103,7 +116,7 @@ export default function SEO({
       url: SITE_URL,
       logo: `${SITE_URL}/og-image.jpg`,
       image: absoluteImage,
-      description: 'Performance-маркетинг: настройка и масштабирование рекламы в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
+      description: 'Настройка и ведение Google Ads и Meta Ads с аналитикой, событиями и оценкой рекламы по заявкам, продажам и экономике проекта.',
       email: 'whalewzrd@gmail.com',
       areaServed: ['RU', 'US', 'AE', 'TR', 'EU'],
       serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],

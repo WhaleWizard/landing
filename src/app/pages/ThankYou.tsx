@@ -53,7 +53,7 @@ export default function ThankYou() {
         url="/thank-you"
         noIndex
       />
-      <section className="relative min-h-screen flex items-center justify-center overflow-x-hidden bg-background py-20">
+      <section className="marketing-typography relative min-h-screen flex items-center justify-center overflow-x-hidden bg-background py-20">
 
       {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-primary/10 blur-[140px]" />
@@ -78,9 +78,9 @@ export default function ThankYou() {
           transition={{ delay: 0.2 }}
           className="mt-6 text-2xl sm:text-3xl md:text-4xl font-bold"
         >
-          Вы на шаг ближе к{' '}
+          Спасибо —{' '}
           <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-            росту заявок
+            заявка отправлена
           </span>{' '}
         </motion.h1>
 
@@ -91,8 +91,7 @@ export default function ThankYou() {
           transition={{ delay: 0.3 }}
           className="mt-4 text-muted-foreground text-sm md:text-lg"
         >
-          Я уже получил вашу заявку и свяжусь с вами в ближайшее время.
-          Пока можете посмотреть мои соцсети 👇
+          Я посмотрю вводные и свяжусь с вами указанным способом. Если хотите, пока можно открыть статьи и кейсы или написать мне напрямую.
         </motion.p>
 
         {/* CTA Instagram Button */}
@@ -108,7 +107,7 @@ export default function ThankYou() {
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
 
-            <span className="relative">Статьи и Кейсы</span>
+            <span className="relative">Открыть блог</span>
             <ArrowRight className="w-4 h-4 relative group-hover:translate-x-1 transition-transform" />
           </a>
         </motion.div>
@@ -126,6 +125,7 @@ export default function ThankYou() {
               href={social.link}
               onClick={() => trackContact(getThankYouContactChannel(social.name), 'thank_you', { social_label: social.name })}
               target="_blank"
+              rel="noopener noreferrer"
               className="group relative p-4 rounded-2xl border border-border bg-card/40 backdrop-blur-xl hover:scale-105 transition-all overflow-hidden"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${social.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
@@ -151,7 +151,7 @@ export default function ThankYou() {
           transition={{ delay: 0.7 }}
           className="mt-10 text-xs text-muted-foreground"
         >
-          Обычно отвечаю в течение 24 часов ⚡
+          Если хотите дополнить заявку, напишите мне в Telegram или на почту.
         </motion.p>
 
       </div>

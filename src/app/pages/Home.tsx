@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
+import SEO from '../components/SEO';
 
 const Services = lazy(() => import('../components/Services'));
 const Cases = lazy(() => import('../components/Cases'));
@@ -32,7 +33,12 @@ function DeferredSection({
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden">
+      <SEO
+        title="Google Ads, Meta Ads и аналитика"
+        description="Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM."
+        url="/"
+      />
       <Navbar />
       <Hero />
 

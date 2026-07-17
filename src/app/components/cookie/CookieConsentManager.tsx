@@ -46,7 +46,7 @@ function applyConsent(consent: ConsentRecord): void {
 
   void Promise.allSettled(tasks).then(() => {
     const location = router.state.location;
-    const path = `${location.pathname}${location.search}`;
+    const path = location.pathname;
     if (consent.categories.analytics || consent.categories.marketing) {
       trackPageView(path, { marketing: consent.categories.marketing });
       trackServiceViewContent(path, { marketing: consent.categories.marketing });
@@ -185,16 +185,37 @@ export default function CookieConsentManager() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = router.subscribe((state) => {
+    let previousPathname = router.state.location.pathname;
+    let lastTrackedTitle = document.title;
+    let pendingRouteTimer: number | undefined;
+
+    const trackRouteWhenTitleIsReady = (pathname: string, attempt = 0) => {
+      if (router.state.location.pathname !== pathname) return;
+      if (document.title === lastTrackedTitle && attempt < 20) {
+        pendingRouteTimer = window.setTimeout(() => trackRouteWhenTitleIsReady(pathname, attempt + 1), 50);
+        return;
+      }
+
+      lastTrackedTitle = document.title;
       const consent = consentRef.current;
       if (!consent) return;
       if (!consent.categories.analytics && !consent.categories.marketing) return;
-      const path = `${state.location.pathname}${state.location.search}`;
-      trackPageView(path, { marketing: consent.categories.marketing });
-      trackServiceViewContent(path, { marketing: consent.categories.marketing });
+      trackPageView(pathname, { marketing: consent.categories.marketing });
+      trackServiceViewContent(pathname, { marketing: consent.categories.marketing });
+    };
+
+    const unsubscribe = router.subscribe((state) => {
+      const pathname = state.location.pathname;
+      if (pathname === previousPathname) return;
+      previousPathname = pathname;
+      if (pendingRouteTimer !== undefined) window.clearTimeout(pendingRouteTimer);
+      trackRouteWhenTitleIsReady(pathname);
     });
 
-    return unsubscribe;
+    return () => {
+      if (pendingRouteTimer !== undefined) window.clearTimeout(pendingRouteTimer);
+      unsubscribe();
+    };
   }, []);
 
   const acceptAll = useCallback(() => {

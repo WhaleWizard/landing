@@ -140,7 +140,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       SELECT
         event_name,
         COUNT(*) AS total,
-        SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
+        SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
         SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped,
         COALESCE(SUM(events_received), 0) AS events_received,
@@ -161,6 +161,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         MAX(created_at) AS latest_created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
+        AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
       GROUP BY event_name
       ORDER BY latest_created_at DESC
     `).bind(since).all<SummaryRow>();
@@ -185,6 +186,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         has_fbp, has_fbc, has_fbclid, has_utm, marketing_consent, created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
+        AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
       ORDER BY created_at DESC
       LIMIT 25
     `).bind(since).all<LatestRow>();

@@ -1,14 +1,72 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { motion } from 'motion/react';
-import { ArrowUpDown, Sparkles } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpDown,
+  BriefcaseBusiness,
+  Check,
+  Filter,
+  Search,
+  Sparkles,
+  Trophy,
+  Users,
+  WalletCards,
+  X,
+} from 'lucide-react';
 import SEO from '../components/SEO';
+import Navbar from '../components/Navbar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '../components/ui/sheet';
 import { useArticles } from '../context/ArticlesContext';
-import { trackCaseFilter } from '../consent/consent';
+import { isMetaSafeCaseFilterValue, trackCaseFilter } from '../consent/consent';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
+import { useScrollTo } from '../components/hooks/useScrollTo';
+import {
+  CASE_BACK_TARGETS,
+  getCaseCover,
+  getCaseCoverAlt,
+  getCaseDisplayTitle,
+  getCaseGoals,
+  getMergedCaseData,
+} from '../data/caseCatalog';
 
 const CASES_CATEGORY = 'Кейсы';
+
+// Keep only known acquisition parameters while the catalog rewrites its own
+// filters. This preserves attribution without forwarding arbitrary query data.
+const CASE_ATTRIBUTION_PARAMS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'utm_id',
+  'fbclid',
+  'gclid',
+  'wbraid',
+  'gbraid',
+  'yclid',
+] as const;
 
 const SOURCE_LABELS: Record<string, string> = {
   meta: 'Meta Ads',
@@ -16,491 +74,706 @@ const SOURCE_LABELS: Record<string, string> = {
   tiktok: 'TikTok',
 };
 
-// Витрина по умолчанию: те же 4 кейса, что на главной (реальные цифры сайта).
-// Показывается, пока в админке нет статей категории «Кейсы» с кейс-полями.
+const ENTRY_PRESETS: Record<string, { sources: string[]; nicheHints: string[]; text: string }> = {
+  'meta-apps': {
+    sources: ['meta'],
+    nicheHints: ['приложен'],
+    text: 'Показаны кейсы, где Meta Ads была частью системы продвижения. Отдельные разборы приложений будут добавляться по мере публикации.',
+  },
+  'meta-ads': {
+    sources: ['meta'],
+    nicheHints: [],
+    text: 'Показаны кейсы, в которых использовались Facebook и Instagram Ads.',
+  },
+  'google-ads': {
+    sources: ['google'],
+    nicheHints: [],
+    text: 'Показаны кейсы, в которых Google Ads была частью рекламной системы.',
+  },
+};
+
+type SortValue = 'fresh' | 'roi' | 'budget';
+type CaseFilterKind = 'niche' | 'source' | 'result';
+
+type CatalogArticle = Pick<
+  Article,
+  'id' | 'slug' | 'title' | 'category' | 'readTime' | 'date' | 'description' | 'image' | 'tags' | 'caseData' | 'publishedAt' | 'updatedAt'
+>;
+
 type CaseView = {
   key: string;
-  slug?: string;
+  slug: string;
   title: string;
   description: string;
-  fallback?: boolean;
+  readTime: string;
+  date: string;
+  publishedAt?: string;
+  fallback: boolean;
+  image: string;
+  imageAlt: string;
+  goals: string[];
   data: CaseData;
 };
 
-const SHOWCASE: CaseView[] = [
-  {
-    key: 'showcase-concierge',
-    fallback: true,
-    title: 'Premium Concierge Service',
-    description: 'Четыре года стабильной лидогенерации для премиум-сервиса: квалификация, ретаргетинг, контроль качества обращений.',
-    data: {
-      niche: 'Услуги', sources: ['meta'], period: '4 года', featured: true,
-      budgetLabel: '$1 Млн+', budgetValue: 1_000_000, leadsValue: 65_000,
-      headline: '65к+', headlineLabel: 'лидов за 4 года',
-      metrics: [
-        { value: '$1 Млн+', label: 'бюджет' },
-        { value: '65к+', label: 'лидов' },
-        { value: '4 года', label: 'срок' },
-      ],
-      chartPoints: [18, 22, 21, 28, 31, 29, 38, 45, 52, 58, 66, 78],
-    },
-  },
-  {
-    key: 'showcase-ecom',
-    fallback: true,
-    title: 'E-commerce: магазин полного цикла',
-    description: 'Google Ads + Shopping + Meta Ads: 120 000+ добавлений в корзину, 30 000+ покупок.',
-    data: {
-      niche: 'E-commerce', sources: ['google', 'meta'], roiValue: 210, leadsValue: 30_000,
-      headline: '210%', headlineLabel: 'ROI', trend: '▲ рост',
-      metrics: [
-        { value: '120к+', label: 'add to cart' },
-        { value: '30к+', label: 'покупок' },
-        { value: '210%', label: 'ROI' },
-      ],
-      chartPoints: [24, 30, 28, 38, 36, 46, 52, 50, 62, 70, 76, 86],
-    },
-  },
-  {
-    key: 'showcase-info',
-    fallback: true,
-    title: 'Инфобизнес на весь мир',
-    description: 'Инфопродукты на русскоязычную аудиторию по всему миру, $600к+ открученного бюджета.',
-    data: {
-      niche: 'Инфобизнес', sources: ['google', 'meta'], roiValue: 180,
-      budgetLabel: '$600к+', budgetValue: 600_000,
-      headline: 'до $5', headlineLabel: 'стоимость лида', trend: '▼ CPL',
-      metrics: [
-        { value: '$600к+', label: 'бюджет' },
-        { value: 'до $5', label: 'CPL' },
-        { value: '180%', label: 'ROI' },
-      ],
-      chartPoints: [52, 48, 45, 40, 42, 36, 32, 30, 26, 24, 21, 18],
-    },
-  },
-  {
-    key: 'showcase-b2c',
-    fallback: true,
-    title: 'B2C услуги: 50+ проектов',
-    description: 'Пакетные запуски для сферы услуг: салоны, образование, локальный бизнес.',
-    data: {
-      niche: 'Услуги', sources: ['google', 'meta'], roiValue: 300,
-      headline: 'до 300%', headlineLabel: 'ROI по проектам', trend: '▲ 50+ ниш',
-      metrics: [
-        { value: '50+', label: 'проектов' },
-        { value: 'до $25', label: 'CPL' },
-        { value: 'до 300%', label: 'ROI' },
-      ],
-      chartPoints: [22, 28, 26, 34, 32, 42, 40, 50, 56, 54, 64, 72],
-    },
-  },
-];
-
-// Куда возвращает кнопка «Назад» в зависимости от того, откуда пришли.
-const BACK_TARGETS: Record<string, { path: string; label: string }> = {
-  'meta-apps': { path: '/meta-apps', label: 'Meta Apps' },
-  'meta-ads': { path: '/meta-ads', label: 'Meta Ads' },
-  'google-ads': { path: '/google-ads', label: 'Google Ads' },
-  'consult': { path: '/consult', label: 'Консультации' },
-};
-
-// Контекстный вход со страниц услуг: /cases?from=meta-apps
-const ENTRIES: Record<string, { srcs: string[]; nicheHints: string[]; text: string }> = {
-  'meta-apps': { srcs: ['meta'], nicheHints: ['приложен'], text: 'Вы пришли со страницы Meta Apps — показал кейсы по приложениям и Meta-трафику.' },
-  'meta-ads': { srcs: ['meta'], nicheHints: [], text: 'Вы пришли со страницы Meta Ads — показал кейсы с трафиком из Facebook и Instagram.' },
-  'google-ads': { srcs: ['google'], nicheHints: [], text: 'Вы пришли со страницы Google Ads — показал кейсы с трафиком из Google.' },
+type FilterOption = {
+  value: string;
+  label: string;
+  count: number;
 };
 
 function sourceLabel(source: string): string {
   return SOURCE_LABELS[source] || source.charAt(0).toUpperCase() + source.slice(1);
 }
 
-function sourceClass(source: string): string {
-  if (source === 'meta') return 'cse-tag-meta';
-  if (source === 'google') return 'cse-tag-google';
-  return 'cse-tag-other';
+function caseViewFromArticle(article: CatalogArticle, fallback = false): CaseView {
+  return {
+    key: `${fallback ? 'fallback' : 'article'}-${article.slug}`,
+    slug: article.slug,
+    title: getCaseDisplayTitle(article.title),
+    description: article.description || '',
+    readTime: article.readTime || '8 мин',
+    date: article.date || '',
+    publishedAt: article.publishedAt || article.updatedAt,
+    fallback,
+    image: getCaseCover(article),
+    imageAlt: getCaseCoverAlt(article),
+    goals: getCaseGoals(article),
+    data: getMergedCaseData(article),
+  };
 }
 
-/* ── График-линия (единый для всех карточек) ── */
-function LineChart({ points, id }: { points: number[]; id: string }) {
-  const w = 340;
-  const h = 128;
-  const max = Math.max(...points);
-  const min = Math.min(...points);
-  const px = (i: number) => (i / (points.length - 1)) * w;
-  const py = (v: number) => h - 10 - ((v - min) / (max - min || 1)) * (h * 0.62);
-  const line = points.map((v, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
-  const gridYs = [h * 0.3, h * 0.54, h * 0.78];
-  const lastX = px(points.length - 1);
-  const lastY = py(points[points.length - 1]);
+function formatInteger(value?: number): string {
+  if (!value) return '—';
+  return `${new Intl.NumberFormat('ru-RU').format(value)}+`;
+}
 
+function formatBudget(value?: number, label?: string): string {
+  if (label) return label;
+  if (!value) return '—';
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)} млн+`;
+  return `$${Math.round(value / 1000)}k+`;
+}
+
+function parseCaseDate(item: CaseView): number {
+  const iso = Date.parse(item.publishedAt || '');
+  if (Number.isFinite(iso)) return iso;
+  const match = item.date.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!match) return 0;
+  return Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+}
+
+function pluralCases(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'кейс';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'кейса';
+  return 'кейсов';
+}
+
+function filterUrlToken(kind: CaseFilterKind, value: string): string {
+  if (isMetaSafeCaseFilterValue(value)) return value;
+  let hash = 2166136261;
+  const input = `${kind}:${value.trim().toLocaleLowerCase('ru')}`;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `f_${(hash >>> 0).toString(36)}`;
+}
+
+function readSelectedParams(params: URLSearchParams, key: string, kind: CaseFilterKind, allowed: string[]): string[] {
+  return params.getAll(key).flatMap((rawValue) => {
+    const tokenMatch = allowed.find((value) => filterUrlToken(kind, value) === rawValue);
+    if (tokenMatch) return [tokenMatch];
+    // Legacy comma links remain valid only for values from the neutral allowlist.
+    return rawValue.split(',').map((value) => value.trim()).filter((value) => (
+      allowed.includes(value) && isMetaSafeCaseFilterValue(value)
+    ));
+  });
+}
+
+function FilterCheckbox({ active, count, label, onClick }: { active: boolean; count: number; label: string; onClick: () => void }) {
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
-      <defs>
-        <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="var(--primary)" stopOpacity="0.38" />
-          <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id={`${id}-stroke`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="var(--primary)" />
-          <stop offset="1" stopColor="var(--accent)" />
-        </linearGradient>
-        <filter id={`${id}-glow`}>
-          <feGaussianBlur stdDeviation="3.5" />
-        </filter>
-      </defs>
-      {gridYs.map((y) => (
-        <line key={y} x1="0" y1={y} x2={w} y2={y} stroke="rgba(255,255,255,.05)" strokeDasharray="3 5" />
-      ))}
-      <path d={`${line} L${w},${h} L0,${h} Z`} fill={`url(#${id}-fill)`} />
-      <path d={line} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="2.6" filter={`url(#${id}-glow)`} opacity="0.8" pathLength={1} className="cse-draw" />
-      <path d={line} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="2.2" strokeLinecap="round" pathLength={1} className="cse-draw" />
-      <circle cx={lastX} cy={lastY} r="4" fill="var(--accent)" className="cse-blip" />
-      <circle cx={lastX} cy={lastY} r="8" fill="none" stroke="var(--accent)" strokeOpacity="0.4" className="cse-blip" />
-    </svg>
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={active}
+      onClick={onClick}
+      className="cases-filter-option group"
+    >
+      <span className={`cases-filter-check ${active ? 'is-active' : ''}`} aria-hidden="true">
+        {active ? <Check className="h-3.5 w-3.5" /> : null}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      <span className="cases-filter-count">{count}</span>
+    </button>
   );
 }
 
-/* ── Карточка кейса ── */
-function CaseCard({ item, onOpen }: { item: CaseView; onOpen: (item: CaseView) => void }) {
-  const d = item.data;
-  const hasViz = Boolean(d.headline || (d.chartPoints && d.chartPoints.length >= 2));
+function FilterGroup({ label, options, selected, onToggle }: {
+  label: string;
+  options: FilterOption[];
+  selected: Set<string>;
+  onToggle: (value: string) => void;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <fieldset className="cases-filter-group">
+      <legend>{label}</legend>
+      <div className="space-y-1">
+        {options.map((option) => (
+          <FilterCheckbox
+            key={option.value}
+            active={selected.has(option.value)}
+            count={option.count}
+            label={option.label}
+            onClick={() => onToggle(option.value)}
+          />
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function CatalogFilters({
+  nicheOptions,
+  sourceOptions,
+  goalOptions,
+  niches,
+  sources,
+  goals,
+  onToggleNiche,
+  onToggleSource,
+  onToggleGoal,
+  onClear,
+  hasFilters,
+}: {
+  nicheOptions: FilterOption[];
+  sourceOptions: FilterOption[];
+  goalOptions: FilterOption[];
+  niches: Set<string>;
+  sources: Set<string>;
+  goals: Set<string>;
+  onToggleNiche: (value: string) => void;
+  onToggleSource: (value: string) => void;
+  onToggleGoal: (value: string) => void;
+  onClear: () => void;
+  hasFilters: boolean;
+}) {
+  return (
+    <div className="cases-filter-panel">
+      <div className="cases-filter-heading">
+        <strong>Фильтры</strong>
+        {hasFilters ? (
+          <button type="button" onClick={onClear}>Сбросить</button>
+        ) : null}
+      </div>
+      <FilterGroup label="Канал" options={sourceOptions} selected={sources} onToggle={onToggleSource} />
+      <FilterGroup label="Ниша" options={nicheOptions} selected={niches} onToggle={onToggleNiche} />
+      <FilterGroup label="Результат" options={goalOptions} selected={goals} onToggle={onToggleGoal} />
+    </div>
+  );
+}
+
+function ResultMetric({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="cases-result-metric">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function CaseResultCard({ item, index, href, onOpen }: { item: CaseView; index: number; href: string; onOpen: (item: CaseView) => void }) {
+  const reduceMotion = useReducedMotion();
+  const isFeatured = Boolean(item.data.featured);
+  const metrics = item.data.metrics || [];
+  const mainMetric = item.data.headline || metrics[0]?.value || 'Разбор';
+  const mainMetricLabel = item.data.headlineLabel || metrics[0]?.label || 'проекта';
+  const mobileMetrics = metrics.length ? metrics.slice(0, 3) : [{ value: mainMetric, label: mainMetricLabel }];
 
   return (
     <motion.article
       layout
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 8 }}
-      transition={{ duration: 0.3 }}
-      tabIndex={0}
-      role="link"
-      aria-label={`Открыть кейс: ${item.title}`}
-      onClick={() => onOpen(item)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(item); } }}
-      className={`cse-card group relative cursor-pointer overflow-hidden rounded-[22px] p-[1.4px] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_26px_60px_rgba(0,0,0,.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${d.featured ? 'cse-featured' : ''}`}
+      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+      exit={reduceMotion ? undefined : { opacity: 0, y: 8 }}
+      transition={reduceMotion ? undefined : { duration: 0.24, delay: Math.min(index, 4) * 0.035 }}
+      className={`cases-result-card ${isFeatured ? 'is-featured' : ''}`}
     >
-      <div className={`relative flex h-full flex-col overflow-hidden rounded-[21px] bg-gradient-to-br from-[#12142e] to-[#0b0c1c] ${d.featured ? 'md:flex-row' : ''}`}>
-        {hasViz && (
-          <div className={`relative flex-none overflow-hidden border-b border-white/[.07] bg-[radial-gradient(420px_160px_at_20%_0%,rgba(139,92,246,.16),transparent_70%)] ${d.featured ? 'h-32 md:h-auto md:w-[44%] md:border-b-0 md:border-r' : 'h-32'}`}>
-            {d.chartPoints && d.chartPoints.length >= 2 && <LineChart points={d.chartPoints} id={`ch-${item.key}`} />}
-            {d.headline && (
-              <div className="absolute left-4 top-3 z-[2]">
-                <b className={`block bg-gradient-to-r from-white to-[#c9d6ff] bg-clip-text font-extrabold leading-none tracking-tighter text-transparent [text-shadow:0_4px_30px_rgba(139,92,246,.5)] ${d.featured ? 'text-4xl md:text-5xl' : 'text-3xl'}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {d.headline}
-                </b>
-                {d.headlineLabel && (
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">{d.headlineLabel}</span>
-                )}
-              </div>
-            )}
-            {d.trend && (
-              <span className="absolute right-3.5 top-3.5 z-[2] rounded-lg border border-emerald-400/35 bg-emerald-400/15 px-2.5 py-1 text-[11px] font-extrabold text-emerald-200" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {d.trend}
-              </span>
-            )}
-          </div>
-        )}
+      <a
+        href={href}
+        onClick={(event) => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          onOpen(item);
+        }}
+        className="cases-result-card-hit"
+        aria-label={`Открыть кейс: ${item.title}`}
+      >
+        <div className="cases-result-cover">
+          <img
+            src={item.image}
+            alt={item.imageAlt}
+            loading={index === 0 ? 'eager' : 'lazy'}
+            decoding="async"
+          />
+          {isFeatured ? <span className="cases-featured-label">Топ-кейс</span> : null}
+        </div>
 
-        <div className={`flex flex-1 flex-col gap-2.5 p-4 ${d.featured ? 'md:w-[56%]' : ''}`}>
-          <div className="flex flex-wrap gap-1.5">
-            {d.niche && (
-              <span className="cse-tag cse-tag-niche"><i />{d.niche}</span>
-            )}
-            {(d.sources || []).map((s) => (
-              <span key={s} className={`cse-tag ${sourceClass(s)}`}><i />{sourceLabel(s)}</span>
+        <div className="cases-result-copy">
+          <div className="cases-result-tags" aria-label="Категории кейса">
+            {(item.data.sources || []).map((source) => (
+              <span key={source}>{sourceLabel(source)}</span>
+            ))}
+            {item.data.niche ? <span>{item.data.niche}</span> : null}
+          </div>
+          <h2>{item.title}</h2>
+          <span className="cases-context-label">Контекст</span>
+          <p>{item.description}</p>
+          <div className="cases-card-mobile-metrics" style={{ gridTemplateColumns: `repeat(${mobileMetrics.length}, minmax(0, 1fr))` }}>
+            {mobileMetrics.map((metric, metricIndex) => (
+              <ResultMetric key={`${metric.value}-${metric.label}-${metricIndex}`} value={metric.value} label={metric.label} />
             ))}
           </div>
+        </div>
 
-          <h3 className={`font-extrabold leading-snug tracking-tight ${d.featured ? 'text-lg md:text-xl' : 'text-[17px]'}`}>{item.title}</h3>
-          {item.description && <p className="text-[12.5px] leading-relaxed text-muted-foreground">{item.description}</p>}
-
-          {d.beforeAfter && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[.07] px-3 py-2 text-xs font-bold" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              <span className="text-muted-foreground">{d.beforeAfter.label}:</span>
-              <span className="text-muted-foreground/60 line-through decoration-red-400/60">{d.beforeAfter.from}</span>
-              <span className="text-emerald-400">→</span>
-              <span className="text-sm text-emerald-200">{d.beforeAfter.to}</span>
-              {d.beforeAfter.delta && (
-                <span className="ml-auto rounded-md bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">{d.beforeAfter.delta}</span>
-              )}
-            </div>
-          )}
-
-          {d.metrics && d.metrics.length > 0 && (
-            <div className="mt-auto flex border-t border-white/[.08] pt-2.5">
-              {d.metrics.map((m, i) => (
-                <div key={`${m.label}-${i}`} className={`min-w-0 flex-1 ${i > 0 ? 'border-l border-white/[.07] pl-3' : ''} pr-2`}>
-                  <b className="block text-[15.5px] font-extrabold tracking-tight text-[#e9ebff]" style={{ fontVariantNumeric: 'tabular-nums' }}>{m.value}</b>
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60">{m.label}</span>
-                </div>
+        <div className="cases-result-proof">
+          {isFeatured && metrics.length >= 2 ? (
+            <div className="cases-result-proof-list">
+              {metrics.slice(0, 3).map((metric, metricIndex) => (
+                <ResultMetric key={`${metric.value}-${metric.label}-${metricIndex}`} value={metric.value} label={metric.label} />
               ))}
             </div>
+          ) : (
+            <ResultMetric value={mainMetric} label={mainMetricLabel} />
           )}
-
-          <div className={`flex items-center justify-between gap-2 ${d.metrics?.length ? '' : 'mt-auto'}`}>
-            <span className="text-[11px] text-muted-foreground/60">{d.period || ''}</span>
-            <span className="cse-open inline-flex items-center gap-1.5 text-[12.5px] font-bold text-[#c4b5fd] transition-colors group-hover:text-[#ddd1ff]">
-              {item.fallback ? 'Обсудить похожий проект' : 'Разбор кейса'}
-            </span>
+          <div className="cases-result-action">
+            <span>{item.readTime}</span>
+            <strong>Читать разбор <ArrowRight className="h-4 w-4" aria-hidden="true" /></strong>
           </div>
         </div>
-      </div>
+      </a>
     </motion.article>
   );
 }
 
-/* ── Страница ── */
+function StatCard({ icon: Icon, value, label }: { icon: ComponentType<{ className?: string }>; value: string; label: string }) {
+  return (
+    <div className="cases-stat-card">
+      <span className="cases-stat-icon" aria-hidden="true"><Icon className="h-5 w-5" /></span>
+      <div>
+        <strong>{value}</strong>
+        <span>{label}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function CasesPage() {
   const { articles, loading } = useArticles();
   const navigate = useNavigate();
+  const location = useLocation();
+  const reduceMotion = useReducedMotion();
+  const { scrollToWhenReady } = useScrollTo();
+  const internalSearchRef = useRef<string | null>(null);
+  const hydratedSearchRef = useRef<string | null>(null);
+  const skipUrlWriteRef = useRef(false);
+  const [urlReady, setUrlReady] = useState(false);
+  const [urlSyncRevision, setUrlSyncRevision] = useState(0);
 
   const [niches, setNiches] = useState<Set<string>>(new Set());
   const [sources, setSources] = useState<Set<string>>(new Set());
-  const [sort, setSort] = useState<'roi' | 'budget' | 'fresh'>('roi');
+  const [goals, setGoals] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<SortValue>('fresh');
   const [entry, setEntry] = useState<string | null>(null);
-  // origin живёт отдельно от entry: плашка контекста сбрасывается при работе
-  // с фильтрами, а кнопка «Назад» должна помнить исходную страницу до конца.
   const [origin, setOrigin] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const adminCases = useMemo<CaseView[]>(() => (
+  const publishedCases = useMemo<CaseView[]>(() => (
     articles
-      .filter((a: Article) => a.category === CASES_CATEGORY)
-      .map((a) => ({
-        key: `a-${a.slug}`,
-        slug: a.slug,
-        title: a.title,
-        description: a.description || '',
-        data: a.caseData || {},
-      }))
+      .filter((article: Article) => article.category === CASES_CATEGORY)
+      .map((article) => caseViewFromArticle(article))
   ), [articles]);
 
-  const cases = adminCases.length > 0 ? adminCases : SHOWCASE;
+  const cases = publishedCases;
 
-  const allNiches = useMemo(() => {
-    const set = new Set<string>();
-    cases.forEach((c) => { if (c.data.niche) set.add(c.data.niche); });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'));
-  }, [cases]);
+  const allNiches = useMemo(() => Array.from(new Set(cases.map((item) => item.data.niche).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'ru')), [cases]);
+  const allSources = useMemo(() => Array.from(new Set(cases.flatMap((item) => item.data.sources || []))).sort(), [cases]);
+  const allGoals = useMemo(() => Array.from(new Set(cases.flatMap((item) => item.goals))).sort((a, b) => a.localeCompare(b, 'ru')), [cases]);
 
-  const allSources = useMemo(() => {
-    const set = new Set<string>();
-    cases.forEach((c) => (c.data.sources || []).forEach((s) => set.add(s)));
-    return Array.from(set).sort();
-  }, [cases]);
-
-  // Инициализация из URL: ?from=meta-apps / ?niche=..&src=..
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const from = params.get('from');
-    if (from && BACK_TARGETS[from]) setOrigin(from);
-    if (from && ENTRIES[from]) {
-      setEntry(from);
-      const preset = ENTRIES[from];
-      setSources(new Set(preset.srcs.filter((s) => allSources.includes(s))));
-      const nicheMatch = allNiches.filter((n) => preset.nicheHints.some((hint) => n.toLowerCase().includes(hint)));
-      setNiches(new Set(nicheMatch));
+    if (loading) return;
+    if (internalSearchRef.current === location.search) {
+      internalSearchRef.current = null;
+      hydratedSearchRef.current = location.search;
       return;
     }
-    const niche = params.get('niche');
-    const src = params.get('src');
-    if (niche) setNiches(new Set(niche.split(',').filter((n) => allNiches.includes(n))));
-    if (src) setSources(new Set(src.split(',').filter((s) => allSources.includes(s))));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allNiches.join('|'), allSources.join('|')]);
 
-  // Фильтры → адресная строка (ссылкой можно делиться)
+    const shouldResetLocalQuery = hydratedSearchRef.current !== location.search;
+    skipUrlWriteRef.current = true;
+    const params = new URLSearchParams(location.search);
+    const from = params.get('from');
+    const presetDisabled = params.get('all') === '1';
+    const hasExplicitFilters = presetDisabled || ['niche', 'src', 'result'].some((key) => params.has(key));
+
+    setOrigin(from && CASE_BACK_TARGETS[from] ? from : null);
+    setEntry(from && ENTRY_PRESETS[from] && !hasExplicitFilters ? from : null);
+    if (from && ENTRY_PRESETS[from] && !hasExplicitFilters) {
+      const preset = ENTRY_PRESETS[from];
+      setSources(new Set(preset.sources.filter((source) => allSources.includes(source))));
+      setNiches(new Set(allNiches.filter((niche) => preset.nicheHints.some((hint) => niche.toLowerCase().includes(hint)))));
+      setGoals(new Set());
+    } else {
+      const nicheValues = readSelectedParams(params, 'niche', 'niche', allNiches);
+      const sourceValues = readSelectedParams(params, 'src', 'source', allSources);
+      const goalValues = readSelectedParams(params, 'result', 'result', allGoals);
+      setNiches(new Set(nicheValues));
+      setSources(new Set(sourceValues));
+      setGoals(new Set(goalValues));
+    }
+
+    if (shouldResetLocalQuery) setQuery('');
+    const requestedSort = params.get('sort');
+    setSort(requestedSort === 'roi' || requestedSort === 'budget' || requestedSort === 'fresh' ? requestedSort : 'fresh');
+    hydratedSearchRef.current = location.search;
+    setUrlReady(true);
+  }, [allGoals, allNiches, allSources, loading, location.search]);
+
   useEffect(() => {
+    if (skipUrlWriteRef.current) {
+      skipUrlWriteRef.current = false;
+      // Hydration state lands on this render; schedule one clean pass that
+      // normalizes the URL using the newly applied filters rather than stale state.
+      setUrlSyncRevision((revision) => revision + 1);
+      return;
+    }
+    if (!urlReady) return;
+    const currentParams = new URLSearchParams(location.search);
     const params = new URLSearchParams();
-    if (niches.size) params.set('niche', Array.from(niches).join(','));
-    if (sources.size) params.set('src', Array.from(sources).join(','));
+    CASE_ATTRIBUTION_PARAMS.forEach((key) => {
+      currentParams.getAll(key).forEach((value) => params.append(key, value));
+    });
+    if (!entry) {
+      Array.from(niches).sort().forEach((value) => params.append('niche', filterUrlToken('niche', value)));
+      Array.from(sources).sort().forEach((value) => params.append('src', filterUrlToken('source', value)));
+      Array.from(goals).sort().forEach((value) => params.append('result', filterUrlToken('result', value)));
+    }
+    if (sort !== 'fresh') params.set('sort', sort);
     if (origin) params.set('from', origin);
-    const qs = params.toString();
-    window.history.replaceState(null, '', `/cases${qs ? `?${qs}` : ''}`);
-  }, [niches, sources, origin]);
+    if (origin && !entry && niches.size === 0 && sources.size === 0 && goals.size === 0) {
+      params.set('all', '1');
+    }
+    const search = params.toString();
+    const nextSearch = search ? `?${search}` : '';
+    const nextUrl = `/cases${search ? `?${search}` : ''}`;
+    if (`${location.pathname}${location.search}` !== nextUrl) {
+      internalSearchRef.current = nextSearch;
+      navigate(nextUrl, { replace: true });
+    }
+  }, [entry, goals, location.pathname, location.search, navigate, niches, origin, sort, sources, urlReady, urlSyncRevision]);
 
   const filtered = useMemo(() => {
-    const list = cases.filter((c) => (
-      (niches.size === 0 || (c.data.niche && niches.has(c.data.niche))) &&
-      (sources.size === 0 || (c.data.sources || []).some((s) => sources.has(s)))
-    ));
-    const sorted = [...list];
-    if (sort === 'roi') sorted.sort((a, b) => (b.data.roiValue || 0) - (a.data.roiValue || 0));
-    if (sort === 'budget') sorted.sort((a, b) => (b.data.budgetValue || 0) - (a.data.budgetValue || 0));
-    if (sort === 'fresh') sorted.reverse();
-    sorted.sort((a, b) => (b.data.featured ? 1 : 0) - (a.data.featured ? 1 : 0));
+    const normalizedQuery = query.trim().toLocaleLowerCase('ru');
+    const list = cases.filter((item) => {
+      const matchNiche = niches.size === 0 || Boolean(item.data.niche && niches.has(item.data.niche));
+      const matchSource = sources.size === 0 || (item.data.sources || []).some((source) => sources.has(source));
+      const matchGoal = goals.size === 0 || item.goals.some((goal) => goals.has(goal));
+      const haystack = [
+        item.title,
+        item.description,
+        item.data.niche,
+        ...(item.data.sources || []).map(sourceLabel),
+        ...item.goals,
+        item.data.headline,
+        ...(item.data.metrics || []).flatMap((metric) => [metric.value, metric.label]),
+      ].filter(Boolean).join(' ').toLocaleLowerCase('ru');
+      const matchQuery = !normalizedQuery || normalizedQuery.split(/\s+/).every((token) => haystack.includes(token));
+      return matchNiche && matchSource && matchGoal && matchQuery;
+    });
+
+    const sorted = [...list].sort((a, b) => {
+      if (sort === 'roi') return (b.data.roiValue || 0) - (a.data.roiValue || 0);
+      if (sort === 'budget') return (b.data.budgetValue || 0) - (a.data.budgetValue || 0);
+      const dateDifference = parseCaseDate(b) - parseCaseDate(a);
+      if (dateDifference !== 0) return dateDifference;
+      if (Boolean(a.data.featured) !== Boolean(b.data.featured)) return a.data.featured ? -1 : 1;
+      return 0;
+    });
     return sorted;
-  }, [cases, niches, sources, sort]);
+  }, [cases, goals, niches, query, sort, sources]);
 
   const stats = useMemo(() => {
-    const budget = filtered.reduce((s, c) => s + (c.data.budgetValue || 0), 0);
-    const leads = filtered.reduce((s, c) => s + (c.data.leadsValue || 0), 0);
-    const rois = filtered.map((c) => c.data.roiValue || 0).filter((v) => v > 0);
-    const roi = rois.length ? Math.round(rois.reduce((s, v) => s + v, 0) / rois.length) : 0;
+    const maxLeads = Math.max(0, ...filtered.map((item) => item.data.leadsValue || 0));
+    const budgetItem = [...filtered].sort((a, b) => (b.data.budgetValue || 0) - (a.data.budgetValue || 0))[0];
+    const maxRoi = Math.max(0, ...filtered.map((item) => item.data.roiValue || 0));
     return {
-      count: filtered.length,
-      budget: budget >= 1_000_000 ? `$${(budget / 1_000_000).toFixed(1).replace('.0', '')}М+` : budget > 0 ? `$${Math.round(budget / 1000)}к+` : '—',
-      leads: leads >= 1000 ? `${Math.round(leads / 1000)}к+` : leads > 0 ? String(leads) : '—',
-      roi: roi ? `${roi}%` : '—',
+      count: String(filtered.length),
+      leads: formatInteger(maxLeads),
+      budget: formatBudget(budgetItem?.data.budgetValue, budgetItem?.data.budgetLabel),
+      roi: maxRoi ? `до ${maxRoi}%` : '—',
     };
   }, [filtered]);
 
-  const toggleNiche = useCallback((n: string) => {
+  const nicheOptions = useMemo<FilterOption[]>(() => allNiches.map((value) => ({
+    value,
+    label: value,
+    count: cases.filter((item) => item.data.niche === value).length,
+  })), [allNiches, cases]);
+
+  const sourceOptions = useMemo<FilterOption[]>(() => allSources.map((value) => ({
+    value,
+    label: sourceLabel(value),
+    count: cases.filter((item) => (item.data.sources || []).includes(value)).length,
+  })), [allSources, cases]);
+
+  const goalOptions = useMemo<FilterOption[]>(() => allGoals.map((value) => ({
+    value,
+    label: value,
+    count: cases.filter((item) => item.goals.includes(value)).length,
+  })), [allGoals, cases]);
+
+  const toggleValue = useCallback((setter: Dispatch<SetStateAction<Set<string>>>, kind: 'niche' | 'source' | 'result', value: string) => {
     setEntry(null);
-    setNiches((prev) => {
-      const next = new Set(prev);
-      if (next.has(n)) next.delete(n); else { next.add(n); trackCaseFilter('niche', n); }
+    setter((previous) => {
+      const next = new Set(previous);
+      if (next.has(value)) next.delete(value);
+      else {
+        next.add(value);
+        trackCaseFilter(kind, value);
+      }
       return next;
     });
   }, []);
 
-  const toggleSource = useCallback((s: string) => {
+  const toggleNiche = useCallback((value: string) => toggleValue(setNiches, 'niche', value), [toggleValue]);
+  const toggleSource = useCallback((value: string) => toggleValue(setSources, 'source', value), [toggleValue]);
+  const toggleGoal = useCallback((value: string) => toggleValue(setGoals, 'result', value), [toggleValue]);
+
+  const clearAll = useCallback(() => {
     setEntry(null);
-    setSources((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) next.delete(s); else { next.add(s); trackCaseFilter('source', s); }
-      return next;
-    });
+    setNiches(new Set());
+    setSources(new Set());
+    setGoals(new Set());
+    setQuery('');
   }, []);
 
-  const clearAll = useCallback(() => { setEntry(null); setNiches(new Set()); setSources(new Set()); }, []);
-
-  const backTarget = origin ? BACK_TARGETS[origin] : null;
+  const backTarget = origin ? CASE_BACK_TARGETS[origin] : null;
   const goBack = useCallback(() => {
-    navigate(backTarget ? backTarget.path : '/');
+    navigate(backTarget?.path || '/');
     window.scrollTo({ top: 0 });
-  }, [navigate, backTarget]);
+  }, [backTarget, navigate]);
+
+  const goToContact = useCallback(() => {
+    navigate('/');
+    window.setTimeout(() => scrollToWhenReady('contact'), 40);
+  }, [navigate, scrollToWhenReady]);
 
   const openCase = useCallback((item: CaseView) => {
-    if (item.slug) {
-      navigate(`/cases/${item.slug}`);
-      window.scrollTo({ top: 0 });
-    } else {
-      navigate('/');
-      window.setTimeout(() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }), 600);
+    if (item.fallback) {
+      goToContact();
+      return;
     }
-  }, [navigate]);
+    navigate(`/cases/${item.slug}${window.location.search}`);
+    window.scrollTo({ top: 0 });
+  }, [goToContact, navigate]);
 
-  const hasFilters = niches.size > 0 || sources.size > 0;
+  const hasFilters = niches.size > 0 || sources.size > 0 || goals.size > 0 || Boolean(query.trim());
+  const filterCount = niches.size + sources.size + goals.size;
+  const activeChips = [
+    ...Array.from(sources).map((value) => ({ key: `source-${value}`, label: sourceLabel(value), onRemove: () => toggleSource(value) })),
+    ...Array.from(niches).map((value) => ({ key: `niche-${value}`, label: value, onRemove: () => toggleNiche(value) })),
+    ...Array.from(goals).map((value) => ({ key: `goal-${value}`, label: value, onRemove: () => toggleGoal(value) })),
+  ];
+
+  const filtersProps = {
+    nicheOptions,
+    sourceOptions,
+    goalOptions,
+    niches,
+    sources,
+    goals,
+    onToggleNiche: toggleNiche,
+    onToggleSource: toggleSource,
+    onToggleGoal: toggleGoal,
+    onClear: clearAll,
+    hasFilters,
+  };
 
   return (
     <>
       <SEO
-        title="Кейсы по маркетингу"
-        description="Кейсы Whale Wizard с фильтрами по нишам и источникам трафика: бюджеты, лиды, ROI и разбор решений."
+        title="Кейсы рекламных проектов — задачи, решения и результаты"
+        description="Опубликованные проекты Whale Wizard: исходная задача, рекламные каналы, бюджет, ключевые метрики и логика решений."
         url="/cases"
       />
-      <section className="relative min-h-screen overflow-hidden bg-background px-4 py-16 sm:px-6 md:py-20">
-        <div className="pointer-events-none absolute left-1/4 top-0 h-96 w-96 rounded-full bg-primary/15 blur-[128px]" />
-        <div className="pointer-events-none absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-accent/10 blur-[128px]" />
-
-        <div className="relative z-10 mx-auto max-w-6xl">
-          <div className="mb-4 flex justify-end">
-            <button onClick={goBack} className="cursor-pointer border-none bg-transparent text-sm text-muted-foreground transition-colors hover:text-primary">
-              {backTarget ? `← Назад к ${backTarget.label}` : '← На главную'}
-            </button>
-          </div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center md:mb-10">
-            <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              Кейсы · {cases.length}
-            </div>
-            <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl">
-              Кейсы с <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">цифрами</span>
-            </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground">
-              Ниши, источники трафика, бюджеты и результаты — выбирайте, что ближе к вашему проекту.
-            </p>
-          </motion.div>
-
-          {entry && ENTRIES[entry] && (
-            <div className="mb-5 flex flex-wrap items-center gap-2.5 rounded-2xl border border-accent/30 bg-gradient-to-r from-primary/15 to-accent/10 px-4 py-3 text-[13px] text-muted-foreground">
-              <span>📌 {ENTRIES[entry].text}</span>
-              <button onClick={clearAll} className="ml-auto cursor-pointer border-none bg-transparent text-xs text-[#9fd8ff] underline decoration-dotted underline-offset-2">
-                показать все кейсы
+      <Navbar variant="content" />
+      <main className="cases-finder marketing-typography min-h-screen bg-background">
+        <section className="cases-finder-hero">
+          <div className="cases-finder-container">
+            <div className="cases-finder-navigation">
+              <button type="button" onClick={goBack} className="cases-back-link">
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                {backTarget ? `Назад в ${backTarget.label}` : 'На главную'}
               </button>
+              <nav aria-label="Хлебные крошки">
+                <button type="button" onClick={() => navigate('/')}>Главная</button>
+                <span aria-hidden="true">/</span>
+                <span>Кейсы</span>
+              </nav>
             </div>
-          )}
 
-          <div className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[
-              [String(stats.count), 'кейсов'],
-              [stats.budget, 'бюджета откручено'],
-              [stats.leads, 'лидов / покупок'],
-              [stats.roi, 'средний ROI'],
-            ].map(([value, label]) => (
-              <div key={label} className="rounded-2xl border border-border/60 bg-card/40 px-4 py-3 backdrop-blur-sm">
-                <b className="block bg-gradient-to-r from-primary to-accent bg-clip-text text-xl font-extrabold tracking-tight text-transparent md:text-2xl" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</b>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">{label}</span>
-              </div>
-            ))}
+            <div className="cases-finder-intro">
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+              >
+                <span className="cases-finder-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Библиотека кейсов</span>
+                <h1>Найдите кейс под <span>свою задачу</span></h1>
+                <p>Выберите канал, нишу или результат — и откройте полный разбор с контекстом, решениями и цифрами.</p>
+              </motion.div>
+              <label className="cases-search">
+                <Search className="h-5 w-5" aria-hidden="true" />
+                <span className="sr-only">Поиск по кейсам</span>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => { setEntry(null); setQuery(event.target.value); }}
+                  placeholder="Поиск по кейсам"
+                />
+                {query ? (
+                  <button type="button" onClick={() => setQuery('')} aria-label="Очистить поиск"><X className="h-4 w-4" /></button>
+                ) : null}
+              </label>
+            </div>
+
+            <div className="cases-stats" aria-label="Показатели опубликованных кейсов">
+              <StatCard icon={BriefcaseBusiness} value={stats.count} label={pluralCases(filtered.length)} />
+              <StatCard icon={Users} value={stats.leads} label="лидов / покупок" />
+              <StatCard icon={WalletCards} value={stats.budget} label="макс. бюджет" />
+              <StatCard icon={Trophy} value={stats.roi} label="макс. ROI" />
+            </div>
           </div>
+        </section>
 
-          <div className="sticky top-2 z-20 mb-6 mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-border/70 bg-background/85 px-3.5 py-3 backdrop-blur-xl">
-            {allNiches.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <em className="mr-1 text-[10px] font-extrabold uppercase not-italic tracking-widest text-muted-foreground/60">Ниша</em>
-                {allNiches.map((n) => (
-                  <button key={n} onClick={() => toggleNiche(n)} aria-pressed={niches.has(n)}
-                    className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${niches.has(n) ? 'border-transparent bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30' : 'border-border bg-card/40 text-muted-foreground hover:border-primary/50 hover:text-foreground'}`}>
-                    {n}
-                  </button>
-                ))}
+        <section className="cases-finder-catalog">
+          <div className="cases-finder-container">
+            {entry && ENTRY_PRESETS[entry] ? (
+              <div className="cases-entry-note">
+                <span>{ENTRY_PRESETS[entry].text}</span>
+                <button type="button" onClick={clearAll}>Показать все</button>
               </div>
-            )}
-            {allSources.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <em className="mr-1 text-[10px] font-extrabold uppercase not-italic tracking-widest text-muted-foreground/60">Источник</em>
-                {allSources.map((s) => (
-                  <button key={s} onClick={() => toggleSource(s)} aria-pressed={sources.has(s)}
-                    className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${sources.has(s) ? 'border-transparent bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30' : 'border-border bg-card/40 text-muted-foreground hover:border-primary/50 hover:text-foreground'}`}>
-                    {sourceLabel(s)}
+            ) : null}
+
+            <div className="cases-mobile-controls">
+              <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <SheetTrigger asChild>
+                  <button type="button" className="cases-mobile-filter-button">
+                    <Filter className="h-4 w-4" aria-hidden="true" />
+                    Фильтры{filterCount ? ` · ${filterCount}` : ''}
                   </button>
-                ))}
-              </div>
-            )}
-            <div className="ml-auto flex items-center gap-2.5">
-              <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
-                <SelectTrigger
-                  aria-label="Сортировка"
-                  className="h-9 w-auto gap-2 rounded-full border-border/70 bg-card/60 px-3.5 text-xs font-semibold backdrop-blur-sm transition-colors hover:border-primary/50 hover:text-foreground focus-visible:ring-primary/30"
-                >
-                  <ArrowUpDown className="h-3.5 w-3.5 flex-none text-primary" aria-hidden="true" />
+                </SheetTrigger>
+                <SheetContent side="bottom" className="cases-filter-sheet max-h-[88dvh] rounded-t-3xl border-white/10 bg-[#0c0d16] px-0 pb-[max(16px,env(safe-area-inset-bottom))]">
+                  <SheetHeader className="border-b border-white/[.08] px-5 py-5 text-left">
+                    <SheetTitle className="text-lg">Фильтры кейсов</SheetTitle>
+                    <SheetDescription>Можно выбрать несколько значений в каждой группе.</SheetDescription>
+                  </SheetHeader>
+                  <div className="overflow-y-auto px-5"><CatalogFilters {...filtersProps} /></div>
+                  <SheetFooter className="cases-filter-sheet-footer border-t border-white/[.08] px-5 pt-4">
+                    {hasFilters ? <button type="button" className="cases-filter-sheet-reset" onClick={clearAll}>Сбросить</button> : null}
+                    <SheetClose asChild>
+                      <button type="button" className="cases-filter-apply">Показать {filtered.length} {pluralCases(filtered.length)}</button>
+                    </SheetClose>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
+
+              <Select value={sort} onValueChange={(value) => setSort(value as SortValue)}>
+                <SelectTrigger aria-label="Сортировка кейсов" className="cases-sort-select">
+                  <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent align="end" className="rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
-                  <SelectItem value="roi" className="rounded-lg py-2 text-sm">Сначала высокий ROI</SelectItem>
-                  <SelectItem value="budget" className="rounded-lg py-2 text-sm">Сначала крупный бюджет</SelectItem>
-                  <SelectItem value="fresh" className="rounded-lg py-2 text-sm">Сначала свежие</SelectItem>
+                  <SelectItem value="fresh">Сначала новые</SelectItem>
+                  <SelectItem value="roi">Сначала высокий ROI</SelectItem>
+                  <SelectItem value="budget">Сначала крупный бюджет</SelectItem>
                 </SelectContent>
               </Select>
-              {hasFilters && (
-                <button onClick={clearAll} className="cursor-pointer border-none bg-transparent text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground">
-                  сбросить
-                </button>
-              )}
+            </div>
+
+            {activeChips.length ? (
+              <div className="cases-active-chips" aria-label="Активные фильтры">
+                {activeChips.map((chip) => (
+                  <button type="button" key={chip.key} onClick={chip.onRemove}>
+                    {chip.label}<X className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="cases-catalog-layout">
+              <aside className="cases-desktop-filters" aria-label="Фильтры кейсов">
+                <CatalogFilters {...filtersProps} />
+              </aside>
+
+              <div className="min-w-0">
+                <div className="cases-results-toolbar">
+                  <strong role="status" aria-live="polite" aria-atomic="true">Найдено кейсов: {filtered.length}</strong>
+                  <div className="cases-toolbar-chips">
+                    {activeChips.map((chip) => (
+                      <button type="button" key={chip.key} onClick={chip.onRemove}>
+                        {chip.label}<X className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    ))}
+                    {hasFilters ? <button type="button" className="cases-clear-link" onClick={clearAll}>Сбросить всё</button> : null}
+                  </div>
+                  <Select value={sort} onValueChange={(value) => setSort(value as SortValue)}>
+                    <SelectTrigger aria-label="Сортировка кейсов" className="cases-sort-select">
+                      <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end" className="rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
+                      <SelectItem value="fresh">Сначала новые</SelectItem>
+                      <SelectItem value="roi">Сначала высокий ROI</SelectItem>
+                      <SelectItem value="budget">Сначала крупный бюджет</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {loading && publishedCases.length === 0 ? (
+                  <div className="cases-loading" role="status">Загружаю опубликованные кейсы…</div>
+                ) : filtered.length ? (
+                  <div className="cases-results-list">
+                    <AnimatePresence initial={false}>
+                      {filtered.map((item, index) => (
+                        <CaseResultCard
+                          key={item.key}
+                          item={item}
+                          index={index}
+                          href={item.fallback ? '/#contact' : `/cases/${item.slug}${location.search}`}
+                          onOpen={openCase}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <div className="cases-empty-state">
+                    <strong>Под эту комбинацию пока нет опубликованного кейса</strong>
+                    <p>Сбросьте часть фильтров или опишите задачу — я проверю релевантный опыт без публичного названия клиента.</p>
+                    <div>
+                      <button type="button" onClick={clearAll}>Сбросить фильтры</button>
+                      <button type="button" onClick={goToContact}>
+                        Обсудить задачу <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {loading && cases.length === 0 ? (
-            <div className="py-20 text-center text-muted-foreground">Загружаю кейсы…</div>
-          ) : filtered.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((item) => <CaseCard key={item.key} item={item} onOpen={openCase} />)}
-            </div>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-border px-6 py-14 text-center">
-              <b className="mb-2 block text-lg">В этой комбинации кейса пока нет в открытом доступе</b>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">Часть проектов под NDA — расскажу о результатах в вашей нише лично.</p>
-              <button onClick={() => openCase({ key: 'empty', title: '', description: '', data: {} })}
-                className="mt-5 cursor-pointer rounded-xl border-none bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-opacity hover:opacity-90">
-                Обсудить мой проект →
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
+        </section>
+      </main>
     </>
   );
 }

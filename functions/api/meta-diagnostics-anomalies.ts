@@ -41,6 +41,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       SUM(CASE WHEN created_at >= ? AND marketing_consent = 1 THEN 1 ELSE 0 END) AS baseline_with_consent
     FROM meta_capi_diagnostics
     WHERE created_at >= ?
+      AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
     GROUP BY event_name
   `;
 

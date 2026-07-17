@@ -12,10 +12,10 @@ export type CallToActionContent = {
 };
 
 const defaultContent: CallToActionContent = {
-  badge: 'Начните сейчас',
-  title: 'Готовы увеличить продажи?',
-  description: 'Оставьте заявку на бесплатную консультацию',
-  button: 'Получить консультацию',
+  badge: 'Обсудить задачу',
+  title: 'Есть задача по рекламе?',
+  description: 'Коротко опишите проект — я посмотрю, с чего разумнее начать: с разбора, теста или настройки аналитики.',
+  button: 'Обсудить проект',
 };
 
 function CallToAction({ content = defaultContent }: { content?: CallToActionContent }) {
@@ -43,7 +43,7 @@ function CallToAction({ content = defaultContent }: { content?: CallToActionCont
           
           <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Left Content */}
-            <div className="text-center md:text-left space-y-2">
+            <div className="min-w-0 text-center md:text-left space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-2">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <span className="text-xs md:text-sm text-primary font-semibold">{content.badge}</span>

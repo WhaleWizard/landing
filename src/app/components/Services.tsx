@@ -37,29 +37,29 @@ const servicesData: ServiceCardContent[] = [
   {
     icon: BarChart3,
     title: 'Google Ads',
-    description: 'Настройка и ведение рекламных кампаний в Google. Поисковая реклама, YouTube, Google Shopping.',
-    features: ['Поисковая реклама', 'YouTube Ads','Ретаргетинг', 'Google Shopping'],
+    description: 'Поиск и Shopping — под сформированный спрос; Performance Max и YouTube — для дополнительного охвата. Все форматы связываю с конверсиями и допустимой стоимостью клиента.',
+    features: ['Поиск', 'Shopping', 'PMax', 'YouTube'],
     gradient: 'from-primary to-accent',
   },
   {
     icon: Users,
     title: 'Meta Ads',
-    description: 'Таргетированная реклама в Facebook и Instagram с точным попаданием в целевую аудиторию.',
-    features: ['Facebook Ads', 'Instagram Ads', 'Ретаргетинг', 'Lookalike'],
+    description: 'Facebook и Instagram: оффер, креативы и ретаргетинг с передачей событий через Meta Pixel и Conversions API.',
+    features: ['Креативы', 'Аудитории', 'Ретаргетинг', 'Pixel + CAPI'],
     gradient: 'from-accent to-secondary',
   },
   {
     icon: Globe,
-    title: 'Аналитика',
-    description: 'Глубокая аналитика эффективности рекламы. Отслеживание KPI и ROI.',
-    features: ['Google Analytics', 'Яндекс.Метрика', 'Audience Insights', 'A/B тесты'],
+    title: 'Аналитика и события',
+    description: 'Настраиваю GA4/GTM, Метрику и конверсии рекламных систем. Если есть CRM, сверяю заявки с квалификацией и продажами.',
+    features: ['GA4 + GTM', 'Метрика', 'CRM', 'События'],
     gradient: 'from-secondary to-primary',
   },
   {
     icon: TrendingUp,
-    title: 'Оптимизация',
-    description: 'Постоянная оптимизация кампаний для наилучшей стоимости лида и увеличения конверсий.',
-    features: ['CRO', 'Тестирование', 'Ad scaling', 'Аудит'],
+    title: 'Оптимизация по качеству',
+    description: 'Отключаю слабые сегменты, проверяю новые гипотезы и увеличиваю бюджет там, где сохраняется целевая экономика.',
+    features: ['Качество лидов', 'CPL / CPA', 'A/B-тесты', 'Масштабирование'],
     gradient: 'from-primary via-accent to-secondary',
   },
 ];
@@ -67,36 +67,36 @@ const servicesData: ServiceCardContent[] = [
 // Детальное описание услуг (общее для всех карточек)
 const detailedContent: ServicesContent['detailed'] = {
   title: 'Как я работаю',
-  button: 'Получить консультацию',
+  button: 'Обсудить задачу',
   sections: [
     {
       title: '1. СТРАТЕГИЯ И АНАЛИЗ',
       icon: Target,
-      text: 'Погружаюсь в бизнес и аудиторию, чтобы выстроить эффективную рекламную стратегию.\n\n• Провожу кастдев (анализ реальных клиентов, их болей и триггеров покупки)\n• Анализирую нишу, конкурентов и спрос\n• Рассчитываю экономику и допустимую стоимость клиента\n• Строю путь клиента (Customer Journey)\n• Подбираю оптимальные рекламные каналы и форматы (поиск, YouTube, карты, соцсети)\n\n💡 Результат: Понимание, где и как привлекать клиентов с прибылью',
+      text: 'До запуска договариваемся, какое действие связано с выручкой и сколько за него допустимо платить.\n\n• Разбираю продукт, спрос и цикл сделки\n• Сверяю средний чек, маржу и конверсию отдела продаж\n• Проверяю оффер и посадочную страницу\n• Выбираю канал и рамку тестового бюджета\n\nТак у первого теста появляются понятная цель и условие остановки.',
     },
     {
       title: '2. АНАЛИТИКА И ИНФРАСТРУКТУРА',
       icon: BarChart3,
-      text: 'Создаю систему, которая показывает реальные результаты и обучает алгоритмы.\n\n• Настраиваю Google Analytics 4 и Google Tag Manager\n• Устанавливаю и настраиваю Meta Pixel (сбор данных и обучение алгоритмов)\n• Подключаю Яндекс Метрики с Webvisor (анализ поведения пользователей)\n• Настраиваю события и конверсии (заявки, покупки и др.)\n• Реализую серверный трекинг (Conversions API)\n• Интегрирую аналитику с рекламными системами\n\n💡 Результат: Полная прозрачность: видно, откуда приходят деньги, а где сливается бюджет',
+      text: 'Проверяю, какие данные получают рекламные системы и можно ли связать заявку с дальнейшей продажей.\n\n• GA4, Google Tag Manager и Яндекс.Метрика\n• События Google Ads и Enhanced Conversions\n• Meta Pixel, Conversions API и дедупликация\n• UTM-метки и источник в CRM\n• Статусы квалификации и продажи — при наличии данных, технической возможности и согласия пользователя\n\nВ результате решения принимаются не только по кликам и отправленным формам.',
     },
     {
       title: '3. ЗАПУСК И ВЕДЕНИЕ РЕКЛАМЫ',
       icon: Zap,
-      text: 'Запускаю рекламу с учётом алгоритмов и реального поведения пользователей.\n\n• Работаю с Google Ads: поиск (горячий спрос), YouTube (прогрев), Google Maps (локальный трафик), Performance Max (масштаб)\n• Работаю с Meta Ads: генерация спроса, широкие аудитории и AI-алгоритмы, тестирование креативов\n• Работа с Lookalike аудиториями\n• Работа с ретаргетингом\n• Разрабатываю коммуникацию на основе кастдева\n• Создаю и тестирую рекламные креативы\n\n💡 Результат: Стабильный поток заявок: как с горячего спроса, так и с холодной/теплой аудитории',
+      text: 'Каждому каналу и типу кампании задаю отдельную роль, чтобы не запускать всё одновременно без причины.\n\n• Search собирает сформированный спрос\n• Shopping и PMax работают с товарами и дополнительным охватом\n• В Meta тестирую офферы и креативные подачи\n• Ретаргетинг возвращает заинтересованных пользователей\n• Каждая гипотеза получает свою метрику и UTM-разметку\n\nПосле запуска видно, какой сигнал подтвердился, а где данных пока недостаточно.',
     },
     {
       title: '4. ОПТИМИЗАЦИЯ И МАСШТАБ',
       icon: TrendingUp,
-      text: 'Постоянно улучшаю результат и увеличиваю прибыль.\n\n• Анализирую данные и поведение пользователей\n• Нахожу и усиливаю рабочие связки\n• Оптимизирую рекламу и снижаю стоимость лида\n• Улучшаю воронку (сайт, оффер, UX)\n• Масштабирую результат через бюджеты и новые гипотезы\n• Контролирую стабильность и качество лидов\n• Работаю с защитой бюджета в Google Ads: фильтрация скликивания, выявление и отсечение фейк-лидов\n\n💡 Результат: Рост прибыли и масштабируемая система привлечения клиентов',
+      text: 'Меняю кампании, когда накопились данные, а не ради видимости активности.\n\n• Проверяю запросы, объявления, креативы и посадочные\n• Сверяю цену заявки с квалификацией и продажами\n• Отсекаю нецелевой трафик и подозрительные обращения\n• Фиксирую вывод по каждому тесту\n• Увеличиваю бюджет, пока качество и экономика остаются приемлемыми\n\nВ отчёте показываю не список действий, а решения и следующий шаг.',
     },
   ],
 };
 
 export const defaultServicesContent: ServicesContent = {
-  badge: 'Что я предлагаю',
-  titlePrefix: 'Услуги Perfomance',
-  titleAccent: 'таргетолога',
-  description: 'Комплексное управление рекламными кампаниями для максимального результата',
+  badge: 'Что входит в работу',
+  titlePrefix: 'Реклама, аналитика и',
+  titleAccent: 'регулярная оптимизация',
+  description: 'Собираю канал целиком: от экономики и отслеживания до запуска, тестов и решений по качеству продаж.',
   cards: servicesData,
   detailed: detailedContent,
 };
@@ -123,6 +123,7 @@ function Services({ content }: { content?: ServicesContent }) {
 
   const handleTouchStart = (e: TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
   };
 
   const handleTouchMove = (e: TouchEvent) => {
@@ -222,7 +223,7 @@ function Services({ content }: { content?: ServicesContent }) {
                     transition={{ duration: 3, repeat: inView ? Infinity : 0, delay: index * 0.2 }}
                   />
                   
-                  <div className="relative z-10 flex-1">
+                  <div className="relative z-10 min-w-0 flex-1">
                     <div className="relative inline-flex mb-6">
                       <div className={`p-4 rounded-2xl bg-gradient-to-br ${service.gradient} shadow-lg group-hover:shadow-2xl transition-shadow duration-300`}>
                         <service.icon className="w-6 h-6 md:w-8 md:h-8 text-white" />
@@ -244,7 +245,7 @@ function Services({ content }: { content?: ServicesContent }) {
                       {service.features.map((feature, idx) => (
                         <motion.div 
                           key={idx} 
-                          className="flex items-center gap-3"
+                          className="flex min-w-0 items-center gap-3"
                           initial={{ opacity: 0, x: -10 }}
                           whileInView={{ opacity: 1, x: 0 }}
                           viewport={{ once: true }}
@@ -253,7 +254,7 @@ function Services({ content }: { content?: ServicesContent }) {
                           <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
                             <Sparkles className="w-3 h-3 text-primary" />
                           </div>
-                          <span className="text-sm leading-snug text-foreground/80 text-pretty">{feature}</span>
+                          <span className="min-w-0 break-words text-pretty text-sm leading-snug text-foreground/80">{feature}</span>
                         </motion.div>
                       ))}
                     </div>
@@ -263,7 +264,7 @@ function Services({ content }: { content?: ServicesContent }) {
                   <div className="relative z-10 mt-8 pt-4 border-t border-border/50">
                     <button
                       onClick={openModal}
-                      className="inline-flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3.5 py-2 text-sm font-medium text-primary hover:bg-primary/[0.1] hover:border-primary/40 transition-all duration-200 group/btn"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary/[0.1] hover:border-primary/40 transition-all duration-200 group/btn"
                     >
                       <Info className="w-4 h-4" />
                       <span>Подробнее о работе</span>
@@ -306,7 +307,7 @@ function Services({ content }: { content?: ServicesContent }) {
                         <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${service.gradient}`} />
                         <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${service.gradient} opacity-10 blur-2xl`} />
 
-                        <div className="relative z-10">
+                        <div className="relative z-10 min-w-0">
                           <div className="flex items-center justify-between mb-4">
                             <div className={`p-3 rounded-xl bg-gradient-to-br ${service.gradient} shadow-lg`}>
                               <service.icon className="w-7 h-7 text-white" />
@@ -325,11 +326,11 @@ function Services({ content }: { content?: ServicesContent }) {
 
                           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2">
                             {service.features.map((feature, idx) => (
-                              <div key={idx} className="flex items-center gap-2 p-2.5 min-[390px]:p-2 rounded-lg bg-card/35 border border-primary/15">
+                              <div key={idx} className="flex min-w-0 items-center gap-2 p-2.5 min-[390px]:p-2 rounded-lg bg-card/35 border border-primary/15">
                                 <div className="flex-shrink-0 w-5 h-5 rounded bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
                                   <Sparkles className="w-2.5 h-2.5 text-primary" />
                                 </div>
-                                <span className="text-[11px] sm:text-xs text-foreground/80 leading-snug text-pretty break-words font-normal">{feature}</span>
+                                <span className="min-w-0 break-words text-pretty text-[11px] sm:text-xs text-foreground/80 leading-snug font-normal">{feature}</span>
                               </div>
                             ))}
                           </div>
@@ -338,7 +339,7 @@ function Services({ content }: { content?: ServicesContent }) {
                           <div className="mt-6 pt-4 border-t border-border/50">
                             <button
                               onClick={openModal}
-                              className="inline-flex w-full justify-center items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3.5 py-2 text-sm font-medium text-primary hover:bg-primary/[0.1] hover:border-primary/40 transition-all duration-200"
+                              className="inline-flex min-h-11 w-full justify-center items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary/[0.1] hover:border-primary/40 transition-all duration-200"
                             >
                               <Info className="w-4 h-4" />
                               <span>Подробнее о работе</span>
@@ -359,15 +360,19 @@ function Services({ content }: { content?: ServicesContent }) {
               {serviceCards.map((_, index) => (
                 <button
                   key={index}
+                  type="button"
                   onClick={() => setCurrentIndex(index)}
-                  className="relative group"
+                  className="relative group inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  aria-label={`Показать услугу ${index + 1}: ${serviceCards[index].title}`}
+                  aria-current={currentIndex === index ? 'true' : undefined}
                 >
-                  <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  <div aria-hidden="true" className={`w-2 h-2 rounded-full transition-all duration-300 ${
                     currentIndex === index ? 'bg-primary w-8' : 'bg-primary/30'
                   }`} />
                   {currentIndex === index && (
                     <motion.div
-                      className="absolute inset-0 rounded-full bg-primary/50 blur-sm"
+                      aria-hidden="true"
+                      className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
                       animate={inView ? { scale: [1, 1.5, 1] } : {}}
                       transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
                     />
@@ -378,18 +383,22 @@ function Services({ content }: { content?: ServicesContent }) {
 
             <div className="flex justify-center gap-4 mt-4">
               <button
+                type="button"
                 onClick={prevSlide}
-                className="p-2 rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Предыдущая услуга"
               >
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg aria-hidden="true" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <button
+                type="button"
                 onClick={nextSlide}
-                className="p-2 rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Следующая услуга"
               >
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg aria-hidden="true" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
@@ -399,7 +408,7 @@ function Services({ content }: { content?: ServicesContent }) {
       </section>
 
       {/* Модальное окно с кнопкой внизу (уменьшенной на мобильных) */}
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={modalContent.title}>
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={modalContent.title} dialogClassName="marketing-typography">
         <div className="space-y-6 sm:space-y-8">
           {modalContent.sections.map((section, idx) => {
             const Icon = section.icon;
@@ -411,11 +420,11 @@ function Services({ content }: { content?: ServicesContent }) {
             ];
             return (
               <div key={idx} className="group/section">
-                <div className="flex items-start gap-3 mb-3 sm:mb-4">
+                <div className="flex min-w-0 items-start gap-3 mb-3 sm:mb-4">
                   <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/30 group-hover/section:scale-110 transition-transform">
                     <Icon className="w-5 h-5 text-primary" />
                   </div>
-                  <h3 className={`text-base md:text-xl font-semibold md:font-bold leading-tight text-balance bg-gradient-to-r ${gradientClasses[idx % gradientClasses.length]} bg-clip-text text-transparent`}>
+                  <h3 className={`min-w-0 break-words text-base md:text-xl font-semibold md:font-bold leading-tight text-balance bg-gradient-to-r ${gradientClasses[idx % gradientClasses.length]} bg-clip-text text-transparent`}>
                     {section.title}
                   </h3>
                 </div>

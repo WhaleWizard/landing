@@ -330,12 +330,12 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
     <div
       ref={ref}
       onClick={() => onSelect(block.id)}
-      className={`rounded-xl border bg-[var(--adm-card)] p-3 space-y-3 transition ${selected ? 'border-[var(--adm-primary)]/70 ring-1 ring-[var(--adm-primary)]/40' : 'border-[var(--adm-border)]'} ${isOver && canDrop ? 'border-[var(--adm-primary)]/80' : ''}`}
+      className={`admin-editor-block rounded-xl border bg-[var(--adm-card)] p-3 sm:p-4 space-y-3 transition ${selected ? 'border-[var(--adm-primary)]/70 ring-1 ring-[var(--adm-primary)]/40' : 'border-[var(--adm-border)]'} ${isOver && canDrop ? 'border-[var(--adm-primary)]/80' : ''}`}
       style={{ opacity: isDragging ? 0.45 : 1 }}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="inline-flex items-center gap-2">
-          <button type="button" className="rounded-md p-1.5 text-[var(--adm-fg)]/60 hover:bg-[var(--adm-primary)]/10 cursor-grab active:cursor-grabbing" title="Перетащить">
+          <button type="button" className="rounded-md p-1.5 text-[var(--adm-fg)]/60 hover:bg-[var(--adm-primary)]/10 cursor-grab active:cursor-grabbing" title="Перетащить" aria-label="Перетащить блок">
             <GripVertical className="h-4 w-4" />
           </button>
           <span className="text-xs uppercase tracking-wide text-[var(--adm-fg)]/60">Блок #{index + 1}</span>
@@ -343,6 +343,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
             value={block.type}
             onChange={(e) => onUpdate(block.id, { type: e.target.value as BlockType, ...(e.target.value === 'heading' ? { level: 2 } : {}) })}
             className="rounded-md border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm"
+            aria-label={`Тип блока ${index + 1}`}
           >
             {(Object.keys(BLOCK_LABELS) as BlockType[]).map((type) => (
               <option key={type} value={type}>{BLOCK_LABELS[type]}</option>
@@ -350,20 +351,20 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
           </select>
         </div>
         <div className="inline-flex items-center gap-1">
-          <button onClick={() => onMoveArrow(index, -1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вверх"><ArrowUp className="h-4 w-4" /></button>
-          <button onClick={() => onMoveArrow(index, 1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вниз"><ArrowDown className="h-4 w-4" /></button>
-          <button onClick={() => onDuplicate(block.id)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Дублировать"><Copy className="h-4 w-4" /></button>
-          <button onClick={() => onDelete(block.id)} className="rounded-md p-1.5 text-[var(--adm-danger)] hover:bg-[var(--adm-danger)]/10" title="Удалить"><Trash2 className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onMoveArrow(index, -1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вверх" aria-label="Переместить блок вверх"><ArrowUp className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onMoveArrow(index, 1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вниз" aria-label="Переместить блок вниз"><ArrowDown className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onDuplicate(block.id)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Дублировать" aria-label="Дублировать блок"><Copy className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onDelete(block.id)} className="rounded-md p-1.5 text-[var(--adm-danger)] hover:bg-[var(--adm-danger)]/10" title="Удалить" aria-label="Удалить блок"><Trash2 className="h-4 w-4" /></button>
         </div>
       </div>
 
       {block.type === 'heading' && (
         <div className="grid gap-2 sm:grid-cols-[120px_1fr]">
-          <select value={block.level || 2} onChange={(e) => onUpdate(block.id, { level: Number(e.target.value) as HeadingLevel })} className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm">
+          <select aria-label="Уровень заголовка" value={block.level || 2} onChange={(e) => onUpdate(block.id, { level: Number(e.target.value) as HeadingLevel })} className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm">
             <option value={2}>H2</option>
             <option value={3}>H3</option>
           </select>
-          <input type="text" value={block.text || ''} onChange={(e) => onUpdate(block.id, { text: e.target.value })} placeholder="Текст заголовка" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input aria-label="Текст заголовка" type="text" value={block.text || ''} onChange={(e) => onUpdate(block.id, { text: e.target.value })} placeholder="Текст заголовка" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
         </div>
       )}
 
@@ -371,6 +372,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--adm-fg)]/60">Фон карточки</span>
           <select
+            aria-label="Фон карточки"
             value={block.tone || 'dark'}
             onChange={(e) => onUpdate(block.id, { tone: e.target.value as CardTone })}
             className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-1.5 text-sm text-[var(--adm-fg)]"
@@ -384,6 +386,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {(block.type === 'paragraph' || block.type === 'accent' || block.type === 'card' || block.type === 'quote') && (
         <textarea
+          aria-label={`Содержимое блока ${BLOCK_LABELS[block.type]}`}
           value={block.text || ''}
           onChange={(e) => onUpdate(block.id, { text: e.target.value })}
           onPaste={handlePaste}
@@ -395,6 +398,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'code' && (
         <textarea
+          aria-label="Код"
           value={block.text || ''}
           onChange={(e) => onUpdate(block.id, { text: e.target.value })}
           rows={8}
@@ -406,13 +410,13 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'image' && (
         <div className="space-y-2">
-          <input type="url" value={block.imageUrl || ''} onChange={(e) => onUpdate(block.id, { imageUrl: e.target.value })} placeholder="https://i.ibb.co/.../image.jpg" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
-          <input type="text" value={block.imageAlt || ''} onChange={(e) => onUpdate(block.id, { imageAlt: e.target.value })} placeholder="Alt текст изображения" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input aria-label="URL изображения" type="url" value={block.imageUrl || ''} onChange={(e) => onUpdate(block.id, { imageUrl: e.target.value })} placeholder="https://i.ibb.co/.../image.jpg" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input aria-label="Альтернативный текст изображения" type="text" value={block.imageAlt || ''} onChange={(e) => onUpdate(block.id, { imageAlt: e.target.value })} placeholder="Alt текст изображения" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
           {onUpload && (
-            <div className="flex gap-2 items-end">
+            <div className="admin-mobile-stack flex gap-2 items-end">
               <label className="cursor-pointer px-3 py-2 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] hover:bg-[var(--adm-primary)]/10 transition flex items-center gap-1">
                 <Upload className="w-4 h-4" />
-                <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                <input type="file" accept="image/*" className="hidden" aria-label="Загрузить изображение" onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   const url = await onUpload(file);
@@ -426,8 +430,8 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'video' && (
         <div className="space-y-2">
-          <input type="url" value={block.videoUrl || ''} onChange={(e) => onUpdate(block.id, { videoUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
-          <input type="text" value={block.videoTitle || ''} onChange={(e) => onUpdate(block.id, { videoTitle: e.target.value })} placeholder="Название видео (необязательно)" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input aria-label="URL видео" type="url" value={block.videoUrl || ''} onChange={(e) => onUpdate(block.id, { videoUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input aria-label="Название видео" type="text" value={block.videoTitle || ''} onChange={(e) => onUpdate(block.id, { videoTitle: e.target.value })} placeholder="Название видео (необязательно)" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
         </div>
       )}
 
@@ -435,6 +439,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
         <div className="space-y-2">
           <p className="text-xs text-[var(--adm-fg)]/60">Каждый URL с новой строки</p>
           <textarea
+            aria-label="URL изображений галереи"
             value={(block.items || []).map((item) => item.url).join('\n')}
             onChange={(e) => {
               const urls = e.target.value.split('\n').map((s) => s.trim()).filter(Boolean);
@@ -446,10 +451,10 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
             className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm resize-y"
           />
           {onUpload && (
-            <div className="flex gap-2 items-end">
+            <div className="admin-mobile-stack flex gap-2 items-end">
               <label className="cursor-pointer px-3 py-2 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] hover:bg-[var(--adm-primary)]/10 transition flex items-center gap-1">
                 <Upload className="w-4 h-4" />
-                <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                <input type="file" accept="image/*" multiple className="hidden" aria-label="Загрузить изображения галереи" onChange={async (e) => {
                   const files = e.target.files;
                   if (!files?.length) return;
                   const newItems: MediaItem[] = [];
@@ -469,13 +474,13 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'downloadButton' && (
         <div className="space-y-2">
-          <input type="text" value={block.downloadLabel || ''} onChange={(e) => onUpdate(block.id, { downloadLabel: e.target.value })} placeholder="Текст кнопки" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
-          <div className="flex gap-2">
-            <input type="url" value={block.downloadUrl || ''} onChange={(e) => onUpdate(block.id, { downloadUrl: e.target.value })} placeholder="Ссылка на файл" className="flex-1 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input aria-label="Текст кнопки скачивания" type="text" value={block.downloadLabel || ''} onChange={(e) => onUpdate(block.id, { downloadLabel: e.target.value })} placeholder="Текст кнопки" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <div className="admin-mobile-stack flex gap-2">
+            <input aria-label="Ссылка на файл" type="url" value={block.downloadUrl || ''} onChange={(e) => onUpdate(block.id, { downloadUrl: e.target.value })} placeholder="Ссылка на файл" className="flex-1 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
             {onUpload && (
               <label className="cursor-pointer px-3 py-2 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] hover:bg-[var(--adm-primary)]/10 transition flex items-center gap-1">
                 <Upload className="w-4 h-4" />
-                <input type="file" className="hidden" onChange={async (e) => {
+                <input type="file" className="hidden" aria-label="Загрузить файл" onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   const url = await onUpload(file);
@@ -489,14 +494,15 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'spacer' && (
         <div className="flex items-center gap-3">
-          <input type="range" min={8} max={120} value={block.space || 24} onChange={(e) => onUpdate(block.id, { space: Number(e.target.value) })} className="w-full" />
-          <input type="number" min={8} max={120} value={block.space || 24} onChange={(e) => onUpdate(block.id, { space: Number(e.target.value) })} className="w-20 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm" />
+          <input aria-label="Размер отступа" type="range" min={8} max={120} value={block.space || 24} onChange={(e) => onUpdate(block.id, { space: Number(e.target.value) })} className="w-full" />
+          <input aria-label="Размер отступа в пикселях" type="number" min={8} max={120} value={block.space || 24} onChange={(e) => onUpdate(block.id, { space: Number(e.target.value) })} className="w-20 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm" />
           <span className="text-xs text-[var(--adm-fg)]/60">px</span>
         </div>
       )}
 
       {block.type === 'rawHtml' && (
         <textarea
+          aria-label="HTML блока"
           value={block.html || ''}
           onChange={(e) => onUpdate(block.id, { html: e.target.value })}
           rows={7}
@@ -656,7 +662,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
 
   if (readOnly) {
     return (
-      <div className="rounded-xl border border-[var(--adm-border)] p-4 bg-[var(--adm-card)]">
+      <div className="admin-panel p-4">
         <div className="mb-3 text-sm font-medium text-[var(--adm-fg)]">Просмотр статьи</div>
         {/* data-blog-ui даёт реальные тёмные стили блога независимо от темы админки */}
         <div data-blog-ui="true" className="rounded-xl p-4 sm:p-6">
@@ -668,14 +674,14 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="space-y-4">
-        <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-3">
+      <div className="admin-article-editor space-y-4">
+        <div className="admin-panel p-3 sm:p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm text-[var(--adm-fg)]/60">Добавить блок</span>
             <div className="inline-flex items-center gap-1">
-              <button onClick={undo} disabled={history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)"><Undo2 className="h-4 w-4" /></button>
-              <button onClick={redo} disabled={history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)"><Redo2 className="h-4 w-4" /></button>
-              <button onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-2 px-2 hover:bg-[var(--adm-primary)]/10">
+              <button type="button" onClick={undo} disabled={history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)" aria-label="Отменить изменение"><Undo2 className="h-4 w-4" /></button>
+              <button type="button" onClick={redo} disabled={history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)" aria-label="Повторить изменение"><Redo2 className="h-4 w-4" /></button>
+              <button type="button" onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-2 px-2 hover:bg-[var(--adm-primary)]/10">
                 {markdownMode ? 'Визуальный' : 'Markdown'}
               </button>
             </div>
@@ -693,20 +699,21 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
               </button>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-[var(--adm-fg)]/60">
+          <p className="admin-meta mt-2">
             Горячие клавиши: Alt+Shift+↑/↓, Ctrl+Enter (новый блок), Ctrl+Z/Y. Markdown: нажмите кнопку для переключения.
           </p>
         </div>
 
         {markdownMode ? (
-          <div className="rounded-xl border border-[var(--adm-border)] p-4">
+          <div className="admin-panel p-4">
             <textarea
+              aria-label="Markdown-разметка статьи"
               value={mdText}
               onChange={(e) => setMdText(e.target.value)}
               className="w-full h-64 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm font-mono resize-y"
               placeholder="# Заголовок..."
             />
-            <button onClick={toggleMarkdown} className="mt-2 px-4 py-2 rounded-lg bg-[var(--adm-primary)] text-white">Применить разметку</button>
+            <button type="button" onClick={toggleMarkdown} className="admin-button admin-button--primary mt-2">Применить разметку</button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -728,7 +735,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
           </div>
         )}
 
-        <div className="rounded-xl border border-[var(--adm-border)] p-4 bg-[var(--adm-card)]">
+        <div className="admin-panel p-4">
           <div className="mb-3 text-sm font-medium text-[var(--adm-fg)]">Предпросмотр (как будет выглядеть статья на сайте)</div>
           {/* data-blog-ui даёт реальные тёмные стили блога независимо от темы админки */}
           <div data-blog-ui="true" className="rounded-xl p-4 sm:p-6">

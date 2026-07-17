@@ -2,6 +2,7 @@ import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type Re
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
+import { useScrollTo } from './hooks/useScrollTo';
 
 const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
 
@@ -64,10 +65,16 @@ BackgroundOrbs.displayName = 'BackgroundOrbs';
 // Три карточки статистики (дизайн не менялся)
 export type HeroStat = { value: string; label: string };
 
+export type HeroTitleLine = {
+  text: string;
+  tone?: 'default' | 'accent' | 'supporting';
+};
+
 export type HeroContent = {
   badge: string;
   titlePrefix: ReactNode;
   titleAccent: ReactNode;
+  titleLines?: HeroTitleLine[];
   paragraphs: ReactNode[];
   primaryButton: string;
   secondaryButton: string;
@@ -75,32 +82,30 @@ export type HeroContent = {
 };
 
 export const defaultHeroContent: HeroContent = {
-  badge: 'Perfomance-таргетинг',
-  titlePrefix: 'Увеличу поток клиентов через',
-  titleAccent: 'Google Ads & Meta Ads',
+  badge: 'Performance-маркетинг',
+  titlePrefix: 'Google Ads и Meta Ads',
+  titleAccent: 'с опорой на продажи и аналитику',
   paragraphs: [
-    'Настраиваю рекламу, которая приводит первые заявки уже в период теста и масштабируется в прибыль.',
-    '$2M+ рекламного бюджета в управлении • 500 000+ лидов. Средняя окупаемость — 240% (в e-commerce и B2C)',
-    'Беру на себя всё: стратегия, креативы, аналитика и оптимизация.',
+    'Сначала считаю допустимую стоимость клиента и проверяю отслеживание. Затем тестирую конкретные сочетания оффера, аудитории и креатива и оставляю те, которые приводят квалифицированные заявки или покупки.',
+    'В работе беру на себя стратегию, креативные тесты, Meta Pixel и CAPI, GA4/GTM и регулярную оптимизацию.',
   ],
-  primaryButton: 'Получить стратегию роста',
-  secondaryButton: 'Кейсы и цифры',
+  primaryButton: 'Обсудить проект',
+  secondaryButton: 'Посмотреть кейсы',
   stats: [
-    { value: '150+', label: 'Кейсов' },
-    { value: '$2М+', label: 'инвестировано в трафик' },
-    { value: '79%', label: 'проектов окупились' },
+    { value: '65к+', label: 'лидов в одном проекте' },
+    { value: '30к+', label: 'покупок в e-commerce' },
+    { value: '4 года', label: 'самый долгий проект' },
   ],
 };
 
-function valueSizeClass(stats: HeroStat[]) {
-  const hasLongValue = stats.some((stat) => (stat?.value?.length ?? 0) > 8);
-  return hasLongValue
-    ? 'text-[12px] sm:text-sm md:text-base whitespace-nowrap'
-    : 'text-[17px] sm:text-2xl md:text-3xl';
+function valueSizeClass(value: string) {
+  const length = value?.length ?? 0;
+  if (length > 8) return 'text-[11px] sm:text-sm md:text-base leading-tight break-words';
+  if (length > 6) return 'text-[13px] sm:text-lg md:text-xl leading-tight';
+  return 'text-[17px] sm:text-2xl md:text-3xl leading-none';
 }
 
 const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
-  const sizeClass = valueSizeClass(stats);
   return (
   <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 pt-5 md:pt-8">
     <motion.div
@@ -112,7 +117,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-primary/20 flex items-center justify-center pointer-events-none">
         <Sparkles className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-primary" />
       </div>
-      <div className={`pr-5 ${sizeClass} font-semibold md:font-bold leading-none text-primary tracking-[-0.02em]`}>{stats[0]?.value}</div>
+      <div className={`min-w-0 pr-5 ${valueSizeClass(stats[0]?.value ?? '')} font-semibold md:font-bold text-primary tracking-[-0.02em]`}>{stats[0]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[0]?.label}</div>
     </motion.div>
 
@@ -125,7 +130,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-accent/20 flex items-center justify-center pointer-events-none">
         <TrendingUp className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-accent" />
       </div>
-      <div className={`pr-5 ${sizeClass} font-semibold md:font-bold leading-none text-accent tracking-[-0.02em]`}>{stats[1]?.value}</div>
+      <div className={`min-w-0 pr-5 ${valueSizeClass(stats[1]?.value ?? '')} font-semibold md:font-bold text-accent tracking-[-0.02em]`}>{stats[1]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[1]?.label}</div>
     </motion.div>
 
@@ -138,7 +143,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-secondary/20 flex items-center justify-center pointer-events-none">
         <BarChart3 className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-secondary" />
       </div>
-      <div className={`pr-5 ${sizeClass} font-semibold md:font-bold leading-none text-secondary tracking-[-0.02em]`}>{stats[2]?.value}</div>
+      <div className={`min-w-0 pr-5 ${valueSizeClass(stats[2]?.value ?? '')} font-semibold md:font-bold text-secondary tracking-[-0.02em]`}>{stats[2]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[2]?.label}</div>
     </motion.div>
   </div>
@@ -158,7 +163,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
     initial={{ opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.8 }}
-    className="max-w-2xl space-y-5 md:space-y-7 order-2 lg:order-1"
+    className={`max-w-2xl order-2 lg:order-1 ${content.titleLines ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
     <motion.div
       className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
@@ -176,12 +181,45 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </motion.div>
 
-    <h1 className="max-w-2xl text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.2] tracking-[-0.025em] md:tracking-[-0.03em]">
-      {content.titlePrefix}{' '}
-      <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-        {content.titleAccent}
-      </span>
-    </h1>
+    {content.titleLines ? (
+      <h1
+        aria-label={content.titleLines.map((line) => line.text).join(' ')}
+        className="w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em]"
+      >
+        {content.titleLines.map((line, index) => {
+          if (line.tone === 'supporting') {
+            return (
+              <span
+                key={`${line.text}-${index}`}
+                className="mt-2.5 flex items-center gap-2.5 text-[13px] min-[360px]:text-sm sm:text-base md:text-[17px] font-medium leading-snug tracking-[-0.01em] text-muted-foreground"
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-px w-6 sm:w-8 shrink-0 bg-gradient-to-r from-primary via-accent to-secondary opacity-80"
+                />
+                {line.text}
+              </span>
+            );
+          }
+
+          return (
+            <span
+              key={`${line.text}-${index}`}
+              className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent' : ''}`}
+            >
+              {line.text}
+            </span>
+          );
+        })}
+      </h1>
+    ) : (
+      <h1 className="max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em]">
+        <span className="block">{content.titlePrefix}</span>{' '}
+        <span className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+          {content.titleAccent}
+        </span>
+      </h1>
+    )}
 
     <div className="space-y-3">
       {content.paragraphs.map((paragraph, index) => (
@@ -245,9 +283,10 @@ Particles.displayName = 'Particles';
 
 interface RightPanelProps {
   inView: boolean;
+  showCards?: boolean;
 }
 
-const RightPanel = memo(({ inView }: RightPanelProps) => {
+const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
   const isTouch = useTouchDevice();
 
   // Опционально: отключаем hover-анимации на тач-устройствах
@@ -257,6 +296,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
 
   return (
     <motion.div
+      aria-hidden="true"
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
@@ -281,7 +321,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
               двойную загрузку. Файл 746x720 — как раз под контейнер. */}
           <img
             src="/images/hero-portrait.jpg"
-            alt="Performance marketer portrait"
+            alt=""
             loading="eager"
             decoding="async"
             fetchPriority="high"
@@ -373,6 +413,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
         />
       </div>
 
+      <div className={showCards ? 'contents' : 'hidden'}>
       {/* Data Cards */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
@@ -385,10 +426,10 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
           <div className="flex items-start justify-between mb-3 md:mb-4 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium mb-0.5">
-                Google Ads
+                Google + Meta
               </div>
               <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
-                total ad spend
+                покупки в e-commerce
               </div>
             </div>
             <motion.div
@@ -404,7 +445,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.5 }}
           >
-            $800,000+
+            30 000+
           </motion.div>
           <div className="flex items-center gap-1.5 md:gap-2 relative z-10">
             <motion.div
@@ -423,7 +464,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
               />
             </motion.div>
             <span className="text-[9px] sm:text-[10px] md:text-xs text-primary font-medium">
-              +120%
+              e-commerce
             </span>
           </div>
         </div>
@@ -445,10 +486,10 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
           <div className="flex items-start justify-between mb-2 md:mb-3 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-accent/60 font-medium mb-0.5">
-                ROAS
+                Проект
               </div>
               <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
-                в среднем
+                срок работы
               </div>
             </div>
             <motion.div
@@ -459,12 +500,12 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             </motion.div>
           </div>
           <motion.div
-            className="text-2xl sm:text-4xl md:text-5xl font-semibold md:font-bold text-accent mb-2 md:mb-3 relative z-10 leading-none tracking-[-0.03em]"
+            className="break-words text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-accent mb-2 md:mb-3 relative z-10 leading-none tracking-[-0.02em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.3, duration: 0.5 }}
           >
-            6.2
+            4 года
           </motion.div>
           <svg
             className="w-full h-4 md:h-6 relative z-10"
@@ -504,10 +545,10 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
           <div className="flex items-start justify-between mb-3 md:mb-4 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-secondary/60 font-medium mb-0.5">
-                Meta Ads
+                Реклама
               </div>
               <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
-                total ad spend
+                бюджет в проекте
               </div>
             </div>
             <motion.div
@@ -523,7 +564,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.4, duration: 0.5 }}
           >
-            $1,200,000+
+            $1 млн+
           </motion.div>
           <div className="flex items-center gap-1 md:gap-1.5 relative z-10">
             {[80, 95, 100, 70, 90].map((scale, i) => (
@@ -562,7 +603,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
           />
           <div className="flex items-center justify-between mb-2 md:mb-3 relative z-10">
             <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium">
-              сред. ROI
+              лиды
             </div>
             <motion.div
               className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
@@ -590,7 +631,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.5, duration: 0.5 }}
           >
-            240%
+            65к+
           </motion.div>
           <motion.div
             className="mt-2 md:mt-3 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent rounded-full relative z-10"
@@ -628,6 +669,7 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
           </linearGradient>
         </defs>
       </svg>
+      </div>
 
       <div className="absolute inset-0 rounded-3xl border border-primary/30 pointer-events-none shadow-2xl shadow-primary/20" />
     </motion.div>
@@ -635,20 +677,21 @@ const RightPanel = memo(({ inView }: RightPanelProps) => {
 });
 RightPanel.displayName = 'RightPanel';
 
-type HeroVisual = 'default' | 'meta-apps';
+type HeroVisual = 'default' | 'meta-apps' | 'portrait';
 
 function Hero({ content = defaultHeroContent, visual = 'default' }: { content?: HeroContent; visual?: HeroVisual }) {
   const sectionRef     = useRef<HTMLElement>(null);
   const inView         = useInView(sectionRef, { margin: '0px 0px -10% 0px', once: false });
   const prefersReduced = useReducedMotion();
+  const { scrollToWhenReady } = useScrollTo();
 
   const scrollToContact = useCallback(() => {
-    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+    scrollToWhenReady('contact', { offset: 88, attempts: 20, intervalMs: 80 });
+  }, [scrollToWhenReady]);
 
   const scrollToCases = useCallback(() => {
-    document.getElementById('cases')?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+    scrollToWhenReady('cases', { offset: 88, attempts: 20, intervalMs: 80 });
+  }, [scrollToWhenReady]);
 
   const resolvedInView = prefersReduced ? false : inView;
 
@@ -674,7 +717,7 @@ function Hero({ content = defaultHeroContent, visual = 'default' }: { content?: 
               <MetaAppsHeroVisual inView={resolvedInView} />
             </Suspense>
           ) : (
-            <RightPanel inView={resolvedInView} />
+            <RightPanel inView={resolvedInView} showCards={visual !== 'portrait'} />
           )}
         </div>
       </div>

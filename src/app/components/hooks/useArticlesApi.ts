@@ -272,7 +272,8 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const json = (await res.json()) as ArticlesResponse;
-    const primaryArticles = dedupeBySlug(asArticleArray(json?.articles));
+    if (!Array.isArray(json?.articles)) throw new Error('Invalid articles response');
+    const primaryArticles = dedupeBySlug(asArticleArray(json.articles));
 
     if (primaryArticles.length > 0) {
       // API is source of truth for admin operations. Do not restore deleted records from stale fallbacks.
@@ -280,7 +281,7 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
       return primaryArticles;
     }
 
-    return resolveFallbackArticles();
+    return [];
   } catch (error) {
     console.error('fetchArticles error:', error);
     return resolveFallbackArticles();

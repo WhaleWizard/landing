@@ -1,15 +1,10 @@
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router';
 import SEO from '../components/SEO';
 import CookiePolicyContent from '../components/legal/CookiePolicyContent';
+import { useOriginAwareBack } from '../utils/useOriginAwareBack';
 
 export default function CookiePolicy() {
-  const navigate = useNavigate();
-
-  const goHome = () => {
-    navigate('/');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const { goBack, label: backLabel } = useOriginAwareBack();
 
   return (
     <>
@@ -22,10 +17,10 @@ export default function CookiePolicy() {
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
             <button
-              onClick={goHome}
+              onClick={goBack}
               className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none"
             >
-              ← На главную
+              ← {backLabel}
             </button>
           </div>
 

@@ -12,18 +12,6 @@ export interface MarketingGlossaryItem {
 
 type BaseMetric = Omit<MarketingGlossaryItem, 'id' | 'channel' | 'term'> & { termBase: string; category: string };
 
-const channels = [
-  { slug: 'google-ads', label: 'Google Ads' },
-  { slug: 'meta-ads', label: 'Meta Ads' },
-  { slug: 'seo', label: 'SEO' },
-  { slug: 'aeo', label: 'AEO' },
-  { slug: 'geo', label: 'GEO' },
-  { slug: 'analytics', label: 'Analytics' },
-  { slug: 'crm', label: 'CRM & Sales' },
-  { slug: 'tiktok-ads', label: 'TikTok Ads' },
-  { slug: 'email', label: 'Email Marketing' },
-];
-
 const baseMetrics: BaseMetric[] = [
   { termBase: 'CTR', abbreviation: 'CTR', category: 'Трафик', definition: 'Доля кликов от числа показов. Показывает, насколько объявление или сниппет попадает в запрос пользователя.', simple: 'Из 100 показов кликнули 8 раз → CTR = 8%.', formula: 'CTR = Clicks / Impressions × 100%', seoHint: 'Влияет на качество трафика и косвенно на эффективность аукциона.' },
   { termBase: 'CPC', abbreviation: 'CPC', category: 'Стоимость', definition: 'Средняя цена за клик по объявлению или ссылке.', simple: 'Потратили 100$, получили 50 кликов — средний клик стоит 2$.', formula: 'CPC = Spend / Clicks', seoHint: 'Снижение CPC без потери качества повышает окупаемость.' },
@@ -31,9 +19,9 @@ const baseMetrics: BaseMetric[] = [
   { termBase: 'CPA', abbreviation: 'CPA', category: 'Конверсии', definition: 'Средняя стоимость целевого действия: лид, регистрация, заказ.', simple: 'Если получили 20 лидов на 400$, CPA = 20$.', formula: 'CPA = Spend / Conversions', seoHint: 'Один из главных KPI в перформанс-маркетинге.' },
   { termBase: 'CPL', abbreviation: 'CPL', category: 'Лиды', definition: 'Цена одного лида (заявки).', simple: 'Чем ниже CPL при нормальном качестве лида — тем лучше.', formula: 'CPL = Spend / Leads', seoHint: 'Сравнивайте CPL вместе с квалификацией лида, а не отдельно.' },
   { termBase: 'CR', abbreviation: 'CR', category: 'Конверсии', definition: 'Коэффициент конверсии: доля пользователей, выполнивших целевое действие.', simple: '1000 посетителей, 50 заявок → CR = 5%.', formula: 'CR = Conversions / Sessions × 100%', seoHint: 'Рост CR снижает цену лида и делает трафик выгоднее.' },
-  { termBase: 'ROAS', abbreviation: 'ROAS', category: 'Выручка', definition: 'Возврат рекламных расходов: сколько выручки приносит 1 единица бюджета.', simple: 'Потратили 1000$, выручка 4000$ → ROAS = 4.0.', formula: 'ROAS = Revenue / Spend', seoHint: 'Ключевой KPI e-commerce и performance-кампаний.' },
-  { termBase: 'ROI', abbreviation: 'ROI', category: 'Прибыль', definition: 'Окупаемость инвестиций с учетом прибыли, а не только выручки.', simple: 'Если после расходов остаётся плюс, ROI положительный.', formula: 'ROI = (Profit - Investment) / Investment × 100%', seoHint: 'Используйте для решений по масштабированию канала.' },
-  { termBase: 'ROMI', abbreviation: 'ROMI', category: 'Прибыль', definition: 'Окупаемость именно маркетинговых инвестиций.', simple: 'Показывает, окупились ли маркетинговые усилия.', formula: 'ROMI = (Marketing Revenue - Marketing Cost) / Marketing Cost × 100%', seoHint: 'Полезен для сравнения разных каналов по бизнес-результату.' },
+  { termBase: 'ROAS', abbreviation: 'ROAS', category: 'Выручка', definition: 'Отношение выручки, приписанной рекламе, к рекламным расходам.', simple: 'Потратили 1000$, получили 4000$ выручки → ROAS = 400% (или 4,0).', formula: 'ROAS = Revenue / Ad Spend × 100%', seoHint: 'ROAS не учитывает маржу и другие расходы, поэтому сам по себе не доказывает прибыльность.' },
+  { termBase: 'ROI', abbreviation: 'ROI', category: 'Прибыль', definition: 'Окупаемость инвестиций: отношение чистой прибыли от вложения к сумме всех учитываемых затрат.', simple: 'Вложили 1000$, после возврата вложений осталось 300$ прибыли → ROI = 30%.', formula: 'ROI = Net Profit / Total Investment × 100%', seoHint: 'Перед расчётом зафиксируйте, какие доходы и затраты относятся к инвестиции.' },
+  { termBase: 'ROMI', abbreviation: 'ROMI', category: 'Прибыль', definition: 'Окупаемость маркетинговых затрат. Один из практических вариантов — считать её по валовой прибыли от продаж, приписанных маркетингу.', simple: 'Показывает, покрыла ли относимая к маркетингу валовая прибыль расходы на маркетинг.', formula: 'ROMI = (Attributed Gross Profit - Marketing Cost) / Marketing Cost × 100%', seoHint: 'Это упрощённая формула: до сравнения каналов согласуйте модель атрибуции и состав маркетинговых расходов.' },
   { termBase: 'AOV', abbreviation: 'AOV', category: 'Выручка', definition: 'Средний чек за заказ.', simple: 'Увеличили допродажи — AOV вырос.', formula: 'AOV = Revenue / Orders', seoHint: 'Рост AOV часто улучшает unit-экономику быстрее, чем рост трафика.' },
   { termBase: 'LTV', abbreviation: 'LTV', category: 'Клиенты', definition: 'Пожизненная ценность клиента: сколько прибыли/выручки приносит клиент за весь срок.', simple: 'Если клиент возвращается и покупает повторно, LTV растёт.', formula: 'LTV = ARPU × Lifetime', seoHint: 'Сравнивайте LTV с CAC для оценки модели роста.' },
   { termBase: 'CAC', abbreviation: 'CAC', category: 'Клиенты', definition: 'Стоимость привлечения одного нового клиента.', simple: 'Важно считать вместе с LTV, иначе можно расти в убыток.', formula: 'CAC = Acquisition Spend / New Customers', seoHint: 'Если CAC стабильно ниже LTV — масштабирование безопаснее.' },
@@ -42,7 +30,7 @@ const baseMetrics: BaseMetric[] = [
   { termBase: 'Frequency', category: 'Охват', definition: 'Среднее число показов рекламы одному пользователю.', simple: 'Слишком высокая частота вызывает баннерную слепоту и рост цены.', formula: 'Frequency = Impressions / Reach', seoHint: 'Контролируйте частоту для защиты эффективности креатива.' },
   { termBase: 'Reach', category: 'Охват', definition: 'Количество уникальных пользователей, увидевших рекламу.', simple: 'Reach — это уникальные люди, а не все показы.', seoHint: 'Нужен для оценки масштаба и верхней части воронки.' },
   { termBase: 'Impression Share', abbreviation: 'IS', category: 'Аукцион', definition: 'Доля полученных показов от общего доступного инвентаря.', simple: 'Если IS низкий, вы упускаете спрос.', seoHint: 'Помогает понять, где теряются показы из-за рейтинга или бюджета.' },
-  { termBase: 'Quality Score', abbreviation: 'QS', category: 'Аукцион', definition: 'Оценка качества объявления, релевантности и посадочной страницы.', simple: 'Более высокий QS обычно снижает стоимость клика.', seoHint: 'Оптимизируйте тексты, ключи и landing page одновременно.' },
+  { termBase: 'Quality Score', abbreviation: 'QS', category: 'Аукцион', definition: 'Диагностическая оценка Google Ads от 1 до 10 на основе ожидаемого CTR, релевантности объявления и качества посадочной страницы.', simple: 'Помогает найти слабое место, но сама оценка не используется напрямую в рекламном аукционе.', seoHint: 'Разбирайте три компонента оценки отдельно, а не пытайтесь повысить число ради самого числа.' },
   { termBase: 'CPQL', abbreviation: 'CPQL', category: 'Лиды', definition: 'Стоимость только квалифицированного лида.', simple: 'Лучше дорогой качественный лид, чем дешёвый нецелевой.', formula: 'CPQL = Spend / Qualified Leads', seoHint: 'В B2B это часто важнее обычного CPL.' },
   { termBase: 'SQL Rate', category: 'Воронка продаж', definition: 'Доля лидов, перешедших в стадию Sales Qualified Lead.', simple: 'Показывает, насколько маркетинг даёт реально рабочие заявки.', formula: 'SQL Rate = SQL / Leads × 100%', seoHint: 'Хорошая связь между маркетингом и отделом продаж.' },
   { termBase: 'MQL Rate', category: 'Воронка продаж', definition: 'Доля лидов, признанных маркетингом качественными (MQL).', simple: 'Фильтрует мусорные обращения на раннем этапе.', formula: 'MQL Rate = MQL / Leads × 100%', seoHint: 'Используйте единые критерии MQL в CRM.' },
@@ -80,45 +68,53 @@ const baseMetrics: BaseMetric[] = [
   { termBase: 'Core Web Vitals Pass Rate', category: 'Technical SEO', definition: 'Доля URL, проходящих пороги CWV (LCP, INP, CLS).', simple: 'Быстрый и стабильный сайт лучше удерживает и ранжируется.', seoHint: 'Критично для SEO и UX одновременно.' },
   { termBase: 'SERP CTR', category: 'SEO', definition: 'CTR именно в органической поисковой выдаче.', simple: 'Показывает, насколько заголовок и сниппет кликабельны.', formula: 'SERP CTR = Organic Clicks / Organic Impressions × 100%', seoHint: 'Оптимизируйте title, description и намерение страницы.' },
   { termBase: 'Featured Snippet Share', category: 'AEO/SEO', definition: 'Доля запросов, где ваш сайт получил позицию featured snippet.', simple: 'Повышает видимость и доверие в выдаче.', seoHint: 'Используйте четкие определения, списки и структурированные ответы.' },
-  { termBase: 'AI Citation Rate', category: 'AEO', definition: 'Доля ответов ИИ-систем, в которых ваш источник упоминается или цитируется.', simple: 'Показывает, насколько ваш контент заметен для AI-поиска.', formula: 'AI Citation Rate = AI Mentions / Tracked Prompts × 100%', seoHint: 'Ключевая метрика для Answer Engine Optimization.' },
-  { termBase: 'Entity Coverage', category: 'AEO', definition: 'Насколько полно в контенте раскрыты сущности темы: термины, связи, контекст.', simple: 'Чем лучше покрытие темы, тем легче ИИ выбрать ваш материал источником.', seoHint: 'Стройте контент как знания, а не как набор ключевых слов.' },
-  { termBase: 'Geo Precision Score', category: 'GEO', definition: 'Точность гео-таргетинга по фактическим данным о показах и конверсиях.', simple: 'Показывает, насколько реклама действительно попадает в нужные регионы.', seoHint: 'Снижает нецелевые расходы в локальных кампаниях.' },
-  { termBase: 'Store Visit Lift', category: 'GEO', definition: 'Прирост офлайн-визитов в точки продаж под воздействием рекламы.', simple: 'Помогает доказать эффект digital на офлайн-точки.', seoHint: 'Важна для локального бизнеса и сетевого ритейла.' },
+  { termBase: 'Store Visit Lift', category: 'Локальный маркетинг', definition: 'Оценка прироста офлайн-визитов, связанного с рекламным воздействием.', simple: 'Помогает оценить влияние digital-рекламы на посещения физических точек.', seoHint: 'Используйте только там, где платформа и объём данных позволяют измерять визиты.' },
   { termBase: 'Local Pack Share', category: 'Local SEO', definition: 'Доля запросов, где компания попадает в локальный блок карт/компаний.', simple: 'Чем выше доля, тем больше локальных лидов без доплаты за клик.', seoHint: 'Оптимизируйте профиль компании, отзывы и NAP-данные.' },
-  { termBase: 'Cost per Store Visit', abbreviation: 'CPSV', category: 'GEO', definition: 'Стоимость одного подтвержденного офлайн-визита.', simple: 'Показывает цену привлечения клиента в физическую точку.', formula: 'CPSV = Spend / Store Visits', seoHint: 'Полезно для оценки локальных performance-кампаний.' },
+  { termBase: 'Cost per Store Visit', abbreviation: 'CPSV', category: 'Локальный маркетинг', definition: 'Стоимость одного измеренного офлайн-визита.', simple: 'Показывает цену визита в физическую точку по данным выбранной системы измерения.', formula: 'CPSV = Spend / Store Visits', seoHint: 'Проверяйте методику атрибуции визитов перед сравнением кампаний.' },
   { termBase: 'Data Freshness', category: 'Аналитика', definition: 'Насколько актуальны данные в отчетах по времени обновления.', simple: 'Старые данные = запоздалые решения.', seoHint: 'Особенно важно при оперативной оптимизации кампаний.' },
   { termBase: 'Tracking Coverage', category: 'Аналитика', definition: 'Доля ключевых событий воронки, которые реально трекаются.', simple: 'Нельзя улучшать то, что не измеряете.', formula: 'Coverage = Tracked Events / Required Events × 100%', seoHint: 'Базовая метрика зрелости аналитики.' },
   { termBase: 'Consent Opt-in Rate', category: 'Privacy', definition: 'Доля пользователей, давших согласие на аналитические/маркетинговые cookies.', simple: 'Низкий opt-in может искажать статистику и атрибуцию.', formula: 'Opt-in Rate = Consented Users / Total Users × 100%', seoHint: 'Критично для корректности данных в ЕС и других регулируемых рынках.' },
 ];
 
 const standaloneTerms: MarketingGlossaryItem[] = [
-  { id: 'standalone-kpi', term: 'KPI', abbreviation: 'KPI', category: 'Базовые термины', channel: 'Marketing', definition: 'Ключевой показатель эффективности, по которому оценивается достижение цели.', simple: 'Это главная цифра, которая показывает, идём ли мы к результату.', seoHint: 'KPI должны быть конкретными, измеримыми и привязанными к бизнес-цели.' },
-  { id: 'standalone-north-star', term: 'North Star Metric', abbreviation: 'NSM', category: 'Базовые термины', channel: 'Marketing', definition: 'Основная метрика продукта/бизнеса, отражающая долгосрочную ценность для клиента.', simple: 'Одна «звезда», на которую ориентируется вся команда.', seoHint: 'Хорошо работает как фокус для приоритизации гипотез роста.' },
-  { id: 'standalone-unit-economics', term: 'Unit-экономика', category: 'Финансы', channel: 'Marketing', definition: 'Экономика одной единицы бизнеса: клиента, заказа, подписки.', simple: 'Показывает, зарабатываете ли вы на каждой продаже.', seoHint: 'Без положительной unit-экономики масштабирование опасно.' },
-  { id: 'standalone-sem', term: 'SEM', abbreviation: 'SEM', category: 'Search Marketing', channel: 'Marketing', definition: 'Search Engine Marketing — маркетинг в поисковых системах, включая SEO и платный поиск.', simple: 'Продвижение через поисковики: бесплатно (SEO) и платно (PPC).', seoHint: 'Интеграция SEO + PPC ускоряет покрытие спроса.' },
-  { id: 'standalone-smm', term: 'SMM', abbreviation: 'SMM', category: 'Social', channel: 'Marketing', definition: 'Social Media Marketing — продвижение бренда и продаж через соцсети.', simple: 'Работа с контентом, охватом и вовлечением в социальных сетях.', seoHint: 'Поддерживает спрос бренда и влияет на многоканальную атрибуцию.' },
-  { id: 'standalone-cro', term: 'CRO', abbreviation: 'CRO', category: 'Оптимизация', channel: 'Marketing', definition: 'Conversion Rate Optimization — системное повышение конверсии сайта/воронки.', simple: 'Делаем сайт понятнее, чтобы больше людей оставляли заявку или покупали.', seoHint: 'Один из самых выгодных рычагов роста при существующем трафике.' },
-  { id: 'standalone-utm', term: 'UTM-метки', category: 'Аналитика', channel: 'Marketing', definition: 'Параметры в URL для точного определения источника, кампании и креатива.', simple: 'Помогают понять, какая реклама привела человека.', seoHint: 'Стандартизируйте naming convention для чистых отчетов.' },
+  { id: 'standalone-kpi', term: 'KPI', abbreviation: 'KPI', category: 'Базовые термины', channel: 'Основы', definition: 'Ключевой показатель, по которому оценивается достижение цели.', simple: 'Цифра, заранее выбранная для оценки результата.', seoHint: 'KPI должен быть измеримым и связанным с бизнес-целью.' },
+  { id: 'standalone-north-star', term: 'North Star Metric', abbreviation: 'NSM', category: 'Базовые термины', channel: 'Основы', definition: 'Основная продуктовая метрика, отражающая ценность, которую регулярно получают пользователи.', simple: 'Общий ориентир для продуктовой команды, а не замена всем остальным показателям.', seoHint: 'Проверяйте, что рост метрики действительно связан с ценностью для клиента и бизнеса.' },
+  { id: 'standalone-unit-economics', term: 'Unit-экономика', category: 'Финансы', channel: 'Бизнес-метрики', definition: 'Доходы и переменные расходы в расчёте на клиента, заказ или подписку.', simple: 'Показывает, окупается ли привлечение одной единицы бизнеса.', seoHint: 'Состав доходов и расходов нужно определить до расчёта.' },
+  { id: 'standalone-sem', term: 'SEM', abbreviation: 'SEM', category: 'Search Marketing', channel: 'Поисковый маркетинг', definition: 'Search Engine Marketing — продвижение в поисковых системах, включая органический и платный поиск.', simple: 'Работа со спросом в поиске через SEO и рекламные кампании.', seoHint: 'SEO и PPC могут закрывать разные типы запросов и дополнять друг друга.' },
+  { id: 'standalone-smm', term: 'SMM', abbreviation: 'SMM', category: 'Social', channel: 'Социальные сети', definition: 'Social Media Marketing — работа с присутствием и продвижением бренда в социальных сетях.', simple: 'Контент, коммуникация и платное продвижение в соцсетях.', seoHint: 'Заранее разделяйте задачи контента, сообщества и рекламных кампаний.' },
+  { id: 'standalone-cro', term: 'CRO', abbreviation: 'CRO', category: 'Оптимизация', channel: 'Сайт и воронка', definition: 'Conversion Rate Optimization — системная работа над конверсией сайта или воронки.', simple: 'Ищем, что мешает человеку сделать следующий шаг, и проверяем изменения тестами.', seoHint: 'Смотрите не только на конверсию, но и на качество полученного результата.' },
+  { id: 'standalone-utm', term: 'UTM-метки', category: 'Аналитика', channel: 'Аналитика', definition: 'Параметры URL, которые описывают источник, кампанию и рекламный материал.', simple: 'Помогают понять, откуда пришёл пользователь.', seoHint: 'Используйте единую схему названий, иначе отчёты быстро становятся несопоставимыми.' },
   { id: 'standalone-schema', term: 'Schema Markup', category: 'SEO', channel: 'SEO', definition: 'Структурированные данные, помогающие поисковикам лучше понять содержание страницы.', simple: 'Специальная разметка, чтобы поисковик видел структуру контента.', seoHint: 'Важно для rich results и AEO-видимости.' },
   { id: 'standalone-eeat', term: 'E-E-A-T', abbreviation: 'E-E-A-T', category: 'SEO', channel: 'SEO', definition: 'Experience, Expertise, Authoritativeness, Trustworthiness — сигналы качества контента.', simple: 'Опыт, экспертность, авторитет и доверие автора/бренда.', seoHint: 'Ключевой принцип для YMYL и экспертных ниш.' },
-  { id: 'standalone-geo', term: 'GEO', abbreviation: 'GEO', category: 'Новые подходы', channel: 'GEO', definition: 'Generative Engine Optimization — оптимизация контента для генеративных поисковых движков.', simple: 'Делаем контент, который ИИ-системы чаще используют в ответах.', seoHint: 'Фокус на точности, структуре и цитируемости источников.' },
-  { id: 'standalone-aeo', term: 'AEO', abbreviation: 'AEO', category: 'Новые подходы', channel: 'AEO', definition: 'Answer Engine Optimization — оптимизация контента под прямые ответы в поиске и ИИ.', simple: 'Пишем так, чтобы на вопрос пользователя был ясный и быстрый ответ.', seoHint: 'Нужны четкие определения, FAQ-блоки и доказательная фактура.' },
-  { id: 'standalone-llms', term: 'LLMs.txt', category: 'AEO', channel: 'AEO', definition: 'Файл с информацией для LLM-агентов о структуре и важных страницах сайта.', simple: 'Карта сайта специально для ИИ-ассистентов и агентов.', seoHint: 'Упрощает discovery ключевого контента для AI-систем.' },
+  { id: 'standalone-geo', term: 'GEO', abbreviation: 'GEO', category: 'Новые подходы', channel: 'Поиск и контент', definition: 'Generative Engine Optimization — подход к подготовке контента для поиска и ответов с генеративным ИИ.', simple: 'Материал делают точным, структурированным и удобным для цитирования.', seoHint: 'Термин развивается; базовые требования к качеству источника и SEO остаются важными.' },
+  { id: 'standalone-aeo', term: 'AEO', abbreviation: 'AEO', category: 'Новые подходы', channel: 'Поиск и контент', definition: 'Answer Engine Optimization — подготовка контента под прямые ответы на вопросы пользователей.', simple: 'Страница быстро и однозначно отвечает на конкретный вопрос.', seoHint: 'Используйте ясные определения, структуру и проверяемые факты.' },
+  { id: 'standalone-llms', term: 'llms.txt', category: 'Новые подходы', channel: 'Поиск и контент', definition: 'Предлагаемый текстовый формат с кратким описанием важных материалов сайта для LLM-инструментов.', simple: 'Дополнительная навигационная подсказка для ИИ-инструментов, а не замена sitemap.xml.', seoHint: 'Формат экспериментальный: не рассчитывайте на поддержку всеми системами.' },
 ];
 
-const generated = channels.flatMap((channel) =>
-  baseMetrics.map((metric, index) => ({
-    id: `${channel.slug}-${index + 1}`,
-    term: `${channel.label}: ${metric.termBase}`,
-    abbreviation: metric.abbreviation,
-    category: metric.category,
-    channel: channel.label,
-    definition: metric.definition,
-    simple: metric.simple,
-    formula: metric.formula,
-    seoHint: metric.seoHint,
-  }))
-);
+function getMetricChannel(category: string): string {
+  if (['SEO', 'Technical SEO'].includes(category)) return 'SEO';
+  if (['AEO', 'AEO/SEO'].includes(category)) return 'AEO';
+  if (['Локальный маркетинг', 'Local SEO'].includes(category)) return 'Локальный маркетинг';
+  if (['Аналитика', 'Атрибуция', 'Privacy'].includes(category)) return 'Аналитика';
+  if (['Лиды', 'Продажи', 'Воронка продаж'].includes(category)) return 'CRM и продажи';
+  if (['Выручка', 'Прибыль', 'Финансы', 'Клиенты', 'Retention', 'E-commerce'].includes(category)) {
+    return 'Бизнес-метрики';
+  }
+  if (['Видео', 'Медийка', 'Мессенджеры', 'Охват', 'Бренд'].includes(category)) return 'Реклама';
+  return 'Performance';
+}
+
+const generated: MarketingGlossaryItem[] = baseMetrics.map((metric, index) => ({
+  id: `metric-${index + 1}`,
+  term: metric.termBase,
+  abbreviation: metric.abbreviation,
+  category: metric.category,
+  channel: getMetricChannel(metric.category),
+  definition: metric.definition,
+  simple: metric.simple,
+  formula: metric.formula,
+  seoHint: metric.seoHint,
+}));
 
 export const marketingGlossary: MarketingGlossaryItem[] = [...standaloneTerms, ...generated];
 

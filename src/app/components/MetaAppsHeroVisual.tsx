@@ -11,6 +11,7 @@ import {
   BarChart3,
   Battery,
   Bell,
+  CheckCircle2,
   CreditCard,
   Download,
   Home,
@@ -18,7 +19,6 @@ import {
   Rocket,
   Settings,
   Signal,
-  Star,
   Users,
   Wifi,
 } from 'lucide-react';
@@ -86,9 +86,8 @@ function Sparkline({ inView }: { inView: boolean }) {
 function PhoneScreen({ inView }: { inView: boolean }) {
   return (
     <div className="flex h-full flex-col gap-2 md:gap-2.5 p-3 md:p-4 pt-7 md:pt-8">
-      {/* Всплывающий пуш о новой установке. Ложится поверх статус-бара и
-          динамического острова (как настоящий iOS-баннер), а не на шапку
-          приложения — иначе текст пуша накладывается на «Whale App». */}
+      {/* Всплывающий пуш о новом событии. Ложится поверх статус-бара и
+          динамического острова, не перекрывая шапку экрана. */}
       {inView && (
         <motion.div
           className="absolute inset-x-1.5 top-1.5 md:inset-x-2 md:top-2 z-40"
@@ -99,11 +98,11 @@ function PhoneScreen({ inView }: { inView: boolean }) {
         >
           <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-[#161c30] px-2 py-1.5 md:px-2.5 md:py-2 shadow-lg shadow-black/50">
             <div className="flex h-5 w-5 md:h-6 md:w-6 shrink-0 items-center justify-center rounded-md md:rounded-lg bg-gradient-to-br from-primary to-accent">
-              <Download className="h-2.5 w-2.5 md:h-3 md:w-3 text-white" />
+              <CreditCard className="h-2.5 w-2.5 md:h-3 md:w-3 text-white" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[8px] md:text-[10px] font-semibold leading-tight text-white">Новая установка</div>
-              <div className="text-[7px] md:text-[8px] leading-tight text-white/50">только что • Instagram Ads</div>
+              <div className="text-[8px] md:text-[10px] font-semibold leading-tight text-white">Покупка передана</div>
+              <div className="text-[7px] md:text-[8px] leading-tight text-white/50">Meta получила событие</div>
             </div>
           </div>
         </motion.div>
@@ -125,16 +124,16 @@ function PhoneScreen({ inView }: { inView: boolean }) {
           <Rocket className="h-3.5 w-3.5 md:h-4 md:w-4 text-white" />
         </div>
         <div className="min-w-0">
-          <div className="text-[10px] md:text-xs font-semibold text-white leading-tight">Whale App</div>
-          <div className="text-[8px] md:text-[10px] text-white/45 leading-tight">Growth dashboard</div>
+          <div className="text-[10px] md:text-xs font-semibold text-white leading-tight">Целевые действия</div>
+          <div className="text-[8px] md:text-[10px] text-white/45 leading-tight">покупки и подписки</div>
         </div>
       </div>
 
       {/* График роста */}
       <div className="rounded-xl border border-white/10 bg-white/[0.05] p-2.5 md:p-3">
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[8px] md:text-[10px] uppercase tracking-wider text-white/40">Установки</span>
-          <span className="text-[9px] md:text-[11px] font-semibold text-primary">+12%</span>
+          <span className="text-[8px] md:text-[10px] uppercase tracking-wider text-white/40">Данные для Meta</span>
+          <span className="text-[9px] md:text-[11px] font-semibold text-primary">передаются</span>
         </div>
         <svg className="h-10 md:h-14 w-full" viewBox="0 0 100 48" preserveAspectRatio="none">
           <motion.path
@@ -170,22 +169,22 @@ function PhoneScreen({ inView }: { inView: boolean }) {
       {/* Метрики */}
       <div className="space-y-1.5 md:space-y-2">
         <div className="flex items-center gap-2 rounded-lg md:rounded-xl border border-white/10 bg-white/[0.05] px-2 py-1.5 md:px-2.5 md:py-2">
-          <Download className="h-3 w-3 md:h-3.5 md:w-3.5 shrink-0 text-primary" />
-          <span className="flex-1 truncate text-[9px] md:text-[11px] text-white/70">Установки сегодня</span>
-          <span className="text-[9px] md:text-[11px] font-semibold text-white">1 284</span>
+          <Users className="h-3 w-3 md:h-3.5 md:w-3.5 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1 truncate text-[9px] md:text-[11px] text-white/70">Заказ</span>
+          <span className="shrink-0 text-[8px] md:text-[10px] font-semibold text-white">получен</span>
         </div>
         <div className="flex items-center gap-2 rounded-lg md:rounded-xl border border-white/10 bg-white/[0.05] px-2 py-1.5 md:px-2.5 md:py-2">
           <CreditCard className="h-3 w-3 md:h-3.5 md:w-3.5 shrink-0 text-accent" />
-          <span className="flex-1 truncate text-[9px] md:text-[11px] text-white/70">Подписки</span>
-          <span className="text-[9px] md:text-[11px] font-semibold text-white">241</span>
+          <span className="min-w-0 flex-1 truncate text-[9px] md:text-[11px] text-white/70">Подписка</span>
+          <span className="shrink-0 text-[8px] md:text-[10px] font-semibold text-white">получена</span>
         </div>
       </div>
 
       {/* CTA + таб-бар + home-индикатор */}
       <div className="mt-auto space-y-1.5 md:space-y-2">
         <div className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-accent py-1.5 md:py-2.5 shadow-lg shadow-primary/30">
-          <Download className="h-3 w-3 md:h-3.5 md:w-3.5 text-white" />
-          <span className="text-[10px] md:text-xs font-semibold text-white">Установить</span>
+          <CheckCircle2 className="h-3 w-3 md:h-3.5 md:w-3.5 text-white" />
+          <span className="text-[10px] md:text-xs font-semibold text-white">События передаются</span>
         </div>
         <div className="flex items-center justify-around rounded-xl md:rounded-2xl border border-white/10 bg-white/[0.05] px-1 py-1.5 md:py-2">
           <div className="flex flex-col items-center gap-0.5">
@@ -249,6 +248,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
   return (
     <motion.div
       ref={containerRef}
+      aria-hidden="true"
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
@@ -420,7 +420,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
         </motion.div>
       </motion.div>
 
-      {/* Карточка: Установки */}
+      {/* Карточка: событие верхнего уровня */}
       <motion.div
         className="absolute top-4 left-0 md:top-10 md:left-2 z-10 w-32 sm:w-40 md:w-48"
         style={{ x: cardAX, y: cardAY }}
@@ -435,16 +435,16 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
             <div className="relative z-10 mb-2 flex items-start justify-between md:mb-3">
               <div>
                 <div className="mb-0.5 text-[9px] md:text-[11px] font-medium uppercase tracking-wider text-white/50">
-                  Установки
+                  Acquisition
                 </div>
-                <div className="text-[10px] md:text-sm leading-tight text-white/40">от $0.3</div>
+                <div className="text-[10px] md:text-sm leading-tight text-white/40">new user</div>
               </div>
               <div className="flex h-7 w-7 md:h-9 md:w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10">
                 <Download className="h-3 w-3 md:h-4 md:w-4 text-primary" />
               </div>
             </div>
             <div className="relative z-10 mb-2 text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold tracking-[-0.02em] text-primary md:mb-3">
-              80 000+
+              Install
             </div>
             <motion.div
               className="relative z-10 h-0.5 md:h-1 overflow-hidden rounded-full bg-white/15"
@@ -465,7 +465,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
         </motion.div>
       </motion.div>
 
-      {/* Карточка: ROAS */}
+      {/* Карточка: цель оптимизации */}
       <motion.div
         className="absolute top-0 right-0 md:top-4 md:right-2 z-10 w-28 sm:w-36 md:w-40"
         style={{ x: cardBX, y: cardBY }}
@@ -480,16 +480,16 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
             <div className="relative z-10 mb-1.5 flex items-start justify-between md:mb-2">
               <div>
                 <div className="mb-0.5 text-[9px] md:text-[11px] font-medium uppercase tracking-wider text-white/50">
-                  ROAS
+                  Conversion
                 </div>
-                <div className="text-[10px] md:text-sm leading-tight text-white/40">в среднем</div>
+                <div className="text-[10px] md:text-sm leading-tight text-white/40">revenue event</div>
               </div>
               <div className="flex h-7 w-7 md:h-9 md:w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10">
                 <BarChart3 className="h-3 w-3 md:h-4 md:w-4 text-accent" />
               </div>
             </div>
-            <div className="relative z-10 mb-1.5 text-xl sm:text-3xl md:text-4xl font-semibold md:font-bold leading-none tracking-[-0.03em] text-accent md:mb-2">
-              165%
+            <div className="relative z-10 mb-1.5 break-words text-[15px] sm:text-xl md:text-2xl font-semibold md:font-bold leading-none tracking-[-0.02em] text-accent md:mb-2">
+              Purchase
             </div>
             <div className="relative z-10">
               <Sparkline inView={inView} />
@@ -498,7 +498,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
         </motion.div>
       </motion.div>
 
-      {/* Карточка: конверсия в оплату */}
+      {/* Карточка: событие подписки */}
       <motion.div
         className="absolute bottom-10 left-0 md:bottom-14 md:left-4 z-10 w-32 sm:w-40 md:w-44"
         style={{ x: cardCX, y: cardCY }}
@@ -513,16 +513,16 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
             <div className="relative z-10 mb-1.5 flex items-start justify-between md:mb-2">
               <div>
                 <div className="mb-0.5 text-[9px] md:text-[11px] font-medium uppercase tracking-wider text-white/50">
-                  В оплату
+                  Monetization
                 </div>
-                <div className="text-[10px] md:text-sm leading-tight text-white/40">из триала</div>
+                <div className="text-[10px] md:text-sm leading-tight text-white/40">after trial</div>
               </div>
               <div className="flex h-7 w-7 md:h-9 md:w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10">
                 <Users className="h-3 w-3 md:h-4 md:w-4 text-secondary" />
               </div>
             </div>
-            <div className="relative z-10 mb-1.5 text-xl sm:text-3xl md:text-4xl font-semibold md:font-bold leading-none tracking-[-0.03em] text-secondary md:mb-2">
-              19%
+            <div className="relative z-10 mb-1.5 break-words text-[14px] sm:text-xl md:text-2xl font-semibold md:font-bold leading-none tracking-[-0.02em] text-secondary md:mb-2">
+              Subscription
             </div>
             <div className="relative z-10 flex items-end gap-1 md:gap-1.5 h-4 md:h-5">
               {[45, 60, 78, 66, 90].map((h, i) => (
@@ -540,7 +540,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
         </motion.div>
       </motion.div>
 
-      {/* Стеклянные чипы сторов с рейтингами */}
+      {/* Стеклянные чипы платформ без вымышленных рейтингов */}
       <motion.div
         className="absolute bottom-2 right-0 md:bottom-6 md:right-3 z-10 flex flex-col gap-2"
         style={{ x: cardDX, y: cardDY }}
@@ -555,10 +555,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
               <Apple className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0 text-white" />
               <div>
                 <div className="text-[8px] md:text-[9px] leading-none text-white/50">App Store</div>
-                <div className="mt-0.5 flex items-center gap-1 text-[10px] md:text-xs font-semibold leading-none text-white">
-                  4.8
-                  <Star className="h-2.5 w-2.5 md:h-3 md:w-3 fill-amber-300 text-amber-300" />
-                </div>
+                <div className="mt-0.5 text-[10px] md:text-xs font-semibold leading-none text-white">iOS</div>
               </div>
             </div>
           </GlassCard>
@@ -573,10 +570,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
               <Play className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0 fill-white/90 text-white" />
               <div>
                 <div className="text-[8px] md:text-[9px] leading-none text-white/50">Google Play</div>
-                <div className="mt-0.5 flex items-center gap-1 text-[10px] md:text-xs font-semibold leading-none text-white">
-                  4.7
-                  <Star className="h-2.5 w-2.5 md:h-3 md:w-3 fill-amber-300 text-amber-300" />
-                </div>
+                <div className="mt-0.5 text-[10px] md:text-xs font-semibold leading-none text-white">Android</div>
               </div>
             </div>
           </GlassCard>

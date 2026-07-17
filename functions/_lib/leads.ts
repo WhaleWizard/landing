@@ -83,6 +83,8 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     const hasDedupe = cols.has('submissions_count') && cols.has('last_submitted_at'); // 0009
     const hasMetaContext = cols.has('marketing_consent'); // 0010
     const hasUtm = cols.has('utm_source'); // 0011
+    const hasQuality = cols.has('quality'); // 0009
+    const hasPipelineStage = cols.has('pipeline_stage'); // 0012
 
     let existing: { id: number; submissions_count: number; message: string } | null = null;
     const keys = contactKeys(lead.email, lead.phone, lead.telegramUsername);
@@ -155,6 +157,16 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
           lead.external_id || '', lead.external_id || '',
           lead.marketing_consent === true ? 1 : 0,
         );
+      }
+      if (hasQuality) {
+        // Новая отправка формы — новый Lead event_id и новое решение по качеству.
+        // Старую метку нельзя автоматически переносить на следующую заявку.
+        set.push("quality = ''");
+      }
+      if (hasPipelineStage) {
+        // Повторная заявка снова требует ответа. Legacy status и CRM-этап
+        // сбрасываются в одном UPDATE, чтобы два представления не расходились.
+        set.push("pipeline_stage = 'new'");
       }
       if (hasUtm) {
         // Повторная заявка = новый источник: обновляем метки, если они пришли

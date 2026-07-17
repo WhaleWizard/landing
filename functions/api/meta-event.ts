@@ -3,7 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { fetchMetaWithRetry, isTrustedTrackingRequest } from '../_lib/meta-capi';
+import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
@@ -567,14 +567,21 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] ${payload.event_name} event failed with HTTP ${response.status}: ${errorText}`);
     } else {
-      const result = await response.json().catch(() => null) as { fbtrace_id?: string; events_received?: number } | null;
-      await markMetaEventSent(env, payload.event_name, payload.event_id);
-      await markOutboxSent(env, outboxId);
-      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
-      console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
-        fbtrace_id: result?.fbtrace_id,
-        events_received: result?.events_received,
-      });
+      const result = await response.json().catch(() => null) as MetaApiReceipt | null;
+      if (!isConfirmedMetaReceipt(result)) {
+        const message = `Meta 2xx without events_received confirmation: ${JSON.stringify(result).slice(0, 300)}`;
+        await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
+        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        console.error(`[Meta CAPI] ${payload.event_name} returned no delivery confirmation`, result);
+      } else {
+        await markMetaEventSent(env, payload.event_name, payload.event_id);
+        await markOutboxSent(env, outboxId);
+        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result.events_received, fbtrace_id: result.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
+          fbtrace_id: result.fbtrace_id,
+          events_received: result.events_received,
+        });
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

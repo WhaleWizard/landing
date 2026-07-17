@@ -68,13 +68,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       SELECT
         event_name,
         COUNT(*) AS total,
-        SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
+        SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
         SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped,
         SUM(CASE WHEN has_fbc = 1 THEN 1 ELSE 0 END) AS with_fbc,
         SUM(CASE WHEN marketing_consent = 1 THEN 1 ELSE 0 END) AS with_marketing_consent
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
+        AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
       GROUP BY event_name
     `).bind(since).all<SummaryRow>();
 

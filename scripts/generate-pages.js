@@ -343,7 +343,7 @@ function buildOrganizationJsonLd() {
     url: SITE_URL,
     logo: `${SITE_URL}/og-image.jpg`,
     image: `${SITE_URL}/og-image.jpg`,
-    description: 'Performance-маркетинг: настройка и масштабирование рекламы в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
+    description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи.',
     email: 'whalewzrd@gmail.com',
     areaServed: ['RU', 'US', 'AE', 'TR', 'EU'],
     serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],
@@ -374,7 +374,10 @@ function buildFaqJsonLd(faqs = []) {
     mainEntity: faqs.map((f) => ({
       '@type': 'Question',
       name: f.question,
-      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: [f.answer, ...(f.details || [])].filter(Boolean).join(' '),
+      },
     })),
   };
 }
@@ -668,7 +671,9 @@ function renderGlossaryListHtml(terms = []) {
         <div style="${contentStyles.cardBox}">
           <h3 style="${contentStyles.heading3}">${escapeHtml(t.term)}${t.abbreviation ? ` (${escapeHtml(t.abbreviation)})` : ''} <span style="font-weight:400;${contentStyles.muted}">· ${escapeHtml(t.channel)}</span></h3>
           <p style="${contentStyles.body}">${escapeHtml(t.definition)}</p>
+          ${t.simple ? `<p style="margin-top:6px;${contentStyles.body}"><strong>Просто:</strong> ${escapeHtml(t.simple)}</p>` : ''}
           ${t.formula ? `<p style="margin-top:6px;${contentStyles.muted}"><code>${escapeHtml(t.formula)}</code></p>` : ''}
+          ${t.seoHint ? `<p style="margin-top:6px;${contentStyles.muted}"><strong>Практика:</strong> ${escapeHtml(t.seoHint)}</p>` : ''}
         </div>`,
     )
     .join('')}</div>`;
@@ -687,7 +692,7 @@ function renderServicePageSections(config) {
     },
     { heading: config.cta.title, bodyHtml: `<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>` },
     {
-      heading: 'Оставить заявку',
+      heading: 'Обсудить задачу',
       bodyHtml: `<p style="${contentStyles.body};margin-bottom:10px">${escapeHtml(config.contact.description)}</p><ul style="margin:0;padding-left:20px;${contentStyles.body}">${config.contact.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`,
     },
   ];
@@ -725,13 +730,27 @@ function renderLegalSection(reactComponent) {
 }
 
 function renderStaticPages(baseHtml, { content, latestArticles }) {
+  const serviceStaticPage = (service) => {
+    const config = content.pageConfigs[service];
+    if (!config) throw new Error(`Missing page config for ${service}`);
+
+    return {
+      route: `/${service}`,
+      title: `${config.seo.title} | Whale Wizard`,
+      description: config.seo.description,
+      h1: `${String(config.hero.titlePrefix)} ${String(config.hero.titleAccent)}`,
+      lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
+      sections: renderServicePageSections(config),
+    };
+  };
+
   const staticPages = [
     {
       route: '/',
-      title: 'Whale Wizard | Performance-таргетолог',
-      description: 'Настраиваю рекламу в Google Ads и Meta Ads, которая приводит заявки и продажи. $2M+ рекламного бюджета, 500 000+ лидов, средняя окупаемость — 240%. Бесплатный аудит и стратегия.',
-      h1: 'Performance-таргетолог',
-      lead: 'Настраиваю и масштабирую рекламу в Google Ads и Meta Ads с фокусом на заявки, продажи и окупаемость.',
+      title: 'Whale Wizard — Google Ads, Meta Ads и аналитика',
+      description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
+      h1: 'Google Ads и Meta Ads с опорой на продажи и аналитику',
+      lead: content.defaultHeroContent.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderHomeSections(
         { hero: content.defaultHeroContent, services: content.defaultServicesContent, cases: content.defaultCasesContent, testimonials: content.testimonialsData },
         latestArticles,
@@ -739,65 +758,37 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     },
     {
       route: '/calculator',
-      title: 'Калькулятор рекламы | Whale Wizard',
-      description: 'Калькулятор бюджета и стоимости рекламных работ.',
-      h1: 'Калькулятор рекламы',
-      lead: 'Оценка бюджета и стоимости работ.',
+      title: 'Стоимость ведения Google Ads и Meta Ads — расчёт | Whale Wizard',
+      description: 'Предварительная оценка стоимости ведения Google Ads и Meta Ads с учётом площадок, рекламного бюджета и основной задачи проекта.',
+      h1: 'Оценка стоимости ведения рекламы',
+      lead: 'Укажите площадки, рекламный бюджет и задачу проекта. Расчёт даст ориентир, а точная стоимость зависит от аналитики, структуры аккаунта и объёма работ.',
     },
     {
       route: '/roi-calculator',
       title: 'Калькулятор ROAS и ROMI | Whale Wizard',
-      description: 'Расчёт окупаемости рекламы по ключевым метрикам.',
+      description: 'Расчёт ROAS по выручке и ROMI по валовой прибыли на основе рекламного бюджета, среднего чека, маржи и числа оплаченных заказов.',
       h1: 'Калькулятор ROAS и ROMI',
-      lead: 'Прогноз окупаемости рекламных кампаний и unit-экономики.',
+      lead: 'Введите свои данные, чтобы отдельно увидеть отдачу по выручке и по валовой прибыли. Расчёт не учитывает операционные расходы и комиссии.',
     },
-    {
-      route: '/meta-ads',
-      title: 'Платный трафик из Meta Ads (Facebook/Instagram) | Whale Wizard',
-      description: 'Стабильные заявки из Facebook и Instagram без слива бюджета. Настрою Meta Ads по системе: оффер, креативы, Pixel, CAPI и оптимизация лидов.',
-      h1: 'Платный трафик из Meta Ads',
-      lead: 'Уникальная страница услуги Meta Ads: Facebook/Instagram, креативы, Pixel/CAPI, ретаргетинг и заявка на аудит Meta Ads.',
-      sections: renderServicePageSections(content.pageConfigs['meta-ads']),
-    },
-    {
-      route: '/google-ads',
-      title: 'Контекстная реклама Google Ads | Whale Wizard',
-      description: 'Настрою Google Ads, который приносит клиентов из горячего спроса. Search, Shopping, Performance Max, YouTube, аналитика и оптимизация CPA/ROAS.',
-      h1: 'Контекстная реклама Google Ads',
-      lead: 'Уникальная страница услуги Google Ads: Search, Shopping, Performance Max, аналитика, оптимизация CPA/ROAS и заявка на аудит.',
-      sections: renderServicePageSections(content.pageConfigs['google-ads']),
-    },
-    {
-      route: '/consult',
-      title: 'Консультация для таргетологов | Whale Wizard',
-      description: 'Личная консультация для таргетологов: позиционирование, упаковка услуг, поиск клиентов, оффер, продажи и план роста дохода.',
-      h1: 'Консультация для таргетологов',
-      lead: 'Уникальная страница консультации: упаковка специалиста, поиск клиентов, продажи и заявка на личный разбор.',
-      sections: renderServicePageSections(content.pageConfigs['consult']),
-    },
-    {
-      route: '/meta-apps',
-      title: 'Трафик для приложений из Meta Ads (Facebook/Instagram) | Whale Wizard',
-      description: 'Привлекаю установки и целевые события в приложениях через Meta Ads: App Events, MMP/SKAN, креативы и масштабирование.',
-      h1: 'Трафик для приложений из Meta Ads',
-      lead: 'Уникальная страница app growth: установки, app events, MMP/SKAN, mobile-креативы и масштабирование по KPI приложения.',
-      sections: renderServicePageSections(content.pageConfigs['meta-apps']),
-    },
+    serviceStaticPage('meta-ads'),
+    serviceStaticPage('google-ads'),
+    serviceStaticPage('consult'),
+    serviceStaticPage('meta-apps'),
     {
       route: '/faq',
-      title: 'FAQ по рекламе | Whale Wizard',
-      description: 'Ответы по бюджетам, срокам, аналитике и масштабированию.',
-      h1: 'FAQ по рекламе',
-      lead: 'Практические ответы по Google Ads, Meta Ads, GEO и AEO.',
+      title: 'Вопросы о рекламе, аналитике и продвижении приложений | Whale Wizard',
+      description: 'Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений.',
+      h1: 'Ответы на вопросы о рекламе и аналитике',
+      lead: 'Без универсальных обещаний: что нужно для старта, как оценивается результат и от чего зависят сроки и стоимость.',
       sections: [{ heading: null, bodyHtml: renderFaqListHtml(content.faqs) }],
       extraJsonLd: [buildFaqJsonLd(content.faqs)],
     },
     {
       route: '/marketing-glossary',
-      title: 'Словарь маркетинговых метрик | Whale Wizard',
-      description: 'Справочник терминов по SEO, AEO, GEO, аналитике и рекламе.',
-      h1: 'Словарь маркетинговых метрик',
-      lead: 'База терминов с простыми объяснениями и формулами.',
+      title: 'Словарь рекламных и маркетинговых метрик | Whale Wizard',
+      description: 'Понятные определения метрик рекламы, аналитики, CRM и SEO: что означает показатель, как считается и когда полезен.',
+      h1: 'Метрики без лишнего жаргона',
+      lead: 'Найдите нужный термин, посмотрите формулу и разберитесь, для какого решения показатель действительно полезен.',
       sections: [{ heading: null, bodyHtml: renderGlossaryListHtml(content.marketingGlossary) }],
     },
     {
@@ -936,10 +927,10 @@ function renderBlogPages(articles, baseHtml) {
   renderArticleListPage({
     articles: blogArticles,
     route: '/blog',
-    title: 'Блог | Whale Wizard',
-    description: 'Статьи про маркетинг, рекламу и аналитику.',
-    h1: 'Блог',
-    lead: 'Статьи про маркетинг, рекламу и аналитику.',
+    title: 'Блог о рекламе и аналитике | Whale Wizard',
+    description: 'Практические материалы о Google Ads, Meta Ads, аналитике и экономике рекламы.',
+    h1: 'Практика рекламы и аналитики',
+    lead: 'Разборы настройки, измерения и решений по данным — без пересказа справки рекламных кабинетов.',
     eyebrow: 'Материалы Whale Wizard',
     emptyText: 'Статьи скоро появятся.',
   }, baseHtml);
@@ -947,10 +938,10 @@ function renderBlogPages(articles, baseHtml) {
   renderArticleListPage({
     articles: caseArticles,
     route: '/cases',
-    title: 'Кейсы по маркетингу | Whale Wizard',
-    description: 'Практические кейсы с результатами, метриками и выводами.',
-    h1: 'Кейсы с результатами',
-    lead: 'Реальные проекты: гипотезы, внедрения, цифры и выводы по росту.',
+    title: 'Кейсы рекламных проектов — задачи, решения и результаты | Whale Wizard',
+    description: 'Опубликованные проекты Whale Wizard: исходная задача, рекламные каналы, бюджет, ключевые метрики и логика решений.',
+    h1: 'Проекты с цифрами и контекстом',
+    lead: 'Фильтруйте по нише и каналу. В карточках указаны только опубликованные показатели проекта.',
     eyebrow: 'Кейсы Whale Wizard',
     emptyText: 'Кейсы скоро появятся.',
   }, baseHtml);
@@ -1009,7 +1000,7 @@ function validateGeneratedOutput() {
   ], 'Generated home HTML');
 
   assertFileContains(routeIndexPath('/meta-apps'), [
-    'Трафик для приложений из Meta Ads',
+    'Продвигаю приложения в Meta Ads',
     `${SITE_URL}/meta-apps/`,
   ], 'Generated /meta-apps HTML');
 
@@ -1020,7 +1011,7 @@ function validateGeneratedOutput() {
 
   assertFileContains(routeIndexPath('/cases'), [
     `${SITE_URL}/cases/`,
-    'Практические кейсы',
+    'Проекты с цифрами и контекстом',
   ], 'Generated /cases HTML');
 
   assertFileContains(routeIndexPath('/thank-you'), [

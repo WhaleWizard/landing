@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, TrendingUp, Users, FileText, Activity } from 'lucide-react';
 import { useArticles } from '../../context/ArticlesContext';
+import { AdminButton, AdminMeta, AdminPanel, AdminSectionHeading } from './AdminUI';
 
 interface DayPoint { day: string; views?: number; uniques?: number }
 
@@ -60,14 +61,14 @@ function StatCard({ icon, label, value, delta, spark, sparkColor }: {
   spark?: number[]; sparkColor?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-4">
-      <div className="flex items-center gap-2 text-xs text-[var(--adm-fg)]/60">{icon}{label}</div>
-      <div className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
+    <AdminPanel className="admin-panel--interactive admin-stat-card p-4">
+      <div className="admin-stat-label flex items-center gap-2 text-sm">{icon}{label}</div>
+      <div className="admin-stat-value mt-1.5 tabular-nums">{value}</div>
       {delta && (
-        <div className={`mt-0.5 text-xs ${delta.positive ? 'text-green-500' : 'text-[var(--adm-danger)]'}`}>{delta.text}</div>
+        <AdminMeta className={`mt-0.5 block ${delta.positive ? 'admin-status-success' : 'admin-status-danger'}`}>{delta.text}</AdminMeta>
       )}
       {spark && <Sparkline values={spark} stroke={sparkColor || 'var(--adm-primary)'} />}
-    </div>
+    </AdminPanel>
   );
 }
 
@@ -113,35 +114,36 @@ export default function AdminDashboard({ password }: { password: string }) {
   const viewsSeries = useMemo(() => buildSeries(stats?.viewsDaily || [], 'views'), [stats]);
   const uniquesSeries = useMemo(() => buildSeries(stats?.uniquesDaily || [], 'uniques'), [stats]);
 
-  if (loading) return <div className="p-6 text-sm text-[var(--adm-fg)]/60">Загрузка статистики…</div>;
+  if (loading) return <div className="p-6 text-sm text-[var(--adm-fg)]/60" role="status">Загрузка статистики…</div>;
 
   if (error || !stats) {
     return (
-      <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-6 space-y-3">
+      <AdminPanel className="p-6 space-y-3" role="alert">
         <p className="text-sm text-[var(--adm-fg)]/75">{error || 'Статистика недоступна'}</p>
-        <p className="text-xs text-[var(--adm-fg)]/55">
+        <p className="admin-meta">
           Дашборд работает на продакшене после применения миграции 0008 (см. docs/ADMIN_SETUP_V2.md).
           В локальной разработке базы D1 нет — это нормально.
         </p>
-        <button onClick={() => void load()} className="inline-flex items-center gap-2 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs hover:bg-[var(--adm-muted)]/50">
+        <AdminButton onClick={() => void load()} compact>
           <RefreshCw className="h-3.5 w-3.5" /> Повторить
-        </button>
-      </div>
+        </AdminButton>
+      </AdminPanel>
     );
   }
 
   const capiOk = stats.capi.failed24h === 0 && stats.capi.outboxPending === 0;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">Дашборд · последние 7 дней</h2>
-        <button onClick={() => void load()} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50">
+    <div className="admin-stack">
+      <AdminSectionHeading
+        title="Дашборд"
+        description="Ключевые показатели за последние 7 дней"
+        action={<AdminButton onClick={() => void load()} compact aria-label="Обновить статистику">
           <RefreshCw className="h-3.5 w-3.5" /> Обновить
-        </button>
-      </div>
+        </AdminButton>}
+      />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Users className="h-3.5 w-3.5" />}
           label="Уникальные посетители"
@@ -175,40 +177,40 @@ export default function AdminDashboard({ password }: { password: string }) {
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--adm-fg)]/55">Топ страниц за 7 дней</h3>
+        <AdminPanel className="p-4 sm:p-5">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--adm-fg)]/85">Топ страниц за 7 дней</h3>
           {stats.topPages.length === 0 && <p className="text-sm text-[var(--adm-fg)]/60">Пока нет данных — статистика начнёт собираться после деплоя.</p>}
           <div className="space-y-1">
             {stats.topPages.map((page) => (
-              <div key={page.page_path} className="flex items-center justify-between gap-3 border-t border-[var(--adm-border)]/50 py-1.5 text-sm first:border-t-0">
+              <div key={page.page_path} className="admin-list-row flex items-center justify-between gap-3 border-t py-2 text-sm first:border-t-0">
                 <span className="min-w-0 truncate" title={page.page_path}>{pageTitle(page.page_path)}</span>
                 <span className="shrink-0 tabular-nums text-[var(--adm-fg)]/60">{page.views.toLocaleString('ru-RU')}</span>
               </div>
             ))}
           </div>
-        </div>
+        </AdminPanel>
 
-        <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--adm-fg)]/55">Последние заявки</h3>
+        <AdminPanel className="p-4 sm:p-5">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--adm-fg)]/85">Последние заявки</h3>
           {stats.recentLeads.length === 0 && <p className="text-sm text-[var(--adm-fg)]/60">Заявок пока нет.</p>}
           <div className="space-y-1">
             {stats.recentLeads.map((lead) => {
               const status = LEAD_STATUS_LABELS[lead.status] || LEAD_STATUS_LABELS.new;
               return (
-                <div key={lead.id} className="flex items-center justify-between gap-3 border-t border-[var(--adm-border)]/50 py-1.5 text-sm first:border-t-0">
+                <div key={lead.id} className="admin-list-row flex items-center justify-between gap-3 border-t py-2 text-sm first:border-t-0">
                   <span className="min-w-0 truncate">
                     {lead.name || 'Без имени'}
                     <span className="text-[var(--adm-fg)]/50">{lead.service ? ` · ${lead.service}` : ''}{lead.budget ? ` · ${lead.budget}` : ''}</span>
                   </span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${status.className}`}>{status.label}</span>
+                  <span className={`admin-state shrink-0 ${status.className}`}>{status.label}</span>
                 </div>
               );
             })}
           </div>
-        </div>
+        </AdminPanel>
       </div>
 
-      <p className="text-xs text-[var(--adm-fg)]/45">
+      <p className="admin-meta">
         Уникальные посетители считаются по обезличенному отпечатку дня (без cookies), личные данные не сохраняются.
       </p>
     </div>

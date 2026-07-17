@@ -39,10 +39,10 @@ export default function MarketingGlossaryPage() {
   const visibleTerms = filteredTerms.slice(0, visibleCount);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="marketing-typography min-h-screen bg-background text-foreground">
       <SEO
-        title="Словарь маркетинговых метрик (600+)"
-        description="Большой словарь маркетинговых метрик: Google Ads, Meta Ads, SEO, AEO, GEO, аналитика и CRM. Поиск по терминам, простые объяснения и формулы."
+        title="Словарь рекламных и маркетинговых метрик"
+        description="Понятные определения метрик рекламы, аналитики, CRM и SEO: что означает показатель, как считается и когда полезен."
         url="/marketing-glossary"
       />
 
@@ -55,12 +55,12 @@ export default function MarketingGlossaryPage() {
             transition={{ duration: 0.5 }}
             className="max-w-4xl"
           >
-            <p className="text-primary font-medium mb-3">Маркетинговый FAQ-словарь</p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              Полный словарь метрик для <span className="text-primary">Google Ads, SEO, AEO, GEO, Meta Ads</span>
+            <p className="text-primary font-medium mb-3">Справочник по рекламе и аналитике</p>
+            <h1 className="text-balance text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
+              Метрики <span className="text-primary">без лишнего жаргона</span>
             </h1>
-            <p className="text-muted-foreground text-base md:text-lg max-w-3xl">
-              Страница сделана как база знаний: быстро найти термин, понять его простыми словами и увидеть, как метрика влияет на деньги.
+            <p className="max-w-3xl text-pretty text-base text-muted-foreground md:text-lg">
+              Найдите нужный термин, посмотрите формулу и разберитесь, для какого решения показатель действительно полезен.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8">
@@ -69,7 +69,7 @@ export default function MarketingGlossaryPage() {
                 <p className="text-2xl font-semibold">{glossaryStats.totalTerms}</p>
               </div>
               <div className="rounded-xl border border-border bg-background/70 p-4">
-                <p className="text-sm text-muted-foreground">Каналов</p>
+                <p className="text-sm text-muted-foreground">Разделов</p>
                 <p className="text-2xl font-semibold">{glossaryStats.channels}</p>
               </div>
               <div className="rounded-xl border border-border bg-background/70 p-4">
@@ -92,7 +92,7 @@ export default function MarketingGlossaryPage() {
                   setQuery(event.target.value);
                   setVisibleCount(INITIAL_VISIBLE);
                 }}
-                placeholder="Поиск: CTR, CAC, AI Citation Rate, локальное SEO..."
+                placeholder="Например: CTR, CAC, ROAS или конверсия"
                 className="pl-9"
               />
             </div>
@@ -100,7 +100,7 @@ export default function MarketingGlossaryPage() {
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
               <div className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
                 <Filter className="w-4 h-4" />
-                Канал
+                Раздел
               </div>
               {channels.map((channel) => (
                 <button
@@ -145,9 +145,9 @@ export default function MarketingGlossaryPage() {
           {visibleTerms.map((item) => (
             <AccordionItem key={item.id} value={item.id}>
               <AccordionTrigger className="py-4 md:py-5">
-                <div className="text-left">
-                  <p className="font-medium text-base md:text-lg">{item.term}</p>
-                  <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                <div className="min-w-0 text-left">
+                  <p className="break-words text-pretty font-medium text-base md:text-lg">{item.term}</p>
+                  <p className="mt-1 break-words text-pretty text-xs text-muted-foreground md:text-sm">
                     {item.channel} • {item.category} {item.abbreviation ? `• ${item.abbreviation}` : ''}
                   </p>
                 </div>
@@ -185,18 +185,18 @@ export default function MarketingGlossaryPage() {
             <div>
               <p className="text-primary font-medium mb-1 inline-flex items-center gap-2">
                 <BookOpenText className="w-4 h-4" />
-                SEO • AEO • GEO-ready
+                Метрики под задачу
               </p>
-              <h2 className="text-2xl font-semibold">Нужен разбор метрик под ваш бизнес?</h2>
-              <p className="text-muted-foreground mt-2">
-                Получите аудит воронки: где теряются деньги, какие метрики важны именно для вашей ниши и как ускорить рост.
+              <h2 className="text-balance text-2xl font-semibold">Неясно, какие показатели смотреть?</h2>
+              <p className="mt-2 max-w-2xl text-pretty text-muted-foreground">
+                Разберём путь от рекламного расхода до продажи и выберем метрики, по которым можно принимать решения.
               </p>
             </div>
             <Button
               onClick={() => navigate('/#contact')}
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
             >
-              Связаться
+              Обсудить задачу
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>

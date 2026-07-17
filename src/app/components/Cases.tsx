@@ -26,32 +26,32 @@ const casesData: CaseItem[] = [
   {
     title: 'Premium Concierge Service',
     category: 'Meta Ads',
-    description: 'Привлечение исключительно квалифицированных лидов для премиум-консьерж сервиса с высокой конверсией в общение.',
+    description: 'Лидогенерация для премиум-сервиса: 65 000+ лидов за четыре года при рекламном бюджете $1 млн+.',
     image: '/images/case-concierge.jpg',
     stats: [
-      { label: 'Срок работы', value: '4 года' },
+      { label: 'Срок', value: '4 года' },
       { label: 'Лиды', value: '65к+' },
-      { label: 'Ad Spend', value: '$1 Млн+' },
+      { label: 'Бюджет', value: '$1 млн+' },
     ],
   },
   {
     title: 'E-commerce',
     category: 'Google Ads + Meta Ads',
-    description: 'Продвижение товаров в уникальной связке Google Ads + Shopping Ads + Meta Ads',
+    description: 'Google Ads, Shopping и Meta Ads для интернет-магазина полного цикла.',
     image: '/images/case-ecommerce.jpg',
     stats: [
-      { label: 'Add to cart', value: '120.000+' },
-      { label: 'Покупки', value: '30.000+' },
+      { label: 'В корзину', value: '120 000+' },
+      { label: 'Покупки', value: '30 000+' },
       { label: 'ROI', value: '210%' },
     ],
   },
   {
     title: 'Инфобизнес',
     category: 'Google Ads + Meta Ads',
-    description: 'Продвигал инфопродукты на русскоязычную аудиторию по всему миру',
+    description: 'Продвижение инфопродуктов на русскоязычную аудиторию в нескольких странах.',
     image: '/images/case-infobusiness.jpg',
     stats: [
-      { label: 'Ad Spend', value: '$600к +' },
+      { label: 'Бюджет', value: '$600к+' },
       { label: 'CPL', value: 'до $5' },
       { label: 'ROI', value: '180%' },
     ],
@@ -59,7 +59,7 @@ const casesData: CaseItem[] = [
   {
     title: 'B2C услуги',
     category: 'Google Ads + Meta Ads',
-    description: 'Уникальные стратегии продвижения для вашего бизнеса',
+    description: '50+ проектов в сфере услуг: от локального спроса до масштабирования рабочих кампаний.',
     image: '/images/case-b2c.jpg',
     stats: [
       { label: 'Проектов', value: '50+' },
@@ -91,10 +91,10 @@ const useMobile = () => {
 };
 
 export const defaultCasesContent: CasesContent = {
-  badge: 'Результат моей работы',
-  titlePrefix: 'Кейсы с',
-  titleAccent: 'наилучшей результативностью',
-  description: 'Конкретные результаты, подтверждённые цифрами и аналитикой. Больше кейсов и подробный разбор можете найти в блоге или в соц. сетях',
+  badge: 'Проекты и результаты',
+  titlePrefix: 'Кейсы',
+  titleAccent: 'с цифрами и решениями',
+  description: 'Что запускали, какие решения использовали и к какому результату пришли. Подробные разборы собраны на отдельной странице.',
   items: casesData,
 };
 
@@ -120,6 +120,7 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
   }, []);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -214,15 +215,15 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
                   style={{ willChange: 'box-shadow' }}
                 />
                 <div className="absolute top-4 right-4 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center gap-2">
-                  <Target className="w-3 h-3 md:w-4 md:h-4 text-primary" />
+                  <Target className="w-3 h-3 md:w-4 md:h-4 shrink-0 text-primary" />
                   <span className="text-xs md:text-sm text-primary font-semibold">{item.category}</span>
                 </div>
               </div>
 
               <div className="p-5 md:p-6 space-y-4">
                 <h3 className="min-h-[3rem] text-balance text-lg md:text-xl font-bold leading-tight group-hover:text-primary transition-colors flex items-start justify-between gap-3">
-                  {item.title}
-                  <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1" />
+                  <span className="min-w-0">{item.title}</span>
+                  <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 shrink-0 opacity-0 group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1" />
                 </h3>
                 <p className="md:min-h-[4.25rem] text-pretty text-sm md:text-base text-muted-foreground leading-relaxed">
                   {item.description}
@@ -240,8 +241,8 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
                       <div className="absolute top-1 right-1 w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
                         <Sparkles className="w-2 h-2 text-primary" />
                       </div>
-                      <div className="text-xs text-muted-foreground">{stat.label}</div>
-                      <div className="text-sm md:text-base font-bold text-primary">{stat.value}</div>
+                      <div className="min-h-8 break-words [overflow-wrap:anywhere] pr-6 text-pretty text-xs leading-tight text-muted-foreground">{stat.label}</div>
+                      <div className="break-words text-sm md:text-base font-bold leading-tight text-primary">{stat.value}</div>
                     </motion.div>
                   ))}
                 </div>
@@ -284,9 +285,9 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
-                      <div className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-background/90 backdrop-blur-sm border border-primary/30 flex items-center gap-2">
-                        <Target className="w-3 h-3 text-primary" />
-                        <span className="text-xs text-primary font-semibold">{item.category}</span>
+                      <div className="absolute top-3 right-3 flex max-w-[68%] min-w-0 items-center gap-2 rounded-full border border-primary/30 bg-background/90 px-3 py-1.5 backdrop-blur-sm">
+                        <Target className="w-3 h-3 shrink-0 text-primary" />
+                        <span className="min-w-0 text-pretty text-[10px] min-[390px]:text-xs leading-tight text-primary font-semibold">{item.category}</span>
                       </div>
                       <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">
                         <span className="text-xs font-bold text-primary">{index + 1}/{caseItems.length}</span>
@@ -299,11 +300,8 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
                       <div className="grid grid-cols-3 gap-1.5 min-[390px]:gap-2 pt-3 border-t border-border/50">
                         {item.stats.map((stat, idx) => (
                           <div key={idx} className="relative p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 backdrop-blur-sm border border-primary/15 overflow-hidden">
-                            <div className="absolute top-1 right-1 w-3 h-3 rounded bg-primary/30 flex items-center justify-center">
-                              <Sparkles className="w-2 h-2 text-primary" />
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mb-1">{stat.label}</div>
-                            <div className="text-xs min-[390px]:text-sm font-semibold text-primary tracking-[-0.01em]">{stat.value}</div>
+                            <div className="min-h-8 break-words [overflow-wrap:anywhere] text-pretty text-[9px] min-[390px]:text-[10px] leading-tight text-muted-foreground mb-1">{stat.label}</div>
+                            <div className="break-words text-[11px] min-[390px]:text-sm font-semibold leading-tight text-primary tracking-[-0.01em]">{stat.value}</div>
                           </div>
                         ))}
                       </div>
@@ -319,15 +317,19 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
             {caseItems.map((_, index) => (
               <button
                 key={index}
+                type="button"
                 onClick={() => setCurrentIndex(index)}
-                className="relative group"
+                className="relative group inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label={`Показать кейс ${index + 1}: ${caseItems[index].title}`}
+                aria-current={currentIndex === index ? 'true' : undefined}
               >
-                <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                <div aria-hidden="true" className={`w-2 h-2 rounded-full transition-all duration-300 ${
                   currentIndex === index ? 'bg-primary w-8' : 'bg-primary/30'
                 }`} />
                 {currentIndex === index && !isMobile && (
                   <motion.div
-                    className="absolute inset-0 rounded-full bg-primary/50 blur-sm"
+                    aria-hidden="true"
+                    className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
                     animate={inView ? { scale: [1, 1.5, 1] } : {}}
                     transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
                   />
@@ -338,18 +340,22 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
 
           <div className="flex justify-center gap-4 mt-4">
             <button
+              type="button"
               onClick={prevSlide}
-              className="p-2 rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Предыдущий кейс"
             >
-              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <button
+              type="button"
               onClick={nextSlide}
-              className="p-2 rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Следующий кейс"
             >
-              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>

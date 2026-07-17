@@ -4,6 +4,8 @@ export type CountryPhoneOption = {
   label: string;
 };
 
+export const DEFAULT_COUNTRY_PHONE_CODE = 'US';
+
 // Sorted alphabetically by display label.
 // Includes several NANP territories/states-like regions that use distinct area ecosystems under +1.
 export const COUNTRY_PHONE_OPTIONS: CountryPhoneOption[] = [
@@ -81,6 +83,14 @@ export const COUNTRY_PHONE_OPTIONS: CountryPhoneOption[] = [
   { code: 'UZ', dial: '+998', label: '🇺🇿 Uzbekistan (+998)' },
   { code: 'VN', dial: '+84', label: '🇻🇳 Vietnam (+84)' },
 ];
+
+const COUNTRY_PHONE_OPTIONS_BY_CODE = new Map(
+  COUNTRY_PHONE_OPTIONS.map((option) => [option.code, option] as const),
+);
+
+export function getCountryPhoneOption(countryCode: string): CountryPhoneOption | undefined {
+  return COUNTRY_PHONE_OPTIONS_BY_CODE.get(countryCode.trim().toUpperCase());
+}
 
 export const COUNTRY_DIAL_CODES: Record<string, string> = COUNTRY_PHONE_OPTIONS.reduce((acc, item) => {
   acc[item.code] = item.dial;

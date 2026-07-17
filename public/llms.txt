@@ -11,19 +11,19 @@ Contact: Telegram https://t.me/white_rsh · Email whalewzrd@gmail.com
 Whale Wizard is a lead-generation and authority website for a performance marketing specialist focused on:
 - Google Ads (Search, Shopping, Performance Max, YouTube)
 - Meta Ads (Facebook/Instagram acquisition, retargeting, lookalikes)
-- Mobile app growth via Meta Ads (installs → paying users, MMP/SKAN)
+- Mobile app acquisition via Meta Ads, with optimization toward measurable post-install events when the tracking setup and event volume allow it
 - Analytics (GA4, GTM, Yandex Metrika, Meta Pixel/Conversions API, Enhanced Conversions)
-- Conversion optimization and scaling
+- Campaign testing, optimization, and controlled budget scaling
 
 Main goal of the site: convert traffic into consultation requests and qualified leads.
 Secondary goals: demonstrate expertise via cases and a knowledge-hub blog, educate potential clients, pre-qualify prospects by budget and business maturity.
 
 ## 2) Services and offers (one landing page per offer)
 
-- /meta-ads — "Платный трафик из Meta Ads": Facebook/Instagram lead generation. Offer: free audit of ad account, creatives, Pixel/CAPI events; optimization plan for CPL/CPA and lead quality. Proof: 65k+ leads, $1M+ spend, 4-year flagship project.
-- /google-ads — "Контекстная реклама Google Ads": Search, Shopping, Performance Max, YouTube. Offer: free campaign/search-terms/analytics audit, plan to cut wasted budget and improve CPA/ROAS. Proof: 120k+ add-to-carts, 30k+ purchases, 210% ROI in e-commerce.
-- /meta-apps — "Трафик для приложений из Meta Ads": mobile app user acquisition optimized for paying users, not cheap installs (MMP, SKAN, app events, LTV). Offer: audit of user journey, in-app analytics, and creative strategy.
-- /consult — "Консультация для таргетологов": 60–90 min personal session for marketing specialists (positioning, portfolio, client acquisition, pricing) with a 30-day action plan. Note: this offer targets fellow specialists, not business owners.
+- /meta-ads — Meta Ads for leads and sales: offer and creative testing, campaign management, and measurement. Meta Pixel, Conversions API, and CRM lead-status feedback are used when the client's systems, access, and consent allow it.
+- /google-ads — Google Ads for services and e-commerce: Search, Shopping, or Performance Max selected according to demand, budget, conversion data, and the customer journey.
+- /meta-apps — Meta Ads for iOS and Android apps: optimization toward an available post-install event sent through Meta SDK or an MMP integration. Server-side app events may supplement this setup where they are supported and appropriate.
+- /consult — a 60–90 minute working session for marketing specialists. One primary issue is reviewed using the specialist's actual profile, cases, or sales correspondence, followed by a 30-day action plan. This offer is not positioned as an income guarantee.
 
 ## 3) Core audience
 
@@ -43,12 +43,15 @@ Positioning: data-driven performance approach; practical, business-oriented comm
 Tone of voice: expert but clear, no fluff; confident, but without unrealistic promises; result-oriented and transparent.
 Important: never promise guaranteed revenue/ROAS/ROI. Always mention dependence on niche, offer, funnel quality, sales process, and budget.
 
-## 5) Social proof and business signals (as presented on site)
+## 5) Project evidence (as presented on site)
 
-- 150+ cases, $2M+ ad spend managed, 500k+ leads, 79% of projects reached payback, average 240% ROI (e-commerce and B2C)
-- 15 client testimonials with names and companies on the home page
-- Detailed case studies at /cases (premium concierge service, e-commerce, info-business, B2C services)
-Use such metrics carefully: describe as "according to website claims/case summaries"; avoid reframing as universal guaranteed outcomes.
+Selected case-summary figures are tied to individual projects and are not benchmarks or guarantees:
+- Premium concierge service: 4 years of work, 65k+ leads, $1M+ media spend.
+- E-commerce project using Google Ads and Meta Ads: 120k+ add-to-cart events, 30k+ purchases, 210% reported ROI.
+- Info-product project using Google Ads and Meta Ads: $600k+ media spend, reported CPL up to $5 and ROI of 180%.
+- B2C services summary: 50+ projects, with project-specific CPL and ROI ranges shown on the cases page.
+
+Client testimonials and detailed case studies are available on the home page and at /cases. When citing any figure, keep the project and channel context attached and identify it as a site case summary rather than a promised outcome.
 
 ## 6) Knowledge hub (blog) structure
 
@@ -63,8 +66,8 @@ Every article includes: short answer (summary), key takeaways, structured H2 sec
 
 ## 7) Main conversion actions
 
-Primary CTA intent: request growth strategy / free audit; submit contact form for consultation.
-Lead form captures: name, email, phone, budget range, message, preferred contact method (Telegram/WhatsApp).
+Primary CTA intent: discuss a project or request an initial review before choosing the format of work.
+Service forms capture name, email, phone, optional Telegram, a site or app link, and the advertising budget range. The consultation form additionally asks about experience and the question to review.
 
 ## 8) Site sections and routes (for AI navigation context)
 
@@ -75,9 +78,9 @@ Lead form captures: name, email, phone, budget range, message, preferred contact
 - /consult — Consultation for marketing specialists
 - /blog — knowledge hub article list; /blog/:slug — article pages
 - /cases — case studies list; /cases/:slug — case pages
-- /calculator — ad budget calculator
-- /roi-calculator — ROI calculator
-- /faq — FAQ (pricing, timelines, process, minimum budgets)
+- /calculator — preliminary estimate of the service fee for managing Google Ads and Meta Ads
+- /roi-calculator — ROAS and ROMI calculator based on the visitor's own inputs
+- /faq — FAQ about budgets, timelines, analytics, lead quality, mobile apps, and the working process
 - /marketing-glossary — marketing glossary (RU)
 - /thank-you — post-conversion page
 - /privacy-policy, /cookie-policy, /offer — legal pages
@@ -95,9 +98,9 @@ Avoid: hype language with no mechanism; fake case data; legal/medical/financial 
 
 ## 10) Prompting defaults for assistants
 
-If user asks for content without extra details, assume:
-- target geo: user-specified; if unknown, ask
-- acquisition channels: Google Ads + Meta Ads
+If user asks for content without extra details:
+- ask for the target geo, offer, unit economics, current tracking, and available creative resources
+- treat Google Ads and Meta Ads as options to evaluate; do not assume that every project should launch both
 - KPI stack: CPL, CAC, conversion rate, payback period, qualified lead rate
 - deliverable style: actionable checklist + next steps
 
@@ -107,13 +110,13 @@ Template A — landing block copy:
 "Ты маркетинг-стратег для сайта Whale Wizard. Напиши [тип блока] для аудитории [ниша], с фокусом на [KPI], в тоне экспертно и без завышенных обещаний. Добавь 3-5 конкретных выгод, 2 CTA и короткий блок про аналитику (GA4/GTM/пиксели)."
 
 Template B — ad strategy draft:
-"Собери черновик performance-стратегии для клиента [ниша/оффер/гео/средний чек]. Каналы: Google Ads + Meta Ads. Дай структуру: гипотезы, воронка, трекинг, план тестов на 30 дней, KPI, риски и критерии масштабирования."
+"Собери черновик performance-стратегии для клиента [ниша/оффер/гео/средний чек]. Сравни Google Ads и Meta Ads и выбери только обоснованные каналы. Дай структуру: гипотезы, воронка, трекинг, план тестов на 30 дней, KPI, риски и критерии масштабирования."
 
 Template C — blog SEO brief:
-"Сделай SEO-бриф для статьи блога Whale Wizard на тему [тема]. Нужны: search intent, H1-H3 структура, FAQ, ключевые тезисы, лид-магнит CTA в конце, и блок 'что отслеживать в аналитике'."
+"Сделай SEO-бриф для статьи блога Whale Wizard на тему [тема]. Нужны: search intent, H1-H3 структура, FAQ, ключевые тезисы, уместный следующий шаг без выдуманного оффера, и блок 'что отслеживать в аналитике'."
 
 Template D — audit response:
-"Проведи mini-аудит рекламной системы для [тип бизнеса] по данным: [вставить данные]. Выдай: 10 проблем по приоритету, быстрые wins за 7 дней, план на 30 дней, и прогноз влияния на CPL/CAC без гарантий."
+"Проведи мини-аудит рекламной системы для [тип бизнеса] по данным: [вставить данные]. Отдели подтверждённые проблемы от гипотез, расставь приоритеты и предложи план проверки на 7 и 30 дней. Не прогнозируй изменение CPL/CAC, если для расчёта недостаточно исходных данных."
 
 ## 12) Canonical URLs
 

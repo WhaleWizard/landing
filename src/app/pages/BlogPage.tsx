@@ -10,6 +10,7 @@ import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
 import { useScrollTo } from '../components/hooks/useScrollTo';
+import CaseArticleView from '../components/CaseArticleView';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 
@@ -107,12 +108,71 @@ function extractRelatedArticles(allArticles, currentArticle) {
     .slice(0, 3);
 }
 
+function CaseZipWarning({ download, onClose, onConfirm }) {
+  return (
+    <AnimatePresence>
+      {download && (
+        <>
+          <motion.div
+            className="fixed inset-0 z-[1000] bg-black/75 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="case-zip-download-warning-title"
+            className="fixed left-1/2 top-1/2 z-[1001] max-h-[calc(100dvh-24px)] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-amber-400/40 bg-card shadow-2xl shadow-amber-500/10"
+            initial={{ opacity: 0, scale: 0.92, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 18 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+          >
+            <div className="relative p-5 sm:p-6">
+              <button type="button" onClick={onClose} className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground transition-colors hover:bg-amber-400/10 hover:text-foreground" aria-label="Закрыть предупреждение">
+                <X className="h-5 w-5" />
+              </button>
+              <div className="mb-5 flex items-start gap-4 pr-10">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-300 ring-1 ring-amber-300/40">
+                  <AlertTriangle className="h-8 w-8" aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 id="case-zip-download-warning-title" className="text-xl font-bold text-foreground">Проверьте ZIP-архив перед распаковкой</h2>
+                  <p className="mt-1 break-words text-sm text-muted-foreground">Файл: <span className="font-medium text-foreground">{download.fileName}</span></p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-4 text-sm leading-relaxed text-foreground/90">
+                <p>ZIP-архивы могут содержать разные файлы. Перед распаковкой проверьте содержимое архива.</p>
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-muted-foreground">
+                  <li>Не открывайте файлы, которые не соответствуют описанию.</li>
+                  <li>Не запускайте неизвестные установщики, скрипты или программы.</li>
+                  <li>Сначала проверьте архив системной защитой.</li>
+                </ul>
+              </div>
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button" onClick={onClose} className="rounded-xl border border-border px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50">Отмена</button>
+                <button type="button" onClick={onConfirm} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-3 text-sm font-bold text-black shadow-lg shadow-amber-500/20 transition-transform hover:scale-[1.02] active:scale-[0.98]">
+                  <Download className="h-4 w-4" /> Всё понимаю, скачать ZIP
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function BlogPageComponent() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const isCasesRoute = location.pathname === '/cases' || location.pathname.startsWith('/cases/');
   const routeBase = isCasesRoute ? '/cases' : '/blog';
+  const preservedCaseSearch = isCasesRoute ? location.search : '';
+  const listUrl = `${routeBase}${preservedCaseSearch}`;
   const { articles: allArticles, loading } = useArticles();
   const [selectedArticle, setSelectedArticle] = useState(null);
   // Поддержка /blog?search=… — этот формат заявлен в JSON-LD SearchAction (SEO.tsx)
@@ -161,11 +221,11 @@ function BlogPageComponent() {
     if (slug && !loading) {
       const article = allArticles.find((a) => a.slug === slug && (isCasesRoute ? a.category === 'Кейсы' : a.category !== 'Кейсы'));
       if (article) setSelectedArticle(article);
-      else navigate(routeBase, { replace: true });
+      else navigate(listUrl, { replace: true });
     } else {
       setSelectedArticle(null);
     }
-  }, [slug, allArticles, loading, navigate, isCasesRoute, routeBase]);
+  }, [slug, allArticles, loading, navigate, isCasesRoute, listUrl]);
 
   useEffect(() => {
     if (!selectedArticle) return;
@@ -202,7 +262,12 @@ function BlogPageComponent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [navigate]);
 
-  const goToBlogList = useCallback(() => navigate(routeBase), [navigate, routeBase]);
+  const goToBlogList = useCallback(() => navigate(listUrl), [navigate, listUrl]);
+
+  const openRelatedArticle = useCallback((nextSlug: string) => {
+    navigate(`${routeBase}/${nextSlug}${preservedCaseSearch}`);
+    window.scrollTo({ top: 0 });
+  }, [navigate, preservedCaseSearch, routeBase]);
 
   const goToContact = useCallback(() => {
     navigate('/');
@@ -249,9 +314,48 @@ function BlogPageComponent() {
   if (loading) return <RouteSkeleton />;
 
   if (selectedArticle) {
-    const relatedArticles = extractRelatedArticles(allArticles, selectedArticle);
+    const relatedArticles = extractRelatedArticles(
+      allArticles.filter((article) => (isCasesRoute ? article.category === 'Кейсы' : article.category !== 'Кейсы')),
+      selectedArticle,
+    );
     const seoTitle = buildArticleSeoTitle(selectedArticle);
     const seoDescription = buildArticleSeoDescription(selectedArticle);
+
+    if (isCasesRoute) {
+      const origin = new URLSearchParams(location.search).get('from');
+      return (
+        <>
+          <SEO
+            title={seoTitle}
+            description={seoDescription}
+            url={`/cases/${selectedArticle.slug}`}
+            type="article"
+          />
+          <motion.div
+            aria-hidden="true"
+            className="fixed left-0 right-0 top-0 z-[70] h-1 origin-left bg-gradient-to-r from-primary via-accent to-secondary"
+            style={{ scaleX: readingProgress }}
+          />
+          <CaseArticleView
+            article={selectedArticle}
+            seoDescription={seoDescription}
+            articleHtml={articleHtml}
+            toc={toc}
+            relatedArticles={relatedArticles}
+            listHref={listUrl}
+            relatedSearch={preservedCaseSearch}
+            origin={origin}
+            contentRef={contentRef}
+            articleTitleRef={articleTitleRef}
+            onHome={goHome}
+            onBackToCases={goToBlogList}
+            onContact={goToContact}
+            onRelated={openRelatedArticle}
+          />
+          <CaseZipWarning download={pendingZipDownload} onClose={closeZipWarning} onConfirm={confirmZipDownload} />
+        </>
+      );
+    }
 
     return (
       <>
@@ -269,7 +373,7 @@ function BlogPageComponent() {
         />
         <section
           data-blog-ui="true"
-          className="blog-page blog-page--article min-h-screen bg-background"
+          className="marketing-typography blog-page blog-page--article min-h-screen bg-background"
           style={{ contain: 'layout style paint' }}
         >
           <div className="relative overflow-hidden pt-16 pb-12 md:pt-24 md:pb-20">
@@ -280,14 +384,16 @@ function BlogPageComponent() {
                 <nav className="text-xs text-muted-foreground" aria-label="breadcrumb">
                   <button onClick={goHome} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Главная</button>
                   <span className="mx-2">›</span>
-                  <button onClick={goToBlogList} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">Блог</button>
+                  <button onClick={goToBlogList} className="hover:text-primary bg-transparent border-none cursor-pointer p-0">
+                    {isCasesRoute ? 'Кейсы' : 'Блог'}
+                  </button>
                   <span className="mx-2">›</span>
                   <span className="text-foreground break-words">{selectedArticle.title}</span>
                 </nav>
               </div>
 
               <button onClick={goToBlogList} className="blog-touch-target inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 bg-transparent border-none cursor-pointer">
-                <ArrowLeft className="w-4 h-4" /><span>Все статьи</span>
+                <ArrowLeft className="w-4 h-4" /><span>{isCasesRoute ? 'Все кейсы' : 'Все статьи'}</span>
               </button>
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-5">
                 <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -321,7 +427,7 @@ function BlogPageComponent() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap max-w-3xl mx-auto px-4 sm:px-6 pb-20">
             {selectedArticle.summary && (
               <aside className="mb-8 rounded-2xl border border-primary/30 bg-primary/10 p-5">
-                <h2 className="text-lg font-semibold mb-2">Краткое описание</h2>
+                <h2 className="text-lg font-semibold mb-2">Коротко</h2>
                 <p className="text-sm md:text-base text-foreground/90 leading-relaxed">{selectedArticle.summary}</p>
               </aside>
             )}
@@ -370,7 +476,7 @@ function BlogPageComponent() {
 
             {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
               <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">
-                <h2 className="text-xl font-semibold mb-4">FAQ</h2>
+                <h2 className="text-xl font-semibold mb-4">Частые вопросы</h2>
                 <div className="space-y-4">
                   {selectedArticle.faq.map((item, index) => (
                     <details key={`${item.question}-${index}`} className="group rounded-xl border border-border/70 bg-background/40 px-4 py-3">
@@ -386,7 +492,7 @@ function BlogPageComponent() {
 
             {relatedArticles.length > 0 && (
               <aside className="mt-12 rounded-2xl border border-border bg-card/30 p-6">
-                <h2 className="text-xl font-semibold mb-4">Похожие статьи</h2>
+                <h2 className="text-xl font-semibold mb-4">{isCasesRoute ? 'Похожие кейсы' : 'Похожие статьи'}</h2>
                 <ul className="space-y-3">
                   {relatedArticles.map((article) => (
                     <li key={article.slug}>
@@ -410,18 +516,18 @@ function BlogPageComponent() {
               <div className="relative z-10">
                 <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
                   <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                  Бесплатная консультация
+                  Разбор по вашей задаче
                 </div>
-                <h2 className="text-xl font-bold text-foreground sm:text-2xl">Понравилась статья? Остались вопросы?</h2>
+                <h2 className="text-balance text-xl font-bold text-foreground sm:text-2xl">Нужно применить это к вашему проекту?</h2>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
-                  Разберём ваш проект, рекламные кампании и точки роста — без обязательств.
+                  Пришлите ссылку и короткие вводные. Я посмотрю, с какого шага разумнее начать и какие данные подготовить.
                 </p>
                 <button
                   onClick={goToContact}
                   className="blog-touch-target group relative mt-6 inline-flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-accent px-7 py-3 font-semibold text-white shadow-xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 cursor-pointer md:px-10 md:py-4"
                 >
                   <div className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-[120%]" />
-                  <span className="relative text-sm md:text-base">Получить консультацию</span>
+                  <span className="relative text-sm md:text-base">Обсудить задачу</span>
                   <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </button>
               </div>
@@ -442,7 +548,7 @@ function BlogPageComponent() {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="zip-download-warning-title"
-                className="fixed left-1/2 top-1/2 z-[1001] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-amber-400/40 bg-card shadow-2xl shadow-amber-500/10"
+                className="fixed left-1/2 top-1/2 z-[1001] max-h-[calc(100dvh-24px)] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-amber-400/40 bg-card shadow-2xl shadow-amber-500/10"
                 initial={{ opacity: 0, scale: 0.92, y: 18 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.92, y: 18 }}
@@ -512,13 +618,13 @@ function BlogPageComponent() {
   return (
     <>
       <SEO
-        title={isCasesRoute ? 'Кейсы по маркетингу' : 'Блог о маркетинге'}
-        description={isCasesRoute ? 'Практические кейсы с результатами, метриками и выводами.' : 'Экспертные статьи о таргетированной рекламе'}
+        title={isCasesRoute ? 'Кейсы рекламных проектов' : 'Блог о рекламе и аналитике'}
+        description={isCasesRoute ? 'Разборы рекламных проектов: исходная задача, решения, метрики и выводы.' : 'Практические материалы о Google Ads, Meta Ads, аналитике и экономике рекламы.'}
         url={routeBase}
       />
       <section
         data-blog-ui="true"
-        className="blog-page blog-page--list relative min-h-screen overflow-hidden bg-background py-20 px-4 sm:px-6"
+        className="marketing-typography blog-page blog-page--list relative min-h-screen overflow-hidden bg-background py-20 px-4 sm:px-6"
         style={{ contain: 'layout style paint' }}
       >
         {/* Плексус-сеть на весь список: карточки почти непрозрачные, сеть видна в промежутках и не мешает чтению */}
@@ -532,15 +638,15 @@ function BlogPageComponent() {
               {isCasesRoute ? `Кейсы · ${scopedArticles.length}` : `База знаний · ${scopedArticles.length} статей`}
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-              {isCasesRoute ? 'Кейсы с ' : 'Блог о '}
+              {isCasesRoute ? 'Кейсы и ' : 'Практика '}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                {isCasesRoute ? 'результатами' : 'маркетинге'}
+                {isCasesRoute ? 'разборы' : 'рекламы и аналитики'}
               </span>
             </h1>
             <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base">
               {isCasesRoute
-                ? 'Реальные проекты: гипотезы, внедрения, цифры и выводы по росту.'
-                : 'Экспертные статьи о кейсах, таргетированной рекламе, аналитике и стратегиях роста бизнеса'}
+                ? 'В каждом материале — исходная задача, принятые решения, цифры и ограничения результата.'
+                : 'Разборы настройки, измерения и решений по данным — без пересказа справки рекламных кабинетов.'}
             </p>
           </motion.div>
 
@@ -551,7 +657,7 @@ function BlogPageComponent() {
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Поиск по ключевым словам: CPA, Meta Ads, ROAS..."
+              placeholder={isCasesRoute ? 'Поиск по нише, каналу или метрике' : 'Поиск по теме, каналу или метрике'}
               className="w-full rounded-xl border border-border bg-card/70 px-4 py-3 text-sm md:text-base outline-none ring-0 focus:border-primary backdrop-blur-sm"
             />
           </div>
@@ -582,13 +688,13 @@ function BlogPageComponent() {
 
           {scopedArticles.length === 0 ? (
             <div className="rounded-2xl border border-border bg-card/70 p-8 text-center">
-              <h2 className="text-xl font-semibold mb-2">Статьи скоро появятся</h2>
-              <p className="text-muted-foreground mb-4">Сейчас раздел временно пуст. Напишите нам — подскажем решение под ваш кейс.</p>
+              <h2 className="text-xl font-semibold mb-2">Раздел пока пуст</h2>
+              <p className="text-muted-foreground mb-4">Если у вас есть конкретная задача, опишите её — подскажу, с чего начать разбор.</p>
               <button
                 onClick={goToContact}
                 className="blog-touch-target inline-flex items-center justify-center px-5 py-3 rounded-xl font-medium text-white bg-gradient-to-r from-primary to-accent hover:opacity-95 transition-opacity"
               >
-                Связаться с нами
+                Обсудить задачу
               </button>
             </div>
           ) : filteredArticles.length === 0 ? (

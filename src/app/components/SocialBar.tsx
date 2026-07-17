@@ -5,7 +5,6 @@ import {
   Send,
   Twitter,
   MessageCircle,
-  Phone,
   Music,
   Mail,
   ChevronLeft,
@@ -20,7 +19,6 @@ const socials = [
   { icon: Youtube, href: 'https://youtube.com/@whalewzrd', label: 'YouTube', color: '#FF0000' },
   { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
   { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
-  { icon: Phone, href: '#', label: 'WhatsApp', color: '#25D366' },
   { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#FE2C55' },
   { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
 ];
@@ -61,30 +59,30 @@ function SocialDock() {
     >
       <div className="max-w-7xl mx-auto px-4">
         <div className="mb-8 flex items-center justify-between gap-4 lg:justify-center">
-          <div className="lg:text-center">
-            <h2 className="text-xl md:text-2xl font-medium mb-1.5">
-              Подробнее о моей работе{' '}
+          <div className="min-w-0 lg:text-center">
+            <h2 className="text-balance text-xl md:text-2xl font-bold mb-1.5">
+              Разборы, заметки и связь{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 в соцсетях
               </span>
             </h2>
-            <p className="text-muted-foreground text-xs md:text-sm">
-              <span className="lg:hidden">Свайпни или пролистай, чтобы увидеть все каналы</span>
-              <span className="hidden lg:inline">Все каналы, где я делюсь опытом и разбираю кейсы</span>
+            <p className="text-pretty text-muted-foreground text-xs md:text-sm">
+              <span className="lg:hidden">Листайте, чтобы выбрать удобный канал.</span>
+              <span className="hidden lg:inline">Делюсь наблюдениями по рекламе, аналитике и работе с проектами.</span>
             </p>
           </div>
 
           <div className="hidden sm:flex lg:hidden gap-2 flex-shrink-0">
             <button
               onClick={() => scrollByCard('prev')}
-              className="p-2.5 rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
               aria-label="Прокрутить назад"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => scrollByCard('next')}
-              className="p-2.5 rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
               aria-label="Прокрутить вперёд"
             >
               <ChevronRight className="w-4 h-4" />
@@ -127,9 +125,8 @@ function SocialDock() {
           })}
         </div>
 
-        <div className="text-center text-xs text-muted-foreground/50 mt-2">
-          <span className="md:hidden">✨ Подпишись, чтобы не пропустить важные новости ✨</span>
-          <span className="hidden md:inline">Все соцсети в одном месте</span>
+        <div className="text-center text-xs text-muted-foreground/60 mt-2">
+          Выберите площадку, которой пользуетесь чаще всего.
         </div>
       </div>
 

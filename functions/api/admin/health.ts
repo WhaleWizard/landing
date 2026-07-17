@@ -33,7 +33,17 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
     checks.push(check('d1', 'База данных D1', 'fail', 'Биндинг DB не настроен — статьи и заявки работают на резервных источниках'));
   } else {
     try {
-      const tables = ['articles', 'leads', 'page_stats_daily', 'visitor_hashes_daily', 'meta_outbox', 'meta_capi_diagnostics'];
+      const tables = [
+        'articles',
+        'leads',
+        'page_stats_daily',
+        'visitor_hashes_daily',
+        'meta_outbox',
+        'meta_capi_diagnostics',
+        'lead_activity',
+        'site_sections',
+        'site_section_versions',
+      ];
       const missing: string[] = [];
       for (const table of tables) {
         if (!(await tableExists(env.DB, table))) missing.push(table);
@@ -43,6 +53,48 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
         checks.push(check('d1', 'База данных D1', 'ok', `Все таблицы на месте, статей в базе: ${articles?.c ?? 0}`));
       } else {
         checks.push(check('d1', 'База данных D1', 'warn', `Нет таблиц: ${missing.join(', ')} — примените миграции из папки migrations/`));
+      }
+
+      if (!missing.includes('leads')) {
+        const columns = await env.DB.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
+        const present = new Set((columns.results || []).map((column) => column.name));
+        const required = ['event_id', 'quality', 'last_submitted_at', 'fbp', 'fbc', 'event_source_url', 'external_id', 'marketing_consent'];
+        const missingColumns = required.filter((column) => !present.has(column));
+        checks.push(missingColumns.length === 0
+          ? check('leads-schema', 'Контекст лидов для Meta', 'ok', 'Все поля для дедупликации и событий качества доступны')
+          : check('leads-schema', 'Контекст лидов для Meta', 'fail', `Не хватает колонок: ${missingColumns.join(', ')} — примените миграции 0009 и 0010`));
+      }
+
+      if (!missing.includes('leads') && !missing.includes('lead_activity')) {
+        const leadColumns = await env.DB.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
+        const activityColumns = await env.DB.prepare('PRAGMA table_info(lead_activity)').all<{ name: string }>();
+        const leadPresent = new Set((leadColumns.results || []).map((column) => column.name));
+        const activityPresent = new Set((activityColumns.results || []).map((column) => column.name));
+        const requiredLeadColumns = ['status', 'pipeline_stage', 'next_action_at', 'loss_reason', 'notes', 'deal_value', 'deal_currency'];
+        const requiredActivityColumns = ['lead_id', 'type', 'from', 'to', 'note', 'created_at'];
+        const crmReady = requiredLeadColumns.every((column) => leadPresent.has(column))
+          && requiredActivityColumns.every((column) => activityPresent.has(column));
+        checks.push(crmReady
+          ? check('crm-schema', 'Мини-CRM', 'ok', 'Этапы, следующие действия и история лидов готовы к работе')
+          : check('crm-schema', 'Мини-CRM', 'fail', 'Примените миграцию 0012_admin_control_center.sql'));
+      } else {
+        checks.push(check('crm-schema', 'Мини-CRM', 'fail', 'Примените миграцию 0012_admin_control_center.sql'));
+      }
+
+      if (!missing.includes('site_sections') && !missing.includes('site_section_versions')) {
+        const sectionColumns = await env.DB.prepare('PRAGMA table_info(site_sections)').all<{ name: string }>();
+        const versionColumns = await env.DB.prepare('PRAGMA table_info(site_section_versions)').all<{ name: string }>();
+        const sectionPresent = new Set((sectionColumns.results || []).map((column) => column.name));
+        const versionPresent = new Set((versionColumns.results || []).map((column) => column.name));
+        const requiredSections = ['section_key', 'draft_json', 'published_json', 'status', 'version', 'published_version', 'updated_at', 'published_at'];
+        const requiredVersions = ['section_key', 'snapshot_json', 'source', 'created_at'];
+        const contentReady = requiredSections.every((column) => sectionPresent.has(column))
+          && requiredVersions.every((column) => versionPresent.has(column));
+        checks.push(contentReady
+          ? check('site-content-schema', 'Тексты сайта и FAQ', 'ok', 'Черновики, публикация и история версий доступны')
+          : check('site-content-schema', 'Тексты сайта и FAQ', 'fail', 'Примените миграцию 0013_site_sections.sql'));
+      } else {
+        checks.push(check('site-content-schema', 'Тексты сайта и FAQ', 'fail', 'Примените миграцию 0013_site_sections.sql'));
       }
     } catch (error) {
       checks.push(check('d1', 'База данных D1', 'fail', error instanceof Error ? error.message : 'Ошибка запроса к базе'));
@@ -85,14 +137,35 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
   } else if (env.DB) {
     try {
       const [outbox, day] = await Promise.all([
-        env.DB.prepare("SELECT COUNT(*) AS c FROM meta_outbox WHERE status = 'pending'").first<{ c: number }>(),
-        env.DB.prepare("SELECT SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent, SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed FROM meta_capi_diagnostics WHERE created_at >= datetime('now', '-1 day')").first<{ sent: number; failed: number }>(),
+        env.DB.prepare(
+          `SELECT
+             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+             SUM(CASE WHEN status = 'retry' THEN 1 ELSE 0 END) AS retry,
+             SUM(CASE WHEN status = 'sending' THEN 1 ELSE 0 END) AS sending,
+             SUM(CASE WHEN status = 'dead_letter' THEN 1 ELSE 0 END) AS dead
+           FROM meta_outbox`
+        ).first<{ pending: number; retry: number; sending: number; dead: number }>(),
+        env.DB.prepare(
+          `SELECT
+             SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent,
+             SUM(CASE WHEN status = 'failed' AND marketing_consent = 1 THEN 1 ELSE 0 END) AS failed
+           FROM meta_capi_diagnostics
+           WHERE created_at >= datetime('now', '-1 day')`
+        ).first<{ sent: number; failed: number }>(),
       ]);
-      const pending = outbox?.c ?? 0;
+      const pending = outbox?.pending ?? 0;
+      const retry = outbox?.retry ?? 0;
+      const sending = outbox?.sending ?? 0;
+      const dead = outbox?.dead ?? 0;
       const sent = day?.sent ?? 0;
       const failed = day?.failed ?? 0;
-      const status: CheckStatus = failed > sent ? 'fail' : pending > 10 || failed > 0 ? 'warn' : 'ok';
-      checks.push(check('capi', 'Meta CAPI', status, `За сутки: ${sent} отправлено, ${failed} ошибок; в очереди недоставленных: ${pending}`));
+      const status: CheckStatus = dead > 0 ? 'fail' : pending > 10 || retry > 0 || sending > 5 || failed > 0 ? 'warn' : 'ok';
+      checks.push(check(
+        'capi',
+        'Meta CAPI',
+        status,
+        `За сутки Meta подтвердила: ${sent}; ошибок попыток: ${failed}. Очередь: ${pending} ожидают, ${sending} отправляются, ${retry} на повторе, ${dead} остановлены`,
+      ));
     } catch {
       checks.push(check('capi', 'Meta CAPI', 'warn', 'Токен задан, но таблицы диагностики недоступны'));
     }

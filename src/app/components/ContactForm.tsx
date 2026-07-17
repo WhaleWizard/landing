@@ -16,7 +16,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select';
 import {
   getAnalyticsClientIds,
   getMetaBrowserContext,
@@ -33,34 +33,39 @@ const PrivacyPolicyContent = lazy(() => import('./legal/PrivacyPolicyContent'));
 const OfferContent = lazy(() => import('./legal/OfferContent'));
 import LegalConsentCopy from './LegalConsentCopy';
 import { API_ROUTES } from '../config';
-import { buildFullPhone, COUNTRY_DIAL_CODES, COUNTRY_PHONE_OPTIONS } from '../utils/phoneCountry';
+import {
+  buildFullPhone,
+  COUNTRY_PHONE_OPTIONS,
+  DEFAULT_COUNTRY_PHONE_CODE,
+  getCountryPhoneOption,
+} from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
 
 const budgetOptions = [
   {
     value: 'до $1000',
-    label: 'до $1000',
+    label: 'до $1 000',
     icon: Sparkles,
     color: 'from-primary/20 to-primary/10',
     bgGradient: 'rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1)',
   },
   {
     value: '$1к-10к',
-    label: '$1к-10к',
+    label: '$1 000–10 000',
     icon: TrendingUp,
     color: 'from-accent/20 to-accent/10',
     bgGradient: 'rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1)',
   },
   {
     value: '$10к-100к',
-    label: '$10к-100к',
+    label: '$10 000–100 000',
     icon: Zap,
     color: 'from-secondary/20 to-secondary/10',
     bgGradient: 'rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)',
   },
   {
     value: '$100к+',
-    label: '$100к+',
+    label: '$100 000+',
     icon: DollarSign,
     color: 'from-primary/20 to-accent/10',
     bgGradient: 'rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.1)',
@@ -69,14 +74,14 @@ const budgetOptions = [
 
 
 const benefits = [
-  { title: 'Бесплатный аудит', description: 'Анализ текущей ситуации и точек роста', icon: CheckCircle2, delay: 0 },
+  { title: 'Смотрю контекст', description: 'Сайт, цель, бюджет и текущие данные', icon: CheckCircle2, delay: 0 },
   {
-    title: 'Стратегия роста',
-    description: 'конкретные шаги для увеличения продаж с первого месяца.',
+    title: 'Определяю главный приоритет',
+    description: 'Что стоит проверить или исправить до следующего запуска',
     icon: TrendingUp,
     delay: 0.1,
   },
-  { title: 'Быстрый старт', description: 'Запуск рекламы в течение 4-6 дней', icon: Zap, delay: 0.2 },
+  { title: 'Предлагаю формат', description: 'Разбор, запуск или настройка аналитики — по задаче', icon: Zap, delay: 0.2 },
 ];
 
 const useTouchDevice = () => {
@@ -97,7 +102,7 @@ function ContactForm() {
     message: '',
   });
   const [contactMethod, setContactMethod] = useState<'telegram' | 'whatsapp'>('telegram');
-  const [phoneCode, setPhoneCode] = useState('+1');
+  const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE_CODE);
   const [telegramUsername, setTelegramUsername] = useState('');
   const [hpTrap, setHpTrap] = useState(''); // honeypot
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,7 +111,9 @@ function ContactForm() {
   const [agreed, setAgreed] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
-  const selectedPhoneOption = COUNTRY_PHONE_OPTIONS.find((option) => option.dial === phoneCode);
+  const selectedPhoneOption = getCountryPhoneOption(phoneCountryCode)
+    ?? getCountryPhoneOption(DEFAULT_COUNTRY_PHONE_CODE);
+  const phoneCode = selectedPhoneOption?.dial ?? '+1';
   const selectedPhoneFlag = selectedPhoneOption?.label.split(' ')[0] ?? '';
   const selectedPhoneCodeLabel = selectedPhoneOption ? `${selectedPhoneOption.code} ${selectedPhoneOption.dial}` : phoneCode;
   const formStartTrackedRef = useRef(false);
@@ -123,8 +130,8 @@ function ContactForm() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!active || !data?.countryCode) return;
-        const dial = COUNTRY_DIAL_CODES[String(data.countryCode).toUpperCase()];
-        if (dial) setPhoneCode(dial);
+        const countryCode = String(data.countryCode).toUpperCase();
+        if (getCountryPhoneOption(countryCode)) setPhoneCountryCode(countryCode);
       })
       .catch(() => undefined);
     return () => {
@@ -230,7 +237,7 @@ function ContactForm() {
           setHpTrap('');
           setContactMethod('telegram');
           setAgreed(false);
-          alert('Нет соединения с интернетом. Заявка сохранена и будет отправлена автоматически, как только появится связь.');
+          alert('Сейчас нет связи. Заявка сохранена в этом браузере; после восстановления интернета сайт попробует отправить её автоматически.');
         } else {
           const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
           alert(message);
@@ -288,16 +295,16 @@ function ContactForm() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 backdrop-blur-sm">
               <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-              <span className="text-sm text-primary font-semibold">Бесплатная консультация</span>
+              <span className="text-sm text-primary font-semibold">Обсудить проект</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold">
-              Начните зарабатывать{' '}
+            <h2 className="max-w-[20ch] text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.12]">
+              Разберём задачу и поймём,{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                больше сегодня
+                с чего начать
               </span>
             </h2>
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-              Оставьте заявку на бесплатную консультацию. Проанализирую ваш бизнес и предложу стратегию роста.
+            <p className="max-w-[62ch] text-pretty text-base md:text-lg text-muted-foreground leading-relaxed">
+              Оставьте контакты и пару слов о проекте. Я посмотрю вводные и напишу, чем могу помочь: разбором, запуском или настройкой аналитики.
             </p>
             <div className="space-y-4 pt-4">
               {benefits.map((item, index) => (
@@ -315,9 +322,9 @@ function ContactForm() {
                   >
                     <item.icon className="w-6 h-6 text-primary" />
                   </motion.div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="font-semibold mb-1">{item.title}</h4>
-                    <p className="text-sm text-muted-foreground">{item.description}</p>
+                    <p className="text-pretty text-sm text-muted-foreground leading-relaxed">{item.description}</p>
                   </div>
                 </motion.div>
               ))}
@@ -331,7 +338,7 @@ function ContactForm() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="relative p-6 md:p-8 rounded-3xl bg-card/50 backdrop-blur-xl border border-border shadow-2xl">
+            <div className="relative p-4 sm:p-6 md:p-8 rounded-3xl bg-card/50 backdrop-blur-xl border border-border shadow-2xl">
               <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 opacity-50" />
               <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-tr from-primary/5 to-accent/5 animate-pulse" />
               <div className="pointer-events-none absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-3xl blur-2xl" />
@@ -352,8 +359,8 @@ function ContactForm() {
                       </div>
                       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-accent opacity-50 animate-ping" />
                     </div>
-                    <h3 className="text-xl md:text-2xl font-bold">Спасибо за заявку!</h3>
-                    <p className="text-sm md:text-base text-muted-foreground">Я свяжусь с вами в ближайшее время</p>
+                    <h3 className="text-xl md:text-2xl font-bold">Заявка отправлена</h3>
+                    <p className="text-sm md:text-base text-muted-foreground">Спасибо. Посмотрю вводные и свяжусь по указанному контакту.</p>
                   </motion.div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
@@ -435,8 +442,8 @@ function ContactForm() {
                     <div className="relative">
                       <label htmlFor="contact-phone" className="block text-sm mb-2 font-medium">Телефон *</label>
                       <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
-                        <div className="w-[118px] sm:w-[220px] shrink-0">
-                        <Select value={phoneCode} onValueChange={setPhoneCode}>
+                        <div className="w-[104px] sm:w-[220px] shrink-0">
+                        <Select value={phoneCountryCode} onValueChange={setPhoneCountryCode}>
                           <SelectTrigger
                             aria-label="Код страны"
                             className="h-10 rounded-lg border-border/40 bg-background/70 text-xs sm:text-sm font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25"
@@ -446,7 +453,7 @@ function ContactForm() {
                           </SelectTrigger>
                           <SelectContent className="max-h-80 rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
                             {COUNTRY_PHONE_OPTIONS.map((option) => (
-                              <SelectItem key={`${option.code}-${option.dial}`} value={option.dial} className="rounded-lg py-2 text-sm">
+                              <SelectItem key={option.code} value={option.code} className="rounded-lg py-2 text-sm">
                                 {option.label}
                               </SelectItem>
                             ))}
@@ -467,15 +474,15 @@ function ContactForm() {
                           onBlur={() => setFocusedField(null)}
                           placeholder="555 123 4567"
                           autoComplete="tel-national"
-                          className="h-10 border-border/40 bg-background/70 focus:border-primary/50 focus:bg-background/80 transition-all backdrop-blur-sm"
+                          className="h-10 min-w-0 flex-1 border-border/40 bg-background/70 focus:border-primary/50 focus:bg-background/80 transition-all backdrop-blur-sm"
                         />
                       </div>
                     </div>
 
                     {/* Бюджет */}
                     <div>
-                      <p className="block text-sm mb-3 font-medium">Месячный бюджет</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <p className="block text-sm mb-3 font-medium">Бюджет на рекламу в месяц</p>
+                      <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-3">
                         {budgetOptions.map((option) => (
                           <motion.div
                             key={option.value}
@@ -494,7 +501,7 @@ function ContactForm() {
                             />
                             <label
                               htmlFor={`budget-${option.value.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
-                              className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-300 bg-background/50 border border-border/50 backdrop-blur-sm hover:border-primary/50 hover:bg-background/70 peer-checked:border-primary peer-checked:shadow-lg peer-checked:shadow-primary/20`}
+                              className={`flex min-w-0 items-center gap-2 p-3 sm:gap-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-300 bg-background/50 border border-border/50 backdrop-blur-sm hover:border-primary/50 hover:bg-background/70 peer-checked:border-primary peer-checked:shadow-lg peer-checked:shadow-primary/20`}
                               style={
                                 formData.budget === option.value
                                   ? { backgroundImage: `linear-gradient(to bottom right, ${option.bgGradient})` }
@@ -507,7 +514,7 @@ function ContactForm() {
                                 <option.icon className="w-4 h-4 text-primary" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-semibold truncate">{option.label}</div>
+                                <div className="text-xs sm:text-sm font-semibold leading-tight">{option.label}</div>
                               </div>
                               {formData.budget === option.value && (
                                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex-shrink-0">
@@ -522,7 +529,7 @@ function ContactForm() {
 
                     {/* О проекте */}
                     <div className="relative">
-                      <label htmlFor="contact-message" className="block text-sm mb-2 font-medium">О вашем проекте</label>
+                      <label htmlFor="contact-message" className="block text-sm mb-2 font-medium">Что нужно настроить или улучшить?</label>
                       <div className="relative">
                         <Textarea
                           id="contact-message"
@@ -534,7 +541,7 @@ function ContactForm() {
                             trackFirstFormInteraction('message');
                           }}
                           onBlur={() => setFocusedField(null)}
-                          placeholder="Расскажите кратко о вашем проекте..."
+                          placeholder="Коротко: продукт, география, текущая реклама и задача"
                           autoComplete="off"
                           rows={4}
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"
@@ -556,6 +563,7 @@ function ContactForm() {
                         <button
                           type="button"
                           onClick={() => handleSetContactMethod('telegram')}
+                          aria-pressed={contactMethod === 'telegram'}
                           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl border transition-all ${
                             contactMethod === 'telegram'
                               ? 'bg-primary/20 border-primary shadow-lg shadow-primary/20'
@@ -568,6 +576,7 @@ function ContactForm() {
                         <button
                           type="button"
                           onClick={() => handleSetContactMethod('whatsapp')}
+                          aria-pressed={contactMethod === 'whatsapp'}
                           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl border transition-all ${
                             contactMethod === 'whatsapp'
                               ? 'bg-primary/20 border-primary shadow-lg shadow-primary/20'
@@ -593,7 +602,7 @@ function ContactForm() {
                             className="mt-2"
                           >
                             <label htmlFor="telegram-username" className="block text-sm mb-2 font-medium">
-                              Telegram username (необязательно)
+                              Telegram, если удобнее
                             </label>
                             <Input
                               id="telegram-username"
@@ -617,7 +626,7 @@ function ContactForm() {
                             className="mt-2"
                           >
                             <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs text-muted-foreground">
-                              💡 Убедитесь, что указанный выше номер телефона зарегистрирован в WhatsApp.
+                              Сообщение придёт на WhatsApp, привязанный к указанному выше номеру.
                             </div>
                           </motion.div>
                         )}
@@ -660,7 +669,7 @@ function ContactForm() {
                         </>
                       ) : (
                         <>
-                          <span className="relative">Отправить заявку</span>
+                          <span className="relative">Отправить вводные</span>
                           <Send className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform relative" />
                         </>
                       )}

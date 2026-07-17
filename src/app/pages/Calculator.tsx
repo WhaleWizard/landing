@@ -5,13 +5,13 @@ export default function CalculatorPage() {
   return (
     <>
       <SEO
-        title="Калькулятор бюджета рекламы"
-        description="Рассчитайте примерную стоимость услуг по настройке Google Ads и Meta Ads. Укажите бюджет и цели – получите цену."
+        title="Стоимость ведения Google Ads и Meta Ads — расчёт"
+        description="Предварительная оценка стоимости ведения Google Ads и Meta Ads с учётом площадок, рекламного бюджета и основной задачи проекта."
         url="/calculator"
       />
-      <div className="pt-16">
+      <main className="marketing-typography min-h-screen bg-background text-foreground pt-16">
         <BudgetCalculator />
-      </div>
+      </main>
     </>
   );
 }

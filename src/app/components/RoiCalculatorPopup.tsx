@@ -4,7 +4,7 @@ import { TrendingUp, DollarSign, Percent, BarChart3, Wallet, ShoppingCart } from
 import { useNavigate } from 'react-router';
 
 interface RoiCalculatorPopupProps {
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps) {
@@ -15,18 +15,23 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
   const [orders, setOrders] = useState(30);
   const [showResult, setShowResult] = useState(false);
   const [result, setResult] = useState({ revenue: 0, profit: 0, roas: 0, romi: 0 });
+  const canCalculate = Number.isFinite(budget) && budget > 0
+    && Number.isFinite(averageCheck) && averageCheck >= 0
+    && Number.isFinite(margin) && margin >= 0 && margin <= 100
+    && Number.isFinite(orders) && orders >= 0;
 
   const calculate = useCallback(() => {
+    if (!canCalculate) return;
     const revenue = orders * averageCheck;
     const profit = revenue * (margin / 100);
     const roas = (revenue / budget) * 100;
     const romi = ((profit - budget) / budget) * 100;
     setResult({ revenue, profit, roas, romi });
     setShowResult(true);
-  }, [budget, averageCheck, margin, orders]);
+  }, [budget, averageCheck, margin, orders, canCalculate]);
 
   const goToContact = () => {
-    onClose();
+    onClose?.();
     navigate('/');
     setTimeout(() => {
       const contact = document.getElementById('contact');
@@ -41,7 +46,7 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
       <div className="space-y-5">
         <div>
           <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-primary" /> Бюджет ($)
+            <Wallet className="w-4 h-4 text-primary" /> Рекламный бюджет ($)
           </label>
           <input
             type="range"
@@ -54,6 +59,7 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
           />
           <input
             type="number"
+            min="1"
             value={budget}
             onChange={(e) => setBudget(Number(e.target.value))}
             className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border/50 focus:border-primary outline-none text-right"
@@ -75,6 +81,7 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
           />
           <input
             type="number"
+            min="0"
             value={averageCheck}
             onChange={(e) => setAverageCheck(Number(e.target.value))}
             className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border/50 focus:border-primary outline-none text-right"
@@ -96,6 +103,8 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
           />
           <input
             type="number"
+            min="0"
+            max="100"
             value={margin}
             onChange={(e) => setMargin(Number(e.target.value))}
             className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border/50 focus:border-primary outline-none text-right"
@@ -104,7 +113,7 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
 
         <div>
           <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4 text-primary" /> Заказов / лидов
+            <ShoppingCart className="w-4 h-4 text-primary" /> Оплаченных заказов
           </label>
           <input
             type="range"
@@ -117,6 +126,7 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
           />
           <input
             type="number"
+            min="0"
             value={orders}
             onChange={(e) => setOrders(Number(e.target.value))}
             className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border/50 focus:border-primary outline-none text-right"
@@ -125,7 +135,8 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
 
         <button
           onClick={calculate}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2"
+          disabled={!canCalculate}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <BarChart3 className="w-4 h-4" />
           Рассчитать
@@ -146,7 +157,7 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
                   <p className="text-xl font-bold text-primary">${formatNumber(result.revenue)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Прибыль</p>
+                  <p className="text-muted-foreground">Валовая прибыль до рекламы</p>
                   <p className="text-xl font-bold text-primary">${formatNumber(result.profit)}</p>
                 </div>
                 <div>
@@ -160,11 +171,14 @@ export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps)
                   </p>
                 </div>
               </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                Упрощённый ROMI = (выручка × указанная маржинальность − рекламный бюджет) / рекламный бюджет. Комиссии, ведение, производство креативов, налоги и другие расходы калькулятор не запрашивает, поэтому результат — только предварительный ориентир.
+              </p>
               <button
                 onClick={goToContact}
                 className="w-full mt-4 py-2 rounded-lg bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all"
               >
-                Заказать консультацию
+                Обсудить расчёт
               </button>
             </motion.div>
           )}

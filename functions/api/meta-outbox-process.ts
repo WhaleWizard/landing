@@ -26,6 +26,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const summary = await processMetaOutbox(env, limit);
+    if (summary.configuration_error) {
+      return json(
+        { success: false, error: summary.configuration_error, ...summary },
+        { status: 503, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+      );
+    }
     return json({ success: true, ...summary }, { headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   } catch (error) {
     return json(

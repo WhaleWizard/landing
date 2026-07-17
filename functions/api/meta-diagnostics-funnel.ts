@@ -41,9 +41,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       event_name,
       COALESCE(NULLIF(service, ''), '(unknown)') AS service,
       COUNT(*) AS total,
-      SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent
+      SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent
     FROM meta_capi_diagnostics
     WHERE created_at >= ?
+      AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
       AND event_name IN (${FUNNEL_STEPS.map(() => '?').join(', ')})
     GROUP BY event_name, service
   `).bind(since, ...FUNNEL_STEPS).all<{ event_name: string; service: string; total: number; sent: number }>();

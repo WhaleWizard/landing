@@ -43,8 +43,8 @@ export default function CalculatorButtons() {
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Calculator className="w-7 h-7 text-primary" />
               </div>
-              <h3 className="text-xl md:text-2xl font-bold mb-2">Рассчитать бюджет</h3>
-              <p className="text-muted-foreground text-sm mb-4">Узнайте примерную стоимость услуг под ваш бюджет</p>
+              <h3 className="text-xl md:text-2xl font-bold mb-2">Оценить стоимость ведения</h3>
+              <p className="text-muted-foreground text-sm mb-4">Предварительный ориентир по формату и стоимости работы</p>
               <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
                 <span>Открыть калькулятор</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -67,8 +67,8 @@ export default function CalculatorButtons() {
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-accent/20 to-secondary/20 border border-accent/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <TrendingUp className="w-7 h-7 text-accent" />
               </div>
-              <h3 className="text-xl md:text-2xl font-bold mb-2">Рассчитать ROAS/ROMI</h3>
-              <p className="text-muted-foreground text-sm mb-4">Оцените окупаемость рекламы по вашим показателям</p>
+              <h3 className="text-xl md:text-2xl font-bold mb-2">Посчитать ROAS и ROMI</h3>
+              <p className="text-muted-foreground text-sm mb-4">Предварительная оценка по расходу, заказам и валовой прибыли</p>
               <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
                 <span>Открыть калькулятор</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -100,8 +100,8 @@ export default function CalculatorButtons() {
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center mb-3">
                 <Calculator className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-lg font-bold mb-1">Рассчитать бюджет</h3>
-              <p className="text-xs text-muted-foreground mb-3">Примерная стоимость услуг</p>
+              <h3 className="text-lg font-bold mb-1">Оценить стоимость ведения</h3>
+              <p className="text-xs text-muted-foreground mb-3">Предварительный ориентир</p>
               <div className="flex items-center gap-1 text-primary text-xs font-medium">
                 <span>Открыть</span>
                 <ArrowRight className="w-3 h-3" />
@@ -119,8 +119,8 @@ export default function CalculatorButtons() {
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-secondary/20 border border-accent/30 flex items-center justify-center mb-3">
                 <TrendingUp className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="text-lg font-bold mb-1">Рассчитать ROAS/ROMI</h3>
-              <p className="text-xs text-muted-foreground mb-3">Окупаемость рекламы</p>
+              <h3 className="text-lg font-bold mb-1">Посчитать ROAS и ROMI</h3>
+              <p className="text-xs text-muted-foreground mb-3">Оценка окупаемости</p>
               <div className="flex items-center gap-1 text-primary text-xs font-medium">
                 <span>Открыть</span>
                 <ArrowRight className="w-3 h-3" />
@@ -144,11 +144,11 @@ export default function CalculatorButtons() {
         `}</style>
       </div>
 
-      <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Калькулятор бюджета">
+      <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Оценка стоимости ведения" dialogClassName="marketing-typography">
         <BudgetCalculatorPopup onClose={() => setIsBudgetModalOpen(false)} />
       </Modal>
 
-      <Modal isOpen={isRoiModalOpen} onClose={() => setIsRoiModalOpen(false)} title="Калькулятор ROAS / ROMI">
+      <Modal isOpen={isRoiModalOpen} onClose={() => setIsRoiModalOpen(false)} title="Калькулятор ROAS / ROMI" dialogClassName="marketing-typography">
         <RoiCalculatorPopup onClose={() => setIsRoiModalOpen(false)} />
       </Modal>
     </section>

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 
-type NavbarVariant = 'home' | 'service';
+type NavbarVariant = 'home' | 'service' | 'content';
 
 const NAV_ICONS: Record<string, typeof Briefcase> = {
   'Услуги': Briefcase,
@@ -26,11 +26,44 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isContentItemActive = useCallback((label: string) => variant === 'content' && (
+    (label === 'Кейсы' && location.pathname.startsWith('/cases'))
+    || (label === 'Блог' && location.pathname.startsWith('/blog'))
+    || (label === 'FAQ' && location.pathname.startsWith('/faq'))
+  ), [location.pathname, variant]);
+
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    const desktopBreakpoint = window.matchMedia('(min-width: 1024px)');
+    const handleBreakpointChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    desktopBreakpoint.addEventListener('change', handleBreakpointChange);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+      desktopBreakpoint.removeEventListener('change', handleBreakpointChange);
+    };
+  }, [isMobileMenuOpen]);
 
   const scrollToSection = useCallback((id: string) => {
     const scrollNow = () => {
@@ -76,24 +109,33 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const navItems = variant === 'service'
     ? [
       { label: 'Услуги', action: () => scrollToSection('services') },
-      { label: 'Кейсы', action: () => scrollToSection('cases') },
+      { label: 'Примеры задач', action: () => scrollToSection('cases') },
       { label: 'Отзывы', action: () => scrollToSection('about') },
     ]
-    : [
-      { label: 'Услуги', action: () => scrollToSection('services') },
-      { label: 'Кейсы', action: () => scrollToSection('cases') },
-      { label: 'Блог', action: () => scrollToSection('blog') },
-      { label: 'Отзывы', action: () => scrollToSection('about') },
-      { label: 'FAQ', action: () => navigate('/faq') },
-      { label: 'Контакты', action: () => scrollToSection('social') },
-      { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
-    ];
+    : variant === 'content'
+      ? [
+        { label: 'Услуги', action: () => scrollToSection('services') },
+        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`); setIsMobileMenuOpen(false); } },
+        { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); } },
+        { label: 'О нас', action: () => scrollToSection('about') },
+        { label: 'FAQ', action: () => { navigate('/faq'); setIsMobileMenuOpen(false); } },
+        { label: 'Контакты', action: () => scrollToSection('social') },
+      ]
+      : [
+        { label: 'Услуги', action: () => scrollToSection('services') },
+        { label: 'Кейсы', action: () => scrollToSection('cases') },
+        { label: 'Блог', action: () => scrollToSection('blog') },
+        { label: 'Отзывы', action: () => scrollToSection('about') },
+        { label: 'FAQ', action: () => navigate('/faq') },
+        { label: 'Контакты', action: () => scrollToSection('social') },
+        { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
+      ];
 
   return (
     <>
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
+          isScrolled || variant === 'content'
             ? 'bg-background/80 backdrop-blur-xl border-b border-border shadow-lg shadow-primary/5'
             : 'bg-transparent'
         }`}
@@ -103,8 +145,8 @@ function Navbar({ variant = 'home' }: NavbarProps) {
             {/* Логотип */}
             <div className="flex-shrink-0">
               <button
-                onClick={() => scrollToSection('hero')}
-                className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+                onClick={() => variant === 'content' ? navigate('/') : scrollToSection('hero')}
+                className="inline-flex min-h-11 items-center text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
               >
                 Whale Wizard
               </button>
@@ -114,14 +156,19 @@ function Navbar({ variant = 'home' }: NavbarProps) {
             <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
               {navItems.map((item, idx) => (
                 <motion.button
-                  key={idx}
+                  key={item.label}
                   onClick={item.action}
-                  className="relative text-foreground/80 hover:text-primary transition-colors group"
+                  aria-current={isContentItemActive(item.label) ? 'page' : undefined}
+                  className={`relative transition-colors group ${
+                    isContentItemActive(item.label)
+                      ? 'text-primary'
+                      : 'text-foreground/80 hover:text-primary'
+                  }`}
                   whileHover={{ y: -2 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   {item.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
+                  <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full ${isContentItemActive(item.label) ? 'w-full' : 'w-0'}`} />
                 </motion.button>
               ))}
               <Button
@@ -129,16 +176,20 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                <span className="relative">Получить консультацию</span>
+                <span className="relative">Обсудить проект</span>
               </Button>
             </div>
 
             {/* Мобильное меню */}
             <button
-              className="lg:hidden p-2 rounded-lg bg-card/50 backdrop-blur-sm border border-border"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              type="button"
+              className="lg:hidden inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 backdrop-blur-sm border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              aria-label={isMobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-navigation"
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6 text-foreground" /> : <Menu className="w-6 h-6 text-foreground" />}
+              {isMobileMenuOpen ? <X aria-hidden="true" className="w-6 h-6 text-foreground" /> : <Menu aria-hidden="true" className="w-6 h-6 text-foreground" />}
             </button>
           </div>
         </div>
@@ -157,6 +208,10 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           >
             <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
             <motion.div
+              id="mobile-navigation"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Основная навигация"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -171,11 +226,12 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                   Whale Wizard
                 </span>
                 <button
+                  type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-lg bg-background/60 border border-border hover:border-primary/40 transition-colors"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-background/60 border border-border hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Закрыть меню"
                 >
-                  <X className="w-5 h-5 text-foreground" />
+                  <X aria-hidden="true" className="w-5 h-5 text-foreground" />
                 </button>
               </div>
 
@@ -184,14 +240,15 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                   const Icon = NAV_ICONS[item.label] ?? Briefcase;
                   return (
                     <motion.button
-                      key={idx}
+                      key={item.label}
                       onClick={item.action}
+                      aria-current={isContentItemActive(item.label) ? 'page' : undefined}
                       initial={{ opacity: 0, x: 16 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 12 }}
                       transition={{ delay: idx * 0.035, duration: 0.2 }}
                       whileTap={{ scale: 0.98 }}
-                      className="group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-primary/10 active:bg-primary/15"
+                      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-primary/10 active:bg-primary/15 ${isContentItemActive(item.label) ? 'bg-primary/10' : ''}`}
                     >
                       <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
                         <Icon className="h-[18px] w-[18px]" />
@@ -221,7 +278,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                   className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-                  <span className="relative">Получить консультацию</span>
+                  <span className="relative">Обсудить проект</span>
                 </Button>
               </motion.div>
             </motion.div>

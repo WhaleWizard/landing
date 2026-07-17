@@ -211,6 +211,34 @@ function localArticlesApi() {
           return
         }
 
+        if (url.pathname === '/api/site-content' && req.method === 'GET') {
+          sendJson(res, 200, {
+            success: true,
+            content: null,
+            source: 'static',
+            localOnly: true,
+          })
+          return
+        }
+
+        // The Vite dev server intentionally has no Cloudflare D1/R2 bindings.
+        // Return an honest JSON state instead of letting API requests fall through
+        // to the SPA index.html with a misleading HTTP 200 response.
+        if (url.pathname.startsWith('/api/admin/')) {
+          const password = req.headers['x-admin-password']
+          if (!verifyLocalPassword(password)) {
+            sendJson(res, 401, { success: false, error: 'Unauthorized' })
+            return
+          }
+          sendJson(res, 503, {
+            success: false,
+            code: 'LOCAL_CLOUDFLARE_BINDINGS_UNAVAILABLE',
+            error: 'Cloudflare D1/R2 недоступны в локальном Vite. Проверьте этот раздел в Preview или Production после подключения bindings и применения миграций.',
+            localOnly: true,
+          })
+          return
+        }
+
         next()
       })
     },

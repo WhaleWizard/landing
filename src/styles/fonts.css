@@ -1,0 +1,36 @@
+:root {
+  --ww-font-display: "Segoe UI Variable Display", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --ww-font-text: "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/*
+ * Две типографические роли для публичных страниц:
+ * плотный Display — заголовки, спокойный Text — основной текст и интерфейс.
+ * Класс ставится только на маркетинговые страницы, поэтому админка и legal UI
+ * сохраняют свою текущую типографику.
+ */
+.marketing-typography {
+  font-family: var(--ww-font-text);
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.marketing-typography :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--ww-font-display);
+  font-weight: 700;
+  letter-spacing: -0.018em;
+}
+
+.type-display {
+  font-family: var(--ww-font-display);
+  font-weight: 700;
+  letter-spacing: -0.018em;
+}
+
+.type-copy {
+  font-family: var(--ww-font-text);
+  font-weight: 400;
+}

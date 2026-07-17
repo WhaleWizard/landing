@@ -1,29 +1,39 @@
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
+import SEO from '../components/SEO';
 
 const quickLinks = [
   {
     to: '/blog',
-    title: 'Пойти в блог',
-    subtitle: 'Почитать умное, пока 404 отдыхает',
+    title: 'Открыть блог',
+    subtitle: 'Практические материалы о рекламе и аналитике',
     emoji: '🧠',
   },
   {
     to: '/calculator',
-    title: 'Рассчитать бюджет',
-    subtitle: 'Пусть хотя бы цифры будут точными',
+    title: 'Оценить стоимость ведения',
+    subtitle: 'Получить предварительный ориентир по стоимости',
     emoji: '🧮',
   },
   {
     to: '/consult',
-    title: 'Связаться с нами',
-    subtitle: 'Найдём путь даже из цифрового тумана',
+    title: 'О консультации',
+    subtitle: 'Посмотреть формат и темы личного разбора',
     emoji: '🛟',
   },
 ];
 
 export default function NotFound() {
+  const location = useLocation();
+
   return (
-    <main className="relative overflow-hidden min-h-screen bg-[#050816] text-white px-6 py-14 md:py-20 flex items-center justify-center">
+    <>
+      <SEO
+        title="Страница не найдена"
+        description="Такой страницы на сайте Whale Wizard нет."
+        url={location.pathname}
+        noIndex
+      />
+      <main className="marketing-typography relative overflow-hidden min-h-screen bg-[#050816] text-white px-6 py-14 md:py-20 flex items-center justify-center">
       <style>{`
         @keyframes floaty {
           0%, 100% { transform: translateY(0px) rotate(-3deg); }
@@ -47,15 +57,15 @@ export default function NotFound() {
           <div className="space-y-4">
             <p className="inline-flex items-center gap-2 rounded-full border border-white/25 px-3 py-1 text-sm text-blue-100/90">
               <span>🚨</span>
-              Страница потерялась в гиперпространстве
+              Такой страницы нет
             </p>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
-              404: кит свернул не туда,
+              Кит свернул не туда,
               <br />
               но курс уже пересчитан
             </h1>
             <p className="text-base md:text-lg text-slate-200/90 max-w-xl">
-              Похоже, ссылка устарела или опечаталась. Хорошая новость: у нас есть запасной план, хорошее чувство юмора и полезные страницы.
+              Возможно, ссылка устарела или в адресе есть опечатка. Вернитесь на главную или выберите нужный раздел ниже.
             </p>
 
             <div className="flex flex-wrap gap-3 pt-2">
@@ -66,18 +76,18 @@ export default function NotFound() {
                 🏠 На главную
               </Link>
               <Link
-                to="/blog/test"
+                to="/blog"
                 className="inline-flex items-center rounded-xl border border-white/40 bg-white/10 px-5 py-3 text-white font-semibold hover:bg-white/20 transition-colors"
               >
-                🎁 Получить подарок
+                Читать блог
               </Link>
             </div>
           </div>
 
           <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-black/25 border border-white/10 p-6 text-center">
             <div className="text-7xl" style={{ animation: 'floaty 3.2s ease-in-out infinite' }}>🐋</div>
-            <p className="text-sm uppercase tracking-[0.2em] text-cyan-200/80">Whale Navigation Mode</p>
-            <p className="text-sm text-slate-200/90">Кит уже прокладывает маршрут обратно к контенту.</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-cyan-200/80">Whale Navigation</p>
+            <p className="text-sm text-slate-200/90">Выберите полезный раздел — нужный маршрут уже рядом.</p>
           </div>
         </div>
 
@@ -95,6 +105,7 @@ export default function NotFound() {
           ))}
         </div>
       </section>
-    </main>
+      </main>
+    </>
   );
 }

@@ -75,8 +75,8 @@ function Footer() {
               </h3>
               <Sparkles className="w-5 h-5 text-primary animate-pulse" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              Perfomance-таргетолог для роста вашего бизнеса через Google Ads и Meta Ads
+            <p className="text-pretty text-sm text-muted-foreground">
+              Performance-маркетинг в Google Ads и Meta Ads: от настройки аналитики до оптимизации по продажам.
             </p>
           </motion.div>
 
@@ -102,7 +102,7 @@ function Footer() {
 
               <li>
                 <a href="/meta-ads" className={footerLinkClass}>
-                  Meta Ads (Facebook & Instagram)
+                  Meta Ads — Facebook и Instagram
                 </a>
               </li>
 
@@ -114,7 +114,7 @@ function Footer() {
 
               <li>
                 <a href="/meta-apps" className={footerLinkClass}>
-                  Meta Apps
+                  Продвижение приложений
                 </a>
               </li>
             </ul>
@@ -128,7 +128,7 @@ function Footer() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <h4 className={footerHeadingClass}>
-              Компания
+              Разделы
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
             </h4>
 
@@ -138,7 +138,7 @@ function Footer() {
                   onClick={() => scrollToSection('about')}
                   className={footerLinkClass}
                 >
-                  Обо мне говорят
+                  Отзывы
                 </button>
               </li>
 
@@ -147,7 +147,7 @@ function Footer() {
                   onClick={() => scrollToSection('cases')}
                   className={footerLinkClass}
                 >
-                  Кейсы
+                  Избранные кейсы
                 </button>
               </li>
 
@@ -164,7 +164,7 @@ function Footer() {
                   onClick={() => navigate('/cases')}
                   className={footerLinkClass}
                 >
-                  Кейсы статьи
+                  Все кейсы
                 </button>
               </li>
 
@@ -182,7 +182,7 @@ function Footer() {
 
               <li>
                 <button
-                  onClick={() => scrollToSection('social')}
+                  onClick={() => scrollToSection('contact')}
                   className={footerLinkClass}
                 >
                   Контакты
@@ -193,7 +193,6 @@ function Footer() {
 
           {/* Contact */}
           <motion.div
-            id="social"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -241,7 +240,7 @@ function Footer() {
                   <div className="w-8 h-8 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
                     <ExternalLink className="w-4 h-4" />
                   </div>
-                  Портфолио
+                  Смотреть кейсы
                 </button>
               </li>
             </ul>
@@ -260,7 +259,7 @@ function Footer() {
             <p className="flex items-center gap-2">
               © 2026 WhaleWzrd. Все права защищены.
               <span className="hidden md:inline">|</span>
-              <span className="text-xs">Made with ❤️</span>
+              <span className="text-xs">Google Ads · Meta Ads</span>
             </p>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 justify-center md:justify-end leading-none">

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calculator, DollarSign, TrendingUp, Target, Zap, BarChart3, Wallet, ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { calculateServicePrice, type ServicePricingGoal } from '../utils/servicePricing';
 
 interface BudgetCalculatorPopupProps {
   onClose: () => void;
@@ -11,28 +12,25 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
   const navigate = useNavigate();
   const [budget, setBudget] = useState(1000);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['google', 'meta']);
-  const [goal, setGoal] = useState('leads');
+  const [goal, setGoal] = useState<ServicePricingGoal>('leads');
   const [showResult, setShowResult] = useState(false);
   const [price, setPrice] = useState(0);
+  const canCalculate = Number.isFinite(budget) && budget >= 300;
 
   const togglePlatform = (id: string) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
+    setSelectedPlatforms((prev) => {
+      if (!prev.includes(id)) return [...prev, id];
+      return prev.length === 1 ? prev : prev.filter((platform) => platform !== id);
+    });
   };
 
-  const calculatePrice = useCallback(() => {
-    let basePrice = 0;
-    if (selectedPlatforms.length === 1) basePrice = 500;
-    if (selectedPlatforms.length === 2) basePrice = 800;
-    if (budget >= 5000) basePrice += 200;
-    if (budget >= 10000) basePrice += 300;
-    if (goal === 'sales') basePrice += 200;
-    if (goal === 'leads') basePrice += 100;
-    return basePrice;
-  }, [selectedPlatforms, budget, goal]);
+  const calculatePrice = useCallback(
+    () => calculateServicePrice(selectedPlatforms.length, budget, goal),
+    [selectedPlatforms.length, budget, goal],
+  );
 
   const handleCalculate = () => {
+    if (!canCalculate) return;
     setPrice(calculatePrice());
     setShowResult(true);
   };
@@ -52,9 +50,9 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
   ];
 
   const goals = [
-    { id: 'leads', name: 'Лиды / Заявки', icon: Target, description: 'Сбор контактов для отдела продаж' },
-    { id: 'sales', name: 'Продажи', icon: TrendingUp, description: 'Прямые продажи в интернет-магазине' },
-    { id: 'traffic', name: 'Трафик', icon: Zap, description: 'Увеличение посещаемости сайта' },
+    { id: 'leads', name: 'Заявки', icon: Target, description: 'Контакты с последующей квалификацией' },
+    { id: 'sales', name: 'Продажи', icon: TrendingUp, description: 'Оплаченные заказы в e-commerce' },
+    { id: 'traffic', name: 'Трафик', icon: Zap, description: 'Целевые посещения без оптимизации по продажам' },
   ];
 
   return (
@@ -71,6 +69,7 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
                 <button
                   key={p.id}
                   onClick={() => togglePlatform(p.id)}
+                  aria-pressed={isSelected}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
                     isSelected
                       ? 'bg-gradient-to-r from-primary to-accent border-transparent text-white shadow-lg shadow-primary/30'
@@ -90,7 +89,7 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
         <div>
           <label className="block text-sm font-medium mb-2 flex items-center gap-2">
             <Wallet className="w-4 h-4 text-primary" />
-            Месячный бюджет ($)
+            Рекламный бюджет в месяц ($)
           </label>
           <input
             type="range"
@@ -109,6 +108,7 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
           </div>
           <input
             type="number"
+            min="300"
             value={budget}
             onChange={(e) => setBudget(Number(e.target.value))}
             className="w-full px-4 py-2 rounded-xl bg-background/60 border border-border/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-right"
@@ -126,7 +126,8 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
               return (
                 <button
                   key={g.id}
-                  onClick={() => setGoal(g.id)}
+                  onClick={() => setGoal(g.id as ServicePricingGoal)}
+                  aria-pressed={isSelected}
                   className={`text-left p-3 rounded-xl border transition-all ${
                     isSelected
                       ? 'bg-primary/10 border-primary shadow-lg shadow-primary/20'
@@ -147,10 +148,11 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
 
         <button
           onClick={handleCalculate}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+          disabled={!canCalculate}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Calculator className="w-4 h-4" />
-          Рассчитать стоимость
+          Получить ориентир
         </button>
 
         <AnimatePresence>
@@ -163,11 +165,11 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
             >
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-primary" />
-                Примерная стоимость услуг
+                Ориентировочная стоимость работы
               </h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p className="text-muted-foreground text-xs">Настройка и ведение</p>
+                  <p className="text-muted-foreground text-xs">Ведение рекламы</p>
                   <p className="text-2xl font-bold text-primary">${price}</p>
                   <p className="text-xs text-muted-foreground">в месяц</p>
                 </div>
@@ -177,15 +179,18 @@ export default function BudgetCalculatorPopup({ onClose }: BudgetCalculatorPopup
                   <p className="text-xs text-muted-foreground">в месяц</p>
                 </div>
               </div>
+              <p className="mb-4 text-[11px] leading-relaxed text-muted-foreground">
+                Это предварительный расчёт. Точная стоимость зависит от структуры аккаунта, аналитики и объёма работ.
+              </p>
               <div className="border-t border-border/50 pt-4 mt-2">
                 <p className="text-xs text-muted-foreground mb-3">
-                  <strong>Что входит:</strong> полная настройка кампаний, создание креативов, ежедневная оптимизация, еженедельные отчёты, A/B тестирование.
+                  <strong>Обычно входит:</strong> настройка и ведение кампаний, аналитика, проверка гипотез, офферы, ТЗ на креативы и отчёт. Дизайн, съёмка, монтаж и интеграции — отдельно.
                 </p>
                 <button
                   onClick={goToContact}
                   className="w-full py-2 rounded-lg bg-gradient-to-r from-primary to-accent text-white font-semibold hover:opacity-90 transition-all"
                 >
-                  Заказать консультацию
+                  Обсудить проект
                 </button>
               </div>
             </motion.div>

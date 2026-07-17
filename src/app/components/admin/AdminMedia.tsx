@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Copy, Trash2, Upload, Check, FileText } from 'lucide-react';
+import { AdminButton, AdminMeta, AdminPanel, AdminSectionHeading } from './AdminUI';
 
 interface MediaFile {
   key: string;
@@ -103,74 +104,79 @@ export default function AdminMedia({ password }: { password: string }) {
     }
   };
 
-  if (loading) return <div className="p-6 text-sm text-[var(--adm-fg)]/60">Загрузка медиатеки…</div>;
+  if (loading) return <div className="p-6 text-sm text-[var(--adm-fg)]/60" role="status">Загрузка медиатеки…</div>;
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-6 space-y-3">
+      <AdminPanel className="p-6 space-y-3" role="alert">
         <p className="text-sm text-[var(--adm-fg)]/75">{error}</p>
-        <p className="text-xs text-[var(--adm-fg)]/55">Медиатека работает на продакшене, где подключено хранилище R2.</p>
-        <button onClick={() => void load()} className="inline-flex items-center gap-2 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs hover:bg-[var(--adm-muted)]/50">
+        <p className="admin-meta">Медиатека работает на продакшене, где подключено хранилище R2.</p>
+        <AdminButton onClick={() => void load()} compact>
           <RefreshCw className="h-3.5 w-3.5" /> Повторить
-        </button>
-      </div>
+        </AdminButton>
+      </AdminPanel>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-sm text-[var(--adm-fg)]/70">{files.length} файлов в хранилище</span>
-        <div className="flex gap-2">
-          <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs hover:bg-[var(--adm-primary)]/10 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
+    <div className="admin-stack">
+      <AdminSectionHeading
+        title="Медиатека"
+        description={`${files.length} файлов в хранилище`}
+        action={<div className="admin-media-actions flex gap-2">
+          <label className={`admin-button cursor-pointer ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
             <Upload className="h-3.5 w-3.5" /> {uploading ? 'Загрузка…' : 'Загрузить файлы'}
-            <input type="file" multiple className="hidden" onChange={(e) => { void uploadFiles(e.target.files); e.target.value = ''; }} />
+            <input type="file" multiple className="hidden" aria-label="Выбрать файлы для загрузки" onChange={(e) => { void uploadFiles(e.target.files); e.target.value = ''; }} />
           </label>
-          <button onClick={() => void load()} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50">
+          <AdminButton onClick={() => void load()} compact aria-label="Обновить медиатеку">
             <RefreshCw className="h-3.5 w-3.5" /> Обновить
-          </button>
-        </div>
-      </div>
+          </AdminButton>
+        </div>}
+      />
 
       {files.length === 0 && (
-        <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-6 text-sm text-[var(--adm-fg)]/60">
+        <AdminPanel className="p-6 text-sm text-[var(--adm-fg)]/60">
           Файлов пока нет — загрузите первый через кнопку выше или из редактора статьи.
-        </div>
+        </AdminPanel>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
         {files.map((file) => {
           const isImage = file.contentType.startsWith('image/');
           return (
-            <div key={file.key} className="overflow-hidden rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)]">
-              <div className="flex h-28 items-center justify-center bg-[var(--adm-muted)]/40">
+            <AdminPanel key={file.key} className="admin-panel--interactive admin-media-card">
+              <div className="admin-media-card__preview flex h-36 items-center justify-center sm:h-32">
                 {isImage ? (
                   <img src={file.url} alt={file.name} loading="lazy" className="h-full w-full object-cover" />
                 ) : (
                   <FileText className="h-8 w-8 text-[var(--adm-fg)]/35" />
                 )}
               </div>
-              <div className="space-y-1.5 p-2.5">
-                <div className="truncate text-xs font-medium" title={file.name}>{file.name}</div>
-                <div className="text-[10px] text-[var(--adm-fg)]/50">{formatSize(file.size)} · {formatDate(file.uploaded)}</div>
-                <div className="flex gap-1.5">
+              <div className="space-y-2 p-3">
+                <div className="truncate text-sm font-semibold" title={file.name}>{file.name}</div>
+                <AdminMeta className="block">{formatSize(file.size)} · {formatDate(file.uploaded)}</AdminMeta>
+                <div className="admin-media-card__actions flex gap-1.5">
                   <button
+                    type="button"
                     onClick={() => void copyUrl(file)}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-[var(--adm-border)] px-2 py-1 text-[11px] hover:bg-[var(--adm-primary)]/10"
+                    className="admin-button admin-button--compact flex-1"
                     title="Скопировать ссылку для вставки в статью"
+                    aria-label={`Скопировать ссылку на ${file.name}`}
                   >
                     {copiedKey === file.key ? <><Check className="h-3 w-3 text-green-500" /> Готово</> : <><Copy className="h-3 w-3" /> Ссылка</>}
                   </button>
                   <button
+                    type="button"
                     onClick={() => void deleteFile(file)}
-                    className="inline-flex items-center justify-center rounded-lg border border-[var(--adm-border)] px-2 py-1 text-[var(--adm-danger)] hover:bg-[var(--adm-danger)]/10"
+                    className="admin-button admin-button--danger w-10 p-0"
                     title="Удалить файл"
+                    aria-label={`Удалить ${file.name}`}
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
               </div>
-            </div>
+            </AdminPanel>
           );
         })}
       </div>

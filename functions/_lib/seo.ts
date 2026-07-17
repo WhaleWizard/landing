@@ -300,9 +300,16 @@ export function renderSitemapXml(siteUrl: string, routes: string[], articleDates
   const defaultLastmod = new Date().toISOString().slice(0, 10);
   const uniqueRoutes = [...new Set(routes)];
 
+  const canonicalRoute = (route: string): string => {
+    if (route === '/' || /\.[a-z0-9]+$/i.test(route) || /^\/(blog|cases)\/[^/]+$/.test(route)) {
+      return route;
+    }
+    return route.endsWith('/') ? route : `${route}/`;
+  };
+
   const urls = uniqueRoutes
     .map((route) => {
-      const loc = xmlEscape(`${siteUrl}${route}`);
+      const loc = xmlEscape(`${siteUrl}${canonicalRoute(route)}`);
       const lastmod = toIsoDate(articleDates[route]) || defaultLastmod;
       const isArticle = /^\/(blog|cases)\/[^/]+$/.test(route);
       const priority = isArticle ? '0.8' : route === '/' ? '1.0' : '0.7';

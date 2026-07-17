@@ -11,6 +11,32 @@ export type Testimonial = {
   text: string;
 };
 
+export type TestimonialStat = {
+  value: string;
+  label: string;
+};
+
+export type TestimonialsContent = {
+  badge: string;
+  titlePrefix: string;
+  titleAccent: string;
+  description: string;
+};
+
+const defaultStats: TestimonialStat[] = [
+  { value: '65 000+', label: 'лидов в одном проекте' },
+  { value: '4 года', label: 'самый долгий проект' },
+  { value: '30 000+', label: 'покупок в e-commerce' },
+  { value: '50+', label: 'проектов в B2C' },
+];
+
+const defaultContent: TestimonialsContent = {
+  badge: 'Отзывы о работе',
+  titlePrefix: 'Что клиенты ценят',
+  titleAccent: 'в работе со мной',
+  description: 'В отзывах чаще всего говорят о качестве заявок, понятных отчётах и быстрой реакции на изменения.',
+};
+
 export const testimonialsData: Testimonial[] = [
   {
     name: 'Радмир',
@@ -184,7 +210,13 @@ function TestimonialCard({ testimonial, index, compact = false }: { testimonial:
   );
 }
 
-function Testimonials() {
+function Testimonials({
+  stats = defaultStats,
+  content = defaultContent,
+}: {
+  stats?: TestimonialStat[];
+  content?: TestimonialsContent;
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDesktopScrollbarVisible, setIsDesktopScrollbarVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
@@ -325,16 +357,16 @@ function Testimonials() {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 backdrop-blur-sm mb-4 md:mb-6">
             <Users className="w-4 h-4 text-accent" />
-            <span className="text-sm text-accent font-semibold">Отзывы клиентов</span>
+            <span className="text-sm text-accent font-semibold">{content.badge}</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-            Что говорят{' '}
+          <h2 className="text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+            {content.titlePrefix}{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-              мои клиенты
+              {content.titleAccent}
             </span>
           </h2>
-          <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Доверие строится на результатах. Вот что говорят проекты, с которыми я работаю
+          <p className="text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
+            {content.description}
           </p>
         </motion.div>
 
@@ -359,15 +391,15 @@ function Testimonials() {
             <div className="flex gap-3">
               <button
                 onClick={() => scrollDesktopTestimonials('prev')}
-                className="p-2.5 rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
-                aria-label="Previous testimonials"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
+                aria-label="Предыдущие отзывы"
               >
                 <ChevronLeft className="w-5 h-5 text-primary" />
               </button>
               <button
                 onClick={() => scrollDesktopTestimonials('next')}
-                className="p-2.5 rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
-                aria-label="Next testimonials"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
+                aria-label="Следующие отзывы"
               >
                 <ChevronRight className="w-5 h-5 text-primary" />
               </button>
@@ -473,8 +505,8 @@ function Testimonials() {
               <button
                 key={index}
                 onClick={() => setCurrentIndex(index)}
-                className="relative"
-                aria-label={`Go to testimonial ${index + 1}`}
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label={`Перейти к отзыву ${index + 1}`}
               >
                 <div className={`h-2 rounded-full transition-all duration-300 ${
                   currentIndex === index
@@ -483,7 +515,7 @@ function Testimonials() {
                 }`} />
                 {currentIndex === index && (
                   <motion.div
-                    className="absolute inset-0 rounded-full bg-primary/50 blur-sm"
+                    className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
                     animate={inView ? { scale: [1, 1.5, 1] } : {}}
                     transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
                   />
@@ -496,15 +528,15 @@ function Testimonials() {
           <div className="flex justify-center gap-3 mt-5">
             <button
               onClick={prevSlide}
-              className="p-2.5 rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
-              aria-label="Previous testimonial"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
+              aria-label="Предыдущий отзыв"
             >
               <ChevronLeft className="w-5 h-5 text-primary" />
             </button>
             <button
               onClick={nextSlide}
-              className="p-2.5 rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
-              aria-label="Next testimonial"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
+              aria-label="Следующий отзыв"
             >
               <ChevronRight className="w-5 h-5 text-primary" />
             </button>
@@ -519,27 +551,22 @@ function Testimonials() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="mt-12 md:mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"
         >
-          {[
-            { value: '150+', label: 'кейсов с результатом' },
-            { value: '5 лет', label: 'Опыта в маркетинге' },
-            { value: '79%', label: 'проектов окупаются и масштабируются' },
-            { value: '$2М+', label: 'откручено в рекламе' },
-          ].map((stat, index) => (
+          {stats.map((stat, index) => (
             <motion.div
               key={index}
-              className="relative text-center p-4 md:p-6 rounded-2xl bg-card/30 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-300 group"
+              className="relative min-w-0 text-center p-4 md:p-6 rounded-2xl bg-card/30 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-300 group"
               {...statHover}
               transition={{ duration: 0.2 }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl -z-10" />
-              <div className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2 right-2 hidden w-7 h-7 rounded-lg bg-primary/10 md:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <Sparkles className="w-4 h-4 text-primary" />
               </div>
               <div className="relative">
-                <div className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+                <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2 whitespace-nowrap">
                   {stat.value}
                 </div>
-                <div className="text-xs md:text-sm text-muted-foreground leading-tight">{stat.label}</div>
+                <div className="text-pretty text-xs md:text-sm text-muted-foreground leading-tight">{stat.label}</div>
               </div>
             </motion.div>
           ))}
