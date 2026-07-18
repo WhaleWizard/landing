@@ -241,6 +241,17 @@ export default function CookieConsentManager() {
   }, []);
 
   const isVisible = mode !== 'hidden';
+  const blocked = loadingGeo || isVisible || docModal !== null;
+
+  useEffect(() => {
+    document.documentElement.dataset.wwCookieUi = blocked ? 'blocked' : 'ready';
+    window.dispatchEvent(new CustomEvent('ww:cookie-ui-change', { detail: { blocked } }));
+
+    return () => {
+      delete document.documentElement.dataset.wwCookieUi;
+      window.dispatchEvent(new CustomEvent('ww:cookie-ui-change', { detail: { blocked: true } }));
+    };
+  }, [blocked]);
 
   const docDialog = (
     <Modal

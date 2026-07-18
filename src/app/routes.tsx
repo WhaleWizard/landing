@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
+const WhaleNavigator = lazy(() => import('./components/brand/WhaleNavigator'));
 
 const ThankYou = lazy(() => import('./pages/ThankYou'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
@@ -67,6 +68,7 @@ function RootLayout() {
       <Outlet />
       <Suspense fallback={null}>
         <CookieConsentManager />
+        <WhaleNavigator />
       </Suspense>
     </>
   );

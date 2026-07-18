@@ -1,0 +1,102 @@
+.ww-whale-mark {
+  position: relative;
+  display: block;
+  flex: none;
+  width: var(--ww-whale-size);
+  height: var(--ww-whale-size);
+  transform-origin: 52% 58%;
+  isolation: isolate;
+}
+
+.ww-whale-mark__picture,
+.ww-whale-mark__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ww-whale-mark__image {
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ww-whale-mark__glow {
+  position: absolute;
+  z-index: 1;
+  left: 83.5%;
+  top: 39.4%;
+  width: 17%;
+  height: auto;
+  opacity: 0.58;
+  transform: translate(-50%, -50%) scale(0.9);
+  pointer-events: none;
+  user-select: none;
+  animation: ww-wand-glow-breathe 2.8s ease-in-out infinite;
+}
+
+.ww-whale-mark--alive {
+  animation: ww-brand-whale-float 7.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.ww-brand-mark-shell {
+  display: block;
+  flex: none;
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.ww-brand-wordmark {
+  display: block;
+  font-size: clamp(1.15rem, 2.1vw, 1.5rem);
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+  transform: translateX(0);
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-ww-whale-detached='true'] .ww-public-brand-logo[data-whale-brand-anchor='true'] .ww-brand-mark-shell {
+  opacity: 0;
+}
+
+html[data-ww-whale-detached='true'] .ww-public-brand-logo[data-whale-brand-anchor='true'] .ww-brand-wordmark {
+  transform: translateX(clamp(-48px, -3.9vw, -38px));
+}
+
+.ww-public-brand-logo:hover .ww-whale-mark__glow,
+.ww-public-brand-logo:focus-visible .ww-whale-mark__glow {
+  opacity: 0.95;
+  transform: translate(-50%, -50%) scale(1.18);
+}
+
+@keyframes ww-brand-whale-float {
+  0%, 100% { transform: translate3d(0, 1px, 0) rotate(-0.25deg); }
+  50% { transform: translate3d(0, -3px, 0) rotate(0.35deg); }
+}
+
+@keyframes ww-wand-glow-breathe {
+  0%, 100% { opacity: 0.42; transform: translate(-50%, -50%) scale(0.86); }
+  50% { opacity: 0.72; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+@media (max-width: 420px) {
+  .ww-brand-wordmark {
+    font-size: 1.05rem;
+  }
+}
+
+@media (max-width: 1439px) {
+  html[data-ww-whale-detached='true'] .ww-public-brand-logo[data-whale-brand-anchor='true'] .ww-brand-wordmark {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ww-whale-mark,
+  .ww-whale-mark__glow,
+  .ww-brand-mark-shell,
+  .ww-brand-wordmark {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -4,6 +4,8 @@
 @import './blog-readable.css';
 @import './cases-finder.css';
 @import './admin-ui.css';
+@import './whale-brand.css';
+@import './whale-navigator.css';
 
 /* Admin UI is kept in a dedicated layer so public landing styles stay isolated and responsive. */
 

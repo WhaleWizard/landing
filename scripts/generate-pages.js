@@ -341,7 +341,7 @@ function buildOrganizationJsonLd() {
     '@type': 'ProfessionalService',
     name: 'Whale Wizard',
     url: SITE_URL,
-    logo: `${SITE_URL}/og-image.jpg`,
+    logo: `${SITE_URL}/images/brand/whale-wizard.png`,
     image: `${SITE_URL}/og-image.jpg`,
     description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи.',
     email: 'whalewzrd@gmail.com',
@@ -406,7 +406,7 @@ function buildArticleJsonLd(article) {
       name: 'Whale Wizard',
       logo: {
         '@type': 'ImageObject',
-        url: `${SITE_URL}/og-image.jpg`,
+        url: `${SITE_URL}/images/brand/whale-wizard.png`,
       },
     },
     keywords: article.tags || [],

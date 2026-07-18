@@ -324,7 +324,6 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
             alt=""
             loading="eager"
             decoding="async"
-            fetchPriority="high"
             width={746}
             height={720}
             className="w-full h-full object-cover"

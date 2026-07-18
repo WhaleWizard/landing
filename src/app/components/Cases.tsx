@@ -203,7 +203,6 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
                   alt={item.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   loading="lazy"
-                  fetchPriority="low"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                 <motion.div 
@@ -281,7 +280,6 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
                         alt={item.title}
                         className="w-full h-full object-cover"
                         loading="lazy"
-                        fetchPriority="low"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />

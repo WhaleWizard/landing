@@ -3,6 +3,7 @@ import { Menu, X, Briefcase, Trophy, Newspaper, Star, HelpCircle, Phone, Calcula
 import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
+import BrandLogo from './brand/BrandLogo';
 
 type NavbarVariant = 'home' | 'service' | 'content';
 
@@ -144,12 +145,11 @@ function Navbar({ variant = 'home' }: NavbarProps) {
           <div className="flex items-center justify-between h-20">
             {/* Логотип */}
             <div className="flex-shrink-0">
-              <button
+              <BrandLogo
                 onClick={() => variant === 'content' ? navigate('/') : scrollToSection('hero')}
-                className="inline-flex min-h-11 items-center text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
-              >
-                Whale Wizard
-              </button>
+                priority
+                ariaLabel={variant === 'content' ? 'Whale Wizard — на главную' : 'Whale Wizard — к началу страницы'}
+              />
             </div>
 
             {/* Десктопное меню */}
@@ -222,9 +222,16 @@ function Navbar({ variant = 'home' }: NavbarProps) {
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
               <div className="flex items-center justify-between px-5 py-5 border-b border-border/60">
-                <span className="text-lg font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                  Whale Wizard
-                </span>
+                <BrandLogo
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (variant === 'content') navigate('/');
+                    else scrollToSection('hero');
+                  }}
+                  markSize={40}
+                  anchor={false}
+                  ariaLabel={variant === 'content' ? 'Whale Wizard — на главную' : 'Whale Wizard — к началу страницы'}
+                />
                 <button
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}

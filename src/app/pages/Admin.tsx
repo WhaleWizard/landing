@@ -22,6 +22,7 @@ import AdminToday from '../components/admin/AdminToday';
 import AdminMetaCenter from '../components/admin/AdminMetaCenter';
 import AdminAttribution from '../components/admin/AdminAttribution';
 import AdminContentControl from '../components/admin/AdminContentControl';
+import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
 type AdminView = 'dashboard' | 'articles' | 'leads' | 'media' | 'health' | 'meta' | 'attribution' | 'content';
@@ -823,8 +824,12 @@ export default function Admin() {
         <main className="flex items-center justify-center p-4 min-h-screen">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="admin-panel w-full max-w-md p-6 sm:p-8">
             <div className="flex justify-between items-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--adm-primary)] to-[var(--adm-primary-strong)] flex items-center justify-center">
-                <Lock className="w-8 h-8 text-white" />
+              <div className="admin-login-brand">
+                <WhaleMark size="var(--adm-login-whale-size)" className="admin-brand-whale" priority />
+                <span className="admin-login-security">
+                  <Lock aria-hidden="true" />
+                  Защищённый доступ
+                </span>
               </div>
               <AdminThemeToggleButton />
             </div>
@@ -850,9 +855,12 @@ export default function Admin() {
       <main className="px-4 py-6 sm:py-8 lg:py-10">
         <div className="max-w-7xl mx-auto">
           <header className="admin-header">
-            <div>
-              <p className="admin-eyebrow">Control center</p>
-              <h1 className="admin-header__title bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Whale Wizard</h1>
+            <div className="admin-header__brand">
+              <WhaleMark size="var(--adm-header-whale-size)" className="admin-brand-whale" priority />
+              <div className="admin-header__brand-copy">
+                <p className="admin-eyebrow">Control center</p>
+                <h1 className="admin-header__title bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Whale Wizard</h1>
+              </div>
             </div>
             <div className="admin-header__actions">
               <AdminThemeToggleButton />

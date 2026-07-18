@@ -6,6 +6,8 @@
   --adm-radius-card: 16px;
   --adm-radius-control: 10px;
   --adm-control-height: 40px;
+  --adm-header-whale-size: 48px;
+  --adm-login-whale-size: 84px;
 
   font-family: var(--ww-font-text, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif);
   font-size: 14px;
@@ -463,9 +465,73 @@
   margin-bottom: 28px;
 }
 
+.admin-root .admin-header__brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-root .admin-header__brand-copy {
+  min-width: 0;
+}
+
+.admin-root .admin-header__brand .admin-eyebrow {
+  margin-bottom: 4px;
+}
+
 .admin-root .admin-header__title {
+  margin: 0;
   font-size: clamp(24px, 3vw, 32px);
   line-height: 1.1;
+}
+
+.admin-root .admin-login-brand {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.admin-root .admin-login-security {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.admin-root .admin-login-security svg {
+  width: 12px;
+  height: 12px;
+}
+
+.admin-root .admin-brand-whale {
+  animation: admin-whale-enter 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.admin-root .admin-brand-whale .ww-whale-mark__glow {
+  opacity: 0.48;
+  animation: none;
+  transform: translate(-50%, -50%) scale(0.92);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.admin-root :is(.admin-login-brand, .admin-header__brand):hover .admin-brand-whale .ww-whale-mark__glow {
+  opacity: 0.88;
+  transform: translate(-50%, -50%) scale(1.12);
+}
+
+@keyframes admin-whale-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .admin-root .admin-header__actions {
@@ -1039,12 +1105,18 @@
 @media (max-width: 767px) {
   .admin-root {
     --adm-control-height: 44px;
+    --adm-header-whale-size: 40px;
+    --adm-login-whale-size: 80px;
   }
 
   .admin-root .admin-header {
     align-items: flex-start;
     flex-direction: column;
     margin-bottom: 20px;
+  }
+
+  .admin-root .admin-header__brand {
+    gap: 10px;
   }
 
   .admin-root .admin-header__actions {

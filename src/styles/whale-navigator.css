@@ -1,0 +1,213 @@
+.ww-whale-guide-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ww-whale-guide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform, width, height, opacity;
+}
+
+.ww-whale-guide__pet {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 28%;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ww-whale-guide__pet:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.ww-whale-guide__look,
+.ww-whale-guide__hover,
+.ww-whale-guide__idle {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 52% 58%;
+}
+
+.ww-whale-guide__look {
+  transform: rotate(var(--ww-look-rotation, 0deg));
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ww-whale-guide__hover {
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ww-whale-guide__idle {
+  animation: ww-guide-idle 7.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.ww-whale-guide__pet:hover .ww-whale-guide__hover,
+.ww-whale-guide__pet:focus-visible .ww-whale-guide__hover {
+  transform: translate3d(0, -5px, 0) rotate(0.4deg);
+}
+
+.ww-whale-guide .ww-whale-mark__glow {
+  width: 23%;
+  opacity: 0.7;
+}
+
+.ww-whale-guide__pet:hover .ww-whale-mark__glow,
+.ww-whale-guide__pet:focus-visible .ww-whale-mark__glow,
+.ww-whale-guide[data-attention='true'] .ww-whale-mark__glow {
+  animation: ww-guide-attention 720ms ease-out 2;
+}
+
+.ww-whale-guide__trail {
+  position: absolute;
+  z-index: 0;
+  inset: 15% 24% 15% 0;
+  pointer-events: none;
+}
+
+.ww-whale-guide__trail img {
+  position: absolute;
+  display: block;
+  width: 26%;
+  height: auto;
+  opacity: 0;
+}
+
+.ww-whale-guide[data-traveling='true'] .ww-whale-guide__trail img {
+  animation: ww-guide-trail 640ms ease-out both;
+}
+
+.ww-whale-guide__trail img:nth-child(1) { left: 8%; top: 54%; animation-delay: 0ms; }
+.ww-whale-guide__trail img:nth-child(2) { left: 23%; top: 34%; animation-delay: 80ms; }
+.ww-whale-guide__trail img:nth-child(3) { left: 39%; top: 62%; animation-delay: 150ms; }
+.ww-whale-guide__trail img:nth-child(4) { left: 52%; top: 42%; animation-delay: 220ms; }
+
+.ww-whale-guide__hint {
+  position: absolute;
+  z-index: 4;
+  top: 17%;
+  left: 73%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 42px;
+  max-width: min(240px, 72vw);
+  padding: 0.58rem 0.72rem 0.58rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border));
+  border-radius: 0.9rem;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--primary) 18%, transparent);
+  backdrop-filter: blur(16px);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.ww-whale-guide__hint svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--primary);
+}
+
+.ww-whale-guide__hint:hover,
+.ww-whale-guide__hint:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+}
+
+@keyframes ww-guide-idle {
+  0%, 100% { transform: translate3d(-1px, 2px, 0) rotate(-0.35deg); }
+  50% { transform: translate3d(2px, -7px, 0) rotate(0.5deg); }
+}
+
+@keyframes ww-guide-attention {
+  0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.9); }
+  45% { opacity: 1; transform: translate(-50%, -50%) scale(1.28); }
+}
+
+@keyframes ww-guide-trail {
+  0% { opacity: 0; transform: translate3d(12px, 4px, 0) scale(0.45); }
+  35% { opacity: 0.48; }
+  100% { opacity: 0; transform: translate3d(-18px, -5px, 0) scale(1.05); }
+}
+
+@media (max-width: 1439px) {
+  .ww-whale-guide-layer {
+    z-index: 55;
+  }
+
+  .ww-whale-guide[data-has-anchor='true'] .ww-whale-guide__hint {
+    top: calc(100% + 5px);
+    left: 8%;
+  }
+
+  .ww-whale-guide[data-has-anchor='false'] .ww-whale-guide__hint {
+    top: 8%;
+    left: 84%;
+  }
+}
+
+@media (max-width: 767px) {
+  .ww-whale-guide__idle {
+    animation-duration: 8.4s;
+  }
+
+  .ww-whale-guide__pet:hover .ww-whale-guide__hover {
+    transform: none;
+  }
+
+  .ww-whale-guide__hint {
+    min-height: 44px;
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .ww-whale-guide__idle {
+    animation-name: ww-guide-idle-small;
+  }
+}
+
+@keyframes ww-guide-idle-small {
+  0%, 100% { transform: translate3d(0, 1px, 0); }
+  50% { transform: translate3d(0, -3px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ww-whale-guide,
+  .ww-whale-guide__look,
+  .ww-whale-guide__hover,
+  .ww-whale-guide__idle,
+  .ww-whale-guide__trail img,
+  .ww-whale-guide .ww-whale-mark__glow {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ww-whale-guide__look,
+  .ww-whale-guide__hover,
+  .ww-whale-guide__idle {
+    transform: none !important;
+  }
+}

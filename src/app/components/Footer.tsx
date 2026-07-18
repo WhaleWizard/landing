@@ -1,8 +1,9 @@
-import { Mail, MessageSquare, ExternalLink, Sparkles } from 'lucide-react';
-import { motion, useInView } from 'motion/react';
+import { Mail, MessageSquare, ExternalLink } from 'lucide-react';
+import { motion, useInView, useReducedMotion } from 'motion/react';
 import { memo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
+import WhaleMark from './brand/WhaleMark';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -19,6 +20,7 @@ function Footer() {
   const location = useLocation();
   const footerRef = useRef<HTMLElement>(null);
   const inView = useInView(footerRef, { once: false, margin: '0px 0px -10% 0px' });
+  const reduceMotion = useReducedMotion();
 
   const scrollToSection = useCallback((id: string) => {
     const scrollNow = () => {
@@ -64,16 +66,16 @@ function Footer() {
           {/* Brand */}
           <motion.div 
             className="space-y-4"
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: reduceMotion ? 0 : 0.5 }}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <WhaleMark size={52} animated />
               <h3 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 Whale Wizard
               </h3>
-              <Sparkles className="w-5 h-5 text-primary animate-pulse" />
             </div>
             <p className="text-pretty text-sm text-muted-foreground">
               Performance-маркетинг в Google Ads и Meta Ads: от настройки аналитики до оптимизации по продажам.

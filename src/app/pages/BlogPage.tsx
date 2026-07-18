@@ -413,7 +413,6 @@ function BlogPageComponent() {
                   src={selectedArticle.image}
                   alt={selectedArticle.title}
                   loading="eager"
-                  fetchPriority="high"
                   className="w-full h-auto object-cover max-h-[500px]"
                   onError={(event) => {
                     // Битая обложка — прячем весь блок, статья начинается с текста

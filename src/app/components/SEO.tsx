@@ -114,7 +114,7 @@ export default function SEO({
       '@type': 'ProfessionalService',
       name: siteTitle,
       url: SITE_URL,
-      logo: `${SITE_URL}/og-image.jpg`,
+      logo: `${SITE_URL}/images/brand/whale-wizard.png`,
       image: absoluteImage,
       description: 'Настройка и ведение Google Ads и Meta Ads с аналитикой, событиями и оценкой рекламы по заявкам, продажам и экономике проекта.',
       email: 'whalewzrd@gmail.com',

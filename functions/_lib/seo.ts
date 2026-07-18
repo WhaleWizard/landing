@@ -126,7 +126,7 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
         name: 'Whale Wizard',
         logo: {
           '@type': 'ImageObject',
-          url: `${siteUrl}/og-image.jpg`,
+          url: `${siteUrl}/images/brand/whale-wizard.png`,
         },
       },
       keywords: article.tags || [],
