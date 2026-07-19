@@ -749,7 +749,7 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
       route: '/',
       title: 'Whale Wizard — Google Ads, Meta Ads и аналитика',
       description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
-      h1: 'Google Ads и Meta Ads с опорой на продажи и аналитику',
+      h1: 'Увеличу поток клиентов через Google Ads и Meta Ads',
       lead: content.defaultHeroContent.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderHomeSections(
         { hero: content.defaultHeroContent, services: content.defaultServicesContent, cases: content.defaultCasesContent, testimonials: content.testimonialsData },
@@ -1000,7 +1000,7 @@ function validateGeneratedOutput() {
   ], 'Generated home HTML');
 
   assertFileContains(routeIndexPath('/meta-apps'), [
-    'Продвигаю приложения в Meta Ads',
+    'качественные установки',
     `${SITE_URL}/meta-apps/`,
   ], 'Generated /meta-apps HTML');
 

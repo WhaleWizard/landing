@@ -96,9 +96,9 @@ function extractWebsiteDomain(value: string): string | undefined {
 }
 
 const websiteFieldConfig: Record<'meta-ads' | 'google-ads' | 'meta-apps', { label: string; placeholder: string }> = {
-  'google-ads': { label: 'Сайт или посадочная страница', placeholder: 'example.com' },
-  'meta-ads': { label: 'Сайт или Instagram', placeholder: 'example.com или @account' },
-  'meta-apps': { label: 'Ссылка на приложение', placeholder: 'App Store или Google Play' },
+  'google-ads': { label: 'Ссылка на ваш сайт', placeholder: 'example.com' },
+  'meta-ads': { label: 'Ссылка на сайт или Instagram', placeholder: 'example.com или @account' },
+  'meta-apps': { label: 'Приложение: ссылка или название', placeholder: 'App Store / Google Play — или расскажите о нём' },
 };
 
 const budgetOptions = [

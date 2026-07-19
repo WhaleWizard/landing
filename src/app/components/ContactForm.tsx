@@ -74,10 +74,10 @@ const budgetOptions = [
 
 
 const benefits = [
-  { title: 'Смотрю контекст', description: 'Сайт, цель, бюджет и текущие данные', icon: CheckCircle2, delay: 0 },
+  { title: 'Смотрю вводные', description: 'Сайт, реклама, цифры — что есть сейчас', icon: CheckCircle2, delay: 0 },
   {
-    title: 'Определяю главный приоритет',
-    description: 'Что стоит проверить или исправить до следующего запуска',
+    title: 'Называю приоритет',
+    description: 'Что исправить или проверить первым — и почему',
     icon: TrendingUp,
     delay: 0.1,
   },
@@ -298,13 +298,13 @@ function ContactForm() {
               <span className="text-sm text-primary font-semibold">Обсудить проект</span>
             </div>
             <h2 className="max-w-[20ch] text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.12]">
-              Разберём задачу и поймём,{' '}
+              Опишите задачу —{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                с чего начать
+                скажу, с чего начать
               </span>
             </h2>
             <p className="max-w-[62ch] text-pretty text-base md:text-lg text-muted-foreground leading-relaxed">
-              Оставьте контакты и пару слов о проекте. Я посмотрю вводные и напишу, чем могу помочь: разбором, запуском или настройкой аналитики.
+              Оставьте контакты и пару слов о проекте. Посмотрю сайт и рекламу, если она уже идёт, и отвечу: что работает, что нет и что бы я сделал первым.
             </p>
             <div className="space-y-4 pt-4">
               {benefits.map((item, index) => (
@@ -529,7 +529,7 @@ function ContactForm() {
 
                     {/* О проекте */}
                     <div className="relative">
-                      <label htmlFor="contact-message" className="block text-sm mb-2 font-medium">Что нужно настроить или улучшить?</label>
+                      <label htmlFor="contact-message" className="block text-sm mb-2 font-medium">Расскажите о вашем проекте</label>
                       <div className="relative">
                         <Textarea
                           id="contact-message"

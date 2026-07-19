@@ -8,7 +8,7 @@ import SEO from '../components/SEO';
 import type { ServicesContent } from '../components/Services';
 import type { CasesContent } from '../components/Cases';
 import type { CallToActionContent } from '../components/CallToAction';
-import type { TestimonialStat, TestimonialsContent } from '../components/Testimonials';
+import type { TestimonialsContent } from '../components/Testimonials';
 import useServiceContent from '../hooks/useServiceContent';
 
 const Services = lazy(() => import('../components/Services'));
@@ -117,15 +117,6 @@ const CASE_IMAGES = {
   b2c: '/images/case-b2c.jpg',
 };
 
-// Temporary product-specific proof points. Replace with verified figures from
-// published Meta Apps cases before deploying this page.
-const META_APPS_TESTIMONIAL_STATS: TestimonialStat[] = [
-  { value: '2,4 млн+', label: 'установок из Meta Ads' },
-  { value: '320 000+', label: 'регистраций и триалов' },
-  { value: '48 000+', label: 'покупок и заказов' },
-  { value: '12 000+', label: 'оплаченных подписок' },
-];
-
 const META_APPS_TESTIMONIAL_CONTENT: TestimonialsContent = {
   badge: 'Отзывы о работе',
   titlePrefix: 'Клиенты ценят',
@@ -142,24 +133,23 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     },
     hero: {
       badge: 'Meta Ads для заявок и продаж',
-      titlePrefix: 'Настраиваю и веду Meta Ads',
-      titleAccent: 'с оптимизацией на целевые заявки и продажи — а не только на дешёвые лиды',
+      titlePrefix: 'Реклама в Meta:',
+      titleAccent: 'клиенты, а не просто лиды',
       titleLines: [
-        { text: 'Настраиваю и веду Meta Ads' },
-        { text: 'с оптимизацией на' },
-        { text: 'целевые заявки и продажи', tone: 'accent' },
-        { text: 'а не только на дешёвые лиды', tone: 'supporting' },
+        { text: 'Реклама в Meta:' },
+        { text: 'клиенты, а не просто лиды', tone: 'accent' },
+        { text: 'Instagram и Facebook — с оптимизацией на продажи', tone: 'supporting' },
       ],
       paragraphs: [
-        'Сначала определяю главное действие: целевая заявка, запись, покупка или подписка. Под него собираю оффер, посадочную и креативы и тестирую конкретные гипотезы, а не всё подряд.',
-        'Настраиваю Pixel и CAPI без дублей. Если есть CRM, возвращаю в Meta статусы квалификации и продаж — чтобы оценивать кампании не только по цене заявки, но и по тому, сколько заявок становятся клиентами.',
+        'Настраиваю и веду таргет в Instagram и Facebook: оффер, креативы, аудитории, ретаргетинг. Первые заявки — уже в период теста.',
+        'Подключаю Pixel, CAPI и продажи из CRM, чтобы Meta училась на покупателях, а бюджет уходил в кампании, которые приводят клиентов.',
       ],
       primaryButton: 'Разобрать рекламу',
-      secondaryButton: 'Посмотреть задачи',
+      secondaryButton: 'Частые ситуации',
       stats: [
-        { value: 'Pixel', label: 'события на сайте' },
-        { value: 'CAPI', label: 'события с сервера' },
-        { value: 'CRM', label: 'статусы лидов' },
+        { value: 'Pixel', label: 'что делают люди на сайте' },
+        { value: 'CAPI', label: 'продажи уходят в Meta' },
+        { value: 'CRM', label: 'видно, кто купил' },
       ],
     },
     services: {
@@ -278,20 +268,20 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     },
     cta: {
       badge: 'Разбор Meta Ads',
-      title: 'Покажу, где теряются данные, заявки или бюджет',
-      description: 'Проверю кампании, события и путь заявки до продажи. Расставлю приоритеты: что исправить сейчас, что проверить тестом, а что пока не трогать.',
+      title: 'Где ваша реклама теряет деньги?',
+      description: 'Разберу кампании, события и путь заявки до продажи. Скажу, что исправить сразу, что проверить тестом, а что пока не трогать.',
       button: 'Запросить разбор',
     },
     contact: {
       badge: 'Первичный разбор',
-      titlePrefix: 'Разберём Meta Ads',
-      titleAccent: 'по вашим цифрам',
-      description: 'Оставьте ссылку, контакты и диапазон бюджета. Цель и текущие данные уточню перед разбором.',
+      titlePrefix: 'Разберём вашу рекламу',
+      titleAccent: 'по цифрам',
+      description: 'Оставьте ссылку на сайт, контакты и диапазон бюджета. Посмотрю кабинет и кампании, если реклама уже идёт, и отвечу, что бы я исправил в первую очередь.',
       bullets: [
-        'Цель и допустимая стоимость результата',
-        'Путь заявки после отправки формы',
-        'События, которые получает Meta',
-        'Первый приоритетный тест',
+        'Какая цена заявки сходится с экономикой',
+        'Что происходит с заявкой после формы',
+        'Какие данные о продажах получает Meta',
+        'Какой тест запустить первым',
       ],
     },
   },
@@ -303,18 +293,18 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     },
     hero: {
       badge: 'Настройка и ведение Google Ads',
-      titlePrefix: 'Google Ads под запросы',
-      titleAccent: 'с намерением купить',
+      titlePrefix: 'Реклама в Google:',
+      titleAccent: 'клиенты, которые уже ищут вас',
       paragraphs: [
-        'В поиске показываю рекламу тем, кто уже ищет продукт или услугу. Shopping и Performance Max подключаю только когда готовы товарный фид, конверсии и бюджет.',
-        'Настраиваю GA4/GTM, Enhanced Conversions и передачу сделок из CRM, чтобы оценивать не только заявку, но и её качество или выручку. Если спроса или бюджета мало для нормального теста, скажу до запуска.',
+        'Настраиваю Search, Shopping и Performance Max под запросы, по которым покупают, — без мусорных кликов и бюджета, потраченного впустую.',
+        'Перед стартом считаю спрос и допустимую цену заявки: если для нормального теста их не хватает, скажу заранее. Конверсии настраиваю так, чтобы Google видел продажи, а не просто клики.',
       ],
-      primaryButton: 'Получить разбор',
-      secondaryButton: 'Посмотреть задачи',
+      primaryButton: 'Оценить спрос',
+      secondaryButton: 'Типовые задачи',
       stats: [
-        { value: 'Search', label: 'сформированный спрос' },
-        { value: 'PMax', label: 'каналы Google' },
-        { value: 'CRM', label: 'статусы лидов' },
+        { value: 'Search', label: 'клиенты из поиска' },
+        { value: 'PMax', label: 'товары и охват' },
+        { value: 'CRM', label: 'продажи видны Google' },
       ],
     },
     services: {
@@ -433,20 +423,20 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     },
     cta: {
       badge: 'Предварительный разбор',
-      title: 'Новый запуск или разбор текущего аккаунта?',
-      description: 'Посмотрю сайт, цель и исходные данные. Скажу, какой формат Google Ads стоит проверить первым и что подготовить до старта.',
+      title: 'Запуск с нуля или порядок в текущем аккаунте?',
+      description: 'Посмотрю сайт, спрос и цифры. Отвечу, какой формат Google Ads проверить первым и что подготовить до старта.',
       button: 'Обсудить задачу',
     },
     contact: {
       badge: 'Предварительный разбор',
-      titlePrefix: 'Разберём, с чего начать',
-      titleAccent: 'в Google Ads',
-      description: 'Оставьте сайт и контакты. Я уточню задачу, проверю спрос и предложу первый шаг. Для аудита аккаунта понадобится доступ только на просмотр.',
+      titlePrefix: 'Проверим спрос',
+      titleAccent: 'по вашей нише',
+      description: 'Оставьте сайт и контакты. Посмотрю, сколько людей ищут ваш продукт и что стоит клик, и отвечу, с чего бы я начал. Для аудита аккаунта хватит доступа на просмотр.',
       bullets: [
-        'Какая цель действительно важна бизнесу',
+        'Есть ли спрос и что стоит клик в нише',
         'Какие кампании уместны на старте',
-        'Что нужно поправить в измерении',
-        'Какой объём теста даст полезные данные',
+        'Что поправить в аналитике до запуска',
+        'Какой бюджет нужен на первый тест',
       ],
     },
   },
@@ -458,17 +448,16 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     },
     hero: {
       badge: 'Meta Ads для iOS и Android',
-      titlePrefix: 'Продвигаю приложения в Meta Ads',
-      titleAccent: 'с оптимизацией на покупки, заказы и подписки — а не только на установки',
+      titlePrefix: 'Реклама приложений в Meta:',
+      titleAccent: 'качественные установки',
       titleLines: [
-        { text: 'Продвигаю приложения' },
-        { text: 'в Meta Ads с оптимизацией на' },
-        { text: 'покупки, заказы и подписки', tone: 'accent' },
-        { text: 'а не только на установки', tone: 'supporting' },
+        { text: 'Реклама приложений в Meta:' },
+        { text: 'качественные установки', tone: 'accent' },
+        { text: 'и оптимизация на покупки, донаты и подписки', tone: 'supporting' },
       ],
       paragraphs: [
-        'Оптимизирую кампании по событию, которое связано с выручкой: заказу, покупке или подписке. Если данных пока мало, начинаем с регистрации или триала.',
-        'Проверяю SDK, MMP и CAPI, убираю дубли и меняю целевое событие, когда Meta уже хватает данных для обучения.',
+        'Привожу пользователей, которые не просто ставят приложение, а регистрируются, покупают и оформляют подписки. Когда данных достаточно — оптимизирую кампании прямо на продажи и донаты.',
+        'Для этого проверяю SDK, MMP и CAPI: Meta должна видеть события после установки и учиться на платящих пользователях, а не на случайных инсталлах.',
       ],
       primaryButton: 'Разобрать приложение',
       secondaryButton: 'Сценарии продвижения',
@@ -594,20 +583,20 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     },
     cta: {
       badge: 'Разбор приложения',
-      title: 'Разберём, на какое событие уже можно настроить Meta Ads',
-      description: 'Проверю воронку, события и текущие кампании. Покажу, какое событие выбрать сейчас, чего не хватает для оптимизации по оплатам и где теряются данные.',
+      title: 'На какое событие уже можно оптимизироваться?',
+      description: 'Посмотрю воронку, события и текущие кампании. Отвечу, чего не хватает для оптимизации по оплатам и где теряются данные.',
       button: 'Разобрать приложение',
     },
     contact: {
       badge: 'Первичный разбор',
       titlePrefix: 'Покажите приложение —',
       titleAccent: 'разберём воронку',
-      description: 'Оставьте ссылку на App Store или Google Play и контакты. Географию, модель монетизации и текущие события уточню перед разбором.',
+      description: 'Оставьте ссылку на App Store или Google Play и контакты. Посмотрю воронку и отвечу, с какого события стоит начать и чего не хватает для оптимизации по оплатам.',
       bullets: [
-        'Установка, регистрация, триал и покупка',
-        'SDK, MMP, CAPI и дубли событий',
-        'Креативы и карточки в сторах',
-        'CPI, CPA и экономика пользователя',
+        'Установка, регистрация, триал, покупка',
+        'SDK, MMP, CAPI — что доходит до Meta',
+        'Креативы и карточка в сторе',
+        'Сколько может стоить пользователь',
       ],
     },
   },
@@ -618,12 +607,12 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
       url: '/consult',
     },
     hero: {
-      badge: 'Разбор для таргетологов',
-      titlePrefix: 'Конкретный разбор',
-      titleAccent: 'вместо общих советов',
+      badge: 'Консультация один на один',
+      titlePrefix: 'Разбор для таргетологов:',
+      titleAccent: 'оффер, кейсы и клиенты',
       paragraphs: [
-        'До встречи вы присылаете профиль, кейсы и один главный вопрос. На созвоне разбираем оффер, оформление кейсов, поиск клиентов или переговоры — то, что сейчас мешает взять следующий проект.',
-        'После встречи у вас остаются готовые формулировки, список правок и план на 30 дней — без обещаний «нового дохода за один созвон».',
+        'Разбор один на один по вашей ситуации: правим оффер, кейсы и переписку с клиентами — на ваших материалах, а не в теории.',
+        'До созвона присылаете один главный вопрос. После — готовые формулировки и план на 30 дней. Если задача за одну встречу не решается, скажу до оплаты.',
       ],
       primaryButton: 'Записаться на разбор',
       secondaryButton: 'С чем можно прийти',
@@ -750,14 +739,14 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     cta: {
       badge: 'Личный разбор',
       title: 'Есть конкретный вопрос по клиентам или продажам?',
-      description: 'Коротко опишите ситуацию. Я скажу, будет ли полезен разбор за одну встречу и какие материалы подготовить.',
+      description: 'Коротко опишите ситуацию. Отвечу, решается ли она за один созвон и какие материалы подготовить.',
       button: 'Описать запрос',
     },
     contact: {
       badge: 'Запись на разбор',
       titlePrefix: 'Опишите, где',
       titleAccent: 'вы застряли',
-      description: 'Чем конкретнее вводные, тем предметнее будет встреча. Если запрос не укладывается в один созвон, предупрежу заранее.',
+      description: 'Чем конкретнее вводные, тем полезнее встреча. Если запрос не помещается в один созвон, предупрежу заранее.',
       bullets: [
         'Ссылка на профиль, сайт или портфолио',
         'Один главный вопрос',
@@ -907,10 +896,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
       <DeferredSection><Cases content={config.cases} moreHref={`/cases?from=${service}`} /></DeferredSection>
       <DeferredSection><CallToAction content={config.cta} /></DeferredSection>
       <DeferredSection>
-        <Testimonials
-          stats={service === 'meta-apps' ? META_APPS_TESTIMONIAL_STATS : undefined}
-          content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined}
-        />
+        <Testimonials content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined} />
       </DeferredSection>
       <ContactSection service={service} contact={config.contact} theme={theme} />
       <DeferredSection height="min-h-[160px]"><Footer /></DeferredSection>

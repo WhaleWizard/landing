@@ -24,10 +24,10 @@ export type TestimonialsContent = {
 };
 
 const defaultStats: TestimonialStat[] = [
-  { value: '65 000+', label: 'лидов в одном проекте' },
-  { value: '4 года', label: 'самый долгий проект' },
-  { value: '30 000+', label: 'покупок в e-commerce' },
-  { value: '50+', label: 'проектов в B2C' },
+  { value: '150+', label: 'кейсов с результатом' },
+  { value: '5 лет', label: 'Опыта в маркетинге' },
+  { value: '79%', label: 'проектов окупаются и масштабируются' },
+  { value: '$2М+', label: 'откручено в рекламе' },
 ];
 
 const defaultContent: TestimonialsContent = {

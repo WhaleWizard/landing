@@ -82,19 +82,19 @@ export type HeroContent = {
 };
 
 export const defaultHeroContent: HeroContent = {
-  badge: 'Performance-маркетинг',
-  titlePrefix: 'Google Ads и Meta Ads',
-  titleAccent: 'с опорой на продажи и аналитику',
+  badge: 'Performance-таргетинг',
+  titlePrefix: 'Увеличу поток клиентов',
+  titleAccent: 'через Google Ads и Meta Ads',
   paragraphs: [
-    'Сначала считаю допустимую стоимость клиента и проверяю отслеживание. Затем тестирую конкретные сочетания оффера, аудитории и креатива и оставляю те, которые приводят квалифицированные заявки или покупки.',
-    'В работе беру на себя стратегию, креативные тесты, Meta Pixel и CAPI, GA4/GTM и регулярную оптимизацию.',
+    'Настраиваю рекламу, которая приводит первые заявки уже в период теста и масштабируется в прибыль — с аналитикой, по которой видно, сколько стоит заявка и клиент.',
+    'В управлении — $2 млн+ рекламного бюджета и 500 000+ лидов для клиентов. Средняя окупаемость — 240% в e-commerce и B2C.',
   ],
   primaryButton: 'Обсудить проект',
   secondaryButton: 'Посмотреть кейсы',
   stats: [
-    { value: '65к+', label: 'лидов в одном проекте' },
-    { value: '30к+', label: 'покупок в e-commerce' },
-    { value: '4 года', label: 'самый долгий проект' },
+    { value: '150+', label: 'кейсов' },
+    { value: '$2М+', label: 'инвестировано в трафик' },
+    { value: '79%', label: 'проектов окупились' },
   ],
 };
 
@@ -205,7 +205,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
           return (
             <span
               key={`${line.text}-${index}`}
-              className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent' : ''}`}
+              className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
             >
               {line.text}
             </span>
@@ -215,7 +215,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
     ) : (
       <h1 className="max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em]">
         <span className="block">{content.titlePrefix}</span>{' '}
-        <span className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+        <span className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]">
           {content.titleAccent}
         </span>
       </h1>
@@ -425,10 +425,10 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
           <div className="flex items-start justify-between mb-3 md:mb-4 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium mb-0.5">
-                Google + Meta
+                Google Ads
               </div>
               <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
-                покупки в e-commerce
+                total ad spend
               </div>
             </div>
             <motion.div
@@ -444,7 +444,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.5 }}
           >
-            30 000+
+            $800,000+
           </motion.div>
           <div className="flex items-center gap-1.5 md:gap-2 relative z-10">
             <motion.div
@@ -463,7 +463,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
               />
             </motion.div>
             <span className="text-[9px] sm:text-[10px] md:text-xs text-primary font-medium">
-              e-commerce
+              +120%
             </span>
           </div>
         </div>
@@ -485,10 +485,10 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
           <div className="flex items-start justify-between mb-2 md:mb-3 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-accent/60 font-medium mb-0.5">
-                Проект
+                ROAS
               </div>
               <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
-                срок работы
+                в среднем
               </div>
             </div>
             <motion.div
@@ -504,7 +504,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.3, duration: 0.5 }}
           >
-            4 года
+            6.2
           </motion.div>
           <svg
             className="w-full h-4 md:h-6 relative z-10"
@@ -544,10 +544,10 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
           <div className="flex items-start justify-between mb-3 md:mb-4 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-secondary/60 font-medium mb-0.5">
-                Реклама
+                Meta Ads
               </div>
               <div className="text-[10px] sm:text-sm md:text-base text-muted-foreground/75 leading-tight">
-                бюджет в проекте
+                total ad spend
               </div>
             </div>
             <motion.div
@@ -563,7 +563,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.4, duration: 0.5 }}
           >
-            $1 млн+
+            $1,200,000+
           </motion.div>
           <div className="flex items-center gap-1 md:gap-1.5 relative z-10">
             {[80, 95, 100, 70, 90].map((scale, i) => (
@@ -602,7 +602,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
           />
           <div className="flex items-center justify-between mb-2 md:mb-3 relative z-10">
             <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium">
-              лиды
+              сред. ROI
             </div>
             <motion.div
               className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
@@ -630,7 +630,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.5, duration: 0.5 }}
           >
-            65к+
+            240%
           </motion.div>
           <motion.div
             className="mt-2 md:mt-3 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent rounded-full relative z-10"
