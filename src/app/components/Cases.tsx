@@ -24,9 +24,9 @@ export type CasesContent = {
 
 const casesData: CaseItem[] = [
   {
-    title: 'Premium Concierge Service',
+    title: 'Консьерж-сервис премиум-класса',
     category: 'Meta Ads',
-    description: 'Лидогенерация для премиум-сервиса: 65 000+ лидов за четыре года при рекламном бюджете $1 млн+.',
+    description: 'Проект, который со мной уже четыре года. Задача — не дешёвые лиды, а платёжеспособные клиенты: реклама оптимизируется на квалифицированные обращения из CRM.',
     image: '/images/case-concierge.jpg',
     stats: [
       { label: 'Срок', value: '4 года' },
@@ -35,9 +35,9 @@ const casesData: CaseItem[] = [
     ],
   },
   {
-    title: 'E-commerce',
+    title: 'Интернет-магазин',
     category: 'Google Ads + Meta Ads',
-    description: 'Google Ads, Shopping и Meta Ads для интернет-магазина полного цикла.',
+    description: 'Google и Meta в связке: поиск ловит горячий спрос, Shopping продаёт с витрины, Meta возвращает тех, кто не дошёл до оплаты. Экономика считается до маржи.',
     image: '/images/case-ecommerce.jpg',
     stats: [
       { label: 'В корзину', value: '120 000+' },
@@ -46,9 +46,9 @@ const casesData: CaseItem[] = [
     ],
   },
   {
-    title: 'Инфобизнес',
+    title: 'Онлайн-курсы и инфопродукты',
     category: 'Google Ads + Meta Ads',
-    description: 'Продвижение инфопродуктов на русскоязычную аудиторию в нескольких странах.',
+    description: 'Русскоязычная аудитория по всему миру: США, Европа, СНГ. Дешёвых лидов в нише много, окупаемых — мало: держим CPL до $5 без потери качества оплат.',
     image: '/images/case-infobusiness.jpg',
     stats: [
       { label: 'Бюджет', value: '$600к+' },
@@ -57,9 +57,9 @@ const casesData: CaseItem[] = [
     ],
   },
   {
-    title: 'B2C услуги',
+    title: 'Услуги: салоны, клиники, фитнес',
     category: 'Google Ads + Meta Ads',
-    description: '50+ проектов в сфере услуг: от локального спроса до масштабирования рабочих кампаний.',
+    description: '50+ проектов на одной системе: локальный спрос, понятный оффер, быстрая обработка заявок. Поэтому результат повторяется, а не случается.',
     image: '/images/case-b2c.jpg',
     stats: [
       { label: 'Проектов', value: '50+' },
@@ -92,9 +92,9 @@ const useMobile = () => {
 
 export const defaultCasesContent: CasesContent = {
   badge: 'Проекты и результаты',
-  titlePrefix: 'Кейсы',
-  titleAccent: 'с цифрами и решениями',
-  description: 'Что запускали, какие решения использовали и к какому результату пришли. Подробные разборы собраны на отдельной странице.',
+  titlePrefix: 'Кейсы: что запускал',
+  titleAccent: 'и что из этого вышло',
+  description: 'Четыре направления, в которых работаю чаще всего. В каждом — бюджет, цена заявки и окупаемость без прикрас. Полные разборы — на отдельной странице.',
   items: casesData,
 };
 

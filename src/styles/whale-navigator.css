@@ -98,6 +98,45 @@
 .ww-whale-guide__trail img:nth-child(3) { left: 39%; top: 62%; animation-delay: 150ms; }
 .ww-whale-guide__trail img:nth-child(4) { left: 52%; top: 42%; animation-delay: 220ms; }
 
+/* Телепорт: две вспышки искр — в точке исчезновения и в точке появления.
+   Контейнер перепрыгивает в середине анимации, поэтому одна и та же анимация
+   даёт вспышку в обеих точках — и по пути «навбар → раздел», и обратно. */
+.ww-whale-guide[data-phase='out'] .ww-whale-guide__trail,
+.ww-whale-guide[data-phase='in'] .ww-whale-guide__trail {
+  inset: -20% -20% -20% -20%;
+}
+
+.ww-whale-guide[data-phase='out'] .ww-whale-guide__trail img {
+  animation: ww-guide-teleport-spark 1.05s ease-out both;
+}
+
+.ww-whale-guide[data-phase='in'] .ww-whale-guide__trail img {
+  animation: ww-guide-teleport-spark 0.88s ease-out both;
+}
+
+.ww-whale-guide[data-phase='out'] .ww-whale-guide__trail img:nth-child(1),
+.ww-whale-guide[data-phase='in'] .ww-whale-guide__trail img:nth-child(1) { left: 6%; top: 50%; animation-delay: 0ms; }
+.ww-whale-guide[data-phase='out'] .ww-whale-guide__trail img:nth-child(2),
+.ww-whale-guide[data-phase='in'] .ww-whale-guide__trail img:nth-child(2) { left: 52%; top: 14%; animation-delay: 45ms; }
+.ww-whale-guide[data-phase='out'] .ww-whale-guide__trail img:nth-child(3),
+.ww-whale-guide[data-phase='in'] .ww-whale-guide__trail img:nth-child(3) { left: 54%; top: 58%; animation-delay: 90ms; }
+.ww-whale-guide[data-phase='out'] .ww-whale-guide__trail img:nth-child(4),
+.ww-whale-guide[data-phase='in'] .ww-whale-guide__trail img:nth-child(4) { left: 22%; top: 20%; animation-delay: 135ms; }
+
+/* Пока кит растворяется, он не должен ловить клики. */
+.ww-whale-guide[data-phase='in'] .ww-whale-guide__pet {
+  pointer-events: none;
+}
+
+@keyframes ww-guide-teleport-spark {
+  0% { opacity: 0; transform: scale(0.35) rotate(0deg); }
+  16% { opacity: 0.85; transform: scale(1.15) rotate(8deg); }
+  30% { opacity: 0; transform: scale(0.55) rotate(14deg); }
+  64% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  80% { opacity: 0.9; transform: scale(1.25) rotate(-8deg); }
+  100% { opacity: 0; transform: scale(0.7) rotate(-14deg); }
+}
+
 .ww-whale-guide__hint {
   position: absolute;
   z-index: 4;

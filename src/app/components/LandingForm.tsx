@@ -485,9 +485,9 @@ function LandingForm({
                 <>
                   {renderField(
                     'experience',
-                    'Ваш опыт',
+                    'Кто вы',
                     <Briefcase className="w-4 h-4 text-primary" />,
-                    'Например: 8 месяцев, 3 проекта'
+                    'Владелец бизнеса / веду рекламу сам / таргетолог'
                   )}
 
                   <div className="relative">
@@ -504,7 +504,7 @@ function LandingForm({
                         onChange={handleChange}
                         onFocus={() => setFocusedField('problem')}
                         onBlur={() => setFocusedField(null)}
-                        placeholder="Например: не могу сформулировать оффер и регулярно находить клиентов"
+                        placeholder="Например: заявки дорожают, хочу понять, где утекает бюджет"
                         autoComplete="off"
                         rows={3}
                         className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"

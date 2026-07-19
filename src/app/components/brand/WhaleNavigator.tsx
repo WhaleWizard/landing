@@ -100,6 +100,15 @@ export default function WhaleNavigator() {
   const [activeStep, setActiveStep] = useState(0);
   const [traveling, setTraveling] = useState(false);
   const [attention, setAttention] = useState(false);
+  const [phase, setPhase] = useState<'out' | 'in' | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const teleportFromRef = useRef<Point | null>(null);
+  const teleportToRef = useRef<Point | null>(null);
+  const lastAnchorRef = useRef<Point | null>(null);
+  const prevVisibleRef = useRef(false);
+  const lastTeleportAtRef = useRef(0);
+  const stepTimerRef = useRef<number | null>(null);
+  const pendingStepRef = useRef<number | null>(null);
 
   const pathname = useMemo(
     () => normalizePathname(location.pathname).toLowerCase(),
@@ -123,6 +132,52 @@ export default function WhaleNavigator() {
   }, [activeStep, anchorRect, viewport]);
   const blocked = cookieBlocked || modalOpen || formFocused || contactVisible || viewport.keyboardOpen || isAdmin;
   const visible = detached && !blocked;
+
+  // Магический телепорт в обе стороны: кит не летит через страницу, а исчезает
+  // с искрами в одной точке и появляется в другой. «out» — из навбара в док,
+  // «in» — из дока обратно в навбар (кит растворяется, искры вспыхивают у логотипа).
+  useEffect(() => {
+    if (visible === prevVisibleRef.current) return;
+    prevVisibleRef.current = visible;
+
+    const anchor = anchorRect
+      ? { x: anchorRect.left, y: anchorRect.top, size: Math.max(anchorRect.width, anchorRect.height) }
+      : lastAnchorRef.current;
+    const now = performance.now();
+    // Пауза между телепортами: при быстром скролле туда-сюда эффект не
+    // повторяется десяток раз подряд, а спокойно доигрывает начатое.
+    const canTeleport = !reduceMotion
+      && viewport.width >= 1440
+      && Boolean(anchor)
+      && now - lastTeleportAtRef.current > 1400;
+
+    if (visible) {
+      setMounted(true);
+      if (!canTeleport || !anchor) {
+        setPhase(null);
+        return;
+      }
+      lastTeleportAtRef.current = now;
+      setPromptOpen(false);
+      teleportFromRef.current = anchor;
+      teleportToRef.current = point;
+      setPhase('out');
+      return;
+    }
+
+    // Обратно в навбар кит уходит телепортом только если действительно вернулись
+    // наверх. Когда его прячет модалка, форма или блок контактов — просто убираем.
+    if (!canTeleport || !anchor || blocked) {
+      setPhase(null);
+      setMounted(false);
+      return;
+    }
+    lastTeleportAtRef.current = now;
+    setPromptOpen(false);
+    teleportFromRef.current = point;
+    teleportToRef.current = anchor;
+    setPhase('in');
+  }, [visible, blocked, reduceMotion, viewport.width, anchorRect, point]);
 
   useEffect(() => {
     const onViewportChange = () => setViewport(readViewport());
@@ -209,21 +264,35 @@ export default function WhaleNavigator() {
         ) return previous;
         return rect;
       });
-      const threshold = viewport.width < 768 ? 64 : 92;
-      setDetached(!rect || window.scrollY > threshold);
+      // Гистерезис: отрываемся от навбара позже, чем возвращаемся обратно.
+      // Без него скролл около самой границы переключал состояние на каждом
+      // пикселе, и кит бесконечно телепортировался туда-сюда.
+      const detachAt = viewport.width < 768 ? 64 : 92;
+      const attachAt = Math.max(0, detachAt - 56);
+      setDetached((previous) => {
+        if (!rect) return true;
+        return window.scrollY > (previous ? attachAt : detachAt);
+      });
 
       const sectionSteps = steps.filter((item) => item.id);
+      let nextIndex = 0;
       if (sectionSteps.length > 0) {
-        let nextIndex = 0;
         sectionSteps.forEach((item, index) => {
           const target = item.id ? document.getElementById(item.id) : null;
           if (target && target.getBoundingClientRect().top <= viewport.height * 0.56) {
             nextIndex = Math.min(index + 1, sectionSteps.length - 1);
           }
         });
-        setActiveStep(nextIndex);
-      } else {
-        setActiveStep(0);
+      }
+      // Смену полосы применяем с паузой: быстрый скролл через границу секции
+      // больше не заставляет кита метаться между позициями.
+      if (nextIndex !== pendingStepRef.current) {
+        pendingStepRef.current = nextIndex;
+        if (stepTimerRef.current) window.clearTimeout(stepTimerRef.current);
+        stepTimerRef.current = window.setTimeout(() => {
+          stepTimerRef.current = null;
+          setActiveStep(nextIndex);
+        }, 340);
       }
     };
     const schedule = () => {
@@ -261,7 +330,19 @@ export default function WhaleNavigator() {
   useEffect(() => () => {
     delete document.documentElement.dataset.wwWhaleDetached;
     if (lookFrameRef.current) window.cancelAnimationFrame(lookFrameRef.current);
+    if (stepTimerRef.current) window.clearTimeout(stepTimerRef.current);
   }, []);
+
+  // Запоминаем последнюю известную позицию логотипа: когда кит возвращается
+  // в навбар, сам логотип может быть ещё не отрисован.
+  useEffect(() => {
+    if (!anchorRect) return;
+    lastAnchorRef.current = {
+      x: anchorRect.left,
+      y: anchorRect.top,
+      size: Math.max(anchorRect.width, anchorRect.height),
+    };
+  }, [anchorRect]);
 
   useEffect(() => {
     if (!promptOpen) return;
@@ -327,9 +408,15 @@ export default function WhaleNavigator() {
     ? { x: anchorRect.left, y: anchorRect.top, size: Math.max(anchorRect.width, anchorRect.height) }
     : point;
 
+  // Во время возврата в навбар кит ещё нужен в DOM: иначе он исчезал мгновенно,
+  // без анимации. Размонтируется он после завершения телепорта.
+  const teleport = phase && teleportFromRef.current && teleportToRef.current
+    ? { from: teleportFromRef.current, to: teleportToRef.current }
+    : null;
+
   return (
     <div className="ww-whale-guide-layer">
-      {visible && step && (
+      {mounted && step && (
         <motion.div
           ref={guideRef}
           className="ww-whale-guide"
@@ -337,17 +424,38 @@ export default function WhaleNavigator() {
           data-has-anchor={anchorRect ? 'true' : 'false'}
           data-traveling={traveling ? 'true' : 'false'}
           data-attention={attention ? 'true' : 'false'}
-          initial={reduceMotion ? { x: point.x, y: point.y, width: point.size, height: point.size, opacity: 0 } : {
+          data-phase={phase ?? 'none'}
+          initial={reduceMotion ? { x: point.x, y: point.y, width: point.size, height: point.size, opacity: 0, scale: 1 } : {
             x: sourcePoint.x,
             y: sourcePoint.y,
             width: sourcePoint.size,
             height: sourcePoint.size,
             opacity: anchorRect ? 0.94 : 0,
+            scale: 1,
           }}
-          animate={{ x: point.x, y: point.y, width: point.size, height: point.size, opacity: 1 }}
-          transition={reduceMotion ? { duration: 0.01 } : { duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
+          animate={teleport ? {
+            x: [teleport.from.x, teleport.from.x, teleport.to.x, teleport.to.x],
+            y: [teleport.from.y, teleport.from.y, teleport.to.y, teleport.to.y],
+            width: [teleport.from.size, teleport.from.size, teleport.to.size, teleport.to.size],
+            height: [teleport.from.size, teleport.from.size, teleport.to.size, teleport.to.size],
+            // Обратно в навбар кит не проявляется: там уже есть живой логотип,
+            // поэтому финальную вспышку дают только искры.
+            opacity: phase === 'in' ? [1, 0, 0, 0] : [1, 0, 0, 1],
+            scale: [1, 0.22, 0.22, 1],
+          } : { x: point.x, y: point.y, width: point.size, height: point.size, opacity: 1, scale: 1 }}
+          transition={
+            reduceMotion
+              ? { duration: 0.01 }
+              : teleport
+                ? { duration: phase === 'in' ? 0.88 : 1.05, times: [0, 0.32, 0.36, 1], ease: [0.45, 0, 0.25, 1] }
+                : { duration: 1.25, ease: [0.33, 1, 0.68, 1] }
+          }
           onAnimationStart={() => setTraveling(true)}
-          onAnimationComplete={() => setTraveling(false)}
+          onAnimationComplete={() => {
+            setTraveling(false);
+            if (phase === 'in' && !visible) setMounted(false);
+            setPhase(null);
+          }}
         >
           <span className="ww-whale-guide__trail" aria-hidden="true">
             {[0, 1, 2, 3].map((particle) => (
