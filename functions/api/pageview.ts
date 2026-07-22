@@ -1,13 +1,15 @@
-import { json } from '../_lib/http';
+import { json, readRequestText } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent, processMetaOutbox } from '../_lib/meta-outbox';
-import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
+import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 import { recordPageStats } from '../_lib/leads';
+
+const MAX_PAGEVIEW_BODY_BYTES = 32 * 1024;
 
 interface PageViewPayload {
   event_id?: string;
@@ -60,6 +62,10 @@ interface PageViewPayload {
   doby?: string;
   madid?: string;
   lead_id?: string;
+  service?: string;
+  service_slug?: string;
+  content_name?: string;
+  content_category?: string;
   content_type?: string;
   content_ids?: string[];
   value?: number;
@@ -170,6 +176,10 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
     doby: normalizeDobPart(payload.doby, 4),
     madid: sanitizeText(payload.madid || '', 128),
     lead_id: sanitizeText(payload.lead_id || '', 128),
+    service: sanitizeText(payload.service || '', 160),
+    service_slug: sanitizeText(payload.service_slug || '', 120),
+    content_name: sanitizeText(payload.content_name || '', 240),
+    content_category: sanitizeText(payload.content_category || '', 120),
     content_type: sanitizeText(payload.content_type || '', 80),
     content_ids: sanitizeTextArray(payload.content_ids, 20, 120),
     value: sanitizeNumber(payload.value),
@@ -446,10 +456,8 @@ async function sendMetaPageView(
       madid: hashedMadid ? [hashedMadid] : undefined,
     },
     opt_out: false,
+    referrer_url: sanitizeUrlForMeta(payload.referrer),
     custom_data: {
-      country: ctx.country,
-      city: ctx.city,
-      region: ctx.region,
       timezone: ctx.timezone,
       language: ctx.language,
       platform: ctx.platform,
@@ -461,17 +469,15 @@ async function sendMetaPageView(
       utm_term: payload.utm_term || ctx.utmTerm,
       utm_id: payload.utm_id || ctx.utmId,
       fbclid: payload.fbclid,
-      gclid: payload.gclid || ctx.gclid,
-      wbraid: payload.wbraid || ctx.wbraid,
-      gbraid: payload.gbraid || ctx.gbraid,
-      yclid: payload.yclid || ctx.yclid,
       landing_page_url: sanitizeUrlForMeta(payload.landing_page_url),
       first_touch_url: sanitizeUrlForMeta(payload.first_touch_url),
       first_touch_at: payload.first_touch_at,
       last_touch_url: sanitizeUrlForMeta(payload.last_touch_url),
       last_touch_at: payload.last_touch_at,
-      session_id: payload.session_id,
-      content_name: payload.page_title,
+      service: payload.service || undefined,
+      service_slug: payload.service_slug || undefined,
+      content_name: payload.content_name || payload.page_title,
+      content_category: payload.content_category || undefined,
       content_type: payload.content_type || 'page',
       content_ids: payload.content_ids,
       value: payload.value,
@@ -584,11 +590,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const rateLimited = await enforceRateLimit(request, 'pageview');
   if (rateLimited) return rateLimited;
 
-  const rawBody = await request.text();
+  const bodyResult = await readRequestText(request, MAX_PAGEVIEW_BODY_BYTES);
+  if (bodyResult.ok === false) {
+    return json({ success: false, error: bodyResult.error }, { status: 413, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+  const rawBody = bodyResult.text;
   const signatureMode = getTrackingSignatureMode(env);
-  const signature = await verifyTrackingSignature(request, env, rawBody);
-  if (signature.ok === false && signatureMode === 'enforce') {
-    return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  const signature = signatureMode === 'off' ? undefined : await verifyTrackingSignature(request, env, rawBody);
+  waitUntil(recordTrackingSignatureAudit(env, { endpoint: 'pageview', mode: signatureMode, verification: signature }));
+  if (signatureMode === 'enforce' && signature?.ok !== true) {
+    return json(
+      { success: false, error: signature?.ok === false ? signature.reason : 'signature_not_verified' },
+      { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
   }
 
   let parsedBody: PageViewPayload;

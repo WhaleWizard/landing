@@ -230,8 +230,10 @@ function LandingForm({
           body: JSON.stringify(leadPayload),
         });
         if (!res.ok) {
-          const payload = await res.json().catch(() => null);
-          throw new Error(payload?.error || `HTTP ${res.status}`);
+          const payload = await res.json().catch(() => null) as { error?: string; retryable?: boolean } | null;
+          throw Object.assign(new Error(payload?.error || `HTTP ${res.status}`), {
+            retryable: payload?.retryable === true,
+          });
         }
 
         setIsSubmitted(true);
@@ -254,7 +256,9 @@ function LandingForm({
         setTimeout(() => navigate('/thank-you'), 800);
       } catch (error) {
         console.error(error);
-        if (error instanceof TypeError) {
+        const retryable = error instanceof TypeError
+          || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true);
+        if (retryable) {
           queueLeadForRetry(API_ROUTES.lead, leadPayload);
           setFormData({ name: '', email: '', phone: '', contact: '', website: '', budget: '', experience: '', problem: '' });
           setHpTrap('');

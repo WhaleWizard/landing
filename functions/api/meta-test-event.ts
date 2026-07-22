@@ -129,11 +129,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const apiVersion = getMetaApiVersion(env);
 
   const debugSecret = env.META_CAPI_DEBUG_SECRET;
-  const providedSecret = request.headers.get('x-meta-debug-secret') || new URL(request.url).searchParams.get('secret') || undefined;
+  const providedSecret = request.headers.get('x-meta-debug-secret') || undefined;
 
   if (!debugSecret || providedSecret !== debugSecret) {
     return json(
-      { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret or ?secret=' },
+      { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' },
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }

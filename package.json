@@ -9,9 +9,13 @@
     "generate:pages": "node scripts/generate-pages.js",
     "fetch:articles": "node scripts/fetch-articles.js",
     "test": "npm run build",
-    "check": "npm run test:meta-capi && npm run build",
+    "check": "npm run test:meta-capi && npm run test:lead-reliability && npm run test:tracking-security && npm run test:seo-content && npm run build && npm run test:seo-output",
     "generate:media": "node scripts/generateMedia.js",
-    "test:meta-capi": "node scripts/meta-capi-smoke-tests.js"
+    "test:meta-capi": "node scripts/meta-capi-smoke-tests.js",
+    "test:lead-reliability": "node --test scripts/lead-reliability.test.js",
+    "test:tracking-security": "node --test scripts/tracking-security.test.js",
+    "test:seo-content": "node --test scripts/site-content-sync.test.js",
+    "test:seo-output": "node --test scripts/generated-seo.test.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

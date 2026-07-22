@@ -4,5 +4,6 @@
 # Canonical host redirect (avoid duplicate www/non-www indexing)
 https://whalewzrd.com/* https://www.whalewzrd.com/:splat 301!
 
-# Cloudflare Pages SPA fallback for non-generated routes
-/* /index.html 200
+# Legacy article API alias. All public SPA routes are pre-rendered into their
+# own directories, so an all-path index fallback would create soft-404 pages.
+/api/article /api/articles 302

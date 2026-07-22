@@ -2,6 +2,9 @@
 // (не по вине сервера — обрыв связи, offline), заявка не теряется, а лежит в
 // localStorage и повторно отправляется при восстановлении сети или следующем визите.
 
+import { loadConsent } from '../consent/consent';
+import { applyConsentDowngrade } from './leadRetryConsent';
+
 const QUEUE_KEY = 'ww_lead_retry_queue_v1';
 const MAX_QUEUE_SIZE = 10;
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 3; // 3 дня
@@ -52,10 +55,11 @@ export async function flushLeadQueue(): Promise<void> {
     const delivered = new Set<string>();
     for (const item of batch) {
       try {
+        const payload = applyConsentDowngrade(item.payload, loadConsent());
         const res = await fetch(item.endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item.payload),
+          body: JSON.stringify(payload),
         });
         if (res.ok) delivered.add(item.id);
       } catch {

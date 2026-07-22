@@ -6,7 +6,8 @@ export const SERVICE_CONTENT_KEYS = [
 ] as const;
 
 export const FAQ_CONTENT_KEY = 'site:faq' as const;
-export const SITE_CONTENT_KEYS = [...SERVICE_CONTENT_KEYS, FAQ_CONTENT_KEY] as const;
+export const HOME_CONTENT_KEY = 'site:home' as const;
+export const SITE_CONTENT_KEYS = [...SERVICE_CONTENT_KEYS, HOME_CONTENT_KEY, FAQ_CONTENT_KEY] as const;
 
 export type ServiceContentKey = typeof SERVICE_CONTENT_KEYS[number];
 export type SiteContentKey = typeof SITE_CONTENT_KEYS[number];
@@ -47,6 +48,34 @@ function assignText(target: UnknownRecord, source: UnknownRecord, key: string, m
   if (value !== undefined) target[key] = value;
 }
 
+function sanitizeSeo(value: unknown): UnknownRecord | undefined {
+  const source = object(value);
+  const target: UnknownRecord = {};
+  assignText(target, source, 'title', 90);
+  assignText(target, source, 'description', 220);
+  return Object.keys(target).length ? target : undefined;
+}
+
+function sanitizeTypography(value: unknown): UnknownRecord | undefined {
+  const source = object(value);
+  const allowed = new Set(['compact', 'standard', 'large']);
+  const target: UnknownRecord = {};
+  for (const key of ['titleDesktop', 'titleMobile', 'body'] as const) {
+    if (typeof source[key] === 'string' && allowed.has(source[key] as string)) target[key] = source[key];
+  }
+  return Object.keys(target).length ? target : undefined;
+}
+
+function assignTypography(target: UnknownRecord, source: UnknownRecord): void {
+  const typography = sanitizeTypography(source.typography);
+  if (typography) target.typography = typography;
+}
+
+function assignVisualSlot(target: UnknownRecord, source: UnknownRecord): void {
+  const value = Number(source.visualSlot);
+  if (Number.isInteger(value) && value >= 0 && value <= 99) target.visualSlot = value;
+}
+
 function sanitizeHero(value: unknown): UnknownRecord | undefined {
   const source = object(value);
   const target: UnknownRecord = {};
@@ -55,6 +84,7 @@ function sanitizeHero(value: unknown): UnknownRecord | undefined {
   assignText(target, source, 'titleAccent', 240);
   assignText(target, source, 'primaryButton', 80);
   assignText(target, source, 'secondaryButton', 80);
+  assignTypography(target, source);
   const paragraphs = texts(source.paragraphs, 3, 900);
   if (paragraphs) target.paragraphs = paragraphs;
 
@@ -76,7 +106,7 @@ function sanitizeHero(value: unknown): UnknownRecord | undefined {
       const label = text(row.label, 100);
       return valueText && label ? { value: valueText, label } : null;
     }).filter(Boolean);
-    if (stats.length) target.stats = stats;
+    target.stats = stats;
   }
   return Object.keys(target).length ? target : undefined;
 }
@@ -88,6 +118,7 @@ function sanitizeSectionIntro(value: unknown): UnknownRecord | undefined {
   assignText(target, source, 'titlePrefix', 180);
   assignText(target, source, 'titleAccent', 220);
   assignText(target, source, 'description', 900);
+  assignTypography(target, source);
   return Object.keys(target).length ? target : undefined;
 }
 
@@ -100,8 +131,10 @@ function sanitizeCards(value: unknown): UnknownRecord[] | undefined {
     assignText(target, source, 'description', 700);
     const features = texts(source.features, 8, 120);
     if (features) target.features = features;
-    return Object.keys(target).length ? target : null;
-  }).filter((item): item is UnknownRecord => Boolean(item));
+    if (!Object.keys(target).length) return null;
+    assignVisualSlot(target, source);
+    return target;
+  }).filter(Boolean) as UnknownRecord[];
   return cards.length ? cards : undefined;
 }
 
@@ -112,6 +145,7 @@ function sanitizeCta(value: unknown): UnknownRecord | undefined {
   assignText(target, source, 'title', 260);
   assignText(target, source, 'description', 900);
   assignText(target, source, 'button', 80);
+  assignTypography(target, source);
   return Object.keys(target).length ? target : undefined;
 }
 
@@ -124,7 +158,52 @@ function sanitizeContact(value: unknown): UnknownRecord | undefined {
   assignText(target, source, 'description', 900);
   const bullets = texts(source.bullets, 8, 180);
   if (bullets) target.bullets = bullets;
+  if (Array.isArray(source.benefits)) {
+    const benefits = source.benefits.slice(0, 6).map((item) => {
+      const row = object(item);
+      const title = text(row.title, 160);
+      const description = text(row.description, 400);
+      return title && description ? { title, description } : null;
+    }).filter(Boolean);
+    if (benefits.length) target.benefits = benefits;
+  }
+  assignTypography(target, source);
   return Object.keys(target).length ? target : undefined;
+}
+
+function sanitizeCaseItems(value: unknown): UnknownRecord[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.slice(0, 12).map((item) => {
+    const source = object(item);
+    const target: UnknownRecord = {};
+    assignText(target, source, 'title', 180);
+    assignText(target, source, 'category', 100);
+    assignText(target, source, 'description', 700);
+    if (Array.isArray(source.stats)) {
+      const stats = source.stats.slice(0, 6).map((stat) => {
+        const row = object(stat);
+        const label = text(row.label, 100);
+        const valueText = text(row.value, 60);
+        return label && valueText ? { label, value: valueText } : null;
+      }).filter(Boolean);
+      target.stats = stats;
+    }
+    if (!Object.keys(target).length) return null;
+    assignVisualSlot(target, source);
+    return target;
+  }).filter((item): item is UnknownRecord => Boolean(item));
+  return items.length ? items : undefined;
+}
+
+function sanitizeStats(value: unknown): UnknownRecord[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const stats = value.slice(0, 6).map((item) => {
+    const row = object(item);
+    const valueText = text(row.value, 60);
+    const label = text(row.label, 120);
+    return valueText && label ? { value: valueText, label } : null;
+  }).filter(Boolean) as UnknownRecord[];
+  return stats;
 }
 
 export function sanitizeServiceContent(value: unknown): UnknownRecord {
@@ -135,11 +214,37 @@ export function sanitizeServiceContent(value: unknown): UnknownRecord {
   const serviceCards = sanitizeCards(object(source.services).cards);
   if (services || serviceCards) target.services = { ...(services || {}), ...(serviceCards ? { cards: serviceCards } : {}) };
   const cases = sanitizeSectionIntro(source.cases);
+  const caseItems = sanitizeCaseItems(object(source.cases).items);
   const cta = sanitizeCta(source.cta);
   const contact = sanitizeContact(source.contact);
+  const seo = sanitizeSeo(source.seo);
+  if (seo) target.seo = seo;
   if (hero) target.hero = hero;
-  if (cases) target.cases = cases;
+  if (cases || caseItems) target.cases = { ...(cases || {}), ...(caseItems ? { items: caseItems } : {}) };
   if (cta) target.cta = cta;
+  if (contact) target.contact = contact;
+  return target;
+}
+
+export function sanitizeHomeContent(value: unknown): UnknownRecord {
+  const source = object(value);
+  const target: UnknownRecord = {};
+  const seo = sanitizeSeo(source.seo);
+  const hero = sanitizeHero(source.hero);
+  const services = sanitizeSectionIntro(source.services);
+  const serviceCards = sanitizeCards(object(source.services).cards);
+  const cases = sanitizeSectionIntro(source.cases);
+  const caseItems = sanitizeCaseItems(object(source.cases).items);
+  const callToAction = sanitizeCta(source.callToAction);
+  const testimonials = sanitizeSectionIntro(source.testimonials);
+  const testimonialStats = sanitizeStats(object(source.testimonials).stats);
+  const contact = sanitizeContact(source.contact);
+  if (seo) target.seo = seo;
+  if (hero) target.hero = hero;
+  if (services || serviceCards) target.services = { ...(services || {}), ...(serviceCards ? { cards: serviceCards } : {}) };
+  if (cases || caseItems) target.cases = { ...(cases || {}), ...(caseItems ? { items: caseItems } : {}) };
+  if (callToAction) target.callToAction = callToAction;
+  if (testimonials || testimonialStats) target.testimonials = { ...(testimonials || {}), ...(testimonialStats ? { stats: testimonialStats } : {}) };
   if (contact) target.contact = contact;
   return target;
 }
@@ -150,7 +255,10 @@ const FAQ_CATEGORIES = new Set([
 
 export function sanitizeFaqContent(value: unknown): UnknownRecord {
   const source = object(value);
-  if (!Array.isArray(source.items)) return {};
+  const target: UnknownRecord = {};
+  const seo = sanitizeSeo(source.seo);
+  if (seo) target.seo = seo;
+  if (!Array.isArray(source.items)) return target;
   const items = source.items.slice(0, 100).map((item) => {
     const row = object(item);
     const question = text(row.question, 240);
@@ -160,11 +268,14 @@ export function sanitizeFaqContent(value: unknown): UnknownRecord {
     if (!question || !answer || !category || !FAQ_CATEGORIES.has(category)) return null;
     return { question, answer, category, details: details || [] };
   }).filter(Boolean);
-  return items.length ? { items } : {};
+  if (items.length) target.items = items;
+  return target;
 }
 
 export function sanitizeSiteContent(key: SiteContentKey, value: unknown): UnknownRecord {
-  return key === FAQ_CONTENT_KEY ? sanitizeFaqContent(value) : sanitizeServiceContent(value);
+  if (key === FAQ_CONTENT_KEY) return sanitizeFaqContent(value);
+  if (key === HOME_CONTENT_KEY) return sanitizeHomeContent(value);
+  return sanitizeServiceContent(value);
 }
 
 export function safeJsonObject(raw: string | null | undefined): UnknownRecord {

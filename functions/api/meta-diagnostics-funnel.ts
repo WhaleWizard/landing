@@ -5,8 +5,7 @@ import type { Env } from '../_lib/types';
 const FUNNEL_STEPS = ['PageView', 'ViewContent', 'LeadFormView', 'FormStart', 'Lead', 'Contact'] as const;
 
 function getProvidedSecret(request: Request): string | undefined {
-  const url = new URL(request.url);
-  return request.headers.get('x-meta-debug-secret') || url.searchParams.get('secret') || undefined;
+  return request.headers.get('x-meta-debug-secret') || undefined;
 }
 
 function getLookbackHours(request: Request): number {
@@ -26,7 +25,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const providedSecret = getProvidedSecret(request);
 
   if (!debugSecret || providedSecret !== debugSecret) {
-    return json({ success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret or ?secret=' }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    return json({ success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 
   if (!env.DB) {
@@ -44,6 +43,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent
     FROM meta_capi_diagnostics
     WHERE created_at >= ?
+      AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')
       AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
       AND event_name IN (${FUNNEL_STEPS.map(() => '?').join(', ')})
     GROUP BY event_name, service

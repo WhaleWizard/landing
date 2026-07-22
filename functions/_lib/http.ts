@@ -32,3 +32,41 @@ export function getClientIp(request: Request): string {
 
   return 'unknown';
 }
+
+export type RequestTextResult =
+  | { ok: true; text: string; bytes: number }
+  | { ok: false; error: 'payload_too_large'; maxBytes: number };
+
+// `request.text()` has no upper bound and allocates the whole body before the
+// handler can reject it. Tracking endpoints are public, so read their UTF-8
+// JSON streams incrementally and stop as soon as the endpoint-specific limit
+// is exceeded.
+export async function readRequestText(request: Request, maxBytes: number): Promise<RequestTextResult> {
+  const limit = Math.max(1, Math.floor(maxBytes));
+  const declaredLength = Number(request.headers.get('content-length') || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > limit) {
+    return { ok: false, error: 'payload_too_large', maxBytes: limit };
+  }
+
+  if (!request.body) return { ok: true, text: '', bytes: 0 };
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let textValue = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limit) {
+        await reader.cancel('payload_too_large').catch(() => undefined);
+        return { ok: false, error: 'payload_too_large', maxBytes: limit };
+      }
+      textValue += decoder.decode(value, { stream: true });
+    }
+    textValue += decoder.decode();
+    return { ok: true, text: textValue, bytes };
+  } finally {
+    reader.releaseLock();
+  }
+}

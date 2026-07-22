@@ -1,21 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronRight,
   Clock3,
   ExternalLink,
+  GripVertical,
   Monitor,
+  Plus,
   RefreshCw,
   RotateCcw,
   Save,
   Send,
   Smartphone,
+  Trash2,
+  Type,
 } from 'lucide-react';
 import { pageConfigs, type ServiceType } from '../../pages/ServiceLandingPage';
+import { defaultHeroContent } from '../Hero';
+import { defaultServicesContent } from '../Services';
+import { defaultCasesContent } from '../Cases';
+import { defaultCallToActionContent } from '../CallToAction';
+import { defaultTestimonialsContent, defaultTestimonialsStats } from '../Testimonials';
+import { defaultContactContent } from '../ContactForm';
 import { mergeContent } from '../../hooks/useServiceContent';
 import AdminFaqControl from './AdminFaqControl';
+import { AdminSelect } from './AdminUI';
+
+type TypographyPreset = 'compact' | 'standard' | 'large';
+type TypographySettings = {
+  titleDesktop: TypographyPreset;
+  titleMobile: TypographyPreset;
+  body: TypographyPreset;
+};
+
+type IntroContent = {
+  badge: string;
+  titlePrefix: string;
+  titleAccent: string;
+  description: string;
+  typography: TypographySettings;
+};
 
 type EditableContent = {
+  seo: { title: string; description: string };
   hero: {
     badge: string;
     titlePrefix: string;
@@ -25,43 +54,142 @@ type EditableContent = {
     primaryButton: string;
     secondaryButton: string;
     stats: Array<{ value: string; label: string }>;
+    typography: TypographySettings;
   };
-  services: {
+  services: IntroContent & {
+    cards: Array<{ title: string; description: string; features: string[]; visualSlot: number }>;
+  };
+  cases: IntroContent & {
+    items: Array<{ title: string; category: string; description: string; stats: Array<{ label: string; value: string }>; visualSlot: number }>;
+  };
+  cta: {
     badge: string;
-    titlePrefix: string;
-    titleAccent: string;
+    title: string;
     description: string;
-    cards: Array<{ title: string; description: string; features: string[] }>;
+    button: string;
+    typography: TypographySettings;
   };
-  cases: { badge: string; titlePrefix: string; titleAccent: string; description: string };
-  cta: { badge: string; title: string; description: string; button: string };
-  contact: { badge: string; titlePrefix: string; titleAccent: string; description: string; bullets: string[] };
+  testimonials?: IntroContent & { stats: Array<{ value: string; label: string }> };
+  contact: IntroContent & {
+    bullets: string[];
+    benefits: Array<{ title: string; description: string }>;
+  };
 };
+
+type EditorPage = ServiceType | 'home';
+type EditorSection = 'seo' | 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact';
 
 type SectionPayload = {
   key: string;
   pagePath: string;
   label: string;
-  draft: Partial<EditableContent>;
-  published: Partial<EditableContent>;
+  draft: Record<string, unknown>;
+  published: Record<string, unknown>;
   status: 'draft' | 'published';
   version: number;
+  publishedVersion?: number | null;
   updatedAt?: string;
   publishedAt?: string;
 };
 
 type VersionRow = { id: number; source: 'draft' | 'published'; created_at: string };
 
-const SERVICES: Array<{ value: ServiceType; label: string; path: string }> = [
-  { value: 'meta-ads', label: 'Meta Ads', path: '/meta-ads' },
-  { value: 'google-ads', label: 'Google Ads', path: '/google-ads' },
-  { value: 'meta-apps', label: 'Meta Apps', path: '/meta-apps' },
-  { value: 'consult', label: 'Консультация', path: '/consult' },
+const DEFAULT_TYPOGRAPHY: TypographySettings = {
+  titleDesktop: 'standard',
+  titleMobile: 'standard',
+  body: 'standard',
+};
+
+const HOME_SEO = {
+  title: 'Google Ads, Meta Ads и аналитика',
+  description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
+};
+
+const PAGES: Array<{ value: EditorPage; label: string; path: string; key: string }> = [
+  { value: 'home', label: 'Главная', path: '/', key: 'site:home' },
+  { value: 'meta-ads', label: 'Meta Ads', path: '/meta-ads', key: 'service:meta-ads' },
+  { value: 'google-ads', label: 'Google Ads', path: '/google-ads', key: 'service:google-ads' },
+  { value: 'meta-apps', label: 'Meta Apps', path: '/meta-apps', key: 'service:meta-apps' },
+  { value: 'consult', label: 'Консультация', path: '/consult', key: 'service:consult' },
 ];
 
-function editableDefaults(service: ServiceType): EditableContent {
+const SECTION_LABELS: Record<EditorSection, string> = {
+  seo: 'SEO страницы',
+  hero: 'Хиро',
+  services: 'Услуги и офферы',
+  cases: 'Кейсы',
+  cta: 'CTA',
+  testimonials: 'Отзывы и доверие',
+  contact: 'Форма и контакт',
+};
+
+const typographyOptions = [
+  { value: 'compact', label: 'Компактный' },
+  { value: 'standard', label: 'Стандартный' },
+  { value: 'large', label: 'Крупный' },
+];
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function intro(source: { badge: string; titlePrefix: string; titleAccent: string; description: string }): IntroContent {
+  return { ...source, typography: { ...DEFAULT_TYPOGRAPHY } };
+}
+
+function homeDefaults(): EditableContent {
+  return {
+    seo: { ...HOME_SEO },
+    hero: {
+      badge: defaultHeroContent.badge,
+      titlePrefix: String(defaultHeroContent.titlePrefix || ''),
+      titleAccent: String(defaultHeroContent.titleAccent || ''),
+      titleLines: (defaultHeroContent.titleLines || []).map((line) => ({
+        text: line.text,
+        tone: line.tone === 'accent' || line.tone === 'supporting' ? line.tone : undefined,
+      })),
+      paragraphs: defaultHeroContent.paragraphs.map(String),
+      primaryButton: defaultHeroContent.primaryButton,
+      secondaryButton: defaultHeroContent.secondaryButton,
+      stats: defaultHeroContent.stats.map((item) => ({ ...item })),
+      typography: { ...DEFAULT_TYPOGRAPHY },
+    },
+    services: {
+      ...intro(defaultServicesContent),
+      cards: defaultServicesContent.cards.map((card, visualSlot) => ({
+        title: card.title,
+        description: card.description,
+        features: [...card.features],
+        visualSlot,
+      })),
+    },
+    cases: {
+      ...intro(defaultCasesContent),
+      items: defaultCasesContent.items.map((item, visualSlot) => ({
+        title: item.title,
+        category: item.category,
+        description: item.description,
+        stats: item.stats.map((stat) => ({ ...stat })),
+        visualSlot,
+      })),
+    },
+    cta: { ...defaultCallToActionContent, typography: { ...DEFAULT_TYPOGRAPHY } },
+    testimonials: {
+      ...intro(defaultTestimonialsContent),
+      stats: defaultTestimonialsStats.map((item) => ({ ...item })),
+    },
+    contact: {
+      ...intro(defaultContactContent),
+      bullets: [],
+      benefits: defaultContactContent.benefits.map((item) => ({ ...item })),
+    },
+  };
+}
+
+function serviceDefaults(service: ServiceType): EditableContent {
   const source = pageConfigs[service];
   return {
+    seo: { title: source.seo.title, description: source.seo.description },
     hero: {
       badge: source.hero.badge || '',
       titlePrefix: String(source.hero.titlePrefix || ''),
@@ -70,46 +198,101 @@ function editableDefaults(service: ServiceType): EditableContent {
         text: line.text,
         tone: line.tone === 'accent' || line.tone === 'supporting' ? line.tone : undefined,
       })),
-      paragraphs: (source.hero.paragraphs || []).map((paragraph) => String(paragraph)),
+      paragraphs: (source.hero.paragraphs || []).map(String),
       primaryButton: source.hero.primaryButton || '',
       secondaryButton: source.hero.secondaryButton || '',
-      stats: (source.hero.stats || []).map((item) => ({ value: item.value, label: item.label })),
+      stats: (source.hero.stats || []).map((item) => ({ ...item })),
+      typography: { ...DEFAULT_TYPOGRAPHY },
     },
     services: {
-      badge: source.services.badge,
-      titlePrefix: source.services.titlePrefix,
-      titleAccent: source.services.titleAccent,
-      description: source.services.description,
-      cards: source.services.cards.map((card) => ({
+      ...intro(source.services),
+      cards: source.services.cards.map((card, visualSlot) => ({
         title: card.title,
         description: card.description,
         features: [...card.features],
+        visualSlot,
       })),
     },
     cases: {
-      badge: source.cases.badge,
-      titlePrefix: source.cases.titlePrefix,
-      titleAccent: source.cases.titleAccent,
-      description: source.cases.description,
+      ...intro(source.cases),
+      items: source.cases.items.map((item, visualSlot) => ({
+        title: item.title,
+        category: item.category,
+        description: item.description,
+        stats: item.stats.map((stat) => ({ ...stat })),
+        visualSlot,
+      })),
     },
-    cta: {
-      badge: source.cta.badge,
-      title: source.cta.title,
-      description: source.cta.description,
-      button: source.cta.button,
-    },
+    cta: { ...source.cta, typography: { ...DEFAULT_TYPOGRAPHY } },
     contact: {
-      badge: source.contact.badge,
-      titlePrefix: source.contact.titlePrefix,
-      titleAccent: source.contact.titleAccent,
-      description: source.contact.description,
+      ...intro(source.contact),
       bullets: [...source.contact.bullets],
+      benefits: [],
     },
   };
 }
 
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+function editableDefaults(page: EditorPage): EditableContent {
+  return page === 'home' ? homeDefaults() : serviceDefaults(page);
+}
+
+function normalizeStored(page: EditorPage, raw: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!raw) return {};
+  if (page !== 'home') return raw;
+  return { ...raw, cta: raw.callToAction || raw.cta };
+}
+
+function serializeContent(page: EditorPage, content: EditableContent): Record<string, unknown> {
+  if (page !== 'home') return clone(content) as unknown as Record<string, unknown>;
+  const { cta, ...rest } = clone(content);
+  return { ...rest, callToAction: cta } as unknown as Record<string, unknown>;
+}
+
+function validateEditableContent(content: EditableContent): { section: EditorSection; message: string } | null {
+  const blank = (value: string) => !value.trim();
+  if (blank(content.seo.title) || blank(content.seo.description)) {
+    return { section: 'seo', message: 'заполните SEO-заголовок и SEO-описание' };
+  }
+  if (content.hero.titleLines.length > 0) {
+    if (content.hero.titleLines.some((line) => blank(line.text))) {
+      return { section: 'hero', message: 'в заголовке хиро осталась пустая строка' };
+    }
+  } else if (blank(content.hero.titlePrefix) && blank(content.hero.titleAccent)) {
+    return { section: 'hero', message: 'заполните заголовок хиро' };
+  }
+  if (!content.hero.paragraphs.length || content.hero.paragraphs.some(blank)) {
+    return { section: 'hero', message: 'удалите пустой абзац или заполните его' };
+  }
+  if (content.hero.stats.some((item) => blank(item.value) || blank(item.label))) {
+    return { section: 'hero', message: 'у каждой цифры хиро должны быть значение и подпись' };
+  }
+  if (!content.services.cards.length || content.services.cards.some((card) => (
+    blank(card.title) || blank(card.description) || !card.features.length || card.features.some(blank)
+  ))) {
+    return { section: 'services', message: 'заполните название, описание и пункты каждой карточки услуги' };
+  }
+  if (!content.cases.items.length || content.cases.items.some((item) => (
+    blank(item.title) || blank(item.category) || blank(item.description)
+    || item.stats.some((stat) => blank(stat.value) || blank(stat.label))
+  ))) {
+    return { section: 'cases', message: 'заполните текст карточек кейсов и все добавленные показатели' };
+  }
+  if (blank(content.cta.title) || blank(content.cta.button)) {
+    return { section: 'cta', message: 'заполните заголовок и кнопку CTA' };
+  }
+  if (content.testimonials?.stats.some((item) => blank(item.value) || blank(item.label))) {
+    return { section: 'testimonials', message: 'у каждой цифры доверия должны быть значение и подпись' };
+  }
+  if (blank(content.contact.titlePrefix) && blank(content.contact.titleAccent)) {
+    return { section: 'contact', message: 'заполните заголовок контактного блока' };
+  }
+  if (content.contact.benefits.some((item) => blank(item.title) || blank(item.description))) {
+    return { section: 'contact', message: 'заполните все добавленные преимущества' };
+  }
+  if (content.contact.bullets.some(blank)) {
+    return { section: 'contact', message: 'удалите пустой пункт рядом с формой или заполните его' };
+  }
+  return null;
 }
 
 function setAtPath(content: EditableContent, path: Array<string | number>, value: unknown): EditableContent {
@@ -122,7 +305,7 @@ function setAtPath(content: EditableContent, path: Array<string | number>, value
   return next as unknown as EditableContent;
 }
 
-function Field({ id, label, value, onChange, multiline = false, hint, maxLength }: {
+function Field({ id, label, value, onChange, multiline = false, hint, maxLength = 900 }: {
   id: string;
   label: string;
   value: string;
@@ -131,61 +314,188 @@ function Field({ id, label, value, onChange, multiline = false, hint, maxLength 
   hint?: string;
   maxLength?: number;
 }) {
-  const className = 'admin-input';
   return (
     <label className="admin-field" htmlFor={id}>
-      <span className="admin-label">{label}</span>
+      <span className="admin-label-row"><span className="admin-label">{label}</span><span className="admin-char-count">{value.length}/{maxLength}</span></span>
       {multiline ? (
-        <textarea id={id} rows={4} className={className} maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
+        <textarea id={id} rows={4} className="admin-input" maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
       ) : (
-        <input id={id} className={className} maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
+        <input id={id} className="admin-input" maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
       )}
-      {hint && <span className="admin-hint">{hint}</span>}
+      {hint ? <span className="admin-hint">{hint}</span> : null}
     </label>
   );
 }
 
-function TextListField({ id, label, value, onChange, hint, maxItems, maxItemLength }: {
-  id: string;
+function StringListEditor({ label, singular, values, maxItems, maxLength, onChange }: {
   label: string;
-  value: string[];
-  onChange: (value: string[]) => void;
-  hint?: string;
+  singular: string;
+  values: string[];
   maxItems: number;
-  maxItemLength: number;
+  maxLength: number;
+  onChange: (values: string[]) => void;
 }) {
-  // Пустую последнюю строку сохраняем во время ввода, иначе Enter сразу
-  // исчезает и второй пункт невозможно добавить. Сервер нормализует список при сохранении.
+  const move = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= values.length) return;
+    const next = [...values];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
   return (
-    <Field
-      id={id}
-      label={label}
-      value={value.join('\n')}
-      multiline
-      maxLength={maxItems * maxItemLength + Math.max(0, maxItems - 1)}
-      hint={hint || `Один пункт на строку, максимум ${maxItems}`}
-      onChange={(text) => onChange(text.split('\n').slice(0, maxItems).map((item) => item.slice(0, maxItemLength)))}
-    />
+    <div className="admin-field admin-field--wide">
+      <div className="admin-label-row"><span className="admin-label">{label}</span><span className="admin-char-count">{values.length}/{maxItems}</span></div>
+      <div className="admin-list-editor">
+        {values.map((value, index) => (
+          <div className="admin-list-editor__item" key={`${singular}-${index}`}>
+            <div className="admin-list-editor__header">
+              <span><GripVertical aria-hidden="true" /> {singular} {index + 1}</span>
+              <div>
+                <button type="button" className="admin-icon-button" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`Поднять ${singular.toLowerCase()} ${index + 1}`}><ArrowUp aria-hidden="true" /></button>
+                <button type="button" className="admin-icon-button" onClick={() => move(index, 1)} disabled={index === values.length - 1} aria-label={`Опустить ${singular.toLowerCase()} ${index + 1}`}><ArrowDown aria-hidden="true" /></button>
+                <button type="button" className="admin-icon-button admin-icon-button--danger" onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} disabled={values.length <= 1} aria-label={`Удалить ${singular.toLowerCase()} ${index + 1}`}><Trash2 aria-hidden="true" /></button>
+              </div>
+            </div>
+            <textarea
+              className="admin-input"
+              rows={singular === 'Абзац' ? 4 : 2}
+              maxLength={maxLength}
+              value={value}
+              aria-label={`${singular} ${index + 1}`}
+              onChange={(event) => onChange(values.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}
+            />
+            <span className="admin-char-count admin-char-count--below">{value.length}/{maxLength}</span>
+          </div>
+        ))}
+        <button type="button" className="admin-button admin-button--secondary admin-list-editor__add" disabled={values.length >= maxItems} onClick={() => onChange([...values, ''])}>
+          <Plus aria-hidden="true" /> Добавить {singular.toLowerCase()}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function moveItem<T>(values: T[], index: number, direction: -1 | 1): T[] {
+  const target = index + direction;
+  if (target < 0 || target >= values.length) return values;
+  const next = [...values];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+
+function OrderedItemHeader({
+  label,
+  index,
+  count,
+  minItems = 0,
+  onMove,
+  onDelete,
+}: {
+  label: string;
+  index: number;
+  count: number;
+  minItems?: number;
+  onMove: (direction: -1 | 1) => void;
+  onDelete: () => void;
+}) {
+  const itemNumber = index + 1;
+  return (
+    <div className="admin-list-editor__header">
+      <span><GripVertical aria-hidden="true" /> {label} {itemNumber}</span>
+      <div role="group" aria-label={`Управление: ${label.toLowerCase()} ${itemNumber}`}>
+        <button type="button" className="admin-icon-button" onClick={() => onMove(-1)} disabled={index === 0} title="Поднять выше" aria-label={`Поднять ${label.toLowerCase()} ${itemNumber}`}><ArrowUp aria-hidden="true" /></button>
+        <button type="button" className="admin-icon-button" onClick={() => onMove(1)} disabled={index === count - 1} title="Опустить ниже" aria-label={`Опустить ${label.toLowerCase()} ${itemNumber}`}><ArrowDown aria-hidden="true" /></button>
+        <button type="button" className="admin-icon-button admin-icon-button--danger" onClick={onDelete} disabled={count <= minItems} title={count <= minItems ? `Нужно оставить минимум ${minItems}` : 'Удалить'} aria-label={`Удалить ${label.toLowerCase()} ${itemNumber}`}><Trash2 aria-hidden="true" /></button>
+      </div>
+    </div>
+  );
+}
+
+function AddItemButton({ label, count, maxItems, onAdd }: {
+  label: string;
+  count: number;
+  maxItems: number;
+  onAdd: () => void;
+}) {
+  return (
+    <button type="button" className="admin-button admin-button--secondary admin-list-editor__add" disabled={count >= maxItems} onClick={onAdd}>
+      <Plus aria-hidden="true" /> {label}
+    </button>
+  );
+}
+
+function TypographyControls({ value, onChange }: { value: TypographySettings; onChange: (value: TypographySettings) => void }) {
+  return (
+    <div className="admin-typography-panel">
+      <div className="admin-typography-panel__heading"><Type aria-hidden="true" /><div><strong>Размеры текста</strong><span>Безопасные пресеты сохраняют адаптивность и не ломают карточки.</span></div></div>
+      <div className="admin-typography-grid">
+        <AdminSelect label="Заголовок · ПК" value={value.titleDesktop} options={typographyOptions} onValueChange={(next) => onChange({ ...value, titleDesktop: next as TypographyPreset })} />
+        <AdminSelect label="Заголовок · мобильный" value={value.titleMobile} options={typographyOptions} onValueChange={(next) => onChange({ ...value, titleMobile: next as TypographyPreset })} />
+        <AdminSelect label="Основной текст" value={value.body} options={typographyOptions} onValueChange={(next) => onChange({ ...value, body: next as TypographyPreset })} />
+      </div>
+    </div>
+  );
+}
+
+function titleText(content: EditableContent, section: EditorSection): { badge?: string; title: string; accent?: string; description?: string } {
+  if (section === 'seo') return { title: content.seo.title, description: content.seo.description };
+  if (section === 'hero') return {
+    badge: content.hero.badge,
+    title: content.hero.titleLines.length ? content.hero.titleLines.map((line) => line.text).join(' ') : content.hero.titlePrefix,
+    accent: content.hero.titleLines.length ? undefined : content.hero.titleAccent,
+    description: content.hero.paragraphs[0],
+  };
+  if (section === 'cta') return { badge: content.cta.badge, title: content.cta.title, description: content.cta.description };
+  const value = section === 'services' ? content.services : section === 'cases' ? content.cases : section === 'testimonials' ? content.testimonials : content.contact;
+  return value ? { badge: value.badge, title: value.titlePrefix, accent: value.titleAccent, description: value.description } : { title: '' };
+}
+
+function Preview({ content, section, device }: { content: EditableContent; section: EditorSection; device: 'desktop' | 'mobile' }) {
+  const copy = titleText(content, section);
+  const typography = section === 'seo' ? DEFAULT_TYPOGRAPHY : section === 'hero' ? content.hero.typography : section === 'cta' ? content.cta.typography : section === 'services' ? content.services.typography : section === 'cases' ? content.cases.typography : section === 'testimonials' ? content.testimonials?.typography || DEFAULT_TYPOGRAPHY : content.contact.typography;
+  const heroTitleLines = section === 'hero' ? content.hero.titleLines : [];
+  return (
+    <div className={`admin-copy-preview admin-copy-preview--${device}`} data-title-size={device === 'mobile' ? typography.titleMobile : typography.titleDesktop} data-body-size={typography.body}>
+      {copy.badge ? <span className="admin-copy-preview__badge">{copy.badge}</span> : null}
+      {heroTitleLines.length > 0 ? (
+        <h3>{heroTitleLines.map((line, index) => <span key={index} className={line.tone === 'accent' ? 'is-accent' : line.tone === 'supporting' ? 'is-supporting' : undefined}>{line.text || 'Новая строка'}</span>)}</h3>
+      ) : (
+        <h3>{copy.title}{copy.accent ? <> <em className="is-accent">{copy.accent}</em></> : null}</h3>
+      )}
+      {copy.description ? <p>{copy.description}</p> : null}
+      {section === 'hero' && content.hero.paragraphs.slice(1).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+      {section === 'hero' && content.hero.stats.length > 0 ? <dl className="admin-copy-preview__stats">{content.hero.stats.map((stat, index) => <div key={index}><dt>{stat.value || '—'}</dt><dd>{stat.label || 'Без подписи'}</dd></div>)}</dl> : null}
+      {section === 'services' ? <div className="admin-preview-list">{content.services.cards.slice(0, 3).map((card, index) => <div key={index}><strong>{card.title}</strong><span>{card.description}</span></div>)}</div> : null}
+      {section === 'cases' ? <div className="admin-preview-list">{content.cases.items.slice(0, 3).map((item, index) => <div key={index}><strong>{item.title}</strong><span>{item.description}</span></div>)}</div> : null}
+      {section === 'testimonials' && content.testimonials ? <dl className="admin-copy-preview__stats">{content.testimonials.stats.map((stat, index) => <div key={index}><dt>{stat.value}</dt><dd>{stat.label}</dd></div>)}</dl> : null}
+      {section === 'contact' ? <div className="admin-preview-list">{(content.contact.benefits.length ? content.contact.benefits : content.contact.bullets.map((item) => ({ title: item, description: '' }))).slice(0, 3).map((item, index) => <div key={index}><strong>{item.title}</strong>{item.description ? <span>{item.description}</span> : null}</div>)}</div> : null}
+      {section === 'cta' ? <span className="admin-copy-preview__button">{content.cta.button}</span> : null}
+      {section === 'hero' ? <span className="admin-copy-preview__button">{content.hero.primaryButton}</span> : null}
+    </div>
   );
 }
 
 export default function AdminContentControl({ password }: { password: string }) {
-  const [service, setService] = useState<ServiceType>('meta-apps');
-  const [content, setContent] = useState<EditableContent>(() => editableDefaults('meta-apps'));
+  const [page, setPage] = useState<EditorPage>('home');
+  const [content, setContent] = useState<EditableContent>(() => editableDefaults('home'));
   const [section, setSection] = useState<SectionPayload | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
-  const [activeSection, setActiveSection] = useState<'hero' | 'services' | 'cases' | 'cta' | 'contact'>('hero');
+  const [activeSection, setActiveSection] = useState<EditorSection>('hero');
   const [preview, setPreview] = useState<'desktop' | 'mobile'>('desktop');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [publishArmed, setPublishArmed] = useState(false);
-  const [contentMode, setContentMode] = useState<'landings' | 'faq'>('landings');
+  const [contentMode, setContentMode] = useState<'pages' | 'faq'>('pages');
   const loadSequence = useRef(0);
   const contentRef = useRef(content);
+  const loadedSnapshotRef = useRef(JSON.stringify(content));
   contentRef.current = content;
 
-  const serviceMeta = useMemo(() => SERVICES.find((item) => item.value === service) || SERVICES[0], [service]);
-  const key = `service:${service}`;
+  const pageMeta = useMemo(() => PAGES.find((item) => item.value === page) || PAGES[0], [page]);
+  const availableSections = useMemo<EditorSection[]>(() => page === 'home'
+    ? ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact']
+    : ['seo', 'hero', 'services', 'cases', 'cta', 'contact'], [page]);
+  const isDirty = JSON.stringify(content) !== loadedSnapshotRef.current;
 
   const load = useCallback(async (preserveNotice = false): Promise<boolean> => {
     const requestId = ++loadSequence.current;
@@ -193,7 +503,7 @@ export default function AdminContentControl({ password }: { password: string }) 
     setLoading(true);
     if (!preserveNotice) setNotice('');
     try {
-      const response = await fetch(`/api/admin/site-sections?key=${encodeURIComponent(key)}`, {
+      const response = await fetch(`/api/admin/site-sections?key=${encodeURIComponent(pageMeta.key)}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -202,13 +512,15 @@ export default function AdminContentControl({ password }: { password: string }) 
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       if (requestId !== loadSequence.current) return false;
       if (JSON.stringify(contentRef.current) !== contentAtRequest) {
-        setNotice('Данные получены, но не применены: пока шёл запрос, в редакторе появились новые несохранённые изменения.');
+        setNotice('Ответ получен, но не применён: в редакторе уже есть более новые несохранённые изменения.');
         return false;
       }
-      const defaults = editableDefaults(service);
+      const defaults = editableDefaults(page);
+      const next = payload.section?.draft ? mergeContent(defaults, normalizeStored(page, payload.section.draft)) : defaults;
       setSection(payload.section || null);
       setVersions(payload.versions || []);
-      setContent(payload.section?.draft ? mergeContent(defaults, payload.section.draft) : defaults);
+      setContent(next);
+      loadedSnapshotRef.current = JSON.stringify(next);
       return true;
     } catch (error) {
       if (requestId !== loadSequence.current) return false;
@@ -217,18 +529,34 @@ export default function AdminContentControl({ password }: { password: string }) 
     } finally {
       if (requestId === loadSequence.current) setLoading(false);
     }
-  }, [key, password, service]);
+  }, [page, pageMeta.key, password]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const switchService = (nextService: ServiceType) => {
-    if (nextService === service) return;
-    // Медленный ответ предыдущей страницы не должен попадать в новый редактор.
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  const switchPage = (nextPage: EditorPage) => {
+    if (nextPage === page) return;
+    if (isDirty) {
+      setNotice('Есть несохранённые изменения. Сохраните черновик или нажмите «Отменить изменения», затем смените страницу.');
+      return;
+    }
     loadSequence.current += 1;
-    setService(nextService);
-    setContent(editableDefaults(nextService));
+    const next = editableDefaults(nextPage);
+    setPage(nextPage);
+    setContent(next);
+    loadedSnapshotRef.current = JSON.stringify(next);
     setSection(null);
     setVersions([]);
+    setActiveSection('hero');
     setNotice('');
     setPublishArmed(false);
   };
@@ -238,8 +566,43 @@ export default function AdminContentControl({ password }: { password: string }) 
     setPublishArmed(false);
   };
 
+  const convertHeroTitleToLines = () => {
+    const lines: EditableContent['hero']['titleLines'] = [];
+    const prefix = content.hero.titlePrefix.trim();
+    const accent = content.hero.titleAccent.trim();
+    if (prefix) lines.push({ text: prefix });
+    if (accent) lines.push({ text: accent, tone: 'accent' });
+    update(['hero', 'titleLines'], lines.length ? lines : [{ text: '' }]);
+  };
+
+  const restoreHeroTitleParts = () => {
+    setContent((current) => {
+      const next = clone(current);
+      next.hero.titlePrefix = current.hero.titleLines
+        .filter((line) => line.tone !== 'accent')
+        .map((line) => line.text.trim())
+        .filter(Boolean)
+        .join(' ');
+      next.hero.titleAccent = current.hero.titleLines
+        .filter((line) => line.tone === 'accent')
+        .map((line) => line.text.trim())
+        .filter(Boolean)
+        .join(' ');
+      next.hero.titleLines = [];
+      return next;
+    });
+    setPublishArmed(false);
+  };
+
   const save = async (action: 'save' | 'publish') => {
     const savedContent = clone(content);
+    const validationIssue = validateEditableContent(savedContent);
+    if (validationIssue) {
+      setActiveSection(validationIssue.section);
+      setPublishArmed(false);
+      setNotice(`Не сохранено: ${validationIssue.message}.`);
+      return;
+    }
     setLoading(true);
     setNotice(action === 'publish' ? 'Публикую…' : 'Сохраняю черновик…');
     try {
@@ -247,21 +610,29 @@ export default function AdminContentControl({ password }: { password: string }) 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action, key, pagePath: serviceMeta.path, label: serviceMeta.label, content: savedContent }),
+        body: JSON.stringify({ action, key: pageMeta.key, pagePath: pageMeta.path, label: pageMeta.label, content: serializeContent(page, savedContent) }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean;
+        error?: string;
+        seoBuild?: { configured?: boolean; triggered?: boolean; error?: string };
+      } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       setPublishArmed(false);
       if (JSON.stringify(contentRef.current) !== JSON.stringify(savedContent)) {
-        setNotice(action === 'publish'
-          ? 'Версия на момент нажатия опубликована. Более новые изменения остались в редакторе и ещё не сохранены.'
-          : 'Версия на момент нажатия сохранена. Более новые изменения остались в редакторе и ещё не сохранены.');
+        setNotice('Версия на момент нажатия сохранена. Более новые изменения остались в редакторе.');
       } else {
         const refreshed = await load(true);
         if (refreshed) {
-          setNotice(action === 'publish'
-            ? 'Опубликовано. Новая загрузка страницы получит текст из D1; обновление промежуточного кэша может занять несколько минут.'
-            : 'Черновик сохранён.');
+          if (action === 'publish' && payload.seoBuild?.triggered) {
+            setNotice('Опубликовано: версия уже доступна из D1, production-сборка SEO-HTML запущена автоматически.');
+          } else if (action === 'publish' && payload.seoBuild?.configured) {
+            setNotice(`Текст опубликован, но SEO-сборку запустить не удалось${payload.seoBuild.error ? `: ${payload.seoBuild.error}` : '.'}`);
+          } else if (action === 'publish') {
+            setNotice('Текст опубликован. Для автоматического обновления SEO-HTML добавьте секрет CF_PAGES_DEPLOY_HOOK_URL.');
+          } else {
+            setNotice('Черновик сохранён. Публичная версия не изменилась.');
+          }
         }
       }
     } catch (error) {
@@ -272,7 +643,10 @@ export default function AdminContentControl({ password }: { password: string }) 
   };
 
   const restore = async (versionId: number) => {
-    const contentBeforeRestore = JSON.stringify(contentRef.current);
+    if (isDirty) {
+      setNotice('Сначала сохраните или отмените текущие изменения — восстановление версии заменит черновик.');
+      return;
+    }
     setLoading(true);
     setNotice('Восстанавливаю версию в черновик…');
     try {
@@ -280,16 +654,12 @@ export default function AdminContentControl({ password }: { password: string }) 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action: 'restore', key, versionId }),
+        body: JSON.stringify({ action: 'restore', key: pageMeta.key, versionId }),
       });
       const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-      if (JSON.stringify(contentRef.current) !== contentBeforeRestore) {
-        setNotice('Версия восстановлена в D1, но изменения, сделанные во время запроса, оставлены в редакторе. Нажмите «Обновить», когда будете готовы загрузить восстановленный черновик.');
-      } else {
-        const refreshed = await load(true);
-        if (refreshed) setNotice('Версия восстановлена в черновик. Проверьте её перед публикацией.');
-      }
+      const refreshed = await load(true);
+      if (refreshed) setNotice('Версия восстановлена в черновик. Проверьте её перед публикацией.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Не удалось восстановить версию');
     } finally {
@@ -297,241 +667,279 @@ export default function AdminContentControl({ password }: { password: string }) 
     }
   };
 
-  const sections = [
-    ['hero', 'Хиро'],
-    ['services', 'Услуги и офферы'],
-    ['cases', 'Вводный блок кейсов'],
-    ['cta', 'CTA'],
-    ['contact', 'Форма и контакт'],
-  ] as const;
-
   const contentModeSwitch = (
-    <div className="admin-segmented" role="group" aria-label="Тип контента">
-      <button type="button" aria-pressed={contentMode === 'landings'} onClick={() => setContentMode('landings')}>Лендинги</button>
+    <div className="admin-segmented admin-content-mode" role="group" aria-label="Тип контента">
+      <button type="button" aria-pressed={contentMode === 'pages'} onClick={() => setContentMode('pages')}>Страницы</button>
       <button type="button" aria-pressed={contentMode === 'faq'} onClick={() => setContentMode('faq')}>FAQ</button>
     </div>
   );
 
-  if (contentMode === 'faq') {
-    return <div className="admin-stack admin-stack--lg">{contentModeSwitch}<AdminFaqControl password={password} /></div>;
-  }
+  if (contentMode === 'faq') return <div className="admin-stack admin-stack--lg">{contentModeSwitch}<AdminFaqControl password={password} /></div>;
+
+  const renderTypography = (key: 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact', value: TypographySettings) => (
+    <TypographyControls value={value} onChange={(next) => update([key, 'typography'], next)} />
+  );
 
   return (
-    <div className="admin-stack admin-stack--lg">
+    <div className="admin-stack admin-stack--lg admin-content-control">
       {contentModeSwitch}
       <div className="admin-section-header">
         <div>
           <p className="admin-eyebrow">Контент сайта</p>
-          <h2 className="admin-title">Тексты и офферы</h2>
-          <p className="admin-subtitle">Меняйте только типизированные текстовые поля. Вёрстка, иконки и трекинг остаются защищёнными кодом.</p>
+          <h2 className="admin-title">Редактор страниц</h2>
+          <p className="admin-subtitle">Меняется реальный текст React-страницы. Порядок основных блоков зафиксирован, а текст, абзацы и безопасные размеры можно настраивать без риска сломать вёрстку или трекинг.</p>
         </div>
-        <a className="admin-button admin-button--secondary" href={serviceMeta.path} target="_blank" rel="noreferrer">
-          <ExternalLink aria-hidden="true" /> Открыть страницу
-        </a>
+        <a className="admin-button admin-button--secondary" href={pageMeta.path} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" /> Открыть страницу</a>
       </div>
 
-      <div className="admin-toolbar">
-        <label className="admin-field admin-field--inline" htmlFor="content-service">
-          <span className="admin-label">Страница</span>
-          <select id="content-service" className="admin-input" value={service} disabled={loading} onChange={(event) => switchService(event.target.value as ServiceType)}>
-            {SERVICES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        </label>
-        <span className={section?.status === 'published' ? 'admin-state admin-state--success' : 'admin-state admin-state--warning'}>
-          {section?.status === 'published' ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
-          {section?.status === 'published'
-            ? `Опубликовано · v${section.version}`
-            : section
-              ? `Черновик · опубликованная версия остаётся на сайте · v${section.version}`
-              : 'Статический текст'}
-        </span>
-        <button className="admin-button admin-button--secondary" type="button" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить
-        </button>
+      <div className="admin-toolbar admin-content-toolbar">
+        <AdminSelect label="Страница" value={page} disabled={loading} options={PAGES.map((item) => ({ value: item.value, label: item.label }))} onValueChange={(value) => switchPage(value as EditorPage)} />
+        <div className="admin-content-statuses">
+          <span className={section?.status === 'published' ? 'admin-state admin-state--success' : 'admin-state admin-state--warning'}>
+            {section?.status === 'published' ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
+            {section?.status === 'published' ? `На сайте · v${section.version}` : section ? `Черновик · v${section.version}` : 'Статическая версия'}
+          </span>
+          {isDirty ? <span className="admin-state admin-state--warning">Есть несохранённые изменения</span> : <span className="admin-state">Редактор синхронизирован</span>}
+        </div>
+        <button className="admin-button admin-button--secondary" type="button" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
+        {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); loadedSnapshotRef.current = JSON.stringify(restored); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}
       </div>
 
-      {notice && <div className="admin-notice" role="status" aria-live="polite">{notice}</div>}
+      {notice ? <div className="admin-notice" role="status" aria-live="polite">{notice}</div> : null}
 
       <div className="admin-content-layout">
         <section className="admin-card admin-content-editor">
-          <div className="admin-segmented" role="group" aria-label="Раздел текста">
-            {sections.map(([value, label]) => (
-              <button key={value} type="button" aria-pressed={activeSection === value} onClick={() => setActiveSection(value)}>{label}</button>
-            ))}
-          </div>
-
-          {activeSection === 'hero' && (
-            <div className="admin-form-grid">
-              <Field id="hero-badge" label="Бейдж" value={content.hero.badge} maxLength={120} onChange={(value) => update(['hero', 'badge'], value)} />
-              {content.hero.titleLines.length === 0 && (
-                <>
-                  <Field id="hero-prefix" label="Основная часть заголовка" value={content.hero.titlePrefix} maxLength={180} onChange={(value) => update(['hero', 'titlePrefix'], value)} />
-                  <Field id="hero-accent" label="Выделенная часть заголовка" value={content.hero.titleAccent} maxLength={240} onChange={(value) => update(['hero', 'titleAccent'], value)} />
-                </>
-              )}
-              <TextListField id="hero-paragraphs" label="Абзацы" value={content.hero.paragraphs} maxItems={3} maxItemLength={900} onChange={(value) => update(['hero', 'paragraphs'], value)} />
-              <Field id="hero-primary" label="Основная кнопка" value={content.hero.primaryButton} maxLength={80} onChange={(value) => update(['hero', 'primaryButton'], value)} />
-              <Field id="hero-secondary" label="Вторая кнопка" value={content.hero.secondaryButton} maxLength={80} onChange={(value) => update(['hero', 'secondaryButton'], value)} />
-              {content.hero.titleLines.length > 0 && (
-                <div className="admin-field admin-field--wide">
-                  <span className="admin-label">Строки заголовка и выделение</span>
-                  <div className="admin-stack">
-                    {content.hero.titleLines.map((line, index) => (
-                      <div className="admin-inline-fields" key={index}>
-                        <input className="admin-input" aria-label={`Строка заголовка ${index + 1}`} maxLength={260} value={line.text} onChange={(event) => update(['hero', 'titleLines', index, 'text'], event.target.value)} />
-                        <select className="admin-input" aria-label={`Стиль строки ${index + 1}`} value={line.tone || ''} onChange={(event) => update(['hero', 'titleLines', index, 'tone'], event.target.value || undefined)}>
-                          <option value="">Обычная</option>
-                          <option value="accent">Акцент</option>
-                          <option value="supporting">Поддерживающая</option>
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {content.hero.stats.length > 0 && (
-                <div className="admin-field admin-field--wide">
-                  <span className="admin-label">Подтверждённые цифры в хиро</span>
-                  <div className="admin-stack">
-                    {content.hero.stats.map((stat, index) => (
-                      <div className="admin-stat-fields" key={index}>
-                        <input
-                          className="admin-input"
-                          aria-label={`Значение показателя ${index + 1}`}
-                          maxLength={40}
-                          value={stat.value}
-                          onChange={(event) => update(['hero', 'stats', index, 'value'], event.target.value)}
-                        />
-                        <input
-                          className="admin-input"
-                          aria-label={`Подпись показателя ${index + 1}`}
-                          maxLength={100}
-                          value={stat.label}
-                          onChange={(event) => update(['hero', 'stats', index, 'label'], event.target.value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <span className="admin-hint">Публикуйте только цифры, которые можно подтвердить кейсом, отчётом или данными рекламного кабинета.</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeSection === 'services' && (
-            <div className="admin-stack admin-stack--lg">
-              <div className="admin-form-grid">
-                <Field id="services-badge" label="Бейдж" value={content.services.badge} maxLength={120} onChange={(value) => update(['services', 'badge'], value)} />
-                <Field id="services-prefix" label="Заголовок" value={content.services.titlePrefix} maxLength={180} onChange={(value) => update(['services', 'titlePrefix'], value)} />
-                <Field id="services-accent" label="Акцент заголовка" value={content.services.titleAccent} maxLength={240} onChange={(value) => update(['services', 'titleAccent'], value)} />
-                <Field id="services-description" label="Описание блока" value={content.services.description} multiline maxLength={900} onChange={(value) => update(['services', 'description'], value)} />
-              </div>
-              {content.services.cards.map((card, index) => (
-                <details className="admin-disclosure" key={index} defaultOpen={index === 0}>
-                  <summary><span>{index + 1}. {card.title || 'Карточка услуги'}</span><ChevronRight aria-hidden="true" /></summary>
-                  <div className="admin-form-grid">
-                    <Field id={`service-card-${index}-title`} label="Название" value={card.title} maxLength={160} onChange={(value) => update(['services', 'cards', index, 'title'], value)} />
-                    <Field id={`service-card-${index}-description`} label="Описание" value={card.description} multiline maxLength={700} onChange={(value) => update(['services', 'cards', index, 'description'], value)} />
-                    <TextListField id={`service-card-${index}-features`} label="Что входит" value={card.features} maxItems={8} maxItemLength={120} onChange={(value) => update(['services', 'cards', index, 'features'], value)} />
-                  </div>
-                </details>
+          <div className="admin-editor-workspace">
+            <nav className="admin-block-nav" aria-label="Порядок блоков страницы">
+              <p className="admin-label">Порядок на странице</p>
+              {availableSections.map((value, index) => (
+                <button key={value} type="button" aria-current={activeSection === value ? 'step' : undefined} onClick={() => setActiveSection(value)}>
+                  <span>{value === 'seo' ? 'SEO' : String(index)}</span><span><strong>{SECTION_LABELS[value]}</strong><small>{value === 'seo' ? 'Поисковая выдача' : `Блок ${index}`}</small></span><ChevronRight aria-hidden="true" />
+                </button>
               ))}
+            </nav>
+            <div className="admin-block-nav-mobile">
+              <AdminSelect label="Редактируемый блок" value={activeSection} options={availableSections.map((value, index) => ({ value, label: value === 'seo' ? `SEO · ${SECTION_LABELS[value]}` : `${index}. ${SECTION_LABELS[value]}` }))} onValueChange={(value) => setActiveSection(value as EditorSection)} />
             </div>
-          )}
 
-          {activeSection === 'cases' && (
-            <div className="admin-form-grid">
-              <Field id="cases-badge" label="Бейдж" value={content.cases.badge} maxLength={120} onChange={(value) => update(['cases', 'badge'], value)} />
-              <Field id="cases-prefix" label="Заголовок" value={content.cases.titlePrefix} maxLength={180} onChange={(value) => update(['cases', 'titlePrefix'], value)} />
-              <Field id="cases-accent" label="Акцент заголовка" value={content.cases.titleAccent} maxLength={240} onChange={(value) => update(['cases', 'titleAccent'], value)} />
-              <Field id="cases-description" label="Описание" value={content.cases.description} multiline maxLength={900} onChange={(value) => update(['cases', 'description'], value)} />
-            </div>
-          )}
-
-          {activeSection === 'cta' && (
-            <div className="admin-form-grid">
-              <Field id="cta-badge" label="Бейдж" value={content.cta.badge} maxLength={120} onChange={(value) => update(['cta', 'badge'], value)} />
-              <Field id="cta-title" label="Заголовок" value={content.cta.title} maxLength={260} onChange={(value) => update(['cta', 'title'], value)} />
-              <Field id="cta-description" label="Описание" value={content.cta.description} multiline maxLength={900} onChange={(value) => update(['cta', 'description'], value)} />
-              <Field id="cta-button" label="Кнопка" value={content.cta.button} maxLength={80} onChange={(value) => update(['cta', 'button'], value)} />
-            </div>
-          )}
-
-          {activeSection === 'contact' && (
-            <div className="admin-form-grid">
-              <Field id="contact-badge" label="Бейдж" value={content.contact.badge} maxLength={120} onChange={(value) => update(['contact', 'badge'], value)} />
-              <Field id="contact-prefix" label="Заголовок" value={content.contact.titlePrefix} maxLength={180} onChange={(value) => update(['contact', 'titlePrefix'], value)} />
-              <Field id="contact-accent" label="Акцент заголовка" value={content.contact.titleAccent} maxLength={220} onChange={(value) => update(['contact', 'titleAccent'], value)} />
-              <Field id="contact-description" label="Описание" value={content.contact.description} multiline maxLength={900} onChange={(value) => update(['contact', 'description'], value)} />
-              <TextListField id="contact-bullets" label="Что обсудим" value={content.contact.bullets} maxItems={8} maxItemLength={180} onChange={(value) => update(['contact', 'bullets'], value)} />
-            </div>
-          )}
-
-          <div className="admin-sticky-actions">
-            <button type="button" className="admin-button admin-button--secondary" disabled={loading} onClick={() => void save('save')}><Save aria-hidden="true" /> Сохранить черновик</button>
-            {!publishArmed ? (
-              <button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => setPublishArmed(true)}><Send aria-hidden="true" /> Опубликовать</button>
-            ) : (
-              <div className="admin-confirm-inline" role="alert">
-                <span>Опубликовать этот текст на {serviceMeta.path}?</span>
-                <button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => void save('publish')}>Да, опубликовать</button>
-                <button type="button" className="admin-button admin-button--ghost" disabled={loading} onClick={() => setPublishArmed(false)}>Отмена</button>
+            <div className="admin-block-editor">
+              <div className="admin-block-editor__heading">
+                <span>{activeSection === 'seo' ? 'SEO' : availableSections.indexOf(activeSection)}</span>
+                <div><p className="admin-eyebrow">Редактируемый блок</p><h3>{SECTION_LABELS[activeSection]}</h3></div>
               </div>
-            )}
+
+              {activeSection === 'seo' ? <div className="admin-form-grid">
+                <Field id="seo-title" label="SEO-заголовок" value={content.seo.title} maxLength={90} hint="Рекомендуемая длина — примерно 45–65 знаков." onChange={(value) => update(['seo', 'title'], value)} />
+                <Field id="seo-description" label="SEO-описание" value={content.seo.description} multiline maxLength={220} hint="Рекомендуемая длина — примерно 120–170 знаков." onChange={(value) => update(['seo', 'description'], value)} />
+                <div className="admin-notice admin-field--wide">Canonical URL, robots, Open Graph URL и техническая разметка защищены кодом. Здесь меняется только текст сниппета и его синхронизированная SEO-копия.</div>
+              </div> : null}
+
+              {activeSection === 'hero' ? <div className="admin-stack admin-stack--lg">
+                <div className="admin-form-grid">
+                  <Field id="hero-badge" label="Бейдж" value={content.hero.badge} maxLength={120} onChange={(value) => update(['hero', 'badge'], value)} />
+                  {content.hero.titleLines.length === 0 ? <><Field id="hero-prefix" label="Основная часть заголовка" value={content.hero.titlePrefix} maxLength={180} onChange={(value) => update(['hero', 'titlePrefix'], value)} /><Field id="hero-accent" label="Выделенная часть" value={content.hero.titleAccent} maxLength={240} onChange={(value) => update(['hero', 'titleAccent'], value)} /></> : null}
+                  <Field id="hero-primary" label="Основная кнопка" value={content.hero.primaryButton} maxLength={80} onChange={(value) => update(['hero', 'primaryButton'], value)} />
+                  <Field id="hero-secondary" label="Вторая кнопка" value={content.hero.secondaryButton} maxLength={80} onChange={(value) => update(['hero', 'secondaryButton'], value)} />
+                </div>
+                {content.hero.titleLines.length === 0 ? (
+                  <div className="admin-notice admin-stack">
+                    <span><strong>Нужен точный перенос заголовка?</strong> Разделите его на отдельные строки и задайте стиль каждой строке. На мобильном и ПК порядок останется одинаковым.</span>
+                    <div><button type="button" className="admin-button admin-button--secondary" onClick={convertHeroTitleToLines}><Plus aria-hidden="true" /> Разделить на строки</button></div>
+                  </div>
+                ) : (
+                  <div className="admin-field admin-field--wide">
+                    <div className="admin-label-row"><span className="admin-label">Строки заголовка</span><span className="admin-char-count">{content.hero.titleLines.length}/5</span></div>
+                    <div className="admin-list-editor">
+                      {content.hero.titleLines.map((line, index) => (
+                        <div className="admin-list-editor__item" key={index}>
+                          <OrderedItemHeader
+                            label="Строка"
+                            index={index}
+                            count={content.hero.titleLines.length}
+                            minItems={1}
+                            onMove={(direction) => update(['hero', 'titleLines'], moveItem(content.hero.titleLines, index, direction))}
+                            onDelete={() => update(['hero', 'titleLines'], content.hero.titleLines.filter((_, itemIndex) => itemIndex !== index))}
+                          />
+                          <div className="admin-inline-fields">
+                            <Field id={`hero-line-${index}`} label="Текст" value={line.text} maxLength={180} onChange={(value) => update(['hero', 'titleLines', index, 'text'], value)} />
+                            <AdminSelect label="Выделение" value={line.tone || 'default'} options={[{ value: 'default', label: 'Обычная' }, { value: 'accent', label: 'Акцент' }, { value: 'supporting', label: 'Поддерживающая' }]} onValueChange={(value) => update(['hero', 'titleLines', index, 'tone'], value === 'default' ? undefined : value)} />
+                          </div>
+                        </div>
+                      ))}
+                      <div className="admin-content-statuses">
+                        <AddItemButton label="Добавить строку" count={content.hero.titleLines.length} maxItems={5} onAdd={() => update(['hero', 'titleLines'], [...content.hero.titleLines, { text: '' }])} />
+                        <button type="button" className="admin-button admin-button--quiet" onClick={restoreHeroTitleParts}><RotateCcw aria-hidden="true" /> Вернуть две части</button>
+                      </div>
+                    </div>
+                    <span className="admin-hint">При возврате обычного режима все строки без акцента объединятся в основную часть, строки с акцентом — в выделенную.</span>
+                  </div>
+                )}
+                <StringListEditor label="Абзацы под заголовком" singular="Абзац" values={content.hero.paragraphs} maxItems={3} maxLength={900} onChange={(value) => update(['hero', 'paragraphs'], value)} />
+                <div className="admin-field admin-field--wide">
+                  <div className="admin-label-row"><span className="admin-label">Подтверждённые цифры</span><span className="admin-char-count">{content.hero.stats.length}/4</span></div>
+                  <div className="admin-list-editor">
+                    {content.hero.stats.map((stat, index) => (
+                      <div className="admin-list-editor__item" key={index}>
+                        <OrderedItemHeader
+                          label="Показатель"
+                          index={index}
+                          count={content.hero.stats.length}
+                          onMove={(direction) => update(['hero', 'stats'], moveItem(content.hero.stats, index, direction))}
+                          onDelete={() => update(['hero', 'stats'], content.hero.stats.filter((_, itemIndex) => itemIndex !== index))}
+                        />
+                        <div className="admin-stat-fields"><Field id={`hero-stat-value-${index}`} label="Значение" value={stat.value} maxLength={40} onChange={(value) => update(['hero', 'stats', index, 'value'], value)} /><Field id={`hero-stat-label-${index}`} label="Подпись" value={stat.label} maxLength={100} onChange={(value) => update(['hero', 'stats', index, 'label'], value)} /></div>
+                      </div>
+                    ))}
+                    <AddItemButton label="Добавить показатель" count={content.hero.stats.length} maxItems={4} onAdd={() => update(['hero', 'stats'], [...content.hero.stats, { value: '', label: '' }])} />
+                  </div>
+                  <span className="admin-hint">Публикуйте только цифры, подтверждённые кейсом или рекламным кабинетом.</span>
+                </div>
+                {renderTypography('hero', content.hero.typography)}
+              </div> : null}
+
+              {activeSection === 'services' ? <div className="admin-stack admin-stack--lg">
+                <div className="admin-form-grid"><Field id="services-badge" label="Бейдж" value={content.services.badge} maxLength={120} onChange={(value) => update(['services', 'badge'], value)} /><Field id="services-prefix" label="Заголовок" value={content.services.titlePrefix} maxLength={180} onChange={(value) => update(['services', 'titlePrefix'], value)} /><Field id="services-accent" label="Акцент заголовка" value={content.services.titleAccent} maxLength={220} onChange={(value) => update(['services', 'titleAccent'], value)} /><Field id="services-description" label="Описание блока" value={content.services.description} multiline maxLength={900} onChange={(value) => update(['services', 'description'], value)} /></div>
+                <div className="admin-field admin-field--wide">
+                  <div className="admin-label-row"><span className="admin-label">Карточки услуг</span><span className="admin-char-count">{content.services.cards.length}/8</span></div>
+                  <div className="admin-list-editor">
+                    {content.services.cards.map((card, index) => (
+                      <div key={index}>
+                        <OrderedItemHeader
+                          label="Карточка"
+                          index={index}
+                          count={content.services.cards.length}
+                          minItems={1}
+                          onMove={(direction) => update(['services', 'cards'], moveItem(content.services.cards, index, direction))}
+                          onDelete={() => update(['services', 'cards'], content.services.cards.filter((_, itemIndex) => itemIndex !== index))}
+                        />
+                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                          <summary><span>{card.title || 'Новая карточка услуги'}</span><ChevronRight aria-hidden="true" /></summary>
+                          <div className="admin-form-grid"><Field id={`service-title-${index}`} label="Название" value={card.title} maxLength={160} onChange={(value) => update(['services', 'cards', index, 'title'], value)} /><Field id={`service-description-${index}`} label="Описание" value={card.description} multiline maxLength={700} onChange={(value) => update(['services', 'cards', index, 'description'], value)} /><StringListEditor label="Что входит" singular="Пункт" values={card.features} maxItems={8} maxLength={120} onChange={(value) => update(['services', 'cards', index, 'features'], value)} /></div>
+                        </details>
+                      </div>
+                    ))}
+                    <AddItemButton label="Добавить карточку" count={content.services.cards.length} maxItems={8} onAdd={() => update(['services', 'cards'], [...content.services.cards, { title: '', description: '', features: [''], visualSlot: content.services.cards.length % editableDefaults(page).services.cards.length }])} />
+                  </div>
+                </div>
+                {renderTypography('services', content.services.typography)}
+              </div> : null}
+
+              {activeSection === 'cases' ? <div className="admin-stack admin-stack--lg">
+                <div className="admin-form-grid"><Field id="cases-badge" label="Бейдж" value={content.cases.badge} maxLength={120} onChange={(value) => update(['cases', 'badge'], value)} /><Field id="cases-prefix" label="Заголовок" value={content.cases.titlePrefix} maxLength={180} onChange={(value) => update(['cases', 'titlePrefix'], value)} /><Field id="cases-accent" label="Акцент заголовка" value={content.cases.titleAccent} maxLength={220} onChange={(value) => update(['cases', 'titleAccent'], value)} /><Field id="cases-description" label="Описание блока" value={content.cases.description} multiline maxLength={900} onChange={(value) => update(['cases', 'description'], value)} /></div>
+                <div className="admin-field admin-field--wide">
+                  <div className="admin-label-row"><span className="admin-label">Карточки кейсов</span><span className="admin-char-count">{content.cases.items.length}/12</span></div>
+                  <div className="admin-list-editor">
+                    {content.cases.items.map((item, index) => (
+                      <div key={index}>
+                        <OrderedItemHeader
+                          label="Карточка"
+                          index={index}
+                          count={content.cases.items.length}
+                          minItems={1}
+                          onMove={(direction) => update(['cases', 'items'], moveItem(content.cases.items, index, direction))}
+                          onDelete={() => update(['cases', 'items'], content.cases.items.filter((_, itemIndex) => itemIndex !== index))}
+                        />
+                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                          <summary><span>{item.title || 'Новая карточка кейса'}</span><ChevronRight aria-hidden="true" /></summary>
+                          <div className="admin-form-grid">
+                            <Field id={`case-title-${index}`} label="Название" value={item.title} maxLength={180} onChange={(value) => update(['cases', 'items', index, 'title'], value)} />
+                            <Field id={`case-category-${index}`} label="Категория" value={item.category} maxLength={100} onChange={(value) => update(['cases', 'items', index, 'category'], value)} />
+                            <Field id={`case-description-${index}`} label="Описание" value={item.description} multiline maxLength={700} onChange={(value) => update(['cases', 'items', index, 'description'], value)} />
+                            <div className="admin-field admin-field--wide">
+                              <div className="admin-label-row"><span className="admin-label">Цифры карточки</span><span className="admin-char-count">{item.stats.length}/6</span></div>
+                              <div className="admin-list-editor">
+                                {item.stats.map((stat, statIndex) => (
+                                  <div className="admin-list-editor__item" key={statIndex}>
+                                    <OrderedItemHeader
+                                      label="Показатель"
+                                      index={statIndex}
+                                      count={item.stats.length}
+                                      onMove={(direction) => update(['cases', 'items', index, 'stats'], moveItem(item.stats, statIndex, direction))}
+                                      onDelete={() => update(['cases', 'items', index, 'stats'], item.stats.filter((_, itemIndex) => itemIndex !== statIndex))}
+                                    />
+                                    <div className="admin-stat-fields"><Field id={`case-${index}-stat-${statIndex}-value`} label="Значение" value={stat.value} maxLength={60} onChange={(value) => update(['cases', 'items', index, 'stats', statIndex, 'value'], value)} /><Field id={`case-${index}-stat-${statIndex}-label`} label="Подпись" value={stat.label} maxLength={100} onChange={(value) => update(['cases', 'items', index, 'stats', statIndex, 'label'], value)} /></div>
+                                  </div>
+                                ))}
+                                <AddItemButton label="Добавить показатель" count={item.stats.length} maxItems={6} onAdd={() => update(['cases', 'items', index, 'stats'], [...item.stats, { value: '', label: '' }])} />
+                              </div>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    ))}
+                    <AddItemButton label="Добавить карточку" count={content.cases.items.length} maxItems={12} onAdd={() => update(['cases', 'items'], [...content.cases.items, { title: '', category: '', description: '', stats: [], visualSlot: content.cases.items.length % editableDefaults(page).cases.items.length }])} />
+                  </div>
+                </div>
+                {renderTypography('cases', content.cases.typography)}
+              </div> : null}
+
+              {activeSection === 'cta' ? <div className="admin-stack admin-stack--lg"><div className="admin-form-grid"><Field id="cta-badge" label="Бейдж" value={content.cta.badge} maxLength={120} onChange={(value) => update(['cta', 'badge'], value)} /><Field id="cta-title" label="Заголовок" value={content.cta.title} maxLength={260} onChange={(value) => update(['cta', 'title'], value)} /><Field id="cta-description" label="Описание" value={content.cta.description} multiline maxLength={900} onChange={(value) => update(['cta', 'description'], value)} /><Field id="cta-button" label="Кнопка" value={content.cta.button} maxLength={80} onChange={(value) => update(['cta', 'button'], value)} /></div>{renderTypography('cta', content.cta.typography)}</div> : null}
+
+              {activeSection === 'testimonials' && content.testimonials ? <div className="admin-stack admin-stack--lg">
+                <div className="admin-form-grid"><Field id="testimonials-badge" label="Бейдж" value={content.testimonials.badge} maxLength={120} onChange={(value) => update(['testimonials', 'badge'], value)} /><Field id="testimonials-prefix" label="Заголовок" value={content.testimonials.titlePrefix} maxLength={180} onChange={(value) => update(['testimonials', 'titlePrefix'], value)} /><Field id="testimonials-accent" label="Акцент заголовка" value={content.testimonials.titleAccent} maxLength={220} onChange={(value) => update(['testimonials', 'titleAccent'], value)} /><Field id="testimonials-description" label="Описание" value={content.testimonials.description} multiline maxLength={900} onChange={(value) => update(['testimonials', 'description'], value)} /></div>
+                <div className="admin-field admin-field--wide">
+                  <div className="admin-label-row"><span className="admin-label">Цифры доверия</span><span className="admin-char-count">{content.testimonials.stats.length}/6</span></div>
+                  <div className="admin-list-editor">
+                    {content.testimonials.stats.map((stat, index) => (
+                      <div className="admin-list-editor__item" key={index}>
+                        <OrderedItemHeader
+                          label="Показатель"
+                          index={index}
+                          count={content.testimonials!.stats.length}
+                          onMove={(direction) => update(['testimonials', 'stats'], moveItem(content.testimonials!.stats, index, direction))}
+                          onDelete={() => update(['testimonials', 'stats'], content.testimonials!.stats.filter((_, itemIndex) => itemIndex !== index))}
+                        />
+                        <div className="admin-stat-fields"><Field id={`trust-value-${index}`} label="Значение" value={stat.value} maxLength={60} onChange={(value) => update(['testimonials', 'stats', index, 'value'], value)} /><Field id={`trust-label-${index}`} label="Подпись" value={stat.label} maxLength={120} onChange={(value) => update(['testimonials', 'stats', index, 'label'], value)} /></div>
+                      </div>
+                    ))}
+                    <AddItemButton label="Добавить показатель" count={content.testimonials.stats.length} maxItems={6} onAdd={() => update(['testimonials', 'stats'], [...content.testimonials!.stats, { value: '', label: '' }])} />
+                  </div>
+                  <span className="admin-hint">Оставляйте только те цифры, которые сможете подтвердить данными или кейсом.</span>
+                </div>
+                {renderTypography('testimonials', content.testimonials.typography)}
+              </div> : null}
+
+              {activeSection === 'contact' ? <div className="admin-stack admin-stack--lg">
+                <div className="admin-form-grid"><Field id="contact-badge" label="Бейдж" value={content.contact.badge} maxLength={120} onChange={(value) => update(['contact', 'badge'], value)} /><Field id="contact-prefix" label="Заголовок" value={content.contact.titlePrefix} maxLength={180} onChange={(value) => update(['contact', 'titlePrefix'], value)} /><Field id="contact-accent" label="Акцент заголовка" value={content.contact.titleAccent} maxLength={220} onChange={(value) => update(['contact', 'titleAccent'], value)} /><Field id="contact-description" label="Описание" value={content.contact.description} multiline maxLength={900} onChange={(value) => update(['contact', 'description'], value)} /></div>
+                {page === 'home' ? (
+                  <div className="admin-field admin-field--wide">
+                    <div className="admin-label-row"><span className="admin-label">Преимущества рядом с формой</span><span className="admin-char-count">{content.contact.benefits.length}/6</span></div>
+                    <div className="admin-list-editor">
+                      {content.contact.benefits.map((item, index) => (
+                        <div className="admin-list-editor__item" key={index}>
+                          <OrderedItemHeader
+                            label="Преимущество"
+                            index={index}
+                            count={content.contact.benefits.length}
+                            minItems={1}
+                            onMove={(direction) => update(['contact', 'benefits'], moveItem(content.contact.benefits, index, direction))}
+                            onDelete={() => update(['contact', 'benefits'], content.contact.benefits.filter((_, itemIndex) => itemIndex !== index))}
+                          />
+                          <div className="admin-form-grid"><Field id={`benefit-title-${index}`} label="Заголовок" value={item.title} maxLength={160} onChange={(value) => update(['contact', 'benefits', index, 'title'], value)} /><Field id={`benefit-description-${index}`} label="Описание" value={item.description} multiline maxLength={400} onChange={(value) => update(['contact', 'benefits', index, 'description'], value)} /></div>
+                        </div>
+                      ))}
+                      <AddItemButton label="Добавить преимущество" count={content.contact.benefits.length} maxItems={6} onAdd={() => update(['contact', 'benefits'], [...content.contact.benefits, { title: '', description: '' }])} />
+                    </div>
+                  </div>
+                ) : <StringListEditor label="Что обсудим" singular="Пункт" values={content.contact.bullets} maxItems={8} maxLength={180} onChange={(value) => update(['contact', 'bullets'], value)} />}
+                {renderTypography('contact', content.contact.typography)}
+              </div> : null}
+              <div className="admin-sticky-actions">
+                {!publishArmed ? <button type="button" className="admin-button admin-button--secondary" disabled={loading || !isDirty} onClick={() => void save('save')}><Save aria-hidden="true" /><span className="admin-action-label--desktop">Сохранить черновик</span><span className="admin-action-label--mobile">Черновик</span></button> : null}
+                {!publishArmed ? <button type="button" className="admin-button admin-button--primary" disabled={loading || !isDirty} onClick={() => setPublishArmed(true)}><Send aria-hidden="true" /> Опубликовать</button> : <div className="admin-confirm-inline" role="alert"><span>Опубликовать изменения на {pageMeta.path}?</span><button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => void save('publish')}>Да, опубликовать</button><button type="button" className="admin-button admin-button--quiet" disabled={loading} onClick={() => setPublishArmed(false)}>Отмена</button></div>}
+              </div>
+            </div>
           </div>
         </section>
 
-        <aside className="admin-stack">
+        <aside className="admin-stack admin-content-aside">
           <section className="admin-card admin-preview-card">
-            <div className="admin-section-header admin-section-header--compact">
-              <div><p className="admin-eyebrow">Предпросмотр текста</p><h3 className="admin-card-title">Хиро</h3></div>
-              <div className="admin-icon-toggle" role="group" aria-label="Размер предпросмотра">
-                <button type="button" aria-pressed={preview === 'desktop'} onClick={() => setPreview('desktop')}><Monitor aria-hidden="true" /><span className="sr-only">ПК</span></button>
-                <button type="button" aria-pressed={preview === 'mobile'} onClick={() => setPreview('mobile')}><Smartphone aria-hidden="true" /><span className="sr-only">Мобильный</span></button>
-              </div>
-            </div>
-            <div className={`admin-copy-preview admin-copy-preview--${preview}`}>
-              <span className="admin-copy-preview__badge break-words">{content.hero.badge}</span>
-              <h3 className="break-words">
-                {content.hero.titleLines.length
-                  ? content.hero.titleLines.map((line, index) => <em className={line.tone ? `is-${line.tone}` : ''} key={`${line.text}-${index}`}>{line.text}</em>)
-                  : <>{content.hero.titlePrefix} <em className="is-accent">{content.hero.titleAccent}</em></>}
-              </h3>
-              {content.hero.paragraphs.map((paragraph, index) => <p className="break-words" key={`${index}-${paragraph}`}>{paragraph}</p>)}
-              {content.hero.stats.length > 0 && (
-                <dl className="admin-copy-preview__stats">
-                  {content.hero.stats.map((stat, index) => (
-                    <div key={`${stat.value}-${index}`}>
-                      <dt>{stat.value || '—'}</dt>
-                      <dd>{stat.label || 'Без подписи'}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              <span className="admin-copy-preview__button" aria-hidden="true">{content.hero.primaryButton}</span>
-            </div>
-            <p className="admin-hint">Это проверка длины, иерархии и переносов. Точный дизайн страницы остаётся в её текущей вёрстке.</p>
+            <div className="admin-section-header admin-section-header--compact"><div><p className="admin-eyebrow">Живой предпросмотр</p><h3 className="admin-card-title">{SECTION_LABELS[activeSection]}</h3></div><div className="admin-icon-toggle" role="group" aria-label="Размер предпросмотра"><button type="button" aria-pressed={preview === 'desktop'} onClick={() => setPreview('desktop')}><Monitor aria-hidden="true" /><span className="sr-only">ПК</span></button><button type="button" aria-pressed={preview === 'mobile'} onClick={() => setPreview('mobile')}><Smartphone aria-hidden="true" /><span className="sr-only">Мобильный</span></button></div></div>
+            <Preview content={content} section={activeSection} device={preview} />
+            <p className="admin-hint">Ширина и переносы меняются вместе с режимом. Визуальные эффекты страницы остаются защищёнными текущей вёрсткой.</p>
           </section>
-
-          <section className="admin-card">
-            <div className="admin-section-header admin-section-header--compact">
-              <div><p className="admin-eyebrow">История</p><h3 className="admin-card-title">Последние версии</h3></div>
-            </div>
-            {versions.length === 0 ? <p className="admin-muted">Версии появятся после первого сохранения.</p> : (
-              <div className="admin-version-list">
-                {versions.map((version) => (
-                  <div key={version.id}>
-                    <div><strong>{version.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${version.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div>
-                    <button type="button" className="admin-icon-button" title="Восстановить в черновик" aria-label="Восстановить эту версию в черновик" disabled={loading} onClick={() => void restore(version.id)}><RotateCcw aria-hidden="true" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <div className="admin-notice admin-notice--warning">
-            Публикация меняет текст для посетителей через D1. Статическая SEO-копия обновится при следующей production-сборке — админка показывает это отдельно, чтобы не создавать ложное ощущение синхронизации.
-          </div>
+          <section className="admin-card"><div className="admin-section-header admin-section-header--compact"><div><p className="admin-eyebrow">История</p><h3 className="admin-card-title">Последние версии</h3></div></div>{versions.length === 0 ? <p className="admin-muted">Версии появятся после первого сохранения.</p> : <div className="admin-version-list">{versions.map((version) => <div key={version.id}><div><strong>{version.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${version.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div><button type="button" className="admin-icon-button" title="Восстановить в черновик" aria-label="Восстановить эту версию в черновик" disabled={loading || isDirty} onClick={() => void restore(version.id)}><RotateCcw aria-hidden="true" /></button></div>)}</div>}</section>
+          <div className="admin-notice admin-notice--warning">Публикация сразу меняет видимый текст через D1. Если настроен CF_PAGES_DEPLOY_HOOK_URL, админка одновременно запускает production-сборку той же версии для SEO-HTML; черновик в поисковую копию не попадает.</div>
         </aside>
       </div>
     </div>

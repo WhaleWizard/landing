@@ -8,10 +8,15 @@ import ReactDOMServer from 'react-dom/server';
 import {
   DIST_DIR,
   BUILD_ARTICLES_PATH,
+  BUILD_SITE_CONTENT_PATH,
   LOCAL_ARTICLES_PATH,
+  PUBLIC_SITE_CONTENT_URL,
   SITE_URL,
+  SITE_CONTENT_FETCH_TIMEOUT_MS,
+  STRICT_SITE_CONTENT,
   STATIC_ROUTES,
 } from './config.js';
+import { loadPublishedSiteContent, mergePublishedContent } from './site-content-sync.js';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -444,13 +449,41 @@ function buildBreadcrumbJsonLd(article) {
 }
 
 function renderJsonLdScripts(schemas = []) {
+  const serializeJsonLd = (schema) => JSON.stringify(schema)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+  const schemaId = (schema) => {
+    const type = String(schema?.['@type'] || '');
+    if (type === 'ProfessionalService') return 'ld-organization';
+    if (type === 'WebSite') return 'ld-website';
+    if (type === 'FAQPage') return 'ld-faq-page';
+    if (type === 'Article' || type === 'BlogPosting') return 'ld-article';
+    if (type === 'BreadcrumbList') return 'ld-breadcrumbs';
+    return '';
+  };
   return schemas
     .filter(Boolean)
-    .map((schema) => `<script type="application/ld+json">${JSON.stringify(schema)}</script>`)
+    .map((schema) => `<script${schemaId(schema) ? ` id="${schemaId(schema)}"` : ''} type="application/ld+json">${serializeJsonLd(schema)}</script>`)
     .join('\n  ');
 }
 
-function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, ogType = 'website', ogImage, noIndex = false, extraJsonLd = [] }) {
+function htmlTemplate({
+  baseHtml,
+  title,
+  description,
+  canonicalPath,
+  bodyHtml,
+  ogType = 'website',
+  ogImage,
+  noIndex = false,
+  extraJsonLd = [],
+  articlePublishedTime,
+  articleModifiedTime,
+  articleSection,
+}) {
   const canonicalUrl = `${SITE_URL}${withTrailingSlashIfStaticRoute(canonicalPath)}`;
   const imageUrl = toAbsoluteUrl(ogImage || '/og-image.jpg');
   let html = baseHtml;
@@ -465,6 +498,9 @@ function htmlTemplate({ baseHtml, title, description, canonicalPath, bodyHtml, o
   html = upsertPropertyMeta(html, 'og:image', imageUrl);
   html = upsertPropertyMeta(html, 'og:site_name', 'Whale Wizard');
   html = upsertPropertyMeta(html, 'og:locale', 'ru_RU');
+  if (articlePublishedTime) html = upsertPropertyMeta(html, 'article:published_time', articlePublishedTime);
+  if (articleModifiedTime) html = upsertPropertyMeta(html, 'article:modified_time', articleModifiedTime);
+  if (articleSection) html = upsertPropertyMeta(html, 'article:section', articleSection);
   html = upsertNamedMeta(html, 'twitter:card', 'summary_large_image');
   html = upsertNamedMeta(html, 'twitter:title', title);
   html = upsertNamedMeta(html, 'twitter:description', description);
@@ -606,11 +642,28 @@ function renderParagraphsHtml(paragraphs = []) {
   return paragraphs.map((p) => `<p style="margin:0 0 12px;${contentStyles.body}">${escapeHtml(String(p))}</p>`).join('');
 }
 
+function renderBadgeHtml(badge) {
+  if (!badge) return '';
+  return `<p style="margin:0 0 10px;${contentStyles.muted};font-weight:700">${escapeHtml(badge)}</p>`;
+}
+
+function renderActionLabelsHtml(labels = []) {
+  const visible = labels.map((label) => String(label || '').trim()).filter(Boolean);
+  if (!visible.length) return '';
+  return `<p style="margin:12px 0 0;${contentStyles.muted}">${visible.map((label) => escapeHtml(label)).join(' · ')}</p>`;
+}
+
+function renderBenefitsHtml(benefits = []) {
+  if (!Array.isArray(benefits) || !benefits.length) return '';
+  return `<div style="display:grid;gap:10px;margin-top:14px">${benefits.map((benefit) => `
+    <div style="${contentStyles.cardBox}">
+      <h3 style="${contentStyles.heading3}">${escapeHtml(benefit.title)}</h3>
+      <p style="${contentStyles.body}">${escapeHtml(benefit.description)}</p>
+    </div>`).join('')}</div>`;
+}
+
 function renderHeroBodyHtml(hero) {
-  const headline = hero.titlePrefix || hero.titleAccent
-    ? `<p style="margin:0 0 14px;font-size:19px;font-weight:800;letter-spacing:-.01em">${escapeHtml(hero.titlePrefix || '')} ${escapeHtml(hero.titleAccent || '')}</p>`
-    : '';
-  return `${headline}${renderParagraphsHtml(hero.paragraphs)}${renderStatsHtml(hero.stats)}`;
+  return `${renderBadgeHtml(hero.badge)}${renderStatsHtml(hero.stats)}${renderActionLabelsHtml([hero.primaryButton, hero.secondaryButton])}`;
 }
 
 function renderServiceCardsHtml(cards = []) {
@@ -651,6 +704,10 @@ function renderTestimonialsHtml(items = []) {
     .join('')}</div>`;
 }
 
+function renderTestimonialsSection(content, items = []) {
+  return `${renderBadgeHtml(content.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.description)}</p>${renderStatsHtml(content.stats)}${renderTestimonialsHtml(items)}`;
+}
+
 function renderFaqListHtml(faqs = []) {
   return faqs
     .map(
@@ -680,20 +737,30 @@ function renderGlossaryListHtml(terms = []) {
 }
 
 function renderServicePageSections(config) {
+  const testimonialContent = config.service === 'meta-apps'
+    ? config.metaAppsTestimonials
+    : config.defaultTestimonials;
   return [
     { heading: null, bodyHtml: renderHeroBodyHtml(config.hero) },
     {
       heading: config.services.titlePrefix ? `${config.services.titlePrefix} ${config.services.titleAccent}` : 'Что входит',
-      bodyHtml: `<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.services.description)}</p>${renderServiceCardsHtml(config.services.cards)}`,
+      bodyHtml: `${renderBadgeHtml(config.services.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.services.description)}</p>${renderServiceCardsHtml(config.services.cards)}`,
     },
     {
       heading: config.cases.titlePrefix ? `${config.cases.titlePrefix} ${config.cases.titleAccent}` : 'Кейсы',
-      bodyHtml: `<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.cases.description)}</p>${renderCaseItemsHtml(config.cases.items)}`,
+      bodyHtml: `${renderBadgeHtml(config.cases.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.cases.description)}</p>${renderCaseItemsHtml(config.cases.items)}`,
     },
-    { heading: config.cta.title, bodyHtml: `<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>` },
     {
-      heading: 'Обсудить задачу',
-      bodyHtml: `<p style="${contentStyles.body};margin-bottom:10px">${escapeHtml(config.contact.description)}</p><ul style="margin:0;padding-left:20px;${contentStyles.body}">${config.contact.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`,
+      heading: config.cta.title,
+      bodyHtml: `${renderBadgeHtml(config.cta.badge)}<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>${renderActionLabelsHtml([config.cta.button])}`,
+    },
+    {
+      heading: [testimonialContent.titlePrefix, testimonialContent.titleAccent].filter(Boolean).join(' ') || 'Отзывы клиентов',
+      bodyHtml: renderTestimonialsSection({ ...testimonialContent, stats: config.defaultTestimonialsStats }, config.testimonialItems),
+    },
+    {
+      heading: [config.contact.titlePrefix, config.contact.titleAccent].filter(Boolean).join(' ') || 'Обсудить задачу',
+      bodyHtml: `${renderBadgeHtml(config.contact.badge)}<p style="${contentStyles.body};margin-bottom:10px">${escapeHtml(config.contact.description)}</p><ul style="margin:0;padding-left:20px;${contentStyles.body}">${config.contact.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`,
     },
   ];
 }
@@ -701,9 +768,22 @@ function renderServicePageSections(config) {
 function renderHomeSections(content, latestArticles) {
   const sections = [
     { heading: null, bodyHtml: renderHeroBodyHtml(content.hero) },
-    { heading: 'Услуги', bodyHtml: renderServiceCardsHtml(content.services.cards) },
-    { heading: 'Кейсы', bodyHtml: renderCaseItemsHtml(content.cases.items) },
-    { heading: 'Отзывы клиентов', bodyHtml: renderTestimonialsHtml(content.testimonials) },
+    {
+      heading: [content.services.titlePrefix, content.services.titleAccent].filter(Boolean).join(' ') || 'Услуги',
+      bodyHtml: `${renderBadgeHtml(content.services.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.services.description)}</p>${renderServiceCardsHtml(content.services.cards)}`,
+    },
+    {
+      heading: [content.cases.titlePrefix, content.cases.titleAccent].filter(Boolean).join(' ') || 'Кейсы',
+      bodyHtml: `${renderBadgeHtml(content.cases.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.cases.description)}</p>${renderCaseItemsHtml(content.cases.items)}`,
+    },
+    {
+      heading: content.callToAction.title,
+      bodyHtml: `${renderBadgeHtml(content.callToAction.badge)}<p style="${contentStyles.body}">${escapeHtml(content.callToAction.description)}</p>${renderActionLabelsHtml([content.callToAction.button])}`,
+    },
+    {
+      heading: [content.testimonials.titlePrefix, content.testimonials.titleAccent].filter(Boolean).join(' ') || 'Отзывы клиентов',
+      bodyHtml: renderTestimonialsSection(content.testimonials, content.testimonialItems),
+    },
   ];
 
   if (latestArticles.length) {
@@ -715,6 +795,11 @@ function renderHomeSections(content, latestArticles) {
         .join('')}</div>`,
     });
   }
+
+  sections.push({
+    heading: [content.contact.titlePrefix, content.contact.titleAccent].filter(Boolean).join(' '),
+    bodyHtml: `${renderBadgeHtml(content.contact.badge)}<p style="${contentStyles.body}">${escapeHtml(content.contact.description)}</p>${renderBenefitsHtml(content.contact.benefits)}`,
+  });
 
   return sections;
 }
@@ -729,32 +814,84 @@ function renderLegalSection(reactComponent) {
   ];
 }
 
-function renderStaticPages(baseHtml, { content, latestArticles }) {
+function documentTitle(title) {
+  const normalized = String(title || '').trim();
+  if (!normalized || normalized === 'Whale Wizard') return normalized || 'Whale Wizard';
+  return `${normalized} | Whale Wizard`;
+}
+
+function heroHeading(hero = {}) {
+  if (Array.isArray(hero.titleLines) && hero.titleLines.length > 0) {
+    const lines = hero.titleLines.map((line) => String(line?.text || '').trim()).filter(Boolean);
+    if (lines.length > 0) return lines.join(' ');
+  }
+  return [hero.titlePrefix, hero.titleAccent].map((part) => String(part || '').trim()).filter(Boolean).join(' ');
+}
+
+function renderStaticPages(baseHtml, { content, latestArticles, publishedContent = {} }) {
   const serviceStaticPage = (service) => {
-    const config = content.pageConfigs[service];
-    if (!config) throw new Error(`Missing page config for ${service}`);
+    const sourceConfig = content.pageConfigs[service];
+    if (!sourceConfig) throw new Error(`Missing page config for ${service}`);
+    const config = {
+      ...mergePublishedContent(sourceConfig, publishedContent[`service:${service}`]),
+      service,
+      defaultTestimonials: content.defaultTestimonialsContent,
+      defaultTestimonialsStats: content.defaultTestimonialsStats,
+      metaAppsTestimonials: content.META_APPS_TESTIMONIAL_CONTENT,
+      testimonialItems: content.testimonialsData,
+    };
 
     return {
       route: `/${service}`,
-      title: `${config.seo.title} | Whale Wizard`,
+      title: documentTitle(config.seo.title),
       description: config.seo.description,
-      h1: `${String(config.hero.titlePrefix)} ${String(config.hero.titleAccent)}`,
+      h1: heroHeading(config.hero),
       lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderServicePageSections(config),
     };
   };
 
+  const homeOverride = publishedContent['site:home'];
+  const homeContent = {
+    hero: mergePublishedContent(content.defaultHeroContent, homeOverride?.hero),
+    services: mergePublishedContent(content.defaultServicesContent, homeOverride?.services),
+    cases: mergePublishedContent(content.defaultCasesContent, homeOverride?.cases),
+    callToAction: mergePublishedContent(content.defaultCallToActionContent, homeOverride?.callToAction),
+    testimonials: mergePublishedContent({
+      ...content.defaultTestimonialsContent,
+      stats: content.defaultTestimonialsStats,
+    }, homeOverride?.testimonials),
+    testimonialItems: content.testimonialsData,
+    contact: mergePublishedContent(content.defaultContactContent, homeOverride?.contact),
+  };
+  const homeSeo = mergePublishedContent({
+    title: 'Google Ads, Meta Ads и аналитика',
+    description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
+  }, homeOverride?.seo);
+  // Preserve the established home title format when the source default is in
+  // use; an explicitly edited SEO title follows the same suffix convention as
+  // the client-side SEO component.
+  const homeDocumentTitle = homeSeo.title === 'Google Ads, Meta Ads и аналитика'
+    ? 'Whale Wizard — Google Ads, Meta Ads и аналитика'
+    : documentTitle(homeSeo.title);
+
+  const faqOverride = publishedContent['site:faq'];
+  const faqItems = Array.isArray(faqOverride?.items) && faqOverride.items.length > 0
+    ? faqOverride.items
+    : content.faqs;
+  const faqSeo = mergePublishedContent({
+    title: 'Вопросы о рекламе, аналитике и продвижении приложений',
+    description: 'Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений.',
+  }, faqOverride?.seo);
+
   const staticPages = [
     {
       route: '/',
-      title: 'Whale Wizard — Google Ads, Meta Ads и аналитика',
-      description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
-      h1: 'Увеличу поток клиентов через Google Ads и Meta Ads',
-      lead: content.defaultHeroContent.paragraphs.map((paragraph) => String(paragraph)).join(' '),
-      sections: renderHomeSections(
-        { hero: content.defaultHeroContent, services: content.defaultServicesContent, cases: content.defaultCasesContent, testimonials: content.testimonialsData },
-        latestArticles,
-      ),
+      title: homeDocumentTitle,
+      description: homeSeo.description,
+      h1: heroHeading(homeContent.hero),
+      lead: homeContent.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
+      sections: renderHomeSections(homeContent, latestArticles),
     },
     {
       route: '/calculator',
@@ -776,12 +913,12 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
     serviceStaticPage('meta-apps'),
     {
       route: '/faq',
-      title: 'Вопросы о рекламе, аналитике и продвижении приложений | Whale Wizard',
-      description: 'Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений.',
+      title: documentTitle(faqSeo.title),
+      description: faqSeo.description,
       h1: 'Ответы на вопросы о рекламе и аналитике',
       lead: 'Без универсальных обещаний: что нужно для старта, как оценивается результат и от чего зависят сроки и стоимость.',
-      sections: [{ heading: null, bodyHtml: renderFaqListHtml(content.faqs) }],
-      extraJsonLd: [buildFaqJsonLd(content.faqs)],
+      sections: [{ heading: null, bodyHtml: renderFaqListHtml(faqItems) }],
+      extraJsonLd: [buildFaqJsonLd(faqItems)],
     },
     {
       route: '/marketing-glossary',
@@ -852,6 +989,8 @@ function renderStaticPages(baseHtml, { content, latestArticles }) {
       }),
     );
   }
+
+  return staticPages;
 }
 
 function renderArticleListPage({ articles, route, title, description, h1, lead, eyebrow, emptyText }, baseHtml) {
@@ -900,6 +1039,9 @@ function renderArticlePages(articles, baseHtml) {
         canonicalPath: path,
         ogType: 'article',
         ogImage: article.image,
+        articlePublishedTime: toIsoDate(article.publishedAt) || toIsoDate(article.date),
+        articleModifiedTime: toIsoDate(article.updatedAt) || toIsoDate(article.publishedAt) || toIsoDate(article.date),
+        articleSection: article.category,
         extraJsonLd: [
           buildArticleJsonLd(article),
           buildBreadcrumbJsonLd(article),
@@ -985,7 +1127,7 @@ function assertFileContains(pathname, markers, label) {
   }
 }
 
-function validateGeneratedOutput() {
+function validateGeneratedOutput(staticPages = []) {
   assertFileContains(routeIndexPath('/'), [
     'facebook-domain-verification',
     'feed.xml',
@@ -999,8 +1141,10 @@ function validateGeneratedOutput() {
     '"@type":"WebSite"',
   ], 'Generated home HTML');
 
+  const metaAppsPage = staticPages.find((page) => page.route === '/meta-apps');
   assertFileContains(routeIndexPath('/meta-apps'), [
-    'качественные установки',
+    escapeHtml(metaAppsPage?.h1 || ''),
+    escapeHtml(metaAppsPage?.description || ''),
     `${SITE_URL}/meta-apps/`,
   ], 'Generated /meta-apps HTML');
 
@@ -1069,13 +1213,19 @@ async function main() {
   const baseHtml = readViteIndexHtml();
   const articles = normalizeArticles(loadArticles()).filter((article) => isPublishedArticle(article));
   const content = await loadSiteContent();
+  const publishedContent = await loadPublishedSiteContent({
+    endpoint: PUBLIC_SITE_CONTENT_URL,
+    snapshotPath: BUILD_SITE_CONTENT_PATH,
+    timeoutMs: SITE_CONTENT_FETCH_TIMEOUT_MS,
+    strict: STRICT_SITE_CONTENT,
+  });
 
   // Для блока «Последние статьи блога» — действительно последние по дате,
   // а не первые по порядку массива из админки.
   const latestArticles = [...articles].sort((a, b) =>
     String(resolveArticleDate(b) || '').localeCompare(String(resolveArticleDate(a) || '')));
 
-  renderStaticPages(baseHtml, { content, latestArticles });
+  const staticPages = renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
   renderBlogPages(articles, baseHtml);
 
   const articleRoutes = articles.map((article) => getArticlePath(article));
@@ -1084,7 +1234,7 @@ async function main() {
   writeSitemap(allRoutes);
   writeRobots();
   appendLlmsContentIndex(articles);
-  validateGeneratedOutput();
+  validateGeneratedOutput(staticPages);
 
   console.log(`✅ Generated ${allRoutes.length} static routes`);
 }

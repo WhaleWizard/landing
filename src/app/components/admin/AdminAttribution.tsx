@@ -3,6 +3,7 @@ import {
   BarChart3, Eye, Filter, Info, RefreshCw, ShieldCheck,
   Target, Trophy, UserCheck, Users,
 } from 'lucide-react';
+import { AdminSelect } from './AdminUI';
 
 type DimensionKey = 'page' | 'service' | 'utm' | 'form_id' | 'form_variant';
 
@@ -151,24 +152,26 @@ export default function AdminAttribution({ password }: { password: string }) {
           {data?.checkedAt && <p className="admin-meta mt-1">Обновлено: {formatDate(data.checkedAt)}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex min-h-10 items-center gap-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] px-3 text-sm">
+          <div className="flex min-w-[160px] items-center gap-2 rounded-xl text-sm">
             <Filter className="h-4 w-4 text-[var(--adm-fg)]/50" />
-            <span className="sr-only">Период</span>
-            <select
-              aria-label="Период атрибуции"
-              value={days}
+            <div className="min-w-0 flex-1">
+              <AdminSelect
+              ariaLabel="Период атрибуции"
+              value={String(days)}
               disabled={loading}
-              onChange={(event) => {
+              compact
+              options={[
+                { value: '7', label: '7 дней' },
+                { value: '30', label: '30 дней' },
+                { value: '90', label: '90 дней' },
+              ]}
+              onValueChange={(value) => {
                 setData(null);
-                setDays(Number(event.target.value));
+                setDays(Number(value));
               }}
-              className="admin-inline-select font-semibold outline-none"
-            >
-              <option value={7}>7 дней</option>
-              <option value={30}>30 дней</option>
-              <option value={90}>90 дней</option>
-            </select>
-          </label>
+              />
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => void load()}

@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { isTelegramConfigured } from '../../_lib/leads';
+import { getTrackingSignatureMode, type TrackingSignatureMode } from '../../_lib/tracking-signature';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -16,6 +17,15 @@ interface HealthCheck {
   detail: string;
 }
 
+interface TrackingSignatureAuditAggregate {
+  valid: number;
+  invalid: number;
+  disabled: number;
+  lead: number;
+  meta_event: number;
+  pageview: number;
+}
+
 function check(id: string, title: string, status: CheckStatus, detail: string): HealthCheck {
   return { id, title, status, detail };
 }
@@ -25,12 +35,53 @@ async function tableExists(db: D1Database, name: string): Promise<boolean> {
   return Boolean(row?.name);
 }
 
+async function triggerExists(db: D1Database, name: string): Promise<boolean> {
+  const row = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = ?").bind(name).first<{ name: string }>();
+  return Boolean(row?.name);
+}
+
+function hasValidTrackingHmacSecret(env: Env): boolean {
+  const secret = typeof env.TRACKING_HMAC_SECRET === 'string' ? env.TRACKING_HMAC_SECRET.trim() : '';
+  return /^[0-9a-f]{64}$/i.test(secret);
+}
+
+async function getTrackingSignatureAudit(
+  db: D1Database,
+  mode: TrackingSignatureMode,
+): Promise<TrackingSignatureAuditAggregate> {
+  const row = await db.prepare(
+    `SELECT
+       COALESCE(SUM(CASE WHEN result = 'valid' THEN count ELSE 0 END), 0) AS valid,
+       COALESCE(SUM(CASE WHEN result = 'invalid' THEN count ELSE 0 END), 0) AS invalid,
+       COALESCE(SUM(CASE WHEN result = 'disabled' THEN count ELSE 0 END), 0) AS disabled,
+       COALESCE(SUM(CASE WHEN endpoint = 'lead' THEN count ELSE 0 END), 0) AS lead,
+       COALESCE(SUM(CASE WHEN endpoint = 'meta-event' THEN count ELSE 0 END), 0) AS meta_event,
+       COALESCE(SUM(CASE WHEN endpoint = 'pageview' THEN count ELSE 0 END), 0) AS pageview
+     FROM tracking_signature_daily
+     WHERE mode = ?
+       AND updated_at >= strftime('%s','now','-1 day')`,
+  ).bind(mode).first<TrackingSignatureAuditAggregate>();
+  return {
+    valid: Number(row?.valid || 0),
+    invalid: Number(row?.invalid || 0),
+    disabled: Number(row?.disabled || 0),
+    lead: Number(row?.lead || 0),
+    meta_event: Number(row?.meta_event || 0),
+    pageview: Number(row?.pageview || 0),
+  };
+}
+
 async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
   const checks: HealthCheck[] = [];
+  const signatureMode = getTrackingSignatureMode(env);
+  const configuredSignatureMode = String(env.TRACKING_SIGNATURE_MODE || 'monitor').trim().toLowerCase();
+  const signatureModeRecognized = ['off', 'monitor', 'enforce'].includes(configuredSignatureMode);
+  let trackingNonceTableReady = false;
+  let trackingAuditTableReady = false;
 
   // --- База данных и таблицы ---
   if (!env.DB) {
-    checks.push(check('d1', 'База данных D1', 'fail', 'Биндинг DB не настроен — статьи и заявки работают на резервных источниках'));
+    checks.push(check('d1', 'База данных D1', 'fail', 'Биндинг DB не настроен — статьи могут использовать резервный источник, а /api/lead намеренно отвечает retryable 503, чтобы заявка не потерялась вне CRM'));
   } else {
     try {
       const tables = [
@@ -41,8 +92,15 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
         'meta_outbox',
         'meta_capi_diagnostics',
         'lead_activity',
+        'crm_notes',
+        'crm_tasks',
+        'crm_tags',
+        'crm_lead_tags',
         'site_sections',
         'site_section_versions',
+        'tracking_request_nonces',
+        'tracking_signature_daily',
+        'lead_ingestions',
       ];
       const missing: string[] = [];
       for (const table of tables) {
@@ -55,14 +113,37 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
         checks.push(check('d1', 'База данных D1', 'warn', `Нет таблиц: ${missing.join(', ')} — примените миграции из папки migrations/`));
       }
 
+      trackingNonceTableReady = !missing.includes('tracking_request_nonces');
+      trackingAuditTableReady = !missing.includes('tracking_signature_daily');
+      const trackingSignatureSchemaReady = trackingNonceTableReady && trackingAuditTableReady;
+      checks.push(trackingSignatureSchemaReady
+        ? check('tracking-signature-schema', 'Защита tracking-запросов', 'ok', 'Миграция 0018 применена: атомарная защита от повторов и обезличенный журнал подписей доступны')
+        : check(
+          'tracking-signature-schema',
+          'Защита tracking-запросов',
+          signatureMode === 'enforce' ? 'fail' : 'warn',
+          `Не хватает таблиц миграции 0018: ${[
+            trackingNonceTableReady ? '' : 'tracking_request_nonces',
+            trackingAuditTableReady ? '' : 'tracking_signature_daily',
+          ].filter(Boolean).join(', ')}. В режиме enforce tracking-запросы нельзя безопасно принимать без D1`,
+        ));
+
+      const leadIngestionReady = !missing.includes('lead_ingestions');
+      checks.push(leadIngestionReady
+        ? check('lead-ingestion-schema', 'Надёжный приём заявок', 'ok', 'Миграция 0019 применена: повторы заявок распознаются по event_id без повторной записи и уведомления')
+        : check('lead-ingestion-schema', 'Надёжный приём заявок', 'fail', 'Примените миграцию 0019_lead_ingestion_idempotency.sql — до этого /api/lead намеренно отвечает retryable 503, чтобы не потерять заявку'));
+
       if (!missing.includes('leads')) {
         const columns = await env.DB.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
         const present = new Set((columns.results || []).map((column) => column.name));
-        const required = ['event_id', 'quality', 'last_submitted_at', 'fbp', 'fbc', 'event_source_url', 'external_id', 'marketing_consent'];
+        const required = [
+          'event_id', 'quality', 'last_submitted_at', 'fbp', 'fbc', 'event_source_url', 'external_id',
+          'marketing_consent', 'consent_version', 'consent_source', 'consent_region', 'consent_timestamp', 'consent_recorded_at',
+        ];
         const missingColumns = required.filter((column) => !present.has(column));
         checks.push(missingColumns.length === 0
           ? check('leads-schema', 'Контекст лидов для Meta', 'ok', 'Все поля для дедупликации и событий качества доступны')
-          : check('leads-schema', 'Контекст лидов для Meta', 'fail', `Не хватает колонок: ${missingColumns.join(', ')} — примените миграции 0009 и 0010`));
+          : check('leads-schema', 'Контекст лидов для Meta', 'fail', `Не хватает колонок: ${missingColumns.join(', ')} — примените миграции 0009, 0010 и 0015`));
       }
 
       if (!missing.includes('leads') && !missing.includes('lead_activity')) {
@@ -77,8 +158,44 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
         checks.push(crmReady
           ? check('crm-schema', 'Мини-CRM', 'ok', 'Этапы, следующие действия и история лидов готовы к работе')
           : check('crm-schema', 'Мини-CRM', 'fail', 'Примените миграцию 0012_admin_control_center.sql'));
+
+        const workspaceTablesReady = ['crm_notes', 'crm_tasks', 'crm_tags', 'crm_lead_tags']
+          .every((table) => !missing.includes(table));
+        const requiredWorkspaceLeadColumns = [
+          'priority', 'lead_score', 'next_action_text', 'pipeline_changed_at',
+          'last_contacted_at', 'closed_at', 'crm_revision',
+        ];
+        const requiredWorkspaceActivityColumns = ['actor', 'entity_type', 'entity_id', 'action_id', 'metadata_json'];
+        const workspaceReady = crmReady
+          && workspaceTablesReady
+          && requiredWorkspaceLeadColumns.every((column) => leadPresent.has(column))
+          && requiredWorkspaceActivityColumns.every((column) => activityPresent.has(column));
+        checks.push(workspaceReady
+          ? check('crm-workspace-schema', 'Рабочее пространство CRM', 'ok', 'Приоритеты, задачи, заметки, теги и журнал действий доступны')
+          : check('crm-workspace-schema', 'Рабочее пространство CRM', 'fail', 'Примените миграцию 0014_crm_workspace.sql'));
+
+        let correctnessReady = false;
+        if (workspaceTablesReady) {
+          const [noteColumns, taskColumns] = await Promise.all([
+            env.DB.prepare('PRAGMA table_info(crm_notes)').all<{ name: string }>(),
+            env.DB.prepare('PRAGMA table_info(crm_tasks)').all<{ name: string }>(),
+          ]);
+          const notePresent = new Set((noteColumns.results || []).map((column) => column.name));
+          const taskPresent = new Set((taskColumns.results || []).map((column) => column.name));
+          const requiredCorrectnessLeadColumns = [
+            'crm_action_id', 'quality_revision', 'quality_updated_at', 'quality_action_id', 'quality_processing',
+          ];
+          correctnessReady = workspaceReady
+            && requiredCorrectnessLeadColumns.every((column) => leadPresent.has(column))
+            && ['revision', 'action_id'].every((column) => notePresent.has(column) && taskPresent.has(column));
+        }
+        checks.push(correctnessReady
+          ? check('crm-correctness-schema', 'Безопасное сохранение CRM', 'ok', 'Защита от повторов и конфликтов между вкладками активна')
+          : check('crm-correctness-schema', 'Безопасное сохранение CRM', 'fail', 'Примените миграцию 0017_crm_correctness.sql'));
       } else {
         checks.push(check('crm-schema', 'Мини-CRM', 'fail', 'Примените миграцию 0012_admin_control_center.sql'));
+        checks.push(check('crm-workspace-schema', 'Рабочее пространство CRM', 'fail', 'Примените миграцию 0014_crm_workspace.sql'));
+        checks.push(check('crm-correctness-schema', 'Безопасное сохранение CRM', 'fail', 'Примените миграцию 0017_crm_correctness.sql'));
       }
 
       if (!missing.includes('site_sections') && !missing.includes('site_section_versions')) {
@@ -96,8 +213,107 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
       } else {
         checks.push(check('site-content-schema', 'Тексты сайта и FAQ', 'fail', 'Примените миграцию 0013_site_sections.sql'));
       }
+
+      if (!missing.includes('meta_capi_diagnostics')) {
+        const retentionReady = await triggerExists(env.DB, 'trg_meta_capi_diagnostics_retention');
+        checks.push(retentionReady
+          ? check('meta-diagnostics-retention', 'Хранение диагностики Meta', 'ok', 'D1 автоматически удаляет диагностические записи старше 90 дней')
+          : check('meta-diagnostics-retention', 'Хранение диагностики Meta', 'warn', 'Примените миграцию 0016_meta_diagnostics_retention.sql'));
+      }
     } catch (error) {
       checks.push(check('d1', 'База данных D1', 'fail', error instanceof Error ? error.message : 'Ошибка запроса к базе'));
+    }
+  }
+
+  if (!checks.some((item) => item.id === 'tracking-signature-schema')) {
+    checks.push(check(
+      'tracking-signature-schema',
+      'Защита tracking-запросов',
+      signatureMode === 'enforce' ? 'fail' : 'warn',
+      env.DB
+        ? 'Не удалось подтвердить таблицы миграции 0018. В режиме enforce tracking-запросы нельзя безопасно принимать без D1'
+        : 'Биндинг DB не настроен: миграцию 0018 и атомарную защиту от повторных запросов проверить невозможно',
+    ));
+  }
+  if (!checks.some((item) => item.id === 'lead-ingestion-schema')) {
+    checks.push(check(
+      'lead-ingestion-schema',
+      'Надёжный приём заявок',
+      'fail',
+      env.DB
+        ? 'Не удалось подтвердить миграцию 0019_lead_ingestion_idempotency.sql — /api/lead будет отвечать retryable 503'
+        : 'Биндинг DB не настроен: надёжный приём заявок недоступен, /api/lead будет отвечать retryable 503',
+    ));
+  }
+
+  // --- Подпись tracking-запросов ---
+  const trackingSecretReady = hasValidTrackingHmacSecret(env);
+  const signatureAuditReady = Boolean(env.DB && trackingNonceTableReady && trackingAuditTableReady);
+  if (signatureMode === 'off') {
+    checks.push(check(
+      'tracking-signature-config',
+      'Подпись tracking-запросов',
+      'warn',
+      `Режим off: подпись запросов отключена${trackingSecretReady ? '' : '; TRACKING_HMAC_SECRET отсутствует или не соответствует формату ровно 64 hex-символа'}`,
+    ));
+  } else if (!signatureModeRecognized) {
+    checks.push(check(
+      'tracking-signature-config',
+      'Подпись tracking-запросов',
+      'warn',
+      `TRACKING_SIGNATURE_MODE не распознан, поэтому безопасно используется monitor. ${trackingSecretReady ? 'Формат секрета корректен' : 'TRACKING_HMAC_SECRET отсутствует или не соответствует формату ровно 64 hex-символа'}`,
+    ));
+  } else if (!trackingSecretReady) {
+    checks.push(check(
+      'tracking-signature-config',
+      'Подпись tracking-запросов',
+      signatureMode === 'enforce' ? 'fail' : 'warn',
+      `${signatureMode}: TRACKING_HMAC_SECRET отсутствует или не соответствует формату ровно 64 hex-символа. Значение секрета в диагностике не выводится`,
+    ));
+  } else if (!signatureAuditReady) {
+    checks.push(check(
+      'tracking-signature-config',
+      'Подпись tracking-запросов',
+      signatureMode === 'enforce' ? 'fail' : 'warn',
+      `${signatureMode}: формат секрета корректен, но D1-таблицы миграции 0018 недоступны${signatureMode === 'enforce' ? ' — enforce нельзя считать безопасно настроенным' : ''}`,
+    ));
+  } else {
+    try {
+      const audit = await getTrackingSignatureAudit(env.DB!, signatureMode);
+      const traffic = `валидных: ${audit.valid}, невалидных: ${audit.invalid}; lead: ${audit.lead}, meta-event: ${audit.meta_event}, pageview: ${audit.pageview}`;
+      const approximateWindow = 'Показаны дневные агрегаты, обновлявшиеся за последние 24 часа; граница периода приблизительная';
+      if (signatureMode === 'monitor') {
+        checks.push(check(
+          'tracking-signature-config',
+          'Подпись tracking-запросов',
+          'warn',
+          `Monitor не блокирует неподписанные запросы. ${traffic}. ${approximateWindow}`,
+        ));
+      } else {
+        const status: CheckStatus = audit.valid === 0 && audit.invalid > 0
+          ? 'fail'
+          : audit.valid === 0 || audit.invalid > 0 ? 'warn' : 'ok';
+        const conclusion = audit.valid === 0 && audit.invalid > 0
+          ? 'За период нет ни одного принятого запроса, есть только отклонённые'
+          : audit.valid === 0
+            ? 'За период ещё нет подтверждённых подписанных запросов'
+            : audit.invalid > 0
+              ? 'Подписанные запросы принимаются, но также есть отклонённые'
+              : 'Подписанные запросы принимаются, отклонённых не зафиксировано';
+        checks.push(check(
+          'tracking-signature-config',
+          'Подпись tracking-запросов',
+          status,
+          `Enforce активен. ${conclusion}. ${traffic}. ${approximateWindow}`,
+        ));
+      }
+    } catch {
+      checks.push(check(
+        'tracking-signature-config',
+        'Подпись tracking-запросов',
+        signatureMode === 'enforce' ? 'fail' : 'warn',
+        `${signatureMode}: формат секрета корректен, но агрегаты tracking_signature_daily за последние 24 часа прочитать не удалось`,
+      ));
     }
   }
 
@@ -136,7 +352,7 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
     checks.push(check('capi', 'Meta CAPI', 'fail', 'META_CAPI_ACCESS_TOKEN не задан — серверные события не отправляются'));
   } else if (env.DB) {
     try {
-      const [outbox, day] = await Promise.all([
+      const [outbox, day, verified] = await Promise.all([
         env.DB.prepare(
           `SELECT
              SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
@@ -150,8 +366,16 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
              SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent,
              SUM(CASE WHEN status = 'failed' AND marketing_consent = 1 THEN 1 ELSE 0 END) AS failed
            FROM meta_capi_diagnostics
-           WHERE created_at >= datetime('now', '-1 day')`
+           WHERE created_at >= datetime('now', '-1 day')
+             AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')`
         ).first<{ sent: number; failed: number }>(),
+        env.DB.prepare(
+          `SELECT MAX(created_at) AS confirmed_at
+           FROM meta_capi_diagnostics
+           WHERE status = 'sent'
+             AND COALESCE(events_received, 0) > 0
+             AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')`
+        ).first<{ confirmed_at: string | null }>(),
       ]);
       const pending = outbox?.pending ?? 0;
       const retry = outbox?.retry ?? 0;
@@ -159,12 +383,17 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
       const dead = outbox?.dead ?? 0;
       const sent = day?.sent ?? 0;
       const failed = day?.failed ?? 0;
-      const status: CheckStatus = dead > 0 ? 'fail' : pending > 10 || retry > 0 || sending > 5 || failed > 0 ? 'warn' : 'ok';
+      const confirmedAt = verified?.confirmed_at || null;
+      const status: CheckStatus = dead > 0
+        ? 'fail'
+        : !confirmedAt || pending > 10 || retry > 0 || sending > 5 || failed > 0 ? 'warn' : 'ok';
       checks.push(check(
         'capi',
         'Meta CAPI',
         status,
-        `За сутки Meta подтвердила: ${sent}; ошибок попыток: ${failed}. Очередь: ${pending} ожидают, ${sending} отправляются, ${retry} на повторе, ${dead} остановлены`,
+        confirmedAt
+          ? `Реальная доставка подтверждалась Meta (${confirmedAt} UTC). За сутки подтверждено: ${sent}; ошибок попыток: ${failed}. Очередь: ${pending} ожидают, ${sending} отправляются, ${retry} на повторе, ${dead} остановлены`
+          : `Токен настроен, но реальная production-доставка ещё не подтверждена ответом Meta. За сутки ошибок попыток: ${failed}. Очередь: ${pending} ожидают, ${sending} отправляются, ${retry} на повторе, ${dead} остановлены`,
       ));
     } catch {
       checks.push(check('capi', 'Meta CAPI', 'warn', 'Токен задан, но таблицы диагностики недоступны'));

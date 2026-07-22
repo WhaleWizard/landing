@@ -7,6 +7,9 @@ interface SEOProps {
   url?: string;
   type?: 'website' | 'article';
   noIndex?: boolean;
+  articlePublishedTime?: string;
+  articleModifiedTime?: string;
+  articleSection?: string;
 }
 
 const SITE_URL = 'https://www.whalewzrd.com';
@@ -37,6 +40,9 @@ export default function SEO({
   url = '/',
   type = 'website',
   noIndex = false,
+  articlePublishedTime,
+  articleModifiedTime,
+  articleSection,
 }: SEOProps) {
   const siteTitle = 'Whale Wizard';
   const fullTitle = title === siteTitle ? title : `${title} | ${siteTitle}`;
@@ -69,6 +75,19 @@ export default function SEO({
     setMeta('og:type', type, true);
     setMeta('og:site_name', siteTitle, true);
     setMeta('og:locale', 'ru_RU', true);
+
+    const setOptionalProperty = (name: string, content?: string) => {
+      const selector = `meta[property="${name}"]`;
+      const existing = document.querySelector(selector);
+      if (!content) {
+        existing?.remove();
+        return;
+      }
+      setMeta(name, content, true);
+    };
+    setOptionalProperty('article:published_time', type === 'article' ? articlePublishedTime : undefined);
+    setOptionalProperty('article:modified_time', type === 'article' ? articleModifiedTime : undefined);
+    setOptionalProperty('article:section', type === 'article' ? articleSection : undefined);
 
     setMeta('twitter:card', 'summary_large_image');
     setMeta('twitter:title', fullTitle);
@@ -135,7 +154,7 @@ export default function SEO({
         'query-input': 'required name=search_term_string',
       },
     });
-  }, [fullTitle, description, absoluteImage, absoluteUrl, type, noIndex]);
+  }, [fullTitle, description, absoluteImage, absoluteUrl, type, noIndex, articlePublishedTime, articleModifiedTime, articleSection]);
 
   return null;
 }

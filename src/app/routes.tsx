@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, useRouteError } from 'react-router';
+import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-router';
 import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
@@ -63,13 +63,18 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
 
 
 function RootLayout() {
+  const location = useLocation();
+  const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
+
   return (
     <>
       <Outlet />
-      <Suspense fallback={null}>
-        <CookieConsentManager />
-        <WhaleNavigator />
-      </Suspense>
+      {!isAdmin ? (
+        <Suspense fallback={null}>
+          <CookieConsentManager />
+          <WhaleNavigator />
+        </Suspense>
+      ) : null}
     </>
   );
 }

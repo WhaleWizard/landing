@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Plus, RefreshCw, RotateCcw, Save, Send, Trash2 } from 'lucide-react';
 import { faqs, type FaqItem } from '../../pages/FAQPage';
+import { AdminSelect } from './AdminUI';
 
 type VersionRow = { id: number; source: 'draft' | 'published'; created_at: string };
 const CATEGORIES: FaqItem['category'][] = ['Старт', 'Бюджет', 'Результат', 'Аналитика', 'Процесс', 'Приложения', 'Консультация'];
@@ -197,7 +198,13 @@ export default function AdminFaqControl({ password }: { password: string }) {
               <details className="admin-disclosure" key={index} defaultOpen={indexedItems.length <= 3 || (index === items.length - 1 && item.question === 'Новый вопрос')}>
                 <summary><span>{index + 1}. {item.question}</span><span className="admin-meta">{item.category}</span></summary>
                 <div className="admin-form-grid">
-                  <label className="admin-field" htmlFor={`faq-${index}-category`}><span className="admin-label">Категория</span><select id={`faq-${index}-category`} className="admin-input" value={item.category} onChange={(event) => updateItem(index, { category: event.target.value as FaqItem['category'] })}>{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
+                  <AdminSelect
+                    label="Категория"
+                    ariaLabel={`Категория вопроса ${index + 1}`}
+                    value={item.category}
+                    options={CATEGORIES.map((category) => ({ value: category, label: category }))}
+                    onValueChange={(value) => updateItem(index, { category: value as FaqItem['category'] })}
+                  />
                   <label className="admin-field" htmlFor={`faq-${index}-question`}><span className="admin-label">Вопрос</span><input id={`faq-${index}-question`} className="admin-input" maxLength={240} value={item.question} onChange={(event) => updateItem(index, { question: event.target.value })} /></label>
                   <label className="admin-field admin-field--wide" htmlFor={`faq-${index}-answer`}><span className="admin-label">Короткий ответ</span><textarea id={`faq-${index}-answer`} className="admin-input" rows={3} maxLength={1200} value={item.answer} onChange={(event) => updateItem(index, { answer: event.target.value })} /></label>
                   <label className="admin-field admin-field--wide" htmlFor={`faq-${index}-details`}><span className="admin-label">Подробности — один пункт на строку, максимум 10 пунктов</span><textarea id={`faq-${index}-details`} className="admin-input" rows={5} value={item.details.join('\n')} onChange={(event) => updateItem(index, { details: event.target.value.split('\n').slice(0, 10).map((line) => line.slice(0, 700)) })} /></label>

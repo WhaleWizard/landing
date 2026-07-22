@@ -32,8 +32,7 @@ const OPTIONAL_DIAGNOSTICS_COLUMNS = [
 ];
 
 function getProvidedSecret(request: Request): string | undefined {
-  const url = new URL(request.url);
-  return request.headers.get('x-meta-debug-secret') || url.searchParams.get('secret') || undefined;
+  return request.headers.get('x-meta-debug-secret') || undefined;
 }
 
 function isEnabled(value: unknown): boolean {
@@ -156,7 +155,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
 
   if (!debugSecret || providedSecret !== debugSecret) {
     return json(
-      { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret or ?secret=' },
+      { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' },
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }

@@ -10,6 +10,7 @@ import type { CasesContent } from '../components/Cases';
 import type { CallToActionContent } from '../components/CallToAction';
 import type { TestimonialsContent } from '../components/Testimonials';
 import useServiceContent from '../hooks/useServiceContent';
+import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
 const Services = lazy(() => import('../components/Services'));
 const Cases = lazy(() => import('../components/Cases'));
@@ -50,6 +51,7 @@ type ServiceLandingPageProps = {
     titleAccent: string;
     description: string;
     bullets: string[];
+    typography?: ContentTypography;
   };
   theme: LandingTheme;
 };
@@ -117,7 +119,7 @@ const CASE_IMAGES = {
   b2c: '/images/case-b2c.jpg',
 };
 
-const META_APPS_TESTIMONIAL_CONTENT: TestimonialsContent = {
+export const META_APPS_TESTIMONIAL_CONTENT: TestimonialsContent = {
   badge: 'Отзывы о работе',
   titlePrefix: 'Клиенты ценят',
   titleAccent: 'понятные решения по цифрам',
@@ -802,14 +804,14 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
               <span className={`text-sm font-semibold ${theme.labelClassName}`}>{contact.badge}</span>
             </div>
 
-            <h2 className="text-balance text-3xl md:text-4xl lg:text-[44px] font-bold mb-6 leading-tight tracking-[-0.02em]">
+            <h2 className={`text-balance text-3xl md:text-4xl lg:text-[44px] font-bold mb-6 leading-tight tracking-[-0.02em] ${managedTitleClasses(contact.typography, 'contact')}`}>
               {contact.titlePrefix}{' '}
               <span className={`bg-gradient-to-r ${theme.titleGradientClassName} bg-clip-text text-transparent`}>
                 {contact.titleAccent}
               </span>
             </h2>
 
-            <p className="text-muted-foreground text-base md:text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-pretty leading-relaxed">
+            <p className={`text-muted-foreground text-base md:text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-pretty leading-relaxed ${managedBodyClasses(contact.typography)}`}>
               {contact.description}
             </p>
 

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .pnpm-store/
 data/articles.build.json
+data/site-content.build.json
 .DS_Store
 npm-debug.log*
 yarn-error.log*

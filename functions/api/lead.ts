@@ -1,13 +1,15 @@
-import { json } from '../_lib/http';
+import { json, readRequestText } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
-import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
+import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
-import { isTelegramConfigured, markLeadTelegramDelivered, sendLeadToTelegram, storeLead } from '../_lib/leads';
+import { isTelegramConfigured, markLeadTelegramDelivered, sendLeadToTelegram, storeLead, type StoreLeadResult } from '../_lib/leads';
+
+const MAX_LEAD_BODY_BYTES = 64 * 1024;
 
 interface LeadPayload {
   name?: string;
@@ -492,6 +494,7 @@ async function sendMetaConversionEvent(
       external_id: hashedExternalId ? [hashedExternalId] : undefined,
     },
     opt_out: payload.marketing_consent === false,
+    referrer_url: sanitizeUrlForMeta(payload.referrer),
     custom_data: {
       // Do not send budget-like financial details in Lead custom_data.
       budget_bucket: undefined,
@@ -505,9 +508,6 @@ async function sendMetaConversionEvent(
       // Avoid forwarding fields derived from free-text lead answers to Meta Lead.
       experience_level: undefined,
       problem_category: undefined,
-      country: ctx.country,
-      city: ctx.city,
-      region: ctx.region,
       timezone: ctx.timezone,
       language: ctx.language,
       platform: ctx.platform,
@@ -519,18 +519,11 @@ async function sendMetaConversionEvent(
       utm_term: payload.utm_term || ctx.utmTerm,
       utm_id: payload.utm_id || ctx.utmId,
       fbclid: payload.fbclid,
-      gclid: payload.gclid || ctx.gclid,
-      wbraid: payload.wbraid || ctx.wbraid,
-      gbraid: payload.gbraid || ctx.gbraid,
-      yclid: payload.yclid || ctx.yclid,
       landing_page_url: sanitizeUrlForMeta(payload.landing_page_url),
       first_touch_url: sanitizeUrlForMeta(payload.first_touch_url),
       first_touch_at: payload.first_touch_at,
       last_touch_url: sanitizeUrlForMeta(payload.last_touch_url),
       last_touch_at: payload.last_touch_at,
-      session_id: payload.session_id,
-      ga_client_id: payload.ga_client_id,
-      yandex_client_id: payload.yandex_client_id,
       content_name: payload.page_title || payload.service,
       content_type: payload.content_type || 'lead',
       content_ids: payload.content_ids || (payload.service_slug ? [payload.service_slug] : undefined),
@@ -621,12 +614,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
-  // --- Rate limit ---
-  const rawBody = await request.text();
+  // Rate-limit before reading or hashing an attacker-controlled request body.
+  const rateLimited = await enforceRateLimit(request, 'lead');
+  if (rateLimited) return rateLimited;
+
+  const bodyResult = await readRequestText(request, MAX_LEAD_BODY_BYTES);
+  if (bodyResult.ok === false) {
+    return json({ success: false, error: bodyResult.error }, { status: 413, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+  const rawBody = bodyResult.text;
   const signatureMode = getTrackingSignatureMode(env);
-  const signature = await verifyTrackingSignature(request, env, rawBody);
-  if (signature.ok === false && signatureMode === 'enforce') {
-    return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  const signature = signatureMode === 'off' ? undefined : await verifyTrackingSignature(request, env, rawBody);
+  waitUntil(recordTrackingSignatureAudit(env, { endpoint: 'lead', mode: signatureMode, verification: signature }));
+  if (signatureMode === 'enforce' && signature?.ok !== true) {
+    return json(
+      { success: false, error: signature?.ok === false ? signature.reason : 'signature_not_verified' },
+      { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
   }
 
   let parsedPayload: LeadPayload;
@@ -644,16 +648,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   if (!normalized.event_id) {
     normalized.event_id = crypto.randomUUID();
   }
-  const rateLimited = await enforceRateLimit(request, 'lead');
-  if (rateLimited) {
-    waitUntil(recordMetaDiagnostics(env, { event_name: 'Lead', event_id: normalized.event_id, event_time: normalized.event_time, status: 'skipped', error_message: 'rate_limited', page_path: normalized.page_path, page_url: normalized.page_url, service: normalized.service, ...getLeadDiagnosticsContext(normalized), marketing_consent: normalized.marketing_consent }));
-    return rateLimited;
-  }
-
   // --- Honeypot ---
   if (normalized.hp_trap && normalized.hp_trap.length > 0) {
     return json(
-      { success: true },
+      { success: true, ignored: true, durable: false },
       { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
@@ -667,17 +665,52 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  // Уведомление о заявке: напрямую в Telegram (секреты в Cloudflare),
-  // а пока TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID не заданы — на старый
-  // Google Apps Script, чтобы ничего не сломалось при переезде.
-  const crmTask = (async () => {
-    // Сначала пишем в D1 (с дедупликацией повторных заявок) — тогда
-    // Telegram-сообщение знает, что контакт уже оставлял заявку.
-    const stored = await storeLead(env, normalized);
+  // A real lead gets a 2xx only after the D1 write is durably confirmed.
+  // Missing/broken D1 returns a retryable 503 so the browser queue can retry.
+  let stored: StoreLeadResult;
+  try {
+    stored = await storeLead(env, normalized);
+  } catch (error) {
+    console.error('[Lead CRM] Durable storage unavailable:', error);
+    return json(
+      {
+        success: false,
+        error: 'lead_storage_unavailable',
+        retryable: true,
+        durable: false,
+        event_id: normalized.event_id,
+      },
+      {
+        status: 503,
+        headers: {
+          'Cache-Control': CACHE_CONTROL.noStore,
+          'Retry-After': '5',
+        },
+      },
+    );
+  }
+
+  if (stored.duplicate) {
+    return json(
+      {
+        success: true,
+        durable: stored.durable,
+        duplicate: true,
+        repeat: stored.repeat,
+        submissions_count: stored.submissionsCount,
+        event_id: stored.eventId,
+      },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+
+  // Notification is intentionally background work after the durable save.
+  // If Telegram is not configured, retain the legacy Apps Script fallback.
+  const notificationTask = (async () => {
     if (isTelegramConfigured(env)) {
       const result = await sendLeadToTelegram(env, normalized, stored);
       if (result.ok) {
-        await markLeadTelegramDelivered(env, normalized.event_id);
+        await markLeadTelegramDelivered(env, stored.eventId);
       }
       if (!result.ok) console.error('[Lead CRM] Telegram delivery failed:', result.error);
       return;
@@ -690,7 +723,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
         cf: { cacheEverything: false, cacheTtl: 0 },
       });
       if (response.ok) {
-        await markLeadTelegramDelivered(env, normalized.event_id);
+        await markLeadTelegramDelivered(env, stored.eventId);
       }
       if (!response.ok) console.error(`[Lead CRM] Fallback delivery failed with HTTP ${response.status}`);
     } catch (error) {
@@ -698,7 +731,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     }
   })();
 
-  waitUntil(crmTask);
+  waitUntil(notificationTask);
 
   if (normalized.marketing_consent) {
     // Запись в outbox и отметки sent/retry делает сам sendMetaConversionEvent:
@@ -709,7 +742,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   return json(
-    { success: true },
+    {
+      success: true,
+      durable: stored.durable,
+      duplicate: false,
+      repeat: stored.repeat,
+      submissions_count: stored.submissionsCount,
+      event_id: stored.eventId,
+    },
     { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
   );
 };

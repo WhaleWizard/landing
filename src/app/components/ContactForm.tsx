@@ -40,6 +40,8 @@ import {
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
+import { useSiteSection } from '../hooks/useServiceContent';
+import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
 const budgetOptions = [
   {
@@ -73,16 +75,26 @@ const budgetOptions = [
 ];
 
 
-const benefits = [
-  { title: 'Смотрю вводные', description: 'Сайт, реклама, цифры — что есть сейчас', icon: CheckCircle2, delay: 0 },
-  {
-    title: 'Называю приоритет',
-    description: 'Что исправить или проверить первым — и почему',
-    icon: TrendingUp,
-    delay: 0.1,
-  },
-  { title: 'Предлагаю формат', description: 'Разбор, запуск или настройка аналитики — по задаче', icon: Zap, delay: 0.2 },
-];
+export type ContactFormContent = {
+  badge: string;
+  titlePrefix: string;
+  titleAccent: string;
+  description: string;
+  benefits: Array<{ title: string; description: string }>;
+  typography?: ContentTypography;
+};
+
+export const defaultContactContent: ContactFormContent = {
+  badge: 'Обсудить проект',
+  titlePrefix: 'Опишите задачу —',
+  titleAccent: 'скажу, с чего начать',
+  description: 'Оставьте контакты и пару слов о проекте. Посмотрю сайт и рекламу, если она уже идёт, и отвечу: что работает, что нет и что бы я сделал первым.',
+  benefits: [
+    { title: 'Смотрю вводные', description: 'Сайт, реклама, цифры — что есть сейчас' },
+    { title: 'Называю приоритет', description: 'Что исправить или проверить первым — и почему' },
+    { title: 'Предлагаю формат', description: 'Разбор, запуск или настройка аналитики — по задаче' },
+  ],
+};
 
 const useTouchDevice = () => {
   const [isTouch, setIsTouch] = useState(false);
@@ -93,7 +105,8 @@ const useTouchDevice = () => {
   return isTouch;
 };
 
-function ContactForm() {
+function ContactForm({ content: contentProp = defaultContactContent, contentKey = null }: { content?: ContactFormContent; contentKey?: string | null }) {
+  const content = useSiteSection(contentKey, 'contact', contentProp);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -123,6 +136,12 @@ function ContactForm() {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const isTouch = useTouchDevice();
+  const benefitIcons = [CheckCircle2, TrendingUp, Zap] as const;
+  const benefits = content.benefits.map((item, index) => ({
+    ...item,
+    icon: benefitIcons[index] || CheckCircle2,
+    delay: index * 0.1,
+  }));
 
   useEffect(() => {
     let active = true;
@@ -204,8 +223,10 @@ function ContactForm() {
           body: JSON.stringify(leadPayload),
         });
         if (!res.ok) {
-          const payload = await res.json().catch(() => null);
-          throw new Error(payload?.error || `HTTP ${res.status}`);
+          const payload = await res.json().catch(() => null) as { error?: string; retryable?: boolean } | null;
+          throw Object.assign(new Error(payload?.error || `HTTP ${res.status}`), {
+            retryable: payload?.retryable === true,
+          });
         }
 
         setIsSubmitted(true);
@@ -228,7 +249,9 @@ function ContactForm() {
         setTimeout(() => navigate('/thank-you'), 800);
       } catch (error) {
         console.error(error);
-        if (error instanceof TypeError) {
+        const retryable = error instanceof TypeError
+          || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true);
+        if (retryable) {
           // fetch не смог достучаться до сервера (нет сети/офлайн) — не потеряем заявку,
           // сохраним и отправим автоматически при восстановлении связи.
           queueLeadForRetry(API_ROUTES.lead, leadPayload);
@@ -295,16 +318,16 @@ function ContactForm() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 backdrop-blur-sm">
               <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-              <span className="text-sm text-primary font-semibold">Обсудить проект</span>
+              <span className="text-sm text-primary font-semibold">{content.badge}</span>
             </div>
-            <h2 className="max-w-[20ch] text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.12]">
-              Опишите задачу —{' '}
+            <h2 className={`max-w-[20ch] text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.12] ${managedTitleClasses(content.typography, 'contact')}`}>
+              {content.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                скажу, с чего начать
+                {content.titleAccent}
               </span>
             </h2>
-            <p className="max-w-[62ch] text-pretty text-base md:text-lg text-muted-foreground leading-relaxed">
-              Оставьте контакты и пару слов о проекте. Посмотрю сайт и рекламу, если она уже идёт, и отвечу: что работает, что нет и что бы я сделал первым.
+            <p className={`max-w-[62ch] text-pretty text-base md:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(content.typography)}`}>
+              {content.description}
             </p>
             <div className="space-y-4 pt-4">
               {benefits.map((item, index) => (

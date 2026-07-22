@@ -1,12 +1,14 @@
-import { json } from '../_lib/http';
+import { json, readRequestText } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
 import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
-import { getTrackingSignatureMode, verifyTrackingSignature } from '../_lib/tracking-signature';
+import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
+
+const MAX_META_EVENT_BODY_BYTES = 32 * 1024;
 
 type MetaEventName = 'ViewContent' | 'FormStart' | 'Contact' | 'LeadFormView' | 'EngagedView';
 
@@ -472,6 +474,7 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       madid: hashedMadid ? [hashedMadid] : undefined,
     },
     opt_out: payload.marketing_consent === false,
+    referrer_url: sanitizeUrlForMeta(payload.referrer),
     custom_data: {
       service: payload.service, ...getMetaEventDiagnosticsContext(payload),
       service_slug: payload.service_slug,
@@ -496,9 +499,6 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       predicted_ltv: payload.predicted_ltv,
       status: payload.status || undefined,
       lead_id: payload.lead_id || undefined,
-      country: ctx.country,
-      city: ctx.city,
-      region: ctx.region,
       timezone: ctx.timezone,
       language: ctx.language,
       platform: ctx.platform,
@@ -510,16 +510,11 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       utm_term: payload.utm_term || ctx.utmTerm,
       utm_id: payload.utm_id || ctx.utmId,
       fbclid: payload.fbclid,
-      gclid: payload.gclid || ctx.gclid,
-      wbraid: payload.wbraid || ctx.wbraid,
-      gbraid: payload.gbraid || ctx.gbraid,
-      yclid: payload.yclid || ctx.yclid,
       landing_page_url: sanitizeUrlForMeta(payload.landing_page_url),
       first_touch_url: sanitizeUrlForMeta(payload.first_touch_url),
       first_touch_at: payload.first_touch_at,
       last_touch_url: sanitizeUrlForMeta(payload.last_touch_url),
       last_touch_at: payload.last_touch_at,
-      session_id: payload.session_id,
       page_title: payload.page_title,
       page_location: sanitizeUrlForMeta(payload.page_location || payload.page_url),
       page_path: payload.page_path,
@@ -598,11 +593,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
-  const rawBody = await request.text();
+  const rateLimited = await enforceRateLimit(request, 'meta_event');
+  if (rateLimited) return rateLimited;
+
+  const bodyResult = await readRequestText(request, MAX_META_EVENT_BODY_BYTES);
+  if (bodyResult.ok === false) {
+    return json({ success: false, error: bodyResult.error }, { status: 413, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+  const rawBody = bodyResult.text;
   const signatureMode = getTrackingSignatureMode(env);
-  const signature = await verifyTrackingSignature(request, env, rawBody);
-  if (signature.ok === false && signatureMode === 'enforce') {
-    return json({ success: false, error: signature.reason }, { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  const signature = signatureMode === 'off' ? undefined : await verifyTrackingSignature(request, env, rawBody);
+  waitUntil(recordTrackingSignatureAudit(env, { endpoint: 'meta-event', mode: signatureMode, verification: signature }));
+  if (signatureMode === 'enforce' && signature?.ok !== true) {
+    return json(
+      { success: false, error: signature?.ok === false ? signature.reason : 'signature_not_verified' },
+      { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
   }
 
   let parsedBody: MetaEventPayload;
@@ -615,12 +621,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
   const payload = normalizeMetaEventPayload(parsedBody);
-
-  const rateLimited = await enforceRateLimit(request, 'meta_event');
-  if (rateLimited) {
-    waitUntil(recordMetaDiagnostics(env, { event_name: payload.event_name || 'ViewContent', event_id: payload.event_id, event_time: payload.event_time, status: 'skipped', error_message: 'rate_limited', page_path: payload.page_path, page_url: payload.page_url, service: payload.service, ...getMetaEventDiagnosticsContext(payload), marketing_consent: payload.marketing_consent }));
-    return rateLimited;
-  }
 
   if (!payload.event_name || !payload.event_id) {
     return json(

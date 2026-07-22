@@ -216,6 +216,21 @@ let lastTrackedPath = '';
 let lastTrackedAt = 0;
 let engagedViewTimerId: number | undefined;
 
+function normalizeTrackingPath(path: string): string {
+  const normalized = `/${String(path || '/').split(/[?#]/, 1)[0].replace(/^\/+|\/+$/g, '')}`;
+  return normalized === '/' ? '/' : normalized;
+}
+
+function isTrackingExcludedPath(path: string): boolean {
+  return /^\/admin(?:\/|$)/.test(normalizeTrackingPath(path));
+}
+
+function isMeaningfulContentPath(path: string): boolean {
+  const normalized = normalizeTrackingPath(path);
+  return normalized === '/'
+    || /^\/(meta-ads|google-ads|consult|meta-apps|blog|cases|faq|marketing-glossary|calculator|roi-calculator)(?:\/|$)/.test(normalized);
+}
+
 const DEFAULT_GTM_ID = 'GTM-T88BWXVV';
 const DEFAULT_GA_MEASUREMENT_ID = 'G-ZV18R9DLVC';
 const DEFAULT_YANDEX_METRIKA_ID = 108699980;
@@ -1241,6 +1256,7 @@ function sendServerMetaEvent(payload: ServerMetaEventPayload): void {
 
 export function trackServiceViewContent(path: string, options: { marketing?: boolean } = {}): void {
   if (options.marketing === false) return;
+  if (!isMeaningfulContentPath(path)) return;
 
   const content = getMetaPageContent(path);
 
@@ -1362,6 +1378,7 @@ export function trackLeadFormView(serviceSlug: string): boolean {
 }
 
 export function trackEngagedView(reason: 'time_10s' | 'scroll_50' | 'form_view', extraData: Record<string, unknown> = {}): boolean {
+  if (!isMeaningfulContentPath(window.location.pathname)) return false;
   const browserContext = getMetaBrowserContext(window.location.pathname);
   if (!browserContext.marketing_consent) return false;
 
@@ -1439,6 +1456,12 @@ export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone
 }
 
 export function trackPageView(path: string, options: { marketing?: boolean } = {}): void {
+  if (engagedViewTimerId !== undefined) {
+    window.clearTimeout(engagedViewTimerId);
+    engagedViewTimerId = undefined;
+  }
+  if (isTrackingExcludedPath(path)) return;
+
   const now = Date.now();
   const shouldTrackMarketing = options.marketing !== false;
   const trackingKey = `${path}|marketing:${shouldTrackMarketing ? 'on' : 'off'}`;
@@ -1448,11 +1471,6 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
 
   // Пользователь ушёл со страницы раньше 10 секунд — отменяем отложенный
   // engaged_view предыдущей страницы, иначе он засчитается новой.
-  if (engagedViewTimerId !== undefined) {
-    window.clearTimeout(engagedViewTimerId);
-    engagedViewTimerId = undefined;
-  }
-
   const eventId = crypto.randomUUID(); // уникальный ID для дедупликации
 
   const win = window as Window & {
@@ -1523,10 +1541,12 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
     ...browserContext,
   });
 
-  engagedViewTimerId = window.setTimeout(() => {
-    engagedViewTimerId = undefined;
-    trackEngagedView('time_10s', { engagement_seconds: 10 });
-  }, 10_000);
+  if (isMeaningfulContentPath(path)) {
+    engagedViewTimerId = window.setTimeout(() => {
+      engagedViewTimerId = undefined;
+      trackEngagedView('time_10s', { engagement_seconds: 10 });
+    }, 10_000);
+  }
 }
 
 export function trackFaqOpen(question: string): void {

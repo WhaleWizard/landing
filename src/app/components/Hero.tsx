@@ -3,6 +3,8 @@ import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
+import { useSiteSection } from '../hooks/useServiceContent';
+import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
 const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
 
@@ -79,6 +81,7 @@ export type HeroContent = {
   primaryButton: string;
   secondaryButton: string;
   stats: HeroStat[];
+  typography?: ContentTypography;
 };
 
 export const defaultHeroContent: HeroContent = {
@@ -184,7 +187,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
     {content.titleLines ? (
       <h1
         aria-label={content.titleLines.map((line) => line.text).join(' ')}
-        className="w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em]"
+        className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
       >
         {content.titleLines.map((line, index) => {
           if (line.tone === 'supporting') {
@@ -213,7 +216,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
         })}
       </h1>
     ) : (
-      <h1 className="max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em]">
+      <h1 className={`max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
         <span className="block">{content.titlePrefix}</span>{' '}
         <span className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]">
           {content.titleAccent}
@@ -223,7 +226,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
 
     <div className="space-y-3">
       {content.paragraphs.map((paragraph, index) => (
-        <p key={index} className="max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-7 md:leading-relaxed">
+        <p key={index} className={`max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-7 md:leading-relaxed ${managedBodyClasses(content.typography)}`}>
           {paragraph}
         </p>
       ))}
@@ -678,7 +681,16 @@ RightPanel.displayName = 'RightPanel';
 
 type HeroVisual = 'default' | 'meta-apps' | 'portrait';
 
-function Hero({ content = defaultHeroContent, visual = 'default' }: { content?: HeroContent; visual?: HeroVisual }) {
+function Hero({
+  content: contentProp = defaultHeroContent,
+  visual = 'default',
+  contentKey = null,
+}: {
+  content?: HeroContent;
+  visual?: HeroVisual;
+  contentKey?: string | null;
+}) {
+  const content = useSiteSection(contentKey, 'hero', contentProp);
   const sectionRef     = useRef<HTMLElement>(null);
   const inView         = useInView(sectionRef, { margin: '0px 0px -10% 0px', once: false });
   const prefersReduced = useReducedMotion();

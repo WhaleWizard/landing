@@ -19,6 +19,11 @@ export interface LeadRecord {
   page_url?: string;
   external_id?: string;
   marketing_consent?: boolean;
+  // Durable receipt for delayed CRM -> Meta quality events (migration 0015).
+  consent_version?: number;
+  consent_source?: string;
+  consent_region?: string;
+  consent_timestamp?: number;
   // Источник лида (миграция 0011)
   utm_source?: string;
   utm_medium?: string;
@@ -47,14 +52,23 @@ function hasLeadsTableError(error: unknown): boolean {
   return /no such table/i.test(message);
 }
 
-function hasMissingColumnError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /no such column|has no column/i.test(message);
-}
-
 export interface StoreLeadResult {
+  durable: boolean;
+  duplicate: boolean;
   repeat: boolean;
   submissionsCount: number;
+  eventId: string;
+  leadId?: number;
+}
+
+export class LeadStorageError extends Error {
+  readonly code = 'lead_storage_failed';
+  readonly retryable = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'LeadStorageError';
+  }
 }
 
 // Ключи для поиска повторной заявки от того же человека
@@ -66,54 +80,137 @@ function contactKeys(email?: string, phone?: string, telegram?: string) {
   };
 }
 
-const MAX_STORED_MESSAGE = 4000;
+function normalizeConsentVersion(value: number | undefined): number | null {
+  return Number.isInteger(value) && Number(value) > 0 ? Number(value) : null;
+}
+
+function normalizeConsentTimestamp(value: number | undefined): number | null {
+  if (!Number.isFinite(value) || Number(value) <= 0) return null;
+  return Math.trunc(Number(value));
+}
+
+function normalizeConsentSource(value: string | undefined): string {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'user' || normalized === 'region_auto' ? normalized : '';
+}
+
+function normalizeConsentRegion(value: string | undefined): string {
+  return String(value || '').trim().toUpperCase().slice(0, 40);
+}
+
+async function getTableColumns(db: D1Database, table: string): Promise<Set<string>> {
+  const result = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+  return new Set((result.results || []).map((column) => column.name).filter(Boolean));
+}
+
+function changedRows(result: unknown): number {
+  const value = (result as { meta?: { changes?: number } } | undefined)?.meta?.changes;
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+async function duplicateLeadResult(db: D1Database, eventId: string, hasDedupe: boolean): Promise<StoreLeadResult> {
+  const countExpression = hasDedupe ? 'COALESCE(l.submissions_count, 1)' : '1';
+  const row = await db.prepare(
+    `SELECT li.lead_id, li.submission_kind, ${countExpression} AS submissions_count
+     FROM lead_ingestions li
+     LEFT JOIN leads l ON l.id = li.lead_id
+     WHERE li.event_id = ? LIMIT 1`,
+  ).bind(eventId).first<{ lead_id: number | null; submission_kind: string; submissions_count: number }>();
+  return {
+    durable: true,
+    duplicate: true,
+    repeat: row?.submission_kind === 'repeat',
+    submissionsCount: Number(row?.submissions_count || 1),
+    eventId,
+    leadId: row?.lead_id || undefined,
+  };
+}
 
 // Сохранение заявки в D1 с дедупликацией: если контакт (email / телефон /
 // telegram) уже оставлял заявку — не создаём дубль, а «поднимаем» старую:
 // счётчик +1, статус снова «новая», новое сообщение дописывается к истории.
-// Ошибки не роняют обработку лида: до миграций 0008/0009 (или без D1)
-// код тихо деградирует.
+// Реальную заявку подтверждаем только после устойчивой записи в D1. Если DB
+// binding пропал, клиент получает retryable 503 и сохраняет заявку в своей
+// офлайн-очереди вместо ложного успеха без записи в CRM.
 export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadResult> {
-  const fallback: StoreLeadResult = { repeat: false, submissionsCount: 1 };
-  if (!env.DB) return fallback;
+  const eventId = String(lead.event_id || crypto.randomUUID());
+  if (!env.DB) throw new LeadStorageError('D1 DB binding is missing');
 
+  const db = env.DB;
   try {
-    const cols = await getLeadsColumns(env.DB);
-    if (cols.size === 0) return fallback; // таблицы ещё нет (миграция 0008 не применена)
+    const cols = await getLeadsColumns(db);
+    if (cols.size === 0) throw new LeadStorageError('D1 leads table is missing; apply migration 0008');
+
+    const ingestionColumns = await getTableColumns(db, 'lead_ingestions');
+    const ingestionReady = ['event_id', 'claim_token', 'lead_id', 'submission_kind', 'received_at']
+      .every((column) => ingestionColumns.has(column));
+    if (!ingestionReady) {
+      throw new LeadStorageError('D1 lead idempotency ledger is missing; apply migration 0019');
+    }
+
     const hasDedupe = cols.has('submissions_count') && cols.has('last_submitted_at'); // 0009
     const hasMetaContext = cols.has('marketing_consent'); // 0010
     const hasUtm = cols.has('utm_source'); // 0011
     const hasQuality = cols.has('quality'); // 0009
     const hasPipelineStage = cols.has('pipeline_stage'); // 0012
+    const consentVersion = normalizeConsentVersion(lead.consent_version);
+    const consentSource = normalizeConsentSource(lead.consent_source);
+    const consentRegion = normalizeConsentRegion(lead.consent_region);
+    const consentTimestamp = normalizeConsentTimestamp(lead.consent_timestamp);
+    const marketingAllowed = lead.marketing_consent === true;
 
-    let existing: { id: number; submissions_count: number; message: string } | null = null;
+    const alreadyIngested = await db.prepare('SELECT event_id FROM lead_ingestions WHERE event_id = ? LIMIT 1')
+      .bind(eventId)
+      .first<{ event_id: string }>();
+    if (alreadyIngested) return duplicateLeadResult(db, eventId, hasDedupe);
+
+    let existing: {
+      id: number;
+      submissions_count: number;
+      pipeline_stage?: string;
+    } | null = null;
     const keys = contactKeys(lead.email, lead.phone, lead.telegramUsername);
     if (hasDedupe && (keys.email || keys.phone || keys.telegram)) {
-      // Заявок немного — сверяем контакты в коде, чтобы одинаково
-      // нормализовать телефоны вида "+7 (999) ..." и "79 99...".
-      const recent = await env.DB.prepare(
-        'SELECT id, email, phone, telegram_username, submissions_count, message FROM leads ORDER BY id DESC LIMIT 500'
-      ).all<{ id: number; email: string; phone: string; telegram_username: string; submissions_count: number; message: string }>();
+      const recent = await db.prepare(
+        `SELECT id, email, phone, telegram_username, submissions_count${hasPipelineStage ? ', pipeline_stage' : ''}
+         FROM leads ORDER BY id DESC LIMIT 500`,
+      ).all<{
+        id: number;
+        email: string;
+        phone: string;
+        telegram_username: string;
+        submissions_count: number;
+        pipeline_stage?: string;
+      }>();
       for (const row of recent.results || []) {
         const rowKeys = contactKeys(row.email, row.phone, row.telegram_username);
-        const sameEmail = keys.email && rowKeys.email === keys.email;
-        const samePhone = keys.phone && rowKeys.phone === keys.phone;
-        const sameTelegram = keys.telegram && rowKeys.telegram === keys.telegram;
+        const sameEmail = Boolean(keys.email && rowKeys.email === keys.email);
+        const samePhone = Boolean(keys.phone && rowKeys.phone === keys.phone);
+        const sameTelegram = Boolean(keys.telegram && rowKeys.telegram === keys.telegram);
         if (sameEmail || samePhone || sameTelegram) {
-          existing = { id: row.id, submissions_count: Number(row.submissions_count || 1), message: String(row.message || '') };
+          existing = {
+            id: row.id,
+            submissions_count: Number(row.submissions_count || 1),
+            pipeline_stage: row.pipeline_stage,
+          };
           break;
         }
       }
     }
 
-    if (existing) {
-      const newCount = existing.submissions_count + 1;
-      const dateLabel = new Date().toLocaleDateString('ru-RU');
-      const addition = lead.message ? `— повторная заявка ${dateLabel}: ${lead.message}` : `— повторная заявка ${dateLabel}`;
-      const mergedMessage = `${existing.message}\n${addition}`.trim().slice(-MAX_STORED_MESSAGE);
+    const claimToken = crypto.randomUUID();
+    const claimStatement = db.prepare(
+      `INSERT OR IGNORE INTO lead_ingestions (event_id, claim_token, received_at)
+       VALUES (?, ?, datetime('now'))`,
+    ).bind(eventId, claimToken);
 
+    if (existing) {
+      const dateLabel = new Date().toLocaleDateString('ru-RU');
+      const addition = lead.message
+        ? `— повторная заявка ${dateLabel}: ${lead.message}`
+        : `— повторная заявка ${dateLabel}`;
       const set: string[] = [
-        'submissions_count = ?',
+        'submissions_count = submissions_count + 1',
         "last_submitted_at = datetime('now')",
         "updated_at = datetime('now')",
         "status = 'new'",
@@ -123,76 +220,175 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
         "email = CASE WHEN ? != '' THEN ? ELSE email END",
         "phone = CASE WHEN ? != '' THEN ? ELSE phone END",
         "telegram_username = CASE WHEN ? != '' THEN ? ELSE telegram_username END",
+        'contact_method = ?',
         "budget = CASE WHEN ? != '' THEN ? ELSE budget END",
         "service = CASE WHEN ? != '' THEN ? ELSE service END",
-        "page_path = CASE WHEN ? != '' THEN ? ELSE page_path END",
-        'message = ?',
+        'page_path = ?',
+        "message = substr(CASE WHEN message = '' THEN ? ELSE message || char(10) || ? END, -4000)",
       ];
-      // порядок значений строго повторяет порядок «?» в списке set выше
-      const values: Array<string | number> = [
-        newCount,
-        lead.event_id || crypto.randomUUID(),
+      const values: Array<string | number | null> = [
+        eventId,
         lead.name || '', lead.name || '',
         lead.email || '', lead.email || '',
         lead.phone || '', lead.phone || '',
         lead.telegramUsername || '', lead.telegramUsername || '',
+        lead.contactMethod === 'whatsapp' ? 'whatsapp' : 'telegram',
         lead.budget || '', lead.budget || '',
         lead.service || '', lead.service || '',
-        lead.page_path || '', lead.page_path || '',
-        mergedMessage,
+        lead.page_path || '',
+        addition, addition,
       ];
+
       if (hasMetaContext) {
-        // Повторная заявка = свежий клик по рекламе: обновляем метки и согласие
-        set.push(
-          "fbp = CASE WHEN ? != '' THEN ? ELSE fbp END",
-          "fbc = CASE WHEN ? != '' THEN ? ELSE fbc END",
-          "event_source_url = CASE WHEN ? != '' THEN ? ELSE event_source_url END",
-          "external_id = CASE WHEN ? != '' THEN ? ELSE external_id END",
-          'marketing_consent = ?',
-        );
+        set.push('fbp = ?', 'fbc = ?', 'event_source_url = ?', 'external_id = ?', 'marketing_consent = ?');
         values.push(
-          lead.fbp || '', lead.fbp || '',
-          lead.fbc || '', lead.fbc || '',
-          lead.page_url || '', lead.page_url || '',
-          lead.external_id || '', lead.external_id || '',
-          lead.marketing_consent === true ? 1 : 0,
+          marketingAllowed ? lead.fbp || '' : '',
+          marketingAllowed ? lead.fbc || '' : '',
+          marketingAllowed ? lead.page_url || '' : '',
+          marketingAllowed ? lead.external_id || '' : '',
+          marketingAllowed ? 1 : 0,
         );
       }
-      if (hasQuality) {
-        // Новая отправка формы — новый Lead event_id и новое решение по качеству.
-        // Старую метку нельзя автоматически переносить на следующую заявку.
-        set.push("quality = ''");
+      if (cols.has('consent_version')) {
+        set.push('consent_version = ?');
+        values.push(consentVersion);
       }
-      if (hasPipelineStage) {
-        // Повторная заявка снова требует ответа. Legacy status и CRM-этап
-        // сбрасываются в одном UPDATE, чтобы два представления не расходились.
-        set.push("pipeline_stage = 'new'");
+      if (cols.has('consent_source')) {
+        set.push('consent_source = ?');
+        values.push(consentSource);
       }
+      if (cols.has('consent_region')) {
+        set.push('consent_region = ?');
+        values.push(consentRegion);
+      }
+      if (cols.has('consent_timestamp')) {
+        set.push('consent_timestamp = ?');
+        values.push(consentTimestamp);
+      }
+      if (cols.has('consent_recorded_at')) set.push("consent_recorded_at = datetime('now')");
+      if (hasQuality) set.push("quality = ''");
+      if (hasPipelineStage) set.push("pipeline_stage = 'new'");
+      if (cols.has('next_action_at')) set.push('next_action_at = NULL');
+      if (cols.has('next_action_text')) set.push("next_action_text = ''");
+      if (cols.has('loss_reason')) set.push("loss_reason = ''");
+      if (cols.has('closed_at')) set.push('closed_at = NULL');
+      if (cols.has('last_contacted_at')) set.push('last_contacted_at = NULL');
+      if (cols.has('pipeline_changed_at')) set.push("pipeline_changed_at = datetime('now')");
+      if (cols.has('crm_revision')) set.push('crm_revision = crm_revision + 1');
+      if (cols.has('crm_action_id')) {
+        set.push('crm_action_id = ?');
+        values.push(`lead-resubmitted:${eventId}`);
+      }
+      if (cols.has('quality_revision')) set.push('quality_revision = quality_revision + 1');
+      if (cols.has('quality_updated_at')) set.push("quality_updated_at = datetime('now')");
+      if (cols.has('quality_action_id')) set.push("quality_action_id = ''");
+      if (cols.has('quality_processing')) set.push('quality_processing = 0');
       if (hasUtm) {
-        // Повторная заявка = новый источник: обновляем метки, если они пришли
-        set.push(
-          "utm_source = CASE WHEN ? != '' THEN ? ELSE utm_source END",
-          "utm_medium = CASE WHEN ? != '' THEN ? ELSE utm_medium END",
-          "utm_campaign = CASE WHEN ? != '' THEN ? ELSE utm_campaign END",
-          "utm_content = CASE WHEN ? != '' THEN ? ELSE utm_content END",
-          "utm_term = CASE WHEN ? != '' THEN ? ELSE utm_term END",
-        );
+        set.push('utm_source = ?', 'utm_medium = ?', 'utm_campaign = ?', 'utm_content = ?', 'utm_term = ?');
         values.push(
-          lead.utm_source || '', lead.utm_source || '',
-          lead.utm_medium || '', lead.utm_medium || '',
-          lead.utm_campaign || '', lead.utm_campaign || '',
-          lead.utm_content || '', lead.utm_content || '',
-          lead.utm_term || '', lead.utm_term || '',
+          marketingAllowed ? lead.utm_source || '' : '',
+          marketingAllowed ? lead.utm_medium || '' : '',
+          marketingAllowed ? lead.utm_campaign || '' : '',
+          marketingAllowed ? lead.utm_content || '' : '',
+          marketingAllowed ? lead.utm_term || '' : '',
         );
       }
-      values.push(existing.id);
-      await env.DB.prepare(`UPDATE leads SET ${set.join(', ')} WHERE id = ?`).bind(...values).run();
-      return { repeat: true, submissionsCount: newCount };
+
+      values.push(existing.id, eventId, claimToken);
+      const updateStatement = db.prepare(
+        `UPDATE leads SET ${set.join(', ')}
+         WHERE id = ?
+           AND EXISTS (
+             SELECT 1 FROM lead_ingestions
+             WHERE event_id = ? AND claim_token = ?
+           )`,
+      ).bind(...values);
+
+      const statements: D1PreparedStatement[] = [claimStatement, updateStatement];
+      if (hasPipelineStage) {
+        const activityColumns = await getTableColumns(db, 'lead_activity');
+        const activityReady = ['lead_id', 'type', 'from', 'to', 'note']
+          .every((column) => activityColumns.has(column));
+        if (!activityReady) throw new LeadStorageError('D1 CRM activity schema is incomplete; apply migration 0012');
+
+        const auditColumns = ['lead_id', 'type', '"from"', '"to"', 'note'];
+        const auditValues: Array<string | number> = [
+          existing.id,
+          'lead_resubmitted',
+          existing.pipeline_stage || '',
+          'new',
+          `Повторная заявка сохранена (${eventId})`,
+        ];
+        if (activityColumns.has('actor')) {
+          auditColumns.push('actor');
+          auditValues.push('system');
+        }
+        if (activityColumns.has('entity_type')) {
+          auditColumns.push('entity_type');
+          auditValues.push('lead');
+        }
+        if (activityColumns.has('entity_id')) {
+          auditColumns.push('entity_id');
+          auditValues.push(existing.id);
+        }
+        if (activityColumns.has('action_id')) {
+          auditColumns.push('action_id');
+          auditValues.push(`lead-resubmitted:${eventId}`);
+        }
+        if (activityColumns.has('metadata_json')) {
+          auditColumns.push('metadata_json');
+          auditValues.push(JSON.stringify({
+            event_id: eventId,
+            previous_stage: existing.pipeline_stage || '',
+            submissions_count: existing.submissions_count + 1,
+          }));
+        }
+        const auditPlaceholders = auditColumns.map(() => '?').join(', ');
+        statements.push(db.prepare(
+          `INSERT INTO lead_activity (${auditColumns.join(', ')})
+           SELECT ${auditPlaceholders}
+           WHERE EXISTS (
+             SELECT 1 FROM lead_ingestions
+             WHERE event_id = ? AND claim_token = ?
+           )
+           AND EXISTS (
+             SELECT 1 FROM leads WHERE id = ? AND event_id = ?
+           )`,
+        ).bind(...auditValues, eventId, claimToken, existing.id, eventId));
+      }
+
+      statements.push(db.prepare(
+        `UPDATE lead_ingestions
+         SET lead_id = ?, submission_kind = 'repeat'
+         WHERE event_id = ? AND claim_token = ?
+           AND EXISTS (SELECT 1 FROM leads WHERE id = ? AND event_id = ?)`,
+      ).bind(existing.id, eventId, claimToken, existing.id, eventId));
+
+      const results = await db.batch(statements);
+      if (changedRows(results[0]) === 0) return duplicateLeadResult(db, eventId, hasDedupe);
+      if (changedRows(results[1]) === 0) {
+        await db.prepare('DELETE FROM lead_ingestions WHERE event_id = ? AND claim_token = ? AND lead_id IS NULL')
+          .bind(eventId, claimToken)
+          .run();
+        throw new LeadStorageError('D1 repeat lead update was not committed');
+      }
+
+      const stored = await db.prepare('SELECT submissions_count FROM leads WHERE id = ?')
+        .bind(existing.id)
+        .first<{ submissions_count: number }>();
+      return {
+        durable: true,
+        duplicate: false,
+        repeat: true,
+        submissionsCount: Number(stored?.submissions_count || existing.submissions_count + 1),
+        eventId,
+        leadId: existing.id,
+      };
     }
 
     const insertCols = ['event_id', 'name', 'email', 'phone', 'telegram_username', 'contact_method', 'budget', 'message', 'service', 'page_path'];
-    const insertVals: Array<string | number> = [
-      lead.event_id || crypto.randomUUID(),
+    const insertVals: Array<string | number | null> = [
+      eventId,
       lead.name || '',
       lead.email || '',
       lead.phone || '',
@@ -211,22 +407,101 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     if (hasMetaContext) {
       insertCols.push('fbp', 'fbc', 'event_source_url', 'external_id', 'marketing_consent');
       placeholders.push('?', '?', '?', '?', '?');
-      insertVals.push(lead.fbp || '', lead.fbc || '', lead.page_url || '', lead.external_id || '', lead.marketing_consent === true ? 1 : 0);
+      insertVals.push(
+        marketingAllowed ? lead.fbp || '' : '',
+        marketingAllowed ? lead.fbc || '' : '',
+        marketingAllowed ? lead.page_url || '' : '',
+        marketingAllowed ? lead.external_id || '' : '',
+        marketingAllowed ? 1 : 0,
+      );
+    }
+    if (cols.has('consent_version')) {
+      insertCols.push('consent_version');
+      placeholders.push('?');
+      insertVals.push(consentVersion);
+    }
+    if (cols.has('consent_source')) {
+      insertCols.push('consent_source');
+      placeholders.push('?');
+      insertVals.push(consentSource);
+    }
+    if (cols.has('consent_region')) {
+      insertCols.push('consent_region');
+      placeholders.push('?');
+      insertVals.push(consentRegion);
+    }
+    if (cols.has('consent_timestamp')) {
+      insertCols.push('consent_timestamp');
+      placeholders.push('?');
+      insertVals.push(consentTimestamp);
+    }
+    if (cols.has('consent_recorded_at')) {
+      insertCols.push('consent_recorded_at');
+      placeholders.push("datetime('now')");
     }
     if (hasUtm) {
       insertCols.push('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term');
       placeholders.push('?', '?', '?', '?', '?');
-      insertVals.push(lead.utm_source || '', lead.utm_medium || '', lead.utm_campaign || '', lead.utm_content || '', lead.utm_term || '');
+      insertVals.push(
+        marketingAllowed ? lead.utm_source || '' : '',
+        marketingAllowed ? lead.utm_medium || '' : '',
+        marketingAllowed ? lead.utm_campaign || '' : '',
+        marketingAllowed ? lead.utm_content || '' : '',
+        marketingAllowed ? lead.utm_term || '' : '',
+      );
     }
-    await env.DB.prepare(
-      `INSERT INTO leads (${insertCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT(event_id) DO NOTHING`
-    ).bind(...insertVals).run();
-    return fallback;
+
+    const insertStatement = db.prepare(
+      `INSERT INTO leads (${insertCols.join(', ')})
+       SELECT ${placeholders.join(', ')}
+       WHERE EXISTS (
+         SELECT 1 FROM lead_ingestions WHERE event_id = ? AND claim_token = ?
+       )
+       ON CONFLICT(event_id) DO NOTHING`,
+    ).bind(...insertVals, eventId, claimToken);
+    const linkStatement = db.prepare(
+      `UPDATE lead_ingestions
+       SET lead_id = (SELECT id FROM leads WHERE event_id = ? LIMIT 1),
+           submission_kind = 'new'
+       WHERE event_id = ? AND claim_token = ?`,
+    ).bind(eventId, eventId, claimToken);
+
+    const results = await db.batch([claimStatement, insertStatement, linkStatement]);
+    if (changedRows(results[0]) === 0) return duplicateLeadResult(db, eventId, hasDedupe);
+    if (changedRows(results[1]) === 0) {
+      const legacy = await db.prepare('SELECT id FROM leads WHERE event_id = ? LIMIT 1')
+        .bind(eventId)
+        .first<{ id: number }>();
+      if (legacy?.id) {
+        await db.prepare(
+          `UPDATE lead_ingestions SET lead_id = ?, submission_kind = 'legacy'
+           WHERE event_id = ? AND claim_token = ?`,
+        ).bind(legacy.id, eventId, claimToken).run();
+        return duplicateLeadResult(db, eventId, hasDedupe);
+      }
+      await db.prepare('DELETE FROM lead_ingestions WHERE event_id = ? AND claim_token = ? AND lead_id IS NULL')
+        .bind(eventId, claimToken)
+        .run();
+      throw new LeadStorageError('D1 lead insert was not committed');
+    }
+
+    const stored = await db.prepare('SELECT id FROM leads WHERE event_id = ? LIMIT 1')
+      .bind(eventId)
+      .first<{ id: number }>();
+    if (!stored?.id) throw new LeadStorageError('D1 lead insert could not be verified');
+    return {
+      durable: true,
+      duplicate: false,
+      repeat: false,
+      submissionsCount: 1,
+      eventId,
+      leadId: stored.id,
+    };
   } catch (error) {
-    if (!hasLeadsTableError(error) && !hasMissingColumnError(error)) {
-      console.error('[Leads] Failed to store lead in D1:', error);
-    }
-    return fallback;
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[Leads] Durable D1 storage failed:', message);
+    if (error instanceof LeadStorageError) throw error;
+    throw new LeadStorageError(message || 'Unknown D1 storage failure');
   }
 }
 

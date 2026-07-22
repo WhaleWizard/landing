@@ -1,6 +1,6 @@
 ﻿# Meta Conversions API + Cloudflare Pages setup
 
-Дата обновления: 2026-05-17.
+Дата обновления: 2026-07-22.
 
 Этот проект отправляет Meta события двумя потоками:
 
@@ -47,7 +47,10 @@
 | `VITE_META_PIXEL_ID` | Plaintext | `926332213606723` | Pixel/Dataset ID. Нужен и frontend build, и Pages Functions runtime. |
 | `META_CAPI_API_VERSION` | Plaintext | `v25.0` | Версия Graph/Marketing API. |
 | `META_CAPI_DEBUG_SECRET` | Secret | длинная случайная строка | Пароль для диагностических endpoints. |
-| `SITE_URL` | Plaintext | `https://whalewzrd.com` | Production URL для fallback `event_source_url` и тестов. |
+| `SITE_URL` | Plaintext | `https://www.whalewzrd.com` | Production URL для fallback `event_source_url` и тестов. |
+| `TRACKING_HMAC_SECRET` | Secret | 64 hex-символа | 32 случайных байта для проверки подписи tracking-запросов; не передаётся браузеру. |
+| `TRACKING_SIGNATURE_MODE` | Plaintext | `monitor` | Оставить `monitor`, пока доверенный серверный клиент не отправляет подтверждённые валидные подписи. |
+| `TRACKING_SIG_TTL_SEC` | Plaintext | `60` | Допустимое расхождение времени подписанного запроса; код ограничивает значение диапазоном 10–300 секунд. |
 
 ### Временная переменная для проверки Test Events
 
@@ -77,19 +80,42 @@
 2. Добавь binding:
    - Type: **D1 database**
    - Variable name: `DB`
-3. На эту D1 базу примени миграции:
-   - `migrations/0002_meta_capi_diagnostics.sql`
-   - `migrations/0003_meta_capi_diagnostics_quality.sql`
-   - `migrations/0004_meta_capi_diagnostics_enrichment.sql`
+3. Сделай резервную копию production D1 и примени все ещё не применённые
+   миграции строго по номеру до `0019` включительно. Не выбирай только отдельные
+   CAPI-файлы: более поздние схемы зависят от предыдущих. Для Meta особенно важны:
+   - `0002`–`0004` — диагностика и качество сопоставления;
+   - `0005` — надёжная очередь `meta_outbox`;
+   - `0008`–`0011` и `0015` — лиды, consent и attribution-контекст;
+   - `0016` — 90-дневное хранение диагностических записей;
+   - `0018` — атомарная D1-защита подписей от повторного воспроизведения;
+   - `0019` — устойчивый журнал приёма заявок по `event_id`.
+
+`0019` примени до выкладки нового `/api/lead` или в том же окне обслуживания
+до поступления трафика. Если таблицы нет, endpoint намеренно отвечает retryable
+`503`, чтобы клиент повторил отправку и не получил ложный успех.
 
 ### KV bindings
 
-Создай два KV namespace и привяжи их:
+Привяжи три KV namespace:
 
 | Binding variable name | Для чего |
 | --- | --- |
 | `META_CAPI_IDEMPOTENCY` | Idempotency / защита от повторной server отправки того же `event_name + event_id`. |
 | `META_CAPI_DIAGNOSTICS` | Резервная/быстрая диагностика CAPI статусов. |
+| `META_CAPI_NONCE` | Только совместимый fallback в режиме `monitor`; не является атомарной replay-защитой. |
+
+### Почему подписи пока остаются в `monitor`
+
+Миграция `0018` делает атомарный nonce-claim через уникальное ограничение D1 и
+хранит только хеш nonce. KV `get` → `put` неатомарен, поэтому
+`META_CAPI_NONCE` используется лишь как совместимый fallback в `monitor`.
+В режиме `enforce` код требует доступную D1 replay-защиту.
+
+Текущий публичный браузерный клиент не должен знать общий HMAC-секрет, поэтому
+`TRACKING_SIGNATURE_MODE=enforce` включать нельзя. Сначала нужен доверенный
+серверный подписывающий клиент, затем в production-диагностике должны появиться
+валидные подписанные запросы. Только после этого можно отдельно планировать
+переход на `enforce`.
 
 ## 4. Обязательный redeploy
 
@@ -103,10 +129,12 @@
 
 ## 5. Проверка, что Cloudflare всё видит
 
-Открой в браузере, подставив свой secret:
+Проверь из терминала, передав secret только в заголовке (не вставляй его в URL,
+историю браузера или скриншот):
 
-```text
-https://whalewzrd.com/api/meta-diagnostics-health?secret=YOUR_META_CAPI_DEBUG_SECRET&write=1
+```bash
+curl -X POST 'https://www.whalewzrd.com/api/meta-diagnostics-health?write=1' \
+  -H 'x-meta-debug-secret: YOUR_META_CAPI_DEBUG_SECRET'
 ```
 
 Ожидаемые признаки:
@@ -130,9 +158,10 @@ https://whalewzrd.com/api/meta-diagnostics-health?secret=YOUR_META_CAPI_DEBUG_SE
 4. Выполни запрос:
 
 ```bash
-curl -X POST 'https://whalewzrd.com/api/meta-test-event?secret=YOUR_META_CAPI_DEBUG_SECRET' \
+curl -X POST 'https://www.whalewzrd.com/api/meta-test-event' \
+  -H 'x-meta-debug-secret: YOUR_META_CAPI_DEBUG_SECRET' \
   -H 'Content-Type: application/json' \
-  -d '{"event_name":"all","page_url":"https://whalewzrd.com/?meta_capi_test=1"}'
+  -d '{"event_name":"all","page_url":"https://www.whalewzrd.com/?meta_capi_test=1"}'
 ```
 
 Успешный ответ должен содержать:
@@ -142,7 +171,9 @@ curl -X POST 'https://whalewzrd.com/api/meta-test-event?secret=YOUR_META_CAPI_DE
 - `meta.events_received` больше 0
 - `meta.fbtrace_id`
 
-После этого в Meta → Test Events должны появиться server events.
+После этого проверь, что server events действительно появились в Meta → Test
+Events. Успешный HTTP-ответ приложения сам по себе не заменяет эту внешнюю
+проверку.
 
 ## 7. Проверка реальных событий сайта
 
@@ -152,8 +183,9 @@ curl -X POST 'https://whalewzrd.com/api/meta-test-event?secret=YOUR_META_CAPI_DE
 4. Открой форму, начни ввод, отправь тестовую заявку.
 5. Проверь диагностику:
 
-```text
-https://whalewzrd.com/api/meta-diagnostics-summary?hours=24&secret=YOUR_META_CAPI_DEBUG_SECRET
+```bash
+curl 'https://www.whalewzrd.com/api/meta-diagnostics-summary?hours=24' \
+  -H 'x-meta-debug-secret: YOUR_META_CAPI_DEBUG_SECRET'
 ```
 
 Смотри:
@@ -163,6 +195,10 @@ https://whalewzrd.com/api/meta-diagnostics-summary?hours=24&secret=YOUR_META_CAP
 - `fbtrace_id` в latest events.
 - `failed` и `error_message` — если есть ошибки Meta.
 - `marketing_consent_rate` — должен быть ожидаемо высоким для тестов с accepted cookies.
+
+Статус `sent`, `events_received > 0` и `fbtrace_id` подтверждают ответ Graph API,
+но production-доставка и дедупликация считаются окончательно проверенными только
+после появления того же события в Meta Events Manager.
 
 ## 8. Почему в Events Manager может казаться, что есть только Browser
 
@@ -178,11 +214,14 @@ https://whalewzrd.com/api/meta-diagnostics-summary?hours=24&secret=YOUR_META_CAP
 Без секретов, можно маскировать значения:
 
 1. Скрин Cloudflare **Variables and Secrets** с наличием переменных.
-2. Скрин Cloudflare **Bindings** с `DB`, `META_CAPI_IDEMPOTENCY`, `META_CAPI_DIAGNOSTICS`.
+2. Скрин Cloudflare **Bindings** с `DB`, `META_CAPI_IDEMPOTENCY`,
+   `META_CAPI_DIAGNOSTICS` и `META_CAPI_NONCE` (значения/идентификаторы можно
+   замаскировать).
 3. JSON ответа:
-   - `/api/meta-diagnostics-health?secret=...&write=1`
-   - `/api/meta-diagnostics-summary?hours=24&secret=...`
-   - `/api/meta-diagnostics-coverage?hours=24&secret=...`
+   - `POST /api/meta-diagnostics-health?write=1`
+   - `GET /api/meta-diagnostics-summary?hours=24`
+   - `GET /api/meta-diagnostics-coverage?hours=24`
+   Во всех трёх запросах secret передаётся заголовком `x-meta-debug-secret`.
 4. Ответ `/api/meta-test-event` с `fbtrace_id`.
 5. Скрин Meta Events Manager → Test Events / Diagnostics / Event Match Quality.
 

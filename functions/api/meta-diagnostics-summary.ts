@@ -57,8 +57,7 @@ type LatestRow = {
 };
 
 function getProvidedSecret(request: Request): string | undefined {
-  const url = new URL(request.url);
-  return request.headers.get('x-meta-debug-secret') || url.searchParams.get('secret') || undefined;
+  return request.headers.get('x-meta-debug-secret') || undefined;
 }
 
 function getLookbackHours(request: Request): number {
@@ -112,7 +111,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   if (!debugSecret || providedSecret !== debugSecret) {
     return json(
-      { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret or ?secret=' },
+      { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' },
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
@@ -161,6 +160,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         MAX(created_at) AS latest_created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
+        AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')
         AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
       GROUP BY event_name
       ORDER BY latest_created_at DESC
@@ -186,6 +186,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         has_fbp, has_fbc, has_fbclid, has_utm, marketing_consent, created_at
       FROM meta_capi_diagnostics
       WHERE created_at >= ?
+        AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')
         AND NOT (event_name = 'Lead' AND marketing_consent IS NULL AND events_received IS NULL AND fbtrace_id IS NULL)
       ORDER BY created_at DESC
       LIMIT 25

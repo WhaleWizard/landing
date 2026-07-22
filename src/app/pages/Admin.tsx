@@ -22,6 +22,7 @@ import AdminToday from '../components/admin/AdminToday';
 import AdminMetaCenter from '../components/admin/AdminMetaCenter';
 import AdminAttribution from '../components/admin/AdminAttribution';
 import AdminContentControl from '../components/admin/AdminContentControl';
+import { AdminSelect } from '../components/admin/AdminUI';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
@@ -292,6 +293,14 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem('ww-admin-theme', mode);
+    document.body.dataset.adminTheme = mode;
+    Object.entries(themeTokens[mode]).forEach(([name, value]) => {
+      document.body.style.setProperty(name, value);
+    });
+    return () => {
+      delete document.body.dataset.adminTheme;
+      Object.keys(themeTokens[mode]).forEach((name) => document.body.style.removeProperty(name));
+    };
   }, [mode]);
 
   const toggleMode = useCallback(() => {
@@ -817,6 +826,30 @@ export default function Admin() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
+  type AdminNavKey = 'dashboard' | 'attribution' | 'meta' | 'articles' | 'cases' | 'content' | 'leads' | 'media' | 'health';
+  const currentNavKey: AdminNavKey = adminView === 'articles'
+    ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
+    : adminView;
+  const adminNavigation = [
+    { key: 'dashboard', label: 'Сегодня', icon: LayoutDashboard },
+    { key: 'attribution', label: 'Воронка', icon: BarChart3 },
+    { key: 'meta', label: 'Meta CAPI', icon: Activity },
+    { key: 'articles', label: 'Статьи', icon: Newspaper },
+    { key: 'cases', label: 'Кейсы', icon: Briefcase },
+    { key: 'content', label: 'Тексты сайта', icon: PanelsTopLeft },
+    { key: 'leads', label: 'Заявки', icon: Inbox },
+    { key: 'media', label: 'Медиатека', icon: Images },
+    { key: 'health', label: 'Проверка', icon: Stethoscope },
+  ] as const;
+  const navigateToAdminSection = (destination: AdminNavKey) => {
+    if (destination === 'articles' || destination === 'cases') {
+      setAdminSectionFilter(destination === 'cases' ? 'cases' : 'blog');
+      setAdminView('articles');
+      return;
+    }
+    setAdminView(destination);
+  };
+
   if (!isAuthenticated) {
     return (
       <AdminThemeProvider>
@@ -870,26 +903,25 @@ export default function Admin() {
             </div>
           </header>
 
+          <div className="admin-mobile-nav" aria-label="Текущий раздел админки">
+            <AdminSelect
+              ariaLabel="Раздел админки"
+              value={currentNavKey}
+              options={adminNavigation.map((item) => ({ value: item.key, label: item.label }))}
+              onValueChange={(value) => navigateToAdminSection(value as AdminNavKey)}
+            />
+          </div>
+
           <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
             <aside className="lg:w-52 shrink-0">
               <nav aria-label="Разделы админки" className="admin-sidebar-nav flex lg:flex-col gap-1.5 overflow-x-auto rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-2 lg:sticky lg:top-4">
-                {([
-                  { key: 'dashboard', label: 'Сегодня', icon: LayoutDashboard, active: adminView === 'dashboard', onClick: () => setAdminView('dashboard') },
-                  { key: 'attribution', label: 'Воронка', icon: BarChart3, active: adminView === 'attribution', onClick: () => setAdminView('attribution') },
-                  { key: 'meta', label: 'Meta CAPI', icon: Activity, active: adminView === 'meta', onClick: () => setAdminView('meta') },
-                  { key: 'articles', label: 'Статьи', icon: Newspaper, active: adminView === 'articles' && adminSectionFilter !== 'cases', onClick: () => { setAdminView('articles'); setAdminSectionFilter('blog'); } },
-                  { key: 'cases', label: 'Кейсы', icon: Briefcase, active: adminView === 'articles' && adminSectionFilter === 'cases', onClick: () => { setAdminView('articles'); setAdminSectionFilter('cases'); } },
-                  { key: 'content', label: 'Тексты сайта', icon: PanelsTopLeft, active: adminView === 'content', onClick: () => setAdminView('content') },
-                  { key: 'leads', label: 'Заявки', icon: Inbox, active: adminView === 'leads', onClick: () => setAdminView('leads') },
-                  { key: 'media', label: 'Медиатека', icon: Images, active: adminView === 'media', onClick: () => setAdminView('media') },
-                  { key: 'health', label: 'Проверка', icon: Stethoscope, active: adminView === 'health', onClick: () => setAdminView('health') },
-                ] as const).map((item) => (
+                {adminNavigation.map((item) => (
                   <button
                     type="button"
                     key={item.key}
-                    onClick={item.onClick}
-                    aria-current={item.active ? 'page' : undefined}
-                    className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${item.active ? 'bg-[var(--adm-primary)]/15 font-semibold text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50'}`}
+                    onClick={() => navigateToAdminSection(item.key)}
+                    aria-current={currentNavKey === item.key ? 'page' : undefined}
+                    className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${currentNavKey === item.key ? 'bg-[var(--adm-primary)]/15 font-semibold text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50'}`}
                   >
                     <item.icon className="h-4 w-4 shrink-0" /> {item.label}
                   </button>
@@ -1042,10 +1074,12 @@ export default function Admin() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Раздел публикации</label>
-                      <select aria-label="Раздел публикации" value={editingArticle.category || 'Блог'} onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all">
-                        <option value="Блог">Блог</option>
-                        <option value="Кейсы">Кейсы</option>
-                      </select>
+                      <AdminSelect
+                        ariaLabel="Раздел публикации"
+                        value={editingArticle.category || 'Блог'}
+                        options={[{ value: 'Блог', label: 'Блог' }, { value: 'Кейсы', label: 'Кейсы' }]}
+                        onValueChange={(value) => setEditingArticle({ ...editingArticle, category: value })}
+                      />
                     </div>
                   </div>
 
@@ -1062,15 +1096,14 @@ export default function Admin() {
 
                   <div className="flex flex-wrap items-center gap-4">
                     <label className="text-sm font-medium text-[var(--adm-fg)]/80">Статус:</label>
-                    <select
-                      aria-label="Статус публикации"
-                      value={editingArticle.status || 'published'}
-                      onChange={(e) => setEditingArticle({ ...editingArticle, status: e.target.value as Article['status'] })}
-                      className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] px-3 py-2 text-sm"
-                    >
-                      <option value="published">Опубликована</option>
-                      <option value="draft">Черновик</option>
-                    </select>
+                    <div className="min-w-[190px]">
+                      <AdminSelect
+                        ariaLabel="Статус публикации"
+                        value={editingArticle.status || 'published'}
+                        options={[{ value: 'published', label: 'Опубликована' }, { value: 'draft', label: 'Черновик' }]}
+                        onValueChange={(value) => setEditingArticle({ ...editingArticle, status: value as Article['status'] })}
+                      />
+                    </div>
                     {editingArticle.publishedAt && new Date(editingArticle.publishedAt) > new Date() && editingArticle.status === 'published' && (
                       <span className="text-xs text-blue-400">(запланирована на {new Date(editingArticle.publishedAt).toLocaleString()})</span>
                     )}

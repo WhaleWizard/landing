@@ -4,7 +4,9 @@ import { AlertTriangle, Clock, ArrowRight, ArrowLeft, Calendar, Download, X, Lis
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense } from 'react';
 import SEO from '../components/SEO';
+import { isCaseArticle } from '../utils/articleCategory';
 import { useArticles } from '../context/ArticlesContext';
+import type { Article } from '../components/hooks/useArticlesApi';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
@@ -13,6 +15,7 @@ import { useScrollTo } from '../components/hooks/useScrollTo';
 import CaseArticleView from '../components/CaseArticleView';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
+const SITE_URL = 'https://www.whalewzrd.com';
 
 // useInView должен наблюдать элемент, который монтируется ВМЕСТЕ с хуком.
 // Раньше ref висел на секции, которая появлялась после скелетона загрузки —
@@ -108,6 +111,66 @@ function extractRelatedArticles(allArticles, currentArticle) {
     .slice(0, 3);
 }
 
+function toIsoDate(value?: string): string | undefined {
+  if (!value) return undefined;
+  const direct = new Date(value);
+  if (!Number.isNaN(direct.getTime())) return direct.toISOString().slice(0, 10);
+  const match = value.trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (!match) return undefined;
+  const [, day, month, year] = match;
+  const parsed = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString().slice(0, 10);
+}
+
+function absoluteArticleImage(path = ''): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${SITE_URL}${path.startsWith('/') ? path : `/${path || 'og-image.jpg'}`}`;
+}
+
+function buildArticleStructuredData(article: Article, routeBase: '/blog' | '/cases') {
+  const canonical = `${SITE_URL}${routeBase}/${article.slug}`;
+  const publishedDate = toIsoDate(article.publishedAt) || toIsoDate(article.date);
+  const modifiedDate = toIsoDate(article.updatedAt) || publishedDate;
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': routeBase === '/cases' ? 'Article' : 'BlogPosting',
+    headline: buildArticleSeoTitle(article),
+    description: buildArticleSeoDescription(article),
+    image: [absoluteArticleImage(article.image)],
+    ...(publishedDate ? { datePublished: publishedDate } : {}),
+    ...(modifiedDate ? { dateModified: modifiedDate } : {}),
+    mainEntityOfPage: canonical,
+    author: { '@type': 'Person', name: 'Whale Wizard' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Whale Wizard',
+      logo: { '@type': 'ImageObject', url: `${SITE_URL}/images/brand/whale-wizard.png` },
+    },
+    keywords: article.tags || [],
+    articleSection: article.category,
+  };
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Главная', item: `${SITE_URL}/` },
+      { '@type': 'ListItem', position: 2, name: routeBase === '/cases' ? 'Кейсы' : 'Блог', item: `${SITE_URL}${routeBase}/` },
+      { '@type': 'ListItem', position: 3, name: article.title, item: canonical },
+    ],
+  };
+  const faqItems = (article.faq || []).filter((item) => item?.question && item?.answer);
+  const faqSchema = faqItems.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: { '@type': 'Answer', text: item.answer },
+    })),
+  } : null;
+  return { articleSchema, breadcrumbSchema, faqSchema };
+}
+
 function CaseZipWarning({ download, onClose, onConfirm }) {
   return (
     <AnimatePresence>
@@ -174,7 +237,7 @@ function BlogPageComponent() {
   const preservedCaseSearch = isCasesRoute ? location.search : '';
   const listUrl = `${routeBase}${preservedCaseSearch}`;
   const { articles: allArticles, loading } = useArticles();
-  const [selectedArticle, setSelectedArticle] = useState(null);
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   // Поддержка /blog?search=… — этот формат заявлен в JSON-LD SearchAction (SEO.tsx)
   const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
   const [activeCategory, setActiveCategory] = useState('');
@@ -219,7 +282,7 @@ function BlogPageComponent() {
 
   useEffect(() => {
     if (slug && !loading) {
-      const article = allArticles.find((a) => a.slug === slug && (isCasesRoute ? a.category === 'Кейсы' : a.category !== 'Кейсы'));
+      const article = allArticles.find((a) => a.slug === slug && (isCasesRoute ? isCaseArticle(a) : !isCaseArticle(a)));
       if (article) setSelectedArticle(article);
       else navigate(listUrl, { replace: true });
     } else {
@@ -231,6 +294,39 @@ function BlogPageComponent() {
     if (!selectedArticle) return;
     articleTitleRef.current?.focus({ preventScroll: true });
   }, [selectedArticle]);
+
+  useEffect(() => {
+    const ids = ['ld-article', 'ld-breadcrumbs', 'ld-faq-page'] as const;
+    if (!selectedArticle) {
+      ids.forEach((id) => document.getElementById(id)?.remove());
+      return;
+    }
+
+    const { articleSchema, breadcrumbSchema, faqSchema } = buildArticleStructuredData(
+      selectedArticle,
+      routeBase as '/blog' | '/cases',
+    );
+    const entries = [
+      ['ld-article', articleSchema],
+      ['ld-breadcrumbs', breadcrumbSchema],
+      ['ld-faq-page', faqSchema],
+    ] as const;
+
+    for (const [id, payload] of entries) {
+      const existing = document.getElementById(id);
+      if (!payload) {
+        existing?.remove();
+        continue;
+      }
+      const script = existing instanceof HTMLScriptElement ? existing : document.createElement('script');
+      script.id = id;
+      script.type = 'application/ld+json';
+      script.textContent = JSON.stringify(payload);
+      if (!script.isConnected) document.head.appendChild(script);
+    }
+
+    return () => ids.forEach((id) => document.getElementById(id)?.remove());
+  }, [selectedArticle, routeBase]);
 
   useEffect(() => {
     if (!contentRef.current || !selectedArticle) return;
@@ -292,7 +388,7 @@ function BlogPageComponent() {
 
   // Сначала раздел (блог/кейсы), затем категория, затем поиск — раньше поиск
   // игнорировал раздел и на /cases находил статьи блога.
-  const scopedArticles = allArticles.filter((article) => (isCasesRoute ? article.category === 'Кейсы' : article.category !== 'Кейсы'));
+  const scopedArticles = allArticles.filter((article) => (isCasesRoute ? isCaseArticle(article) : !isCaseArticle(article)));
   const categories = [...new Set(scopedArticles.map((article) => article.category).filter(Boolean))];
   const normalizedQueryTokens = normalizeTokens(searchQuery);
   const filteredArticles = scopedArticles.filter((article) => {
@@ -315,7 +411,7 @@ function BlogPageComponent() {
 
   if (selectedArticle) {
     const relatedArticles = extractRelatedArticles(
-      allArticles.filter((article) => (isCasesRoute ? article.category === 'Кейсы' : article.category !== 'Кейсы')),
+      allArticles.filter((article) => (isCasesRoute ? isCaseArticle(article) : !isCaseArticle(article))),
       selectedArticle,
     );
     const seoTitle = buildArticleSeoTitle(selectedArticle);
@@ -330,6 +426,9 @@ function BlogPageComponent() {
             description={seoDescription}
             url={`/cases/${selectedArticle.slug}`}
             type="article"
+            articlePublishedTime={toIsoDate(selectedArticle.publishedAt) || toIsoDate(selectedArticle.date)}
+            articleModifiedTime={toIsoDate(selectedArticle.updatedAt) || toIsoDate(selectedArticle.publishedAt) || toIsoDate(selectedArticle.date)}
+            articleSection={selectedArticle.category}
           />
           <motion.div
             aria-hidden="true"
@@ -364,6 +463,9 @@ function BlogPageComponent() {
           description={seoDescription}
           url={`${routeBase}/${selectedArticle.slug}`}
           type="article"
+          articlePublishedTime={toIsoDate(selectedArticle.publishedAt) || toIsoDate(selectedArticle.date)}
+          articleModifiedTime={toIsoDate(selectedArticle.updatedAt) || toIsoDate(selectedArticle.publishedAt) || toIsoDate(selectedArticle.date)}
+          articleSection={selectedArticle.category}
         />
         {/* Прогресс чтения — поверх всего, тонкая градиентная полоса */}
         <motion.div

@@ -1,6 +1,8 @@
 import { motion, useInView } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
-import { useState, useEffect, useRef, memo, useCallback, TouchEvent, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, TouchEvent, lazy, Suspense, useMemo } from 'react';
+import { useSiteSection } from '../hooks/useServiceContent';
+import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -21,16 +23,17 @@ export type TestimonialsContent = {
   titlePrefix: string;
   titleAccent: string;
   description: string;
+  typography?: ContentTypography;
 };
 
-const defaultStats: TestimonialStat[] = [
+export const defaultTestimonialsStats: TestimonialStat[] = [
   { value: '150+', label: 'кейсов с результатом' },
   { value: '5 лет', label: 'Опыта в маркетинге' },
   { value: '79%', label: 'проектов окупаются и масштабируются' },
   { value: '$2М+', label: 'откручено в рекламе' },
 ];
 
-const defaultContent: TestimonialsContent = {
+export const defaultTestimonialsContent: TestimonialsContent = {
   badge: 'Отзывы о работе',
   titlePrefix: 'Что клиенты ценят',
   titleAccent: 'в работе со мной',
@@ -211,12 +214,18 @@ function TestimonialCard({ testimonial, index, compact = false }: { testimonial:
 }
 
 function Testimonials({
-  stats = defaultStats,
-  content = defaultContent,
+  stats: statsProp = defaultTestimonialsStats,
+  content: contentProp = defaultTestimonialsContent,
+  contentKey = null,
 }: {
   stats?: TestimonialStat[];
   content?: TestimonialsContent;
+  contentKey?: string | null;
 }) {
+  const fallback = useMemo(() => ({ ...contentProp, stats: statsProp }), [contentProp, statsProp]);
+  const sectionContent = useSiteSection(contentKey, 'testimonials', fallback);
+  const content: TestimonialsContent = sectionContent;
+  const stats = sectionContent.stats ?? statsProp;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDesktopScrollbarVisible, setIsDesktopScrollbarVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
@@ -359,13 +368,13 @@ function Testimonials({
             <Users className="w-4 h-4 text-accent" />
             <span className="text-sm text-accent font-semibold">{content.badge}</span>
           </div>
-          <h2 className="text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+          <h2 className={`text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4 ${managedTitleClasses(content.typography)}`}>
             {content.titlePrefix}{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
               {content.titleAccent}
             </span>
           </h2>
-          <p className="text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className={`text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto ${managedBodyClasses(content.typography)}`}>
             {content.description}
           </p>
         </motion.div>

@@ -18,11 +18,21 @@ const files = {
   diagnosticsWriter: readFileSync('functions/_lib/meta-diagnostics.ts', 'utf8'),
   outbox: readFileSync('functions/_lib/meta-outbox.ts', 'utf8'),
   metaCapi: readFileSync('functions/_lib/meta-capi.ts', 'utf8'),
+  leadStore: readFileSync('functions/_lib/leads.ts', 'utf8'),
   leadQuality: readFileSync('functions/_lib/lead-quality.ts', 'utf8'),
+  leadConsentMigration: readFileSync('migrations/0015_lead_consent_receipts.sql', 'utf8'),
+  leadIngestionMigration: readFileSync('migrations/0019_lead_ingestion_idempotency.sql', 'utf8'),
+  diagnosticsRetentionMigration: readFileSync('migrations/0016_meta_diagnostics_retention.sql', 'utf8'),
   adminLeadsApi: readFileSync('functions/api/admin/leads.ts', 'utf8'),
+  adminLeadQualityStatus: readFileSync('functions/_lib/admin-lead-quality-status.ts', 'utf8'),
   adminLeadsUi: readFileSync('src/app/components/admin/AdminLeads.tsx', 'utf8'),
   adminHealth: readFileSync('functions/api/admin/health.ts', 'utf8'),
   adminMetaCenter: readFileSync('functions/api/admin/meta-center.ts', 'utf8'),
+  trackingSignature: readFileSync('functions/_lib/tracking-signature.ts', 'utf8'),
+  trackingSignatureMigration: readFileSync('migrations/0018_tracking_request_nonces.sql', 'utf8'),
+  leadRetryQueue: readFileSync('src/app/utils/leadRetryQueue.ts', 'utf8'),
+  leadRetryConsent: readFileSync('src/app/utils/leadRetryConsent.ts', 'utf8'),
+  routes: readFileSync('src/app/routes.tsx', 'utf8'),
   envTypes: readFileSync('functions/_lib/types.ts', 'utf8'),
   envExample: readFileSync('.env.example', 'utf8'),
   cloudflareSetupDoc: readFileSync('docs/META_CAPI_CLOUDFLARE_SETUP.md', 'utf8'),
@@ -55,6 +65,7 @@ mustContain('PageView CAPI payload', files.pageview, [
   'event_id: eventId',
   "action_source: 'website'",
   'event_source_url: eventSourceUrl',
+  'referrer_url: sanitizeUrlForMeta(payload.referrer)',
   'const eventSourceUrl = payload.page_url || payload.page_location',
   'marketing_consent: payload.marketing_consent === true',
   "error_message: 'marketing_consent_not_granted'",
@@ -80,6 +91,7 @@ mustContain('PageView CAPI payload', files.pageview, [
 mustContain('Lead request normalization regression', files.lead, [
   'const normalized = normalizeLeadPayload',
   'event_source_url: eventSourceUrl',
+  'referrer_url: sanitizeUrlForMeta(payload.referrer)',
   'const eventSourceUrl = payload.page_url || payload.page_location',
   '...getMetaDataProcessingOptions(env)',
 ]);
@@ -114,6 +126,7 @@ mustContain('ViewContent/FormStart/Contact payloads', files.metaEvent, [
   'recordMetaDiagnostics',
   'wasMetaEventAlreadySent',
   'const eventSourceUrl = payload.page_url || payload.page_location',
+  'referrer_url: sanitizeUrlForMeta(payload.referrer)',
   '...getMetaDataProcessingOptions(env)',
 ]);
 
@@ -319,12 +332,121 @@ mustContain('Lead quality CAPI payload', files.leadQuality, [
   'isConfirmedMetaReceipt(receipt)',
 ]);
 
-mustContain('Persistent lead quality delivery status', files.adminLeadsApi + files.adminLeadsUi, [
+mustContain('Durable lead consent receipt', files.leadStore + files.leadQuality + files.leadConsentMigration, [
+  'consent_version',
+  'consent_source',
+  'consent_region',
+  'consent_timestamp',
+  'consent_recorded_at',
+  'consent_receipt_missing',
+  'consent_receipt_invalid',
+  'consent_receipt_expired',
+  'LEAD_QUALITY_CONSENT_MAX_AGE_DAYS = 180',
+]);
+
+mustContain('Persistent lead quality delivery status', files.adminLeadsApi + files.adminLeadQualityStatus + files.adminLeadsUi, [
   'quality_meta_status',
   'quality_meta_event_id',
   "Meta: доставлено",
-  "Meta: повторная отправка",
-  "Meta: не доставлено",
+  "quality_meta_status === 'queued'",
+  "quality_meta_queue_status === 'retry'",
+  "Meta: повтор",
+  "quality_meta_status === 'failed'",
+  "Meta: ошибка",
+]);
+
+mustContain('Tracking signature secret validation', files.trackingSignature, [
+  'HMAC_SECRET_HEX_LENGTH = 64',
+  '/^[0-9a-f]+$/i',
+  "reason: 'invalid_secret_format'",
+  "reason: 'signature_verification_failed'",
+]);
+
+mustContain('Tracking signature and lead-ingestion health', files.adminHealth + files.trackingSignatureMigration + files.leadIngestionMigration, [
+  'tracking_request_nonces',
+  'tracking_signature_daily',
+  'lead_ingestions',
+  'tracking-signature-schema',
+  'tracking-signature-config',
+  'lead-ingestion-schema',
+  "updated_at >= strftime('%s','now','-1 day')",
+  '/^[0-9a-f]{64}$/i',
+  '0018',
+  '0019_lead_ingestion_idempotency.sql',
+  'retryable 503',
+]);
+assert.ok(
+  files.adminHealth.includes("signatureMode === 'enforce' ? 'fail' : 'warn'"),
+  'Missing signature schema/config must fail in enforce and warn in monitor/off modes',
+);
+assert.ok(
+  !/\$\{\s*env\.TRACKING_HMAC_SECRET\b/.test(files.adminHealth),
+  'Admin health must never interpolate the tracking HMAC secret into its response',
+);
+const healthWithoutSecretValidator = files.adminHealth.replace(
+  /function hasValidTrackingHmacSecret[\s\S]*?\n}\n/,
+  '',
+);
+assert.ok(
+  !healthWithoutSecretValidator.includes('env.TRACKING_HMAC_SECRET'),
+  'Admin health may access the HMAC secret only inside its format validator',
+);
+
+mustContain('Offline lead retry consent downgrade', files.leadRetryQueue + files.leadRetryConsent, [
+  'loadConsent()',
+  'originallyGranted && currentlyGranted',
+  'nextPayload.marketing_consent = hasMarketingConsent',
+  'MARKETING_CONTEXT_FIELDS',
+  'delete nextPayload[field]',
+]);
+
+mustContain('Durable idempotent lead ingestion', files.lead + files.leadStore + files.leadIngestionMigration, [
+  'await storeLead(env, normalized)',
+  "error: 'lead_storage_unavailable'",
+  'retryable: true',
+  'stored.duplicate',
+  'lead_ingestions',
+  'claim_token',
+  'submissions_count = submissions_count + 1',
+  "pipeline_stage = 'new'",
+  "quality = ''",
+]);
+
+mustContain('Admin tracking exclusion', files.consent + files.routes, [
+  'isTrackingExcludedPath',
+  '/^\\/admin(?:\\/|$)/',
+  '!isAdmin',
+]);
+
+for (const [name, source] of [
+  ['PageView', files.pageview],
+  ['Lead', files.lead],
+  ['Meta event', files.metaEvent],
+]) {
+  assert.ok(!source.includes('country: ctx.country'), `${name} custom_data must not repeat raw country`);
+  assert.ok(!source.includes('city: ctx.city'), `${name} custom_data must not repeat raw city`);
+  assert.ok(!source.includes('region: ctx.region'), `${name} custom_data must not repeat raw region`);
+}
+
+for (const [name, source] of [
+  ['summary', files.diagnosticsSummary],
+  ['coverage', files.diagnosticsCoverage],
+  ['alerts', files.diagnosticsAlerts],
+  ['funnel', files.diagnosticsFunnel],
+  ['anomalies', files.diagnosticsAnomalies],
+]) {
+  assert.ok(!source.includes("searchParams.get('secret')"), `Diagnostics ${name} must not accept secrets in URLs`);
+  assert.ok(source.includes("COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')"), `Diagnostics ${name} must exclude test/probe rows`);
+}
+assert.ok(!files.metaTestEvent.includes("searchParams.get('secret')"), 'Meta test endpoint must not accept its debug secret in the URL');
+assert.ok(files.adminMetaCenter.includes("COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')"), 'Admin Meta center must exclude test/probe rows');
+assert.ok(files.adminHealth.includes("COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')"), 'Admin health must exclude test/probe rows');
+
+mustContain('Meta diagnostics retention', files.diagnosticsRetentionMigration + files.adminHealth, [
+  'trg_meta_capi_diagnostics_retention',
+  "datetime('now', '-90 days')",
+  'AFTER INSERT ON meta_capi_diagnostics',
+  '0016_meta_diagnostics_retention.sql',
 ]);
 
 mustContain('Meta outbox operational health', files.outbox + files.adminHealth, [

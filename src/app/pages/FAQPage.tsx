@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { ArrowRight, HelpCircle, Search, Sparkles } from 'lucide-react';
@@ -300,7 +300,12 @@ export const faqs: FaqItem[] = [
 export default function FAQPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const liveFaqs = useFaqContent(faqs);
+  const defaultSeo = useMemo(() => ({
+    title: 'Вопросы о рекламе, аналитике и продвижении приложений',
+    description: 'Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений.',
+  }), []);
+  const faqContent = useFaqContent(faqs, defaultSeo);
+  const liveFaqs = faqContent.items;
 
   const filteredFaqs = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -327,14 +332,25 @@ export default function FAQPage() {
     [liveFaqs],
   );
 
+  useEffect(() => {
+    let script = document.getElementById('ld-faq-page') as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'ld-faq-page';
+      script.type = 'application/ld+json';
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(faqSchema);
+    return () => script?.remove();
+  }, [faqSchema]);
+
   return (
     <>
       <SEO
-        title="Вопросы о рекламе, аналитике и продвижении приложений"
-        description="Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений."
+        title={faqContent.seo.title}
+        description={faqContent.seo.description}
         url="/faq"
       />
-      <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
 
       <section className="marketing-typography min-h-screen bg-background py-16 md:py-24 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">

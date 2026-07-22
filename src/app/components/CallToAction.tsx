@@ -3,22 +3,26 @@ import { ArrowDown, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { memo, useCallback } from 'react';
 import { useScrollTo } from './hooks/useScrollTo';
+import { useSiteSection } from '../hooks/useServiceContent';
+import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
 export type CallToActionContent = {
   badge: string;
   title: string;
   description: string;
   button: string;
+  typography?: ContentTypography;
 };
 
-const defaultContent: CallToActionContent = {
+export const defaultCallToActionContent: CallToActionContent = {
   badge: 'Обсудить задачу',
   title: 'Есть задача по рекламе?',
   description: 'Коротко опишите проект — отвечу, с чего разумнее начать: с разбора, теста или настройки аналитики, и почему.',
   button: 'Обсудить проект',
 };
 
-function CallToAction({ content = defaultContent }: { content?: CallToActionContent }) {
+function CallToAction({ content: contentProp = defaultCallToActionContent, contentKey = null }: { content?: CallToActionContent; contentKey?: string | null }) {
+  const content = useSiteSection(contentKey, 'callToAction', contentProp);
   const { scrollToWhenReady } = useScrollTo();
 
   const scrollToContact = useCallback(() => {
@@ -48,10 +52,10 @@ function CallToAction({ content = defaultContent }: { content?: CallToActionCont
                 <Sparkles className="w-4 h-4 text-primary" />
                 <span className="text-xs md:text-sm text-primary font-semibold">{content.badge}</span>
               </div>
-              <h3 className="text-balance text-xl md:text-2xl lg:text-3xl font-bold leading-tight tracking-[-0.01em]">
+              <h3 className={`text-balance text-xl md:text-2xl lg:text-3xl font-bold leading-tight tracking-[-0.01em] ${managedTitleClasses(content.typography, 'cta')}`}>
                 {content.title}
               </h3>
-              <p className="text-pretty text-sm md:text-base text-muted-foreground leading-relaxed">
+              <p className={`text-pretty text-sm md:text-base text-muted-foreground leading-relaxed ${managedBodyClasses(content.typography)}`}>
                 {content.description}
               </p>
             </div>

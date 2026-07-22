@@ -11,12 +11,19 @@
 2. До миграций сделать экспорт/резервную копию production D1, затем применить
    все ещё не применённые миграции строго по порядку, включая:
    - `migrations/0012_admin_control_center.sql`;
-   - `migrations/0013_site_sections.sql`.
+   - `migrations/0013_site_sections.sql`;
+   - `migrations/0014_crm_workspace.sql`;
+   - `migrations/0015_lead_consent_receipts.sql`;
+   - `migrations/0016_meta_diagnostics_retention.sql`;
+   - `migrations/0017_crm_correctness.sql`;
+   - `migrations/0018_tracking_request_nonces.sql`;
+   - `migrations/0019_lead_ingestion_idempotency.sql`.
 3. Проверить, что в Cloudflare Pages для Production подключены:
    - D1 database с именем binding `DB`;
    - KV `META_CAPI_IDEMPOTENCY`;
    - KV `META_CAPI_DIAGNOSTICS`;
-   - KV `META_CAPI_NONCE` — для защиты подписанных tracking-запросов от повторного воспроизведения;
+   - KV `META_CAPI_NONCE` — только как совместимый fallback в режиме `monitor`;
+     атомарная защита от повторного воспроизведения находится в D1 после `0018`;
    - R2 bucket с именем binding `BUCKET` — для медиатеки.
 4. Проверить production secrets и variables:
    - `ADMIN_PASSWORD`;
@@ -24,14 +31,32 @@
    - `META_CAPI_DEBUG_SECRET`;
    - `VITE_META_PIXEL_ID`;
    - `META_CAPI_API_VERSION` (сейчас `v25.0`);
-   - `SITE_URL`.
+   - `TRACKING_HMAC_SECRET` (Secret, ровно 64 шестнадцатеричных символа);
+   - `TRACKING_SIGNATURE_MODE=monitor` и `TRACKING_SIG_TTL_SEC=60`;
+   - `SITE_URL`;
+   - `CF_ZONE_ID` (Plaintext: это идентификатор, не секрет);
+   - `CF_CACHE_PURGE_TOKEN` (Secret, только разрешение `Zone.Cache Purge`);
+   - `CF_PAGES_DEPLOY_HOOK_URL` (Secret production deploy hook — для автоматической
+     синхронизации опубликованного D1-текста со статическим SEO-HTML).
 5. Сделать новый production deploy после изменения bindings или variables — уже
    запущенная Pages Function не подхватит их без новой выкладки.
 
-Миграцию `0012` нужно выполнить один раз. Старый статус `closed` не позволяет
+Каждую миграцию нужно выполнить один раз и строго по номеру. Старый статус `closed` не позволяет
 понять, выиграна сделка или проиграна, поэтому такие исторические заявки попадут
 в нейтральный этап «Архив». После запуска их можно вручную разобрать на
 «Выиграна» и «Проиграна», не подменяя реальную бизнес-историю догадкой.
+
+`0018` создаёт в D1 атомарный журнал использованных nonce и агрегированную
+диагностику подписей без тел запросов и исходных nonce. `META_CAPI_NONCE` не
+заменяет этот журнал: KV-проверка `get` → `put` неатомарна и оставлена только
+как совместимый fallback в `monitor`. Режим `enforce` пока включать нельзя:
+браузерный клиент не должен получать HMAC-секрет, а доверенный подписывающий
+серверный клиент ещё должен быть внедрён и подтверждён реальными валидными
+запросами в production.
+
+`0019` нужно применить до выкладки нового обработчика заявок или в том же
+окне обслуживания до поступления трафика. Без неё `/api/lead` намеренно вернёт
+повторяемую ошибку `503`, а не ложный успех без надёжной записи заявки.
 
 Если проверяются Preview deployments, те же bindings и variables нужно отдельно
 добавить в окружение Preview. Значения секретов нельзя присылать в чат или
@@ -129,7 +154,17 @@ binding `DB`.
 
 ## Публикация текстов
 
-Тексты из «Текстов сайта» публикуются динамически из D1. Статический HTML для
-поисковых роботов обновляется только следующей production-сборкой. Поэтому после
-крупного изменения оффера или FAQ нужно также включить эти тексты в следующий
-деплой, чтобы клиентская версия и SEO-пререндер не расходились.
+Тексты из «Текстов сайта» публикуются динамически из D1. Чтобы та же версия
+попала и в статический HTML для поисковых роботов, задайте Secret
+`CF_PAGES_DEPLOY_HOOK_URL` для production deploy hook. Публикация запросит новую
+production-сборку, и только после её успешного завершения статический SEO-HTML
+обновится. Это асинхронный процесс: успешный ответ hook означает запуск, а не
+окончание сборки, поэтому результат нужно проверить в Cloudflare Deployments.
+
+Первый переход делайте в два шага: сначала выложите код с
+`REQUIRE_FRESH_SITE_CONTENT=false`, проверьте `/api/site-content`, затем добавьте
+hook и включите `REQUIRE_FRESH_SITE_CONTENT=true`. Строгий режим остановит
+сборку, если свежий D1-снимок получить не удалось, вместо публикации устаревшего
+SEO-HTML. `CF_ZONE_ID` (Plaintext) вместе с `CF_CACHE_PURGE_TOKEN` (Secret с
+минимальным правом `Zone.Cache Purge`) нужны для немедленной очистки edge-кэша
+после публикации; они не заменяют deploy hook.

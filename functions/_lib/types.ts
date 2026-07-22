@@ -76,6 +76,8 @@ export interface Env {
   // без них чистится только кэш текущего дата-центра.
   CF_ZONE_ID?: string;
   CF_CACHE_PURGE_TOKEN?: string;
+  // Production deploy hook: publishing site text triggers a fresh static SEO build.
+  CF_PAGES_DEPLOY_HOOK_URL?: string;
   // Meta Conversions API
   META_CAPI_ACCESS_TOKEN?: string;
   META_CAPI_TEST_CODE?: string;

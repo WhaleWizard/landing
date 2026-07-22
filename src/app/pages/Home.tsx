@@ -2,6 +2,12 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import SEO from '../components/SEO';
+import { useSiteSection } from '../hooks/useServiceContent';
+
+const defaultHomeSeo = {
+  title: 'Google Ads, Meta Ads и аналитика',
+  description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
+};
 
 const Services = lazy(() => import('../components/Services'));
 const Cases = lazy(() => import('../components/Cases'));
@@ -32,20 +38,21 @@ function DeferredSection({
 }
 
 export default function Home() {
+  const seo = useSiteSection('site:home', 'seo', defaultHomeSeo);
   return (
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden">
       <SEO
-        title="Google Ads, Meta Ads и аналитика"
-        description="Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM."
+        title={seo.title}
+        description={seo.description}
         url="/"
       />
       <Navbar />
-      <Hero />
+      <Hero contentKey="site:home" />
 
-      <DeferredSection><Services /></DeferredSection>
-      <DeferredSection><Cases /></DeferredSection>
-      <DeferredSection><CallToAction /></DeferredSection>
-      <DeferredSection><Testimonials /></DeferredSection>
+      <DeferredSection><Services contentKey="site:home" /></DeferredSection>
+      <DeferredSection><Cases contentKey="site:home" /></DeferredSection>
+      <DeferredSection><CallToAction contentKey="site:home" /></DeferredSection>
+      <DeferredSection><Testimonials contentKey="site:home" /></DeferredSection>
       <DeferredSection><Blog /></DeferredSection>
 
       <section className="w-full flex justify-center py-12 md:py-16">
@@ -56,7 +63,7 @@ export default function Home() {
       </section>
 
       <DeferredSection height="min-h-[120px]"><CalculatorButtons /></DeferredSection>
-      <DeferredSection height="min-h-[240px]"><ContactForm /></DeferredSection>
+      <DeferredSection height="min-h-[240px]"><ContactForm contentKey="site:home" /></DeferredSection>
       <DeferredSection height="min-h-[160px]"><Footer /></DeferredSection>
     </main>
   );

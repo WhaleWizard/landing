@@ -7,12 +7,13 @@ import { useNavigate } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
+import { isCaseArticle } from '../utils/articleCategory';
 
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { articles, loading } = useArticles();
-  const blogArticles = articles.filter((article) => article.category !== 'Кейсы');
+  const blogArticles = articles.filter((article) => !isCaseArticle(article));
 
   useEffect(() => {
     const container = scrollContainerRef.current;

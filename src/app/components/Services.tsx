@@ -3,6 +3,8 @@ import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info, type 
 import { useState, useRef, TouchEvent, memo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router';
 import Modal from './Modal';
+import { useSiteSection } from '../hooks/useServiceContent';
+import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -31,6 +33,7 @@ export type ServicesContent = {
     button: string;
     sections: ServiceDetailedSection[];
   };
+  typography?: ContentTypography;
 };
 
 const servicesData: ServiceCardContent[] = [
@@ -101,8 +104,8 @@ export const defaultServicesContent: ServicesContent = {
   detailed: detailedContent,
 };
 
-function Services({ content }: { content?: ServicesContent }) {
-  const sectionContent = content ?? defaultServicesContent;
+function Services({ content, contentKey = null }: { content?: ServicesContent; contentKey?: string | null }) {
+  const sectionContent = useSiteSection(contentKey, 'services', content ?? defaultServicesContent);
   const serviceCards = sectionContent.cards;
   const modalContent = sectionContent.detailed;
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -189,13 +192,13 @@ function Services({ content }: { content?: ServicesContent }) {
               <Target className="w-4 h-4 text-primary" />
               <span className="text-sm text-primary font-semibold">{sectionContent.badge}</span>
             </div>
-            <h2 className="mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4">
+            <h2 className={`mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4 ${managedTitleClasses(sectionContent.typography)}`}>
               {sectionContent.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 {sectionContent.titleAccent}
               </span>
             </h2>
-            <p className="mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed">
+            <p className={`mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
               {sectionContent.description}
             </p>
           </motion.div>

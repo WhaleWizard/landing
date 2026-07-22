@@ -3,6 +3,8 @@ import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } fro
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { useSiteSection } from '../hooks/useServiceContent';
+import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
 export type CaseStat = { label: string; value: string };
 
@@ -20,6 +22,7 @@ export type CasesContent = {
   titleAccent: string;
   description: string;
   items: CaseItem[];
+  typography?: ContentTypography;
 };
 
 const casesData: CaseItem[] = [
@@ -98,8 +101,8 @@ export const defaultCasesContent: CasesContent = {
   items: casesData,
 };
 
-function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: string }) {
-  const sectionContent = content ?? defaultCasesContent;
+function Cases({ content, moreHref, contentKey = null }: { content?: CasesContent; moreHref?: string; contentKey?: string | null }) {
+  const sectionContent = useSiteSection(contentKey, 'cases', content ?? defaultCasesContent);
   const caseItems = sectionContent.items;
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -165,13 +168,13 @@ function Cases({ content, moreHref }: { content?: CasesContent; moreHref?: strin
             <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-primary" />
             <span className="text-xs md:text-sm text-primary">{sectionContent.badge}</span>
           </div>
-          <h2 className="mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4">
+          <h2 className={`mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4 ${managedTitleClasses(sectionContent.typography)}`}>
             {sectionContent.titlePrefix}{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
               {sectionContent.titleAccent}
             </span>
           </h2>
-          <p className="mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed">
+          <p className={`mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
             {sectionContent.description}
           </p>
         </motion.div>

@@ -25,10 +25,16 @@ export interface LeadQualityRow {
   event_source_url?: string;
   external_id?: string;
   marketing_consent?: number;
+  consent_version?: number | null;
+  consent_source?: string | null;
+  consent_region?: string | null;
+  consent_timestamp?: number | null;
+  consent_recorded_at?: string | null;
   service?: string;
   page_path?: string;
   created_at?: string;
   last_submitted_at?: string;
+  quality_action_id?: string;
 }
 
 export type LeadQuality = 'target' | 'nontarget';
@@ -40,6 +46,16 @@ export interface LeadQualityResult {
   events_received?: number;
   fbtrace_id?: string;
 }
+
+// Matches the browser consent lifetime in src/app/consent/consent.ts.
+// A delayed CRM signal must not rely on a consent decision older than this.
+export const LEAD_QUALITY_CONSENT_MAX_AGE_DAYS = 180;
+const LEAD_QUALITY_CONSENT_MAX_AGE_MS = LEAD_QUALITY_CONSENT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+const MAX_CONSENT_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+type ConsentReceiptValidation =
+  | { valid: true; timestampMs: number }
+  | { valid: false; code: 'consent_receipt_missing' | 'consent_receipt_invalid' | 'consent_receipt_expired' };
 
 function sanitizeSourceUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -66,6 +82,38 @@ function parseSqliteTimestamp(value: string | undefined): number | undefined {
   return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : undefined;
 }
 
+function validateConsentReceipt(lead: LeadQualityRow, nowMs = Date.now()): ConsentReceiptValidation {
+  const rawTimestamp = Number(lead.consent_timestamp);
+  const timestampMs = rawTimestamp >= 1_000_000_000_000
+    ? rawTimestamp
+    : rawTimestamp >= 1_000_000_000
+      ? rawTimestamp * 1000
+      : Number.NaN;
+  const version = Number(lead.consent_version);
+  const source = String(lead.consent_source || '').trim().toLowerCase();
+  const region = String(lead.consent_region || '').trim();
+  const recordedAt = parseSqliteTimestamp(lead.consent_recorded_at || undefined);
+
+  if (!lead.consent_timestamp || !lead.consent_version || !source || !region || !lead.consent_recorded_at) {
+    return { valid: false, code: 'consent_receipt_missing' };
+  }
+  if (
+    !Number.isFinite(timestampMs)
+    || !Number.isInteger(version)
+    || version <= 0
+    || !['user', 'region_auto'].includes(source)
+    || !recordedAt
+    || timestampMs > nowMs + MAX_CONSENT_CLOCK_SKEW_MS
+    || recordedAt * 1000 > nowMs + MAX_CONSENT_CLOCK_SKEW_MS
+  ) {
+    return { valid: false, code: 'consent_receipt_invalid' };
+  }
+  if (nowMs - timestampMs > LEAD_QUALITY_CONSENT_MAX_AGE_MS) {
+    return { valid: false, code: 'consent_receipt_expired' };
+  }
+  return { valid: true, timestampMs };
+}
+
 // Обратная связь по качеству лида для Meta: QualifiedLead / UnqualifiedLead.
 // Отправляется, когда в админке заявку помечают «целевой» / «нецелевой».
 // Правила те же, что у остальных серверных событий:
@@ -75,21 +123,54 @@ function parseSqliteTimestamp(value: string | undefined): number | undefined {
 export async function sendLeadQualityEvent(env: Env, lead: LeadQualityRow, quality: LeadQuality): Promise<LeadQualityResult> {
   const eventName = quality === 'target' ? 'QualifiedLead' : 'UnqualifiedLead';
   const originalLeadEventId = String(lead.event_id || lead.id);
-  const eventId = `lq:${quality}:${originalLeadEventId}`;
+  // A stable action id makes retries idempotent while allowing a later
+  // reclassification back to the same quality to emit a new, truthful signal.
+  const qualityActionId = String(lead.quality_action_id || '').trim();
+  const eventId = qualityActionId
+    ? `lq:${quality}:${originalLeadEventId}:a:${qualityActionId}`
+    : `lq:${quality}:${originalLeadEventId}`;
   const eventTime = Math.floor(Date.now() / 1000);
   const originalEventTime = parseSqliteTimestamp(lead.last_submitted_at || lead.created_at) || eventTime;
   const eventSourceUrl = sanitizeSourceUrl(lead.event_source_url);
+  const consentDiagnostics = {
+    consent_version: lead.consent_version ?? undefined,
+    consent_source: lead.consent_source || undefined,
+    consent_region: lead.consent_region || undefined,
+    consent_timestamp: lead.consent_timestamp ?? undefined,
+  };
 
   if (Number(lead.marketing_consent || 0) !== 1) {
-    await recordMetaDiagnostics(env, { event_name: eventName, event_id: eventId, event_time: eventTime, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: lead.page_path, event_source_url: eventSourceUrl, service: lead.service, marketing_consent: false });
+    await recordMetaDiagnostics(env, { event_name: eventName, event_id: eventId, event_time: eventTime, status: 'skipped', error_message: 'marketing_consent_not_granted', page_path: lead.page_path, event_source_url: eventSourceUrl, service: lead.service, marketing_consent: false, ...consentDiagnostics });
     return { status: 'skipped', reason: 'нет согласия на маркетинг (или заявка создана до обновления)', event_id: eventId };
+  }
+
+  const consentReceipt = validateConsentReceipt(lead);
+  if ('code' in consentReceipt) {
+    await recordMetaDiagnostics(env, {
+      event_name: eventName,
+      event_id: eventId,
+      event_time: eventTime,
+      status: 'skipped',
+      error_message: consentReceipt.code,
+      page_path: lead.page_path,
+      event_source_url: eventSourceUrl,
+      service: lead.service,
+      marketing_consent: true,
+      ...consentDiagnostics,
+    });
+    const reason = consentReceipt.code === 'consent_receipt_expired'
+      ? `срок согласия на маркетинг истёк (${LEAD_QUALITY_CONSENT_MAX_AGE_DAYS} дней)`
+      : consentReceipt.code === 'consent_receipt_missing'
+        ? 'у заявки нет сохранённой квитанции согласия'
+        : 'сохранённая квитанция согласия некорректна';
+    return { status: 'skipped', reason, event_id: eventId };
   }
 
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = getMetaPixelId(env);
   const apiVersion = getMetaApiVersion(env);
   if (!token) {
-    await recordMetaDiagnostics(env, { event_name: eventName, event_id: eventId, event_time: eventTime, status: 'skipped', error_message: 'missing_token_or_pixel_id', page_path: lead.page_path, event_source_url: eventSourceUrl, service: lead.service, marketing_consent: true });
+    await recordMetaDiagnostics(env, { event_name: eventName, event_id: eventId, event_time: eventTime, status: 'skipped', error_message: 'missing_token_or_pixel_id', page_path: lead.page_path, event_source_url: eventSourceUrl, service: lead.service, marketing_consent: true, ...consentDiagnostics });
     return { status: 'skipped', reason: 'Meta CAPI не настроен', event_id: eventId };
   }
 
@@ -113,7 +194,7 @@ export async function sendLeadQualityEvent(env: Env, lead: LeadQualityRow, quali
   const fbc = lead.fbc || undefined;
 
   if (!hashedEmail && !hashedPhone && !fbp && !fbc && !hashedExternalId) {
-    await recordMetaDiagnostics(env, { event_name: eventName, event_id: eventId, event_time: eventTime, status: 'skipped', error_message: 'no_match_keys', page_path: lead.page_path, event_source_url: eventSourceUrl, service: lead.service, marketing_consent: true });
+    await recordMetaDiagnostics(env, { event_name: eventName, event_id: eventId, event_time: eventTime, status: 'skipped', error_message: 'no_match_keys', page_path: lead.page_path, event_source_url: eventSourceUrl, service: lead.service, marketing_consent: true, ...consentDiagnostics });
     return { status: 'skipped', reason: 'у заявки нет данных для сопоставления с Meta', event_id: eventId };
   }
 
@@ -178,6 +259,7 @@ export async function sendLeadQualityEvent(env: Env, lead: LeadQualityRow, quali
     has_fbc: Boolean(fbc),
     has_external_id: Boolean(hashedExternalId),
     marketing_consent: true,
+    ...consentDiagnostics,
   };
 
   try {

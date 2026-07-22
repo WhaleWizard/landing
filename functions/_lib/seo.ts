@@ -99,6 +99,18 @@ function buildSeoDescription(article: Article): string {
   return article.description || 'Практическая статья о маркетинге и рекламе.';
 }
 
+// JSON-LD is embedded in an HTML <script> element. Escaping markup-significant
+// characters prevents an article title/FAQ value such as "</script>" from
+// terminating the element while preserving the exact JSON value for parsers.
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
   const canonical = `${siteUrl}${sectionPath}/${article.slug}`;
   const image = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
@@ -107,7 +119,7 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
   const publishedDate = toIsoDate(article.publishedAt) || toIsoDate(article.date);
   const modifiedDate = toIsoDate(article.updatedAt) || publishedDate;
 
-  return JSON.stringify(
+  return safeJsonLd(
     {
       '@context': 'https://schema.org',
       '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
@@ -132,15 +144,13 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
       keywords: article.tags || [],
       articleSection: article.category,
     },
-    null,
-    0,
   );
 }
 
 function breadcrumbJsonLd(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
   const sectionLabel = getSectionLabel(sectionPath);
 
-  return JSON.stringify(
+  return safeJsonLd(
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
@@ -155,7 +165,7 @@ function breadcrumbJsonLd(siteUrl: string, article: Article, sectionPath = getAr
           '@type': 'ListItem',
           position: 2,
           name: sectionLabel,
-          item: `${siteUrl}${sectionPath}`,
+          item: `${siteUrl}${sectionPath}/`,
         },
         {
           '@type': 'ListItem',
@@ -165,8 +175,6 @@ function breadcrumbJsonLd(siteUrl: string, article: Article, sectionPath = getAr
         },
       ],
     },
-    null,
-    0,
   );
 }
 
@@ -184,14 +192,12 @@ function faqJsonLd(article: Article): string | null {
 
   if (items.length === 0) return null;
 
-  return JSON.stringify(
+  return safeJsonLd(
     {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
       mainEntity: items,
     },
-    null,
-    0,
   );
 }
 

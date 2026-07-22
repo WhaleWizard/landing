@@ -11,8 +11,12 @@ export const DIST_DIR = join(ROOT_DIR, 'dist');
 export const BUILD_ARTICLES_PATH = join(DATA_DIR, 'articles.build.json');
 export const LOCAL_ARTICLES_PATH = join(DATA_DIR, 'articles.local.json');
 export const PUBLIC_SEED_PATH = join(ROOT_DIR, 'public', 'articles.seed.json');
+export const BUILD_SITE_CONTENT_PATH = join(DATA_DIR, 'site-content.build.json');
 
 export const SITE_URL = (process.env.SITE_URL || 'https://www.whalewzrd.com').replace(/\/$/, '');
+export const PUBLIC_SITE_CONTENT_URL = process.env.SITE_CONTENT_PUBLIC_URL || `${SITE_URL}/api/site-content`;
+export const SITE_CONTENT_FETCH_TIMEOUT_MS = Number(process.env.SITE_CONTENT_FETCH_TIMEOUT_MS || 8000);
+export const STRICT_SITE_CONTENT = process.env.REQUIRE_FRESH_SITE_CONTENT === 'true';
 export const PUBLIC_ARTICLES_URL = process.env.ARTICLES_PUBLIC_URL || `${SITE_URL}/api/articles?cache=no-store`;
 export const JSONBIN_BIN_ID = process.env.JSONBIN_BIN_ID || '69de47b136566621a8b15081';
 export const JSONBIN_URL = process.env.JSONBIN_URL || `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`;
@@ -36,8 +40,6 @@ export const STATIC_ROUTES = [
   '/privacy-policy',
   '/offer',
   '/cookie-policy',
-  '/feed.xml',
-  '/llms.txt',
 ];
 
 export function buildJsonBinHeaders() {

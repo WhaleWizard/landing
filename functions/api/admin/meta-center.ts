@@ -18,7 +18,8 @@ const REQUIRED_SCHEMA: Record<string, string[]> = {
   ],
   leads: [
     'event_id', 'quality', 'fbp', 'fbc', 'event_source_url', 'external_id',
-    'marketing_consent',
+    'marketing_consent', 'consent_version', 'consent_source', 'consent_region',
+    'consent_timestamp', 'consent_recorded_at',
   ],
 };
 
@@ -161,6 +162,7 @@ async function diagnosticsPeriod(
         created_at
       FROM meta_capi_diagnostics
       WHERE datetime(created_at) >= datetime('now', ?)
+        AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')
     ),
     event_states AS (
       SELECT
@@ -234,7 +236,8 @@ async function getLatestErrors(
     const rows = await db.prepare(`
       SELECT event_name, status, error_code, error_message, created_at
       FROM meta_capi_diagnostics
-      WHERE status = 'failed' OR (error_message IS NOT NULL AND TRIM(error_message) != '')
+      WHERE (status = 'failed' OR (error_message IS NOT NULL AND TRIM(error_message) != ''))
+        AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')
       ORDER BY created_at DESC
       LIMIT 12
     `).all<{

@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import SEO from '../components/SEO';
+import { isCaseArticle } from '../utils/articleCategory';
 import Navbar from '../components/Navbar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
@@ -50,7 +51,6 @@ import {
   getMergedCaseData,
 } from '../data/caseCatalog';
 
-const CASES_CATEGORY = 'Кейсы';
 
 // Keep only known acquisition parameters while the catalog rewrites its own
 // filters. This preserves attribution without forwarding arbitrary query data.
@@ -393,7 +393,7 @@ export default function CasesPage() {
 
   const publishedCases = useMemo<CaseView[]>(() => (
     articles
-      .filter((article: Article) => article.category === CASES_CATEGORY)
+      .filter((article: Article) => isCaseArticle(article))
       .map((article) => caseViewFromArticle(article))
   ), [articles]);
 
