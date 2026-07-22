@@ -119,6 +119,8 @@ async function groupedLeads(
     ? "SUM(CASE WHEN quality = 'nontarget' THEN 1 ELSE 0 END)"
     : 'NULL';
   const wonExpression = won.expression ? `SUM(CASE WHEN ${won.expression} THEN 1 ELSE 0 END)` : 'NULL';
+  // Заявки в корзине (миграция 0020) не искажают отчёт по источникам.
+  const activeCond = columns.has('deleted_at') ? 'deleted_at IS NULL' : '1=1';
 
   const rows = await db.prepare(`
     SELECT
@@ -130,6 +132,7 @@ async function groupedLeads(
       ${wonExpression} AS won
     FROM leads
     WHERE date(${createdColumn}) >= date('now', ?)
+      AND ${activeCond}
     GROUP BY group_key
     ORDER BY leads DESC, group_key ASC
     LIMIT 50
@@ -253,6 +256,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       summary.visitors = number(row?.total);
     }
     if (leadsAvailable) {
+      const summaryActiveCond = columns.has('deleted_at') ? 'deleted_at IS NULL' : '1=1';
       const submissions = columns.has('submissions_count') ? 'SUM(submissions_count)' : 'NULL';
       const qualified = columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : 'NULL';
       const unqualified = columns.has('quality') ? "SUM(CASE WHEN quality = 'nontarget' THEN 1 ELSE 0 END)" : 'NULL';
@@ -260,7 +264,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       const row = await db.prepare(`
         SELECT COUNT(*) AS leads, ${submissions} AS submissions,
           ${qualified} AS qualified, ${unqualified} AS unqualified, ${wonSql} AS won
-        FROM leads WHERE date(${leadTime}) >= date('now', ?)
+        FROM leads WHERE date(${leadTime}) >= date('now', ?) AND ${summaryActiveCond}
       `).bind(modifier).first<{
         leads: number; submissions: number | null; qualified: number | null;
         unqualified: number | null; won: number | null;
@@ -284,7 +288,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       const coverage = await db.prepare(`
         SELECT ${coverageExpressions[0]} AS with_page, ${coverageExpressions[1]} AS with_utm,
           ${coverageExpressions[2]} AS with_consent
-        FROM leads WHERE date(${leadTime}) >= date('now', ?)
+        FROM leads WHERE date(${leadTime}) >= date('now', ?) AND ${summaryActiveCond}
       `).bind(modifier).first<{ with_page: number | null; with_utm: number | null; with_consent: number | null }>();
       const totalLeads = summary.leads || 0;
       leadCoverage = {

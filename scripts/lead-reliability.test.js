@@ -1,13 +1,22 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
-import { transform } from 'esbuild';
+import { build, transform } from 'esbuild';
 
-async function importTypeScript(path) {
+// РћР±СЂР°Р±РѕС‚С‡РёРєРё Р°РґРјРёРЅРєРё РїСЂРѕС…РѕРґСЏС‚ С‡РµСЂРµР· РѕРіСЂР°РЅРёС‡РёС‚РµР»СЊ С‡Р°СЃС‚РѕС‚С‹, РєРѕС‚РѕСЂС‹Р№ РІ Cloudflare
+// Р¶РёРІС‘С‚ РЅР° РіР»РѕР±Р°Р»СЊРЅРѕРј `caches`. Р’ Node РµРіРѕ РЅРµС‚ вЂ” РїРѕРґСЃС‚Р°РІР»СЏРµРј РїСѓСЃС‚РѕР№ РєРµС€.
+globalThis.caches ??= { default: { match: async () => undefined, put: async () => {} } };
+
+// `fresh` РґР°С‘С‚ РјРѕРґСѓР»СЋ СѓРЅРёРєР°Р»СЊРЅС‹Р№ С‚РµРєСЃС‚, РїРѕСЌС‚РѕРјСѓ import() РѕС‚РґР°С‘С‚ РЅРѕРІС‹Р№ СЌРєР·РµРјРїР»СЏСЂ,
+// Р° РЅРµ Р·Р°РєРµС€РёСЂРѕРІР°РЅРЅС‹Р№. РќСѓР¶РЅРѕ С‚Р°Рј, РіРґРµ РјРѕРґСѓР»СЊ РґРµСЂР¶РёС‚ СЃРѕР±СЃС‚РІРµРЅРЅС‹Р№ РєРµС€ СЃРѕСЃС‚РѕСЏРЅРёСЏ
+// СЃС…РµРјС‹: РёРЅР°С‡Рµ РєРѕР»РѕРЅРєРё РїРµСЂРІРѕР№ С‚РµСЃС‚РѕРІРѕР№ Р±Р°Р·С‹ СѓС‚РµРєР»Рё Р±С‹ РІ СЃР»РµРґСѓСЋС‰СѓСЋ.
+async function importTypeScript(path, { fresh = false } = {}) {
   const source = readFileSync(path, 'utf8');
   const compiled = await transform(source, { loader: 'ts', format: 'esm', target: 'es2022' });
-  return import(`data:text/javascript;base64,${Buffer.from(compiled.code).toString('base64')}`);
+  const code = fresh ? `${compiled.code}\n//${randomUUID()}` : compiled.code;
+  return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
 class D1StatementAdapter {
@@ -64,10 +73,11 @@ class D1DatabaseAdapter {
   }
 }
 
-function createLeadDatabase() {
+function createLeadDatabase({ softDelete = true } = {}) {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
-  for (const migration of [
+  const migrations = [
+    'migrations/0005_meta_outbox.sql',
     'migrations/0008_leads_and_page_stats.sql',
     'migrations/0009_leads_dedupe_quality.sql',
     'migrations/0010_leads_meta_quality.sql',
@@ -77,10 +87,45 @@ function createLeadDatabase() {
     'migrations/0015_lead_consent_receipts.sql',
     'migrations/0017_crm_correctness.sql',
     'migrations/0019_lead_ingestion_idempotency.sql',
-  ]) {
+  ];
+  if (softDelete) migrations.push('migrations/0020_leads_soft_delete.sql');
+  for (const migration of migrations) {
     sqlite.exec(readFileSync(migration, 'utf8'));
   }
   return { sqlite, d1: new D1DatabaseAdapter(sqlite) };
+}
+
+// РћР±СЂР°Р±РѕС‚С‡РёРєРё Pages Functions РёРјРїРѕСЂС‚РёСЂСѓСЋС‚ СЃРѕСЃРµРґРЅРёРµ РјРѕРґСѓР»Рё РїРѕ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Рј
+// РїСѓС‚СЏРј, РєРѕС‚РѕСЂС‹Рµ РёР· data:-URL РЅРµ СЂРµР·РѕР»РІСЏС‚СЃСЏ. РџРѕСЌС‚РѕРјСѓ РёС… СЃРѕР±РёСЂР°РµРј С†РµР»РёРєРѕРј.
+async function bundleTypeScript(path) {
+  const result = await build({
+    entryPoints: [path],
+    bundle: true,
+    format: 'esm',
+    target: 'es2022',
+    platform: 'neutral',
+    write: false,
+  });
+  const code = `${result.outputFiles[0].text}\n//${randomUUID()}`;
+  return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+}
+
+const TRASH_ENV_PASSWORD = 'trash-test-password';
+
+function trashRequest(body) {
+  return new Request('https://example.com/api/admin/lead-trash', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': TRASH_ENV_PASSWORD },
+    body: JSON.stringify(body),
+  });
+}
+
+async function callTrash(handlers, d1, body) {
+  const response = await handlers.onRequestPost({
+    request: trashRequest(body),
+    env: { DB: d1, ADMIN_PASSWORD: TRASH_ENV_PASSWORD },
+  });
+  return { status: response.status, payload: await response.json() };
 }
 
 test('lead storage is durable, event-id idempotent and resets CRM on a real repeat', async () => {
@@ -317,4 +362,131 @@ test('legacy admin endpoint cannot partially persist a combined status and quali
   const source = readFileSync('functions/api/admin/leads.ts', 'utf8');
   assert.match(source, /if \(hasStatus && hasQuality\)/);
   assert.match(source, /Update status and quality in separate requests/);
+});
+
+test('a trashed lead never absorbs a new submission from the same contact', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createLeadDatabase();
+
+  const first = await storeLead({ DB: d1 }, {
+    event_id: 'trash-dedupe-1',
+    name: 'Spam Bot',
+    email: 'repeat@example.com',
+  });
+  assert.equal(first.repeat, false);
+
+  sqlite.exec("UPDATE leads SET deleted_at = datetime('now') WHERE id = " + first.leadId);
+
+  // РўРѕС‚ Р¶Рµ РєРѕРЅС‚Р°РєС‚ РѕР±СЂР°С‰Р°РµС‚СЃСЏ СЃРЅРѕРІР°. Р—Р°СЏРІРєР° РѕР±СЏР·Р°РЅР° РїРѕСЏРІРёС‚СЊСЃСЏ РєР°Рє РЅРѕРІР°СЏ:
+  // РёРЅР°С‡Рµ РѕРЅР° РїРѕРґРєР»РµРёР»Р°СЃСЊ Р±С‹ Рє СЃРєСЂС‹С‚РѕР№ Р·Р°РїРёСЃРё Рё РЅРµ РїРѕРїР°Р»Р° Р±С‹ РІ СЃРїРёСЃРѕРє.
+  const afterTrash = await storeLead({ DB: d1 }, {
+    event_id: 'trash-dedupe-2',
+    name: 'Real Client',
+    email: 'repeat@example.com',
+  });
+  assert.equal(afterTrash.repeat, false, 'new submission must not be treated as a repeat');
+  assert.notEqual(afterTrash.leadId, first.leadId, 'new submission must get its own lead row');
+  assert.equal(
+    sqlite.prepare('SELECT COUNT(*) AS count FROM leads WHERE deleted_at IS NULL').get().count,
+    1,
+    'only the fresh lead stays visible',
+  );
+});
+
+test('trash hides a lead from active lists and a restore brings it back intact', async () => {
+  const trash = await bundleTypeScript('functions/api/admin/lead-trash.ts');
+  const { sqlite, d1 } = createLeadDatabase();
+  const leadId = Number(
+    sqlite.prepare("INSERT INTO leads (event_id, name, email) VALUES ('t-1', 'Client', 'c@example.com')").run().lastInsertRowid,
+  );
+  sqlite.prepare("INSERT INTO crm_notes (lead_id, body, action_id) VALUES (?, 'Important note', 'note-keep')").run(leadId);
+
+  const moved = await callTrash(trash, d1, { action: 'delete', ids: [leadId], reason: 'СЃРїР°Рј' });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.payload.moved, 1);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads WHERE deleted_at IS NULL').get().count, 0);
+  assert.equal(sqlite.prepare('SELECT deleted_reason FROM leads WHERE id = ?').get(leadId).deleted_reason, 'СЃРїР°Рј');
+  assert.equal(
+    sqlite.prepare('SELECT COUNT(*) AS count FROM crm_notes WHERE lead_id = ?').get(leadId).count,
+    1,
+    'trashing must keep related records for a lossless restore',
+  );
+
+  const restored = await callTrash(trash, d1, { action: 'restore', ids: [leadId] });
+  assert.equal(restored.payload.restored, 1);
+  const row = sqlite.prepare('SELECT deleted_at, deleted_reason FROM leads WHERE id = ?').get(leadId);
+  assert.equal(row.deleted_at, null);
+  assert.equal(row.deleted_reason, '');
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM crm_notes WHERE lead_id = ?').get(leadId).count, 1);
+});
+
+test('purging clears the lead with every related record and only from the trash', async () => {
+  const trash = await bundleTypeScript('functions/api/admin/lead-trash.ts');
+  const { sqlite, d1 } = createLeadDatabase();
+  const leadId = Number(
+    sqlite.prepare("INSERT INTO leads (event_id, name, email) VALUES ('p-1', 'Junk', 'junk@example.com')").run().lastInsertRowid,
+  );
+  const activeId = Number(
+    sqlite.prepare("INSERT INTO leads (event_id, name, email) VALUES ('p-2', 'Active', 'active@example.com')").run().lastInsertRowid,
+  );
+  sqlite.prepare("INSERT INTO crm_notes (lead_id, body, action_id) VALUES (?, 'note', 'n-1')").run(leadId);
+  sqlite.prepare("INSERT INTO crm_tasks (lead_id, title, action_id) VALUES (?, 'task', 't-1')").run(leadId);
+  sqlite.prepare("INSERT INTO lead_activity (lead_id, type, \"from\", \"to\", note) VALUES (?, 'x', '', '', '')").run(leadId);
+  sqlite.prepare("INSERT INTO lead_ingestions (event_id, claim_token, lead_id, submission_kind) VALUES ('p-1', 'claim-1', ?, 'new')").run(leadId);
+
+  // РђРєС‚РёРІРЅСѓСЋ Р·Р°СЏРІРєСѓ РѕРєРѕРЅС‡Р°С‚РµР»СЊРЅРѕ СѓРґР°Р»РёС‚СЊ РЅРµР»СЊР·СЏ вЂ” СЃРЅР°С‡Р°Р»Р° РєРѕСЂР·РёРЅР°.
+  const refused = await callTrash(trash, d1, { action: 'purge', ids: [activeId] });
+  assert.equal(refused.payload.purged, 0);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads WHERE id = ?').get(activeId).count, 1);
+
+  await callTrash(trash, d1, { action: 'delete', ids: [leadId] });
+  const purged = await callTrash(trash, d1, { action: 'purge', ids: [leadId] });
+  assert.equal(purged.payload.purged, 1);
+
+  for (const table of ['crm_notes', 'crm_tasks', 'lead_activity', 'lead_ingestions']) {
+    assert.equal(
+      sqlite.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE lead_id = ?`).get(leadId).count,
+      0,
+      `${table} must not keep orphans after a purge`,
+    );
+  }
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads').get().count, 1, 'the active lead survives');
+});
+
+test('queued quality events are cancelled when a lead goes to the trash, delivered ones are kept', async () => {
+  const trash = await bundleTypeScript('functions/api/admin/lead-trash.ts');
+  const { sqlite, d1 } = createLeadDatabase();
+  const leadId = Number(
+    sqlite.prepare("INSERT INTO leads (event_id, name, quality) VALUES ('q-1', 'Lead', 'target')").run().lastInsertRowid,
+  );
+  const insertOutbox = sqlite.prepare(
+    "INSERT INTO meta_outbox (id, event_name, event_id, payload_json, status) VALUES (?, 'QualifiedLead', ?, '{}', ?)",
+  );
+  insertOutbox.run('lq:target:q-1', 'lq:target:q-1', 'pending');
+  insertOutbox.run('lq:nontarget:q-1', 'lq:nontarget:q-1', 'sent');
+
+  const moved = await callTrash(trash, d1, { action: 'delete', ids: [leadId] });
+  assert.equal(moved.payload.cancelled_events, 1, 'only the not-yet-delivered event is cancelled');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM meta_outbox WHERE status = 'pending'").get().count, 0);
+  assert.equal(
+    sqlite.prepare("SELECT COUNT(*) AS count FROM meta_outbox WHERE status = 'sent'").get().count,
+    1,
+    'an event already confirmed by Meta must stay in history',
+  );
+});
+
+test('without migration 0020 the trash reports it clearly and lead intake keeps working', async () => {
+  const trash = await bundleTypeScript('functions/api/admin/lead-trash.ts');
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createLeadDatabase({ softDelete: false });
+
+  const refused = await callTrash(trash, d1, { action: 'delete', ids: [1] });
+  assert.equal(refused.status, 503);
+  assert.equal(refused.payload.code, 'LEAD_TRASH_MIGRATION_REQUIRED');
+  assert.match(refused.payload.migration, /0020/);
+
+  // РџСЂРёС‘Рј Р·Р°СЏРІРѕРє РЅРµ РґРѕР»Р¶РµРЅ Р·Р°РІРёСЃРµС‚СЊ РѕС‚ РєРѕСЂР·РёРЅС‹: РєРѕРґ РјРѕР¶РµС‚ СѓРµС…Р°С‚СЊ СЂР°РЅСЊС€Рµ РјРёРіСЂР°С†РёРё.
+  const stored = await storeLead({ DB: d1 }, { event_id: 'no-0020', name: 'Lead', email: 'a@example.com' });
+  assert.equal(stored.durable, true);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads').get().count, 1);
 });

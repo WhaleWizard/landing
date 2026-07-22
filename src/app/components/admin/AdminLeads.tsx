@@ -300,6 +300,35 @@ function contactHref(lead: LeadRow): string | null {
   return null;
 }
 
+interface TrashResult {
+  moved?: number;
+  restored?: number;
+  purged?: number;
+  cancelled_events?: number;
+}
+
+async function callTrashApi(password: string, body: Record<string, unknown>): Promise<TrashResult> {
+  const response = await fetch('/api/admin/lead-trash', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => null) as (TrashResult & { success?: boolean; error?: string; migration?: string }) | null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.migration
+      ? `Примените миграцию ${payload.migration} — до неё корзина недоступна`
+      : payload?.error || `HTTP ${response.status}`);
+  }
+  return payload;
+}
+
+function leadLabel(lead: { name?: string; email?: string; phone?: string; telegram_username?: string }): string {
+  const name = String(lead.name || '').trim() || 'Без имени';
+  const contact = String(lead.email || lead.phone || lead.telegram_username || '').trim();
+  return contact ? `${name} · ${contact}` : name;
+}
+
 function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow; password: string; onChanged: () => void; editingReady: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -574,6 +603,155 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
       </section>
 
       <details className="admin-disclosure admin-crm-history"><summary><span>История изменений · {activities.length}</span><ChevronRight aria-hidden="true" /></summary><div className="admin-crm-timeline">{activities.length ? activities.map((activity) => <div key={activity.id}><span /><div><strong>{ACTIVITY_LABELS[activity.type] || activity.type}</strong><p>{activity.note || [activity.from, activity.to].filter(Boolean).join(' → ') || 'Изменение сохранено'}</p><time>{formatDate(activity.created_at)}{activity.actor ? ` · ${activity.actor}` : ''}</time></div></div>) : <p className="admin-muted">История появится после первого изменения.</p>}</div></details>
+
+      <div className="admin-crm-danger">
+        <div><strong>Убрать заявку</strong><span>Заявка уедет в корзину: исчезнет из списков и отчётов, но её можно вернуть. Уже отправленные в Meta события не отзываются.</span></div>
+        <button
+          className="admin-button admin-button--danger"
+          type="button"
+          disabled={saving}
+          onClick={() => {
+            if (!confirm(`Убрать заявку «${leadLabel(lead)}» в корзину?\n\nОна пропадёт из списка и статистики. Восстановить можно в разделе «Корзина».`)) return;
+            setSaving(true);
+            setError('');
+            callTrashApi(password, { action: 'delete', ids: [lead.id] })
+              .then(() => onChanged())
+              .catch((trashError) => setError(trashError instanceof Error ? trashError.message : 'Не удалось убрать заявку'))
+              .finally(() => setSaving(false));
+          }}
+        >
+          <Trash2 aria-hidden="true" /> В корзину
+        </button>
+      </div>
+    </section>
+  );
+}
+
+interface TrashedLead {
+  id: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  telegram_username?: string;
+  service?: string;
+  created_at?: string;
+  deleted_at?: string;
+  deleted_reason?: string;
+}
+
+function TrashPanel({ password, onRestored, refreshToken }: { password: string; onRestored: () => void; refreshToken: number }) {
+  const [open, setOpen] = useState(false);
+  const [leads, setLeads] = useState<TrashedLead[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/admin/lead-trash?limit=100', {
+        headers: { 'X-Admin-Password': password }, credentials: 'same-origin', cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; migration?: string; leads?: TrashedLead[]; total?: number } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.migration
+          ? `Примените миграцию ${payload.migration} — до неё корзина недоступна`
+          : payload?.error || `HTTP ${response.status}`);
+      }
+      setLeads(payload.leads || []);
+      setTotal(Number(payload.total || 0));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Не удалось открыть корзину');
+    } finally {
+      setLoading(false);
+    }
+  }, [password]);
+
+  // refreshToken меняется, когда заявку убрали из списка или из карточки:
+  // открытая корзина подхватывает её сама, не закрываясь.
+  useEffect(() => {
+    if (open) void load();
+  }, [load, open, refreshToken]);
+
+  const run = async (body: Record<string, unknown>, restores: boolean) => {
+    setBusy(true);
+    setError('');
+    try {
+      await callTrashApi(password, body);
+      await load();
+      if (restores) onRestored();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Действие не выполнено');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="admin-panel admin-crm-trash">
+      <div className="admin-section-heading">
+        <div><h3>Корзина</h3><p className="admin-meta">Убранные заявки не видны в списке, счётчиках и отчётах по источникам. Пока они здесь — их можно вернуть.</p></div>
+        <button className="admin-button admin-button--quiet" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          <Trash2 aria-hidden="true" /> {open ? 'Скрыть корзину' : 'Открыть корзину'}
+        </button>
+      </div>
+
+      {open ? (
+        <div className="admin-stack">
+          {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
+          {loading ? <p className="admin-muted" role="status">Загружаю корзину…</p> : null}
+          {!loading && !leads.length && !error ? <p className="admin-muted">Корзина пуста.</p> : null}
+
+          {leads.length ? (
+            <>
+              <div className="admin-crm-trash__list">
+                {leads.map((lead) => (
+                  <div className="admin-crm-trash__item" key={lead.id}>
+                    <div>
+                      <strong>{leadLabel(lead)}</strong>
+                      <span className="admin-meta">
+                        {lead.service ? `${lead.service} · ` : ''}
+                        убрана {lead.deleted_at ? formatDate(lead.deleted_at) : 'недавно'}
+                        {lead.deleted_reason ? ` · причина: ${lead.deleted_reason}` : ''}
+                      </span>
+                    </div>
+                    <div className="admin-crm-trash__actions">
+                      <button className="admin-button admin-button--quiet" type="button" disabled={busy} onClick={() => void run({ action: 'restore', ids: [lead.id] }, true)}>Восстановить</button>
+                      <button
+                        className="admin-button admin-button--danger"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          if (!confirm(`Удалить «${leadLabel(lead)}» навсегда?\n\nЗаявка и вся её история исчезнут без возможности восстановления.`)) return;
+                          void run({ action: 'purge', ids: [lead.id] }, false);
+                        }}
+                      >
+                        Удалить навсегда
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="admin-crm-trash__footer">
+                <span className="admin-meta">В корзине: {total}{leads.length < total ? ` · показаны первые ${leads.length}` : ''}</span>
+                <button
+                  className="admin-button admin-button--danger"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!confirm(`Очистить корзину полностью?\n\nБудут навсегда удалены все заявки в корзине (${total}) вместе с их историей. Отменить это будет нельзя.`)) return;
+                    void run({ action: 'purge_all' }, false);
+                  }}
+                >
+                  <Trash2 aria-hidden="true" /> Очистить корзину
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -595,6 +773,9 @@ export default function AdminLeads({ password }: { password: string }) {
   const [offset, setOffset] = useState(0);
   const [editingReady, setEditingReady] = useState(false);
   const [correctnessMigration, setCorrectnessMigration] = useState('');
+  const [checkedIds, setCheckedIds] = useState<number[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [trashVersion, setTrashVersion] = useState(0);
 
   const params = useMemo(() => {
     const value = new URLSearchParams({
@@ -627,6 +808,9 @@ export default function AdminLeads({ password }: { password: string }) {
         return;
       }
       setLeads(nextLeads);
+      // Отметки живут только для видимых строк: иначе после смены фильтра
+      // «удалить выделенные» задело бы заявки, которых на экране уже нет.
+      setCheckedIds((current) => current.filter((id) => nextLeads.some((item) => item.id === id)));
       setSummary(payload.summary);
       setFacets(payload.facets);
       setTotal(nextTotal || nextLeads.length);
@@ -688,16 +872,56 @@ export default function AdminLeads({ password }: { password: string }) {
       <div className="admin-crm-layout">
         <aside className="admin-crm-list admin-panel" aria-label="Список сделок">
           <div className="admin-crm-list__header"><strong>{total} сделок</strong><span>{pageStart}–{pageEnd}</span></div>
+          {checkedIds.length ? (
+            <div className="admin-crm-list__bulk" role="status">
+              <span>Выбрано: {checkedIds.length}</span>
+              <button className="admin-button admin-button--quiet" type="button" onClick={() => setCheckedIds([])} disabled={bulkBusy}>Снять</button>
+              <button
+                className="admin-button admin-button--danger"
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => {
+                  if (!confirm(`Убрать в корзину выбранные заявки (${checkedIds.length})?\n\nОни пропадут из списка и статистики. Восстановить можно в разделе «Корзина».`)) return;
+                  setBulkBusy(true);
+                  setError('');
+                  callTrashApi(password, { action: 'delete', ids: checkedIds })
+                    .then(() => {
+                      setCheckedIds([]);
+                      setTrashVersion((value) => value + 1);
+                      return load(true);
+                    })
+                    .catch((bulkError) => setError(bulkError instanceof Error ? bulkError.message : 'Не удалось убрать заявки'))
+                    .finally(() => setBulkBusy(false));
+                }}
+              >
+                <Trash2 aria-hidden="true" /> В корзину
+              </button>
+            </div>
+          ) : null}
           <div className="admin-crm-list__items">
             {leads.length ? leads.map((lead) => {
               const overdue = isOverdue(lead.next_action_at);
-              return <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} key={lead.id} onClick={() => setSelectedId(lead.id)}><div className="admin-crm-lead__top"><span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} /><strong>{lead.name || 'Без имени'}</strong><span className="admin-score">{lead.lead_score || 0}</span><ChevronRight aria-hidden="true" /></div><p>{lead.service || lead.email || lead.phone || 'Без контакта'}</p><div className="admin-crm-lead__states"><span>{stageLabel(lead.pipeline_stage)}</span>{overdue ? <span className="is-overdue">Просрочено</span> : lead.next_action_at ? <span>{formatDate(lead.next_action_at)}</span> : <span>Нет следующего шага</span>}{Number(lead.open_tasks_count || 0) ? <span>{lead.open_tasks_count} задач</span> : null}</div>{lead.crm_tags?.length ? <div className="admin-tag-list">{lead.crm_tags.slice(0, 3).map((item) => <span key={item.slug || item.name} style={{ '--tag-color': item.color || '#8b5cf6' } as CSSProperties}>{item.name}</span>)}</div> : null}</button>;
+              const checked = checkedIds.includes(lead.id);
+              return <div className="admin-crm-lead-row" key={lead.id}>
+                <label className="admin-crm-lead__check" title="Выбрать для удаления">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    aria-label={`Выбрать заявку ${leadLabel(lead)}`}
+                    onChange={(event) => setCheckedIds((current) => event.target.checked
+                      ? [...current, lead.id]
+                      : current.filter((id) => id !== lead.id))}
+                  />
+                </label>
+                <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} onClick={() => setSelectedId(lead.id)}><div className="admin-crm-lead__top"><span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} /><strong>{lead.name || 'Без имени'}</strong><span className="admin-score">{lead.lead_score || 0}</span><ChevronRight aria-hidden="true" /></div><p>{lead.service || lead.email || lead.phone || 'Без контакта'}</p><div className="admin-crm-lead__states"><span>{stageLabel(lead.pipeline_stage)}</span>{overdue ? <span className="is-overdue">Просрочено</span> : lead.next_action_at ? <span>{formatDate(lead.next_action_at)}</span> : <span>Нет следующего шага</span>}{Number(lead.open_tasks_count || 0) ? <span>{lead.open_tasks_count} задач</span> : null}</div>{lead.crm_tags?.length ? <div className="admin-tag-list">{lead.crm_tags.slice(0, 3).map((item) => <span key={item.slug || item.name} style={{ '--tag-color': item.color || '#8b5cf6' } as CSSProperties}>{item.name}</span>)}</div> : null}</button>
+              </div>;
             }) : <div className="admin-empty"><div><strong>Ничего не найдено</strong><p>Измените поиск или фильтры.</p></div></div>}
           </div>
           {total > CRM_PAGE_SIZE ? <nav className="admin-crm-pagination" aria-label="Страницы списка сделок"><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasPreviousPage} onClick={() => setOffset((value) => Math.max(0, value - CRM_PAGE_SIZE))}>Назад</button><span>{pageStart}–{pageEnd} из {total}</span><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasNextPage} onClick={() => setOffset((value) => value + CRM_PAGE_SIZE)}>Далее</button></nav> : null}
         </aside>
-        <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => void load(true)} editingReady={editingReady} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
+        <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }} editingReady={editingReady} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
       </div>
+      <TrashPanel password={password} onRestored={() => void load(true)} refreshToken={trashVersion} />
       {facets?.services?.length ? <p className="admin-meta">Источники в текущей базе: {facets.services.slice(0, 5).map((item) => `${item.value} · ${item.count}`).join(', ')}</p> : null}
     </div>
   );

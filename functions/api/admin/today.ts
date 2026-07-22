@@ -67,14 +67,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     let contentDrafts = 0;
 
     if (hasLeads) {
-      const [hasPipelineStage, hasNextAction, hasLastSubmittedAt, hasStatus, hasTelegramDelivered, hasCreatedAt] = await Promise.all([
+      const [hasPipelineStage, hasNextAction, hasLastSubmittedAt, hasStatus, hasTelegramDelivered, hasCreatedAt, hasSoftDelete] = await Promise.all([
         columnExists(db, 'leads', 'pipeline_stage'),
         columnExists(db, 'leads', 'next_action_at'),
         columnExists(db, 'leads', 'last_submitted_at'),
         columnExists(db, 'leads', 'status'),
         columnExists(db, 'leads', 'telegram_delivered'),
         columnExists(db, 'leads', 'created_at'),
+        columnExists(db, 'leads', 'deleted_at'),
       ]);
+      // Заявки в корзине (миграция 0020) не попадают в сводку дня.
+      const activeCond = hasSoftDelete ? 'deleted_at IS NULL' : '1=1';
       const newLeadPredicate = hasPipelineStage
         ? "COALESCE(pipeline_stage, 'new') = 'new'"
         : hasStatus ? "status = 'new'" : '0';
@@ -88,7 +91,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         `SELECT
            SUM(CASE WHEN ${newLeadPredicate} THEN 1 ELSE 0 END) AS fresh,
            SUM(CASE WHEN ${missingTelegramPredicate} THEN 1 ELSE 0 END) AS telegram_missing
-         FROM leads`,
+         FROM leads WHERE ${activeCond}`,
       ).first<{ fresh: number; telegram_missing: number }>();
       newLeads = Number(leadSummary?.fresh || 0);
       telegramMissing = Number(leadSummary?.telegram_missing || 0);
@@ -102,6 +105,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
            WHERE next_action_at IS NOT NULL
              AND next_action_at != ''
              AND datetime(next_action_at) < datetime('now')
+             AND ${activeCond}
              ${terminalFilter}`,
         ).first<{ count: number }>();
         overdueActions = Number(overdue?.count || 0);

@@ -10,6 +10,7 @@ import {
 } from '../../_lib/admin-crm';
 import { attachAdminQualityDelivery } from '../../_lib/admin-lead-quality-status';
 import { json } from '../../_lib/http';
+import { hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -82,33 +83,37 @@ async function attachTags(db: D1Database, leads: CrmLeadListRow[]): Promise<CrmL
   return leads.map((lead) => ({ ...lead, crm_tags: tagsByLead.get(lead.id) || [] }));
 }
 
-async function getSummary(db: D1Database, localTimeModifier: string): Promise<Record<string, unknown>> {
+// `activeCond` отсекает заявки в корзине (миграция 0020). Пока колонки нет,
+// приходит '1=1' — форма запроса не меняется, фильтр просто ничего не режет.
+async function getSummary(db: D1Database, localTimeModifier: string, activeCond: string): Promise<Record<string, unknown>> {
   const [stages, values, reminders, tasks, priorities, quality] = await Promise.all([
-    db.prepare('SELECT pipeline_stage, COUNT(*) AS count FROM leads GROUP BY pipeline_stage')
+    db.prepare(`SELECT pipeline_stage, COUNT(*) AS count FROM leads WHERE ${activeCond} GROUP BY pipeline_stage`)
       .all<{ pipeline_stage: string; count: number }>(),
     db.prepare(
       `SELECT deal_currency,
               SUM(CASE WHEN pipeline_stage IN ('new','contacted','discovery','proposal') THEN COALESCE(deal_value, 0) ELSE 0 END) AS open_value,
               SUM(CASE WHEN pipeline_stage = 'won' THEN COALESCE(deal_value, 0) ELSE 0 END) AS won_value
-       FROM leads GROUP BY deal_currency ORDER BY deal_currency`,
+       FROM leads WHERE ${activeCond} GROUP BY deal_currency ORDER BY deal_currency`,
     ).all<{ deal_currency: string; open_value: number; won_value: number }>(),
     db.prepare(
       `SELECT
          SUM(CASE WHEN next_action_at IS NOT NULL AND datetime(next_action_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
          SUM(CASE WHEN next_action_at IS NOT NULL AND date(next_action_at, ?) = date('now', ?) THEN 1 ELSE 0 END) AS today,
          SUM(CASE WHEN next_action_at IS NULL AND pipeline_stage NOT IN ('won','lost','archived') THEN 1 ELSE 0 END) AS without_next_action
-       FROM leads`,
+       FROM leads WHERE ${activeCond}`,
     ).bind(localTimeModifier, localTimeModifier).first<{ overdue: number; today: number; without_next_action: number }>(),
+    // Задачи удалённой заявки не должны висеть в счётчике «открытые задачи».
     db.prepare(
       `SELECT
-         SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) AS open,
-         SUM(CASE WHEN status = 'open' AND due_at IS NOT NULL AND datetime(due_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
-         SUM(CASE WHEN status = 'open' AND due_at IS NOT NULL AND date(due_at, ?) = date('now', ?) THEN 1 ELSE 0 END) AS today
-       FROM crm_tasks`,
+         SUM(CASE WHEN t.status = 'open' THEN 1 ELSE 0 END) AS open,
+         SUM(CASE WHEN t.status = 'open' AND t.due_at IS NOT NULL AND datetime(t.due_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
+         SUM(CASE WHEN t.status = 'open' AND t.due_at IS NOT NULL AND date(t.due_at, ?) = date('now', ?) THEN 1 ELSE 0 END) AS today
+       FROM crm_tasks t INNER JOIN leads l ON l.id = t.lead_id
+       WHERE ${activeCond.replace(/deleted_at/g, 'l.deleted_at')}`,
     ).bind(localTimeModifier, localTimeModifier).first<{ open: number; overdue: number; today: number }>(),
-    db.prepare('SELECT priority, COUNT(*) AS count FROM leads GROUP BY priority')
+    db.prepare(`SELECT priority, COUNT(*) AS count FROM leads WHERE ${activeCond} GROUP BY priority`)
       .all<{ priority: string; count: number }>(),
-    db.prepare('SELECT quality, COUNT(*) AS count FROM leads GROUP BY quality')
+    db.prepare(`SELECT quality, COUNT(*) AS count FROM leads WHERE ${activeCond} GROUP BY quality`)
       .all<{ quality: string; count: number }>(),
   ]);
   return {
@@ -121,15 +126,18 @@ async function getSummary(db: D1Database, localTimeModifier: string): Promise<Re
   };
 }
 
-async function getFacets(db: D1Database): Promise<Record<string, unknown>> {
+async function getFacets(db: D1Database, activeCond: string): Promise<Record<string, unknown>> {
   const [services, sources, tags] = await Promise.all([
-    db.prepare("SELECT service AS value, COUNT(*) AS count FROM leads WHERE service != '' GROUP BY service ORDER BY count DESC, service LIMIT 100")
+    db.prepare(`SELECT service AS value, COUNT(*) AS count FROM leads WHERE service != '' AND ${activeCond} GROUP BY service ORDER BY count DESC, service LIMIT 100`)
       .all<{ value: string; count: number }>(),
-    db.prepare("SELECT utm_source AS value, COUNT(*) AS count FROM leads WHERE utm_source != '' GROUP BY utm_source ORDER BY count DESC, utm_source LIMIT 100")
+    db.prepare(`SELECT utm_source AS value, COUNT(*) AS count FROM leads WHERE utm_source != '' AND ${activeCond} GROUP BY utm_source ORDER BY count DESC, utm_source LIMIT 100`)
       .all<{ value: string; count: number }>(),
     db.prepare(
-      `SELECT t.id, t.name, t.slug, t.color, COUNT(lt.lead_id) AS count
-       FROM crm_tags t LEFT JOIN crm_lead_tags lt ON lt.tag_id = t.id
+      `SELECT t.id, t.name, t.slug, t.color,
+              COUNT(l.id) AS count
+       FROM crm_tags t
+       LEFT JOIN crm_lead_tags lt ON lt.tag_id = t.id
+       LEFT JOIN leads l ON l.id = lt.lead_id AND ${activeCond.replace(/deleted_at/g, 'l.deleted_at')}
        GROUP BY t.id ORDER BY count DESC, lower(t.name), t.id`,
     ).all<{ id: number; name: string; slug: string; color: string; count: number }>(),
   ]);
@@ -155,7 +163,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     // JS getTimezoneOffset() = UTC - local. SQLite needs the inverse modifier
     // to compare stored UTC timestamps against the administrator's local day.
     const localTimeModifier = `${-timezoneOffset >= 0 ? '+' : ''}${-timezoneOffset} minutes`;
+    // Заявки в корзине не попадают ни в список, ни в счётчики, ни в фасеты.
+    const softDelete = await hasLeadSoftDelete(env.DB);
+    const activeCond = softDelete ? 'deleted_at IS NULL' : '1=1';
     const where: string[] = [];
+    if (softDelete) where.push('l.deleted_at IS NULL');
     const values: Array<string | number> = [];
     const appliedFilters: Record<string, unknown> = {};
 
@@ -263,8 +275,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
          FROM leads l ${whereSql} ORDER BY ${sorts[sort]} LIMIT ? OFFSET ?`,
       ).bind(...values, limit, offset).all<CrmLeadListRow>(),
       env.DB.prepare(`SELECT COUNT(*) AS count FROM leads l ${whereSql}`).bind(...values).first<{ count: number }>(),
-      getSummary(env.DB, localTimeModifier),
-      getFacets(env.DB),
+      getSummary(env.DB, localTimeModifier, activeCond),
+      getFacets(env.DB, activeCond),
     ]);
     let leads = await attachTags(env.DB, rows.results || []);
     leads = await attachAdminQualityDelivery(env.DB, leads);

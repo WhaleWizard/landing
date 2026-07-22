@@ -12,6 +12,7 @@ import {
   type AdminQualityDeliveryItem,
 } from '../../_lib/admin-lead-quality-status';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { hasLeadSoftDelete } from '../../_lib/leads';
 import { sendLeadQualityEvent, type LeadQualityResult, type LeadQualityRow } from '../../_lib/lead-quality';
 import { recordMetaDiagnostics } from '../../_lib/meta-diagnostics';
 import type { Env } from '../../_lib/types';
@@ -50,17 +51,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   try {
+    // Заявки из корзины (миграция 0020) не показываются и не считаются.
+    const softDelete = await hasLeadSoftDelete(env.DB);
+    const activeOnly = softDelete ? ' WHERE deleted_at IS NULL' : '';
     // Повторные заявки поднимают лид наверх: сортируем по дате последней подачи.
     // SELECT * — состав колонок зависит от применённых миграций (0008/0009/0010).
     let rows;
     try {
-      rows = await env.DB.prepare('SELECT * FROM leads ORDER BY COALESCE(last_submitted_at, created_at) DESC LIMIT 300').all();
+      rows = await env.DB.prepare(`SELECT * FROM leads${activeOnly} ORDER BY COALESCE(last_submitted_at, created_at) DESC LIMIT 300`).all();
     } catch (error) {
       // Миграция 0009 ещё не применена — сортируем по id
       if (!/no such column/i.test(error instanceof Error ? error.message : String(error))) throw error;
-      rows = await env.DB.prepare('SELECT * FROM leads ORDER BY id DESC LIMIT 300').all();
+      rows = await env.DB.prepare(`SELECT * FROM leads${activeOnly} ORDER BY id DESC LIMIT 300`).all();
     }
-    const counts = await env.DB.prepare('SELECT status, COUNT(*) AS count FROM leads GROUP BY status').all<{ status: string; count: number }>();
+    const counts = await env.DB.prepare(`SELECT status, COUNT(*) AS count FROM leads${activeOnly} GROUP BY status`).all<{ status: string; count: number }>();
     const byStatus: Record<string, number> = {};
     for (const row of counts.results || []) byStatus[row.status] = row.count;
     const leads = await attachAdminQualityDelivery(env.DB, (rows.results || []) as AdminLeadRow[]);

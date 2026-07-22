@@ -1696,6 +1696,134 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   margin-top: 2px;
 }
 
+/* Строка списка = галочка выбора + сама карточка сделки. */
+.admin-root .admin-crm-lead-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: start;
+}
+
+.admin-root .admin-crm-lead-row + .admin-crm-lead-row {
+  margin-top: 2px;
+}
+
+.admin-root .admin-crm-lead__check {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.admin-root .admin-crm-lead__check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--adm-primary);
+  cursor: pointer;
+}
+
+.admin-root .admin-crm-list__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--adm-border-subtle);
+  background: var(--adm-surface-subtle);
+}
+
+.admin-root .admin-crm-list__bulk > span {
+  margin-right: auto;
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-root .admin-crm-list__bulk .admin-button {
+  min-height: 32px;
+  padding-inline: 10px;
+}
+
+/* Удаление заявки отделено от остальных действий карточки. */
+.admin-root .admin-crm-danger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--adm-danger) 24%, var(--adm-border-subtle));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--adm-danger) 5%, transparent);
+}
+
+.admin-root .admin-crm-danger > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-root .admin-crm-danger strong {
+  color: var(--adm-text-primary);
+  font-size: 13px;
+}
+
+.admin-root .admin-crm-danger span {
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-root .admin-crm-trash__list {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-root .admin-crm-trash__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 11px;
+  background: var(--adm-surface-subtle);
+}
+
+.admin-root .admin-crm-trash__item > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.admin-root .admin-crm-trash__item strong {
+  color: var(--adm-text-primary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .admin-crm-trash__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-root .admin-crm-trash__actions .admin-button {
+  min-height: 32px;
+  padding-inline: 10px;
+}
+
+.admin-root .admin-crm-trash__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+}
+
 .admin-root .admin-crm-lead:hover {
   border-color: var(--adm-border-subtle);
   background: var(--adm-surface-subtle);

@@ -2,7 +2,7 @@ import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { isTelegramConfigured } from '../../_lib/leads';
+import { hasLeadSoftDelete, isTelegramConfigured } from '../../_lib/leads';
 import { getTrackingSignatureMode, type TrackingSignatureMode } from '../../_lib/tracking-signature';
 import type { Env } from '../../_lib/types';
 
@@ -331,7 +331,8 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
   // --- Заявки и Telegram ---
   if (env.DB) {
     try {
-      const lastLead = await env.DB.prepare('SELECT created_at, telegram_delivered FROM leads ORDER BY id DESC LIMIT 1').first<{ created_at: string; telegram_delivered: number }>();
+      const activeOnly = (await hasLeadSoftDelete(env.DB)) ? ' WHERE deleted_at IS NULL' : '';
+      const lastLead = await env.DB.prepare(`SELECT created_at, telegram_delivered FROM leads${activeOnly} ORDER BY id DESC LIMIT 1`).first<{ created_at: string; telegram_delivered: number }>();
       if (!lastLead) {
         checks.push(check('leads', 'Приём заявок', 'warn', 'В базе пока нет ни одной заявки — оставьте тестовую с сайта'));
       } else {

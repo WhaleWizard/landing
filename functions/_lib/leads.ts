@@ -47,6 +47,13 @@ export async function getLeadsColumns(db: D1Database): Promise<Set<string>> {
   return columns;
 }
 
+// Мягкое удаление заявок (миграция 0020): запись остаётся в базе, но исчезает
+// из списков, счётчиков и дедупликации. Пока колонки нет — фильтровать нечего,
+// поэтому каждый запрос строит условие по фактической схеме, а не вслепую.
+export async function hasLeadSoftDelete(db: D1Database): Promise<boolean> {
+  return (await getLeadsColumns(db)).has('deleted_at');
+}
+
 function hasLeadsTableError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /no such table/i.test(message);
@@ -153,6 +160,7 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     const hasUtm = cols.has('utm_source'); // 0011
     const hasQuality = cols.has('quality'); // 0009
     const hasPipelineStage = cols.has('pipeline_stage'); // 0012
+    const hasSoftDelete = cols.has('deleted_at'); // 0020
     const consentVersion = normalizeConsentVersion(lead.consent_version);
     const consentSource = normalizeConsentSource(lead.consent_source);
     const consentRegion = normalizeConsentRegion(lead.consent_region);
@@ -171,9 +179,12 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     } | null = null;
     const keys = contactKeys(lead.email, lead.phone, lead.telegramUsername);
     if (hasDedupe && (keys.email || keys.phone || keys.telegram)) {
+      // Заявка из корзины в дедупликации не участвует: иначе повторное
+      // обращение того же человека молча подклеилось бы к скрытой записи и
+      // не появилось бы в списке заявок.
       const recent = await db.prepare(
         `SELECT id, email, phone, telegram_username, submissions_count${hasPipelineStage ? ', pipeline_stage' : ''}
-         FROM leads ORDER BY id DESC LIMIT 500`,
+         FROM leads${hasSoftDelete ? ' WHERE deleted_at IS NULL' : ''} ORDER BY id DESC LIMIT 500`,
       ).all<{
         id: number;
         email: string;

@@ -1,6 +1,7 @@
 import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
+import { hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -42,6 +43,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const db = env.DB;
+    // Заявки в корзине (миграция 0020) не учитываются в сводке дашборда.
+    const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
     const [viewsDaily, uniquesDaily, topPages, viewTotals, leadCounts, recentLeads, outboxPending, capiDay] = await Promise.all([
       // просмотры по дням за 14 дней (для графика и сравнения недель)
       safeAll<{ day: string; views: number }>(db.prepare(
@@ -70,11 +73,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         `SELECT COUNT(*) AS total,
                 SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) AS fresh,
                 SUM(CASE WHEN created_at >= datetime('now', '-7 day') THEN 1 ELSE 0 END) AS week
-         FROM leads`
+         FROM leads WHERE ${activeCond}`
       ).first()),
       // последние заявки для дашборда
       safeAll<{ id: number; name: string; service: string; budget: string; status: string; created_at: string }>(db.prepare(
-        'SELECT id, name, service, budget, status, created_at FROM leads ORDER BY id DESC LIMIT 5'
+        `SELECT id, name, service, budget, status, created_at FROM leads WHERE ${activeCond} ORDER BY id DESC LIMIT 5`
       ).all()),
       // очередь недоставленных событий Meta
       safeFirst<{ pending: number }>(db.prepare(
