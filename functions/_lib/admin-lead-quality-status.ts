@@ -120,15 +120,20 @@ function resolveEvidence(
       current: false,
     };
   }
+  // Статус 'sent' в очереди ставится только после подтверждения events_received
+  // от Meta (прямая отправка, обработчик очереди и идемпотентный маркер — все
+  // требуют подтверждённой квитанции). Поэтому запись очереди — достаточное
+  // доказательство доставки, даже когда строка диагностики уже очищена по
+  // сроку хранения.
   if (outbox?.status === 'sent') {
     return {
       quality,
       event_name: eventName,
       event_id: eventId,
-      status: 'unknown',
+      status: 'sent',
       queue_status: outbox.status,
       attempts: Number(outbox.attempts || 0),
-      reason: 'Очередь помечена отправленной, но подтверждение events_received от Meta не найдено',
+      reason: 'Доставка подтверждена журналом очереди; детальная запись диагностики уже очищена по сроку хранения',
       sent_at: outbox.sent_at ?? null,
       updated_at: outbox.updated_at ? new Date(outbox.updated_at * 1000).toISOString() : null,
       current: false,

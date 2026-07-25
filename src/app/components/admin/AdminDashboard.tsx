@@ -131,7 +131,13 @@ export default function AdminDashboard({ password }: { password: string }) {
     );
   }
 
-  const capiOk = stats.capi.failed24h === 0 && stats.capi.outboxPending === 0;
+  // Неполный ответ статистики не должен ронять всю админку в экран
+  // «Страница не загрузилась»: недостающие блоки показываем нулями.
+  const capi = stats.capi || { outboxPending: 0, sent24h: 0, failed24h: 0 };
+  const totals = stats.totals || { views7: 0, views7Prev: 0, uniques7: 0, uniques7Prev: 0, leadsTotal: 0, leadsNew: 0, leads7: 0 };
+  const topPages = stats.topPages || [];
+  const recentLeads = stats.recentLeads || [];
+  const capiOk = capi.failed24h === 0 && capi.outboxPending === 0;
 
   return (
     <div className="admin-stack">
@@ -147,30 +153,30 @@ export default function AdminDashboard({ password }: { password: string }) {
         <StatCard
           icon={<Users className="h-3.5 w-3.5" />}
           label="Уникальные посетители"
-          value={stats.totals.uniques7.toLocaleString('ru-RU')}
-          delta={formatDelta(stats.totals.uniques7, stats.totals.uniques7Prev)}
+          value={totals.uniques7.toLocaleString('ru-RU')}
+          delta={formatDelta(totals.uniques7, totals.uniques7Prev)}
           spark={uniquesSeries}
         />
         <StatCard
           icon={<TrendingUp className="h-3.5 w-3.5" />}
           label="Просмотры страниц"
-          value={stats.totals.views7.toLocaleString('ru-RU')}
-          delta={formatDelta(stats.totals.views7, stats.totals.views7Prev)}
+          value={totals.views7.toLocaleString('ru-RU')}
+          delta={formatDelta(totals.views7, totals.views7Prev)}
           spark={viewsSeries}
           sparkColor="var(--adm-primary-strong)"
         />
         <StatCard
           icon={<FileText className="h-3.5 w-3.5" />}
           label="Заявки за 7 дней"
-          value={String(stats.totals.leads7)}
-          delta={stats.totals.leadsNew > 0 ? { text: `${stats.totals.leadsNew} ждут ответа`, positive: false } : { text: 'все обработаны', positive: true }}
+          value={String(totals.leads7)}
+          delta={totals.leadsNew > 0 ? { text: `${totals.leadsNew} ждут ответа`, positive: false } : { text: 'все обработаны', positive: true }}
         />
         <StatCard
           icon={<Activity className="h-3.5 w-3.5" />}
           label="Meta CAPI за сутки"
           value={capiOk ? '✓ ок' : '! внимание'}
           delta={{
-            text: `${stats.capi.sent24h} отправлено · ${stats.capi.failed24h} ошибок · ${stats.capi.outboxPending} в очереди`,
+            text: `${capi.sent24h} отправлено · ${capi.failed24h} ошибок · ${capi.outboxPending} в очереди`,
             positive: capiOk,
           }}
         />
@@ -179,9 +185,9 @@ export default function AdminDashboard({ password }: { password: string }) {
       <div className="grid gap-3 lg:grid-cols-2">
         <AdminPanel className="p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-[var(--adm-fg)]/85">Топ страниц за 7 дней</h3>
-          {stats.topPages.length === 0 && <p className="text-sm text-[var(--adm-fg)]/60">Пока нет данных — статистика начнёт собираться после деплоя.</p>}
+          {topPages.length === 0 && <p className="text-sm text-[var(--adm-fg)]/60">Пока нет данных — статистика начнёт собираться после деплоя.</p>}
           <div className="space-y-1">
-            {stats.topPages.map((page) => (
+            {topPages.map((page) => (
               <div key={page.page_path} className="admin-list-row flex items-center justify-between gap-3 border-t py-2 text-sm first:border-t-0">
                 <span className="min-w-0 truncate" title={page.page_path}>{pageTitle(page.page_path)}</span>
                 <span className="shrink-0 tabular-nums text-[var(--adm-fg)]/60">{page.views.toLocaleString('ru-RU')}</span>
@@ -192,9 +198,9 @@ export default function AdminDashboard({ password }: { password: string }) {
 
         <AdminPanel className="p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-[var(--adm-fg)]/85">Последние заявки</h3>
-          {stats.recentLeads.length === 0 && <p className="text-sm text-[var(--adm-fg)]/60">Заявок пока нет.</p>}
+          {recentLeads.length === 0 && <p className="text-sm text-[var(--adm-fg)]/60">Заявок пока нет.</p>}
           <div className="space-y-1">
-            {stats.recentLeads.map((lead) => {
+            {recentLeads.map((lead) => {
               const status = LEAD_STATUS_LABELS[lead.status] || LEAD_STATUS_LABELS.new;
               return (
                 <div key={lead.id} className="admin-list-row flex items-center justify-between gap-3 border-t py-2 text-sm first:border-t-0">

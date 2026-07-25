@@ -283,11 +283,14 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
       const traffic = `валидных: ${audit.valid}, невалидных: ${audit.invalid}; lead: ${audit.lead}, meta-event: ${audit.meta_event}, pageview: ${audit.pageview}`;
       const approximateWindow = 'Показаны дневные агрегаты, обновлявшиеся за последние 24 часа; граница периода приблизительная';
       if (signatureMode === 'monitor') {
+        // «Валидных: 0» в monitor — норма, а не проблема: события отправляет
+        // браузер посетителя, а секрет подписи в браузер отдавать нельзя.
+        // Enforce станет возможен только с серверным контуром отправки.
         checks.push(check(
           'tracking-signature-config',
           'Подпись tracking-запросов',
-          'warn',
-          `Monitor не блокирует неподписанные запросы. ${traffic}. ${approximateWindow}`,
+          'ok',
+          `Штатный режим monitor: запросы наблюдаются, но не блокируются. «Валидных: 0» — это норма, браузер не подписывает запросы, и включать enforce нельзя. ${traffic}. ${approximateWindow}`,
         ));
       } else {
         const status: CheckStatus = audit.valid === 0 && audit.invalid > 0

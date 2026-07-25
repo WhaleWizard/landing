@@ -1775,53 +1775,377 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   line-height: 1.5;
 }
 
-.admin-root .admin-crm-trash__list {
-  display: grid;
-  gap: 6px;
+/* Корзина заявок: своя панель со своим отступом — без него содержимое
+   упиралось в рамку. Каждая строка — сетка «галочка / текст / действия»,
+   поэтому длинные адреса и причины переносятся, а не наезжают на кнопки. */
+.admin-root .admin-trash {
+  min-width: 0;
+  padding: clamp(14px, 2vw, 20px);
 }
 
-.admin-root .admin-crm-trash__item {
+.admin-root .admin-trash__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-root .admin-trash__title {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.admin-root .admin-trash__title h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--adm-text-primary);
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.admin-root .admin-trash__count {
+  min-width: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 999px;
+  color: var(--adm-text-tertiary);
+  background: var(--adm-surface-subtle);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.admin-root .admin-trash__count.is-filled {
+  border-color: color-mix(in srgb, var(--adm-danger) 32%, transparent);
+  color: var(--adm-danger);
+  background: color-mix(in srgb, var(--adm-danger) 10%, transparent);
+}
+
+.admin-root .admin-trash__header .admin-button {
+  flex: none;
+}
+
+.admin-root .admin-trash__body {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-border-subtle);
+}
+
+.admin-root .admin-trash__body > * {
+  min-width: 0;
+}
+
+.admin-root .admin-trash__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .admin-trash__search {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--adm-control-height);
+  padding: 0 11px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-input-bg);
+}
+
+.admin-root .admin-trash__search:focus-within {
+  border-color: color-mix(in srgb, var(--adm-primary) 55%, var(--adm-border-strong));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--adm-primary) 12%, transparent);
+}
+
+.admin-root .admin-trash__search > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .admin-trash__search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px !important;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0;
+}
+
+.admin-root .admin-trash__search-clear {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: var(--adm-text-tertiary);
+  background: transparent;
+}
+
+.admin-root .admin-trash__search-clear:hover {
+  color: var(--adm-text-primary);
+  background: var(--adm-surface-subtle);
+}
+
+.admin-root .admin-trash__search-clear svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-root .admin-trash__bulk {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--adm-surface-subtle);
 }
 
-.admin-root .admin-crm-trash__item > div:first-child {
-  display: grid;
+.admin-root .admin-trash__selectall {
+  display: flex;
   min-width: 0;
-  gap: 2px;
-}
-
-.admin-root .admin-crm-trash__item strong {
-  color: var(--adm-text-primary);
+  align-items: center;
+  gap: 9px;
+  color: var(--adm-text-secondary);
   font-size: 13px;
-  overflow-wrap: anywhere;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.admin-root .admin-crm-trash__actions {
+.admin-root .admin-trash__selectall input,
+.admin-root .admin-trash__row-check input,
+.admin-root .admin-crm-list__selectall input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  accent-color: var(--adm-primary);
+  cursor: pointer;
+}
+
+.admin-root .admin-trash__bulk-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.admin-root .admin-crm-trash__actions .admin-button {
-  min-height: 32px;
-  padding-inline: 10px;
+.admin-root .admin-trash__bulk-actions .admin-button {
+  min-height: 34px;
+  padding-inline: 11px;
 }
 
-.admin-root .admin-crm-trash__footer {
+.admin-root .admin-trash__list {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.admin-root .admin-trash__row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 12px;
+  background: var(--adm-surface-raised);
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.admin-root .admin-trash__row:hover {
+  border-color: var(--adm-border-strong);
+}
+
+.admin-root .admin-trash__row.is-checked {
+  border-color: color-mix(in srgb, var(--adm-primary) 34%, var(--adm-border-subtle));
+  background: color-mix(in srgb, var(--adm-primary) 7%, var(--adm-surface-raised));
+}
+
+.admin-root .admin-trash__row-check {
+  display: flex;
+  min-height: 22px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.admin-root .admin-trash__row-body {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.admin-root .admin-trash__row-head {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .admin-trash__row-head strong {
+  min-width: 0;
+  color: var(--adm-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .admin-trash__chip {
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--adm-text-tertiary);
+  background: var(--adm-surface-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .admin-trash__row-contacts {
+  margin: 0;
+  min-width: 0;
+  color: var(--adm-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .admin-trash__row-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-root .admin-trash__row-meta > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .admin-trash__row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-root .admin-trash__row-actions .admin-button {
+  min-height: 34px;
+  padding-inline: 11px;
+}
+
+.admin-root .admin-trash__row-actions .admin-icon-button {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+}
+
+.admin-root .admin-trash__confirm {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--adm-danger) 38%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--adm-danger) 8%, var(--adm-surface-raised));
+}
+
+.admin-root .admin-trash__confirm > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--adm-danger);
+}
+
+.admin-root .admin-trash__confirm-text {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-root .admin-trash__confirm strong {
+  color: var(--adm-text-primary);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .admin-trash__confirm span {
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-root .admin-trash__confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  grid-column: 2;
+}
+
+.admin-root .admin-trash__footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding-top: 4px;
+}
+
+.admin-root .admin-trash__footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-root .admin-button--danger-solid {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--adm-danger) 92%, #000), var(--adm-danger));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--adm-danger) 26%, transparent);
+}
+
+.admin-root .admin-button--danger-solid:hover:not(:disabled) {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--adm-danger), color-mix(in srgb, var(--adm-danger) 82%, #fff));
+}
+
+.admin-root .admin-crm-list__selectall {
+  display: flex;
+  flex: none;
+  align-items: center;
+  cursor: pointer;
+}
+
+.admin-root .admin-crm-list__header strong {
+  margin-right: auto;
 }
 
 .admin-root .admin-crm-lead:hover {
@@ -2791,6 +3115,72 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   .admin-root .admin-crm-quality__actions .admin-state,
   .admin-root .admin-crm-quality__confirm .admin-button {
     width: 100%;
+  }
+
+  /* На узком экране кнопки строки корзины уходят вниз на всю ширину:
+     так они не сжимают контакт и не выталкивают текст за карточку. */
+  .admin-root .admin-trash__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-root .admin-trash__header .admin-button {
+    width: 100%;
+  }
+
+  .admin-root .admin-trash__toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-root .admin-trash__toolbar .admin-button {
+    width: 100%;
+  }
+
+  .admin-root .admin-trash__bulk {
+    align-items: stretch;
+  }
+
+  .admin-root .admin-trash__bulk-actions {
+    width: 100%;
+  }
+
+  .admin-root .admin-trash__bulk-actions .admin-button {
+    flex: 1 1 auto;
+  }
+
+  .admin-root .admin-trash__row {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+
+  .admin-root .admin-trash__row-actions {
+    grid-column: 2;
+    width: 100%;
+  }
+
+  .admin-root .admin-trash__row-actions .admin-button {
+    flex: 1 1 auto;
+  }
+
+  .admin-root .admin-trash__confirm-actions {
+    grid-column: 1 / -1;
+  }
+
+  .admin-root .admin-trash__confirm-actions .admin-button {
+    flex: 1 1 auto;
+  }
+
+  .admin-root .admin-trash__footer,
+  .admin-root .admin-trash__footer-actions {
+    align-items: stretch;
+  }
+
+  .admin-root .admin-trash__footer-actions {
+    width: 100%;
+  }
+
+  .admin-root .admin-trash__footer-actions .admin-button {
+    flex: 1 1 auto;
   }
 
   .admin-root .admin-crm-quality__actions .admin-state {

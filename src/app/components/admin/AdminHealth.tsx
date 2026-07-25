@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Send } from 'lucide-react';
+import { loadConsent } from '../../consent/consent';
 
 interface HealthCheck {
   id: string;
@@ -14,20 +15,39 @@ const STATUS_UI = {
   fail: { icon: XCircle, className: 'text-[var(--adm-danger)]', chip: 'bg-[var(--adm-danger)]/10 text-[var(--adm-danger)]', label: 'ошибка' },
 } as const;
 
-// Клиентские проверки: что реально загрузилось в ЭТОМ браузере.
-// Зависят от согласия на cookie у текущего пользователя — это норма.
+// Клиентские проверки. Важно: на /admin пиксели НАМЕРЕННО не загружаются
+// (админский трафик не должен попадать в рекламную статистику), поэтому
+// «скрипт отсутствует» здесь не поломка. Проверяем согласие в этом браузере
+// и честно объясняем, где смотреть фактическую загрузку.
 function runBrowserChecks(): HealthCheck[] {
   const w = window as unknown as Record<string, unknown>;
-  const make = (id: string, title: string, present: boolean, hint: string): HealthCheck => ({
-    id,
-    title,
-    status: present ? 'ok' : 'warn',
-    detail: present ? 'Загружен в этом браузере' : `Не загружен в этом браузере — ${hint}`,
-  });
+  const consent = loadConsent();
+  const consentGivenAt = consent ? new Date(consent.timestamp).toLocaleDateString('ru-RU') : '';
+
+  const make = (id: string, title: string, loaded: boolean, allowed: boolean, category: string): HealthCheck => {
+    if (loaded) return { id, title, status: 'ok', detail: 'Загружен в этом браузере' };
+    if (allowed) {
+      return {
+        id,
+        title,
+        status: 'ok',
+        detail: `Согласие («${category}») в этом браузере дано${consentGivenAt ? ` ${consentGivenAt}` : ''}. На /admin пиксели намеренно не загружаются — фактическую загрузку проверяйте на любой публичной странице сайта`,
+      };
+    }
+    return {
+      id,
+      title,
+      status: 'warn',
+      detail: consent
+        ? `Не загружен: в этом браузере согласие «${category}» отклонено`
+        : 'Не загружен: в этом браузере согласие на cookie ещё не давалось',
+    };
+  };
+
   return [
-    make('px-gtm', 'Google Tag Manager (dataLayer)', Array.isArray(w.dataLayer), 'проверьте согласие на cookie в этом браузере'),
-    make('px-meta', 'Meta Pixel (fbq)', typeof w.fbq === 'function', 'пиксель грузится только после согласия на маркетинг'),
-    make('px-ym', 'Яндекс Метрика (ym)', typeof w.ym === 'function', 'счётчик грузится только после согласия на аналитику'),
+    make('px-gtm', 'Google Tag Manager (dataLayer)', Array.isArray(w.dataLayer), Boolean(consent?.categories.analytics), 'аналитика'),
+    make('px-meta', 'Meta Pixel (fbq)', typeof w.fbq === 'function', Boolean(consent?.categories.marketing), 'маркетинг'),
+    make('px-ym', 'Яндекс Метрика (ym)', typeof w.ym === 'function', Boolean(consent?.categories.analytics), 'аналитика'),
   ];
 }
 
@@ -137,7 +157,7 @@ export default function AdminHealth({ password }: { password: string }) {
         <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] px-4 py-1">
           <h3 className="pt-3 text-xs font-semibold uppercase tracking-wider text-[var(--adm-fg)]/55">Пиксели в этом браузере</h3>
           {browserChecks.map(renderCheck)}
-          <p className="pb-3 pt-1 text-[11px] text-[var(--adm-fg)]/45">Пиксели грузятся только после согласия на cookie — «внимание» здесь чаще означает, что в этом браузере согласие не давалось, а не поломку.</p>
+          <p className="pb-3 pt-1 text-[11px] text-[var(--adm-fg)]/45">На /admin пиксели намеренно не загружаются, чтобы визиты администратора не попадали в статистику рекламы. Эта проверка показывает согласие на cookie в текущем браузере; работу самих пикселей смотрите на публичных страницах сайта.</p>
         </div>
       )}
     </div>

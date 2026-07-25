@@ -18,6 +18,7 @@ const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 const MAX_LIMIT = 300;
 const DEFAULT_LIMIT = 100;
 const MAX_OFFSET = 100_000;
+const TAG_QUERY_CHUNK = 80;
 
 interface CrmLeadListRow {
   id: number;
@@ -68,17 +69,22 @@ function escapeLike(value: string): string {
 async function attachTags(db: D1Database, leads: CrmLeadListRow[]): Promise<CrmLeadListRow[]> {
   const ids = leads.map((lead) => Number(lead.id)).filter((id) => Number.isInteger(id) && id > 0);
   if (ids.length === 0) return leads;
-  const placeholders = ids.map(() => '?').join(', ');
-  const result = await db.prepare(
-    `SELECT lt.lead_id, t.id, t.name, t.slug, t.color
-     FROM crm_lead_tags lt INNER JOIN crm_tags t ON t.id = lt.tag_id
-     WHERE lt.lead_id IN (${placeholders}) ORDER BY lower(t.name), t.id`,
-  ).bind(...ids).all<{ lead_id: number; id: number; name: string; slug: string; color: string }>();
   const tagsByLead = new Map<number, Array<{ id: number; name: string; slug: string; color: string }>>();
-  for (const row of result.results || []) {
-    const tags = tagsByLead.get(row.lead_id) || [];
-    tags.push({ id: row.id, name: row.name, slug: row.slug, color: row.color });
-    tagsByLead.set(row.lead_id, tags);
+  // D1 не принимает больше 100 подставляемых значений в запросе, а страница
+  // списка может быть длиннее — поэтому id разбираются частями.
+  for (let index = 0; index < ids.length; index += TAG_QUERY_CHUNK) {
+    const part = ids.slice(index, index + TAG_QUERY_CHUNK);
+    const placeholders = part.map(() => '?').join(', ');
+    const result = await db.prepare(
+      `SELECT lt.lead_id, t.id, t.name, t.slug, t.color
+       FROM crm_lead_tags lt INNER JOIN crm_tags t ON t.id = lt.tag_id
+       WHERE lt.lead_id IN (${placeholders}) ORDER BY lower(t.name), t.id`,
+    ).bind(...part).all<{ lead_id: number; id: number; name: string; slug: string; color: string }>();
+    for (const row of result.results || []) {
+      const tags = tagsByLead.get(row.lead_id) || [];
+      tags.push({ id: row.id, name: row.name, slug: row.slug, color: row.color });
+      tagsByLead.set(row.lead_id, tags);
+    }
   }
   return leads.map((lead) => ({ ...lead, crm_tags: tagsByLead.get(lead.id) || [] }));
 }

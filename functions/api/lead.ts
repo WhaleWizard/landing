@@ -116,6 +116,13 @@ function normalizeTextForMeta(value: string): string {
 function normalizeLocationForMeta(value: string): string {
   return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
 }
+
+// Имена нормализуются как на клиенте (consent.ts) и в событиях качества
+// (_lib/meta-pii.ts): нижний регистр, без пробелов и пунктуации. Иначе хеши
+// fn/ln одного человека расходятся между событиями и не сопоставляются Meta.
+function normalizeNameForMeta(value: string): string {
+  return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
+}
 function normalizeGender(value: string | undefined): 'm' | 'f' | undefined {
   const raw = (value || '').trim().toLowerCase();
   if (!raw) return undefined;
@@ -454,8 +461,8 @@ async function sendMetaConversionEvent(
   const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion, hashedExternalId, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([
     payload.email ? sha256Normalized(normalizeEmailForMeta(payload.email)) : undefined,
     payload.phone ? sha256Normalized(normalizePhoneForMeta(payload.phone)) : undefined,
-    firstName ? sha256Normalized(normalizeTextForMeta(firstName)) : undefined,
-    lastName ? sha256Normalized(normalizeTextForMeta(lastName)) : undefined,
+    firstName ? sha256Normalized(normalizeNameForMeta(firstName)) : undefined,
+    lastName ? sha256Normalized(normalizeNameForMeta(lastName)) : undefined,
     ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
     ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
     (ctx.regionCode || ctx.region) ? sha256Normalized(normalizeLocationForMeta(ctx.regionCode || ctx.region || '')) : undefined,

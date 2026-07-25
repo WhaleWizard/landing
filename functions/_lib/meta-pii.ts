@@ -6,8 +6,12 @@ export function normalizePhone(value: string): string {
   return value.trim().replace(/\D/g, '');
 }
 
+// Совпадает с клиентской нормализацией имени (src/app/consent/consent.ts,
+// normalizeTextForMeta) и рекомендацией Meta: нижний регистр, без пробелов и
+// пунктуации. Разные нормализации давали разные хеши fn/ln у одного человека
+// в Lead и QualifiedLead — Meta не могла связать события по имени.
 export function normalizeName(value: string): string {
-  return value.trim().toLowerCase();
+  return value.trim().toLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, '');
 }
 
 export function normalizeLocation(value: string): string {

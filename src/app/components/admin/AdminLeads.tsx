@@ -7,7 +7,6 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
-  ExternalLink,
   Mail,
   MessageCircle,
   Plus,
@@ -18,7 +17,9 @@ import {
   Tag,
   Target,
   Trash2,
+  Undo2,
   UserRoundCheck,
+  X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
 
@@ -245,6 +246,22 @@ function isOverdue(raw?: string | null): boolean {
 
 const LEAD_QUALITY_CONSENT_MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000;
 
+// Сырые коды из серверной диагностики → понятное объяснение для администратора.
+const QUALITY_REASON_LABELS: Record<string, string> = {
+  marketing_consent_not_granted: 'Посетитель не дал согласие на маркетинг — событие качества отправлять запрещено.',
+  consent_receipt_missing: 'У заявки нет сохранённой квитанции согласия: она оставлена до обновления от 23.07.2026, которое начало их записывать.',
+  consent_receipt_invalid: 'Сохранённая квитанция согласия некорректна — событие не отправлено.',
+  consent_receipt_expired: 'Решению о согласии больше 180 дней — событие не отправлено.',
+  no_match_keys: 'У заявки нет данных для сопоставления с Meta (email, телефон, fbp/fbc).',
+  missing_token_or_pixel_id: 'Meta CAPI не настроен на сервере (нет токена или Pixel ID).',
+  cancelled_before_delivery_by_admin: 'Отправка отменена администратором до доставки.',
+};
+
+function qualityReasonLabel(reason?: string | null): string | undefined {
+  if (!reason) return undefined;
+  return QUALITY_REASON_LABELS[reason.trim()] || reason;
+}
+
 function qualityConsentIssue(lead: LeadRow): 'missing' | 'invalid' | 'expired' | null {
   if (!lead.consent_version || !lead.consent_source || !lead.consent_region || !lead.consent_timestamp || !lead.consent_recorded_at) return 'missing';
   const rawTimestamp = Number(lead.consent_timestamp);
@@ -272,11 +289,11 @@ function qualityMetaState(lead: LeadRow): { label: string; tone: string; title: 
     const label = lead.quality_meta_queue_status === 'retry'
       ? 'Meta: повтор'
       : lead.quality_meta_queue_status === 'sending' ? 'Meta: отправляется' : 'Meta: в очереди';
-    return { label, tone: lead.quality_meta_queue_status === 'retry' ? 'warning' : 'info', title: lead.quality_meta_error || 'Событие ожидает подтверждения Meta' };
+    return { label, tone: lead.quality_meta_queue_status === 'retry' ? 'warning' : 'info', title: qualityReasonLabel(lead.quality_meta_error) || 'Событие ожидает подтверждения Meta' };
   }
-  if (lead.quality_meta_status === 'failed') return { label: 'Meta: ошибка', tone: 'danger', title: lead.quality_meta_error || 'Событие не доставлено' };
-  if (lead.quality_meta_status === 'skipped') return { label: 'Meta: пропущено', tone: 'warning', title: lead.quality_meta_error || 'Событие не отправлялось' };
-  if (lead.quality_meta_status === 'unknown') return { label: 'Meta: статус неизвестен', tone: 'warning', title: lead.quality_meta_error || 'В журнале нет записи о доставке' };
+  if (lead.quality_meta_status === 'failed') return { label: 'Meta: ошибка', tone: 'danger', title: qualityReasonLabel(lead.quality_meta_error) || 'Событие не доставлено' };
+  if (lead.quality_meta_status === 'skipped') return { label: 'Meta: пропущено', tone: 'warning', title: qualityReasonLabel(lead.quality_meta_error) || 'Событие не отправлялось' };
+  if (lead.quality_meta_status === 'unknown') return { label: 'Meta: статус неизвестен', tone: 'warning', title: qualityReasonLabel(lead.quality_meta_error) || 'В журнале нет записи о доставке' };
   if (lead.marketing_consent !== 1) return { label: 'Meta: нет согласия', tone: 'warning', title: 'Событие качества не отправляется без согласия на маркетинг.' };
   const consentIssue = qualityConsentIssue(lead);
   if (consentIssue === 'expired') return { label: 'Meta: согласие истекло', tone: 'warning', title: 'Событие качества не отправлено: решению о согласии больше 180 дней.' };
@@ -560,7 +577,7 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
         </div>
         {lead.quality_meta_processing && (lead.quality === 'target' || lead.quality === 'nontarget') ? <div className="admin-confirm-inline admin-crm-quality__confirm" role="status"><span>Операция была прервана до фиксации результата. Безопасно повторите ту же отправку.</span><button className="admin-button admin-button--primary" type="button" onClick={() => void setQuality(lead.quality as 'target' | 'nontarget', false, lead.quality_action_id)} disabled={saving || !editingReady}>Повторить отправку</button></div> : null}
         {pendingQuality !== null ? <div className="admin-confirm-inline admin-crm-quality__confirm" role="alert"><span>{lead.quality_meta_status === 'sent' ? 'Предыдущее событие уже доставлено в Meta и не может быть отозвано.' : lead.quality_meta_status === 'unknown' ? 'У предыдущего события нет надёжно зафиксированного статуса.' : 'Предыдущее событие уже находится в очереди и ещё может быть доставлено в Meta.'} {pendingQuality ? 'Отправить новую классификацию?' : 'Снять метку только в CRM?'}</span><button className="admin-button admin-button--primary" type="button" onClick={() => void setQuality(pendingQuality, true)} disabled={saving || !editingReady}>{pendingQuality ? 'Да, изменить' : 'Да, снять'}</button><button type="button" className="admin-button admin-button--quiet" onClick={() => { setPendingQuality(null); setQualityActionId(''); }}>Отмена</button></div> : null}
-        {qualityHistory.length ? <details className="admin-disclosure admin-quality-history"><summary><span>История сигналов Meta · {qualityHistory.length}</span><ChevronRight aria-hidden="true" /></summary><div className="admin-quality-history__list">{qualityHistory.map((item) => { const state = qualityHistoryState(item); return <div key={item.event_id}><span>{item.event_name}{item.current ? ' · текущая' : ''}</span><span className={`admin-state admin-state--${state.tone}`}>{state.label}</span><small>{item.reason || (item.sent_at ? formatDate(new Date(item.sent_at * 1000).toISOString()) : item.updated_at ? formatDate(item.updated_at) : 'Без дополнительной информации')}</small></div>; })}</div></details> : null}
+        {qualityHistory.length ? <details className="admin-disclosure admin-quality-history"><summary><span>История сигналов Meta · {qualityHistory.length}</span><ChevronRight aria-hidden="true" /></summary><div className="admin-quality-history__list">{qualityHistory.map((item) => { const state = qualityHistoryState(item); return <div key={item.event_id}><span>{item.event_name}{item.current ? ' · текущая' : ''}</span><span className={`admin-state admin-state--${state.tone}`}>{state.label}</span><small>{qualityReasonLabel(item.reason) || (item.sent_at ? formatDate(new Date(item.sent_at * 1000).toISOString()) : item.updated_at ? formatDate(item.updated_at) : 'Без дополнительной информации')}</small></div>; })}</div></details> : null}
       </div>
 
       <div className="admin-crm-form-grid">
@@ -639,114 +656,366 @@ interface TrashedLead {
   deleted_reason?: string;
 }
 
-function TrashPanel({ password, onRestored, refreshToken }: { password: string; onRestored: () => void; refreshToken: number }) {
+interface TrashListResponse {
+  success?: boolean;
+  error?: string;
+  migration?: string;
+  leads?: TrashedLead[];
+  total?: number;
+  matched?: number;
+}
+
+const TRASH_PAGE_SIZE = 25;
+// Сервер принимает не больше 200 id за раз, а сам режет их на части для D1.
+// Держим запас: массовое действие уходит пачками по 100.
+const TRASH_IDS_PER_REQUEST = 100;
+
+type TrashConfirm = { kind: 'purge_selected'; count: number } | { kind: 'purge_all'; count: number };
+
+function TrashPanel({ password, onChanged, refreshToken }: { password: string; onChanged: () => void; refreshToken: number }) {
   const [open, setOpen] = useState(false);
   const [leads, setLeads] = useState<TrashedLead[]>([]);
   const [total, setTotal] = useState(0);
+  const [matched, setMatched] = useState(0);
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [busy, setBusy] = useState('');
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [checkedIds, setCheckedIds] = useState<number[]>([]);
+  const [confirming, setConfirming] = useState<TrashConfirm | null>(null);
+
+  const fetchPage = useCallback(async (offset: number): Promise<TrashListResponse> => {
+    const params = new URLSearchParams({ limit: String(TRASH_PAGE_SIZE), offset: String(offset) });
+    if (query.trim()) params.set('q', query.trim());
+    const response = await fetch(`/api/admin/lead-trash?${params.toString()}`, {
+      headers: { 'X-Admin-Password': password }, credentials: 'same-origin', cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => null) as TrashListResponse | null;
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.migration
+        ? `Примените миграцию ${payload.migration} — до неё корзина недоступна`
+        : payload?.error || `HTTP ${response.status}`);
+    }
+    return payload;
+  }, [password, query]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/lead-trash?limit=100', {
-        headers: { 'X-Admin-Password': password }, credentials: 'same-origin', cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; migration?: string; leads?: TrashedLead[]; total?: number } | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.migration
-          ? `Примените миграцию ${payload.migration} — до неё корзина недоступна`
-          : payload?.error || `HTTP ${response.status}`);
-      }
-      setLeads(payload.leads || []);
+      const payload = await fetchPage(0);
+      const nextLeads = payload.leads || [];
+      setLeads(nextLeads);
       setTotal(Number(payload.total || 0));
+      setMatched(Number(payload.matched ?? payload.total ?? 0));
+      // Отметки живут только для видимых строк: иначе после поиска или
+      // перезагрузки действие задело бы заявки, которых на экране уже нет.
+      setCheckedIds((current) => current.filter((id) => nextLeads.some((item) => item.id === id)));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Не удалось открыть корзину');
     } finally {
       setLoading(false);
     }
-  }, [password]);
+  }, [fetchPage]);
 
   // refreshToken меняется, когда заявку убрали из списка или из карточки:
-  // открытая корзина подхватывает её сама, не закрываясь.
+  // открытая корзина подхватывает её сама, не закрываясь. Поиск с задержкой,
+  // чтобы не слать запрос на каждую букву.
   useEffect(() => {
-    if (open) void load();
+    if (!open) return undefined;
+    const timer = window.setTimeout(() => void load(), 240);
+    return () => window.clearTimeout(timer);
   }, [load, open, refreshToken]);
 
-  const run = async (body: Record<string, unknown>, restores: boolean) => {
-    setBusy(true);
+  // Счётчик рядом с заголовком нужен и у закрытой корзины: администратор
+  // должен видеть, что там что-то лежит, не открывая раздел.
+  useEffect(() => {
+    if (open) return undefined;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/admin/lead-trash?limit=1', {
+          headers: { 'X-Admin-Password': password }, credentials: 'same-origin', cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => null) as TrashListResponse | null;
+        if (!cancelled && payload?.success) setTotal(Number(payload.total || 0));
+      } catch {
+        // Счётчик не критичен: ошибку показываем только при открытой корзине.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, password, refreshToken]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
     setError('');
     try {
-      await callTrashApi(password, body);
-      await load();
-      if (restores) onRestored();
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Действие не выполнено');
+      const payload = await fetchPage(leads.length);
+      const more = payload.leads || [];
+      setLeads((current) => {
+        const seen = new Set(current.map((item) => item.id));
+        return [...current, ...more.filter((item) => !seen.has(item.id))];
+      });
+      setTotal(Number(payload.total || 0));
+      setMatched(Number(payload.matched ?? payload.total ?? 0));
+    } catch (moreError) {
+      setError(moreError instanceof Error ? moreError.message : 'Не удалось загрузить ещё');
     } finally {
-      setBusy(false);
+      setLoadingMore(false);
     }
   };
 
+  const finish = async (message: string) => {
+    setCheckedIds([]);
+    setNotice(message);
+    setConfirming(null);
+    await load();
+    onChanged();
+  };
+
+  const runBulk = async (action: 'restore' | 'purge', ids: number[]) => {
+    if (!ids.length) return;
+    setBusy(action);
+    setError('');
+    setNotice('');
+    try {
+      let done = 0;
+      for (let index = 0; index < ids.length; index += TRASH_IDS_PER_REQUEST) {
+        const part = ids.slice(index, index + TRASH_IDS_PER_REQUEST);
+        const payload = await callTrashApi(password, { action, ids: part });
+        done += Number((action === 'restore' ? payload.restored : payload.purged) || 0);
+        if (ids.length > TRASH_IDS_PER_REQUEST) {
+          setProgress(`Обработано ${Math.min(index + part.length, ids.length)} из ${ids.length}…`);
+        }
+      }
+      await finish(action === 'restore'
+        ? `Восстановлено заявок: ${done}`
+        : `Удалено навсегда: ${done}`);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Действие не выполнено');
+    } finally {
+      setBusy('');
+      setProgress('');
+    }
+  };
+
+  // Полная очистка идёт порциями на сервере: повторяем запрос, пока корзина
+  // не опустеет, и показываем остаток, чтобы не выглядело зависанием.
+  const purgeAll = async () => {
+    setBusy('purge_all');
+    setError('');
+    setNotice('');
+    try {
+      let removed = 0;
+      for (let round = 0; round < 100; round += 1) {
+        const payload = await callTrashApi(password, { action: 'purge_all' });
+        const purged = Number(payload.purged || 0);
+        const remaining = Number(payload.remaining || 0);
+        removed += purged;
+        if (remaining <= 0 || purged === 0) break;
+        setProgress(`Удалено ${removed}, осталось ${remaining}…`);
+      }
+      await finish(`Корзина очищена · удалено заявок: ${removed}`);
+    } catch (purgeError) {
+      setError(purgeError instanceof Error ? purgeError.message : 'Не удалось очистить корзину');
+    } finally {
+      setBusy('');
+      setProgress('');
+    }
+  };
+
+  const working = Boolean(busy);
+  const allChecked = leads.length > 0 && checkedIds.length === leads.length;
+  const someChecked = checkedIds.length > 0 && !allChecked;
+  const searching = Boolean(query.trim());
+
   return (
-    <section className="admin-panel admin-crm-trash">
-      <div className="admin-section-heading">
-        <div><h3>Корзина</h3><p className="admin-meta">Убранные заявки не видны в списке, счётчиках и отчётах по источникам. Пока они здесь — их можно вернуть.</p></div>
-        <button className="admin-button admin-button--quiet" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-          <Trash2 aria-hidden="true" /> {open ? 'Скрыть корзину' : 'Открыть корзину'}
+    <section className="admin-panel admin-trash" aria-label="Корзина заявок">
+      <div className="admin-trash__header">
+        <div className="admin-trash__title">
+          <h3>Корзина<span className={`admin-trash__count ${total ? 'is-filled' : ''}`}>{total}</span></h3>
+          <p className="admin-meta">Убранные заявки не видны в списке, счётчиках и отчётах по источникам. Пока они здесь — их можно вернуть.</p>
+        </div>
+        <button className="admin-button" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          <Trash2 aria-hidden="true" /> {open ? 'Свернуть' : 'Открыть корзину'}
         </button>
       </div>
 
       {open ? (
-        <div className="admin-stack">
+        <div className="admin-trash__body">
+          {/* Поиск не нужен, пока корзина пуста и ничего не искали. */}
+          {total > 0 || searching ? (
+          <div className="admin-trash__toolbar">
+            <label className="admin-trash__search">
+              <Search aria-hidden="true" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Имя, контакт, услуга или причина"
+                aria-label="Поиск по корзине"
+              />
+              {searching ? (
+                <button type="button" className="admin-trash__search-clear" aria-label="Очистить поиск" onClick={() => setQuery('')}><X aria-hidden="true" /></button>
+              ) : null}
+            </label>
+            <button className="admin-button admin-button--quiet" type="button" onClick={() => void load()} disabled={loading || working}>
+              <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить
+            </button>
+          </div>
+          ) : null}
+
           {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
-          {loading ? <p className="admin-muted" role="status">Загружаю корзину…</p> : null}
-          {!loading && !leads.length && !error ? <p className="admin-muted">Корзина пуста.</p> : null}
+          {notice ? <div className="admin-notice admin-notice--success" role="status">{notice}</div> : null}
+          {progress ? <div className="admin-notice" role="status">{progress}</div> : null}
+
+          {confirming ? (
+            <div className="admin-trash__confirm" role="alertdialog" aria-label="Подтверждение удаления">
+              <AlertTriangle aria-hidden="true" />
+              <div className="admin-trash__confirm-text">
+                <strong>
+                  {confirming.kind === 'purge_all'
+                    ? `Очистить корзину полностью — ${confirming.count} заявок?`
+                    : `Удалить навсегда выбранные заявки — ${confirming.count}?`}
+                </strong>
+                <span>Заявки и вся их история исчезнут без возможности восстановления. Уже отправленные в Meta события не отзываются.</span>
+              </div>
+              <div className="admin-trash__confirm-actions">
+                <button className="admin-button admin-button--quiet" type="button" onClick={() => setConfirming(null)} disabled={working}>Отмена</button>
+                <button
+                  className="admin-button admin-button--danger-solid"
+                  type="button"
+                  disabled={working}
+                  onClick={() => {
+                    if (confirming.kind === 'purge_all') void purgeAll();
+                    else void runBulk('purge', checkedIds);
+                  }}
+                >
+                  <Trash2 aria-hidden="true" /> Да, удалить
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {loading && !leads.length ? <p className="admin-muted" role="status">Загружаю корзину…</p> : null}
+
+          {!loading && !leads.length && !error ? (
+            <div className="admin-empty">
+              <div>
+                <strong>{searching ? 'Ничего не найдено' : 'Корзина пуста'}</strong>
+                <p>{searching ? 'Измените поисковый запрос.' : 'Убранные заявки появятся здесь и будут ждать восстановления или окончательного удаления.'}</p>
+              </div>
+            </div>
+          ) : null}
 
           {leads.length ? (
             <>
-              <div className="admin-crm-trash__list">
-                {leads.map((lead) => (
-                  <div className="admin-crm-trash__item" key={lead.id}>
-                    <div>
-                      <strong>{leadLabel(lead)}</strong>
-                      <span className="admin-meta">
-                        {lead.service ? `${lead.service} · ` : ''}
-                        убрана {lead.deleted_at ? formatDate(lead.deleted_at) : 'недавно'}
-                        {lead.deleted_reason ? ` · причина: ${lead.deleted_reason}` : ''}
-                      </span>
-                    </div>
-                    <div className="admin-crm-trash__actions">
-                      <button className="admin-button admin-button--quiet" type="button" disabled={busy} onClick={() => void run({ action: 'restore', ids: [lead.id] }, true)}>Восстановить</button>
-                      <button
-                        className="admin-button admin-button--danger"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => {
-                          if (!confirm(`Удалить «${leadLabel(lead)}» навсегда?\n\nЗаявка и вся её история исчезнут без возможности восстановления.`)) return;
-                          void run({ action: 'purge', ids: [lead.id] }, false);
-                        }}
-                      >
-                        Удалить навсегда
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div className="admin-trash__bulk">
+                <label className="admin-trash__selectall">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    ref={(node) => { if (node) node.indeterminate = someChecked; }}
+                    aria-label="Выбрать все заявки на экране"
+                    disabled={working}
+                    onChange={(event) => setCheckedIds(event.target.checked ? leads.map((item) => item.id) : [])}
+                  />
+                  <span>{checkedIds.length ? `Выбрано: ${checkedIds.length}` : `Выбрать все на экране (${leads.length})`}</span>
+                </label>
+                <div className="admin-trash__bulk-actions">
+                  <button
+                    className="admin-button"
+                    type="button"
+                    disabled={working || !checkedIds.length}
+                    onClick={() => void runBulk('restore', checkedIds)}
+                  >
+                    <Undo2 aria-hidden="true" /> {busy === 'restore' ? 'Восстанавливаю…' : 'Восстановить'}
+                  </button>
+                  <button
+                    className="admin-button admin-button--danger"
+                    type="button"
+                    disabled={working || !checkedIds.length}
+                    onClick={() => setConfirming({ kind: 'purge_selected', count: checkedIds.length })}
+                  >
+                    <Trash2 aria-hidden="true" /> {busy === 'purge' ? 'Удаляю…' : 'Удалить навсегда'}
+                  </button>
+                  {checkedIds.length ? (
+                    <button className="admin-button admin-button--quiet" type="button" disabled={working} onClick={() => setCheckedIds([])}>Снять</button>
+                  ) : null}
+                </div>
               </div>
-              <div className="admin-crm-trash__footer">
-                <span className="admin-meta">В корзине: {total}{leads.length < total ? ` · показаны первые ${leads.length}` : ''}</span>
-                <button
-                  className="admin-button admin-button--danger"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    if (!confirm(`Очистить корзину полностью?\n\nБудут навсегда удалены все заявки в корзине (${total}) вместе с их историей. Отменить это будет нельзя.`)) return;
-                    void run({ action: 'purge_all' }, false);
-                  }}
-                >
-                  <Trash2 aria-hidden="true" /> Очистить корзину
-                </button>
+
+              <div className="admin-trash__list">
+                {leads.map((lead) => {
+                  const checked = checkedIds.includes(lead.id);
+                  const contacts = [lead.email, lead.phone, lead.telegram_username ? `@${lead.telegram_username.replace(/^@/, '')}` : ''].filter(Boolean);
+                  return (
+                    <article className={`admin-trash__row ${checked ? 'is-checked' : ''}`} key={lead.id}>
+                      <label className="admin-trash__row-check">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={working}
+                          aria-label={`Выбрать заявку ${leadLabel(lead)}`}
+                          onChange={(event) => setCheckedIds((current) => event.target.checked
+                            ? [...current, lead.id]
+                            : current.filter((id) => id !== lead.id))}
+                        />
+                      </label>
+                      <div className="admin-trash__row-body">
+                        <div className="admin-trash__row-head">
+                          <strong>{lead.name?.trim() || 'Без имени'}</strong>
+                          {lead.service ? <span className="admin-trash__chip">{lead.service}</span> : null}
+                        </div>
+                        {contacts.length ? <p className="admin-trash__row-contacts">{contacts.join(' · ')}</p> : null}
+                        <p className="admin-trash__row-meta">
+                          <span>Убрана {lead.deleted_at ? formatDate(lead.deleted_at) : 'недавно'}</span>
+                          {lead.created_at ? <span>Заявка от {formatDate(lead.created_at)}</span> : null}
+                          {lead.deleted_reason ? <span>Причина: {lead.deleted_reason}</span> : null}
+                        </p>
+                      </div>
+                      <div className="admin-trash__row-actions">
+                        <button className="admin-button admin-button--quiet" type="button" disabled={working} onClick={() => void runBulk('restore', [lead.id])}>
+                          <Undo2 aria-hidden="true" /> Восстановить
+                        </button>
+                        <button
+                          className="admin-icon-button admin-icon-button--danger"
+                          type="button"
+                          disabled={working}
+                          aria-label={`Удалить навсегда заявку ${leadLabel(lead)}`}
+                          title="Удалить навсегда"
+                          onClick={() => { setCheckedIds([lead.id]); setConfirming({ kind: 'purge_selected', count: 1 }); }}
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="admin-trash__footer">
+                <span className="admin-meta">
+                  Показано {leads.length} из {matched}
+                  {searching && matched !== total ? ` (всего в корзине ${total})` : ''}
+                </span>
+                <div className="admin-trash__footer-actions">
+                  {leads.length < matched ? (
+                    <button className="admin-button" type="button" disabled={loadingMore || working} onClick={() => void loadMore()}>
+                      {loadingMore ? 'Загружаю…' : `Показать ещё ${Math.min(TRASH_PAGE_SIZE, matched - leads.length)}`}
+                    </button>
+                  ) : null}
+                  <button
+                    className="admin-button admin-button--danger"
+                    type="button"
+                    disabled={working || !total}
+                    onClick={() => setConfirming({ kind: 'purge_all', count: total })}
+                  >
+                    <Trash2 aria-hidden="true" /> {busy === 'purge_all' ? 'Очищаю…' : 'Очистить корзину'}
+                  </button>
+                </div>
               </div>
             </>
           ) : null}
@@ -842,6 +1111,8 @@ export default function AdminLeads({ password }: { password: string }) {
   const pageEnd = Math.min(offset + leads.length, total);
   const hasPreviousPage = offset > 0;
   const hasNextPage = offset + leads.length < total;
+  const allOnPageChecked = leads.length > 0 && checkedIds.length === leads.length;
+  const someOnPageChecked = checkedIds.length > 0 && !allOnPageChecked;
 
   if (loading && leads.length === 0) return <div className="admin-panel p-6" role="status">Загружаю CRM…</div>;
   if (error && leads.length === 0) return <div className="admin-panel admin-stack p-6" role="alert"><div className="admin-notice admin-notice--danger"><strong>CRM пока недоступна</strong><br />{error}</div>{migration ? <p className="admin-muted">Нужно применить миграцию <code>{migration}</code> к production D1. Старые заявки и Meta CAPI при этом не затрагиваются.</p> : null}<button className="admin-button" type="button" onClick={() => void load()}><RefreshCw aria-hidden="true" /> Повторить</button></div>;
@@ -871,7 +1142,22 @@ export default function AdminLeads({ password }: { password: string }) {
 
       <div className="admin-crm-layout">
         <aside className="admin-crm-list admin-panel" aria-label="Список сделок">
-          <div className="admin-crm-list__header"><strong>{total} сделок</strong><span>{pageStart}–{pageEnd}</span></div>
+          <div className="admin-crm-list__header">
+            {leads.length ? (
+              <label className="admin-crm-list__selectall" title="Выбрать все заявки на странице">
+                <input
+                  type="checkbox"
+                  checked={allOnPageChecked}
+                  ref={(node) => { if (node) node.indeterminate = someOnPageChecked; }}
+                  aria-label="Выбрать все заявки на странице"
+                  disabled={bulkBusy}
+                  onChange={(event) => setCheckedIds(event.target.checked ? leads.map((item) => item.id) : [])}
+                />
+              </label>
+            ) : null}
+            <strong>{total} сделок</strong>
+            <span>{pageStart}–{pageEnd}</span>
+          </div>
           {checkedIds.length ? (
             <div className="admin-crm-list__bulk" role="status">
               <span>Выбрано: {checkedIds.length}</span>
@@ -921,7 +1207,7 @@ export default function AdminLeads({ password }: { password: string }) {
         </aside>
         <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }} editingReady={editingReady} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
       </div>
-      <TrashPanel password={password} onRestored={() => void load(true)} refreshToken={trashVersion} />
+      <TrashPanel password={password} onChanged={() => void load(true)} refreshToken={trashVersion} />
       {facets?.services?.length ? <p className="admin-meta">Источники в текущей базе: {facets.services.slice(0, 5).map((item) => `${item.value} · ${item.count}`).join(', ')}</p> : null}
     </div>
   );
