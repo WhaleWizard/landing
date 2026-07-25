@@ -7,7 +7,9 @@
 > - ✅ Биндинги и секреты из пп. 3–4 работают в production: D1/KV/R2 подтверждены самой админкой («D1 и схема — готово»), Meta принимает события (доставка 100% за 7 дней), крон-секрет `META_CAPI_DEBUG_SECRET` проверен запросом с ответом 200.
 > - ✅ Внешний cron очереди настроен 25.07 — Cloudflare Worker `meta-outbox-cron`, каждые 15 минут (см. `docs/CRON_META_OUTBOX_TODO.md`).
 > - ✅ Проверка целевого лида пройдена: `QualifiedLead` доставлен и подтверждён Meta 13.07.
-> - ⏳ Не сделано: Custom Conversion на `QualifiedLead` в Meta Events Manager (отложено владельцем).
+> - ✅ Custom Conversion на `QualifiedLead` создана в Meta Events Manager 25.07.2026:
+>   «Целевой лид (QualifiedLead)», ID 2013247949301975, категория «Лид»,
+>   правило URL содержит «whalewzrd.com». Считает события с момента создания.
 > - ⚠️ `enforce` для подписи tracking-запросов включать по-прежнему нельзя (см. ниже).
 
 Эта памятка относится к новой админке `/admin`: экрану «Сегодня», мини-CRM,
