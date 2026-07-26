@@ -441,6 +441,19 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
     if (ok) setLeadActionId('');
   };
 
+  const prepareQuickAction = (kind: 'start' | 'today' | 'proposal') => {
+    if (!draft) return;
+    const date = new Date();
+    const localToday = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${kind === 'today' ? '18:00' : '12:00'}`;
+    const preset = kind === 'start'
+      ? { pipeline_stage: draft.pipeline_stage === 'new' ? 'contacted' as PipelineStage : draft.pipeline_stage, next_action_text: draft.next_action_text || 'Связаться с клиентом и уточнить задачу' }
+      : kind === 'today'
+        ? { next_action_at: draft.next_action_at || localToday, next_action_text: draft.next_action_text || 'Связаться с клиентом сегодня' }
+        : { pipeline_stage: 'proposal' as PipelineStage, next_action_at: draft.next_action_at || localToday, next_action_text: draft.next_action_text || 'Подготовить и отправить предложение' };
+    setDraft({ ...draft, ...preset });
+    setNotice('Быстрое действие подготовлено. Проверьте карточку и сохраните сделку.');
+  };
+
   const setQuality = async (
     quality: 'target' | 'nontarget' | '',
     confirmPrevious = false,
@@ -567,6 +580,13 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
         {lead.utm_source ? <span>{lead.utm_source}{lead.utm_medium ? ` / ${lead.utm_medium}` : ''}{lead.utm_campaign ? ` · ${lead.utm_campaign}` : ''}</span> : null}
       </div>
       {lead.message ? <blockquote className="admin-crm-message">{lead.message}</blockquote> : null}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/28 p-3">
+        <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-[var(--adm-fg)]/45">Быстрый шаг</span>
+        <button className="admin-button admin-button--quiet" type="button" disabled={saving || !editingReady} onClick={() => prepareQuickAction('start')}>Начать работу</button>
+        <button className="admin-button admin-button--quiet" type="button" disabled={saving || !editingReady} onClick={() => prepareQuickAction('today')}>Связаться сегодня</button>
+        <button className="admin-button admin-button--quiet" type="button" disabled={saving || !editingReady} onClick={() => prepareQuickAction('proposal')}>Подготовить предложение</button>
+      </div>
 
       <div className="admin-crm-quality">
         <div><strong>Качество лида и Meta CAPI</strong><span>Кнопка сохраняет классификацию и отправляет разрешённое событие качества в Meta.</span></div>

@@ -1,11 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Video, ImageIcon, Grid3X3, Upload } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upload, List, ListOrdered } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 
-type BlockType = 'heading' | 'paragraph' | 'accent' | 'card' | 'quote' | 'code' | 'image' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
+type BlockType = 'heading' | 'paragraph' | 'accent' | 'list' | 'card' | 'quote' | 'code' | 'image' | 'separator' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
 type HeadingLevel = 2 | 3;
+type HeadingTone = 'default' | 'accent';
+type ListStyle = 'bulleted' | 'numbered';
 // Тон карточки. Сайт всегда тёмный, поэтому «белый» вариант обязан прописывать
 // тёмный цвет текста инлайном прямо на <p> — иначе текст унаследует почти белый
 // --blog-text из blog-readable.css и станет невидимым на белом фоне.
@@ -21,6 +23,8 @@ interface ContentBlock {
   type: BlockType;
   text?: string;
   level?: HeadingLevel;
+  headingTone?: HeadingTone;
+  listStyle?: ListStyle;
   tone?: CardTone;
   imageUrl?: string;
   imageAlt?: string;
@@ -43,7 +47,7 @@ interface ArticleEditorProps {
 const DRAG_TYPE = 'WW_BLOCK';
 const MAX_HISTORY = 80;
 
-const BLOCK_LABELS: Record<BlockType, string> = {
+const BLOCK_LABELS: Record<Exclude<BlockType, 'list' | 'separator'>, string> = {
   heading: 'Заголовок',
   paragraph: 'Абзац',
   accent: 'Акцентный абзац',
@@ -58,6 +62,14 @@ const BLOCK_LABELS: Record<BlockType, string> = {
   rawHtml: 'HTML (fallback)',
 };
 
+const BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'accent', 'list', 'card', 'quote', 'code', 'image', 'video', 'gallery', 'downloadButton', 'separator', 'spacer', 'rawHtml'];
+
+function getBlockLabel(type: BlockType): string {
+  if (type === 'list') return 'Список';
+  if (type === 'separator') return 'Разделитель';
+  return BLOCK_LABELS[type];
+}
+
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -71,29 +83,48 @@ function escapeHtml(value = ''): string {
     .replace(/'/g, '&#39;');
 }
 
+function textToHtml(value = ''): string {
+  return escapeHtml(value).replace(/\r?\n/g, '<br />');
+}
+
+function textFromHtml(element: Element): string {
+  const copy = element.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll('br').forEach((lineBreak) => lineBreak.replaceWith('\n'));
+  return copy.textContent?.trim() || '';
+}
+
+function listItems(value = ''): string[] {
+  return value.split(/\r?\n/).map((item) => item.replace(/^\s*(?:[-–—•*]|\d+[.)])\s*/, '').trim()).filter(Boolean);
+}
+
 function blockToHtml(block: ContentBlock): string {
   switch (block.type) {
     case 'heading': {
       const level = block.level === 3 ? 3 : 2;
       const tag = level === 3 ? 'h3' : 'h2';
-      return `<${tag} data-ww-block="heading" style="margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:${level === 3 ? '1.45rem' : '1.95rem'};letter-spacing:-0.01em;">${escapeHtml(block.text || '')}</${tag}>`;
+      const accentStyle = block.headingTone === 'accent' ? 'color:#b58cff;text-shadow:0 0 24px rgba(139,92,246,.28);' : '';
+      return `<${tag} data-ww-block="heading" data-ww-tone="${block.headingTone === 'accent' ? 'accent' : 'default'}" style="margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:${level === 3 ? '1.45rem' : '1.95rem'};letter-spacing:-0.01em;${accentStyle}">${escapeHtml(block.text || '')}</${tag}>`;
     }
     case 'paragraph':
-      return `<p data-ww-block="paragraph" style="margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;">${escapeHtml(block.text || '')}</p>`;
+      return `<p data-ww-block="paragraph" style="margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;">${textToHtml(block.text || '')}</p>`;
     case 'accent':
-      return `<div data-ww-block="accent" style="margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;"><p style="margin:0;line-height:1.8;">${escapeHtml(block.text || '')}</p></div>`;
+      return `<div data-ww-block="accent" style="margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;"><p style="margin:0;line-height:1.8;">${textToHtml(block.text || '')}</p></div>`;
+    case 'list': {
+      const tag = block.listStyle === 'numbered' ? 'ol' : 'ul';
+      return `<${tag} data-ww-block="list" data-ww-tone="${block.listStyle || 'bulleted'}" style="margin:1.1em 0;padding-left:1.35em;line-height:1.85;">${listItems(block.text).map((item) => `<li style="margin:.38em 0;">${escapeHtml(item)}</li>`).join('')}</${tag}>`;
+    }
     case 'card': {
       const tone: CardTone = block.tone === 'light' || block.tone === 'accent' ? block.tone : 'dark';
       if (tone === 'light') {
-        return `<div data-ww-block="card" data-ww-tone="light" style="margin:1.1em 0;padding:1em 1.15em;background:#f7f8fb;border:1px solid rgba(10,12,20,.1);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;color:#141824;">${escapeHtml(block.text || '')}</p></div>`;
+        return `<div data-ww-block="card" data-ww-tone="light" style="margin:1.1em 0;padding:1em 1.15em;background:#f7f8fb;border:1px solid rgba(10,12,20,.1);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;color:#141824;">${textToHtml(block.text || '')}</p></div>`;
       }
       if (tone === 'accent') {
-        return `<div data-ww-block="card" data-ww-tone="accent" style="margin:1.1em 0;padding:1em 1.15em;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.28);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;">${escapeHtml(block.text || '')}</p></div>`;
+        return `<div data-ww-block="card" data-ww-tone="accent" style="margin:1.1em 0;padding:1em 1.15em;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.28);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;">${textToHtml(block.text || '')}</p></div>`;
       }
-      return `<div data-ww-block="card" style="margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;">${escapeHtml(block.text || '')}</p></div>`;
+      return `<div data-ww-block="card" style="margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;"><p style="margin:0;line-height:1.8;">${textToHtml(block.text || '')}</p></div>`;
     }
     case 'quote':
-      return `<blockquote data-ww-block="quote" style="margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;">${escapeHtml(block.text || '')}</blockquote>`;
+      return `<blockquote data-ww-block="quote" style="margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;">${textToHtml(block.text || '')}</blockquote>`;
     case 'code': {
       // Код экранируется целиком: <, > и & превращаются в текст, поэтому
       // санитайзер ничего не вырежет (например, пример пикселя со <script>).
@@ -127,6 +158,8 @@ function blockToHtml(block: ContentBlock): string {
       const value = Math.min(120, Math.max(8, Number(block.space || 24)));
       return `<div data-ww-block="spacer" style="height:${value}px;"></div>`;
     }
+    case 'separator':
+      return '<hr data-ww-block="separator" style="border:0;height:1px;margin:2.1em 0;background:linear-gradient(90deg,transparent,rgba(139,92,246,.72),rgba(236,72,153,.65),transparent);" />';
     case 'rawHtml':
       return block.html || '';
     default:
@@ -150,11 +183,14 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
     const codeText = (codeEl ?? node).textContent ?? '';
     return { id: uid(), type: 'code', text: codeText.replace(/^\n+|\n+$/g, '') };
   }
-  if (wwType === 'accent') return { id: uid(), type: 'accent', text: node.textContent?.trim() || '' };
+  if (wwType === 'accent') return { id: uid(), type: 'accent', text: textFromHtml(node) };
+  if (wwType === 'list' || tag === 'ul' || tag === 'ol') {
+    return { id: uid(), type: 'list', listStyle: tag === 'ol' || node.getAttribute('data-ww-tone') === 'numbered' ? 'numbered' : 'bulleted', text: Array.from(node.querySelectorAll(':scope > li')).map((item) => item.textContent?.trim() || '').join('\n') };
+  }
   if (wwType === 'card') {
     const rawTone = node.getAttribute('data-ww-tone');
     const tone: CardTone = rawTone === 'light' || rawTone === 'accent' ? rawTone : 'dark';
-    return { id: uid(), type: 'card', tone, text: node.textContent?.trim() || '' };
+    return { id: uid(), type: 'card', tone, text: textFromHtml(node) };
   }
   if (wwType === 'downloadButton') {
     const link = node.querySelector('a');
@@ -173,14 +209,15 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
     const height = Number.parseInt(node.style.height || '24', 10);
     return { id: uid(), type: 'spacer', space: Number.isFinite(height) ? height : 24 };
   }
+  if (wwType === 'separator' || tag === 'hr') return { id: uid(), type: 'separator' };
   if (wwType === 'image' || tag === 'img' || (tag === 'figure' && node.querySelector('img'))) {
     const img = tag === 'img' ? node : node.querySelector('img');
     const caption = tag === 'figure' ? node.querySelector('figcaption') : null;
     return { id: uid(), type: 'image', imageUrl: img?.getAttribute('src') || '', imageAlt: img?.getAttribute('alt') || caption?.textContent?.trim() || '' };
   }
-  if (tag === 'h2' || tag === 'h3') return { id: uid(), type: 'heading', level: tag === 'h3' ? 3 : 2, text: node.textContent?.trim() || '' };
-  if (tag === 'p') return { id: uid(), type: 'paragraph', text: node.textContent?.trim() || '' };
-  if (tag === 'blockquote') return { id: uid(), type: 'quote', text: node.textContent?.trim() || '' };
+  if (tag === 'h2' || tag === 'h3') return { id: uid(), type: 'heading', level: tag === 'h3' ? 3 : 2, headingTone: node.getAttribute('data-ww-tone') === 'accent' ? 'accent' : 'default', text: node.textContent?.trim() || '' };
+  if (tag === 'p') return { id: uid(), type: 'paragraph', text: textFromHtml(node) };
+  if (tag === 'blockquote') return { id: uid(), type: 'quote', text: textFromHtml(node) };
   if (tag === 'div' && node.style.height && !node.textContent?.trim()) {
     const height = Number.parseInt(node.style.height, 10);
     if (Number.isFinite(height)) return { id: uid(), type: 'spacer', space: height };
@@ -201,7 +238,8 @@ function parseHtmlToBlocks(html: string): ContentBlock[] {
 
 function createBlock(type: BlockType): ContentBlock {
   switch (type) {
-    case 'heading': return { id: uid(), type, level: 2, text: '' };
+    case 'heading': return { id: uid(), type, level: 2, headingTone: 'default', text: '' };
+    case 'list': return { id: uid(), type, listStyle: 'bulleted', text: '' };
     case 'image': return { id: uid(), type, imageUrl: '', imageAlt: '' };
     case 'video': return { id: uid(), type, videoUrl: '' };
     case 'gallery': return { id: uid(), type, items: [] };
@@ -271,12 +309,13 @@ interface DraggableBlockItemProps {
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onMoveArrow: (index: number, direction: -1 | 1) => void;
+  onInsertAfter: (id: string, type?: BlockType) => void;
   onUpdate: (id: string, patch: Partial<ContentBlock>) => void;
   onUpload?: (file: File) => Promise<string | null>;
 }
 
 const DraggableBlockItem = memo(function DraggableBlockItem({
-  block, index, selected, onSelect, onMove, onDuplicate, onDelete, onMoveArrow, onUpdate, onUpload,
+  block, index, selected, onSelect, onMove, onDuplicate, onDelete, onMoveArrow, onInsertAfter, onUpdate, onUpload,
 }: DraggableBlockItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [{ isDragging }, drag] = useDrag(() => ({
@@ -345,12 +384,13 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
             className="rounded-md border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm"
             aria-label={`Тип блока ${index + 1}`}
           >
-            {(Object.keys(BLOCK_LABELS) as BlockType[]).map((type) => (
-              <option key={type} value={type}>{BLOCK_LABELS[type]}</option>
+            {BLOCK_TYPES.map((type) => (
+              <option key={type} value={type}>{getBlockLabel(type)}</option>
             ))}
           </select>
         </div>
         <div className="inline-flex items-center gap-1">
+          <button type="button" onClick={() => onInsertAfter(block.id)} className="rounded-md p-1.5 text-[var(--adm-primary)] hover:bg-[var(--adm-primary)]/10" title="Добавить абзац сразу после этого блока" aria-label="Добавить абзац после блока"><Plus className="h-4 w-4" /></button>
           <button type="button" onClick={() => onMoveArrow(index, -1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вверх" aria-label="Переместить блок вверх"><ArrowUp className="h-4 w-4" /></button>
           <button type="button" onClick={() => onMoveArrow(index, 1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вниз" aria-label="Переместить блок вниз"><ArrowDown className="h-4 w-4" /></button>
           <button type="button" onClick={() => onDuplicate(block.id)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Дублировать" aria-label="Дублировать блок"><Copy className="h-4 w-4" /></button>
@@ -365,6 +405,10 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
             <option value={3}>H3</option>
           </select>
           <input aria-label="Текст заголовка" type="text" value={block.text || ''} onChange={(e) => onUpdate(block.id, { text: e.target.value })} placeholder="Текст заголовка" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <select aria-label="Цвет заголовка" value={block.headingTone || 'default'} onChange={(e) => onUpdate(block.id, { headingTone: e.target.value as HeadingTone })} className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm">
+            <option value="default">Основной цвет</option>
+            <option value="accent">Фиолетовый акцент</option>
+          </select>
         </div>
       )}
 
@@ -384,16 +428,26 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
         </div>
       )}
 
-      {(block.type === 'paragraph' || block.type === 'accent' || block.type === 'card' || block.type === 'quote') && (
+      {(block.type === 'paragraph' || block.type === 'accent' || block.type === 'card' || block.type === 'quote' || block.type === 'list') && (
+        <>
+        {block.type === 'list' && (
+          <div className="flex items-center gap-2 text-xs text-[var(--adm-fg)]/65">
+            <span>Вид списка</span>
+            <button type="button" onClick={() => onUpdate(block.id, { listStyle: 'bulleted' })} className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 ${block.listStyle !== 'numbered' ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)]'}`}><List className="h-3.5 w-3.5" />Маркер</button>
+            <button type="button" onClick={() => onUpdate(block.id, { listStyle: 'numbered' })} className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 ${block.listStyle === 'numbered' ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)]'}`}><ListOrdered className="h-3.5 w-3.5" />Номер</button>
+          </div>
+        )}
         <textarea
-          aria-label={`Содержимое блока ${BLOCK_LABELS[block.type]}`}
+          data-block-input={block.id}
+          aria-label={`Содержимое блока ${getBlockLabel(block.type)}`}
           value={block.text || ''}
           onChange={(e) => onUpdate(block.id, { text: e.target.value })}
           onPaste={handlePaste}
           rows={block.type === 'quote' ? 3 : 5}
-          placeholder="Введите текст блока"
+          placeholder={block.type === 'list' ? 'Каждый пункт — с новой строки' : 'Введите текст. Enter создаёт новую строку.'}
           className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm text-[var(--adm-fg)] resize-y"
         />
+        </>
       )}
 
       {block.type === 'code' && (
@@ -529,6 +583,15 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
     setHistory({ past: [], future: [] });
   }, [content]);
 
+  useEffect(() => {
+    if (!selectedBlockId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLTextAreaElement>(`[data-block-input="${selectedBlockId}"]`);
+      input?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedBlockId]);
+
   const htmlOutput = useMemo(() => sanitizeHtml(blocks.map(blockToHtml).join('\n')), [blocks]);
 
   useEffect(() => {
@@ -560,26 +623,6 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
     }
   }, [markdownMode, mdText, blocks]);
 
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key === 'Enter') {
-        event.preventDefault();
-        const idx = blocks.findIndex(b => b.id === selectedBlockId);
-        if (idx >= 0) {
-          const newBlock = createBlock(blocks[idx].type);
-          setBlocks(prev => {
-            const copy = [...prev];
-            copy.splice(idx + 1, 0, newBlock);
-            return copy;
-          });
-          setSelectedBlockId(newBlock.id);
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [blocks, selectedBlockId]);
-
   const setBlocksWithHistory = useCallback((updater: ContentBlock[] | ((prev: ContentBlock[]) => ContentBlock[]), keepHistory = true) => {
     setBlocks((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
@@ -598,6 +641,31 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
     setBlocksWithHistory((prev) => [...prev, newBlock]);
     setSelectedBlockId(newBlock.id);
   }, [setBlocksWithHistory]);
+
+  const insertBlockAfter = useCallback((id: string, type: BlockType = 'paragraph') => {
+    const newBlock = createBlock(type);
+    setBlocksWithHistory((prev) => {
+      const index = prev.findIndex((block) => block.id === id);
+      if (index < 0) return [...prev, newBlock];
+      const next = [...prev];
+      next.splice(index + 1, 0, newBlock);
+      return next;
+    });
+    setSelectedBlockId(newBlock.id);
+  }, [setBlocksWithHistory]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!event.ctrlKey || event.key !== 'Enter' || !target?.closest('.admin-article-editor')) return;
+      const current = blocks.find((block) => block.id === selectedBlockId);
+      if (!current) return;
+      event.preventDefault();
+      insertBlockAfter(current.id, current.type);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [blocks, insertBlockAfter, selectedBlockId]);
 
   const updateBlock = useCallback((id: string, patch: Partial<ContentBlock>) => {
     setBlocksWithHistory((prev) => prev.map((block) => (block.id === id ? { ...block, ...patch } : block)));
@@ -687,7 +755,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(BLOCK_LABELS) as BlockType[]).map((type) => (
+            {BLOCK_TYPES.map((type) => (
               <button
                 key={type}
                 type="button"
@@ -695,7 +763,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
                 className="inline-flex items-center gap-1 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-sm hover:border-[var(--adm-primary)]/50 hover:bg-[var(--adm-primary)]/10 transition"
               >
                 <Plus className="h-3.5 w-3.5" />
-                {BLOCK_LABELS[type]}
+                {getBlockLabel(type)}
               </button>
             ))}
           </div>
@@ -728,6 +796,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
                 onDuplicate={duplicateById}
                 onDelete={removeBlock}
                 onMoveArrow={moveBlockByArrow}
+                onInsertAfter={insertBlockAfter}
                 onUpdate={updateBlock}
                 onUpload={onUpload}
               />

@@ -73,6 +73,19 @@ function countWords(text = ''): number {
   return normalized ? normalized.split(/\s+/).length : 0;
 }
 
+function publicationIssues(article: Article | null): string[] {
+  if (!article) return [];
+  const issues: string[] = [];
+  if (!article.title.trim()) issues.push('нет заголовка');
+  if (!article.slug.trim()) issues.push('нет URL');
+  if (!article.image.trim()) issues.push('нет обложки');
+  if (article.description.trim().length < 80) issues.push('короткое описание');
+  if (article.seoTitle?.trim().length === 0) issues.push('нет SEO title');
+  if (article.seoDescription?.trim().length === 0) issues.push('нет SEO description');
+  if (countWords(stripHtmlToText(article.content || '')) < 120) issues.push('мало текста');
+  return issues;
+}
+
 function snapshotArticle(article: Article | null): string {
   if (!article) return '';
   return JSON.stringify({
@@ -532,6 +545,7 @@ export default function Admin() {
       description: (editingArticle?.description || '').length,
     };
   }, [editingArticle?.content, editingArticle?.description, editingArticle?.seoDescription, editingArticle?.seoTitle]);
+  const editorIssues = useMemo(() => publicationIssues(editingArticle), [editingArticle]);
 
   const openArticleEditor = useCallback((article: Article, options?: { dirty?: boolean; slugEdited?: boolean }) => {
     const draft = { ...article };
@@ -947,7 +961,7 @@ export default function Admin() {
               {adminView === 'meta' && <AdminMetaCenter password={password} />}
               {adminView === 'content' && <AdminContentControl password={password} />}
               {adminView === 'leads' && <AdminLeads password={password} />}
-              {adminView === 'media' && <AdminMedia password={password} />}
+              {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
               {adminView === 'health' && <AdminHealth password={password} />}
 
               {adminView === 'articles' && (
@@ -1058,6 +1072,11 @@ export default function Admin() {
                         <ExternalLink className="h-4 w-4" /> Открыть статью
                       </button>
                     )}
+                  </div>
+
+                  <div className={`flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${editorIssues.length ? 'border-amber-500/25 bg-amber-500/8 text-amber-700 dark:text-amber-300' : 'border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300'}`}>
+                    <span className="font-semibold">{editorIssues.length ? `Перед публикацией: ${editorIssues.length}` : 'Материал готов к публикации'}</span>
+                    {editorIssues.length ? editorIssues.map((issue) => <span key={issue} className="rounded-full border border-current/15 bg-white/10 px-2 py-0.5">{issue}</span>) : <span className="opacity-75">проверьте финальную фактуру и ссылки</span>}
                   </div>
 
                   {isEditingProtected && (
