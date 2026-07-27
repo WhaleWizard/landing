@@ -108,8 +108,8 @@ const HOME_SEO = {
 const PAGES: Array<{ value: EditorPage; label: string; path: string; key: string }> = [
   { value: 'home', label: 'Главная', path: '/', key: 'site:home' },
   { value: 'meta-ads', label: 'Meta Ads', path: '/meta-ads', key: 'service:meta-ads' },
-  { value: 'google-ads', label: 'Google Ads', path: '/google-ads', key: 'service:google-ads' },
   { value: 'meta-apps', label: 'Meta Apps', path: '/meta-apps', key: 'service:meta-apps' },
+  { value: 'google-ads', label: 'Google Ads', path: '/google-ads', key: 'service:google-ads' },
   { value: 'consult', label: 'Консультация', path: '/consult', key: 'service:consult' },
 ];
 

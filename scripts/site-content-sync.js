@@ -3,9 +3,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 export const SITE_CONTENT_KEYS = [
   'site:home',
   'service:meta-ads',
+  'service:meta-apps',
   'service:google-ads',
   'service:consult',
-  'service:meta-apps',
   'site:faq',
 ];
 

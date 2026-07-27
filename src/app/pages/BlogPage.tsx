@@ -124,7 +124,7 @@ function toIsoDate(value?: string): string | undefined {
 
 function absoluteArticleImage(path = ''): string {
   if (/^https?:\/\//i.test(path)) return path;
-  return `${SITE_URL}${path.startsWith('/') ? path : `/${path || 'og-image.jpg'}`}`;
+  return `${SITE_URL}${path.startsWith('/') ? path : `/${path || 'og-image-v2.jpg'}`}`;
 }
 
 function buildArticleStructuredData(article: Article, routeBase: '/blog' | '/cases') {

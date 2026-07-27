@@ -1,8 +1,8 @@
 export const SERVICE_CONTENT_KEYS = [
   'service:meta-ads',
+  'service:meta-apps',
   'service:google-ads',
   'service:consult',
-  'service:meta-apps',
 ] as const;
 
 export const FAQ_CONTENT_KEY = 'site:faq' as const;

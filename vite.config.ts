@@ -105,7 +105,7 @@ function localArticlesApi() {
           ...article,
           id: index + 1,
           status: article?.status === 'draft' ? 'draft' : 'published',
-          image: article?.image || '/og-image.jpg',
+          image: article?.image || '/og-image-v2.jpg',
           publishedAt: article?.publishedAt || previous?.publishedAt || nowIso,
           updatedAt: changed ? nowIso : (previous?.updatedAt || previous?.publishedAt || nowIso),
         }

@@ -113,7 +113,7 @@ function safeJsonLd(value: unknown): string {
 
 function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
   const canonical = `${siteUrl}${sectionPath}/${article.slug}`;
-  const image = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
+  const image = toAbsoluteUrl(siteUrl, article.image || '/og-image-v2.jpg');
   // datePublished должен оставаться датой первой публикации,
   // а dateModified — двигаться при правках.
   const publishedDate = toIsoDate(article.publishedAt) || toIsoDate(article.date);
@@ -204,7 +204,7 @@ function faqJsonLd(article: Article): string | null {
 export function renderArticleHtml(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
   const canonical = `${siteUrl}${sectionPath}/${article.slug}`;
   const sectionLabel = getSectionLabel(sectionPath);
-  const ogImage = toAbsoluteUrl(siteUrl, article.image || '/og-image.jpg');
+  const ogImage = toAbsoluteUrl(siteUrl, article.image || '/og-image-v2.jpg');
   const title = `${buildSeoTitle(article)} | Whale Wizard`;
   const description = buildSeoDescription(article);
   const faqJson = faqJsonLd(article);

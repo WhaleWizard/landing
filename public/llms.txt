@@ -21,8 +21,8 @@ Secondary goals: demonstrate expertise via cases and a knowledge-hub blog, educa
 ## 2) Services and offers (one landing page per offer)
 
 - /meta-ads — Meta Ads for leads and sales: offer and creative testing, campaign management, and measurement. Meta Pixel, Conversions API, and CRM lead-status feedback are used when the client's systems, access, and consent allow it.
-- /google-ads — Google Ads for services and e-commerce: Search, Shopping, or Performance Max selected according to demand, budget, conversion data, and the customer journey.
 - /meta-apps — Meta Ads for iOS and Android apps: optimization toward an available post-install event sent through Meta SDK or an MMP integration. Server-side app events may supplement this setup where they are supported and appropriate.
+- /google-ads — Google Ads for services and e-commerce: Search, Shopping, or Performance Max selected according to demand, budget, conversion data, and the customer journey.
 - /consult — a 60–90 minute working session for marketing specialists. One primary issue is reviewed using the specialist's actual profile, cases, or sales correspondence, followed by a 30-day action plan. This offer is not positioned as an income guarantee.
 
 ## 3) Core audience
@@ -73,8 +73,8 @@ Service forms capture name, email, phone, optional Telegram, a site or app link,
 
 - / — Home (hero, services, cases, testimonials, blog preview, contact form)
 - /meta-ads — Meta Ads service landing
-- /google-ads — Google Ads service landing
 - /meta-apps — Mobile app growth landing
+- /google-ads — Google Ads service landing
 - /consult — Consultation for marketing specialists
 - /blog — knowledge hub article list; /blog/:slug — article pages
 - /cases — case studies list; /cases/:slug — case pages
@@ -122,8 +122,8 @@ Template D — audit response:
 
 - Home: https://www.whalewzrd.com/
 - Meta Ads: https://www.whalewzrd.com/meta-ads
-- Google Ads: https://www.whalewzrd.com/google-ads
 - Mobile apps: https://www.whalewzrd.com/meta-apps
+- Google Ads: https://www.whalewzrd.com/google-ads
 - Consultation: https://www.whalewzrd.com/consult
 - Blog: https://www.whalewzrd.com/blog
 - Cases: https://www.whalewzrd.com/cases

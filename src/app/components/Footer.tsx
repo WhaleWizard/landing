@@ -97,26 +97,26 @@ function Footer() {
 
             <ul className={footerListClass}>
               <li>
-                <a href="/google-ads" className={footerLinkClass}>
-                  Google Ads
-                </a>
-              </li>
-
-              <li>
                 <a href="/meta-ads" className={footerLinkClass}>
                   Meta Ads — Facebook и Instagram
                 </a>
               </li>
 
               <li>
-                <a href="/consult" className={footerLinkClass}>
-                  Консультация
+                <a href="/meta-apps" className={footerLinkClass}>
+                  Продвижение приложений
                 </a>
               </li>
 
               <li>
-                <a href="/meta-apps" className={footerLinkClass}>
-                  Продвижение приложений
+                <a href="/google-ads" className={footerLinkClass}>
+                  Google Ads
+                </a>
+              </li>
+
+              <li>
+                <a href="/consult" className={footerLinkClass}>
+                  Консультация
                 </a>
               </li>
             </ul>

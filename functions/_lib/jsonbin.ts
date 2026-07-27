@@ -205,7 +205,7 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       date: article.date || new Date().toISOString().slice(0, 10),
       description: fallbackDescription,
       content: safeContent,
-      image: article.image || '/og-image.jpg',
+      image: article.image || '/og-image-v2.jpg',
       seoTitle: (article.seoTitle || article.title || `Статья ${index + 1}`).slice(0, 70),
       seoDescription,
       publishedAt: normalizeOptionalIsoDate(article.publishedAt),

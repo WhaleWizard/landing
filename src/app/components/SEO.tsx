@@ -36,7 +36,7 @@ const toCanonicalUrl = (path: string): string => {
 export default function SEO({
   title = 'Performance-маркетинг в Google Ads и Meta Ads',
   description = 'Настраиваю и веду рекламу в Google Ads и Meta Ads: аналитика, события, креативы и оптимизация по заявкам и продажам. Работаю с бизнесом, e-commerce и мобильными приложениями.',
-  image = '/og-image.jpg',
+  image = '/og-image-v2.jpg',
   url = '/',
   type = 'website',
   noIndex = false,

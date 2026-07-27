@@ -159,7 +159,7 @@ function xmlEscape(value = '') {
 
 function toAbsoluteUrl(value = '') {
   const url = String(value || '').trim();
-  if (!url) return `${SITE_URL}/og-image.jpg`;
+  if (!url) return `${SITE_URL}/og-image-v2.jpg`;
   if (/^https?:\/\//i.test(url)) return url;
   return url.startsWith('/') ? `${SITE_URL}${url}` : `${SITE_URL}/${url}`;
 }
@@ -313,7 +313,7 @@ function normalizeArticles(rawArticles) {
       category: article?.category || 'Блог',
       date: article?.date || BUILD_DATE,
       readTime: article?.readTime || '',
-      image: article?.image || `${SITE_URL}/og-image.jpg`,
+      image: article?.image || `${SITE_URL}/og-image-v2.jpg`,
       description,
       seoTitle: article?.seoTitle || article?.title || `Статья ${index + 1}`,
       seoDescription: article?.seoDescription || description,
@@ -347,7 +347,7 @@ function buildOrganizationJsonLd() {
     name: 'Whale Wizard',
     url: SITE_URL,
     logo: `${SITE_URL}/images/brand/whale-wizard.png`,
-    image: `${SITE_URL}/og-image.jpg`,
+    image: `${SITE_URL}/og-image-v2.jpg`,
     description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи.',
     email: 'whalewzrd@gmail.com',
     areaServed: ['RU', 'US', 'AE', 'TR', 'EU'],
@@ -398,7 +398,7 @@ function buildArticleJsonLd(article) {
     '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
     headline: article.seoTitle || article.title,
     description: article.seoDescription || article.description,
-    image: [toAbsoluteUrl(article.image || '/og-image.jpg')],
+    image: [toAbsoluteUrl(article.image || '/og-image-v2.jpg')],
     ...(publishedDate ? { datePublished: publishedDate } : {}),
     ...(modifiedDate ? { dateModified: modifiedDate } : {}),
     mainEntityOfPage: canonical,
@@ -520,7 +520,7 @@ function htmlTemplate({
   articleSection,
 }) {
   const canonicalUrl = `${SITE_URL}${withTrailingSlashIfStaticRoute(canonicalPath)}`;
-  const imageUrl = toAbsoluteUrl(ogImage || '/og-image.jpg');
+  const imageUrl = toAbsoluteUrl(ogImage || '/og-image-v2.jpg');
   let html = baseHtml;
 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
@@ -946,9 +946,9 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       lead: 'Введите свои данные, чтобы отдельно увидеть отдачу по выручке и по валовой прибыли. Расчёт не учитывает операционные расходы и комиссии.',
     },
     serviceStaticPage('meta-ads'),
+    serviceStaticPage('meta-apps'),
     serviceStaticPage('google-ads'),
     serviceStaticPage('consult'),
-    serviceStaticPage('meta-apps'),
     {
       route: '/faq',
       title: documentTitle(faqSeo.title),
@@ -1207,9 +1207,10 @@ function validateGeneratedOutput(staticPages = []) {
     `${SITE_URL}/admin/`,
   ], 'Generated /admin HTML');
 
-  // og-image.jpg теперь реальный файл в public/, редирект на images/meta.jpg удалён
-  if (!existsSync(join(DIST_DIR, 'og-image.jpg'))) {
-    throw new Error('dist/og-image.jpg is missing. OG image is unavailable.');
+  // Имя файла версионируем: Telegram/соцсети кэшируют превью по URL, и без
+  // смены адреса они месяцами показывают старую картинку.
+  if (!existsSync(join(DIST_DIR, 'og-image-v2.jpg'))) {
+    throw new Error('dist/og-image-v2.jpg is missing. OG image is unavailable.');
   }
 }
 
