@@ -13,6 +13,11 @@
   height: 100%;
   max-width: 630px;
   margin-inline: auto;
+  /* Нужен, чтобы подставку можно было позиционировать в cqw — процентах от
+     ШИРИНЫ сцены. Обычные проценты в top/bottom считаются от высоты и для
+     этой формулы не годятся. Единицы cqw внутри .meta-phone-screen не
+     затрагиваются: там свой container. */
+  container-type: inline-size;
 }
 
 .meta-apps-stage__glow {
@@ -41,20 +46,39 @@
   pointer-events: none;
 }
 
+/*
+ * Подставка привязана к НИЗУ ТЕЛЕФОНА, а не к низу сцены.
+ *
+ * Раньше она стояла на bottom от сцены, а телефон — на top от неё же, и на
+ * любом изменении высоты окна или размера телефона они разъезжались: на
+ * 1280x720 расхождение доходило до 149 px, телефон протыкал подставку.
+ *
+ *   top = верх якоря телефона
+ *       + высота телефона            (ширина якоря * 1270/770)
+ *       - смещение опорной плоскости (300/1024 * высота подставки,
+ *                                     высота = ширина / 1.5)
+ *
+ * Все картинки подставок нормализованы под одну геометрию: холст 1536 x 1024,
+ * объект по центру, плоскость, на которой стоит телефон, — на y = 300.
+ * --pedestal-sink подтапливает телефон в подставку: у плоской плиты 0,
+ * у неровного камня нужно около 18px, иначе он висит над вершиной.
+ */
 .meta-apps-stage__stone {
   position: absolute;
   z-index: 4;
   left: -22%;
-  bottom: -390px;
+  top: calc(12px + 1.64935 * min(58cqw, 370px) - 26.367cqw + var(--pedestal-sink, 0px));
   width: 135%;
   max-width: none;
   height: auto;
   user-select: none;
   pointer-events: none;
+  /* Значения под тёмный рендер стойки. Для камня meta-hero-stone-slab-v2.webp
+     здесь было brightness(0.72) contrast(1.12) saturate(0.9). */
   filter:
-    brightness(0.72)
-    contrast(1.12)
-    saturate(0.9)
+    brightness(0.95)
+    contrast(1.06)
+    saturate(1)
     drop-shadow(0 32px 35px rgba(0, 0, 0, 0.54))
     drop-shadow(-12px 4px 18px rgba(79, 125, 255, 0.08))
     drop-shadow(12px 5px 18px rgba(176, 77, 255, 0.07));
@@ -69,14 +93,34 @@
   aspect-ratio: 770 / 1270;
 }
 
-.meta-phone-object {
-  will-change: transform;
+/*
+ * Контактная тень под основанием телефона. Собственная тень у .meta-phone-frame
+ * смещена на 24/40 px и работает как тень «в воздухе» — без пятна касания
+ * телефон читается висящим над подставкой, а не стоящим на ней.
+ * Лежит внутри стакинг-контекста якоря, поэтому рисуется поверх подставки,
+ * но под самим телефоном, и едет вместе с параллаксом.
+ */
+.meta-phone-anchor::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 3%;
+  right: 9%;
+  bottom: -1.5%;
+  height: 8%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(0, 0, 0, 0.66),
+    rgba(0, 0, 0, 0.3) 46%,
+    rgba(0, 0, 0, 0) 73%
+  );
+  filter: blur(5px);
+  pointer-events: none;
 }
 
-@media (min-width: 1280px) and (max-height: 970px) {
-  .meta-apps-stage__stone {
-    bottom: clamp(-390px, calc(523px - 100vh), -175px);
-  }
+.meta-phone-object {
+  will-change: transform;
 }
 
 .meta-phone-frame {
@@ -781,7 +825,7 @@
 @media (max-width: 1199px) {
   .meta-apps-stage__stone {
     left: -17%;
-    bottom: -238px;
+    top: calc(-42px + 1.64935 * min(54cqw, 330px) - 26.953cqw + var(--pedestal-sink, 0px));
     width: 138%;
   }
 
@@ -827,7 +871,7 @@
 
   .meta-apps-stage__stone {
     left: -8%;
-    bottom: -74px;
+    top: calc(48px + 1.64935 * min(48cqw, 260px) - 22.656cqw + var(--pedestal-sink, 0px));
     width: 116%;
   }
 
@@ -891,7 +935,7 @@
 
   .meta-apps-stage__stone {
     left: -15%;
-    bottom: -205px;
+    top: calc(18px + 1.64935 * min(54cqw, 270px) - 26.367cqw + var(--pedestal-sink, 0px));
     width: 135%;
   }
 
@@ -953,11 +997,9 @@
     inset: 6% -10% 1%;
   }
 
-  /* Камень опущен так, чтобы телефон и чеки стояли на его верхней грани,
-     а не тонули в ней — как на десктопе. */
   .meta-apps-stage__stone {
     left: -9%;
-    bottom: -142px;
+    top: calc(18px + 1.64935 * min(60cqw, 248px) - 23.047cqw + var(--pedestal-sink, 0px));
     width: 118%;
   }
 
@@ -973,22 +1015,25 @@
     max-width: 132px;
   }
 
+  /* Первый чек поднят к кнопкам, шаг между чеками оставлен плотным (132 и 128
+     при высоте чека ~131), отступы справа разные — чтобы стопка не читалась
+     вертикальной линией. */
   .meta-receipt-slot--1 {
-    top: -20px;
-    right: 5%;
-    width: 32.5%;
+    top: -62px;
+    right: 0;
+    width: 35%;
   }
 
   .meta-receipt-slot--2 {
-    top: 112px;
-    right: 1.5%;
-    width: 34.5%;
+    top: 70px;
+    right: 10%;
+    width: 33%;
   }
 
   .meta-receipt-slot--3 {
-    top: 242px;
-    right: 7%;
-    width: 32%;
+    top: 198px;
+    right: 2%;
+    width: 34.5%;
   }
 
   .meta-receipt {
@@ -1072,10 +1117,12 @@
     width: 100%;
   }
 
+  /* Полоса опущена: раньше она начиналась ровно на уровне основания телефона
+     и закрывала корпус подставки целиком. Теперь открыто ~70% корпуса. */
   .meta-apps-stats-strip {
     position: relative;
     z-index: 30;
-    margin-top: -30px;
+    margin-top: 68px;
     min-height: 64px;
     border-radius: 14px !important;
   }
@@ -1115,24 +1162,13 @@
   }
 }
 
-/* Начиная с ~441px ширина сцены и телефона упираются в свои максимумы,
-   а высота сцены остаётся прежней — телефон опускается ниже относительно
-   низа сцены. Камень догоняем, иначе телефон снова тонет в нём. */
-@media (min-width: 441px) and (max-width: 560px) {
-  .meta-apps-stage__stone {
-    bottom: -180px;
-  }
-}
-
 @media (max-width: 380px) {
   .meta-apps-visual {
     height: 400px;
   }
 
-  /* Телефон здесь мельче, а камень масштабируется от ширины сцены —
-     поэтому камень поднимаем, иначе телефон повисает над ним. */
   .meta-apps-stage__stone {
-    bottom: -106px;
+    top: calc(20px + 1.64935 * min(60cqw, 204px) - 23.047cqw + var(--pedestal-sink, 0px));
   }
 
   .meta-phone-anchor {
@@ -1146,12 +1182,16 @@
     padding: 13px 9px 11px;
   }
 
+  .meta-receipt-slot--1 {
+    top: -58px;
+  }
+
   .meta-receipt-slot--2 {
-    top: 108px;
+    top: 66px;
   }
 
   .meta-receipt-slot--3 {
-    top: 232px;
+    top: 188px;
   }
 
   .meta-apps-hero-actions {
