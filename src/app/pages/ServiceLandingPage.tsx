@@ -763,15 +763,28 @@ function SectionSkeleton({ height = 'min-h-[180px]' }: { height?: string }) {
   return <div className={`w-full ${height}`} aria-hidden="true" />;
 }
 
+/*
+ * Пока секция за пределами экрана, браузер не верстает её содержимое и берёт
+ * высоту из containIntrinsicSize. Общая заглушка в 720px не совпадала ни с
+ * одной реальной секцией: на десктопе они занимают 1585 / 1728 / 371 / 1124 /
+ * 430 px. Из-за этого при прокрутке высота документа скакала с 5537 до 7174 px
+ * — ползунок прыгал, а контент уезжал из-под пальца.
+ *
+ * Ключевое слово auto заставляет браузер запомнить фактическую высоту после
+ * первой отрисовки и дальше использовать её; число рядом — только запасное
+ * значение до этого момента. Поэтому оно должно быть близко к правде.
+ */
 function DeferredSection({
   children,
   height = 'min-h-[180px]',
+  intrinsicHeight,
 }: {
   children: ReactNode;
   height?: string;
+  intrinsicHeight: number;
 }) {
   return (
-    <section style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 720px' }}>
+    <section style={{ contentVisibility: 'auto', containIntrinsicSize: `auto 1px auto ${intrinsicHeight}px` }}>
       <Suspense fallback={<SectionSkeleton height={height} />}>{children}</Suspense>
     </section>
   );
@@ -894,14 +907,18 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
         visual={service === 'meta-apps' ? 'meta-apps' : service === 'consult' ? 'portrait' : 'default'}
       />
 
-      <DeferredSection><Services content={config.services} /></DeferredSection>
-      <DeferredSection><Cases content={config.cases} moreHref={`/cases?from=${service}`} /></DeferredSection>
-      <DeferredSection><CallToAction content={config.cta} /></DeferredSection>
-      <DeferredSection>
+      {/* Числа — компромисс между широким экраном и телефоном: секции с
+          колонками на узком экране складываются и меняют высоту вдвое
+          (подвал: 440 против 1070, кейсы: 1730 против 1050). Промах в любую
+          сторону одинаково двигает документ, поэтому берём середину. */}
+      <DeferredSection intrinsicHeight={1330}><Services content={config.services} /></DeferredSection>
+      <DeferredSection intrinsicHeight={1390}><Cases content={config.cases} moreHref={`/cases?from=${service}`} /></DeferredSection>
+      <DeferredSection intrinsicHeight={390}><CallToAction content={config.cta} /></DeferredSection>
+      <DeferredSection intrinsicHeight={1120}>
         <Testimonials content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined} />
       </DeferredSection>
       <ContactSection service={service} contact={config.contact} theme={theme} />
-      <DeferredSection height="min-h-[160px]"><Footer /></DeferredSection>
+      <DeferredSection height="min-h-[160px]" intrinsicHeight={750}><Footer /></DeferredSection>
     </main>
   );
 }

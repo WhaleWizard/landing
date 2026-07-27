@@ -33,10 +33,27 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     || (label === 'FAQ' && location.pathname.startsWith('/faq'))
   ), [location.pathname, variant]);
 
+  // Шапке нужен один бит: проскроллили мы больше 20px или нет. Раньше сюда
+  // заходил React на КАЖДОЕ событие прокрутки; теперь событие лишь ставит
+  // задачу на ближайший кадр, а состояние трогается только когда бит реально
+  // сменился. Внешне ничего не меняется.
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const next = window.scrollY > 20;
+      setIsScrolled((current) => (current === next ? current : next));
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(read);
+    };
+
+    read();
+    window.addEventListener('scroll', schedule, { passive: true });
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+    };
   }, []);
 
   useEffect(() => {
