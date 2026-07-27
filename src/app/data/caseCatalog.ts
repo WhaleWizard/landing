@@ -154,7 +154,12 @@ export function getCaseCatalogMeta(slug?: string): CaseCatalogMeta | undefined {
 }
 
 export function getCaseDisplayTitle(title = ''): string {
-  return title.replace(/^Кейс:\s*/i, '').trim();
+  const stripped = title.replace(/^Кейс:\s*/i, '').trim();
+  // После срезанного префикса заголовок начинался с маленькой буквы
+  // («Кейс: инфопродукты…» → «инфопродукты…»). Возвращаем заглавную только
+  // там, где префикс действительно был, чтобы не трогать чужие написания.
+  if (stripped === title.trim()) return stripped;
+  return stripped.charAt(0).toLocaleUpperCase('ru-RU') + stripped.slice(1);
 }
 
 export function getMergedCaseData(article: Pick<Article, 'slug' | 'caseData'>): CaseData {
