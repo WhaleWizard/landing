@@ -267,10 +267,19 @@ export default function WhaleNavigator() {
       // Гистерезис: отрываемся от навбара позже, чем возвращаемся обратно.
       // Без него скролл около самой границы переключал состояние на каждом
       // пикселе, и кит бесконечно телепортировался туда-сюда.
-      const detachAt = viewport.width < 768 ? 64 : 92;
-      const attachAt = Math.max(0, detachAt - 56);
+      const metaAppsHero = pathname === '/meta-apps'
+        ? document.querySelector<HTMLElement>('.meta-apps-page-hero')
+        : null;
+      const defaultDetachAt = viewport.width < 768 ? 64 : 92;
+      const detachAt = metaAppsHero
+        ? Math.max(
+            viewport.width < 768 ? 720 : 360,
+            metaAppsHero.offsetTop + metaAppsHero.offsetHeight - viewport.height * 0.32,
+          )
+        : defaultDetachAt;
+      const attachAt = Math.max(0, detachAt - (metaAppsHero ? 140 : 56));
       setDetached((previous) => {
-        if (!rect) return true;
+        if (!rect) return pathname === '/meta-apps' ? false : true;
         return window.scrollY > (previous ? attachAt : detachAt);
       });
 

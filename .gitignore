@@ -8,6 +8,7 @@ npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .env
+.local-roadmap.md
 
 # Локальные настройки Claude Code
 .claude/
