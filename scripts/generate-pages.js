@@ -470,6 +470,40 @@ function renderJsonLdScripts(schemas = []) {
     .join('\n  ');
 }
 
+/*
+ * Картинки первого экрана, которые стоит начать грузить из HTML, не дожидаясь
+ * JS. Сайт — SPA: без preload картинка героя стартует только после того, как
+ * скачается и выполнится основной бандл, потом чанк роута, потом чанк самого
+ * героя — четыре волны ожидания.
+ *
+ * Портрет (hero-portrait.jpg) рисует RightPanel в Hero.tsx, поэтому он нужен
+ * ровно там, где визуал героя 'default' или 'portrait'. У /meta-apps свой
+ * визуал — подставка и корпус телефона.
+ *
+ * priority: true ставит fetchpriority="high" — только для портрета, который и
+ * есть LCP-элемент этих страниц. Картинкам /meta-apps высокий приоритет не
+ * даём: они всё равно не отрисуются раньше JS, а канал у бандла отберут.
+ */
+const HERO_PRELOADS = {
+  '/': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/meta-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/google-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/consult': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/meta-apps': [
+    { href: '/images/meta-hero-pedestal-rack.webp' },
+    { href: '/images/meta-phone-3d-shell.webp' },
+  ],
+};
+
+function renderImagePreloads(preloads = []) {
+  return preloads
+    .map(({ href, priority }) => {
+      const fetchPriority = priority ? ' fetchpriority="high"' : '';
+      return `<link rel="preload" as="image" href="${escapeHtml(href)}"${fetchPriority} />`;
+    })
+    .join('\n  ');
+}
+
 function htmlTemplate({
   baseHtml,
   title,
@@ -480,6 +514,7 @@ function htmlTemplate({
   ogImage,
   noIndex = false,
   extraJsonLd = [],
+  imagePreloads = [],
   articlePublishedTime,
   articleModifiedTime,
   articleSection,
@@ -509,6 +544,9 @@ function htmlTemplate({
   html = upsertCanonical(html, canonicalUrl);
   html = upsertAlternate(html, 'ru', canonicalUrl);
   html = upsertAlternate(html, 'x-default', canonicalUrl);
+
+  const preloadHtml = renderImagePreloads(imagePreloads);
+  if (preloadHtml) html = insertBeforeHeadClose(html, preloadHtml);
 
   if (!noIndex) {
     const jsonLdHtml = renderJsonLdScripts([buildOrganizationJsonLd(), buildWebsiteJsonLd(), ...extraJsonLd]);
@@ -979,6 +1017,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
         canonicalPath: page.route,
         noIndex: Boolean(page.noIndex),
         extraJsonLd: page.extraJsonLd || [],
+        imagePreloads: HERO_PRELOADS[page.route] || [],
         baseHtml,
         bodyHtml: renderGeneratedShell({
           title: page.h1,

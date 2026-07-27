@@ -18,7 +18,10 @@
     <meta name="twitter:image" content="https://www.whalewzrd.com/og-image.jpg" />
     <link rel="canonical" href="https://www.whalewzrd.com/" />
     <link rel="alternate" type="application/rss+xml" title="Whale Wizard Blog Feed" href="/feed.xml" />
-    <link rel="preload" as="image" href="/images/hero-portrait.jpg" fetchpriority="high" />
+    <!-- Preload картинок героя задаётся пораутно в scripts/generate-pages.js:
+         портрет нужен только на /, /meta-ads, /google-ads и /consult, а на
+         /meta-apps свой герой. Общий preload здесь заставлял все 28 страниц
+         тянуть чужую картинку с высшим приоритетом. -->
     <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
     <link rel="preconnect" href="https://mc.yandex.ru" crossorigin />
     <link rel="preconnect" href="https://connect.facebook.net" crossorigin />
