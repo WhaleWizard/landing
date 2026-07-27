@@ -1,3 +1,6 @@
+// Единственный потребитель .case-article-* — держим стили рядом, чтобы их
+// 46 КБ не висели в общей блокирующей таблице стилей всего сайта.
+import '../../styles/cases-finder.css';
 import { motion, useReducedMotion } from 'motion/react';
 import {
   ArrowLeft,

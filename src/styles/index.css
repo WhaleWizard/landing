@@ -2,12 +2,18 @@
 @import './tailwind.css';
 @import './theme.css';
 @import './blog-readable.css';
-@import './cases-finder.css';
-@import './admin-ui.css';
 @import './whale-brand.css';
 @import './whale-navigator.css';
 
-/* Admin UI is kept in a dedicated layer so public landing styles stay isolated and responsive. */
+/*
+ * admin-ui.css (74 КБ) и cases-finder.css (46 КБ) отсюда убраны намеренно.
+ * Этот файл — единственная блокирующая рендер таблица стилей, и она грузилась
+ * целиком на каждой публичной странице, хотя .admin-root встречается только в
+ * pages/Admin.tsx, а .case-article-* — только в components/CaseArticleView.tsx.
+ * Теперь каждый из них импортируется своим компонентом и попадает в его
+ * ленивый чанк. Оба набора селекторов ни с чем здесь не пересекаются, поэтому
+ * более поздняя загрузка каскад не меняет.
+ */
 
 @keyframes scanline {
   0% { transform: translateY(0); opacity: 0; }

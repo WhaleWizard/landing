@@ -1,3 +1,6 @@
+// Стили админки живут здесь, а не в глобальном index.css: иначе их 74 КБ
+// попадают в блокирующую рендер таблицу стилей каждой публичной страницы.
+import '../../styles/admin-ui.css';
 import { useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
