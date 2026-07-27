@@ -1,6 +1,9 @@
 import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type ReactNode } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles } from 'lucide-react';
+import DataObjectRounded from '@mui/icons-material/DataObjectRounded';
+import StorageRounded from '@mui/icons-material/StorageRounded';
+import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
 import { useSiteSection } from '../hooks/useServiceContent';
@@ -154,19 +157,89 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
 });
 StatsRow.displayName = 'StatsRow';
 
+const META_APPS_STAT_ICONS = [
+  <DataObjectRounded key="sdk" />,
+  <TrackChangesRounded key="mmp" />,
+  <StorageRounded key="capi" />,
+];
+
+const MetaAppsStatsStrip = memo(({
+  stats,
+  className = '',
+}: {
+  stats: HeroStat[];
+  className?: string;
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: 14 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.55, duration: 0.55 }}
+    className={`meta-apps-stats-strip grid grid-cols-3 overflow-hidden rounded-[22px] border border-white/12 bg-[#090b12]/92 shadow-[0_18px_55px_rgba(0,0,0,0.22)] lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none ${className}`}
+  >
+    {stats.map((stat, index) => (
+      <div
+        key={`${stat.value}-${index}`}
+        className="meta-apps-stat relative flex min-w-0 flex-col items-center gap-2 px-2 py-4 text-center sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:text-left lg:px-0 lg:py-0"
+      >
+        {index > 0 && (
+          <span className="absolute inset-y-4 left-0 w-px bg-white/12 lg:inset-y-1 lg:-left-3 lg:bg-white/10" />
+        )}
+        <span
+          className="meta-apps-stat__icon grid h-11 w-11 shrink-0 place-items-center rounded-xl border bg-[#0c0f18] shadow-[0_8px_22px_rgba(0,0,0,0.26)] sm:h-12 sm:w-12"
+          style={{
+            borderColor: index === 0
+              ? 'color-mix(in srgb, var(--primary) 62%, transparent)'
+              : index === 1
+                ? 'color-mix(in srgb, var(--accent) 62%, transparent)'
+                : 'color-mix(in srgb, var(--secondary) 62%, transparent)',
+            color: index === 0 ? 'var(--primary)' : index === 1 ? 'var(--accent)' : 'var(--secondary)',
+          }}
+        >
+          <span className="[&>svg]:!h-6 [&>svg]:!w-6">{META_APPS_STAT_ICONS[index]}</span>
+        </span>
+        <span className="min-w-0">
+          <strong
+            className="meta-apps-stat__value block text-[17px] font-bold leading-none sm:text-xl"
+            style={{
+              color: index === 0 ? 'var(--primary)' : index === 1 ? 'var(--accent)' : 'var(--secondary)',
+            }}
+          >
+            {stat.value}
+          </strong>
+          <span className="meta-apps-stat__label mt-1 block text-[10px] leading-[1.25] text-muted-foreground sm:text-xs lg:max-w-[9.5rem]">
+            {stat.label}
+          </span>
+        </span>
+      </div>
+    ))}
+  </motion.div>
+));
+MetaAppsStatsStrip.displayName = 'MetaAppsStatsStrip';
+
 interface LeftContentProps {
   onScrollToContact: () => void;
   onScrollToCases:   () => void;
   inView: boolean;
   content: HeroContent;
+  mobileFirst?: boolean;
+  statsVariant?: 'default' | 'meta-apps' | 'hidden';
+  statsClassName?: string;
 }
 
-const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content }: LeftContentProps) => (
+const LeftContent = memo(({
+  onScrollToContact,
+  onScrollToCases,
+  inView,
+  content,
+  mobileFirst = false,
+  statsVariant = 'default',
+  statsClassName = '',
+}: LeftContentProps) => (
   <motion.div
     initial={{ opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.8 }}
-    className={`max-w-2xl order-2 lg:order-1 ${content.titleLines ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
+    className={`max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
     <motion.div
       className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
@@ -224,7 +297,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
       </h1>
     )}
 
-    <div className="space-y-3">
+    <div className={`space-y-3 ${mobileFirst ? 'meta-apps-hero-paragraphs' : ''}`}>
       {content.paragraphs.map((paragraph, index) => (
         <p key={index} className={`max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-7 md:leading-relaxed ${managedBodyClasses(content.typography)}`}>
           {paragraph}
@@ -232,7 +305,7 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
       ))}
     </div>
 
-    <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+    <div className={`flex flex-col sm:flex-row gap-3 md:gap-4 ${mobileFirst ? 'meta-apps-hero-actions' : ''}`}>
       <Button
         size="lg"
         onClick={onScrollToContact}
@@ -252,7 +325,8 @@ const LeftContent = memo(({ onScrollToContact, onScrollToCases, inView, content 
       </Button>
     </div>
 
-    <StatsRow stats={content.stats} />
+    {statsVariant === 'default' && <StatsRow stats={content.stats} />}
+    {statsVariant === 'meta-apps' && <MetaAppsStatsStrip stats={content.stats} className={statsClassName} />}
   </motion.div>
 ));
 LeftContent.displayName = 'LeftContent';
@@ -705,30 +779,40 @@ function Hero({
   }, [scrollToWhenReady]);
 
   const resolvedInView = prefersReduced ? false : inView;
+  const isMetaApps = visual === 'meta-apps';
 
   return (
     <section
       id="hero"
       ref={sectionRef}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20"
+      className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
       style={{ contain: 'layout style paint' }}
     >
       <BackgroundOrbs inView={resolvedInView} />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-        <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
+      <div className={`relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
+        <div className={`grid ${isMetaApps ? 'items-start gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-8 md:gap-12 lg:grid-cols-2'}`}>
           <LeftContent
             onScrollToContact={scrollToContact}
             onScrollToCases={scrollToCases}
             inView={resolvedInView}
             content={content}
+            mobileFirst={isMetaApps}
+            statsVariant={isMetaApps ? 'meta-apps' : 'default'}
+            statsClassName={isMetaApps ? 'hidden lg:grid' : ''}
           />
-          {visual === 'meta-apps' ? (
-            <Suspense fallback={<div className="order-1 lg:order-2 h-[430px] sm:h-[500px] md:h-[620px] lg:h-[660px]" />}>
+          {isMetaApps ? (
+            <Suspense fallback={<div className="order-2 h-[720px] md:h-[760px] lg:h-[690px]" />}>
               <MetaAppsHeroVisual inView={resolvedInView} />
             </Suspense>
           ) : (
             <RightPanel inView={resolvedInView} showCards={visual !== 'portrait'} />
+          )}
+          {isMetaApps && (
+            <MetaAppsStatsStrip
+              stats={content.stats}
+              className="order-3 lg:hidden"
+            />
           )}
         </div>
       </div>
