@@ -62,10 +62,17 @@ const FLOAT_PATHS = [
   },
 ] as const;
 
+/*
+ * Наклоны чеков. Раньше все три были завалены в одну сторону (4.2 / 9.8 / 6.1)
+ * и читались как ровная стопка. Теперь разнобой: первый валится влево, второй
+ * вправо сильнее телефона, третий почти прямой. Корпус телефона в рендере
+ * наклонён примерно на 11 градусов вправо — второй чек держит этот же угол,
+ * чтобы разнобой не выглядел случайным.
+ */
 const RECEIPT_POSES = [
-  { rotateZ: 4.2, rotateX: 2.2, rotateY: -8.5, translateZ: 8 },
-  { rotateZ: 9.8, rotateX: -1.4, rotateY: -12.5, translateZ: 18 },
-  { rotateZ: 6.1, rotateX: 3.1, rotateY: -10.5, translateZ: 12 },
+  { rotateZ: -6.5, rotateX: 2.4, rotateY: -7.5, translateZ: 10 },
+  { rotateZ: 11.5, rotateX: -1.8, rotateY: -13.5, translateZ: 20 },
+  { rotateZ: 2.5, rotateX: 3.4, rotateY: -9.5, translateZ: 13 },
 ] as const;
 
 function EventRow({ index, icon, label, status, reveal, reduced }: EventRowProps) {
@@ -436,7 +443,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
         <div className="meta-apps-stage__floor" />
         <motion.img
           className="meta-apps-stage__stone"
-          src="/images/meta-hero-stone-slab-v2.webp"
+          src="/images/meta-hero-pedestal-rack.webp"
           alt=""
           draggable={false}
           initial={reduced ? false : { opacity: 0, y: 26, scale: 0.97 }}
