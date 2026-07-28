@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Cookie } from 'lucide-react';
 import { router } from '../../routes';
 import Modal from '../Modal';
 import {
@@ -275,11 +276,11 @@ export default function CookieConsentManager() {
         <button
           type="button"
           onClick={openCookieSettings}
-          className="fixed bottom-2 left-2 md:bottom-4 md:left-4 z-[55] inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/85 px-3 py-2 text-[11px] md:text-xs font-semibold text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 hover:text-primary"
+          className="fixed bottom-3 left-3 z-[55] inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-card/85 p-0 text-[11px] font-semibold text-muted-foreground shadow-lg shadow-black/20 backdrop-blur transition-colors hover:border-primary/40 hover:text-primary md:bottom-4 md:left-4 md:h-auto md:w-auto md:gap-1.5 md:px-3 md:py-2 md:text-xs"
           aria-label="Открыть настройки cookie"
         >
-          <span aria-hidden="true">🍪</span>
-          <span>Cookie</span>
+          <Cookie className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden md:inline">Cookie</span>
         </button>
         {docDialog}
       </>

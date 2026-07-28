@@ -70,6 +70,9 @@ export interface Env {
   JSONBIN_BACKUP_ACCESS_KEY?: string;
   ADMIN_PASSWORD: string;
   SITE_URL?: string;
+  // Optional Google PageSpeed Insights API key for higher, predictable quota.
+  // The admin performance checker also works without it under Google's shared quota.
+  PAGESPEED_API_KEY?: string;
   INDEXNOW_KEY?: string;
   INDEXNOW_ENDPOINT?: string;
   // Глобальная очистка кэша Cloudflare после сохранения статей (опционально):

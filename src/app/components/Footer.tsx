@@ -60,12 +60,12 @@ function Footer() {
         <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
       </Suspense>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid md:grid-cols-4 gap-8 mb-8">
+      <div className="relative max-w-7xl mx-auto px-4 py-10 sm:px-6 md:py-12 lg:px-8">
+        <div className="mb-8 grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-4 md:gap-8">
           
           {/* Brand */}
           <motion.div 
-            className="space-y-4"
+            className="col-span-2 space-y-4 md:col-span-1"
             initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -98,13 +98,15 @@ function Footer() {
             <ul className={footerListClass}>
               <li>
                 <a href="/meta-ads" className={footerLinkClass}>
-                  Meta Ads — Facebook и Instagram
+                  <span className="sm:hidden">Meta Ads</span>
+                  <span className="hidden sm:inline">Meta Ads — Facebook и Instagram</span>
                 </a>
               </li>
 
               <li>
                 <a href="/meta-apps" className={footerLinkClass}>
-                  Продвижение приложений
+                  <span className="sm:hidden">Приложения</span>
+                  <span className="hidden sm:inline">Продвижение приложений</span>
                 </a>
               </li>
 
@@ -195,6 +197,7 @@ function Footer() {
 
           {/* Contact */}
           <motion.div
+            className="col-span-2 md:col-span-1"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
