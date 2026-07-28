@@ -1,8 +1,9 @@
-import { motion, useInView } from 'motion/react';
+import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
-import { useState, useEffect, useRef, memo, useCallback, TouchEvent, lazy, Suspense, useMemo } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, lazy, Suspense, useMemo } from 'react';
 import { useSiteSection } from '../hooks/useServiceContent';
 import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
+import { useIsMobile } from './ui/use-mobile';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -228,14 +229,16 @@ function Testimonials({
   const stats = sectionContent.stats ?? statsProp;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDesktopScrollbarVisible, setIsDesktopScrollbarVisible] = useState(false);
+  const [isMobileAutoplayDisabled, setIsMobileAutoplayDisabled] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
+  const mobileScrollerRef = useRef<HTMLDivElement>(null);
+  const mobileScrollFrameRef = useRef<number | null>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
+  const isMobile = useIsMobile();
   const isTouch = useTouchDevice();
+  const prefersReducedMotion = Boolean(useReducedMotion());
 
-  // Для свайпа
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
   const desktopScrollbarTimerRef = useRef<number | null>(null);
 
   const revealDesktopScrollbar = useCallback(() => {
@@ -249,13 +252,74 @@ function Testimonials({
     }, 900);
   }, []);
 
-  const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % testimonialsData.length);
+  const disableMobileAutoplay = useCallback(() => {
+    setIsMobileAutoplayDisabled(true);
   }, []);
 
-  const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + testimonialsData.length) % testimonialsData.length);
+  const syncMobileIndex = useCallback(() => {
+    const scroller = mobileScrollerRef.current;
+    if (!scroller) return;
+
+    const cards = Array.from(scroller.querySelectorAll<HTMLElement>('[data-mobile-testimonial-card]'));
+    if (cards.length === 0) return;
+
+    const viewportCenter = scroller.scrollLeft + scroller.clientWidth / 2;
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    cards.forEach((card, index) => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(cardCenter - viewportCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    setCurrentIndex((previousIndex) => previousIndex === closestIndex ? previousIndex : closestIndex);
   }, []);
+
+  const handleMobileScroll = useCallback(() => {
+    if (mobileScrollFrameRef.current !== null) return;
+
+    mobileScrollFrameRef.current = window.requestAnimationFrame(() => {
+      mobileScrollFrameRef.current = null;
+      syncMobileIndex();
+    });
+  }, [syncMobileIndex]);
+
+  const scrollMobileTestimonials = useCallback((index: number, behavior?: ScrollBehavior) => {
+    const scroller = mobileScrollerRef.current;
+    if (!scroller || testimonialsData.length === 0) return;
+
+    const normalizedIndex = Math.max(0, Math.min(testimonialsData.length - 1, index));
+    const cards = scroller.querySelectorAll<HTMLElement>('[data-mobile-testimonial-card]');
+    const card = cards[normalizedIndex];
+    if (!card) return;
+
+    const paddingLeft = parseFloat(window.getComputedStyle(scroller).paddingLeft) || 0;
+    const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const targetLeft = Math.max(0, Math.min(maxScrollLeft, card.offsetLeft - paddingLeft));
+
+    setCurrentIndex(normalizedIndex);
+    scroller.scrollTo({
+      left: targetLeft,
+      behavior: behavior ?? (prefersReducedMotion ? 'auto' : 'smooth'),
+    });
+  }, [prefersReducedMotion]);
+
+  const selectMobileSlide = useCallback((index: number) => {
+    disableMobileAutoplay();
+    scrollMobileTestimonials(index);
+  }, [disableMobileAutoplay, scrollMobileTestimonials]);
+
+  const nextSlide = useCallback(() => {
+    selectMobileSlide(currentIndex + 1);
+  }, [currentIndex, selectMobileSlide]);
+
+  const prevSlide = useCallback(() => {
+    selectMobileSlide(currentIndex - 1);
+  }, [currentIndex, selectMobileSlide]);
 
   const scrollDesktopTestimonials = useCallback((direction: 'prev' | 'next') => {
     const scroller = desktopScrollerRef.current;
@@ -273,6 +337,8 @@ function Testimonials({
   }, [revealDesktopScrollbar]);
 
   useEffect(() => {
+    if (isMobile) return;
+
     const scroller = desktopScrollerRef.current;
     if (!scroller) return;
 
@@ -283,8 +349,9 @@ function Testimonials({
       if (maxScrollLeft <= 0) return;
 
       const nextScrollLeft = scroller.scrollLeft + e.deltaY;
-      const isAtStart = scroller.scrollLeft <= 0;
-      const isAtEnd = scroller.scrollLeft >= maxScrollLeft;
+      const edgeEpsilon = 2;
+      const isAtStart = scroller.scrollLeft <= edgeEpsilon;
+      const isAtEnd = scroller.scrollLeft >= maxScrollLeft - edgeEpsilon;
 
       if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
 
@@ -295,46 +362,43 @@ function Testimonials({
 
     scroller.addEventListener('wheel', handleWheel, { passive: false });
     return () => scroller.removeEventListener('wheel', handleWheel);
-  }, [revealDesktopScrollbar]);
+  }, [isMobile, revealDesktopScrollbar]);
 
   useEffect(() => {
     return () => {
       if (desktopScrollbarTimerRef.current !== null) {
         window.clearTimeout(desktopScrollbarTimerRef.current);
       }
+      if (mobileScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(mobileScrollFrameRef.current);
+      }
     };
   }, []);
 
-  // Автоскролл только когда секция видна
   useEffect(() => {
-    if (!inView) return;
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % testimonialsData.length);
+    if (!isMobile) return;
+
+    const frame = window.requestAnimationFrame(syncMobileIndex);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isMobile, syncMobileIndex]);
+
+  useEffect(() => {
+    if (!isMobile || !inView || isMobileAutoplayDisabled || prefersReducedMotion) return;
+
+    const timer = window.setTimeout(() => {
+      const nextIndex = (currentIndex + 1) % testimonialsData.length;
+      scrollMobileTestimonials(nextIndex, nextIndex === 0 ? 'auto' : undefined);
     }, 5000);
-    return () => clearInterval(timer);
-  }, [inView]);
 
-  // Обработчики свайпа
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  }, []);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    const delta = touchStartX.current - touchEndX.current;
-    if (Math.abs(delta) > 50) {
-      if (delta > 0) {
-        nextSlide();
-      } else {
-        prevSlide();
-      }
-    }
-    touchStartX.current = 0;
-    touchEndX.current = 0;
-  }, [nextSlide, prevSlide]);
+    return () => window.clearTimeout(timer);
+  }, [
+    currentIndex,
+    inView,
+    isMobile,
+    isMobileAutoplayDisabled,
+    prefersReducedMotion,
+    scrollMobileTestimonials,
+  ]);
 
   // Отключаем whileHover на тач-устройствах
   const statHover = !isTouch ? { whileHover: { y: -5 } } : {};
@@ -380,6 +444,7 @@ function Testimonials({
         </motion.div>
 
         {/* Десктопная версия — горизонтальная лента карточек */}
+        {!isMobile && (
         <div className="relative left-1/2 hidden w-screen -translate-x-1/2 md:block">
           <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
             <motion.div
@@ -420,7 +485,7 @@ function Testimonials({
             <div className="testimonials-edge-fade pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background via-background/55 to-transparent lg:w-40" />
             <div
               ref={desktopScrollerRef}
-              className="testimonials-desktop-scroller flex snap-x snap-proximity scroll-smooth gap-5 overflow-x-auto overflow-y-hidden px-5 pb-10 pt-6 md:gap-7 md:px-10"
+              className="testimonials-desktop-scroller flex snap-x snap-proximity gap-5 overflow-x-auto overflow-y-hidden px-5 pb-10 pt-6 md:gap-7 md:px-10"
               data-scrollbar-visible={isDesktopScrollbarVisible ? 'true' : 'false'}
               onScroll={revealDesktopScrollbar}
               style={{
@@ -429,7 +494,6 @@ function Testimonials({
                 scrollbarColor: isDesktopScrollbarVisible ? 'rgba(139, 92, 246, 0.65) transparent' : 'rgba(139, 92, 246, 0) transparent',
                 WebkitOverflowScrolling: 'touch',
                 cursor: 'grab',
-                willChange: 'scroll-position',
               }}
             >
               {testimonialsData.map((testimonial, index) => (
@@ -448,6 +512,7 @@ function Testimonials({
             </div>
           </div>
         </div>
+        )}
 
         <style>{`
           .testimonials-edge-fade {
@@ -476,36 +541,50 @@ function Testimonials({
           .testimonials-desktop-scroller:active {
             cursor: grabbing;
           }
+          .testimonials-mobile-scroller {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          .testimonials-mobile-scroller::-webkit-scrollbar {
+            display: none;
+          }
         `}</style>
 
         {/* Мобильная версия — карусель с тач-свайпом */}
+        {isMobile && (
         <div className="md:hidden relative">
           <div
-            className="relative -m-4 overflow-hidden p-4"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            ref={mobileScrollerRef}
+            className="testimonials-mobile-scroller relative -m-4 flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden p-4"
+            onScroll={handleMobileScroll}
+            onPointerDown={disableMobileAutoplay}
+            onWheel={disableMobileAutoplay}
+            role="region"
+            aria-label="Отзывы клиентов"
+            style={{
+              scrollPaddingInline: '1rem',
+              overscrollBehaviorX: 'contain',
+              touchAction: 'pan-x pan-y',
+              WebkitOverflowScrolling: 'touch',
+            }}
           >
-            <motion.div
-              className="flex"
-              animate={{ x: `-${currentIndex * 100}%` }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              style={{ willChange: 'transform' }}
-            >
-              {testimonialsData.map((testimonial, index) => (
-                <div key={`${testimonial.company}-${testimonial.name}`} className="w-full flex-shrink-0 px-2">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.5 }}
-                    className="relative min-h-[360px]"
-                  >
-                    <TestimonialCard testimonial={testimonial} index={index} compact />
-                  </motion.div>
-                </div>
-              ))}
-            </motion.div>
+            {testimonialsData.map((testimonial, index) => (
+              <div
+                key={`${testimonial.company}-${testimonial.name}`}
+                data-mobile-testimonial-card
+                className="w-full flex-shrink-0 snap-start px-2"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
+                  className="relative min-h-[360px]"
+                >
+                  <TestimonialCard testimonial={testimonial} index={index} compact />
+                </motion.div>
+              </div>
+            ))}
           </div>
 
           {/* Индикаторы (точки) */}
@@ -513,9 +592,10 @@ function Testimonials({
             {testimonialsData.map((_, index) => (
               <button
                 key={index}
-                onClick={() => setCurrentIndex(index)}
+                onClick={() => selectMobileSlide(index)}
                 className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label={`Перейти к отзыву ${index + 1}`}
+                aria-current={currentIndex === index ? 'true' : undefined}
               >
                 <div className={`h-2 rounded-full transition-all duration-300 ${
                   currentIndex === index
@@ -525,8 +605,8 @@ function Testimonials({
                 {currentIndex === index && (
                   <motion.div
                     className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
-                    animate={inView ? { scale: [1, 1.5, 1] } : {}}
-                    transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
+                    animate={inView && !prefersReducedMotion ? { scale: [1, 1.5, 1] } : {}}
+                    transition={{ duration: 2, repeat: inView && !prefersReducedMotion ? Infinity : 0 }}
                   />
                 )}
               </button>
@@ -537,6 +617,7 @@ function Testimonials({
           <div className="flex justify-center gap-3 mt-5">
             <button
               onClick={prevSlide}
+              disabled={currentIndex === 0}
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
               aria-label="Предыдущий отзыв"
             >
@@ -544,6 +625,7 @@ function Testimonials({
             </button>
             <button
               onClick={nextSlide}
+              disabled={currentIndex === testimonialsData.length - 1}
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
               aria-label="Следующий отзыв"
             >
@@ -551,6 +633,7 @@ function Testimonials({
             </button>
           </div>
         </div>
+        )}
 
         {/* Блок доверия (статистика) */}
         <motion.div

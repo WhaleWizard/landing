@@ -39,6 +39,11 @@
   animation: ww-brand-whale-float 7.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
+[data-static-whale-logo='true'] .ww-whale-mark,
+[data-static-whale-logo='true'] .ww-whale-mark__glow {
+  animation: none;
+}
+
 .ww-brand-mark-shell {
   display: block;
   flex: none;

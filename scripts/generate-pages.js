@@ -490,16 +490,31 @@ const HERO_PRELOADS = {
   '/google-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
   '/consult': [{ href: '/images/hero-portrait.jpg', priority: true }],
   '/meta-apps': [
-    { href: '/images/meta-hero-pedestal-rack.webp' },
-    { href: '/images/meta-phone-3d-shell.webp' },
+    {
+      href: '/images/meta-hero-pedestal-rack-mobile.webp',
+      media: '(max-width: 767px)',
+      imageSrcSet: '/images/meta-hero-pedestal-rack-mobile.webp 768w, /images/meta-hero-pedestal-rack-medium.webp 1152w, /images/meta-hero-pedestal-rack.webp 1536w',
+      imageSizes: '100vw',
+    },
+    {
+      href: '/images/meta-phone-3d-shell-mobile.webp',
+      media: '(max-width: 767px)',
+      imageSrcSet: '/images/meta-phone-3d-shell-mobile.webp 462w, /images/meta-phone-3d-shell-medium.webp 616w, /images/meta-phone-3d-shell.webp 770w',
+      imageSizes: '210px',
+    },
+    { href: '/images/meta-hero-pedestal-rack.webp', media: '(min-width: 768px)' },
+    { href: '/images/meta-phone-3d-shell.webp', media: '(min-width: 768px)' },
   ],
 };
 
 function renderImagePreloads(preloads = []) {
   return preloads
-    .map(({ href, priority }) => {
+    .map(({ href, priority, media, imageSrcSet, imageSizes }) => {
       const fetchPriority = priority ? ' fetchpriority="high"' : '';
-      return `<link rel="preload" as="image" href="${escapeHtml(href)}"${fetchPriority} />`;
+      const mediaAttribute = media ? ` media="${escapeHtml(media)}"` : '';
+      const srcSetAttribute = imageSrcSet ? ` imagesrcset="${escapeHtml(imageSrcSet)}"` : '';
+      const sizesAttribute = imageSizes ? ` imagesizes="${escapeHtml(imageSizes)}"` : '';
+      return `<link rel="preload" as="image" href="${escapeHtml(href)}"${fetchPriority}${mediaAttribute}${srcSetAttribute}${sizesAttribute} />`;
     })
     .join('\n  ');
 }

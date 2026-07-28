@@ -1,9 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { motion, useInView } from 'motion/react';
 import { BarChart3, Briefcase, CheckCircle2, Search, ShoppingCart, Sparkles, Target, TrendingUp, Users, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Hero, { type HeroContent } from '../components/Hero';
-import LandingForm from '../components/LandingForm';
 import SEO from '../components/SEO';
 import type { ServicesContent } from '../components/Services';
 import type { CasesContent } from '../components/Cases';
@@ -16,6 +15,7 @@ const Services = lazy(() => import('../components/Services'));
 const Cases = lazy(() => import('../components/Cases'));
 const CallToAction = lazy(() => import('../components/CallToAction'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
+const LandingForm = lazy(() => import('../components/LandingForm'));
 const Footer = lazy(() => import('../components/Footer'));
 
 export type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
@@ -759,41 +759,143 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
 };
 
-function SectionSkeleton({ height = 'min-h-[180px]' }: { height?: string }) {
-  return <div className={`w-full ${height}`} aria-hidden="true" />;
+type DeferredSectionHeights = {
+  mobile: number;
+  tablet: number;
+  desktop: number;
+};
+
+type DeferredSectionStyle = CSSProperties & {
+  '--deferred-height-mobile': string;
+  '--deferred-height-tablet': string;
+  '--deferred-height-desktop': string;
+};
+
+function SectionSkeleton({ heights }: { heights: DeferredSectionHeights }) {
+  const style: DeferredSectionStyle = {
+    '--deferred-height-mobile': `${heights.mobile}px`,
+    '--deferred-height-tablet': `${heights.tablet}px`,
+    '--deferred-height-desktop': `${heights.desktop}px`,
+  };
+
+  return (
+    <div
+      className="w-full min-h-[var(--deferred-height-mobile)] md:min-h-[var(--deferred-height-tablet)] lg:min-h-[var(--deferred-height-desktop)]"
+      style={style}
+      aria-hidden="true"
+    />
+  );
+}
+
+function hashTargetsSection(anchorId?: string) {
+  if (typeof window === 'undefined' || !anchorId) return false;
+
+  const rawHash = window.location.hash.slice(1);
+  if (!rawHash) return false;
+
+  try {
+    return decodeURIComponent(rawHash) === anchorId;
+  } catch {
+    return rawHash === anchorId;
+  }
 }
 
 /*
- * Пока секция за пределами экрана, браузер не верстает её содержимое и берёт
- * высоту из containIntrinsicSize. Общая заглушка в 720px не совпадала ни с
- * одной реальной секцией: на десктопе они занимают 1585 / 1728 / 371 / 1124 /
- * 430 px. Из-за этого при прокрутке высота документа скакала с 5537 до 7174 px
- * — ползунок прыгал, а контент уезжал из-под пальца.
- *
- * Ключевое слово auto заставляет браузер запомнить фактическую высоту после
- * первой отрисовки и дальше использовать её; число рядом — только запасное
- * значение до этого момента. Поэтому оно должно быть близко к правде.
+ * React.lazy начинает загрузку только после монтирования дочерней секции.
+ * Большой observer-margin запускает её заранее, а адаптивная заглушка сохраняет
+ * геометрию документа при быстрой прокрутке и во время загрузки чанка.
  */
 function DeferredSection({
   children,
-  height = 'min-h-[180px]',
-  intrinsicHeight,
+  anchorId,
+  heights,
 }: {
   children: ReactNode;
-  height?: string;
-  intrinsicHeight: number;
+  anchorId?: string;
+  heights: DeferredSectionHeights;
 }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [shouldRender, setShouldRender] = useState(() => (
+    typeof window === 'undefined'
+    || typeof window.IntersectionObserver === 'undefined'
+    || hashTargetsSection(anchorId)
+  ));
+
+  useEffect(() => {
+    if (shouldRender) return;
+
+    const section = sectionRef.current;
+    if (!section || typeof window.IntersectionObserver === 'undefined') {
+      setShouldRender(true);
+      return;
+    }
+
+    const mount = () => setShouldRender(true);
+    const mountForHash = () => {
+      if (hashTargetsSection(anchorId)) mount();
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        observer.disconnect();
+        mount();
+      },
+      {
+        rootMargin: '1400px 0px',
+        threshold: 0,
+      },
+    );
+
+    observer.observe(section);
+    window.addEventListener('hashchange', mountForHash);
+    window.addEventListener('beforeprint', mount);
+    mountForHash();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('hashchange', mountForHash);
+      window.removeEventListener('beforeprint', mount);
+    };
+  }, [anchorId, shouldRender]);
+
+  useEffect(() => {
+    if (!shouldRender || !anchorId || !hashTargetsSection(anchorId)) return;
+
+    let frame = 0;
+    let attempts = 0;
+    const alignToHashTarget = () => {
+      const target = document.getElementById(anchorId);
+      if (target) {
+        target.scrollIntoView();
+        return;
+      }
+
+      attempts += 1;
+      if (attempts < 60) frame = window.requestAnimationFrame(alignToHashTarget);
+    };
+
+    frame = window.requestAnimationFrame(alignToHashTarget);
+    return () => window.cancelAnimationFrame(frame);
+  }, [anchorId, shouldRender]);
+
   return (
-    <section style={{ contentVisibility: 'auto', containIntrinsicSize: `auto 1px auto ${intrinsicHeight}px` }}>
-      <Suspense fallback={<SectionSkeleton height={height} />}>{children}</Suspense>
+    <section
+      ref={sectionRef}
+      id={shouldRender ? undefined : anchorId}
+    >
+      {shouldRender ? (
+        <Suspense fallback={<SectionSkeleton heights={heights} />}>{children}</Suspense>
+      ) : (
+        <SectionSkeleton heights={heights} />
+      )}
     </section>
   );
 }
 
 function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProps, 'service' | 'contact' | 'theme'>) {
   const sectionRef = useRef<HTMLElement>(null);
-  // Соседние секции скрыты через content-visibility и вне экрана вообще не
-  // отрисовываются. Эта — нет, поэтому её пятна размытием в 128px пульсировали
+  // Соседние секции монтируются только при приближении к viewport. Эта — нет,
+  // поэтому её пятна размытием в 128px пульсировали
   // всё время, даже когда до формы ещё далеко. Ставим на паузу за пределами
   // экрана: пока пятно видно, оно ведёт себя ровно как раньше.
   const orbsInView = useInView(sectionRef, { margin: '200px' });
@@ -861,7 +963,16 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
             viewport={{ once: true, margin: '-60px', amount: 0.2 }}
             transition={{ duration: 0.45, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
           >
-            <LandingForm service={service} />
+            <Suspense
+              fallback={
+                <div
+                  aria-hidden="true"
+                  className="min-h-[1000px] lg:min-h-[760px]"
+                />
+              }
+            >
+              <LandingForm service={service} />
+            </Suspense>
           </motion.div>
         </div>
       </div>
@@ -909,24 +1020,44 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
   return (
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden" style={cssVars}>
       <SEO {...config.seo} />
-      <Navbar variant="service" />
+      <Navbar variant="service" staticLogo={service === 'meta-apps'} />
       <Hero
         content={config.hero}
         visual={service === 'meta-apps' ? 'meta-apps' : service === 'consult' ? 'portrait' : 'default'}
       />
 
-      {/* Числа — компромисс между широким экраном и телефоном: секции с
-          колонками на узком экране складываются и меняют высоту вдвое
-          (подвал: 440 против 1070, кейсы: 1730 против 1050). Промах в любую
-          сторону одинаково двигает документ, поэтому берём середину. */}
-      <DeferredSection intrinsicHeight={1330}><Services content={config.services} /></DeferredSection>
-      <DeferredSection intrinsicHeight={1390}><Cases content={config.cases} moreHref={`/cases?from=${service}`} /></DeferredSection>
-      <DeferredSection intrinsicHeight={390}><CallToAction content={config.cta} /></DeferredSection>
-      <DeferredSection intrinsicHeight={1120}>
+      {/* Высоты повторяют адаптивную геометрию секций до их монтирования:
+          подвал — 1070/430, кейсы — 1050/1730 на mobile/desktop. */}
+      <DeferredSection
+        anchorId="services"
+        heights={{ mobile: 1075, tablet: 1585, desktop: 1585 }}
+      >
+        <Services content={config.services} />
+      </DeferredSection>
+      <DeferredSection
+        anchorId="cases"
+        heights={{ mobile: 1050, tablet: 1730, desktop: 1730 }}
+      >
+        <Cases content={config.cases} moreHref={`/cases?from=${service}`} />
+      </DeferredSection>
+      <DeferredSection heights={{ mobile: 410, tablet: 390, desktop: 371 }}>
+        <CallToAction content={config.cta} />
+      </DeferredSection>
+      <DeferredSection
+        anchorId="about"
+        heights={{ mobile: 1120, tablet: 1124, desktop: 1124 }}
+      >
         <Testimonials content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined} />
       </DeferredSection>
-      <ContactSection service={service} contact={config.contact} theme={theme} />
-      <DeferredSection height="min-h-[160px]" intrinsicHeight={750}><Footer /></DeferredSection>
+      <DeferredSection
+        anchorId="contact"
+        heights={{ mobile: 1555, tablet: 1450, desktop: 1030 }}
+      >
+        <ContactSection service={service} contact={config.contact} theme={theme} />
+      </DeferredSection>
+      <DeferredSection heights={{ mobile: 1070, tablet: 700, desktop: 430 }}>
+        <Footer />
+      </DeferredSection>
     </main>
   );
 }

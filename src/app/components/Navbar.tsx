@@ -19,9 +19,10 @@ const NAV_ICONS: Record<string, typeof Briefcase> = {
 
 interface NavbarProps {
   variant?: NavbarVariant;
+  staticLogo?: boolean;
 }
 
-function Navbar({ variant = 'home' }: NavbarProps) {
+function Navbar({ variant = 'home', staticLogo = false }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -152,6 +153,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   return (
     <>
       <nav
+        data-static-whale-logo={staticLogo ? 'true' : undefined}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled || variant === 'content'
             ? 'bg-background/80 backdrop-blur-xl border-b border-border shadow-lg shadow-primary/5'

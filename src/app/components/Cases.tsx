@@ -1,10 +1,11 @@
 import { motion, useInView } from 'motion/react';
 import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useState, useRef, TouchEvent, memo, useCallback, useEffect } from 'react';
+import { useState, useRef, memo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useSiteSection } from '../hooks/useServiceContent';
 import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
+import { useIsMobile } from './ui/use-mobile';
 
 export type CaseStat = { label: string; value: string };
 
@@ -81,18 +82,6 @@ const useTouchDevice = () => {
   return isTouch;
 };
 
-// Хук для определения мобильной ширины
-const useMobile = () => {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-  return isMobile;
-};
-
 export const defaultCasesContent: CasesContent = {
   badge: 'Проекты и результаты',
   titlePrefix: 'Кейсы: что запускал',
@@ -106,37 +95,67 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
   const caseItems = sectionContent.items;
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  const mobileScrollerRef = useRef<HTMLDivElement>(null);
+  const mobileScrollFrameRef = useRef<number | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
   const isTouch = useTouchDevice();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
+
+  const scrollToSlide = useCallback((index: number, behavior: ScrollBehavior = 'smooth') => {
+    const nextIndex = Math.max(0, Math.min(caseItems.length - 1, index));
+    const scroller = mobileScrollerRef.current;
+    const slide = scroller?.querySelector<HTMLElement>(`[data-case-slide="${nextIndex}"]`);
+
+    setCurrentIndex(nextIndex);
+    if (!scroller || !slide) return;
+
+    scroller.scrollTo({
+      left: slide.offsetLeft - (scroller.clientWidth - slide.offsetWidth) / 2,
+      behavior: behavior === 'smooth' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : behavior,
+    });
+  }, [caseItems.length]);
 
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % caseItems.length);
-  }, [caseItems.length]);
+    scrollToSlide(currentIndex + 1);
+  }, [currentIndex, scrollToSlide]);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + caseItems.length) % caseItems.length);
-  }, [caseItems.length]);
+    scrollToSlide(currentIndex - 1);
+  }, [currentIndex, scrollToSlide]);
 
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchEndX.current = e.touches[0].clientX;
+  const handleMobileScroll = useCallback(() => {
+    if (mobileScrollFrameRef.current !== null) return;
+    mobileScrollFrameRef.current = window.requestAnimationFrame(() => {
+      mobileScrollFrameRef.current = null;
+      const scroller = mobileScrollerRef.current;
+      if (!scroller) return;
+
+      const viewportCenter = scroller.scrollLeft + scroller.clientWidth / 2;
+      const slides = Array.from(scroller.querySelectorAll<HTMLElement>('[data-case-slide]'));
+      let closestIndex = 0;
+      let closestDistance = Number.POSITIVE_INFINITY;
+
+      slides.forEach((slide, index) => {
+        const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+        const distance = Math.abs(slideCenter - viewportCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+
+      setCurrentIndex((previous) => previous === closestIndex ? previous : closestIndex);
+    });
   }, []);
 
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (touchStartX.current - touchEndX.current > 50) {
-      nextSlide();
-    } else if (touchEndX.current - touchStartX.current > 50) {
-      prevSlide();
+  useEffect(() => () => {
+    if (mobileScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(mobileScrollFrameRef.current);
     }
-  }, [nextSlide, prevSlide]);
+  }, []);
 
   // Отключаем hover-анимации на тач-устройствах
   const desktopHover = !isTouch ? { whileHover: { scale: 1.05 } } : {};
@@ -180,6 +199,7 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
         </motion.div>
 
         {/* Desktop Grid */}
+        {!isMobile && (
         <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8 overflow-visible">
           {caseItems.map((item, index) => (
             <motion.div
@@ -252,23 +272,29 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
             </motion.div>
           ))}
         </div>
+        )}
 
         {/* Mobile Carousel */}
+        {isMobile && (
         <div className="md:hidden relative">
-          <div 
-            className="relative -m-4 overflow-hidden p-4"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+          <div
+            ref={mobileScrollerRef}
+            className="relative -mx-4 flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onScroll={handleMobileScroll}
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x pan-y',
+              scrollPaddingInline: '1rem',
+              overscrollBehaviorInline: 'contain',
+            }}
           >
-            <motion.div
-              className="flex"
-              animate={{ x: `-${currentIndex * 100}%` }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              style={{ willChange: 'transform', transform: 'translateZ(0)' }}
-            >
-              {caseItems.map((item, index) => (
-                <div key={index} className="w-full flex-shrink-0 px-2">
+            {caseItems.map((item, index) => (
+                <div
+                  key={index}
+                  data-case-slide={index}
+                  className="w-full flex-none snap-center px-2"
+                  style={{ scrollSnapStop: 'always' }}
+                >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     whileInView={{ opacity: 1, scale: 1 }}
@@ -310,8 +336,7 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
                     <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-primary via-accent to-secondary opacity-30" />
                   </motion.div>
                 </div>
-              ))}
-            </motion.div>
+            ))}
           </div>
 
           <div className="flex justify-center gap-2 mt-6">
@@ -319,7 +344,7 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
               <button
                 key={index}
                 type="button"
-                onClick={() => setCurrentIndex(index)}
+                onClick={() => scrollToSlide(index)}
                 className="relative group inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label={`Показать кейс ${index + 1}: ${caseItems[index].title}`}
                 aria-current={currentIndex === index ? 'true' : undefined}
@@ -343,6 +368,7 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
             <button
               type="button"
               onClick={prevSlide}
+              disabled={currentIndex === 0}
               className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label="Предыдущий кейс"
             >
@@ -353,6 +379,7 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
             <button
               type="button"
               onClick={nextSlide}
+              disabled={currentIndex === caseItems.length - 1}
               className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label="Следующий кейс"
             >
@@ -362,6 +389,7 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
             </button>
           </div>
         </div>
+        )}
 
         <div className="relative mt-12 md:mt-16 flex justify-center">
           <button

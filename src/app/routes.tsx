@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-r
 import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import RouteSkeleton from './components/RouteSkeleton';
+import { ArticlesProvider } from './context/ArticlesContext';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 const WhaleNavigator = lazy(() => import('./components/brand/WhaleNavigator'));
 
@@ -65,14 +66,20 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
 function RootLayout() {
   const location = useLocation();
   const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
+  const isMetaApps = /^\/meta-apps(?:\/|$)/.test(location.pathname);
+  const needsArticles = location.pathname === '/'
+    || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname);
+  const routeContent = <Outlet />;
 
   return (
     <>
-      <Outlet />
+      {needsArticles ? (
+        <ArticlesProvider>{routeContent}</ArticlesProvider>
+      ) : routeContent}
       {!isAdmin ? (
         <Suspense fallback={null}>
           <CookieConsentManager />
-          <WhaleNavigator />
+          {!isMetaApps ? <WhaleNavigator /> : null}
         </Suspense>
       ) : null}
     </>

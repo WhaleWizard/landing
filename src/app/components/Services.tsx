@@ -1,10 +1,11 @@
 import { motion, useInView } from 'motion/react';
 import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info, type LucideIcon } from 'lucide-react';
-import { useState, useRef, TouchEvent, memo, useCallback, lazy, Suspense } from 'react';
+import { useState, useRef, memo, useCallback, lazy, Suspense, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import Modal from './Modal';
 import { useSiteSection } from '../hooks/useServiceContent';
 import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
+import { useIsMobile } from './ui/use-mobile';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -110,36 +111,67 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
   const modalContent = sectionContent.detailed;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  const mobileScrollerRef = useRef<HTMLDivElement>(null);
+  const mobileScrollFrameRef = useRef<number | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
 
-  const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % serviceCards.length);
+  const scrollToSlide = useCallback((index: number, behavior: ScrollBehavior = 'smooth') => {
+    const nextIndex = Math.max(0, Math.min(serviceCards.length - 1, index));
+    const scroller = mobileScrollerRef.current;
+    const slide = scroller?.querySelector<HTMLElement>(`[data-service-slide="${nextIndex}"]`);
+
+    setCurrentIndex(nextIndex);
+    if (!scroller || !slide) return;
+
+    scroller.scrollTo({
+      left: slide.offsetLeft - (scroller.clientWidth - slide.offsetWidth) / 2,
+      behavior: behavior === 'smooth' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : behavior,
+    });
   }, [serviceCards.length]);
+
+  const nextSlide = useCallback(() => {
+    scrollToSlide(currentIndex + 1);
+  }, [currentIndex, scrollToSlide]);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + serviceCards.length) % serviceCards.length);
-  }, [serviceCards.length]);
+    scrollToSlide(currentIndex - 1);
+  }, [currentIndex, scrollToSlide]);
 
-  const handleTouchStart = (e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchEndX.current = e.touches[0].clientX;
-  };
+  const handleMobileScroll = useCallback(() => {
+    if (mobileScrollFrameRef.current !== null) return;
+    mobileScrollFrameRef.current = window.requestAnimationFrame(() => {
+      mobileScrollFrameRef.current = null;
+      const scroller = mobileScrollerRef.current;
+      if (!scroller) return;
 
-  const handleTouchMove = (e: TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-  };
+      const viewportCenter = scroller.scrollLeft + scroller.clientWidth / 2;
+      const slides = Array.from(scroller.querySelectorAll<HTMLElement>('[data-service-slide]'));
+      let closestIndex = 0;
+      let closestDistance = Number.POSITIVE_INFINITY;
 
-  const handleTouchEnd = () => {
-    if (touchStartX.current - touchEndX.current > 50) {
-      nextSlide();
-    } else if (touchEndX.current - touchStartX.current > 50) {
-      prevSlide();
+      slides.forEach((slide, index) => {
+        const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+        const distance = Math.abs(slideCenter - viewportCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+
+      setCurrentIndex((previous) => previous === closestIndex ? previous : closestIndex);
+    });
+  }, []);
+
+  useEffect(() => () => {
+    if (mobileScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(mobileScrollFrameRef.current);
     }
-  };
+  }, []);
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
@@ -204,6 +236,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
           </motion.div>
 
           {/* Desktop Grid */}
+          {!isMobile && (
           <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8 overflow-visible">
             {serviceCards.map((service, index) => (
               <motion.div
@@ -282,22 +315,29 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
               </motion.div>
             ))}
           </div>
+          )}
 
           {/* Mobile Carousel */}
+          {isMobile && (
           <div className="md:hidden relative">
-            <div 
-              className="relative -m-4 overflow-hidden p-4"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+            <div
+              ref={mobileScrollerRef}
+              className="relative -mx-4 flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              onScroll={handleMobileScroll}
+              style={{
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x pan-y',
+                scrollPaddingInline: '1rem',
+                overscrollBehaviorInline: 'contain',
+              }}
             >
-              <motion.div
-                className="flex"
-                animate={{ x: `-${currentIndex * 100}%` }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                {serviceCards.map((service, index) => (
-                  <div key={index} className="w-full flex-shrink-0 px-2">
+              {serviceCards.map((service, index) => (
+                  <div
+                    key={index}
+                    data-service-slide={index}
+                    className="w-full flex-none snap-center px-2"
+                    style={{ scrollSnapStop: 'always' }}
+                  >
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       whileInView={{ opacity: 1, scale: 1 }}
@@ -355,8 +395,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                       </div>
                     </motion.div>
                   </div>
-                ))}
-              </motion.div>
+              ))}
             </div>
 
             <div className="flex justify-center gap-2 mt-6">
@@ -364,7 +403,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                 <button
                   key={index}
                   type="button"
-                  onClick={() => setCurrentIndex(index)}
+                  onClick={() => scrollToSlide(index)}
                   className="relative group inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label={`Показать услугу ${index + 1}: ${serviceCards[index].title}`}
                   aria-current={currentIndex === index ? 'true' : undefined}
@@ -376,8 +415,8 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                     <motion.div
                       aria-hidden="true"
                       className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
-                      animate={inView ? { scale: [1, 1.5, 1] } : {}}
-                      transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
+                      animate={inView && !isMobile ? { scale: [1, 1.5, 1] } : {}}
+                      transition={{ duration: 2, repeat: inView && !isMobile ? Infinity : 0 }}
                     />
                   )}
                 </button>
@@ -388,6 +427,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
               <button
                 type="button"
                 onClick={prevSlide}
+                disabled={currentIndex === 0}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Предыдущая услуга"
               >
@@ -398,6 +438,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
               <button
                 type="button"
                 onClick={nextSlide}
+                disabled={currentIndex === serviceCards.length - 1}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 border border-primary/30 backdrop-blur-sm active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Следующая услуга"
               >
@@ -407,6 +448,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
               </button>
             </div>
           </div>
+          )}
         </div>
       </section>
 

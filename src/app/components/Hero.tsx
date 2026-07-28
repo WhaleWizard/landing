@@ -6,6 +6,7 @@ import StorageRounded from '@mui/icons-material/StorageRounded';
 import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
+import { useIsMobile } from './ui/use-mobile';
 import { useSiteSection } from '../hooks/useServiceContent';
 import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
 
@@ -40,25 +41,31 @@ const useTouchDevice = () => {
 };
 
 // Фоновые орбы с паузой анимации при выходе из вьюпорта
-const BackgroundOrbs = memo(({ inView }: { inView: boolean }) => (
+const BackgroundOrbs = memo(({
+  inView,
+  staticMotion = false,
+}: {
+  inView: boolean;
+  staticMotion?: boolean;
+}) => (
   <>
     <div
       className="absolute top-1/4 left-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-primary/30 rounded-full blur-[150px] animate-pulse pointer-events-none"
       style={{ 
-        willChange: 'opacity',
+        willChange: staticMotion ? 'auto' : 'opacity',
         animationPlayState: inView ? 'running' : 'paused',
         WebkitAnimationPlayState: inView ? 'running' : 'paused',
-        transform: 'translateZ(0)',
+        transform: staticMotion ? 'none' : 'translateZ(0)',
       }}
     />
     <div
       className="absolute bottom-1/4 right-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-accent/20 rounded-full blur-[150px] animate-pulse pointer-events-none"
       style={{ 
         animationDelay: '1s', 
-        willChange: 'opacity',
+        willChange: staticMotion ? 'auto' : 'opacity',
         animationPlayState: inView ? 'running' : 'paused',
         WebkitAnimationPlayState: inView ? 'running' : 'paused',
-        transform: 'translateZ(0)',
+        transform: staticMotion ? 'none' : 'translateZ(0)',
       }}
     />
     <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-30 pointer-events-none" />
@@ -166,14 +173,16 @@ const META_APPS_STAT_ICONS = [
 const MetaAppsStatsStrip = memo(({
   stats,
   className = '',
+  staticMotion = false,
 }: {
   stats: HeroStat[];
   className?: string;
+  staticMotion?: boolean;
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 14 }}
+    initial={staticMotion ? false : { opacity: 0, y: 14 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ delay: 0.55, duration: 0.55 }}
+    transition={staticMotion ? { duration: 0 } : { delay: 0.55, duration: 0.55 }}
     className={`meta-apps-stats-strip grid grid-cols-3 overflow-hidden rounded-[22px] border border-white/12 bg-[#090b12]/92 shadow-[0_18px_55px_rgba(0,0,0,0.22)] lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none ${className}`}
   >
     {stats.map((stat, index) => (
@@ -222,6 +231,7 @@ interface LeftContentProps {
   inView: boolean;
   content: HeroContent;
   mobileFirst?: boolean;
+  staticMotion?: boolean;
   statsVariant?: 'default' | 'meta-apps' | 'hidden';
   statsClassName?: string;
 }
@@ -232,26 +242,27 @@ const LeftContent = memo(({
   inView,
   content,
   mobileFirst = false,
+  staticMotion = false,
   statsVariant = 'default',
   statsClassName = '',
 }: LeftContentProps) => (
   <motion.div
-    initial={{ opacity: 0, y: 50 }}
+    initial={staticMotion ? false : { opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.8 }}
+    transition={staticMotion ? { duration: 0 } : { duration: 0.8 }}
     className={`max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
     <motion.div
       className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
-      animate={inView ? {
+      animate={!staticMotion && inView ? {
         boxShadow: [
           '0 0 0 0 rgba(139, 92, 246, 0)',
           '0 0 20px 5px rgba(139, 92, 246, 0.3)',
           '0 0 0 0 rgba(139, 92, 246, 0)',
         ],
       } : {}}
-      transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
-      style={{ willChange: 'box-shadow' }}
+      transition={{ duration: 2, repeat: !staticMotion && inView ? Infinity : 0 }}
+      style={{ willChange: staticMotion ? 'auto' : 'box-shadow' }}
     >
       <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary" />
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
@@ -326,7 +337,13 @@ const LeftContent = memo(({
     </div>
 
     {statsVariant === 'default' && <StatsRow stats={content.stats} />}
-    {statsVariant === 'meta-apps' && <MetaAppsStatsStrip stats={content.stats} className={statsClassName} />}
+    {statsVariant === 'meta-apps' && (
+      <MetaAppsStatsStrip
+        stats={content.stats}
+        className={statsClassName}
+        staticMotion={staticMotion}
+      />
+    )}
   </motion.div>
 ));
 LeftContent.displayName = 'LeftContent';
@@ -768,6 +785,7 @@ function Hero({
   const sectionRef     = useRef<HTMLElement>(null);
   const inView         = useInView(sectionRef, { margin: '0px 0px -10% 0px', once: false });
   const prefersReduced = useReducedMotion();
+  const isMobile       = useIsMobile();
   const { scrollToWhenReady } = useScrollTo();
 
   const scrollToContact = useCallback(() => {
@@ -778,8 +796,9 @@ function Hero({
     scrollToWhenReady('cases', { offset: 88, attempts: 20, intervalMs: 80 });
   }, [scrollToWhenReady]);
 
-  const resolvedInView = prefersReduced ? false : inView;
   const isMetaApps = visual === 'meta-apps';
+  const staticMetaAppsMobile = isMetaApps && isMobile;
+  const resolvedInView = prefersReduced || staticMetaAppsMobile ? false : inView;
 
   return (
     <section
@@ -788,7 +807,7 @@ function Hero({
       className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
       style={{ contain: 'layout style paint' }}
     >
-      <BackgroundOrbs inView={resolvedInView} />
+      <BackgroundOrbs inView={resolvedInView} staticMotion={staticMetaAppsMobile} />
 
       <div className={`relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
         <div className={`grid ${isMetaApps ? 'items-start gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-8 md:gap-12 lg:grid-cols-2'}`}>
@@ -798,8 +817,8 @@ function Hero({
             inView={resolvedInView}
             content={content}
             mobileFirst={isMetaApps}
-            statsVariant={isMetaApps ? 'meta-apps' : 'default'}
-            statsClassName={isMetaApps ? 'hidden lg:grid' : ''}
+            staticMotion={staticMetaAppsMobile}
+            statsVariant={isMetaApps ? (isMobile ? 'hidden' : 'meta-apps') : 'default'}
           />
           {isMetaApps ? (
             <Suspense fallback={<div className="order-2 h-[720px] md:h-[760px] lg:h-[690px]" />}>
@@ -808,10 +827,11 @@ function Hero({
           ) : (
             <RightPanel inView={resolvedInView} showCards={visual !== 'portrait'} />
           )}
-          {isMetaApps && (
+          {isMetaApps && isMobile && (
             <MetaAppsStatsStrip
               stats={content.stats}
-              className="order-3 lg:hidden"
+              className="order-3"
+              staticMotion
             />
           )}
         </div>

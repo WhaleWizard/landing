@@ -1,4 +1,13 @@
-import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import AutorenewRounded from '@mui/icons-material/AutorenewRounded';
 import BatteryFullRounded from '@mui/icons-material/BatteryFullRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
@@ -13,7 +22,6 @@ import {
   motion,
   useMotionValue,
   useReducedMotion,
-  useScroll,
   useSpring,
   useTransform,
 } from 'motion/react';
@@ -21,6 +29,11 @@ import './meta-apps-hero.css';
 
 type MetaAppsHeroVisualProps = {
   inView: boolean;
+};
+
+type MetaAppsVisualStyle = CSSProperties & {
+  '--meta-phone-aperture-mask': string;
+  '--meta-receipt-paper-texture': string;
 };
 
 type EventRowProps = {
@@ -41,6 +54,7 @@ type ReceiptProps = {
   reveal: boolean;
   loop: boolean;
   reduced: boolean;
+  parallax: boolean;
   scrollY: ReturnType<typeof useTransform>;
 };
 
@@ -272,6 +286,7 @@ function Receipt({
   reveal,
   loop,
   reduced,
+  parallax,
   scrollY,
 }: ReceiptProps) {
   const path = FLOAT_PATHS[index];
@@ -280,7 +295,7 @@ function Receipt({
   return (
     <motion.div
       className={`meta-receipt-slot meta-receipt-slot--${index + 1}`}
-      style={{ y: reduced ? 0 : scrollY }}
+      style={{ y: parallax ? scrollY : 0 }}
     >
       <motion.div
         initial={reduced ? false : { opacity: 0, x: 34, scale: 0.94 }}
@@ -308,7 +323,7 @@ function Receipt({
             className="meta-receipt"
             style={{
               backgroundImage:
-                'linear-gradient(115deg, rgba(255, 255, 255, 0.34), transparent 34%, rgba(88, 77, 56, 0.07) 100%), url("/images/meta-receipt-paper-texture.webp")',
+                'linear-gradient(115deg, rgba(255, 255, 255, 0.34), transparent 34%, rgba(88, 77, 56, 0.07) 100%), var(--meta-receipt-paper-texture)',
             }}
             animate={loop ? { y: path.y, rotate: path.rotate } : { y: 0, rotate: 0 }}
             transition={{
@@ -371,13 +386,34 @@ function Receipt({
   );
 }
 
+const MOBILE_STATIC_MEDIA = '(max-width: 767px), (hover: none) and (pointer: coarse)';
+
+function useMobileViewport() {
+  const [mobile, setMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_STATIC_MEDIA).matches,
+  );
+
+  useEffect(() => {
+    const query = window.matchMedia(MOBILE_STATIC_MEDIA);
+    const sync = () => setMobile(query.matches);
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+
+  return mobile;
+}
+
 const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const phoneAnchorRef = useRef<HTMLDivElement>(null);
   const [phoneScale, setPhoneScale] = useState(0.48);
   const reduced = Boolean(useReducedMotion());
-  const reveal = inView || reduced;
-  const loop = inView && !reduced;
+  const mobile = useMobileViewport();
+  const staticVisual = reduced || mobile;
+  const parallaxEnabled = inView && !staticVisual;
+  const reveal = inView || staticVisual;
+  const loop = parallaxEnabled;
 
   useLayoutEffect(() => {
     const anchor = phoneAnchorRef.current;
@@ -398,27 +434,56 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
   const springX = useSpring(mouseX, { stiffness: 70, damping: 20, mass: 0.7 });
   const springY = useSpring(mouseY, { stiffness: 70, damping: 20, mass: 0.7 });
   const phoneTiltY = useTransform(springX, (value) =>
-    reduced ? 0 : Math.max(-1.2, Math.min(1.2, value * 0.004)),
+    Math.max(-1.2, Math.min(1.2, value * 0.004)),
   );
   const phoneTiltX = useTransform(springY, (value) =>
-    reduced ? 0 : Math.max(-0.8, Math.min(0.8, value * -0.003)),
+    Math.max(-0.8, Math.min(0.8, value * -0.003)),
   );
 
-  const { scrollY } = useScroll();
-  const phoneScrollY = useTransform(scrollY, [0, 900], [0, -22]);
-  const receiptOneScrollY = useTransform(scrollY, [0, 900], [0, -18]);
-  const receiptTwoScrollY = useTransform(scrollY, [0, 900], [0, -12]);
-  const receiptThreeScrollY = useTransform(scrollY, [0, 900], [0, -25]);
+  const parallaxScrollY = useMotionValue(0);
+  const phoneScrollY = useTransform(parallaxScrollY, [0, 900], [0, -22]);
+  const receiptOneScrollY = useTransform(parallaxScrollY, [0, 900], [0, -18]);
+  const receiptTwoScrollY = useTransform(parallaxScrollY, [0, 900], [0, -12]);
+  const receiptThreeScrollY = useTransform(parallaxScrollY, [0, 900], [0, -25]);
+
+  useEffect(() => {
+    if (!parallaxEnabled) {
+      parallaxScrollY.set(0);
+      return;
+    }
+
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      parallaxScrollY.set(window.scrollY);
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+    };
+  }, [parallaxEnabled, parallaxScrollY]);
+
+  useEffect(() => {
+    if (parallaxEnabled) return;
+    mouseX.set(0);
+    mouseY.set(0);
+  }, [mouseX, mouseY, parallaxEnabled]);
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (reduced || event.pointerType === 'touch') return;
+      if (!parallaxEnabled || event.pointerType === 'touch') return;
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       mouseX.set(event.clientX - rect.left - rect.width / 2);
       mouseY.set(event.clientY - rect.top - rect.height / 2);
     },
-    [mouseX, mouseY, reduced],
+    [mouseX, mouseY, parallaxEnabled],
   );
 
   const handlePointerLeave = useCallback(() => {
@@ -431,12 +496,19 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
       ref={containerRef}
       aria-hidden="true"
       className="meta-apps-visual"
-      style={{ position: 'relative' }}
-      initial={reduced ? false : { opacity: 0, x: 34 }}
+      style={{
+        position: 'relative',
+        '--meta-phone-aperture-mask':
+          'url("/images/meta-phone-screen-aperture-mask.png")',
+        '--meta-receipt-paper-texture': mobile
+          ? 'url("/images/meta-receipt-paper-texture-mobile.webp")'
+          : 'url("/images/meta-receipt-paper-texture.webp")',
+      } as MetaAppsVisualStyle}
+      initial={staticVisual ? false : { opacity: 0, x: 34 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.75, delay: 0.18 }}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
+      onPointerMove={parallaxEnabled ? handlePointerMove : undefined}
+      onPointerLeave={parallaxEnabled ? handlePointerLeave : undefined}
     >
       <div className="meta-apps-stage">
         <div className="meta-apps-stage__glow" />
@@ -444,27 +516,32 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
         <motion.img
           className="meta-apps-stage__stone"
           src="/images/meta-hero-pedestal-rack.webp"
+          srcSet="/images/meta-hero-pedestal-rack-mobile.webp 768w, /images/meta-hero-pedestal-rack-medium.webp 1152w, /images/meta-hero-pedestal-rack.webp 1536w"
+          sizes="(max-width: 767px) 100vw, 768px"
           alt=""
+          width={1536}
+          height={1024}
+          decoding="async"
           draggable={false}
-          initial={reduced ? false : { opacity: 0, y: 26, scale: 0.97 }}
+          initial={staticVisual ? false : { opacity: 0, y: 26, scale: 0.97 }}
           animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : 26, scale: reveal ? 1 : 0.97 }}
-          transition={{ delay: reduced ? 0 : 0.42, duration: 0.82, ease: 'easeOut' }}
+          transition={{ delay: staticVisual ? 0 : 0.42, duration: 0.82, ease: 'easeOut' }}
         />
 
         <motion.div
           ref={phoneAnchorRef}
           className="meta-phone-anchor"
-          style={{ y: reduced ? 0 : phoneScrollY }}
+          style={{ y: parallaxEnabled ? phoneScrollY : 0 }}
         >
           <motion.div
             className="meta-phone-enter"
-            initial={reduced ? false : { opacity: 0, y: 32, rotate: 2 }}
+            initial={staticVisual ? false : { opacity: 0, y: 32, rotate: 2 }}
             animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : 32, rotate: 0 }}
-            transition={{ delay: reduced ? 0 : 0.36, duration: 0.78, type: 'spring', bounce: 0.18 }}
+            transition={{ delay: staticVisual ? 0 : 0.36, duration: 0.78, type: 'spring', bounce: 0.18 }}
           >
             <motion.div
               className="meta-phone-object"
-              style={{ rotateX: phoneTiltX, rotateY: phoneTiltY }}
+              style={parallaxEnabled ? { rotateX: phoneTiltX, rotateY: phoneTiltY } : undefined}
             >
               <motion.div
                 className="meta-phone-float"
@@ -479,18 +556,23 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
                     <div
                       className="meta-phone-aperture"
                       style={{
-                        WebkitMaskImage: 'url("/images/meta-phone-screen-aperture-mask.png")',
-                        maskImage: 'url("/images/meta-phone-screen-aperture-mask.png")',
+                        WebkitMaskImage: 'var(--meta-phone-aperture-mask)',
+                        maskImage: 'var(--meta-phone-aperture-mask)',
                       }}
                     >
                       <div className="meta-phone-live-screen">
-                        <PhoneScreen reveal={reveal} loop={loop} reduced={reduced} />
+                        <PhoneScreen reveal={reveal} loop={loop} reduced={staticVisual} />
                       </div>
                     </div>
                     <img
                       className="meta-phone-shell"
                       src="/images/meta-phone-3d-shell.webp"
+                      srcSet="/images/meta-phone-3d-shell-mobile.webp 462w, /images/meta-phone-3d-shell-medium.webp 616w, /images/meta-phone-3d-shell.webp 770w"
+                      sizes="(max-width: 767px) 210px, 385px"
                       alt=""
+                      width={770}
+                      height={1270}
+                      decoding="async"
                       draggable={false}
                     />
                   </div>
@@ -507,7 +589,8 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
           status="получено"
           reveal={reveal}
           loop={loop}
-          reduced={reduced}
+          reduced={staticVisual}
+          parallax={parallaxEnabled}
           scrollY={receiptOneScrollY}
         />
         <Receipt
@@ -518,7 +601,8 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
           mark="check"
           reveal={reveal}
           loop={loop}
-          reduced={reduced}
+          reduced={staticVisual}
+          parallax={parallaxEnabled}
           scrollY={receiptTwoScrollY}
         />
         <Receipt
@@ -529,7 +613,8 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
           mark="stamp"
           reveal={reveal}
           loop={loop}
-          reduced={reduced}
+          reduced={staticVisual}
+          parallax={parallaxEnabled}
           scrollY={receiptThreeScrollY}
         />
       </div>

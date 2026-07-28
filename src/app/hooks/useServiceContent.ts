@@ -45,7 +45,7 @@ function loadSiteContent(cacheKey: string): Promise<unknown> {
 
   const request = fetch(`/api/site-content?key=${encodeURIComponent(cacheKey)}`, {
     credentials: 'same-origin',
-    cache: 'no-store',
+    cache: 'default',
   })
     .then(async (response) => response.ok ? response.json() : null)
     .then((payload) => {
