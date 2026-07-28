@@ -25,7 +25,7 @@ Set these environment variables in Cloudflare Pages project settings:
 - `JSONBIN_BACKUP_ACCESS_KEY` (optional, defaults to `JSONBIN_ACCESS_KEY`)
 - `ADMIN_PASSWORD`
 - `SITE_URL` (optional, defaults to current origin)
-- `PAGESPEED_API_KEY` (optional server-side Google PageSpeed Insights API key; the admin speed checker can use shared quota without it)
+- `PAGESPEED_API_KEY` (required server-side Google PageSpeed Insights API key for automated admin checks; enable `pagespeedonline.googleapis.com` in Google Cloud and keep the key in Cloudflare Pages secrets)
 - `SITE_CONTENT_PUBLIC_URL` (optional build-time override for published page/FAQ text; defaults to `${SITE_URL}/api/site-content`)
 - `SITE_CONTENT_FETCH_TIMEOUT_MS` (optional build-time timeout, defaults to `8000`; failures use the last build snapshot and then source copy)
 - `REQUIRE_FRESH_SITE_CONTENT=true` (recommended for Production together with the deploy hook; stops a build if fresh published D1 text cannot be loaded, so stale SEO HTML is never deployed)

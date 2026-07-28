@@ -8,6 +8,8 @@ const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 const PSI_ENDPOINT = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
 const MAX_SITEMAP_URLS = 200;
 const PSI_TIMEOUT_MS = 90_000;
+const PSI_CACHE_TTL_SECONDS = 12 * 60 * 60;
+const PSI_CACHE_VERSION = '1';
 
 type Strategy = 'mobile' | 'desktop';
 
@@ -28,7 +30,12 @@ interface LighthouseAudit {
 interface PsiResponse {
   id?: string;
   analysisUTCTimestamp?: string;
-  error?: { message?: string };
+  error?: {
+    code?: number;
+    message?: string;
+    status?: string;
+    details?: unknown;
+  };
   loadingExperience?: {
     overall_category?: string;
     metrics?: Record<string, { percentile?: number; category?: string }>;
@@ -51,6 +58,68 @@ interface PsiResponse {
     };
     audits?: Record<string, LighthouseAudit>;
   };
+}
+
+interface WorkerCache {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+}
+
+function defaultWorkerCache(): WorkerCache | null {
+  try {
+    const cacheStorage = (globalThis as unknown as {
+      caches?: { default?: WorkerCache };
+    }).caches;
+    return cacheStorage?.default || null;
+  } catch {
+    return null;
+  }
+}
+
+function auditCacheRequest(request: Request, target: URL, strategy: Strategy): Request {
+  const cacheUrl = new URL(request.url);
+  cacheUrl.search = '';
+  cacheUrl.searchParams.set('url', target.toString());
+  cacheUrl.searchParams.set('strategy', strategy);
+  cacheUrl.searchParams.set('cacheVersion', PSI_CACHE_VERSION);
+  return new Request(cacheUrl.toString(), { method: 'GET' });
+}
+
+function isQuotaError(status: number, payload: PsiResponse): boolean {
+  if (status === 429 || payload.error?.code === 429) return true;
+  const errorText = [
+    payload.error?.status,
+    payload.error?.message,
+    payload.error?.details ? JSON.stringify(payload.error.details) : '',
+  ].filter(Boolean).join(' ');
+  return /resource[_\s-]*exhausted|quota\s*(?:exceeded|limit)|queries\s+per\s+day/i.test(errorText);
+}
+
+function isConfigurationError(status: number, payload: PsiResponse): boolean {
+  if (status !== 400 && status !== 403) return false;
+  const errorText = [
+    payload.error?.status,
+    payload.error?.message,
+    payload.error?.details ? JSON.stringify(payload.error.details) : '',
+  ].filter(Boolean).join(' ');
+  return /api.?key|access.?not.?configured|not been used|not enabled|disabled|permission denied|forbidden/i.test(errorText);
+}
+
+function adminRateLimitError(response: Response): Response {
+  const retryAfter = response.headers.get('Retry-After');
+  return json({
+    success: false,
+    code: 'ADMIN_RATE_LIMITED',
+    fatal: true,
+    retryable: true,
+    error: 'Слишком много запросов к проверке скорости. Подождите до окончания текущего минутного окна и запустите проверку снова.',
+  }, {
+    status: 429,
+    headers: {
+      ...noStore,
+      ...(retryAfter ? { 'Retry-After': retryAfter } : {}),
+    },
+  });
 }
 
 function decodeXml(value: string): string {
@@ -223,10 +292,17 @@ async function listSitemapPages(request: Request, env: Env): Promise<Response> {
     total: unique.length,
     truncated: unique.length > MAX_SITEMAP_URLS,
     sitemapUrl: sitemapUrl.toString(),
+    apiKeyConfigured: Boolean(env.PAGESPEED_API_KEY?.trim()),
   }, { headers: noStore });
 }
 
-async function runAudit(request: Request, env: Env, requestedUrl: string, strategy: Strategy): Promise<Response> {
+async function runAudit(
+  request: Request,
+  env: Env,
+  requestedUrl: string,
+  strategy: Strategy,
+  force: boolean,
+): Promise<Response> {
   const siteOrigin = configuredOrigin(request, env);
   let target: URL;
   try {
@@ -241,6 +317,38 @@ async function runAudit(request: Request, env: Env, requestedUrl: string, strate
     );
   }
 
+  const apiKey = env.PAGESPEED_API_KEY?.trim() || '';
+  if (!apiKey) {
+    return json({
+      success: false,
+      code: 'PAGESPEED_KEY_REQUIRED',
+      fatal: true,
+      retryable: false,
+      apiKeyConfigured: false,
+      quotaBlocked: false,
+      error: 'Для проверки скорости нужен ключ Google PageSpeed Insights API. Добавьте секрет PAGESPEED_API_KEY в настройках Cloudflare Pages.',
+    }, { status: 503, headers: noStore });
+  }
+
+  const cache = defaultWorkerCache();
+  const cacheRequest = auditCacheRequest(request, target, strategy);
+  if (cache && !force) {
+    try {
+      const cachedResponse = await cache.match(cacheRequest);
+      if (cachedResponse) {
+        const cachedResult = await cachedResponse.json();
+        return json({
+          success: true,
+          result: cachedResult,
+          apiKeyConfigured: true,
+          cached: true,
+        }, { headers: noStore });
+      }
+    } catch {
+      // Cache API is optional locally and must never block a real PSI request.
+    }
+  }
+
   const apiUrl = new URL(PSI_ENDPOINT);
   apiUrl.searchParams.set('url', target.toString());
   apiUrl.searchParams.set('strategy', strategy);
@@ -249,40 +357,98 @@ async function runAudit(request: Request, env: Env, requestedUrl: string, strate
   apiUrl.searchParams.append('category', 'best-practices');
   apiUrl.searchParams.append('category', 'seo');
   apiUrl.searchParams.set('locale', 'ru_RU');
-  if (env.PAGESPEED_API_KEY) apiUrl.searchParams.set('key', env.PAGESPEED_API_KEY);
+  apiUrl.searchParams.set('key', apiKey);
 
   try {
     const response = await fetchWithTimeout(apiUrl.toString());
     const payload = await response.json().catch(() => ({})) as PsiResponse;
     if (!response.ok) {
+      if (isQuotaError(response.status, payload)) {
+        return json({
+          success: false,
+          code: 'PAGESPEED_QUOTA_EXCEEDED',
+          fatal: true,
+          retryable: true,
+          quotaBlocked: true,
+          apiKeyConfigured: true,
+          error: 'Квота Google PageSpeed Insights исчерпана. Дождитесь её обновления или увеличьте лимит API в Google Cloud.',
+        }, { status: 429, headers: noStore });
+      }
+      if (isConfigurationError(response.status, payload)) {
+        return json({
+          success: false,
+          code: 'PAGESPEED_CONFIGURATION_ERROR',
+          fatal: true,
+          retryable: false,
+          quotaBlocked: false,
+          apiKeyConfigured: true,
+          error: 'Ключ PageSpeed API недействителен, API не включён или ограничения ключа блокируют запрос. Проверьте PageSpeed Insights API и PAGESPEED_API_KEY в Google Cloud.',
+        }, { status: 503, headers: noStore });
+      }
       const message = payload.error?.message || `PageSpeed API ответил HTTP ${response.status}`;
-      const status = response.status === 429 ? 429 : 502;
-      return json({ success: false, error: message }, { status, headers: noStore });
+      return json({
+        success: false,
+        error: message,
+        fatal: false,
+        apiKeyConfigured: true,
+        quotaBlocked: false,
+      }, { status: 502, headers: noStore });
     }
+
+    const result = compactPsiResponse(payload, target.toString(), strategy);
+    if (cache) {
+      try {
+        await cache.put(cacheRequest, new Response(JSON.stringify(result), {
+          headers: {
+            'Cache-Control': `max-age=${PSI_CACHE_TTL_SECONDS}`,
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }));
+      } catch {
+        // Cache writes are best-effort and unavailable in some local runtimes.
+      }
+    }
+
     return json({
       success: true,
-      result: compactPsiResponse(payload, target.toString(), strategy),
-      apiKeyConfigured: Boolean(env.PAGESPEED_API_KEY),
+      result,
+      apiKeyConfigured: true,
+      cached: false,
     }, { headers: noStore });
   } catch (error) {
     const message = error instanceof Error && error.name === 'AbortError'
       ? 'PageSpeed не успел ответить за 90 секунд'
       : error instanceof Error ? error.message : 'Не удалось выполнить проверку PageSpeed';
-    return json({ success: false, error: message }, { status: 502, headers: noStore });
+    return json({
+      success: false,
+      error: message,
+      fatal: false,
+      apiKeyConfigured: true,
+      quotaBlocked: false,
+    }, { status: 502, headers: noStore });
   }
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const rateLimited = await enforceRateLimit(request, 'admin');
-  if (rateLimited) return rateLimited;
-  if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env)) {
-    return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
+  const password = request.headers.get('X-Admin-Password') || '';
+  if (!verifyAdminPassword(password, env)) {
+    const unauthorizedRateLimit = await enforceRateLimit(request, 'admin');
+    if (unauthorizedRateLimit) return adminRateLimitError(unauthorizedRateLimit);
+    return json({
+      success: false,
+      code: 'ADMIN_AUTH_REQUIRED',
+      fatal: true,
+      retryable: false,
+      error: 'Пароль администратора больше не принят. Обновите страницу и войдите в админку заново.',
+    }, { status: 401, headers: noStore });
   }
+  const performanceRateLimit = await enforceRateLimit(request, 'admin_performance');
+  if (performanceRateLimit) return adminRateLimitError(performanceRateLimit);
 
   const params = new URL(request.url).searchParams;
   const requestedUrl = params.get('url')?.trim() || '';
   if (!requestedUrl) return listSitemapPages(request, env);
 
   const strategy: Strategy = params.get('strategy') === 'desktop' ? 'desktop' : 'mobile';
-  return runAudit(request, env, requestedUrl, strategy);
+  return runAudit(request, env, requestedUrl, strategy, params.get('force') === '1');
 };
