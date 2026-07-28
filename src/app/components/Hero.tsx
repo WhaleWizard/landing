@@ -1,6 +1,9 @@
 import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type ReactNode } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Code2, Database } from 'lucide-react';
+import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles } from 'lucide-react';
+import DataObjectRounded from '@mui/icons-material/DataObjectRounded';
+import StorageRounded from '@mui/icons-material/StorageRounded';
+import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
 import { useIsMobile } from './ui/use-mobile';
@@ -117,7 +120,7 @@ function valueSizeClass(value: string) {
 
 const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
   return (
-  <div className="hidden grid-cols-3 gap-2.5 pt-5 sm:grid sm:gap-4 md:gap-6 md:pt-8">
+  <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 pt-5 md:pt-8">
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -162,9 +165,9 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
 StatsRow.displayName = 'StatsRow';
 
 const META_APPS_STAT_ICONS = [
-  <Code2 key="sdk" />,
-  <Target key="mmp" />,
-  <Database key="capi" />,
+  <DataObjectRounded key="sdk" />,
+  <TrackChangesRounded key="mmp" />,
+  <StorageRounded key="capi" />,
 ];
 
 const MetaAppsStatsStrip = memo(({
@@ -247,7 +250,7 @@ const LeftContent = memo(({
     initial={staticMotion ? false : { opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={staticMotion ? { duration: 0 } : { duration: 0.8 }}
-    className={`order-1 max-w-2xl lg:order-1 ${mobileFirst ? 'meta-apps-hero-copy' : ''} ${content.titleLines ? 'space-y-3.5 md:space-y-5' : 'space-y-4 md:space-y-7'}`}
+    className={`max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
     <motion.div
       className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
@@ -268,7 +271,7 @@ const LeftContent = memo(({
     {content.titleLines ? (
       <h1
         aria-label={content.titleLines.map((line) => line.text).join(' ')}
-        className={`w-full max-w-none text-[23px] min-[360px]:text-[24px] min-[430px]:text-[27px] sm:text-[30px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.1] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
+        className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
       >
         {content.titleLines.map((line, index) => {
           if (line.tone === 'supporting') {
@@ -289,7 +292,7 @@ const LeftContent = memo(({
           return (
             <span
               key={`${line.text}-${index}`}
-              className={`block text-balance sm:text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
+              className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
             >
               {line.text}
             </span>
@@ -297,7 +300,7 @@ const LeftContent = memo(({
         })}
       </h1>
     ) : (
-      <h1 className={`max-w-[24ch] text-balance text-[clamp(1.6rem,7vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
+      <h1 className={`max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
         <span className="block">{content.titlePrefix}</span>{' '}
         <span className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]">
           {content.titleAccent}
@@ -307,7 +310,7 @@ const LeftContent = memo(({
 
     <div className={`space-y-3 ${mobileFirst ? 'meta-apps-hero-paragraphs' : ''}`}>
       {content.paragraphs.map((paragraph, index) => (
-        <p key={index} className={`max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-6 md:leading-relaxed ${index > 0 ? 'hidden sm:block' : ''} ${managedBodyClasses(content.typography)}`}>
+        <p key={index} className={`max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-7 md:leading-relaxed ${managedBodyClasses(content.typography)}`}>
           {paragraph}
         </p>
       ))}
@@ -391,7 +394,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
-      className="relative order-2 h-[250px] min-[390px]:h-[280px] sm:h-[400px] md:h-[600px] lg:order-2"
+      className="relative order-1 lg:order-2 h-[360px] sm:h-[400px] md:h-[600px]"
     >
       <div className="absolute inset-0 flex items-center justify-center overflow-visible">
         {/* Ambient glow */}
@@ -503,7 +506,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
         />
       </div>
 
-      <div className={showCards ? 'hidden sm:contents' : 'hidden'}>
+      <div className={showCards ? 'contents' : 'hidden'}>
       {/* Data Cards */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
@@ -806,8 +809,8 @@ function Hero({
     >
       <BackgroundOrbs inView={resolvedInView} staticMotion={staticMetaAppsMobile} />
 
-      <div className={`relative z-10 mx-auto w-full px-4 py-8 sm:px-6 md:py-20 lg:px-8 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
-        <div className={`grid ${isMetaApps ? 'items-start gap-2 sm:gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-6 md:gap-12 lg:grid-cols-2'}`}>
+      <div className={`relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
+        <div className={`grid ${isMetaApps ? 'items-start gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-8 md:gap-12 lg:grid-cols-2'}`}>
           <LeftContent
             onScrollToContact={scrollToContact}
             onScrollToCases={scrollToCases}

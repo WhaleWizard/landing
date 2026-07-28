@@ -984,8 +984,8 @@
 
 @media (max-width: 560px) {
   .meta-apps-visual {
-    height: 390px;
-    margin-top: 4px;
+    height: 410px;
+    margin-top: -18px;
   }
 
   .meta-apps-stage {
@@ -999,15 +999,15 @@
 
   .meta-apps-stage__stone {
     left: -9%;
-    top: calc(30px + 1.64935 * min(58cqw, 238px) - 23.047cqw + var(--pedestal-sink, 0px));
+    top: calc(18px + 1.64935 * min(60cqw, 248px) - 23.047cqw + var(--pedestal-sink, 0px));
     width: 118%;
   }
 
   .meta-phone-anchor {
-    top: 30px;
+    top: 18px;
     left: 4%;
-    width: 58%;
-    max-width: 238px;
+    width: 60%;
+    max-width: 248px;
   }
 
   .meta-receipt-slot {
@@ -1015,22 +1015,25 @@
     max-width: 132px;
   }
 
+  /* Первый чек поднят к кнопкам, шаг между чеками оставлен плотным (132 и 128
+     при высоте чека ~131), отступы справа разные — чтобы стопка не читалась
+     вертикальной линией. */
   .meta-receipt-slot--1 {
-    top: 2px;
-    right: 1%;
-    width: 34%;
+    top: -62px;
+    right: 0;
+    width: 35%;
   }
 
   .meta-receipt-slot--2 {
-    top: 124px;
-    right: 9%;
+    top: 70px;
+    right: 10%;
     width: 33%;
   }
 
   .meta-receipt-slot--3 {
-    top: 244px;
+    top: 198px;
     right: 2%;
-    width: 33.5%;
+    width: 34.5%;
   }
 
   .meta-receipt {
@@ -1106,9 +1109,8 @@
   }
 
   .meta-apps-hero-actions {
-    width: 100%;
-    min-width: 0;
-    gap: 10px;
+    width: 58%;
+    min-width: 226px;
   }
 
   .meta-apps-hero-actions button {
@@ -1120,7 +1122,7 @@
   .meta-apps-stats-strip {
     position: relative;
     z-index: 30;
-    margin-top: 44px;
+    margin-top: 68px;
     min-height: 64px;
     border-radius: 14px !important;
   }
@@ -1162,17 +1164,17 @@
 
 @media (max-width: 380px) {
   .meta-apps-visual {
-    height: 360px;
+    height: 400px;
   }
 
   .meta-apps-stage__stone {
-    top: calc(28px + 1.64935 * min(56cqw, 190px) - 23.047cqw + var(--pedestal-sink, 0px));
+    top: calc(20px + 1.64935 * min(60cqw, 204px) - 23.047cqw + var(--pedestal-sink, 0px));
   }
 
   .meta-phone-anchor {
-    top: 28px;
-    width: 56%;
-    max-width: 190px;
+    top: 20px;
+    width: 60%;
+    max-width: 204px;
   }
 
   .meta-receipt {
@@ -1181,19 +1183,19 @@
   }
 
   .meta-receipt-slot--1 {
-    top: 2px;
+    top: -58px;
   }
 
   .meta-receipt-slot--2 {
-    top: 112px;
+    top: 66px;
   }
 
   .meta-receipt-slot--3 {
-    top: 220px;
+    top: 188px;
   }
 
   .meta-apps-hero-actions {
-    width: 100%;
+    width: 64%;
     min-width: 0;
   }
 

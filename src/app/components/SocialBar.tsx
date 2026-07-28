@@ -1,6 +1,16 @@
 import { motion } from 'motion/react';
-import { Instagram, Mail, MessageCircle, Music, Send, Twitter, Youtube } from 'lucide-react';
-import { memo } from 'react';
+import {
+  Instagram,
+  Youtube,
+  Send,
+  Twitter,
+  MessageCircle,
+  Music,
+  Mail,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+import { useRef, memo, useCallback } from 'react';
 import { trackContact } from '../consent/consent';
 
 const socials = [
@@ -22,6 +32,21 @@ function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | '
 }
 
 function SocialDock() {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  const scrollByCard = useCallback((direction: 'prev' | 'next') => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const card = scroller.querySelector<HTMLElement>('[data-social-card]');
+    const gap = parseFloat(window.getComputedStyle(scroller).columnGap) || 16;
+    const cardWidth = card?.offsetWidth ?? 96;
+    scroller.scrollBy({
+      left: direction === 'next' ? (cardWidth + gap) * 2 : -(cardWidth + gap) * 2,
+      behavior: 'smooth',
+    });
+  }, []);
+
   return (
     <motion.section
       id="social"
@@ -29,12 +54,12 @@ function SocialDock() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.6 }}
-      className="w-full py-10 md:py-16"
+      className="w-full py-12 md:py-16"
       style={{ contain: 'layout style paint' }}
     >
       <div className="max-w-7xl mx-auto px-4">
-        <div className="mb-6 flex items-center justify-center text-center md:mb-8">
-          <div className="min-w-0">
+        <div className="mb-8 flex items-center justify-between gap-4 lg:justify-center">
+          <div className="min-w-0 lg:text-center">
             <h2 className="text-balance text-xl md:text-2xl font-bold mb-1.5">
               Разборы, заметки и связь{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
@@ -42,13 +67,34 @@ function SocialDock() {
               </span>
             </h2>
             <p className="text-pretty text-muted-foreground text-xs md:text-sm">
-              <span className="lg:hidden">Выберите удобный канал — все ссылки сразу перед вами.</span>
+              <span className="lg:hidden">Листайте, чтобы выбрать удобный канал.</span>
               <span className="hidden lg:inline">Делюсь наблюдениями по рекламе, аналитике и работе с проектами.</span>
             </p>
           </div>
+
+          <div className="hidden sm:flex lg:hidden gap-2 flex-shrink-0">
+            <button
+              onClick={() => scrollByCard('prev')}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
+              aria-label="Прокрутить назад"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => scrollByCard('next')}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
+              aria-label="Прокрутить вперёд"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-2 pt-1 md:gap-4">
+        <div
+          ref={scrollerRef}
+          className="scrollbar-brand flex gap-4 overflow-x-auto scroll-smooth pb-5 pt-1 lg:justify-center"
+          style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}
+        >
           {socials.map((s, i) => {
             const Icon = s.icon;
             return (
@@ -64,10 +110,10 @@ function SocialDock() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.04, duration: 0.3 }}
                 whileTap={{ scale: 0.95 }}
-                className={`social-card social-card-${i} group flex min-h-[88px] w-[76px] flex-col items-center justify-center gap-2 rounded-2xl border border-border/70 bg-card/40 px-2 py-3 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg min-[360px]:w-[78px] md:min-h-[104px] md:w-[96px] md:gap-2.5 md:p-4`}
+                className={`social-card social-card-${i} group flex-shrink-0 flex flex-col items-center gap-2.5 w-[84px] md:w-[96px] rounded-2xl border border-border/70 bg-card/40 backdrop-blur-sm p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
               >
                 <Icon
-                  className="social-icon h-[22px] w-[22px] transition-colors duration-300 md:h-6 md:w-6"
+                  className="social-icon w-6 h-6 md:w-7 md:h-7 transition-colors duration-300"
                   style={{ color: s.color }}
                   aria-hidden="true"
                 />
@@ -77,6 +123,10 @@ function SocialDock() {
               </motion.a>
             );
           })}
+        </div>
+
+        <div className="text-center text-xs text-muted-foreground/60 mt-2">
+          Выберите площадку, которой пользуетесь чаще всего.
         </div>
       </div>
 
