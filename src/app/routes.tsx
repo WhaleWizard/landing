@@ -1,11 +1,11 @@
 import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-router';
-import { lazy, Suspense, useEffect } from 'react';
-import Home from './pages/Home';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
 import { ArticlesProvider } from './context/ArticlesContext';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 const WhaleNavigator = lazy(() => import('./components/brand/WhaleNavigator'));
 
+const Home = lazy(() => import('./pages/Home'));
 const ThankYou = lazy(() => import('./pages/ThankYou'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
 const CasesPage = lazy(() => import('./pages/CasesPage'));
@@ -67,9 +67,29 @@ function RootLayout() {
   const location = useLocation();
   const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
   const isMetaApps = /^\/meta-apps(?:\/|$)/.test(location.pathname);
+  const [showWhaleNavigator, setShowWhaleNavigator] = useState(() => (
+    typeof window !== 'undefined' && (window.scrollY > 0 || Boolean(window.location.hash))
+  ));
   const needsArticles = location.pathname === '/'
     || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname);
   const routeContent = <Outlet />;
+
+  useEffect(() => {
+    if (showWhaleNavigator || isAdmin || isMetaApps) return;
+
+    const reveal = () => setShowWhaleNavigator(true);
+    window.addEventListener('scroll', reveal, { once: true, passive: true });
+    window.addEventListener('wheel', reveal, { once: true, passive: true });
+    window.addEventListener('touchstart', reveal, { once: true, passive: true });
+    window.addEventListener('keydown', reveal, { once: true });
+
+    return () => {
+      window.removeEventListener('scroll', reveal);
+      window.removeEventListener('wheel', reveal);
+      window.removeEventListener('touchstart', reveal);
+      window.removeEventListener('keydown', reveal);
+    };
+  }, [isAdmin, isMetaApps, showWhaleNavigator]);
 
   return (
     <>
@@ -77,10 +97,16 @@ function RootLayout() {
         <ArticlesProvider>{routeContent}</ArticlesProvider>
       ) : routeContent}
       {!isAdmin ? (
-        <Suspense fallback={null}>
-          <CookieConsentManager />
-          {!isMetaApps ? <WhaleNavigator /> : null}
-        </Suspense>
+        <>
+          <Suspense fallback={null}>
+            <CookieConsentManager />
+          </Suspense>
+          {!isMetaApps && showWhaleNavigator ? (
+            <Suspense fallback={null}>
+              <WhaleNavigator />
+            </Suspense>
+          ) : null}
+        </>
       ) : null}
     </>
   );
@@ -101,7 +127,7 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
-      { index: true, Component: Home },
+      { index: true, element: <LazyWrapper><Home /></LazyWrapper> },
       { path: 'calculator', element: <LazyWrapper><Calculator /></LazyWrapper> },
       { path: 'roi-calculator', element: <LazyWrapper><RoiPage /></LazyWrapper> },
       { path: 'thank-you', element: <LazyWrapper><ThankYou /></LazyWrapper> },

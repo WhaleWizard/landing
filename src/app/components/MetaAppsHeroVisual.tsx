@@ -8,16 +8,18 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import AutorenewRounded from '@mui/icons-material/AutorenewRounded';
-import BatteryFullRounded from '@mui/icons-material/BatteryFullRounded';
-import CheckRounded from '@mui/icons-material/CheckRounded';
-import DownloadRounded from '@mui/icons-material/DownloadRounded';
-import PersonOutlineRounded from '@mui/icons-material/PersonOutlineRounded';
-import QueryStatsRounded from '@mui/icons-material/QueryStatsRounded';
-import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
-import SignalCellularAltRounded from '@mui/icons-material/SignalCellularAltRounded';
-import UpdateRounded from '@mui/icons-material/UpdateRounded';
-import WifiRounded from '@mui/icons-material/WifiRounded';
+import {
+  BatteryFull,
+  ChartNoAxesCombined,
+  Check,
+  Download,
+  History,
+  RefreshCw,
+  ShoppingCart,
+  SignalHigh,
+  UserRound,
+  Wifi,
+} from 'lucide-react';
 import {
   motion,
   useMotionValue,
@@ -181,15 +183,15 @@ function PhoneScreen({
       <div className="meta-phone-statusbar">
         <span>9:41</span>
         <div>
-          <SignalCellularAltRounded />
-          <WifiRounded />
-          <BatteryFullRounded />
+          <SignalHigh />
+          <Wifi />
+          <BatteryFull />
         </div>
       </div>
 
       <div className="meta-phone-content">
         <div className="meta-phone-heading">
-          <UpdateRounded />
+          <History />
           <span>События приложения</span>
         </div>
 
@@ -214,7 +216,7 @@ function PhoneScreen({
 
           <EventRow
             index={0}
-            icon={<DownloadRounded />}
+            icon={<Download />}
             label="INSTALL"
             status="получено"
             reveal={reveal}
@@ -223,7 +225,7 @@ function PhoneScreen({
           />
           <EventRow
             index={1}
-            icon={<PersonOutlineRounded />}
+            icon={<UserRound />}
             label="SIGN_UP"
             status="получено"
             reveal={reveal}
@@ -232,7 +234,7 @@ function PhoneScreen({
           />
           <EventRow
             index={2}
-            icon={<ShoppingCartOutlined />}
+            icon={<ShoppingCart />}
             label="PURCHASE"
             status="передано в Meta"
             reveal={reveal}
@@ -241,7 +243,7 @@ function PhoneScreen({
           />
           <EventRow
             index={3}
-            icon={<AutorenewRounded />}
+            icon={<RefreshCw />}
             label="SUBSCRIPTION_RENEWED"
             status="сервер"
             reveal={reveal}
@@ -252,7 +254,7 @@ function PhoneScreen({
 
         <div className="meta-phone-notifications">
           <PhoneNotification
-            icon={<ShoppingCartOutlined />}
+            icon={<ShoppingCart />}
             title={<>Покупка передана в Meta</>}
             subtitle="Событие получено"
             delay={1.15}
@@ -261,7 +263,7 @@ function PhoneScreen({
             subtle={subtle}
           />
           <PhoneNotification
-            icon={<QueryStatsRounded />}
+            icon={<ChartNoAxesCombined />}
             title={
               <>
                 Кампания обучается
@@ -288,7 +290,7 @@ function PhoneScreen({
           }}
         >
           <span className="meta-phone-final-status__icon">
-            <CheckRounded />
+            <Check />
           </span>
           <span>Дедупликация выполнена</span>
         </motion.div>

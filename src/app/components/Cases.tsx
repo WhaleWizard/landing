@@ -23,6 +23,7 @@ export type CasesContent = {
   titleAccent: string;
   description: string;
   items: CaseItem[];
+  sourceLinks?: Array<{ label: string; href: string }>;
   typography?: ContentTypography;
 };
 
@@ -196,6 +197,24 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
           <p className={`mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
             {sectionContent.description}
           </p>
+          {sectionContent.sourceLinks?.length ? (
+            <p className="mx-auto mt-3 max-w-3xl text-pretty text-xs leading-relaxed text-muted-foreground/80">
+              Основа допущений:{' '}
+              {sectionContent.sourceLinks.map((source, index) => (
+                <span key={source.href}>
+                  {index > 0 ? ' · ' : ''}
+                  <a
+                    href={source.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary underline decoration-primary/35 underline-offset-2 transition-colors hover:text-accent"
+                  >
+                    {source.label}
+                  </a>
+                </span>
+              ))}
+            </p>
+          ) : null}
         </motion.div>
 
         {/* Desktop Grid */}
@@ -391,17 +410,19 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
         </div>
         )}
 
-        <div className="relative mt-12 md:mt-16 flex justify-center">
-          <button
-            type="button"
-            onClick={() => navigate(moreHref || '/cases')}
-            className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 px-8 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
-            <span className="relative text-center text-sm md:text-base lg:text-lg leading-tight">Перейти ко всем кейсам</span>
-            <ArrowRight className="w-4 h-4 md:w-5 md:h-5 relative group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
+        {moreHref && (
+          <div className="relative mt-12 md:mt-16 flex justify-center">
+            <button
+              type="button"
+              onClick={() => navigate(moreHref)}
+              className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 px-8 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+              <span className="relative text-center text-sm md:text-base lg:text-lg leading-tight">Перейти ко всем кейсам</span>
+              <ArrowRight className="w-4 h-4 md:w-5 md:h-5 relative group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

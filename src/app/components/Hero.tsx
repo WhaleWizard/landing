@@ -1,9 +1,6 @@
 import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type ReactNode } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles } from 'lucide-react';
-import DataObjectRounded from '@mui/icons-material/DataObjectRounded';
-import StorageRounded from '@mui/icons-material/StorageRounded';
-import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
+import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Braces, Database } from 'lucide-react';
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
 import { useIsMobile } from './ui/use-mobile';
@@ -165,9 +162,9 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
 StatsRow.displayName = 'StatsRow';
 
 const META_APPS_STAT_ICONS = [
-  <DataObjectRounded key="sdk" />,
-  <TrackChangesRounded key="mmp" />,
-  <StorageRounded key="capi" />,
+  <Braces key="sdk" />,
+  <Target key="mmp" />,
+  <Database key="capi" />,
 ];
 
 const MetaAppsStatsStrip = memo(({

@@ -5,8 +5,8 @@ export default function CalculatorPage() {
   return (
     <>
       <SEO
-        title="Стоимость ведения Google Ads и Meta Ads — расчёт"
-        description="Предварительная оценка стоимости ведения Google Ads и Meta Ads с учётом площадок, рекламного бюджета и основной задачи проекта."
+        title="Калькулятор бюджета, ROAS и ROMI для Google Ads и Meta Ads"
+        description="Прогноз воронки, фактические ROAS и ROMI, точка безубыточности и прозрачная оценка ведения Google Ads и Meta Ads для рынков СНГ."
         url="/calculator"
       />
       <main className="marketing-typography min-h-screen bg-background text-foreground pt-16">

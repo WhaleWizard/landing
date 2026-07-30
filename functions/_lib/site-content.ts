@@ -250,8 +250,18 @@ export function sanitizeHomeContent(value: unknown): UnknownRecord {
 }
 
 const FAQ_CATEGORIES = new Set([
-  'Старт', 'Бюджет', 'Результат', 'Аналитика', 'Процесс', 'Приложения', 'Консультация',
+  'Старт', 'Бюджет', 'Аналитика', 'Приложения', 'Результат', 'Процесс', 'Консультация',
 ]);
+const FAQ_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function fallbackFaqId(question: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < question.length; index += 1) {
+    hash ^= question.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `legacy-${(hash >>> 0).toString(36)}`;
+}
 
 export function sanitizeFaqContent(value: unknown): UnknownRecord {
   const source = object(value);
@@ -266,7 +276,22 @@ export function sanitizeFaqContent(value: unknown): UnknownRecord {
     const category = text(row.category, 40);
     const details = texts(row.details, 10, 700);
     if (!question || !answer || !category || !FAQ_CATEGORIES.has(category)) return null;
-    return { question, answer, category, details: details || [] };
+    const rawId = text(row.id, 80);
+    const id = rawId && FAQ_ID_PATTERN.test(rawId) ? rawId : fallbackFaqId(question);
+    const relatedTermIds = (texts(row.relatedTermIds, 20, 80) || []).filter((termId) => FAQ_ID_PATTERN.test(termId));
+    const sourceIds = (texts(row.sourceIds, 20, 80) || []).filter((sourceId) => FAQ_ID_PATTERN.test(sourceId));
+    const rawReviewedAt = text(row.reviewedAt, 10);
+    const reviewedAt = rawReviewedAt && /^\d{4}-\d{2}-\d{2}$/.test(rawReviewedAt) ? rawReviewedAt : undefined;
+    return {
+      id,
+      question,
+      answer,
+      category,
+      details: details || [],
+      ...(relatedTermIds.length ? { relatedTermIds } : {}),
+      ...(sourceIds.length ? { sourceIds } : {}),
+      ...(reviewedAt ? { reviewedAt } : {}),
+    };
   }).filter(Boolean);
   if (items.length) target.items = items;
   return target;

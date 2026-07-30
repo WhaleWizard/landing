@@ -10,9 +10,24 @@ interface ModalProps {
   children: React.ReactNode;
   dialogClassName?: string;
   bodyClassName?: string;
+  size?: 'default' | 'wide';
+  hideFooter?: boolean;
+  mobileFullscreen?: boolean;
+  flushBody?: boolean;
 }
 
-export default function Modal({ isOpen, onClose, title, children, dialogClassName, bodyClassName }: ModalProps) {
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  dialogClassName,
+  bodyClassName,
+  size = 'default',
+  hideFooter = false,
+  mobileFullscreen = false,
+  flushBody = false,
+}: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -111,7 +126,13 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-2xl max-h-[calc(100dvh-1.5rem)] md:max-h-[85vh] bg-card border border-primary/25 rounded-2xl shadow-2xl z-[1001] overflow-hidden flex flex-col ${dialogClassName ?? ''}`}
+            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border border-primary/25 shadow-2xl z-[1001] overflow-hidden flex flex-col ${
+              size === 'wide' ? 'sm:w-[96vw] sm:max-w-7xl' : 'sm:w-[90vw] sm:max-w-2xl'
+            } ${
+              mobileFullscreen
+                ? 'h-[100dvh] max-h-[100dvh] w-full rounded-none sm:h-auto sm:max-h-[92vh] sm:rounded-2xl'
+                : 'w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] rounded-2xl md:max-h-[85vh]'
+            } ${dialogClassName ?? ''}`}
           >
             <div className="flex justify-between items-start gap-3 p-4 sm:p-5 border-b border-border">
               <h2 className="min-w-0 flex-1 break-words text-balance text-lg sm:text-xl font-semibold leading-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -128,14 +149,16 @@ export default function Modal({ isOpen, onClose, title, children, dialogClassNam
                 <X className="w-5 h-5 text-muted-foreground" />
               </motion.button>
             </div>
-            <div className={`p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto modal-scroll ${bodyClassName ?? ''}`}>
+            <div className={`${flushBody ? '' : 'p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'} overflow-y-auto modal-scroll ${bodyClassName ?? ''}`}>
               {children}
             </div>
-            <div className="p-4 border-t border-border flex justify-end">
-              <button onClick={onClose} className="min-h-11 px-4 py-2 rounded-lg border border-primary/30 hover:bg-primary/10 transition-colors">
-                Закрыть
-              </button>
-            </div>
+            {!hideFooter && (
+              <div className="p-4 border-t border-border flex justify-end">
+                <button onClick={onClose} className="min-h-11 px-4 py-2 rounded-lg border border-primary/30 hover:bg-primary/10 transition-colors">
+                  Закрыть
+                </button>
+              </div>
+            )}
           </motion.div>
         </>
       )}

@@ -1,6 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { router } from '../../routes';
-import Modal from '../Modal';
 import {
   ensureAnalyticsLoaded,
   ensureMarketingLoaded,
@@ -22,6 +21,7 @@ import {
 const PdConsentContent = lazy(() => import('../legal/PdConsentContent'));
 const PrivacyPolicyContent = lazy(() => import('../legal/PrivacyPolicyContent'));
 const CookiePolicyContent = lazy(() => import('../legal/CookiePolicyContent'));
+const Modal = lazy(() => import('../Modal'));
 
 type BannerMode = 'hidden' | 'banner' | 'modal';
 type DocKey = 'pd' | 'privacy' | 'cookie';
@@ -253,21 +253,24 @@ export default function CookieConsentManager() {
     };
   }, [blocked]);
 
-  const docDialog = (
-    <Modal
-      isOpen={docModal !== null}
-      onClose={() => setDocModal(null)}
-      title={docModal ? DOCS[docModal].title : ''}
-      dialogClassName="max-w-4xl"
-      bodyClassName="prose prose-invert prose-sm max-w-none"
-    >
+  const docDialog =
+    docModal !== null ? (
       <Suspense fallback={null}>
-        {docModal === 'pd' && <PdConsentContent />}
-        {docModal === 'privacy' && <PrivacyPolicyContent />}
-        {docModal === 'cookie' && <CookiePolicyContent />}
+        <Modal
+          isOpen
+          onClose={() => setDocModal(null)}
+          title={DOCS[docModal].title}
+          dialogClassName="max-w-4xl"
+          bodyClassName="prose prose-invert prose-sm max-w-none"
+        >
+          <Suspense fallback={null}>
+            {docModal === 'pd' && <PdConsentContent />}
+            {docModal === 'privacy' && <PrivacyPolicyContent />}
+            {docModal === 'cookie' && <CookiePolicyContent />}
+          </Suspense>
+        </Modal>
       </Suspense>
-    </Modal>
-  );
+    ) : null;
 
   if (!isVisible && !loadingGeo) {
     return (

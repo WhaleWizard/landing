@@ -5,6 +5,19 @@
 @import './whale-brand.css';
 @import './whale-navigator.css';
 
+/* Public UI must never expose browser-default number steppers. */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 /*
  * admin-ui.css (74 КБ) и cases-finder.css (46 КБ) отсюда убраны намеренно.
  * Этот файл — единственная блокирующая рендер таблица стилей, и она грузилась

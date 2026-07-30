@@ -1,20 +1,37 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
-import { ArrowRight, HelpCircle, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronDown, Search, Sparkles } from 'lucide-react';
+import Navbar from '../components/Navbar';
 import SEO from '../components/SEO';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { trackFaqOpen } from '../consent/consent';
+import { glossaryTermById } from '../data/marketingGlossary';
 import useFaqContent from '../hooks/useFaqContent';
 
+export const FAQ_CATEGORIES = ['Старт', 'Бюджет', 'Аналитика', 'Приложения', 'Результат', 'Процесс', 'Консультация'] as const;
+export type FaqCategory = (typeof FAQ_CATEGORIES)[number];
+
 export interface FaqItem {
+  id: string;
   question: string;
   answer: string;
   details: string[];
-  category: 'Старт' | 'Бюджет' | 'Результат' | 'Аналитика' | 'Процесс' | 'Приложения' | 'Консультация';
+  category: FaqCategory;
+  relatedTermIds?: string[];
+  sourceIds?: string[];
+  reviewedAt?: string;
 }
 
-export const faqs: FaqItem[] = [
+type FaqSeed = Omit<FaqItem, 'id'>;
+
+export const FAQ_SEO = {
+  title: 'Вопросы о рекламе, аналитике и продвижении приложений',
+  description: 'Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений.',
+  h1: 'Ответы на вопросы о рекламе и аналитике',
+  lead: 'О бюджетах, сроках, данных, качестве лидов и продвижении приложений — без обещаний, которые нельзя проверить.',
+} as const;
+
+const faqSeeds: FaqSeed[] = [
   {
     category: 'Старт',
     question: 'Что нужно подготовить перед запуском рекламы?',
@@ -147,7 +164,7 @@ export const faqs: FaqItem[] = [
   },
   {
     category: 'Аналитика',
-    question: 'Зачем Meta Pixel и Conversions API использовать вместе?',
+    question: 'Зачем для сайта использовать Meta Pixel и Conversions API вместе?',
     answer: 'Pixel передаёт события из браузера, а Conversions API — с сервера или CRM. Одно и то же событие можно отправить обоими способами без двойного учёта.',
     details: [
       'Для дедупликации у браузерной и серверной версий должны совпадать название события и event_id.',
@@ -177,12 +194,12 @@ export const faqs: FaqItem[] = [
   },
   {
     category: 'Аналитика',
-    question: 'Будет ли у меня доступ к кабинетам и отчётам?',
-    answer: 'Да. Рабочие кабинеты и данные должны оставаться под контролем владельца бизнеса.',
+    question: 'Кому принадлежат рекламные кабинеты, данные и доступы?',
+    answer: 'Кабинеты, история, платёжные данные и накопленные аудитории должны оставаться под контролем владельца бизнеса.',
     details: [
-      'Я подключаюсь по роли, а не прошу передать личный логин и пароль.',
+      'По возможности активы создаются на стороне клиента, а я подключаюсь по роли с минимально необходимыми правами.',
       'В отчёте видны расход, ключевые результаты, изменения и следующий план действий.',
-      'После завершения работы доступ можно отозвать без потери накопленной истории.',
+      'После завершения работы доступ подрядчика можно отозвать без потери истории, настроек и собственности на активы.',
     ],
   },
   {
@@ -216,54 +233,134 @@ export const faqs: FaqItem[] = [
     ],
   },
   {
-    category: 'Процесс',
-    question: 'На чьей стороне создаются рекламные кабинеты и доступы?',
-    answer: 'По возможности — на стороне клиента, чтобы история, аудитории и данные не зависели от подрядчика.',
-    details: [
-      'Доступ выдаётся через роли с минимально необходимыми правами и двухфакторной защитой.',
-      'Платёжные данные и собственность на активы остаются у владельца бизнеса.',
-      'При завершении работы передаются актуальные настройки, отчёты и список подключённых систем.',
-    ],
-  },
-  {
     category: 'Приложения',
     question: 'Что нужно для запуска рекламы мобильного приложения?',
-    answer: 'Нужны ссылки на приложение, доступ к рекламным активам и передача ключевых событий приложения через Meta SDK или MMP-платформу, интегрированную с Meta.',
+    answer: 'Нужны опубликованное приложение, доступы к Meta Business и рекламному аккаунту, карта ключевых событий и рабочий способ передачи их в Meta — через Meta SDK, интегрированный MMP или Conversions API для серверных событий.',
     details: [
-      'До старта проверяем карточки в App Store и Google Play, географию и путь пользователя после установки.',
-      'Определяем событие, на которое можно оптимизироваться: регистрация, пробный период, покупка или подписка.',
-      'Если событий ещё мало, планируем переход от установки к более глубокому действию по мере накопления данных.',
+      'Связываем правильные iOS- и Android-карточки, Meta App ID и рекламные активы.',
+      'Проверяем install или first open, регистрацию, trial, подписку и Purchase с фактическими value и currency.',
+      'До расходов тестируем путь через store, deep и deferred deep links, privacy-сценарии и диагностику Meta Events Manager.',
     ],
+    relatedTermIds: ['meta-app-promotion-objective', 'meta-sdk', 'mobile-measurement-partner', 'meta-conversions-api-app-events'],
+    sourceIds: ['meta-advantage-apps', 'meta-capi', 'meta-app-events'],
+    reviewedAt: '2026-07-30',
   },
   {
     category: 'Приложения',
     question: 'На что лучше оптимизировать кампанию приложения?',
-    answer: 'На самое глубокое бизнес-событие, которое происходит достаточно часто и передаётся без ошибок.',
+    answer: 'На наиболее близкое к выручке событие, которое корректно размечено, доступно для оптимизации и набирает достаточно сигнала. Универсального порога событий нет.',
     details: [
-      'Установка даёт объём, но не всегда отражает ценность пользователя.',
-      'Регистрация, покупка или подписка обычно ближе к бизнес-результату, если таких событий достаточно для обучения.',
-      'Решение принимается по воронке и качеству сигнала, а не по универсальному рецепту.',
+      'Если глубокое событие редкое, начинаем с установки, регистрации или trial и заранее определяем условие перехода.',
+      'Событие должно отражать реальное действие: регистрацию нельзя называть Purchase ради удобной оптимизации.',
+      'Value optimization требует фактических value и currency; результат оцениваем по зрелым когортам, а не только по CPI.',
     ],
+    relatedTermIds: ['meta-app-event-optimization', 'meta-value-optimization', 'standard-app-event', 'cohort-analysis'],
+    sourceIds: ['meta-app-ads', 'meta-blueprint-app-events'],
+    reviewedAt: '2026-07-30',
   },
   {
     category: 'Приложения',
     question: 'Как ограничения iOS влияют на рекламу приложений?',
-    answer: 'Часть данных приходит с задержкой или в агрегированном виде, поэтому настройка атрибуции и событий особенно важна.',
+    answer: 'ATT ограничивает cross-app tracking и доступ к IDFA, а AdAttributionKit, SKAdNetwork и Meta AEM дают агрегированное privacy-preserving измерение. Это разные слои, их нельзя смешивать.',
     details: [
-      'Проверяем App Store Connect, ATT-сценарий, SKAdNetwork и конфигурацию событий под выбранную платформу.',
-      'Отчёты рекламной системы и MMP могут различаться из-за окон атрибуции и методики подсчёта.',
-      'Оценку строим по сопоставимым данным и учитываем причины расхождений, а не пытаемся свести все отчёты к одной цифре.',
+      'Отказ ATT не отключает всё измерение: Apple attribution frameworks работают независимо от ATT-статуса.',
+      'Apple сейчас рекомендует AdAttributionKit, а SKAdNetwork остаётся совместимым App Store-слоем.',
+      'Задержки, privacy tiers и моделирование закономерно дают расхождения между Meta, MMP и App Store Connect.',
     ],
+    relatedTermIds: ['app-tracking-transparency', 'adattributionkit', 'skadnetwork', 'meta-aem-app-events'],
+    sourceIds: ['apple-att', 'apple-adattributionkit', 'apple-skan', 'meta-blueprint-app-events'],
+    reviewedAt: '2026-07-30',
   },
   {
     category: 'Приложения',
     question: 'Нужен ли приложению MMP?',
-    answer: 'Не всегда. MMP-платформа полезна, когда каналов и географий несколько, важна глубокая атрибуция или защита от фрода.',
+    answer: 'Не всегда. MMP оправдан при нескольких сетях и платформах, единой атрибуции и когортах, postbacks, deep linking или контроле фрода; он не становится автоматически единственным источником истины.',
     details: [
-      'Для небольшого теста может быть достаточно SDK платформы и корректной продуктовой аналитики.',
-      'При масштабировании MMP помогает сравнивать источники по единой логике и передавать постбэки.',
-      'Инструмент выбирается по задаче и стоимости, а не подключается ради модного отчёта.',
+      'Для небольшого одноканального теста может хватить Meta SDK и корректной продуктовой аналитики.',
+      'При сочетании MMP, SDK и CAPI нужен один владелец события, точный mapping и дедупликация.',
+      'Сравниваем определения и окна атрибуции, а не требуем полного равенства всех отчётов.',
     ],
+    relatedTermIds: ['mobile-measurement-partner', 'postback', 'app-event-mapping', 'app-event-deduplication'],
+    sourceIds: ['meta-advantage-apps', 'google-app-conversions'],
+    reviewedAt: '2026-07-30',
+  },
+  {
+    category: 'Приложения',
+    question: 'Meta SDK, MMP и Conversions API — что выбрать?',
+    answer: 'Это разные слои: SDK фиксирует действия на устройстве, MMP связывает установки и события с рекламными источниками, а CAPI передаёт доверенные серверные app events. Они могут сосуществовать.',
+    details: [
+      'Выбираем минимальную архитектуру, которая покрывает измерение, оптимизацию и нужные рекламные сети.',
+      'При нескольких источниках нужна единая карта событий и дедупликация одного реального действия.',
+      'Ни один из инструментов не обходит ATT, согласие пользователя или правила Meta, Apple и Google.',
+    ],
+    relatedTermIds: ['meta-sdk', 'mobile-measurement-partner', 'meta-conversions-api-app-events', 'app-event-deduplication'],
+    sourceIds: ['meta-capi', 'meta-app-events'],
+    reviewedAt: '2026-07-30',
+  },
+  {
+    category: 'Приложения',
+    question: 'Что такое ATT и нужен ли он для SKAdNetwork или AdAttributionKit?',
+    answer: 'ATT нужен для cross-company tracking и доступа к IDFA. Privacy-preserving attribution frameworks Apple работают независимо от ATT-статуса.',
+    details: [
+      'ATT — системное разрешение iOS, а не синоним cookie-баннера, GDPR-consent или любого продуктового измерения.',
+      'Deferred linking через общую межкомпанейскую идентичность может требовать ATT — это нужно проверить у провайдера.',
+      'После отказа нельзя подменять IDFA fingerprinting или альтернативным общим идентификатором.',
+    ],
+    relatedTermIds: ['app-tracking-transparency', 'idfa', 'adattributionkit', 'skadnetwork'],
+    sourceIds: ['apple-att', 'apple-adattributionkit', 'apple-skan'],
+    reviewedAt: '2026-07-30',
+  },
+  {
+    category: 'Приложения',
+    question: 'Чем установка отличается от first open и регистрации?',
+    answer: 'Загрузка или установка, первый зарегистрированный запуск и продуктовая регистрация — разные этапы воронки; их нельзя складывать как новых пользователей.',
+    details: [
+      'Загрузка из store может не завершиться запуском приложения.',
+      'First open подтверждает первый запуск, но ещё не активацию и не ценность пользователя.',
+      'Регистрация, trial, подписка и покупка — отдельные post-install events с собственными правилами.',
+    ],
+    relatedTermIds: ['app-install', 'first-open', 'post-install-event', 'app-activation'],
+    sourceIds: ['google-app-conversions', 'meta-app-events'],
+    reviewedAt: '2026-07-30',
+  },
+  {
+    category: 'Приложения',
+    question: 'Почему Meta, MMP и App Store Connect показывают разные цифры?',
+    answer: 'Потому что системы используют разные окна и правила атрибуции, click/view credit, часовые пояса, reinstall-логику, privacy thresholds, задержки postback и моделирование.',
+    details: [
+      'Сначала сравниваем одно событие, дату события, timezone и одинаковое окно атрибуции.',
+      'Raw SKAN postbacks, перераспределённые отчёты и modeled reporting не обязаны совпадать точно.',
+      'Ошибки интеграции исправляем, но не придумываем одну «правильную» цифру без общей методики.',
+    ],
+    relatedTermIds: ['attribution-window', 'postback', 'skan-postback', 'modeled-conversion'],
+    sourceIds: ['apple-skan', 'meta-blueprint-app-events'],
+    reviewedAt: '2026-07-30',
+  },
+  {
+    category: 'Приложения',
+    question: 'Нужны ли deep links и deferred deep links?',
+    answer: 'Deep link ведёт установленного пользователя к нужному экрану, а deferred deep link пытается сохранить назначение через установку. Они уменьшают трение, но требуют разработки и тестирования.',
+    details: [
+      'Проверяем installed, not installed, первый запуск, авторизованное и неавторизованное состояния и безопасный fallback.',
+      'Для обычных HTTPS-ссылок предпочитаем Universal Links на iOS и Android App Links.',
+      'Privacy-модель third-party deferred linking может влиять на необходимость ATT.',
+    ],
+    relatedTermIds: ['deep-link', 'deferred-deep-link', 'universal-link', 'android-app-link'],
+    sourceIds: ['meta-app-deep-linking', 'apple-universal-links', 'android-app-links'],
+    reviewedAt: '2026-07-30',
+  },
+  {
+    category: 'Приложения',
+    question: 'Как проверить события приложения до запуска рекламы?',
+    answer: 'Используем event matrix и тестируем обе ОС: trigger, источник, event name, event_id, value, currency, consent state и ожидаемое число событий.',
+    details: [
+      'Проверяем release build, реальный store-путь, Meta Events Manager и доступные raw logs MMP.',
+      'После дедупликации одно реальное действие должно давать одно итоговое событие.',
+      'Не передаём запрещённые чувствительные данные и отдельно проверяем поведение при разных privacy-статусах.',
+    ],
+    relatedTermIds: ['app-event-mapping', 'app-event-deduplication', 'meta-events-manager', 'tracking-coverage'],
+    sourceIds: ['meta-app-events', 'meta-capi'],
+    reviewedAt: '2026-07-30',
   },
   {
     category: 'Консультация',
@@ -297,24 +394,92 @@ export const faqs: FaqItem[] = [
   },
 ];
 
+const FAQ_ID_BY_QUESTION: Record<string, string> = {
+  'Что нужно подготовить перед запуском рекламы?': 'prepare-before-launch',
+  'Что выбрать: Google Ads или Meta Ads?': 'choose-google-or-meta',
+  'Для каких проектов подходит работа с вами?': 'project-fit',
+  'Можно ли запускать рекламу, если сайт ещё слабый?': 'weak-site-before-ads',
+  'Как определить бюджет на первый тест?': 'first-test-budget',
+  'Рекламный бюджет входит в стоимость работы?': 'media-budget-separate',
+  'Какие дополнительные расходы могут понадобиться?': 'additional-costs',
+  'Когда можно увеличивать рекламный бюджет?': 'scale-media-budget',
+  'Когда появятся первые выводы по рекламе?': 'first-conclusions',
+  'Можно ли гарантировать конкретный CPL, ROAS или число продаж?': 'no-performance-guarantees',
+  'Что делать, если заявки есть, а продаж мало?': 'leads-without-sales',
+  'По каким показателям оценивается эффективность?': 'performance-kpis',
+  'Какую аналитику вы настраиваете?': 'analytics-setup',
+  'Зачем для сайта использовать Meta Pixel и Conversions API вместе?': 'website-pixel-and-capi',
+  'Можно ли оптимизировать рекламу по качеству лидов из CRM?': 'crm-lead-quality',
+  'Как учитывать звонки, переписку и офлайн-продажи?': 'calls-chats-offline-sales',
+  'Кому принадлежат рекламные кабинеты, данные и доступы?': 'asset-ownership',
+  'Как проходит запуск и дальнейшее ведение?': 'launch-and-management-process',
+  'Кто готовит тексты, баннеры и видео?': 'creative-production',
+  'Как устроена коммуникация по проекту?': 'project-communication',
+  'Что нужно для запуска рекламы мобильного приложения?': 'app-launch-requirements',
+  'На что лучше оптимизировать кампанию приложения?': 'app-optimization-event',
+  'Как ограничения iOS влияют на рекламу приложений?': 'ios-app-measurement',
+  'Нужен ли приложению MMP?': 'app-mmp',
+  'Meta SDK, MMP и Conversions API — что выбрать?': 'app-measurement-stack',
+  'Что такое ATT и нужен ли он для SKAdNetwork или AdAttributionKit?': 'app-att-skan-adattributionkit',
+  'Чем установка отличается от first open и регистрации?': 'app-install-first-open-registration',
+  'Почему Meta, MMP и App Store Connect показывают разные цифры?': 'app-reporting-differences',
+  'Нужны ли deep links и deferred deep links?': 'app-deep-links',
+  'Как проверить события приложения до запуска рекламы?': 'app-event-testing',
+  'В каких случаях консультация полезнее полноценного ведения?': 'consultation-vs-management',
+  'Как проходит консультация?': 'consultation-process',
+  'Что останется после консультации?': 'consultation-deliverables',
+};
+
+const fallbackFaqId = (question: string): string => {
+  let hash = 2166136261;
+  for (let index = 0; index < question.length; index += 1) {
+    hash ^= question.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `legacy-${(hash >>> 0).toString(36)}`;
+};
+
+export const faqs: FaqItem[] = faqSeeds.map((item) => ({
+  ...item,
+  id: FAQ_ID_BY_QUESTION[item.question] || fallbackFaqId(item.question),
+}));
+
 export default function FAQPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | FaqCategory>('all');
   const defaultSeo = useMemo(() => ({
-    title: 'Вопросы о рекламе, аналитике и продвижении приложений',
-    description: 'Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений.',
+    title: FAQ_SEO.title,
+    description: FAQ_SEO.description,
   }), []);
   const faqContent = useFaqContent(faqs, defaultSeo);
-  const liveFaqs = faqContent.items;
+  const liveFaqs = useMemo(() => faqContent.items.map((item) => ({
+    ...item,
+    id: item.id || fallbackFaqId(item.question),
+    details: Array.isArray(item.details) ? item.details : [],
+  })), [faqContent.items]);
 
   const filteredFaqs = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return liveFaqs;
+    return liveFaqs.filter((item) => {
+      if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
+      if (!q) return true;
+      return [
+        item.question,
+        item.answer,
+        item.details.join(' '),
+        item.category,
+        ...(item.relatedTermIds || []),
+      ].join(' ').toLowerCase().includes(q);
+    });
+  }, [liveFaqs, query, selectedCategory]);
 
-    return liveFaqs.filter((item) =>
-      [item.question, item.answer, item.details.join(' '), item.category].join(' ').toLowerCase().includes(q),
-    );
-  }, [liveFaqs, query]);
+  const groupedFaqs = useMemo(() => FAQ_CATEGORIES
+    .map((category) => ({
+      category,
+      items: filteredFaqs.filter((item) => item.category === category),
+    }))
+    .filter((group) => group.items.length > 0), [filteredFaqs]);
 
   const faqSchema = useMemo(
     () => ({
@@ -322,6 +487,7 @@ export default function FAQPage() {
       '@type': 'FAQPage',
       mainEntity: liveFaqs.map((item) => ({
         '@type': 'Question',
+        '@id': `https://www.whalewzrd.com/faq/#faq-${item.id}`,
         name: item.question,
         acceptedAnswer: {
           '@type': 'Answer',
@@ -344,28 +510,43 @@ export default function FAQPage() {
     return () => script?.remove();
   }, [faqSchema]);
 
+  useEffect(() => {
+    const rawHash = window.location.hash.slice(1);
+    if (!rawHash.startsWith('faq-')) return;
+    const faqId = rawHash.slice('faq-'.length);
+    if (!liveFaqs.some((item) => item.id === faqId)) return;
+
+    setSelectedCategory('all');
+    setQuery('');
+    window.setTimeout(() => {
+      const disclosure = document.getElementById(`faq-${faqId}`) as HTMLDetailsElement | null;
+      if (!disclosure) return;
+      disclosure.open = true;
+      disclosure.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 80);
+  }, [liveFaqs]);
+
+  const replaceFaqHash = (faqId?: string) => {
+    const nextUrl = `${window.location.pathname}${window.location.search}${faqId ? `#faq-${faqId}` : ''}`;
+    window.history.replaceState(window.history.state, '', nextUrl);
+  };
+
+  const resetFilters = () => {
+    setQuery('');
+    setSelectedCategory('all');
+  };
+
   return (
     <>
+      <Navbar variant="content" />
       <SEO
         title={faqContent.seo.title}
         description={faqContent.seo.description}
         url="/faq"
       />
 
-      <section className="marketing-typography min-h-screen bg-background py-16 md:py-24 px-4 sm:px-6">
+      <section className="marketing-typography min-h-screen bg-background px-4 pb-16 pt-28 sm:px-6 md:pb-24 md:pt-32">
         <div className="max-w-5xl mx-auto">
-          <div className="mb-8">
-            <button
-              onClick={() => {
-                navigate('/');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none"
-            >
-              ← На главную
-            </button>
-          </div>
-
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -383,59 +564,146 @@ export default function FAQPage() {
               </span>
             </h1>
             <p className="text-muted-foreground mt-4 max-w-3xl mx-auto text-pretty">
-              О бюджетах, сроках, данных, качестве лидов и продвижении приложений — без обещаний, которые нельзя проверить.
+              {FAQ_SEO.lead}
             </p>
           </motion.div>
 
-          <div className="mb-6 relative">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Найти вопрос: бюджет, CAPI, приложение…"
-              className="w-full rounded-xl border border-border bg-card/50 py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+          <div className="mb-7 rounded-2xl border border-border bg-card/30 p-3 sm:p-4">
+            <div className="relative">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Найти вопрос: бюджет, CAPI, ATT, приложение…"
+                aria-label="Поиск по вопросам"
+                className="min-h-11 w-full rounded-xl border border-border bg-background/70 py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div
+              className="mt-3 flex w-full min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-2 scroll-px-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden after:block after:h-px after:w-3 after:shrink-0 after:content-['']"
+              aria-label="Категории FAQ"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                aria-pressed={selectedCategory === 'all'}
+                className={`min-h-11 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
+                  selectedCategory === 'all'
+                    ? 'border-primary bg-primary/15 text-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Все вопросы
+              </button>
+              {FAQ_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  aria-pressed={selectedCategory === category}
+                  className={`min-h-11 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    selectedCategory === category
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {category}
+                  <span className="ml-1.5 text-xs opacity-70">
+                    {liveFaqs.filter((item) => item.category === category).length}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid gap-3">
-            {filteredFaqs.map((faq) => (
-              <Dialog key={faq.question} onOpenChange={(open) => open && trackFaqOpen(faq.question)}>
-                <DialogTrigger asChild>
-                  <button className="w-full text-left rounded-2xl border border-border bg-card/40 hover:border-primary/40 transition-colors p-5 md:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <span className="inline-flex max-w-full items-center rounded-md border border-primary/30 bg-primary/10 text-primary px-2 py-0.5 text-xs mb-2 break-words">
-                          {faq.category}
+          <div className="space-y-9">
+            {groupedFaqs.map((group) => (
+              <section key={group.category} aria-labelledby={`faq-category-${group.category}`}>
+                <div className="mb-3 flex items-end justify-between gap-4">
+                  <h2 id={`faq-category-${group.category}`} className="text-xl md:text-2xl font-semibold">
+                    {group.category}
+                  </h2>
+                  <span className="text-sm text-muted-foreground tabular-nums">{group.items.length}</span>
+                </div>
+                <div className="grid gap-3">
+                  {group.items.map((faq) => (
+                    <details
+                      key={faq.id}
+                      id={`faq-${faq.id}`}
+                      className="group scroll-mt-24 rounded-2xl border border-border bg-card/40 transition-colors open:border-primary/40 open:bg-card/60"
+                      onToggle={(event) => {
+                        const disclosure = event.currentTarget;
+                        if (disclosure.open) replaceFaqHash(faq.id);
+                        else if (window.location.hash === `#faq-${faq.id}`) replaceFaqHash();
+                      }}
+                    >
+                      <summary
+                        className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-4 rounded-2xl p-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:p-5 [&::-webkit-details-marker]:hidden"
+                        onClick={(event) => {
+                          const disclosure = event.currentTarget.parentElement as HTMLDetailsElement;
+                          if (!disclosure.open) trackFaqOpen(faq.question);
+                        }}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-base md:text-lg font-semibold text-pretty break-words">
+                            {faq.question}
+                          </span>
+                          <span className="mt-2 block text-sm text-muted-foreground text-pretty break-words">
+                            {faq.answer}
+                          </span>
                         </span>
-                        <h2 className="text-base md:text-lg font-semibold text-pretty break-words">{faq.question}</h2>
-                        <p className="text-muted-foreground text-sm mt-2 text-pretty break-words">{faq.answer}</p>
-                      </div>
-                      <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-1" />
-                    </div>
-                  </button>
-                </DialogTrigger>
+                        <ChevronDown
+                          className="mt-1 h-5 w-5 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180"
+                          aria-hidden="true"
+                        />
+                      </summary>
 
-                <DialogContent className="sm:max-w-2xl border-border bg-background/95 backdrop-blur-xl max-h-[85vh] overflow-y-auto scrollbar-brand">
-                  <DialogHeader className="min-w-0 pr-8">
-                    <DialogTitle className="text-xl leading-snug text-pretty break-words">{faq.question}</DialogTitle>
-                    <DialogDescription className="text-base text-foreground/90 text-pretty break-words">{faq.answer}</DialogDescription>
-                  </DialogHeader>
+                      <div className="px-4 pb-5 sm:px-5">
+                        <div className="min-w-0 space-y-3 border-t border-border/60 pt-4 text-sm text-muted-foreground leading-relaxed">
+                          {faq.details.map((point, pointIndex) => (
+                            <div key={`${faq.id}-detail-${pointIndex + 1}`} className="pl-4 border-l-2 border-primary/30 text-pretty break-words">
+                              {point}
+                            </div>
+                          ))}
+                        </div>
 
-                  <div className="min-w-0 space-y-3 text-sm text-muted-foreground leading-relaxed">
-                    {faq.details.map((point) => (
-                      <div key={point} className="pl-4 border-l-2 border-primary/30 text-pretty break-words">
-                        {point}
+                        {faq.relatedTermIds?.length ? (
+                          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4 text-xs">
+                            <span className="text-muted-foreground">Термины:</span>
+                            {faq.relatedTermIds.map((termId) => (
+                              <a
+                                key={termId}
+                                href={`/marketing-glossary/#term-${termId}`}
+                                className="rounded-md border border-border px-2 py-1 text-primary hover:border-primary/50"
+                              >
+                                {glossaryTermById[termId]?.abbreviation || glossaryTermById[termId]?.term || termId}
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <a
+                          href={`#faq-${faq.id}`}
+                          onClick={() => replaceFaqHash(faq.id)}
+                          className="mt-3 inline-flex min-h-10 items-center text-xs text-muted-foreground hover:text-primary"
+                          aria-label={`Постоянная ссылка на вопрос: ${faq.question}`}
+                        >
+                          Постоянная ссылка
+                        </a>
                       </div>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
+                    </details>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
 
           {filteredFaqs.length === 0 && (
-            <div className="text-center text-muted-foreground py-10 text-pretty">
-              По вашему запросу ничего не найдено. Попробуйте сформулировать короче.
+            <div className="rounded-2xl border border-border bg-card/30 px-5 py-10 text-center text-muted-foreground text-pretty">
+              <p>По вашему запросу ничего не найдено. Попробуйте сформулировать короче или убрать категорию.</p>
+              <button type="button" onClick={resetFilters} className="mt-4 min-h-11 text-primary hover:underline">
+                Показать все вопросы
+              </button>
             </div>
           )}
 

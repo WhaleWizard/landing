@@ -1,27 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calculator, TrendingUp, ArrowRight } from 'lucide-react';
 import Modal from './Modal';
-import BudgetCalculatorPopup from './BudgetCalculatorPopup';
-import RoiCalculatorPopup from './RoiCalculatorPopup';
+
+const BudgetCalculatorPopup = lazy(() => import('./BudgetCalculatorPopup'));
+const RoiCalculatorPopup = lazy(() => import('./RoiCalculatorPopup'));
 
 export default function CalculatorButtons() {
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isRoiModalOpen, setIsRoiModalOpen] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0 && window.innerWidth < 768) {
-        e.preventDefault();
-        container.scrollLeft += e.deltaY;
-      }
-    };
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, []);
 
   return (
     <section 
@@ -104,16 +91,8 @@ export default function CalculatorButtons() {
           </motion.button>
         </div>
 
-        {/* Мобильная версия */}
-        <div className="md:hidden relative">
-          <div
-            ref={scrollContainerRef}
-            className="calculator-buttons-scroll scrollbar-brand flex gap-4 overflow-x-auto scroll-smooth pb-5 -mx-4 px-4"
-            style={{
-              WebkitOverflowScrolling: 'touch',
-              cursor: 'grab',
-            }}
-          >
+        {/* Мобильная версия: обе задачи сразу видны, вертикальный скролл не перехватывается. */}
+        <div className="relative grid gap-3 md:hidden">
             <motion.button
               onClick={() => setIsBudgetModalOpen(true)}
               initial={{ opacity: 0, y: 20 }}
@@ -121,16 +100,22 @@ export default function CalculatorButtons() {
               viewport={{ once: true }}
               transition={{ duration: 0.35 }}
               whileTap={{ scale: 0.98 }}
-              className="flex-shrink-0 w-[292px] group relative overflow-hidden rounded-2xl bg-card/40 backdrop-blur-md border border-primary/20 hover:border-primary/50 transition-all duration-300 p-[22px] text-left"
+              className="group relative w-full overflow-hidden rounded-2xl border border-primary/25 bg-card/50 p-5 text-left backdrop-blur-md transition-all duration-300 hover:border-primary/50"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center mb-3">
-                <Calculator className="w-6 h-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-bold mb-1">Стоимость ведения</h3>
-              <p className="text-xs text-muted-foreground mb-3">Предварительный ориентир по проекту</p>
-              <div className="flex items-center gap-1 text-primary text-xs font-medium">
-                <span>Открыть</span>
-                <ArrowRight className="w-3 h-3" />
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/20 to-accent/20">
+                  <Calculator className="h-6 w-6 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-bold">Стоимость и медиаплан</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Объём работ, бюджет, площадки и рынки
+                  </p>
+                  <div className="mt-3 flex items-center gap-1 text-xs font-medium text-primary">
+                    <span>Открыть дашборд</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </div>
+                </div>
               </div>
             </motion.button>
 
@@ -141,42 +126,55 @@ export default function CalculatorButtons() {
               viewport={{ once: true }}
               transition={{ duration: 0.35, delay: 0.08 }}
               whileTap={{ scale: 0.98 }}
-              className="flex-shrink-0 w-[292px] group relative overflow-hidden rounded-2xl bg-card/40 backdrop-blur-md border border-accent/20 hover:border-accent/50 transition-all duration-300 p-[22px] text-left"
+              className="group relative w-full overflow-hidden rounded-2xl border border-accent/25 bg-card/50 p-5 text-left backdrop-blur-md transition-all duration-300 hover:border-accent/50"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-secondary/20 border border-accent/30 flex items-center justify-center mb-3">
-                <TrendingUp className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold mb-1">ROAS и ROMI</h3>
-              <p className="text-xs text-muted-foreground mb-3">Расчёт по вашим данным</p>
-              <div className="flex items-center gap-1 text-primary text-xs font-medium">
-                <span>Открыть</span>
-                <ArrowRight className="w-3 h-3" />
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-gradient-to-br from-accent/20 to-secondary/20">
+                  <TrendingUp className="h-6 w-6 text-accent" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-bold">ROAS и полный ROMI</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Выручка, маржа, все расходы и безубыточность
+                  </p>
+                  <div className="mt-3 flex items-center gap-1 text-xs font-medium text-primary">
+                    <span>Открыть дашборд</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </div>
+                </div>
               </div>
             </motion.button>
-          </div>
-          <p className="mt-3 text-center text-xs text-muted-foreground/60">
-            ← Листайте, чтобы увидеть все варианты →
-          </p>
         </div>
-
-        <style>{`
-          .calculator-buttons-scroll {
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-            cursor: grab;
-          }
-          .calculator-buttons-scroll:active {
-            cursor: grabbing;
-          }
-        `}</style>
       </div>
 
-      <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Оценка стоимости ведения" dialogClassName="marketing-typography">
-        <BudgetCalculatorPopup onClose={() => setIsBudgetModalOpen(false)} />
+      <Modal
+        isOpen={isBudgetModalOpen}
+        onClose={() => setIsBudgetModalOpen(false)}
+        title="Медиаплан и стоимость ведения"
+        dialogClassName="marketing-typography"
+        size="wide"
+        hideFooter
+        mobileFullscreen
+        flushBody
+      >
+        <Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Загружаю калькулятор…</div>}>
+          <BudgetCalculatorPopup onClose={() => setIsBudgetModalOpen(false)} />
+        </Suspense>
       </Modal>
 
-      <Modal isOpen={isRoiModalOpen} onClose={() => setIsRoiModalOpen(false)} title="Калькулятор ROAS / ROMI" dialogClassName="marketing-typography">
-        <RoiCalculatorPopup onClose={() => setIsRoiModalOpen(false)} />
+      <Modal
+        isOpen={isRoiModalOpen}
+        onClose={() => setIsRoiModalOpen(false)}
+        title="ROAS, ROMI и безубыточность"
+        dialogClassName="marketing-typography"
+        size="wide"
+        hideFooter
+        mobileFullscreen
+        flushBody
+      >
+        <Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Загружаю калькулятор…</div>}>
+          <RoiCalculatorPopup onClose={() => setIsRoiModalOpen(false)} />
+        </Suspense>
       </Modal>
     </section>
   );

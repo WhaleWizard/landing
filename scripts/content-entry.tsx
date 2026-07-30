@@ -1,5 +1,11 @@
-export { faqs } from '../src/app/pages/FAQPage';
-export { marketingGlossary } from '../src/app/data/marketingGlossary';
+export { FAQ_CATEGORIES, FAQ_SEO, faqs } from '../src/app/pages/FAQPage';
+export {
+  GLOSSARY_SECTIONS,
+  MARKETING_GLOSSARY_SEO,
+  glossaryCollections,
+  glossarySources,
+  marketingGlossary,
+} from '../src/app/data/marketingGlossary';
 export { pageConfigs, META_APPS_TESTIMONIAL_CONTENT } from '../src/app/pages/ServiceLandingPage';
 export { defaultHeroContent } from '../src/app/components/Hero';
 export { defaultServicesContent } from '../src/app/components/Services';

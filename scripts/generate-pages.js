@@ -214,6 +214,29 @@ function toSafeSlug(rawSlug, fallback) {
   return normalized || fallback;
 }
 
+function escapeStructuredId(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+function fallbackFaqId(question) {
+  let hash = 2166136261;
+  const value = String(question || '');
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `legacy-${(hash >>> 0).toString(36)}`;
+}
+
+function glossaryTermLabel(term) {
+  const label = String(term?.term || '');
+  const abbreviation = String(term?.abbreviation || '');
+  const normalize = (value) => value.toLowerCase().replace(/[^a-zа-яё0-9]+/giu, '');
+  return abbreviation && normalize(abbreviation) !== normalize(label)
+    ? `${abbreviation} — ${label}`
+    : label;
+}
+
 function readViteIndexHtml() {
   const indexPath = join(DIST_DIR, 'index.html');
   if (!existsSync(indexPath)) {
@@ -378,11 +401,34 @@ function buildFaqJsonLd(faqs = []) {
     '@type': 'FAQPage',
     mainEntity: faqs.map((f) => ({
       '@type': 'Question',
+      '@id': `${SITE_URL}/faq/#faq-${escapeStructuredId(f.id || fallbackFaqId(f.question))}`,
       name: f.question,
       acceptedAnswer: {
         '@type': 'Answer',
         text: [f.answer, ...(f.details || [])].filter(Boolean).join(' '),
       },
+    })),
+  };
+}
+
+function buildGlossaryJsonLd(terms = []) {
+  if (!terms.length) return null;
+  const termSetId = `${SITE_URL}/marketing-glossary/#glossary`;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'DefinedTermSet',
+    '@id': termSetId,
+    name: 'Словарь performance-маркетинга и рекламы приложений',
+    description: 'Канонические определения метрик, рекламы, аналитики, CRM, SEO и продвижения приложений.',
+    inLanguage: 'ru',
+    hasDefinedTerm: terms.map((term) => ({
+      '@type': 'DefinedTerm',
+      '@id': `${SITE_URL}/marketing-glossary/#term-${escapeStructuredId(term.id)}`,
+      name: glossaryTermLabel(term),
+      ...(term.abbreviation ? { termCode: term.abbreviation } : {}),
+      ...(term.aliases?.length ? { alternateName: term.aliases.map((alias) => alias.value).filter(Boolean) } : {}),
+      description: term.definition,
+      inDefinedTermSet: termSetId,
     })),
   };
 }
@@ -761,32 +807,70 @@ function renderTestimonialsSection(content, items = []) {
   return `${renderBadgeHtml(content.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.description)}</p>${renderStatsHtml(content.stats)}${renderTestimonialsHtml(items)}`;
 }
 
-function renderFaqListHtml(faqs = []) {
-  return faqs
-    .map(
-      (f) => `
-        <details style="${contentStyles.cardBox};margin-bottom:12px">
-          <summary style="cursor:pointer;font-weight:700;font-size:15px">${escapeHtml(f.question)}</summary>
-          <p style="margin:10px 0 0;${contentStyles.body}">${escapeHtml(f.answer)}</p>
-          ${(f.details || []).length ? `<ul style="margin:8px 0 0;padding-left:20px;${contentStyles.body}">${f.details.map((d) => `<li>${escapeHtml(d)}</li>`).join('')}</ul>` : ''}
-        </details>`,
-    )
+function renderFaqListHtml(faqs = [], categories = []) {
+  const orderedCategories = [
+    ...categories,
+    ...faqs.map((item) => item.category).filter((category) => category && !categories.includes(category)),
+  ];
+
+  return [...new Set(orderedCategories)]
+    .map((category) => {
+      const items = faqs.filter((item) => item.category === category);
+      if (!items.length) return '';
+      const categoryId = escapeStructuredId(category) || fallbackFaqId(category);
+      return `
+        <section aria-labelledby="faq-category-${categoryId}" style="margin-bottom:28px">
+          <h2 id="faq-category-${categoryId}" style="margin:0 0 12px;font-size:21px;font-weight:800">${escapeHtml(category)}</h2>
+          ${items.map((item) => {
+            const id = escapeStructuredId(item.id || fallbackFaqId(item.question));
+            return `
+              <details id="faq-${id}" style="${contentStyles.cardBox};margin-bottom:12px;scroll-margin-top:96px">
+                <summary style="cursor:pointer;font-weight:700;font-size:15px">${escapeHtml(item.question)}</summary>
+                <p style="margin:10px 0 0;${contentStyles.body}">${escapeHtml(item.answer)}</p>
+                ${(item.details || []).length ? `<ul style="margin:8px 0 0;padding-left:20px;${contentStyles.body}">${item.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>` : ''}
+                ${(item.relatedTermIds || []).length ? `<p style="margin:10px 0 0;${contentStyles.muted}"><strong>Термины:</strong> ${item.relatedTermIds.map((termId) => `<a href="/marketing-glossary/#term-${escapeStructuredId(termId)}">${escapeHtml(termId)}</a>`).join(' · ')}</p>` : ''}
+              </details>`;
+          }).join('')}
+        </section>`;
+    })
     .join('');
 }
 
-function renderGlossaryListHtml(terms = []) {
-  return `<div style="display:grid;gap:12px">${terms
-    .map(
-      (t) => `
-        <div style="${contentStyles.cardBox}">
-          <h3 style="${contentStyles.heading3}">${escapeHtml(t.term)}${t.abbreviation ? ` (${escapeHtml(t.abbreviation)})` : ''} <span style="font-weight:400;${contentStyles.muted}">· ${escapeHtml(t.channel)}</span></h3>
-          <p style="${contentStyles.body}">${escapeHtml(t.definition)}</p>
-          ${t.simple ? `<p style="margin-top:6px;${contentStyles.body}"><strong>Просто:</strong> ${escapeHtml(t.simple)}</p>` : ''}
-          ${t.formula ? `<p style="margin-top:6px;${contentStyles.muted}"><code>${escapeHtml(t.formula)}</code></p>` : ''}
-          ${t.seoHint ? `<p style="margin-top:6px;${contentStyles.muted}"><strong>Практика:</strong> ${escapeHtml(t.seoHint)}</p>` : ''}
-        </div>`,
-    )
-    .join('')}</div>`;
+function renderGlossaryListHtml(terms = [], sections = [], sources = []) {
+  const sectionById = new Map(sections.map((section) => [section.id, section]));
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+
+  return sections
+    .map((section) => {
+      const sectionTerms = terms.filter((term) => term.primarySection === section.id);
+      if (!sectionTerms.length) return '';
+      return `
+        <section aria-labelledby="glossary-section-${escapeStructuredId(section.id)}" style="margin-bottom:32px">
+          <h2 id="glossary-section-${escapeStructuredId(section.id)}" style="margin:0 0 12px;font-size:21px;font-weight:800">${escapeHtml(section.label)}</h2>
+          <div style="display:grid;gap:12px">
+            ${sectionTerms.map((term) => {
+              const termSources = (term.sourceIds || []).map((sourceId) => sourceById.get(sourceId)).filter(Boolean);
+              return `
+                <details id="term-${escapeStructuredId(term.id)}" style="${contentStyles.cardBox};scroll-margin-top:96px">
+                  <summary style="cursor:pointer;font-weight:700;font-size:15px">
+                    ${escapeHtml(glossaryTermLabel(term))}
+                    <span style="font-weight:400;${contentStyles.muted}"> · ${escapeHtml(sectionById.get(term.primarySection)?.label || term.primarySection)} · ${escapeHtml(term.category)}</span>
+                  </summary>
+                  ${term.disambiguation ? `<p style="margin:10px 0 0;${contentStyles.muted}"><strong>Не путать:</strong> ${escapeHtml(term.disambiguation)}</p>` : ''}
+                  <p style="margin:10px 0 0;${contentStyles.body}">${escapeHtml(term.definition)}</p>
+                  ${term.simple ? `<p style="margin-top:6px;${contentStyles.body}"><strong>Просто:</strong> ${escapeHtml(term.simple)}</p>` : ''}
+                  ${term.formula ? `<p style="margin-top:6px;${contentStyles.muted}"><strong>Формула:</strong> <code>${escapeHtml(term.formula)}</code></p>` : ''}
+                  ${term.useWhen ? `<p style="margin-top:6px;${contentStyles.muted}"><strong>Практика:</strong> ${escapeHtml(term.useWhen)}</p>` : ''}
+                  ${(term.caveats || []).length ? `<ul style="margin:8px 0 0;padding-left:20px;${contentStyles.muted}">${term.caveats.map((caveat) => `<li>${escapeHtml(caveat)}</li>`).join('')}</ul>` : ''}
+                  ${(term.aliases || []).length ? `<p style="margin-top:6px;${contentStyles.muted}"><strong>Также ищут:</strong> ${term.aliases.map((alias) => escapeHtml(`${alias.value}${alias.scope ? ` (${alias.scope})` : ''}`)).join(', ')}</p>` : ''}
+                  ${(term.relatedIds || []).length ? `<p style="margin-top:6px;${contentStyles.muted}"><strong>Связанные:</strong> ${term.relatedIds.map((relatedId) => `<a href="#term-${escapeStructuredId(relatedId)}">${escapeHtml(relatedId)}</a>`).join(' · ')}</p>` : ''}
+                  ${termSources.length ? `<p style="margin-top:8px;${contentStyles.muted}"><strong>Официальные источники:</strong> ${termSources.map((source) => `<a href="${escapeHtml(source.url)}" rel="noopener noreferrer">${escapeHtml(source.publisher)}</a>`).join(' · ')} · проверено ${escapeHtml(term.reviewedAt)}</p>` : ''}
+                </details>`;
+            }).join('')}
+          </div>
+        </section>`;
+    })
+    .join('');
 }
 
 function renderServicePageSections(config) {
@@ -933,8 +1017,8 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
     ? faqOverride.items
     : content.faqs;
   const faqSeo = mergePublishedContent({
-    title: 'Вопросы о рекламе, аналитике и продвижении приложений',
-    description: 'Понятные ответы о Google Ads, Meta Ads, аналитике, бюджетах, запуске рекламы и продвижении мобильных приложений.',
+    title: content.FAQ_SEO.title,
+    description: content.FAQ_SEO.description,
   }, faqOverride?.seo);
 
   const staticPages = [
@@ -968,18 +1052,22 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       route: '/faq',
       title: documentTitle(faqSeo.title),
       description: faqSeo.description,
-      h1: 'Ответы на вопросы о рекламе и аналитике',
-      lead: 'Без универсальных обещаний: что нужно для старта, как оценивается результат и от чего зависят сроки и стоимость.',
-      sections: [{ heading: null, bodyHtml: renderFaqListHtml(faqItems) }],
+      h1: content.FAQ_SEO.h1,
+      lead: content.FAQ_SEO.lead,
+      sections: [{ heading: null, bodyHtml: renderFaqListHtml(faqItems, content.FAQ_CATEGORIES) }],
       extraJsonLd: [buildFaqJsonLd(faqItems)],
     },
     {
       route: '/marketing-glossary',
-      title: 'Словарь рекламных и маркетинговых метрик | Whale Wizard',
-      description: 'Понятные определения метрик рекламы, аналитики, CRM и SEO: что означает показатель, как считается и когда полезен.',
-      h1: 'Метрики без лишнего жаргона',
-      lead: 'Найдите нужный термин, посмотрите формулу и разберитесь, для какого решения показатель действительно полезен.',
-      sections: [{ heading: null, bodyHtml: renderGlossaryListHtml(content.marketingGlossary) }],
+      title: documentTitle(content.MARKETING_GLOSSARY_SEO.title),
+      description: content.MARKETING_GLOSSARY_SEO.description,
+      h1: content.MARKETING_GLOSSARY_SEO.h1,
+      lead: content.MARKETING_GLOSSARY_SEO.lead,
+      sections: [{
+        heading: null,
+        bodyHtml: renderGlossaryListHtml(content.marketingGlossary, content.GLOSSARY_SECTIONS, content.glossarySources),
+      }],
+      extraJsonLd: [buildGlossaryJsonLd(content.marketingGlossary)],
     },
     {
       route: '/privacy-policy',
@@ -1125,9 +1213,9 @@ function renderBlogPages(articles, baseHtml) {
     route: '/blog',
     title: 'Блог о рекламе и аналитике | Whale Wizard',
     description: 'Практические материалы о Google Ads, Meta Ads, аналитике и экономике рекламы.',
-    h1: 'Практика рекламы и аналитики',
-    lead: 'Разборы настройки, измерения и решений по данным — без пересказа справки рекламных кабинетов.',
-    eyebrow: 'Материалы Whale Wizard',
+    h1: 'Решения для реальных задач',
+    lead: 'Выберите, что нужно решить. Покажу разборы, которые помогают принять решение, а не пересказывают справку рекламного кабинета.',
+    eyebrow: 'Практический блог',
     emptyText: 'Статьи скоро появятся.',
   }, baseHtml);
 
@@ -1206,6 +1294,13 @@ function validateGeneratedOutput(staticPages = []) {
     'application/ld+json',
     '"@type":"FAQPage"',
   ], 'Generated /faq HTML');
+
+  assertFileContains(routeIndexPath('/marketing-glossary'), [
+    'application/ld+json',
+    '"@type":"DefinedTermSet"',
+    'id="term-meta-app-event-optimization"',
+    'id="term-app-tracking-transparency"',
+  ], 'Generated /marketing-glossary HTML');
 
   assertFileContains(routeIndexPath('/cases'), [
     `${SITE_URL}/cases/`,

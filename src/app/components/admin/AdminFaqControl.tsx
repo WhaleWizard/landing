@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Plus, RefreshCw, RotateCcw, Save, Send, Trash2 } from 'lucide-react';
-import { faqs, type FaqItem } from '../../pages/FAQPage';
+import { FAQ_CATEGORIES, FAQ_SEO, faqs, type FaqItem } from '../../pages/FAQPage';
 import { AdminSelect } from './AdminUI';
 
 type VersionRow = { id: number; source: 'draft' | 'published'; created_at: string };
-const CATEGORIES: FaqItem['category'][] = ['Старт', 'Бюджет', 'Результат', 'Аналитика', 'Процесс', 'Приложения', 'Консультация'];
+type FaqSeo = { title: string; description: string };
+const CATEGORIES: FaqItem['category'][] = [...FAQ_CATEGORIES];
 
 function cloneItems(items: FaqItem[]): FaqItem[] {
-  return items.map((item) => ({ ...item, details: [...item.details] }));
+  return items.map((item) => ({
+    ...item,
+    details: [...item.details],
+    relatedTermIds: item.relatedTermIds ? [...item.relatedTermIds] : undefined,
+    sourceIds: item.sourceIds ? [...item.sourceIds] : undefined,
+  }));
 }
 
 export default function AdminFaqControl({ password }: { password: string }) {
@@ -16,6 +22,7 @@ export default function AdminFaqControl({ password }: { password: string }) {
   const [status, setStatus] = useState<'static' | 'draft' | 'published'>('static');
   const [hasPublishedVersion, setHasPublishedVersion] = useState(false);
   const [version, setVersion] = useState(0);
+  const [seo, setSeo] = useState<FaqSeo>({ title: FAQ_SEO.title, description: FAQ_SEO.description });
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
@@ -36,7 +43,12 @@ export default function AdminFaqControl({ password }: { password: string }) {
       const payload = await response.json().catch(() => null) as {
         success?: boolean;
         error?: string;
-        section?: { draft?: { items?: FaqItem[] }; published?: { items?: FaqItem[] }; status?: 'draft' | 'published'; version?: number } | null;
+        section?: {
+          draft?: { items?: FaqItem[]; seo?: Partial<FaqSeo> };
+          published?: { items?: FaqItem[]; seo?: Partial<FaqSeo> };
+          status?: 'draft' | 'published';
+          version?: number;
+        } | null;
         versions?: VersionRow[];
       } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -45,6 +57,11 @@ export default function AdminFaqControl({ password }: { password: string }) {
         return false;
       }
       setItems(payload.section?.draft?.items?.length ? cloneItems(payload.section.draft.items) : cloneItems(faqs));
+      const loadedSeo = payload.section?.draft?.seo || payload.section?.published?.seo;
+      setSeo({
+        title: loadedSeo?.title?.trim() || FAQ_SEO.title,
+        description: loadedSeo?.description?.trim() || FAQ_SEO.description,
+      });
       setStatus(payload.section?.status || 'static');
       setHasPublishedVersion(Boolean(payload.section?.published?.items?.length));
       setVersion(Number(payload.section?.version || 0));
@@ -79,7 +96,13 @@ export default function AdminFaqControl({ password }: { password: string }) {
     }
     const newIndex = items.length;
     setQuery('');
-    setItems((current) => [...current, { category: 'Старт', question: 'Новый вопрос', answer: 'Короткий ответ', details: ['Первое уточнение'] }]);
+    setItems((current) => [...current, {
+      id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      category: 'Старт',
+      question: 'Новый вопрос',
+      answer: 'Короткий ответ',
+      details: ['Первое уточнение'],
+    }]);
     setPublishArmed(false);
     window.setTimeout(() => document.getElementById(`faq-${newIndex}-question`)?.focus(), 0);
   };
@@ -113,7 +136,7 @@ export default function AdminFaqControl({ password }: { password: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action, key: 'site:faq', pagePath: '/faq', label: 'FAQ', content: { items: savedItems } }),
+        body: JSON.stringify({ action, key: 'site:faq', pagePath: '/faq', label: 'FAQ', content: { items: savedItems, seo } }),
       });
       const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -195,7 +218,7 @@ export default function AdminFaqControl({ password }: { password: string }) {
         <section className="admin-card admin-content-editor">
           <div className="admin-stack">
             {indexedItems.map(({ item, index }) => (
-              <details className="admin-disclosure" key={index} defaultOpen={indexedItems.length <= 3 || (index === items.length - 1 && item.question === 'Новый вопрос')}>
+              <details className="admin-disclosure" key={item.id} defaultOpen={indexedItems.length <= 3 || (index === items.length - 1 && item.question === 'Новый вопрос')}>
                 <summary><span>{index + 1}. {item.question}</span><span className="admin-meta">{item.category}</span></summary>
                 <div className="admin-form-grid">
                   <AdminSelect

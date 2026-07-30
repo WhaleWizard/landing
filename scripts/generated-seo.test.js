@@ -130,6 +130,7 @@ test('every generated HTML route has one coherent SEO contract', () => {
       assert.equal(meta(head, 'property', 'article:published_time').length, 1, `${route}: missing published time`);
     }
     if (route === '/faq') assert.ok(types.includes('FAQPage'), '/faq: missing FAQPage schema');
+    if (route === '/marketing-glossary') assert.ok(types.includes('DefinedTermSet'), '/marketing-glossary: missing DefinedTermSet schema');
   }
 
   const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');

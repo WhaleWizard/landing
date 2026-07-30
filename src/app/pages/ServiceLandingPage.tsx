@@ -532,53 +532,67 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
       },
     },
     cases: {
-      badge: 'Сценарии продвижения',
-      titlePrefix: 'Оптимизация зависит',
-      titleAccent: 'от модели приложения',
-      description: 'Это не клиентские кейсы и не прогноз результата. Ниже — четыре типовые воронки, для каждой нужны свои события и критерии эффективности.',
+      badge: 'Расчётные кейсы Meta Ads',
+      titlePrefix: 'Сильный результат —',
+      titleAccent: 'это экономика, а не дешёвый CPI',
+      description: 'Четыре модельных кейса на основе открытых app-бенчмарков и механик Meta. Это не клиентская отчётность и не обещание результата: в каждом примере сходится вся воронка — от установки до маржинальной выручки D90. Бюджет — медиазатраты, ROMI — после продуктовой себестоимости и платёжных комиссий.',
+      sourceLinks: [
+        {
+          label: 'Meta Advantage+ app campaigns',
+          href: 'https://www.facebook.com/business/ads/meta-advantage-plus/app-campaigns',
+        },
+        {
+          label: 'AppsFlyer: Brazil 2025',
+          href: 'https://www.appsflyer.com/resources/reports/state-app-marketing-brazil/',
+        },
+        {
+          label: 'CPI-бенчмарки 2026',
+          href: 'https://www.promodo.com/blog/mobile-marketing-benchmarks',
+        },
+      ],
       items: [
         {
-          title: 'Приложение с подпиской',
-          category: 'Триал и подписка',
-          description: 'Сначала оптимизируемся на триал, затем — на первую оплату, когда таких событий уже достаточно.',
-          image: CASE_IMAGES.info,
+          title: 'PulseForm — fitness по подписке',
+          category: 'Бразилия + Мексика · 12 недель',
+          description: '65% бюджета — Advantage+ с переходом StartTrial → Subscribe, 20% — тест 24 локализованных креативов, 15% — возврат активировавшихся без оплаты. Итог: 15 000 установок, 624 подписки и $27 300 валовой выручки D90. После комиссии стора 15% вклад до маркетинга — $23 205, ROMI — 29%.',
+          image: '/images/meta-app-case-pulselarch.jpg',
           stats: [
-            { label: 'Установка', value: 'CPI' },
-            { label: 'Триал', value: 'CPA' },
-            { label: 'Подписка', value: 'CAC' },
+            { label: 'Бюджет', value: '$18 000' },
+            { label: 'CPI', value: '$1,20' },
+            { label: 'ROMI', value: '+29%' },
           ],
         },
         {
-          title: 'Доставка или маркетплейс',
-          category: 'Первый заказ',
-          description: 'Отделяем первый заказ от повторного и считаем стоимость привлечения по экономике заказа, а не по переходу в стор.',
-          image: CASE_IMAGES.ecommerce,
+          title: 'Korziloop — доставка и маркетплейс',
+          category: 'Египет + Иордания · 10 недель',
+          description: '70% бюджета — привлечение по городам с переходом на Purchase, 20% — возврат зарегистрированных без заказа, 10% — тесты. Итог: 24 000 установок, 6 480 первых заказов и $66 100 выручки платформы D90. После выплат курьерам и промо вкладная маржа — 40%, ROMI — 62%.',
+          image: '/images/meta-app-case-korziloop.jpg',
           stats: [
-            { label: 'Установка', value: 'CPI' },
-            { label: 'Первый заказ', value: 'CPA' },
-            { label: 'Повтор', value: 'LTV' },
+            { label: 'Бюджет', value: '$16 320' },
+            { label: 'CPI', value: '$0,68' },
+            { label: 'ROMI', value: '+62%' },
           ],
         },
         {
-          title: 'Мобильная игра',
-          category: 'Активация и покупки',
-          description: 'Связываем рекламу с прохождением онбординга и первой покупкой, а в креативах показываем реальный игровой процесс.',
-          image: CASE_IMAGES.b2c,
+          title: 'Tinker Isles — casual merge',
+          category: 'Латинская Америка · 8 недель',
+          description: '70% бюджета — acquisition с лестницей Tutorial → Level 10 → Purchase, 20% — новые концепты, 10% — возврат игроков. Итог: 50 000 установок, D30 retention 6% и $52 800 валовой выручки D90 с IAP и рекламы. При вкладной марже 75% ROMI — 80%.',
+          image: '/images/meta-app-case-brindlebyte-isles.jpg',
           stats: [
-            { label: 'Установка', value: 'CPI' },
-            { label: 'Активация', value: 'CPA' },
-            { label: 'Покупки', value: 'ROAS' },
+            { label: 'Бюджет', value: '$22 000' },
+            { label: 'CPI', value: '$0,44' },
+            { label: 'ROMI', value: '+80%' },
           ],
         },
         {
-          title: 'Сервис в приложении',
-          category: 'Заявка или запись',
-          description: 'Оптимизируемся на запись, заявку или оплату. Если сделка закрывается позже, возвращаем её статус в Meta.',
-          image: CASE_IMAGES.concierge,
+          title: 'Velora Booking — запись на услуги',
+          category: 'ОАЭ · 12 недель',
+          description: '60% бюджета — BookingConfirmed, 20% — связки город × услуга, по 10% — ретаргетинг и тесты. Итог: 9 000 установок, 2 052 первые записи и $60 000 выручки платформы D90. При вкладной марже около 66% ROMI округляется до 38%: дорогой CPI окупает высокий средний чек.',
+          image: '/images/meta-app-case-veloraslot.jpg',
           stats: [
-            { label: 'Установка', value: 'CPI' },
-            { label: 'Заявка', value: 'CPL' },
-            { label: 'Клиент', value: 'CAC' },
+            { label: 'Бюджет', value: '$28 800' },
+            { label: 'CPI', value: '$3,20' },
+            { label: 'ROMI', value: '+38%' },
           ],
         },
       ],
@@ -1038,7 +1052,10 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
         anchorId="cases"
         heights={{ mobile: 1050, tablet: 1730, desktop: 1730 }}
       >
-        <Cases content={config.cases} moreHref={`/cases?from=${service}`} />
+        <Cases
+          content={config.cases}
+          moreHref={service === 'meta-apps' ? undefined : `/cases?from=${service}`}
+        />
       </DeferredSection>
       <DeferredSection heights={{ mobile: 410, tablet: 390, desktop: 371 }}>
         <CallToAction content={config.cta} />
