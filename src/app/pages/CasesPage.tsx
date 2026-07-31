@@ -1,3 +1,6 @@
+// Тот же файл стилей, что и у CaseArticleView: кроме .case-article-* в нём
+// лежат все .cases-* правила витрины кейсов, поэтому импорт нужен и здесь.
+import '../../styles/cases-finder.css';
 import {
   useCallback,
   useEffect,
