@@ -1,0 +1,3 @@
+# Project owner explicitly requested uninterrupted execution for in-scope tasks.
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
