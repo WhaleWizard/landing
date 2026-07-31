@@ -351,23 +351,13 @@
   gap: 2.1cqw;
 }
 
-/*
- * Единая сетка экрана телефона (значения в cqw = % ширины экрана 467px):
- *   5.2  — поле контента (левый и правый край карточек)
- *   8.4  — рельс таймлайна: линия и точки строк/уведомлений
- *  12.8  — левый край иконки, одинаковый у строк событий и уведомлений
- *  27.6  — левый край текста, тоже общий для обеих групп
- * Иконка 10.6, зазор до текста 4.2, правый внутренний отступ карточки 4.2.
- * Рельс проходит между краем карточки и иконкой, поэтому линия больше не
- * пересекает глифы.
- */
 .meta-phone-events__line,
 .meta-phone-events__pulse {
   position: absolute;
   z-index: 1;
-  top: 8.85cqw;
-  bottom: 8.85cqw;
-  left: 8.4cqw;
+  top: 8.5cqw;
+  bottom: 8.5cqw;
+  left: 8.2cqw;
   width: 1px;
   transform-origin: top;
   background: linear-gradient(180deg, #4f7dff 0%, #627fff 34%, #b04dff 68%, #ff7ab6 100%);
@@ -375,7 +365,7 @@
 }
 
 .meta-phone-events__pulse {
-  top: 8.85cqw;
+  top: 8cqw;
   bottom: auto;
   z-index: 3;
   width: 1.8cqw;
@@ -392,7 +382,7 @@
   display: flex;
   align-items: center;
   min-height: 17.7cqw;
-  padding: 2.4cqw 4.2cqw 2.4cqw 7.6cqw;
+  padding: 2.4cqw 3.5cqw 2.4cqw 2.6cqw;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 3.2cqw;
   background: linear-gradient(105deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
@@ -403,7 +393,7 @@
   position: absolute;
   z-index: 4;
   top: 50%;
-  left: 8.4cqw;
+  left: 7.65cqw;
   width: 2cqw;
   height: 2cqw;
   transform: translate(-50%, -50%);
@@ -419,16 +409,16 @@
   z-index: 2;
   display: grid;
   flex: 0 0 auto;
-  width: 10.6cqw;
-  height: 10.6cqw;
-  margin-right: 4.2cqw;
+  width: 10.5cqw;
+  height: 10.5cqw;
+  margin-right: 5.2cqw;
   place-items: center;
   color: #e8e9ed;
 }
 
 .meta-phone-event__icon svg {
-  width: 7cqw;
-  height: 7cqw;
+  width: 7.4cqw;
+  height: 7.4cqw;
 }
 
 .meta-phone-event__copy {
@@ -467,7 +457,7 @@
   display: flex;
   align-items: center;
   min-height: 21.4cqw;
-  padding: 3.3cqw 4.2cqw 3.3cqw 7.6cqw;
+  padding: 3.3cqw 4.1cqw 3.3cqw 6.2cqw;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 5.4cqw;
   background: linear-gradient(130deg, rgba(26, 28, 31, 0.97), rgba(12, 13, 15, 0.98));
@@ -479,7 +469,7 @@
 .meta-phone-notification__dot {
   position: absolute;
   top: 4cqw;
-  left: 8.4cqw;
+  left: 3.6cqw;
   width: 2cqw;
   height: 2cqw;
   border-radius: 50%;
@@ -490,9 +480,9 @@
 .meta-phone-notification__icon {
   display: grid;
   flex: 0 0 auto;
-  width: 10.6cqw;
-  height: 10.6cqw;
-  margin-right: 4.2cqw;
+  width: 11.7cqw;
+  height: 11.7cqw;
+  margin-right: 3.6cqw;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 2.9cqw;
@@ -501,8 +491,8 @@
 }
 
 .meta-phone-notification__icon svg {
-  width: 7cqw;
-  height: 7cqw;
+  width: 6.8cqw;
+  height: 6.8cqw;
 }
 
 .meta-phone-notification__copy {
