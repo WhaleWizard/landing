@@ -1072,10 +1072,16 @@ export default function Admin() {
                     {editingArticle.slug && (
                       <button
                         type="button"
-                        onClick={() => window.open(`/blog/${editingArticle.slug}`, '_blank', 'noopener,noreferrer')}
+                        onClick={() => window.open(
+                          // Кейсы живут на /cases: раньше кнопка всегда вела на /blog
+                          // и для кейса открывала несуществующий адрес.
+                          `${editingArticle.category === CASES_CATEGORY ? '/cases' : '/blog'}/${editingArticle.slug}`,
+                          '_blank',
+                          'noopener,noreferrer',
+                        )}
                         className="inline-flex items-center gap-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] px-3 py-2 text-sm text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50"
                       >
-                        <ExternalLink className="h-4 w-4" /> Открыть статью
+                        <ExternalLink className="h-4 w-4" /> {editingArticle.category === CASES_CATEGORY ? 'Открыть кейс' : 'Открыть статью'}
                       </button>
                     )}
                   </div>

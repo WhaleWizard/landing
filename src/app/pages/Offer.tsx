@@ -1,11 +1,13 @@
+import { lazy, Suspense } from 'react';
 import { motion } from 'motion/react';
+import Navbar from '../components/Navbar';
+import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
 import OfferContent from '../components/legal/OfferContent';
-import { useOriginAwareBack } from '../utils/useOriginAwareBack';
+
+const Footer = lazy(() => import('../components/Footer'));
 
 export default function Offer() {
-  const { goBack, label: backLabel } = useOriginAwareBack();
-
   return (
     <>
       <SEO
@@ -13,34 +15,39 @@ export default function Offer() {
         description="Официальный документ, регулирующий условия предоставления услуг по настройке и ведению рекламных кампаний Whale Wizard. Порядок оплаты, ответственность сторон, права на креативы."
         url="/offer"
       />
-      <section className="min-h-screen bg-background py-20 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Возврат к странице, с которой открыли документ. */}
-          <div className="mb-6">
-            <button
-              onClick={goBack}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-transparent border-none"
+      <Navbar variant="content" />
+      <main className="min-h-screen bg-background pt-24 md:pt-28">
+        <section className="px-4 pb-16 sm:px-6">
+          <div className="mx-auto max-w-4xl">
+            {/* Возврат к странице, с которой открыли документ. */}
+            <PageNav
+              crumbs={[
+                { label: 'Главная', to: '/' },
+                { label: 'Публичная оферта' },
+              ]}
+              className="mb-8"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center mb-12"
             >
-              ← {backLabel}
-            </button>
-          </div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
+                Публичная<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> оферта</span>
+              </h1>
+              <p className="text-muted-foreground mt-4">Дата последнего обновления: 29 мая 2026 г.</p>
+            </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-12"
-          >
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-              Публичная<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> оферта</span>
-            </h1>
-            <p className="text-muted-foreground mt-4">Дата последнего обновления: 29 мая 2026 г.</p>
-          </motion.div>
-
-          <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary max-w-none space-y-6">
-            <OfferContent />
+            <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary max-w-none space-y-6">
+              <OfferContent />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
+      </main>
     </>
   );
 }

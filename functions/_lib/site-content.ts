@@ -122,6 +122,63 @@ function sanitizeSectionIntro(value: unknown): UnknownRecord | undefined {
   return Object.keys(target).length ? target : undefined;
 }
 
+/**
+ * Поле, у которого пустая строка — осмысленное значение.
+ * Обычный text() пустую строку выбрасывает, и на публичной странице
+ * всплывает старый текст из кода: очистить поле в админке становится нельзя.
+ */
+function clearableText(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  return value.replace(/<[^>]*>/g, '').replace(/[<>]/g, '').replace(/\r\n/g, '\n').trim().slice(0, max);
+}
+
+/** Модалка «Как я работаю»: заголовок, кнопка и разделы с длинным текстом. */
+function sanitizeDetailed(value: unknown): UnknownRecord | undefined {
+  const source = object(value);
+  const target: UnknownRecord = {};
+  assignText(target, source, 'title', 160);
+  assignText(target, source, 'button', 80);
+
+  if (Array.isArray(source.sections)) {
+    const sections = source.sections.slice(0, 8).map((item) => {
+      const row = object(item);
+      const title = text(row.title, 200);
+      const body = text(row.text, 2_500);
+      if (!title && !body) return null;
+      const section: UnknownRecord = {};
+      if (title) section.title = title;
+      if (body) section.text = body;
+      assignVisualSlot(section, row);
+      return section;
+    }).filter((item): item is UnknownRecord => Boolean(item));
+    if (sections.length) target.sections = sections;
+  }
+
+  return Object.keys(target).length ? target : undefined;
+}
+
+/**
+ * Карточки отзывов. Все четыре поля пишем всегда: массивы объектов
+ * подмешиваются к исходным по позиции, и пропущенный ключ подтянул бы
+ * компанию или должность от чужого отзыва.
+ */
+function sanitizeTestimonialItems(value: unknown): UnknownRecord[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.slice(0, 40).map((item): UnknownRecord | null => {
+    const row = object(item);
+    const name = text(row.name, 80);
+    const body = text(row.text, 900);
+    if (!name || !body) return null;
+    return {
+      name,
+      text: body,
+      company: clearableText(row.company, 120) ?? '',
+      position: clearableText(row.position, 120) ?? '',
+    };
+  }).filter((item): item is UnknownRecord => Boolean(item));
+  return items.length ? items : undefined;
+}
+
 function sanitizeCards(value: unknown): UnknownRecord[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const cards = value.slice(0, 8).map((item) => {
@@ -212,16 +269,35 @@ export function sanitizeServiceContent(value: unknown): UnknownRecord {
   const hero = sanitizeHero(source.hero);
   const services = sanitizeSectionIntro(source.services);
   const serviceCards = sanitizeCards(object(source.services).cards);
-  if (services || serviceCards) target.services = { ...(services || {}), ...(serviceCards ? { cards: serviceCards } : {}) };
+  const serviceDetailed = sanitizeDetailed(object(source.services).detailed);
+  if (services || serviceCards || serviceDetailed) {
+    target.services = {
+      ...(services || {}),
+      ...(serviceCards ? { cards: serviceCards } : {}),
+      ...(serviceDetailed ? { detailed: serviceDetailed } : {}),
+    };
+  }
   const cases = sanitizeSectionIntro(source.cases);
   const caseItems = sanitizeCaseItems(object(source.cases).items);
   const cta = sanitizeCta(source.cta);
   const contact = sanitizeContact(source.contact);
   const seo = sanitizeSeo(source.seo);
+  const testimonials = sanitizeSectionIntro(source.testimonials);
+  const testimonialStats = sanitizeStats(object(source.testimonials).stats);
+  const testimonialItems = sanitizeTestimonialItems(object(source.testimonials).items);
   if (seo) target.seo = seo;
   if (hero) target.hero = hero;
   if (cases || caseItems) target.cases = { ...(cases || {}), ...(caseItems ? { items: caseItems } : {}) };
   if (cta) target.cta = cta;
+  // Блок отзывов на страницах услуг раньше вообще не принимался сервером:
+  // он отображался, но правился только в коде.
+  if (testimonials || testimonialStats || testimonialItems) {
+    target.testimonials = {
+      ...(testimonials || {}),
+      ...(testimonialStats ? { stats: testimonialStats } : {}),
+      ...(testimonialItems ? { items: testimonialItems } : {}),
+    };
+  }
   if (contact) target.contact = contact;
   return target;
 }
@@ -233,18 +309,32 @@ export function sanitizeHomeContent(value: unknown): UnknownRecord {
   const hero = sanitizeHero(source.hero);
   const services = sanitizeSectionIntro(source.services);
   const serviceCards = sanitizeCards(object(source.services).cards);
+  const serviceDetailed = sanitizeDetailed(object(source.services).detailed);
   const cases = sanitizeSectionIntro(source.cases);
   const caseItems = sanitizeCaseItems(object(source.cases).items);
   const callToAction = sanitizeCta(source.callToAction);
   const testimonials = sanitizeSectionIntro(source.testimonials);
   const testimonialStats = sanitizeStats(object(source.testimonials).stats);
+  const testimonialItems = sanitizeTestimonialItems(object(source.testimonials).items);
   const contact = sanitizeContact(source.contact);
   if (seo) target.seo = seo;
   if (hero) target.hero = hero;
-  if (services || serviceCards) target.services = { ...(services || {}), ...(serviceCards ? { cards: serviceCards } : {}) };
+  if (services || serviceCards || serviceDetailed) {
+    target.services = {
+      ...(services || {}),
+      ...(serviceCards ? { cards: serviceCards } : {}),
+      ...(serviceDetailed ? { detailed: serviceDetailed } : {}),
+    };
+  }
   if (cases || caseItems) target.cases = { ...(cases || {}), ...(caseItems ? { items: caseItems } : {}) };
   if (callToAction) target.callToAction = callToAction;
-  if (testimonials || testimonialStats) target.testimonials = { ...(testimonials || {}), ...(testimonialStats ? { stats: testimonialStats } : {}) };
+  if (testimonials || testimonialStats || testimonialItems) {
+    target.testimonials = {
+      ...(testimonials || {}),
+      ...(testimonialStats ? { stats: testimonialStats } : {}),
+      ...(testimonialItems ? { items: testimonialItems } : {}),
+    };
+  }
   if (contact) target.contact = contact;
   return target;
 }

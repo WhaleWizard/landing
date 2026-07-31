@@ -191,7 +191,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
       ],
       detailed: {
         title: 'Как строится работа',
-        button: 'Обсудить задачу',
+        button: 'Обсудить проект',
         sections: [
           {
             title: '1. ЦЕЛЬ И ДИАГНОСТИКА',
@@ -302,7 +302,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
         'Перед стартом считаю спрос и допустимую цену заявки: если для нормального теста их не хватает, скажу заранее. Конверсии настраиваю так, чтобы Google видел продажи, а не просто клики.',
       ],
       primaryButton: 'Оценить спрос',
-      secondaryButton: 'Типовые задачи',
+      secondaryButton: 'Примеры проектов',
       stats: [
         { value: 'Search', label: 'клиенты из поиска' },
         { value: 'PMax', label: 'товары и охват' },
@@ -346,7 +346,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
       ],
       detailed: {
         title: 'Как строится работа',
-        button: 'Обсудить задачу',
+        button: 'Обсудить проект',
         sections: [
           {
             title: '1. СПРОС И ЭКОНОМИКА',
@@ -373,7 +373,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     },
     cases: {
       badge: 'Когда я полезен',
-      titlePrefix: 'Типовые задачи в',
+      titlePrefix: 'Примеры проектов в',
       titleAccent: 'Google Ads',
       description: 'Четыре ситуации, для которых нужен разный набор кампаний, данных и критериев оценки.',
       items: [
@@ -427,7 +427,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
       badge: 'Предварительный разбор',
       title: 'Запуск с нуля или порядок в текущем аккаунте?',
       description: 'Посмотрю сайт, спрос и цифры. Отвечу, какой формат Google Ads проверить первым и что подготовить до старта.',
-      button: 'Обсудить задачу',
+      button: 'Обсудить проект',
     },
     contact: {
       badge: 'Предварительный разбор',
@@ -1020,7 +1020,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
   return (
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden" style={cssVars}>
       <SEO {...config.seo} />
-      <Navbar variant="service" staticLogo={service === 'meta-apps'} />
+      <Navbar variant="service" />
       <Hero
         content={config.hero}
         visual={service === 'meta-apps' ? 'meta-apps' : service === 'consult' ? 'portrait' : 'default'}
@@ -1040,7 +1040,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
       >
         <Cases
           content={config.cases}
-          moreHref={service === 'meta-apps' ? undefined : `/cases?from=${service}`}
+          moreHref={`/cases?from=${service}`}
         />
       </DeferredSection>
       <DeferredSection heights={{ mobile: 410, tablet: 390, desktop: 371 }}>
@@ -1050,7 +1050,10 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
         anchorId="about"
         heights={{ mobile: 1120, tablet: 1124, desktop: 1124 }}
       >
-        <Testimonials content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined} />
+        <Testimonials
+          content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined}
+          contentKey={`service:${service}`}
+        />
       </DeferredSection>
       <DeferredSection
         anchorId="contact"

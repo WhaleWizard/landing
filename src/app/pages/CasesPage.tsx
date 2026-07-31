@@ -2,6 +2,8 @@
 // лежат все .cases-* правила витрины кейсов, поэтому импорт нужен и здесь.
 import '../../styles/cases-finder.css';
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -14,7 +16,6 @@ import {
 import { useLocation, useNavigate } from 'react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
-  ArrowLeft,
   ArrowRight,
   ArrowUpDown,
   BriefcaseBusiness,
@@ -30,6 +31,7 @@ import {
 import SEO from '../components/SEO';
 import { isCaseArticle } from '../utils/articleCategory';
 import Navbar from '../components/Navbar';
+import PageNav from '../components/PageNav';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   Sheet,
@@ -53,6 +55,8 @@ import {
   getCaseGoals,
   getMergedCaseData,
 } from '../data/caseCatalog';
+
+const Footer = lazy(() => import('../components/Footer'));
 
 
 // Keep only known acquisition parameters while the catalog rewrites its own
@@ -562,12 +566,6 @@ export default function CasesPage() {
     setQuery('');
   }, []);
 
-  const backTarget = origin ? CASE_BACK_TARGETS[origin] : null;
-  const goBack = useCallback(() => {
-    navigate(backTarget?.path || '/');
-    window.scrollTo({ top: 0 });
-  }, [backTarget, navigate]);
-
   const goToContact = useCallback(() => {
     navigate('/');
     window.setTimeout(() => scrollToWhenReady('contact'), 40);
@@ -615,17 +613,14 @@ export default function CasesPage() {
       <main className="cases-finder marketing-typography min-h-screen bg-background">
         <section className="cases-finder-hero">
           <div className="cases-finder-container">
-            <div className="cases-finder-navigation">
-              <button type="button" onClick={goBack} className="cases-back-link">
-                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                {backTarget ? `Назад в ${backTarget.label}` : 'На главную'}
-              </button>
-              <nav aria-label="Хлебные крошки">
-                <button type="button" onClick={() => navigate('/')}>Главная</button>
-                <span aria-hidden="true">/</span>
-                <span>Кейсы</span>
-              </nav>
-            </div>
+            <PageNav
+              crumbs={[
+                { label: 'Главная', to: '/' },
+                { label: 'Кейсы' },
+              ]}
+              backFallback="/"
+              className="mb-7"
+            />
 
             <div className="cases-finder-intro">
               <motion.div
@@ -633,7 +628,7 @@ export default function CasesPage() {
                 animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
               >
                 <span className="cases-finder-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Библиотека кейсов</span>
-                <h1>Найдите кейс под <span>свою задачу</span></h1>
+                <h1>Найдите кейс, похожий на <span>ваш проект</span></h1>
                 <p>Выберите канал, нишу или результат — и откройте полный разбор с контекстом, решениями и цифрами.</p>
               </motion.div>
               <label className="cases-search">
@@ -763,19 +758,43 @@ export default function CasesPage() {
                 ) : (
                   <div className="cases-empty-state">
                     <strong>Под эту комбинацию пока нет опубликованного кейса</strong>
-                    <p>Сбросьте часть фильтров или опишите задачу — я проверю релевантный опыт без публичного названия клиента.</p>
+                    <p>Снимите часть фильтров или расскажите о проекте — проверю, есть ли похожий опыт, без публичного названия клиента.</p>
                     <div>
                       <button type="button" onClick={clearAll}>Сбросить фильтры</button>
                       <button type="button" onClick={goToContact}>
-                        Обсудить задачу <ArrowRight className="h-4 w-4" />
+                        Обсудить проект <ArrowRight className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Перекрёстная связь разделов: из кейсов — в блог. */}
+            <section className="mt-14 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-r from-primary/10 via-card/60 to-accent/10 p-6 sm:p-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Дальше по теме</p>
+                  <h2 className="mt-1.5 text-balance text-xl font-bold sm:text-2xl">Как эти решения устроены изнутри</h2>
+                  <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
+                    В блоге — разборы механик, которые стоят за этими цифрами: воронки, аналитика, ставки и креативы.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/blog')}
+                  className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95"
+                >
+                  <span className="text-sm md:text-base">Читать блог</span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </button>
+              </div>
+            </section>
           </div>
         </section>
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
       </main>
     </>
   );

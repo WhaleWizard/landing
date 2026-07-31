@@ -24,6 +24,8 @@ export type TestimonialsContent = {
   titlePrefix: string;
   titleAccent: string;
   description: string;
+  /** Сами карточки отзывов. Редактируются в админке. */
+  items?: Testimonial[];
   typography?: ContentTypography;
 };
 
@@ -33,13 +35,6 @@ export const defaultTestimonialsStats: TestimonialStat[] = [
   { value: '79%', label: 'проектов окупаются и масштабируются' },
   { value: '$2М+', label: 'откручено в рекламе' },
 ];
-
-export const defaultTestimonialsContent: TestimonialsContent = {
-  badge: 'Отзывы о работе',
-  titlePrefix: 'Что клиенты ценят',
-  titleAccent: 'в работе со мной',
-  description: 'В отзывах чаще всего говорят о качестве заявок, понятных отчётах и быстрой реакции на изменения.',
-};
 
 export const testimonialsData: Testimonial[] = [
   {
@@ -134,6 +129,14 @@ export const testimonialsData: Testimonial[] = [
   },
 ];
 
+export const defaultTestimonialsContent: TestimonialsContent = {
+  badge: 'Отзывы о работе',
+  titlePrefix: 'Что клиенты ценят',
+  titleAccent: 'в работе со мной',
+  description: 'В отзывах чаще всего говорят о качестве заявок, понятных отчётах и быстрой реакции на изменения.',
+  items: testimonialsData,
+};
+
 const getInitials = (name: string) => {
   return name
     .split(' ')
@@ -223,10 +226,16 @@ function Testimonials({
   content?: TestimonialsContent;
   contentKey?: string | null;
 }) {
-  const fallback = useMemo(() => ({ ...contentProp, stats: statsProp }), [contentProp, statsProp]);
+  const fallback = useMemo(
+    () => ({ ...contentProp, stats: statsProp, items: contentProp.items ?? testimonialsData }),
+    [contentProp, statsProp],
+  );
   const sectionContent = useSiteSection(contentKey, 'testimonials', fallback);
   const content: TestimonialsContent = sectionContent;
   const stats = sectionContent.stats ?? statsProp;
+  // Карточки отзывов приходят из CMS; статический список — запасной вариант,
+  // если раздел ещё не сохраняли или запрос не дошёл.
+  const items = sectionContent.items?.length ? sectionContent.items : testimonialsData;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDesktopScrollbarVisible, setIsDesktopScrollbarVisible] = useState(false);
   const [isMobileAutoplayDisabled, setIsMobileAutoplayDisabled] = useState(false);
@@ -290,9 +299,9 @@ function Testimonials({
 
   const scrollMobileTestimonials = useCallback((index: number, behavior?: ScrollBehavior) => {
     const scroller = mobileScrollerRef.current;
-    if (!scroller || testimonialsData.length === 0) return;
+    if (!scroller || items.length === 0) return;
 
-    const normalizedIndex = Math.max(0, Math.min(testimonialsData.length - 1, index));
+    const normalizedIndex = Math.max(0, Math.min(items.length - 1, index));
     const cards = scroller.querySelectorAll<HTMLElement>('[data-mobile-testimonial-card]');
     const card = cards[normalizedIndex];
     if (!card) return;
@@ -386,7 +395,7 @@ function Testimonials({
     if (!isMobile || !inView || isMobileAutoplayDisabled || prefersReducedMotion) return;
 
     const timer = window.setTimeout(() => {
-      const nextIndex = (currentIndex + 1) % testimonialsData.length;
+      const nextIndex = (currentIndex + 1) % items.length;
       scrollMobileTestimonials(nextIndex, nextIndex === 0 ? 'auto' : undefined);
     }, 5000);
 
@@ -496,7 +505,7 @@ function Testimonials({
                 cursor: 'grab',
               }}
             >
-              {testimonialsData.map((testimonial, index) => (
+              {items.map((testimonial, index) => (
                 <motion.div
                   key={`${testimonial.company}-${testimonial.name}`}
                   data-testimonial-card
@@ -568,7 +577,7 @@ function Testimonials({
               WebkitOverflowScrolling: 'touch',
             }}
           >
-            {testimonialsData.map((testimonial, index) => (
+            {items.map((testimonial, index) => (
               <div
                 key={`${testimonial.company}-${testimonial.name}`}
                 data-mobile-testimonial-card
@@ -589,7 +598,7 @@ function Testimonials({
 
           {/* Индикаторы (точки) */}
           <div className="flex justify-center gap-2 mt-6">
-            {testimonialsData.map((_, index) => (
+            {items.map((_, index) => (
               <button
                 key={index}
                 onClick={() => selectMobileSlide(index)}
@@ -625,7 +634,7 @@ function Testimonials({
             </button>
             <button
               onClick={nextSlide}
-              disabled={currentIndex === testimonialsData.length - 1}
+              disabled={currentIndex === items.length - 1}
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-primary/30 backdrop-blur-sm hover:bg-primary/10 active:scale-95 transition-all"
               aria-label="Следующий отзыв"
             >

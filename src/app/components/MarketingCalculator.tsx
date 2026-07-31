@@ -750,7 +750,7 @@ export default function MarketingCalculator({
         <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
           <CalculatorSelect
             id="quote-goal"
-            label="Основная задача"
+            label="Основная цель"
             value={goal}
             onChange={(nextValue) => setGoal(nextValue as ServiceGoal)}
             options={[

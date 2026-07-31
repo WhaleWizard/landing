@@ -71,7 +71,7 @@ const servicesData: ServiceCardContent[] = [
 // Детальное описание услуг (общее для всех карточек)
 const detailedContent: ServicesContent['detailed'] = {
   title: 'Как я работаю',
-  button: 'Обсудить задачу',
+  button: 'Обсудить проект',
   sections: [
     {
       title: '1. СТРАТЕГИЯ И АНАЛИЗ',

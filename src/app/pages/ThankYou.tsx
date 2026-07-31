@@ -1,9 +1,13 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Instagram, MessageCircle, Mail, Sparkles, ArrowRight } from 'lucide-react';
 import { Youtube } from 'lucide-react';
+import { Link } from 'react-router';
 import { trackContact, trackThankYouConversion } from '../consent/consent';
+import Navbar from '../components/Navbar';
 import SEO from '../components/SEO';
+
+const Footer = lazy(() => import('../components/Footer'));
 
 
 function getThankYouContactChannel(name: string): 'telegram' | 'email' | 'social' {
@@ -53,7 +57,8 @@ export default function ThankYou() {
         url="/thank-you"
         noIndex
       />
-      <section className="marketing-typography relative min-h-screen flex items-center justify-center overflow-x-hidden bg-background py-20">
+      <Navbar variant="content" />
+      <section className="marketing-typography relative flex min-h-screen items-center justify-center overflow-x-hidden bg-background pb-20 pt-28 md:pt-32">
 
       {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-primary/10 blur-[140px]" />
@@ -101,15 +106,25 @@ export default function ThankYou() {
           transition={{ delay: 0.4 }}
           className="mt-8"
         >
-          <a
-            href="https://www.whalewzrd.com/blog"
-            className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-lg shadow-primary/30 overflow-hidden transition-transform hover:scale-105"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />
+          {/* Внутренний переход роутером: раньше здесь стоял абсолютный адрес
+              на прод, из-за чего страница перезагружалась целиком. */}
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              to="/blog"
+              className="group relative inline-flex min-h-12 items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/30 transition-transform hover:scale-105"
+            >
+              <div className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-[120%]" />
 
-            <span className="relative">Открыть блог</span>
-            <ArrowRight className="w-4 h-4 relative group-hover:translate-x-1 transition-transform" />
-          </a>
+              <span className="relative">Открыть блог</span>
+              <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+            <Link
+              to="/cases"
+              className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-border bg-card/40 px-6 font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              Посмотреть кейсы
+            </Link>
+          </div>
         </motion.div>
 
         {/* Social Bar */}
@@ -156,6 +171,9 @@ export default function ThankYou() {
 
       </div>
       </section>
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </>
   );
 }

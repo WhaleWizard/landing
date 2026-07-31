@@ -1,5 +1,9 @@
+import { lazy, Suspense } from 'react';
 import { Link, useLocation } from 'react-router';
+import Navbar from '../components/Navbar';
 import SEO from '../components/SEO';
+
+const Footer = lazy(() => import('../components/Footer'));
 
 const quickLinks = [
   {
@@ -7,6 +11,12 @@ const quickLinks = [
     title: 'Открыть блог',
     subtitle: 'Практические материалы о рекламе и аналитике',
     emoji: '🧠',
+  },
+  {
+    to: '/cases',
+    title: 'Посмотреть кейсы',
+    subtitle: 'Проекты с бюджетами, метриками и выводами',
+    emoji: '📈',
   },
   {
     to: '/calculator',
@@ -33,7 +43,8 @@ export default function NotFound() {
         url={location.pathname}
         noIndex
       />
-      <main className="marketing-typography relative overflow-hidden min-h-screen bg-[#050816] text-white px-6 py-14 md:py-20 flex items-center justify-center">
+      <Navbar variant="content" />
+      <main className="marketing-typography relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050816] px-6 pb-14 pt-28 text-white md:pb-20 md:pt-32">
       <style>{`
         @keyframes floaty {
           0%, 100% { transform: translateY(0px) rotate(-3deg); }
@@ -91,7 +102,7 @@ export default function NotFound() {
           </div>
         </div>
 
-        <div className="mt-8 grid sm:grid-cols-3 gap-3">
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {quickLinks.map((item) => (
             <Link
               key={item.to}
@@ -106,6 +117,9 @@ export default function NotFound() {
         </div>
       </section>
       </main>
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </>
   );
 }

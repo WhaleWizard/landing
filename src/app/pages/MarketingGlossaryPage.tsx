@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { ArrowRight, BookOpenText, Filter, Layers3, Link2, Search, Smartphone } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 import { Button } from '../components/ui/button';
@@ -19,6 +20,8 @@ import {
   type GlossarySectionId,
   type MarketingGlossaryItem,
 } from '../data/marketingGlossary';
+
+const Footer = lazy(() => import('../components/Footer'));
 
 type CollectionFilter = 'all' | (typeof glossaryCollections)[number]['id'];
 type SectionFilter = 'all' | GlossarySectionId;
@@ -223,7 +226,14 @@ export default function MarketingGlossaryPage() {
 
       <section className="relative overflow-hidden border-b border-border/50 bg-card/20">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 md:pt-28">
+          <PageNav
+            crumbs={[
+              { label: 'Главная', to: '/' },
+              { label: 'Словарь метрик' },
+            ]}
+            className="mb-8"
+          />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -521,7 +531,7 @@ export default function MarketingGlossaryPage() {
             <div>
               <p className="text-primary font-medium mb-1 inline-flex items-center gap-2">
                 <BookOpenText className="w-4 h-4" />
-                Метрики под задачу
+                Метрики под ваш проект
               </p>
               <h2 className="text-balance text-2xl font-semibold">Неясно, какие показатели смотреть?</h2>
               <p className="mt-2 max-w-2xl text-pretty text-muted-foreground">
@@ -532,12 +542,15 @@ export default function MarketingGlossaryPage() {
               onClick={() => navigate('/#contact')}
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
             >
-              Обсудить задачу
+              Обсудить проект
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </section>
       </main>
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </div>
   );
 }

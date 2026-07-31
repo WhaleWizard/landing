@@ -4,7 +4,6 @@
 import '../../styles/cases-finder.css';
 import { motion, useReducedMotion } from 'motion/react';
 import {
-  ArrowLeft,
   ArrowRight,
   CalendarDays,
   Clock3,
@@ -17,17 +16,19 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react';
-import type { MouseEvent, RefObject } from 'react';
+import { lazy, Suspense, type MouseEvent, type RefObject } from 'react';
 import type { Article } from './hooks/useArticlesApi';
 import Navbar from './Navbar';
+import PageNav from './PageNav';
 import {
-  CASE_BACK_TARGETS,
   getCaseCover,
   getCaseCoverAlt,
   getCaseDisplayTitle,
   getMergedCaseData,
 } from '../data/caseCatalog';
 import { formatReadTime } from '../utils/articleMeta';
+
+const Footer = lazy(() => import('./Footer'));
 
 type TocItem = { id: string; text: string };
 
@@ -39,10 +40,8 @@ interface CaseArticleViewProps {
   relatedArticles: Article[];
   listHref: string;
   relatedSearch: string;
-  origin?: string | null;
   contentRef: RefObject<HTMLDivElement | null>;
   articleTitleRef: RefObject<HTMLHeadingElement | null>;
-  onHome: () => void;
   onBackToCases: () => void;
   onContact: () => void;
   onRelated: (slug: string) => void;
@@ -82,10 +81,8 @@ export default function CaseArticleView({
   relatedArticles,
   listHref,
   relatedSearch,
-  origin,
   contentRef,
   articleTitleRef,
-  onHome,
   onBackToCases,
   onContact,
   onRelated,
@@ -94,7 +91,6 @@ export default function CaseArticleView({
   const caseData = getMergedCaseData(article);
   const cover = getCaseCover(article);
   const displayTitle = getCaseDisplayTitle(article.title);
-  const backTarget = origin ? CASE_BACK_TARGETS[origin] : null;
   const proofItems = [
     ...(caseData.metrics || []).slice(0, 3).map((metric) => ({
       value: metric.value,
@@ -108,22 +104,15 @@ export default function CaseArticleView({
       <main data-blog-ui="true" className="case-article-page marketing-typography min-h-screen bg-background">
         <header className="case-article-hero">
           <div className="case-article-container">
-            <div className="case-article-breadcrumb-row">
-              <nav aria-label="Хлебные крошки">
-                <a href="/" onClick={(event) => handleInternalLink(event, onHome)}>Главная</a>
-                <span aria-hidden="true">/</span>
-                <a href={listHref} onClick={(event) => handleInternalLink(event, onBackToCases)}>Кейсы</a>
-                <span aria-hidden="true">/</span>
-                <span aria-current="page">{caseData.niche || 'Разбор'}</span>
-              </nav>
-              {backTarget ? (
-                <span className="case-article-origin"><Sparkles aria-hidden="true" /> Вход из {backTarget.label}</span>
-              ) : null}
-            </div>
-
-            <a href={listHref} onClick={(event) => handleInternalLink(event, onBackToCases)} className="case-article-back">
-              <ArrowLeft aria-hidden="true" /> Ко всем кейсам
-            </a>
+            <PageNav
+              crumbs={[
+                { label: 'Главная', to: '/' },
+                { label: 'Кейсы', to: listHref },
+                { label: displayTitle },
+              ]}
+              backFallback={listHref}
+              className="mb-7"
+            />
 
             <div className="case-article-hero-grid">
               <motion.div
@@ -166,7 +155,7 @@ export default function CaseArticleView({
                   </ol>
                 ) : <p>Задача, решение, цифры и выводы.</p>}
                 <button type="button" onClick={onContact}>
-                  <MessageCircle aria-hidden="true" /> Обсудить похожую задачу
+                  <MessageCircle aria-hidden="true" /> Обсудить похожий проект
                 </button>
               </aside>
             </div>
@@ -253,10 +242,10 @@ export default function CaseArticleView({
             ) : null}
 
             <section className="case-article-cta">
-              <span><Sparkles aria-hidden="true" /> Разбор по вашей задаче</span>
+              <span><Sparkles aria-hidden="true" /> Разбор по вашему проекту</span>
               <h2>Нужно применить это к вашему проекту?</h2>
               <p>Пришлите ссылку и короткие вводные. Я посмотрю, какие данные нужны и с какого шага разумнее начать.</p>
-              <button type="button" onClick={onContact}>Обсудить задачу <ArrowRight aria-hidden="true" /></button>
+              <button type="button" onClick={onContact}>Обсудить проект <ArrowRight aria-hidden="true" /></button>
             </section>
           </article>
 
@@ -286,6 +275,9 @@ export default function CaseArticleView({
             </aside>
           ) : null}
         </div>
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
       </main>
     </>
   );

@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { ArrowRight, ChevronDown, Search, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
 import { trackFaqOpen } from '../consent/consent';
 import { glossaryTermById } from '../data/marketingGlossary';
 import useFaqContent from '../hooks/useFaqContent';
+
+const Footer = lazy(() => import('../components/Footer'));
 
 export const FAQ_CATEGORIES = ['Старт', 'Бюджет', 'Аналитика', 'Приложения', 'Результат', 'Процесс', 'Консультация'] as const;
 export type FaqCategory = (typeof FAQ_CATEGORIES)[number];
@@ -545,8 +548,15 @@ export default function FAQPage() {
         url="/faq"
       />
 
-      <section className="marketing-typography min-h-screen bg-background px-4 pb-16 pt-28 sm:px-6 md:pb-24 md:pt-32">
+      <section className="marketing-typography min-h-screen bg-background px-4 pb-16 pt-24 sm:px-6 md:pb-24 md:pt-32">
         <div className="max-w-5xl mx-auto">
+          <PageNav
+            crumbs={[
+              { label: 'Главная', to: '/' },
+              { label: 'FAQ' },
+            ]}
+            className="mb-8"
+          />
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -716,7 +726,7 @@ export default function FAQPage() {
             <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10 p-6 md:p-8 text-center">
               <h3 className="text-xl md:text-2xl font-bold text-pretty">Не нашли вопрос про свой проект?</h3>
               <p className="text-muted-foreground mt-2 mb-5 text-pretty">
-                Коротко опишите задачу — я подскажу, с чего разумнее начать и какие данные понадобятся.
+                Коротко расскажите о проекте — подскажу, с чего разумнее начать и какие данные понадобятся.
               </p>
               <button
                 onClick={() => {
@@ -727,13 +737,16 @@ export default function FAQPage() {
                 }}
                 className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-6 py-3 text-white font-semibold hover:opacity-95 transition-opacity"
               >
-                Обсудить задачу
+                Обсудить проект
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
             </div>
           </motion.div>
         </div>
       </section>
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </>
   );
 }

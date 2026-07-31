@@ -1,8 +1,9 @@
 import { Mail, MessageSquare, ExternalLink } from 'lucide-react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { memo, useCallback, useRef, lazy, Suspense } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
+import { withReturnTo } from '../utils/siteNavigation';
 import WhaleMark from './brand/WhaleMark';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
@@ -21,6 +22,9 @@ function Footer() {
   const footerRef = useRef<HTMLElement>(null);
   const inView = useInView(footerRef, { once: false, margin: '0px 0px -10% 0px' });
   const reduceMotion = useReducedMotion();
+  // Внутренние переходы запоминают страницу-источник: кнопка «Назад»
+  // на юридических страницах вернёт именно туда, откуда их открыли.
+  const linkState = withReturnTo(location);
 
   const scrollToSection = useCallback((id: string) => {
     const scrollNow = () => {
@@ -97,27 +101,27 @@ function Footer() {
 
             <ul className={footerListClass}>
               <li>
-                <a href="/meta-ads" className={footerLinkClass}>
+                <Link to="/meta-ads" state={linkState} className={footerLinkClass}>
                   Meta Ads — Facebook и Instagram
-                </a>
+                </Link>
               </li>
 
               <li>
-                <a href="/meta-apps" className={footerLinkClass}>
+                <Link to="/meta-apps" state={linkState} className={footerLinkClass}>
                   Продвижение приложений
-                </a>
+                </Link>
               </li>
 
               <li>
-                <a href="/google-ads" className={footerLinkClass}>
+                <Link to="/google-ads" state={linkState} className={footerLinkClass}>
                   Google Ads
-                </a>
+                </Link>
               </li>
 
               <li>
-                <a href="/consult" className={footerLinkClass}>
+                <Link to="/consult" state={linkState} className={footerLinkClass}>
                   Консультация
-                </a>
+                </Link>
               </li>
             </ul>
           </motion.div>
@@ -154,32 +158,32 @@ function Footer() {
               </li>
 
               <li>
-                <button
-                  onClick={() => navigate('/blog')}
-                  className={footerLinkClass}
-                >
+                <Link to="/blog" state={linkState} className={footerLinkClass}>
                   Блог
-                </button>
+                </Link>
               </li>
               <li>
-                <button
-                  onClick={() => navigate('/cases')}
-                  className={footerLinkClass}
-                >
+                <Link to="/cases" state={linkState} className={footerLinkClass}>
                   Все кейсы
-                </button>
+                </Link>
               </li>
 
               <li>
-                <a href="/faq" className={footerLinkClass}>
+                <Link to="/faq" state={linkState} className={footerLinkClass}>
                   FAQ
-                </a>
+                </Link>
               </li>
 
               <li>
-                <a href="/marketing-glossary" className={footerLinkClass}>
+                <Link to="/marketing-glossary" state={linkState} className={footerLinkClass}>
                   Словарь метрик
-                </a>
+                </Link>
+              </li>
+
+              <li>
+                <Link to="/calculator" state={linkState} className={footerLinkClass}>
+                  Калькулятор бюджета
+                </Link>
               </li>
 
               <li>
@@ -265,22 +269,22 @@ function Footer() {
             </p>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 justify-center md:justify-end leading-none">
-              <a href="/privacy-policy" className={footerLegalLinkClass}>
+              <Link to="/privacy-policy" state={linkState} className={footerLegalLinkClass}>
                 <span>Политика конфиденциальности и ПД</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-              </a>
-              <a href="/offer" className={footerLegalLinkClass}>
+              </Link>
+              <Link to="/offer" state={linkState} className={footerLegalLinkClass}>
                 <span>Публичная оферта</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-              </a>
-              <a href="/cookie-policy" className={footerLegalLinkClass}>
+              </Link>
+              <Link to="/cookie-policy" state={linkState} className={footerLegalLinkClass}>
                 <span>Политика Cookie</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-              </a>
-              <a href="/faq" className={footerLegalLinkClass}>
+              </Link>
+              <Link to="/faq" state={linkState} className={footerLegalLinkClass}>
                 <span>FAQ</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={openCookieSettings}

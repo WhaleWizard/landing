@@ -3,7 +3,6 @@
 @import './theme.css';
 @import './blog-readable.css';
 @import './whale-brand.css';
-@import './whale-navigator.css';
 
 /* Public UI must never expose browser-default number steppers. */
 input[type='number'] {

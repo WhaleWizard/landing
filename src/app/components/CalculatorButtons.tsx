@@ -57,7 +57,7 @@ export default function CalculatorButtons() {
                 <Calculator className="w-7 h-7 text-primary" />
               </div>
               <h3 className="text-xl md:text-2xl font-bold mb-2">Оценить стоимость ведения</h3>
-              <p className="text-muted-foreground text-sm mb-4">Ориентир с учётом площадок, рекламного бюджета и задачи</p>
+              <p className="text-muted-foreground text-sm mb-4">Ориентир с учётом площадок, рекламного бюджета и целей</p>
               <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
                 <span>Открыть расчёт</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

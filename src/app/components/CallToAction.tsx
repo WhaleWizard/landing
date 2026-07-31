@@ -15,10 +15,10 @@ export type CallToActionContent = {
 };
 
 export const defaultCallToActionContent: CallToActionContent = {
-  badge: 'Обсудить задачу',
-  title: 'Есть задача по рекламе?',
-  description: 'Коротко опишите проект — отвечу, с чего разумнее начать: с разбора, теста или настройки аналитики, и почему.',
-  button: 'Обсудить проект',
+  badge: 'Без брифов и созвонов на два часа',
+  title: 'Расскажите, что продвигаете',
+  description: 'Пары абзацев хватит — продукт, гео и что уже пробовали. Отвечу, с чего разумнее начать: с разбора, теста или аналитики, и почему.',
+  button: 'Написать мне',
 };
 
 function CallToAction({ content: contentProp = defaultCallToActionContent, contentKey = null }: { content?: CallToActionContent; contentKey?: string | null }) {

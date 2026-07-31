@@ -10,8 +10,10 @@ type NavbarVariant = 'home' | 'service' | 'content';
 const NAV_ICONS: Record<string, typeof Briefcase> = {
   'Услуги': Briefcase,
   'Кейсы': Trophy,
+  'Примеры проектов': Trophy,
   'Блог': Newspaper,
   'Отзывы': Star,
+  'О нас': Star,
   'FAQ': HelpCircle,
   'Контакты': Phone,
   'Калькулятор': Calculator,
@@ -19,10 +21,14 @@ const NAV_ICONS: Record<string, typeof Briefcase> = {
 
 interface NavbarProps {
   variant?: NavbarVariant;
-  staticLogo?: boolean;
 }
 
-function Navbar({ variant = 'home', staticLogo = false }: NavbarProps) {
+/** Ключ страницы услуги для ?from= — по нему кейсы знают, куда вернуть. */
+function serviceFromKey(pathname: string): string {
+  return pathname.replace(/^\/+|\/+$/g, '') || 'home';
+}
+
+function Navbar({ variant = 'home' }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -128,8 +134,12 @@ function Navbar({ variant = 'home', staticLogo = false }: NavbarProps) {
   const navItems = variant === 'service'
     ? [
       { label: 'Услуги', action: () => scrollToSection('services') },
-      { label: 'Примеры задач', action: () => scrollToSection('cases') },
+      { label: 'Примеры проектов', action: () => scrollToSection('cases') },
       { label: 'Отзывы', action: () => scrollToSection('about') },
+      // Со страниц услуг раньше не было выхода в контентные разделы:
+      // все пункты вели на якоря внутри той же страницы.
+      { label: 'Кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); } },
+      { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); } },
     ]
     : variant === 'content'
       ? [
@@ -153,7 +163,6 @@ function Navbar({ variant = 'home', staticLogo = false }: NavbarProps) {
   return (
     <>
       <nav
-        data-static-whale-logo={staticLogo ? 'true' : undefined}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled || variant === 'content'
             ? 'bg-background/80 backdrop-blur-xl border-b border-border shadow-lg shadow-primary/5'

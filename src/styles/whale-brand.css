@@ -39,11 +39,6 @@
   animation: ww-brand-whale-float 7.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
-[data-static-whale-logo='true'] .ww-whale-mark,
-[data-static-whale-logo='true'] .ww-whale-mark__glow {
-  animation: none;
-}
-
 .ww-brand-mark-shell {
   display: block;
   flex: none;
@@ -56,16 +51,6 @@
   font-size: clamp(1.15rem, 2.1vw, 1.5rem);
   letter-spacing: -0.035em;
   white-space: nowrap;
-  transform: translateX(0);
-  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-html[data-ww-whale-detached='true'] .ww-public-brand-logo[data-whale-brand-anchor='true'] .ww-brand-mark-shell {
-  opacity: 0;
-}
-
-html[data-ww-whale-detached='true'] .ww-public-brand-logo[data-whale-brand-anchor='true'] .ww-brand-wordmark {
-  transform: translateX(clamp(-48px, -3.9vw, -38px));
 }
 
 .ww-public-brand-logo:hover .ww-whale-mark__glow,
@@ -87,12 +72,6 @@ html[data-ww-whale-detached='true'] .ww-public-brand-logo[data-whale-brand-ancho
 @media (max-width: 420px) {
   .ww-brand-wordmark {
     font-size: 1.05rem;
-  }
-}
-
-@media (max-width: 1439px) {
-  html[data-ww-whale-detached='true'] .ww-public-brand-logo[data-whale-brand-anchor='true'] .ww-brand-wordmark {
-    transform: none;
   }
 }
 

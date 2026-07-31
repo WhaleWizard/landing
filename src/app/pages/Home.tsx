@@ -162,7 +162,7 @@ export default function Home() {
         <Services contentKey="site:home" />
       </DeferredSection>
       <DeferredSection anchorId="cases" heights={{ mobile: 1062, tablet: 1720, desktop: 1569 }}>
-        <Cases contentKey="site:home" />
+        <Cases contentKey="site:home" moreHref="/cases" />
       </DeferredSection>
       <DeferredSection heights={{ mobile: 352, tablet: 351, desktop: 332 }}>
         <CallToAction contentKey="site:home" />

@@ -12,17 +12,18 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Search,
   Send,
   Smartphone,
   Trash2,
   Type,
 } from 'lucide-react';
-import { pageConfigs, type ServiceType } from '../../pages/ServiceLandingPage';
+import { META_APPS_TESTIMONIAL_CONTENT, pageConfigs, type ServiceType } from '../../pages/ServiceLandingPage';
 import { defaultHeroContent } from '../Hero';
-import { defaultServicesContent } from '../Services';
+import { defaultServicesContent, type ServicesContent } from '../Services';
 import { defaultCasesContent } from '../Cases';
 import { defaultCallToActionContent } from '../CallToAction';
-import { defaultTestimonialsContent, defaultTestimonialsStats } from '../Testimonials';
+import { defaultTestimonialsContent, defaultTestimonialsStats, type TestimonialsContent } from '../Testimonials';
 import { defaultContactContent } from '../ContactForm';
 import { mergeContent } from '../../hooks/useServiceContent';
 import AdminFaqControl from './AdminFaqControl';
@@ -58,6 +59,11 @@ type EditableContent = {
   };
   services: IntroContent & {
     cards: Array<{ title: string; description: string; features: string[]; visualSlot: number }>;
+    detailed: {
+      title: string;
+      button: string;
+      sections: Array<{ title: string; text: string; visualSlot: number }>;
+    };
   };
   cases: IntroContent & {
     items: Array<{ title: string; category: string; description: string; stats: Array<{ label: string; value: string }>; visualSlot: number }>;
@@ -69,7 +75,10 @@ type EditableContent = {
     button: string;
     typography: TypographySettings;
   };
-  testimonials?: IntroContent & { stats: Array<{ value: string; label: string }> };
+  testimonials: IntroContent & {
+    stats: Array<{ value: string; label: string }>;
+    items: Array<{ name: string; company: string; position: string; text: string }>;
+  };
   contact: IntroContent & {
     bullets: string[];
     benefits: Array<{ title: string; description: string }>;
@@ -134,7 +143,34 @@ function clone<T>(value: T): T {
 }
 
 function intro(source: { badge: string; titlePrefix: string; titleAccent: string; description: string }): IntroContent {
-  return { ...source, typography: { ...DEFAULT_TYPOGRAPHY } };
+  return {
+    badge: source.badge,
+    titlePrefix: source.titlePrefix,
+    titleAccent: source.titleAccent,
+    description: source.description,
+    typography: { ...DEFAULT_TYPOGRAPHY },
+  };
+}
+
+/** Модалка «Как я работаю»: иконка раздела остаётся за кодом, редактируется текст. */
+function detailedDefaults(source: ServicesContent): EditableContent['services']['detailed'] {
+  return {
+    title: source.detailed?.title || '',
+    button: source.detailed?.button || '',
+    sections: (source.detailed?.sections || []).map((section, visualSlot) => ({
+      title: section.title,
+      text: section.text,
+      visualSlot,
+    })),
+  };
+}
+
+function testimonialsDefaults(source: TestimonialsContent, stats = defaultTestimonialsStats): EditableContent['testimonials'] {
+  return {
+    ...intro(source),
+    stats: stats.map((item) => ({ ...item })),
+    items: (source.items ?? defaultTestimonialsContent.items ?? []).map((item) => ({ ...item })),
+  };
 }
 
 function homeDefaults(): EditableContent {
@@ -162,6 +198,7 @@ function homeDefaults(): EditableContent {
         features: [...card.features],
         visualSlot,
       })),
+      detailed: detailedDefaults(defaultServicesContent),
     },
     cases: {
       ...intro(defaultCasesContent),
@@ -174,10 +211,7 @@ function homeDefaults(): EditableContent {
       })),
     },
     cta: { ...defaultCallToActionContent, typography: { ...DEFAULT_TYPOGRAPHY } },
-    testimonials: {
-      ...intro(defaultTestimonialsContent),
-      stats: defaultTestimonialsStats.map((item) => ({ ...item })),
-    },
+    testimonials: testimonialsDefaults(defaultTestimonialsContent),
     contact: {
       ...intro(defaultContactContent),
       bullets: [],
@@ -212,6 +246,7 @@ function serviceDefaults(service: ServiceType): EditableContent {
         features: [...card.features],
         visualSlot,
       })),
+      detailed: detailedDefaults(source.services),
     },
     cases: {
       ...intro(source.cases),
@@ -224,6 +259,10 @@ function serviceDefaults(service: ServiceType): EditableContent {
       })),
     },
     cta: { ...source.cta, typography: { ...DEFAULT_TYPOGRAPHY } },
+    // Meta Apps показывает свой вариант заголовков блока отзывов.
+    testimonials: testimonialsDefaults(
+      service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : defaultTestimonialsContent,
+    ),
     contact: {
       ...intro(source.contact),
       bullets: [...source.contact.bullets],
@@ -277,11 +316,17 @@ function validateEditableContent(content: EditableContent): { section: EditorSec
   ))) {
     return { section: 'cases', message: 'заполните текст карточек кейсов и все добавленные показатели' };
   }
+  if (content.services.detailed.sections.some((item) => blank(item.title) || blank(item.text))) {
+    return { section: 'services', message: 'в разборе «как я работаю» остался пустой заголовок или текст' };
+  }
   if (blank(content.cta.title) || blank(content.cta.button)) {
     return { section: 'cta', message: 'заполните заголовок и кнопку CTA' };
   }
-  if (content.testimonials?.stats.some((item) => blank(item.value) || blank(item.label))) {
+  if (content.testimonials.stats.some((item) => blank(item.value) || blank(item.label))) {
     return { section: 'testimonials', message: 'у каждой цифры доверия должны быть значение и подпись' };
+  }
+  if (content.testimonials.items.some((item) => blank(item.name) || blank(item.text))) {
+    return { section: 'testimonials', message: 'у каждого отзыва должны быть имя и текст' };
   }
   if (blank(content.contact.titlePrefix) && blank(content.contact.titleAccent)) {
     return { section: 'contact', message: 'заполните заголовок контактного блока' };
@@ -295,6 +340,52 @@ function validateEditableContent(content: EditableContent): { section: EditorSec
   return null;
 }
 
+/** Все текстовые значения блока — для поиска «где это написано». */
+function collectSectionTexts(value: unknown, out: string[]): void {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed) out.push(trimmed);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectSectionTexts(item, out));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
+      // Пресеты размеров — не текст страницы, в поиске только мешают.
+      if (key === 'typography' || key === 'visualSlot' || key === 'tone') return;
+      collectSectionTexts(item, out);
+    });
+  }
+}
+
+function sectionTexts(content: EditableContent, section: EditorSection): string[] {
+  const source = section === 'testimonials' ? content.testimonials : (content as unknown as Record<string, unknown>)[section];
+  const out: string[] = [];
+  collectSectionTexts(source, out);
+  return out;
+}
+
+/** Короткая сводка блока для списка слева: сразу видно, где сколько всего. */
+function sectionSummary(content: EditableContent, section: EditorSection): string {
+  if (section === 'seo') return 'Поисковая выдача';
+  if (section === 'hero') return `${content.hero.paragraphs.length} абз. · ${content.hero.stats.length} цифр`;
+  if (section === 'services') return `${content.services.cards.length} карт. · ${content.services.detailed.sections.length} разд.`;
+  if (section === 'cases') return `${content.cases.items.length} карточек`;
+  if (section === 'cta') return 'Заголовок и кнопка';
+  if (section === 'testimonials') return `${content.testimonials.items.length} отзывов · ${content.testimonials.stats.length} цифр`;
+  return `${content.contact.bullets.length + content.contact.benefits.length} пунктов`;
+}
+
+function highlightSnippet(text: string, query: string): string {
+  const position = text.toLocaleLowerCase('ru').indexOf(query.toLocaleLowerCase('ru'));
+  if (position < 0) return text.slice(0, 90);
+  const from = Math.max(0, position - 30);
+  const snippet = text.slice(from, from + 110);
+  return `${from > 0 ? '…' : ''}${snippet}${from + 110 < text.length ? '…' : ''}`;
+}
+
 function setAtPath(content: EditableContent, path: Array<string | number>, value: unknown): EditableContent {
   const next = clone(content) as unknown as Record<string | number, unknown>;
   let cursor = next;
@@ -305,7 +396,40 @@ function setAtPath(content: EditableContent, path: Array<string | number>, value
   return next as unknown as EditableContent;
 }
 
-function Field({ id, label, value, onChange, multiline = false, hint, maxLength = 900 }: {
+/**
+ * Текстовое поле, которое растёт под содержимое: длинные блоки вроде разбора
+ * «как я работаю» больше не редактируются в окошке на четыре строки.
+ */
+function AutoTextarea({ id, value, maxLength, rows, onChange }: {
+  id: string;
+  value: string;
+  maxLength: number;
+  rows: number;
+  onChange: (value: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${Math.min(element.scrollHeight, 640)}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      id={id}
+      ref={ref}
+      rows={rows}
+      className="admin-input"
+      maxLength={maxLength}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+function Field({ id, label, value, onChange, multiline = false, hint, maxLength = 900, rows = 4 }: {
   id: string;
   label: string;
   value: string;
@@ -313,12 +437,20 @@ function Field({ id, label, value, onChange, multiline = false, hint, maxLength 
   multiline?: boolean;
   hint?: string;
   maxLength?: number;
+  rows?: number;
 }) {
+  // Счётчик подсвечивается заранее, а не в момент, когда текст уже обрезан.
+  const usage = maxLength > 0 ? value.length / maxLength : 0;
+  const countState = usage >= 1 ? 'is-full' : usage >= 0.9 ? 'is-near' : '';
+
   return (
     <label className="admin-field" htmlFor={id}>
-      <span className="admin-label-row"><span className="admin-label">{label}</span><span className="admin-char-count">{value.length}/{maxLength}</span></span>
+      <span className="admin-label-row">
+        <span className="admin-label">{label}</span>
+        <span className={`admin-char-count ${countState}`}>{value.length}/{maxLength}</span>
+      </span>
       {multiline ? (
-        <textarea id={id} rows={4} className="admin-input" maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
+        <AutoTextarea id={id} value={value} maxLength={maxLength} rows={rows} onChange={onChange} />
       ) : (
         <input id={id} className="admin-input" maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
       )}
@@ -468,6 +600,8 @@ function Preview({ content, section, device }: { content: EditableContent; secti
       {section === 'services' ? <div className="admin-preview-list">{content.services.cards.slice(0, 3).map((card, index) => <div key={index}><strong>{card.title}</strong><span>{card.description}</span></div>)}</div> : null}
       {section === 'cases' ? <div className="admin-preview-list">{content.cases.items.slice(0, 3).map((item, index) => <div key={index}><strong>{item.title}</strong><span>{item.description}</span></div>)}</div> : null}
       {section === 'testimonials' && content.testimonials ? <dl className="admin-copy-preview__stats">{content.testimonials.stats.map((stat, index) => <div key={index}><dt>{stat.value}</dt><dd>{stat.label}</dd></div>)}</dl> : null}
+      {section === 'testimonials' && content.testimonials ? <div className="admin-preview-list">{content.testimonials.items.slice(0, 2).map((item, index) => <div key={index}><strong>{[item.name, item.company].filter(Boolean).join(' · ') || 'Новый отзыв'}</strong><span>{item.text}</span></div>)}</div> : null}
+      {section === 'services' ? <div className="admin-preview-list">{content.services.detailed.sections.slice(0, 2).map((item, index) => <div key={index}><strong>{item.title || 'Новый раздел'}</strong><span>{item.text.split('\n')[0]}</span></div>)}</div> : null}
       {section === 'contact' ? <div className="admin-preview-list">{(content.contact.benefits.length ? content.contact.benefits : content.contact.bullets.map((item) => ({ title: item, description: '' }))).slice(0, 3).map((item, index) => <div key={index}><strong>{item.title}</strong>{item.description ? <span>{item.description}</span> : null}</div>)}</div> : null}
       {section === 'cta' ? <span className="admin-copy-preview__button">{content.cta.button}</span> : null}
       {section === 'hero' ? <span className="admin-copy-preview__button">{content.hero.primaryButton}</span> : null}
@@ -486,16 +620,31 @@ export default function AdminContentControl({ password }: { password: string }) 
   const [notice, setNotice] = useState('');
   const [publishArmed, setPublishArmed] = useState(false);
   const [contentMode, setContentMode] = useState<'pages' | 'faq'>('pages');
+  const [search, setSearch] = useState('');
   const loadSequence = useRef(0);
   const contentRef = useRef(content);
   const loadedSnapshotRef = useRef(JSON.stringify(content));
   contentRef.current = content;
 
   const pageMeta = useMemo(() => PAGES.find((item) => item.value === page) || PAGES[0], [page]);
-  const availableSections = useMemo<EditorSection[]>(() => page === 'home'
-    ? ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact']
-    : ['seo', 'hero', 'services', 'cases', 'cta', 'contact'], [page]);
+  // Блок отзывов есть и на страницах услуг — раньше он был только у главной.
+  const availableSections = useMemo<EditorSection[]>(
+    () => ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact'],
+    [],
+  );
   const isDirty = JSON.stringify(content) !== loadedSnapshotRef.current;
+
+  // Поиск по всем текстам страницы: показывает, в каком блоке лежит фраза,
+  // и открывает его. Без него длинные блоки приходится обходить вручную.
+  const searchQuery = search.trim();
+  const searchHits = useMemo(() => {
+    if (searchQuery.length < 2) return [];
+    const needle = searchQuery.toLocaleLowerCase('ru');
+    return availableSections.flatMap((value) => {
+      const match = sectionTexts(content, value).find((item) => item.toLocaleLowerCase('ru').includes(needle));
+      return match ? [{ section: value, snippet: highlightSnippet(match, searchQuery) }] : [];
+    });
+  }, [availableSections, content, searchQuery]);
 
   const load = useCallback(async (preserveNotice = false): Promise<boolean> => {
     const requestId = ++loadSequence.current;
@@ -712,9 +861,32 @@ export default function AdminContentControl({ password }: { password: string }) 
           <div className="admin-editor-workspace">
             <nav className="admin-block-nav" aria-label="Порядок блоков страницы">
               <p className="admin-label">Порядок на странице</p>
+              <div className="admin-block-search">
+                <Search aria-hidden="true" />
+                <input
+                  type="search"
+                  className="admin-input"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Найти текст на странице"
+                  aria-label="Поиск по текстам страницы"
+                />
+              </div>
+              {searchQuery.length >= 2 ? (
+                <div className="admin-block-search__results">
+                  {searchHits.length === 0 ? (
+                    <p className="admin-meta">Ничего не нашлось на этой странице.</p>
+                  ) : searchHits.map((hit) => (
+                    <button key={hit.section} type="button" className="admin-block-search__hit" onClick={() => { setActiveSection(hit.section); setSearch(''); }}>
+                      <strong>{SECTION_LABELS[hit.section]}</strong>
+                      <span>{hit.snippet}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               {availableSections.map((value, index) => (
                 <button key={value} type="button" aria-current={activeSection === value ? 'step' : undefined} onClick={() => setActiveSection(value)}>
-                  <span>{value === 'seo' ? 'SEO' : String(index)}</span><span><strong>{SECTION_LABELS[value]}</strong><small>{value === 'seo' ? 'Поисковая выдача' : `Блок ${index}`}</small></span><ChevronRight aria-hidden="true" />
+                  <span>{value === 'seo' ? 'SEO' : String(index)}</span><span><strong>{SECTION_LABELS[value]}</strong><small>{sectionSummary(content, value)}</small></span><ChevronRight aria-hidden="true" />
                 </button>
               ))}
             </nav>
@@ -821,6 +993,58 @@ export default function AdminContentControl({ password }: { password: string }) 
                     <AddItemButton label="Добавить карточку" count={content.services.cards.length} maxItems={8} onAdd={() => update(['services', 'cards'], [...content.services.cards, { title: '', description: '', features: [''], visualSlot: content.services.cards.length % editableDefaults(page).services.cards.length }])} />
                   </div>
                 </div>
+
+                <div className="admin-field admin-field--wide">
+                  <div className="admin-label-row">
+                    <span className="admin-label">Разбор «{content.services.detailed.title || 'Как я работаю'}»</span>
+                    <span className="admin-char-count">{content.services.detailed.sections.length}/8</span>
+                  </div>
+                  <span className="admin-hint">Всплывающее окно по кнопке под карточками услуг. Самый длинный текст страницы — раньше правился только в коде.</span>
+                  <div className="admin-form-grid">
+                    <Field id="services-detailed-title" label="Заголовок окна" value={content.services.detailed.title} maxLength={160} onChange={(value) => update(['services', 'detailed', 'title'], value)} />
+                    <Field id="services-detailed-button" label="Кнопка внизу окна" value={content.services.detailed.button} maxLength={80} onChange={(value) => update(['services', 'detailed', 'button'], value)} />
+                  </div>
+                  <div className="admin-list-editor">
+                    {content.services.detailed.sections.map((item, index) => (
+                      <div key={index}>
+                        <OrderedItemHeader
+                          label="Раздел"
+                          index={index}
+                          count={content.services.detailed.sections.length}
+                          onMove={(direction) => update(['services', 'detailed', 'sections'], moveItem(content.services.detailed.sections, index, direction))}
+                          onDelete={() => update(['services', 'detailed', 'sections'], content.services.detailed.sections.filter((_, itemIndex) => itemIndex !== index))}
+                        />
+                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                          <summary><span>{item.title || 'Новый раздел'}</span><ChevronRight aria-hidden="true" /></summary>
+                          <div className="admin-form-grid">
+                            <Field id={`detailed-title-${index}`} label="Заголовок раздела" value={item.title} maxLength={200} onChange={(value) => update(['services', 'detailed', 'sections', index, 'title'], value)} />
+                            <Field
+                              id={`detailed-text-${index}`}
+                              label="Текст раздела"
+                              value={item.text}
+                              multiline
+                              rows={10}
+                              maxLength={2500}
+                              hint="Пустая строка разделяет абзацы. Строка, начинающаяся с «•», выводится пунктом списка."
+                              onChange={(value) => update(['services', 'detailed', 'sections', index, 'text'], value)}
+                            />
+                          </div>
+                        </details>
+                      </div>
+                    ))}
+                    <AddItemButton
+                      label="Добавить раздел"
+                      count={content.services.detailed.sections.length}
+                      maxItems={8}
+                      onAdd={() => update(['services', 'detailed', 'sections'], [...content.services.detailed.sections, {
+                        title: '',
+                        text: '',
+                        visualSlot: content.services.detailed.sections.length % Math.max(1, editableDefaults(page).services.detailed.sections.length),
+                      }])}
+                    />
+                  </div>
+                  <span className="admin-hint">Значок слева от заголовка закреплён за позицией раздела и меняется вместе с порядком.</span>
+                </div>
                 {renderTypography('services', content.services.typography)}
               </div> : null}
 
@@ -895,6 +1119,46 @@ export default function AdminContentControl({ password }: { password: string }) 
                     <AddItemButton label="Добавить показатель" count={content.testimonials.stats.length} maxItems={6} onAdd={() => update(['testimonials', 'stats'], [...content.testimonials!.stats, { value: '', label: '' }])} />
                   </div>
                   <span className="admin-hint">Оставляйте только те цифры, которые сможете подтвердить данными или кейсом.</span>
+                </div>
+
+                <div className="admin-field admin-field--wide">
+                  <div className="admin-label-row">
+                    <span className="admin-label">Карточки отзывов</span>
+                    <span className="admin-char-count">{content.testimonials.items.length}/40</span>
+                  </div>
+                  <span className="admin-hint">Порядок здесь — это порядок в карусели на сайте. Инициалы в кружке считаются из имени автоматически.</span>
+                  <div className="admin-list-editor">
+                    {content.testimonials.items.map((item, index) => (
+                      <div key={index}>
+                        <OrderedItemHeader
+                          label="Отзыв"
+                          index={index}
+                          count={content.testimonials.items.length}
+                          minItems={1}
+                          onMove={(direction) => update(['testimonials', 'items'], moveItem(content.testimonials.items, index, direction))}
+                          onDelete={() => update(['testimonials', 'items'], content.testimonials.items.filter((_, itemIndex) => itemIndex !== index))}
+                        />
+                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                          <summary>
+                            <span>{item.name || 'Новый отзыв'}{item.company ? ` · ${item.company}` : ''}</span>
+                            <ChevronRight aria-hidden="true" />
+                          </summary>
+                          <div className="admin-form-grid">
+                            <Field id={`review-name-${index}`} label="Имя" value={item.name} maxLength={80} onChange={(value) => update(['testimonials', 'items', index, 'name'], value)} />
+                            <Field id={`review-company-${index}`} label="Компания" value={item.company} maxLength={120} hint="Показывается плашкой над текстом отзыва." onChange={(value) => update(['testimonials', 'items', index, 'company'], value)} />
+                            <Field id={`review-position-${index}`} label="Должность" value={item.position} maxLength={120} onChange={(value) => update(['testimonials', 'items', index, 'position'], value)} />
+                            <Field id={`review-text-${index}`} label="Текст отзыва" value={item.text} multiline rows={5} maxLength={900} onChange={(value) => update(['testimonials', 'items', index, 'text'], value)} />
+                          </div>
+                        </details>
+                      </div>
+                    ))}
+                    <AddItemButton
+                      label="Добавить отзыв"
+                      count={content.testimonials.items.length}
+                      maxItems={40}
+                      onAdd={() => update(['testimonials', 'items'], [...content.testimonials.items, { name: '', company: '', position: '', text: '' }])}
+                    />
+                  </div>
                 </div>
                 {renderTypography('testimonials', content.testimonials.typography)}
               </div> : null}

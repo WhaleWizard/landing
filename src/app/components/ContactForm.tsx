@@ -86,13 +86,13 @@ export type ContactFormContent = {
 
 export const defaultContactContent: ContactFormContent = {
   badge: 'Обсудить проект',
-  titlePrefix: 'Опишите задачу —',
+  titlePrefix: 'Расскажите о проекте —',
   titleAccent: 'скажу, с чего начать',
   description: 'Оставьте контакты и пару слов о проекте. Посмотрю сайт и рекламу, если она уже идёт, и отвечу: что работает, что нет и что бы я сделал первым.',
   benefits: [
     { title: 'Смотрю вводные', description: 'Сайт, реклама, цифры — что есть сейчас' },
     { title: 'Называю приоритет', description: 'Что исправить или проверить первым — и почему' },
-    { title: 'Предлагаю формат', description: 'Разбор, запуск или настройка аналитики — по задаче' },
+    { title: 'Предлагаю формат', description: 'Разбор, запуск или настройка аналитики — по вашему проекту' },
   ],
 };
 
@@ -564,7 +564,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                             trackFirstFormInteraction('message');
                           }}
                           onBlur={() => setFocusedField(null)}
-                          placeholder="Коротко: продукт, география, текущая реклама и задача"
+                          placeholder="Коротко: продукт, география, текущая реклама и что нужно"
                           autoComplete="off"
                           rows={4}
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"
