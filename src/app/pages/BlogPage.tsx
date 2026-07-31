@@ -95,10 +95,12 @@ const BLOG_TOPIC_RULES: BlogTopicRule[] = [
   },
 ];
 
+// Подписи короткие: рядом стоит слово «Сначала», и «Сначала: Сначала новые»
+// читалось как ошибка, а на узком экране занимало три строки.
 const BLOG_SORTS = [
-  { id: 'new', label: 'Сначала новые' },
-  { id: 'old', label: 'Сначала старые' },
-  { id: 'short', label: 'Короткие' },
+  { id: 'new', label: 'новые' },
+  { id: 'old', label: 'старые' },
+  { id: 'short', label: 'короткие' },
 ] as const;
 
 type BlogSort = (typeof BLOG_SORTS)[number]['id'];

@@ -33,7 +33,7 @@ export default function Offer() {
               animate={{ opacity: 1, y: 0 }}
               className="text-center mb-12"
             >
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
+              <h1 className="text-balance break-words text-2xl font-bold sm:text-4xl md:text-5xl">
                 Публичная<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> оферта</span>
               </h1>
               <p className="text-muted-foreground mt-4">Дата последнего обновления: 29 мая 2026 г.</p>

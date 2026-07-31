@@ -49,7 +49,7 @@ export default function PageNav({ crumbs, backFallback, hideBack = false, classN
           return (
             <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-1.5">
               {index > 0 && (
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
               )}
               {crumb.to && !isLast ? (
                 <Link
@@ -60,9 +60,11 @@ export default function PageNav({ crumbs, backFallback, hideBack = false, classN
                   {crumb.label}
                 </Link>
               ) : (
+                // Именно block, а не inline-flex: многоточие не работает,
+                // когда текст лежит внутри флекс-контейнера.
                 <span
                   aria-current={isLast ? 'page' : undefined}
-                  className={`inline-flex min-h-11 min-w-0 items-center ${isLast ? 'truncate text-foreground/75' : ''}`}
+                  className={`block min-w-0 leading-[44px] ${isLast ? 'truncate text-foreground/75' : ''}`}
                   title={isLast ? crumb.label : undefined}
                 >
                   {crumb.label}
