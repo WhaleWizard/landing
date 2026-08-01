@@ -1023,21 +1023,21 @@ export default function AdminPlanner({ password }: { password: string }) {
 
           <div className="planner-stats">
             <div className="admin-card planner-stat" data-tone="tasks">
-              <span className="planner-stat__label"><span className="planner-stat__icon"><ListChecks aria-hidden="true" /></span> Всего задач</span>
+              <span className="planner-stat__label"><span className="planner-stat__icon"><ListChecks aria-hidden="true" /></span> Задачи</span>
               <strong className="planner-stat__value">{stats.total}</strong>
             </div>
             <div className="admin-card planner-stat" data-tone="done">
-              <span className="planner-stat__label"><span className="planner-stat__icon"><CheckCircle2 aria-hidden="true" /></span> Выполнено</span>
+              <span className="planner-stat__label"><span className="planner-stat__icon"><CheckCircle2 aria-hidden="true" /></span> Готово</span>
               <strong className="planner-stat__value">{stats.done}</strong>
             </div>
             <div className="admin-card planner-stat" data-tone="best">
-              <span className="planner-stat__label"><span className="planner-stat__icon"><Trophy aria-hidden="true" /></span> Продуктивный день</span>
+              <span className="planner-stat__label"><span className="planner-stat__icon"><Trophy aria-hidden="true" /></span> Лучший день</span>
               <strong className="planner-stat__value planner-stat__value--text">
                 {stats.bestDayIndex === -1 ? '—' : WEEKDAY_SHORT[stats.bestDayIndex]}
               </strong>
             </div>
             <div className="admin-card planner-stat" data-tone="goals">
-              <span className="planner-stat__label"><span className="planner-stat__icon"><Target aria-hidden="true" /></span> Цели закрыты</span>
+              <span className="planner-stat__label"><span className="planner-stat__icon"><Target aria-hidden="true" /></span> Цели</span>
               <strong className="planner-stat__value">{stats.goalsDone}<span className="planner-stat__of"> / {stats.goalsTotal}</span></strong>
             </div>
             <div className="admin-card planner-stat" data-tone="habits">
