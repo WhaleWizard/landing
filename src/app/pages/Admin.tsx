@@ -9,7 +9,7 @@ import {
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
-  Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck
+  Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -851,19 +851,43 @@ export default function Admin() {
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
     : adminView;
-  const adminNavigation = [
-    { key: 'dashboard', label: 'Сегодня', icon: LayoutDashboard },
-    { key: 'planner', label: 'Планер', icon: CalendarCheck },
-    { key: 'attribution', label: 'Воронка', icon: BarChart3 },
-    { key: 'meta', label: 'Meta CAPI', icon: Activity },
-    { key: 'performance', label: 'Скорость', icon: Gauge },
-    { key: 'articles', label: 'Статьи', icon: Newspaper },
-    { key: 'cases', label: 'Кейсы', icon: Briefcase },
-    { key: 'content', label: 'Тексты сайта', icon: PanelsTopLeft },
-    { key: 'leads', label: 'Заявки', icon: Inbox },
-    { key: 'media', label: 'Медиатека', icon: Images },
-    { key: 'health', label: 'Проверка', icon: Stethoscope },
+  // Разделы сгруппированы по смыслу: одиннадцать пунктов подряд читаются
+  // как список без приоритетов, а группами глаз находит нужное сразу.
+  const adminNavGroups = [
+    {
+      title: 'Работа',
+      items: [
+        { key: 'dashboard', label: 'Сегодня', icon: LayoutDashboard },
+        { key: 'planner', label: 'Планер', icon: CalendarCheck },
+        { key: 'leads', label: 'Заявки', icon: Inbox },
+      ],
+    },
+    {
+      title: 'Аналитика',
+      items: [
+        { key: 'attribution', label: 'Воронка', icon: BarChart3 },
+        { key: 'meta', label: 'Meta CAPI', icon: Activity },
+        { key: 'performance', label: 'Скорость', icon: Gauge },
+      ],
+    },
+    {
+      title: 'Контент',
+      items: [
+        { key: 'articles', label: 'Статьи', icon: Newspaper },
+        { key: 'cases', label: 'Кейсы', icon: Briefcase },
+        { key: 'content', label: 'Тексты сайта', icon: PanelsTopLeft },
+        { key: 'media', label: 'Медиатека', icon: Images },
+      ],
+    },
+    {
+      title: 'Система',
+      items: [
+        { key: 'health', label: 'Проверка', icon: Stethoscope },
+      ],
+    },
   ] as const;
+  const adminNavigation = adminNavGroups.flatMap((group) => group.items);
+  const currentSection = adminNavigation.find((item) => item.key === currentNavKey);
   const navigateToAdminSection = (destination: AdminNavKey) => {
     if (destination === 'articles' || destination === 'cases') {
       setAdminSectionFilter(destination === 'cases' ? 'cases' : 'blog');
@@ -908,51 +932,72 @@ export default function Admin() {
   return (
     <AdminThemeProvider>
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-      <main className="px-4 py-6 sm:py-8 lg:py-10">
-        <div className="max-w-7xl mx-auto">
-          <header className="admin-header">
-            <div className="admin-header__brand">
+      <div className="admin-app">
+        <header className="admin-topbar">
+          <div className="admin-topbar__inner">
+            <div className="admin-topbar__brand">
               <WhaleMark size="var(--adm-header-whale-size)" className="admin-brand-whale" priority />
-              <div className="admin-header__brand-copy">
-                <p className="admin-eyebrow">Control center</p>
-                <h1 className="admin-header__title bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] bg-clip-text text-transparent">Whale Wizard</h1>
-              </div>
+              <span className="admin-topbar__brand-copy">
+                <span className="admin-topbar__brand-name">Whale Wizard</span>
+                <span className="admin-topbar__brand-note">Control center</span>
+              </span>
             </div>
-            <div className="admin-header__actions">
+
+            <div className="admin-mobile-nav" aria-label="Текущий раздел админки">
+              <AdminSelect
+                ariaLabel="Раздел админки"
+                value={currentNavKey}
+                options={adminNavigation.map((item) => ({ value: item.key, label: item.label }))}
+                onValueChange={(value) => navigateToAdminSection(value as AdminNavKey)}
+              />
+            </div>
+
+            <div className="admin-topbar__actions">
+              <button
+                type="button"
+                onClick={async () => { await forceRefreshAdminArticles(password); await refreshHealth(); }}
+                className="admin-button admin-button--quiet"
+                title={`Источник контента: ${sourceLabel}`}
+              >
+                <RefreshCw aria-hidden="true" /> <span className="admin-topbar__label">Обновить данные</span>
+              </button>
               <AdminThemeToggleButton />
-              <span className="admin-source-pill admin-state">Источник: {sourceLabel}</span>
-              <button type="button" onClick={async () => { await forceRefreshAdminArticles(password); await refreshHealth(); }} className="admin-button admin-button--quiet">Обновить данные</button>
-              <button type="button" onClick={() => navigate('/')} className="admin-button admin-button--quiet">← На сайт</button>
+              <button type="button" onClick={() => navigate('/')} className="admin-button admin-button--quiet" title="Открыть сайт">
+                <ExternalLink aria-hidden="true" /> <span className="admin-topbar__label">На сайт</span>
+              </button>
             </div>
-          </header>
-
-          <div className="admin-mobile-nav" aria-label="Текущий раздел админки">
-            <AdminSelect
-              ariaLabel="Раздел админки"
-              value={currentNavKey}
-              options={adminNavigation.map((item) => ({ value: item.key, label: item.label }))}
-              onValueChange={(value) => navigateToAdminSection(value as AdminNavKey)}
-            />
           </div>
+        </header>
 
-          <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
-            <aside className="lg:w-52 shrink-0">
-              <nav aria-label="Разделы админки" className="admin-sidebar-nav flex lg:flex-col gap-1.5 overflow-x-auto rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-2 lg:sticky lg:top-4">
-                {adminNavigation.map((item) => (
-                  <button
-                    type="button"
-                    key={item.key}
-                    onClick={() => navigateToAdminSection(item.key)}
-                    aria-current={currentNavKey === item.key ? 'page' : undefined}
-                    className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${currentNavKey === item.key ? 'bg-[var(--adm-primary)]/15 font-semibold text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50'}`}
-                  >
-                    <item.icon className="h-4 w-4 shrink-0" /> {item.label}
-                  </button>
-                ))}
-              </nav>
-            </aside>
+        <div className="admin-app__body">
+          <aside className="admin-sidebar">
+            <nav aria-label="Разделы админки" className="admin-sidebar__nav">
+              {adminNavGroups.map((group) => (
+                <div className="admin-sidebar__group" key={group.title}>
+                  <p className="admin-sidebar__group-title">{group.title}</p>
+                  {group.items.map((item) => (
+                    <button
+                      type="button"
+                      key={item.key}
+                      onClick={() => navigateToAdminSection(item.key)}
+                      aria-current={currentNavKey === item.key ? 'page' : undefined}
+                      className="admin-sidebar__link"
+                    >
+                      <span className="admin-sidebar__icon" aria-hidden="true"><item.icon /></span>
+                      <span className="admin-sidebar__label">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </nav>
+            <p className="admin-sidebar__foot">Источник контента: {sourceLabel}</p>
+          </aside>
 
-            <div className="min-w-0 flex-1">
+          <main className="admin-content">
+            <div className="admin-content__inner">
+              <p className="admin-breadcrumb">{currentSection?.label || 'Раздел'}</p>
+
+            <div className="min-w-0">
               {adminView === 'dashboard' && (
                 <AdminToday
                   password={password}
@@ -1360,9 +1405,10 @@ export default function Admin() {
           </div>
               )}
             </div>
-          </div>
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
     </AdminThemeProvider>
   );
 }

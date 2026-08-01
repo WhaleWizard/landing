@@ -232,30 +232,53 @@ function buildPath(values: number[], max: number, width: number, height: number,
 }
 
 /**
- * Динамика по дням. Каждая метрика — отдельный график с общей осью дат
- * (никаких двух шкал на одном поле), курсор синхронизирован между ними.
+ * Динамика по дням. Раньше каждая метрика рисовалась отдельным графиком, а
+ * SVG тянулся вместе с шириной колонки — на мониторе три блока по 250 px
+ * съедали целый экран, причём пустой ряд занимал столько же места, сколько
+ * наполненный. Теперь это один график фиксированной высоты с переключателем
+ * метрик: сравнение идёт по одной шкале, лишней прокрутки нет.
  */
 export function TrendGroup({ series, points }: { series: TrendSeries[]; points: SeriesPoint[] }) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const available = series.filter((item) => points.some((point) => point[item.key] !== null));
+  const [metric, setMetric] = useState<TrendSeries['key'] | null>(null);
 
   if (!points.length || !available.length) {
     return <p className="adm-funnel__empty">Динамика появится, когда в базе накопятся дневные данные.</p>;
   }
 
+  const current = available.find((item) => item.key === metric) || available[0];
+  const totals = new Map(available.map((item) => [
+    item.key,
+    points.reduce((sum, point) => sum + Number(point[item.key] || 0), 0),
+  ]));
+
   return (
-    <div className="adm-trend-group">
-      {available.map((item) => (
-        <TrendChart
-          key={String(item.key)}
-          label={item.label}
-          slot={item.slot}
-          points={points}
-          metric={item.key}
-          activeIndex={activeIndex}
-          onActiveIndexChange={setActiveIndex}
-        />
-      ))}
+    <div className="adm-trend-panel">
+      <div className="adm-trend-panel__switch" role="group" aria-label="Метрика графика">
+        {available.map((item) => (
+          <button
+            key={String(item.key)}
+            type="button"
+            aria-pressed={current.key === item.key}
+            className={current.key === item.key ? 'is-active' : ''}
+            style={{ ['--adm-trend-color' as string]: `var(--adm-viz-${item.slot})` }}
+            onClick={() => setMetric(item.key)}
+          >
+            <span className="adm-swatch" aria-hidden="true" />
+            <span className="adm-trend-panel__name">{item.label}</span>
+            <span className="adm-trend-panel__total">{formatNumber(totals.get(item.key) || 0)}</span>
+          </button>
+        ))}
+      </div>
+
+      <TrendChart
+        key={String(current.key)}
+        label={current.label}
+        slot={current.slot}
+        points={points}
+        metric={current.key}
+      />
+
       <details className="adm-figure__table">
         <summary>Показать таблицей</summary>
         <div className="adm-table-scroll">
@@ -281,27 +304,46 @@ export function TrendGroup({ series, points }: { series: TrendSeries[]; points: 
   );
 }
 
+const TREND_HEIGHT = 208;
+const TREND_PADDING = 14;
+
 function TrendChart({
   label,
   slot,
   points,
   metric,
-  activeIndex,
-  onActiveIndexChange,
 }: {
   label: string;
   slot: number;
   points: SeriesPoint[];
   metric: keyof Omit<SeriesPoint, 'day'>;
-  activeIndex: number | null;
-  onActiveIndexChange: (index: number | null) => void;
 }) {
-  const width = 640;
-  const height = 132;
-  const padding = 10;
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLElement>(null);
+  // viewBox совпадает с фактическим размером в пикселях: график не
+  // растягивается по вертикали вслед за шириной и не искажает точки.
+  const [width, setWidth] = useState(760);
+
+  useEffect(() => {
+    const element = wrapRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      const next = Math.round(entries[0]?.contentRect.width || 0);
+      if (next > 0) setWidth(Math.max(280, next));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const height = TREND_HEIGHT;
+  const padding = TREND_PADDING;
   const values = points.map((point) => Number(point[metric] || 0));
   const max = Math.max(1, ...values);
-  const { line, area } = useMemo(() => buildPath(values, max, width, height, padding), [max, values.join(',')]);
+  const hasData = values.some((value) => value > 0);
+  const { line, area } = useMemo(
+    () => buildPath(values, max, width, height, padding),
+    [height, max, padding, values.join(','), width],
+  );
   const total = values.reduce((sum, value) => sum + value, 0);
   const peakIndex = values.indexOf(Math.max(...values));
 
@@ -312,10 +354,8 @@ function TrendChart({
   const handlePointer = (event: React.PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const relative = ((event.clientX - rect.left) / rect.width) * width;
-    const index = stepX > 0
-      ? Math.round((relative - padding) / stepX)
-      : 0;
-    onActiveIndexChange(Math.min(Math.max(index, 0), values.length - 1));
+    const index = stepX > 0 ? Math.round((relative - padding) / stepX) : 0;
+    setActiveIndex(Math.min(Math.max(index, 0), values.length - 1));
   };
 
   const handleKey = (event: React.KeyboardEvent<SVGSVGElement>) => {
@@ -323,53 +363,75 @@ function TrendChart({
     event.preventDefault();
     const base = activeIndex === null ? values.length - 1 : activeIndex;
     const next = event.key === 'ArrowLeft' ? base - 1 : base + 1;
-    onActiveIndexChange(Math.min(Math.max(next, 0), values.length - 1));
+    setActiveIndex(Math.min(Math.max(next, 0), values.length - 1));
   };
 
   const active = activeIndex !== null && activeIndex >= 0 && activeIndex < values.length ? activeIndex : null;
+  const gradientId = `adm-trend-${String(metric)}`;
+  // Подписи только по краям и в середине: четырнадцать дат подряд — это шум.
+  const axisLabels = points.length > 2 ? [0, Math.floor((points.length - 1) / 2), points.length - 1] : [0];
 
   return (
-    <figure className="adm-trend" style={{ ['--adm-trend-color' as string]: `var(--adm-viz-${slot})` }}>
-      <figcaption className="adm-trend__head">
-        <span className="adm-trend__label"><span className="adm-swatch" aria-hidden="true" />{label}</span>
-        <span className="adm-trend__total">
-          {active === null
-            ? `всего ${formatNumber(total)}`
-            : `${formatDayLabel(points[active].day)} · ${formatNumber(points[active][metric])}`}
+    <figure className="adm-trend" style={{ ['--adm-trend-color' as string]: `var(--adm-viz-${slot})` }} ref={wrapRef}>
+      <div className="adm-trend__readout" aria-hidden="true">
+        <span className="adm-trend__readout-value">
+          {active === null ? formatNumber(total) : formatNumber(points[active][metric])}
         </span>
-      </figcaption>
+        <span className="adm-trend__readout-note">
+          {active === null ? `${label} · всего за период` : `${label} · ${formatDayLabel(points[active].day)}`}
+        </span>
+      </div>
       <svg
         viewBox={`0 0 ${width} ${height}`}
+        width={width}
+        height={height}
         className="adm-trend__svg"
         role="img"
         tabIndex={0}
         aria-label={`${label} по дням. Всего за период ${formatNumber(total)}. Стрелками влево и вправо можно пройти по дням.`}
         onPointerMove={handlePointer}
-        onPointerLeave={() => onActiveIndexChange(null)}
+        onPointerLeave={() => setActiveIndex(null)}
         onKeyDown={handleKey}
-        onBlur={() => onActiveIndexChange(null)}
+        onBlur={() => setActiveIndex(null)}
       >
         <defs>
-          <linearGradient id={`adm-trend-${metric}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--adm-trend-color)" stopOpacity="0.28" />
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--adm-trend-color)" stopOpacity="0.3" />
             <stop offset="100%" stopColor="var(--adm-trend-color)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <line className="adm-trend__baseline" x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} vectorEffect="non-scaling-stroke" />
-        <path d={area} className="adm-trend__area" fill={`url(#adm-trend-${metric})`} />
-        {/* pathLength="1" нормирует длину линии, поэтому «прорисовку» делает
-            обычная CSS-анимация штриха — без пересчёта в JavaScript. */}
-        <path d={line} className="adm-trend__line" pathLength={1} vectorEffect="non-scaling-stroke" />
-        {values.length > 0 && max > 0 && peakIndex >= 0 && (
-          <circle className="adm-trend__peak" cx={pointX(peakIndex)} cy={pointY(peakIndex)} r={4} vectorEffect="non-scaling-stroke" />
+        {[0.25, 0.5, 0.75].map((step) => (
+          <line
+            key={step}
+            className="adm-trend__grid"
+            x1={padding}
+            x2={width - padding}
+            y1={padding + (height - padding * 2) * step}
+            y2={padding + (height - padding * 2) * step}
+          />
+        ))}
+        <line className="adm-trend__baseline" x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
+        {hasData && <path d={area} className="adm-trend__area" fill={`url(#${gradientId})`} />}
+        {hasData && <path d={line} className="adm-trend__line" pathLength={1} />}
+        {!hasData && (
+          <line className="adm-trend__flat" x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} />
         )}
-        {active !== null && (
+        {hasData && peakIndex >= 0 && (
+          <circle className="adm-trend__peak" cx={pointX(peakIndex)} cy={pointY(peakIndex)} r={4} />
+        )}
+        {active !== null && hasData && (
           <g>
-            <line className="adm-trend__cursor" x1={pointX(active)} y1={padding} x2={pointX(active)} y2={height - padding} vectorEffect="non-scaling-stroke" />
-            <circle className="adm-trend__dot" cx={pointX(active)} cy={pointY(active)} r={5} vectorEffect="non-scaling-stroke" />
+            <line className="adm-trend__cursor" x1={pointX(active)} y1={padding} x2={pointX(active)} y2={height - padding} />
+            <circle className="adm-trend__dot" cx={pointX(active)} cy={pointY(active)} r={5} />
           </g>
         )}
       </svg>
+      <div className="adm-trend__axis" aria-hidden="true">
+        {axisLabels.map((index) => (
+          <span key={index}>{formatDayLabel(points[index].day)}</span>
+        ))}
+      </div>
+      {!hasData && <p className="adm-trend__empty">За выбранный период по этой метрике данных нет.</p>}
     </figure>
   );
 }

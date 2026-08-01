@@ -286,56 +286,6 @@ export default function AdminToday({
         </div>
       )}
 
-      {data?.success && (
-        <section className="admin-panel adm-card today-focus">
-          <header className="adm-card__head adm-card__head--row">
-            <div>
-              <h3 className="admin-card-title"><Sparkles aria-hidden="true" /> Фокус дня</h3>
-              <p className="admin-hint">Конкретные дела с именами и сроками — сверху то, что уже горит.</p>
-            </div>
-            {focus.length > 6 && (
-              <button type="button" className="admin-button admin-button--quiet" onClick={() => setShowAllFocus((value) => !value)}>
-                {showAllFocus ? 'Свернуть' : `Показать все ${focus.length}`}
-              </button>
-            )}
-          </header>
-
-          {focus.length === 0 ? (
-            <div className="admin-empty admin-empty--success">
-              <CheckCircle2 aria-hidden="true" />
-              <div>
-                <strong>На сегодня ничего не горит</strong>
-                <p>Просроченных шагов и задач нет, новые заявки обработаны.</p>
-              </div>
-            </div>
-          ) : (
-            <ul className="today-focus__list">
-              {shownFocus.map((item) => {
-                const ui = FOCUS_UI[item.kind];
-                const Icon = ui.icon;
-                const when = timeLabel(item.kind, item.when);
-                return (
-                  <li key={item.id}>
-                    <button type="button" className={`today-focus__item is-${ui.tone}`} onClick={() => onNavigate(item.destination)}>
-                      <span className="today-focus__icon" aria-hidden="true"><Icon /></span>
-                      <span className="today-focus__body">
-                        <span className="today-focus__title">{item.title}</span>
-                        <span className="today-focus__subtitle">{item.subtitle}</span>
-                      </span>
-                      <span className="today-focus__meta">
-                        <span className="today-focus__kind">{ui.label}</span>
-                        {when ? <span className="today-focus__when">{when}</span> : null}
-                      </span>
-                      <ArrowRight className="today-focus__go" aria-hidden="true" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      )}
-
       {totals && (
         <div className="adm-tiles">
           <StatTile
@@ -369,149 +319,209 @@ export default function AdminToday({
         </div>
       )}
 
-      {stats && (
-        <section className="admin-panel adm-card">
-          <header className="adm-card__head">
-            <h3 className="admin-card-title">Две недели одним взглядом</h3>
-            <p className="admin-hint">Наведи курсор или пройди стрелками — покажет значение конкретного дня.</p>
-          </header>
-          <TrendGroup
-            points={series}
-            series={[
-              { key: 'visitors', label: 'Уникальные посетители', slot: 5 },
-              { key: 'views', label: 'Просмотры', slot: 2 },
-              { key: 'leads', label: 'Заявки', slot: 1 },
-            ]}
-          />
-        </section>
-      )}
-
-      {items.length > 0 && (
-        <section className="admin-panel adm-card">
-          <header className="adm-card__head">
-            <h3 className="admin-card-title">Требует решения</h3>
-            <p className="admin-hint">Сгруппировано по разделам: нажми, чтобы перейти и разобрать.</p>
-          </header>
-          <div className="today-cards">
-            {items.map((item) => {
-              const ui = LEVEL_UI[item.level];
-              const Icon = ui.icon;
-              return (
-                <button key={item.id} type="button" className={`today-card is-${item.level}`} onClick={() => onNavigate(item.destination)}>
-                  <span className="today-card__top">
-                    <span className="today-card__level"><Icon aria-hidden="true" />{ui.label}</span>
-                    <span className="today-card__count">{item.count}</span>
-                  </span>
-                  <strong>{item.title}</strong>
-                  <span className="today-card__detail">{item.detail}</span>
-                  <span className="today-card__link">Открыть <ArrowUpRight aria-hidden="true" /></span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {(capi || health) && (
-        <section className="admin-panel adm-card">
-          <header className="adm-card__head">
-            <h3 className="admin-card-title"><Activity aria-hidden="true" /> Здоровье системы</h3>
-            <p className="admin-hint">Доставка событий и уведомлений за последние сутки.</p>
-          </header>
-          <div className="today-health">
-            <div className={capiOk ? 'is-ok' : 'is-warn'}>
-              <Activity aria-hidden="true" />
-              <span>Meta CAPI за сутки</span>
-              <strong>{capiOk ? 'в порядке' : 'нужна проверка'}</strong>
-              <em>{formatNumber(capi?.sent24h ?? null)} отправлено · {formatNumber(capi?.failed24h ?? null)} ошибок</em>
-            </div>
-            <div className={Number(health?.outboxPending || 0) + Number(health?.outboxRetry || 0) > 0 ? 'is-warn' : 'is-ok'}>
-              <Clock3 aria-hidden="true" />
-              <span>Очередь досылки</span>
-              <strong>{formatNumber((health?.outboxPending || 0) + (health?.outboxRetry || 0))}</strong>
-              <em>событий ждут повторной отправки</em>
-            </div>
-            <div className={Number(health?.outboxDead || 0) > 0 ? 'is-alarm' : 'is-ok'}>
-              <AlertTriangle aria-hidden="true" />
-              <span>Остановленные события</span>
-              <strong>{formatNumber(health?.outboxDead ?? 0)}</strong>
-              <em>исчерпаны попытки — нужна диагностика</em>
-            </div>
-            <div className={Number(health?.telegramMissing || 0) > 0 ? 'is-warn' : 'is-ok'}>
-              <Send aria-hidden="true" />
-              <span>Telegram-уведомления</span>
-              <strong>{formatNumber(health?.telegramMissing ?? 0)}</strong>
-              <em>заявок без подтверждения за 7 дней</em>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {stats && (
-        <div className="today-columns">
-          <AdminPanel className="adm-card">
-            <header className="adm-card__head">
-              <h3 className="admin-card-title">Топ страниц за 7 дней</h3>
-            </header>
-            {(stats.topPages || []).length === 0 ? (
-              <p className="admin-muted">Пока нет данных — статистика начнёт собираться после деплоя.</p>
-            ) : (
-              <ul className="today-rank">
-                {(stats.topPages || []).map((page, index) => (
-                  <li key={page.page_path}>
-                    <span className="today-rank__index">{index + 1}</span>
-                    <span className="today-rank__label" title={page.page_path}>{pageTitle(page.page_path)}</span>
-                    <span className="today-rank__value">{formatNumber(page.views)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </AdminPanel>
-
-          <AdminPanel className="adm-card">
+      {/* Широкий монитор: слева работа с делами и графиком, справа —
+          рельс со статусами и переходами. Раньше всё шло одной колонкой
+          во всю ширину, и экран приходилось долго прокручивать. */}
+      <div className="today-grid">
+        <div className="today-grid__main">
+        {data?.success && (
+          <section className="admin-panel adm-card today-focus">
             <header className="adm-card__head adm-card__head--row">
-              <h3 className="admin-card-title">Последние заявки</h3>
-              <button type="button" className="admin-button admin-button--quiet" onClick={() => onNavigate('leads')}>
-                Все сделки <ArrowRight aria-hidden="true" />
-              </button>
+              <div>
+                <h3 className="admin-card-title"><Sparkles aria-hidden="true" /> Фокус дня</h3>
+                <p className="admin-hint">Конкретные дела с именами и сроками — сверху то, что уже горит.</p>
+              </div>
+              {focus.length > 6 && (
+                <button type="button" className="admin-button admin-button--quiet" onClick={() => setShowAllFocus((value) => !value)}>
+                  {showAllFocus ? 'Свернуть' : `Показать все ${focus.length}`}
+                </button>
+              )}
             </header>
-            {(stats.recentLeads || []).length === 0 ? (
-              <p className="admin-muted">Заявок пока нет.</p>
+
+            {focus.length === 0 ? (
+              <div className="admin-empty admin-empty--success">
+                <CheckCircle2 aria-hidden="true" />
+                <div>
+                  <strong>На сегодня ничего не горит</strong>
+                  <p>Просроченных шагов и задач нет, новые заявки обработаны.</p>
+                </div>
+              </div>
             ) : (
-              <ul className="today-leads">
-                {(stats.recentLeads || []).map((lead) => {
-                  const status = LEAD_STATUS_LABELS[lead.status] || LEAD_STATUS_LABELS.new;
+              <ul className="today-focus__list">
+                {shownFocus.map((item) => {
+                  const ui = FOCUS_UI[item.kind];
+                  const Icon = ui.icon;
+                  const when = timeLabel(item.kind, item.when);
                   return (
-                    <li key={lead.id}>
-                      <button type="button" onClick={() => onNavigate('leads')}>
-                        <span className="today-leads__name">{lead.name || 'Без имени'}</span>
-                        <span className="today-leads__meta">
-                          {[lead.service, lead.budget].filter(Boolean).join(' · ') || 'Без деталей'}
+                    <li key={item.id}>
+                      <button type="button" className={`today-focus__item is-${ui.tone}`} onClick={() => onNavigate(item.destination)}>
+                        <span className="today-focus__icon" aria-hidden="true"><Icon /></span>
+                        <span className="today-focus__body">
+                          <span className="today-focus__title">{item.title}</span>
+                          <span className="today-focus__subtitle">{item.subtitle}</span>
                         </span>
-                        <span className={`today-leads__status ${status.tone}`}>{status.label}</span>
+                        <span className="today-focus__meta">
+                          <span className="today-focus__kind">{ui.label}</span>
+                          {when ? <span className="today-focus__when">{when}</span> : null}
+                        </span>
+                        <ArrowRight className="today-focus__go" aria-hidden="true" />
                       </button>
                     </li>
                   );
                 })}
               </ul>
             )}
-          </AdminPanel>
-        </div>
-      )}
+          </section>
+        )}
 
-      <section className="admin-panel adm-card">
-        <header className="adm-card__head">
-          <h3 className="admin-card-title">Быстрый переход</h3>
-        </header>
-        <div className="today-quick">
-          {QUICK_ACTIONS.map((action) => (
-            <button key={action.destination} type="button" onClick={() => onNavigate(action.destination)}>
-              <action.icon aria-hidden="true" />
-              {action.label}
-            </button>
-          ))}
+        {stats && (
+          <section className="admin-panel adm-card">
+            <header className="adm-card__head">
+              <h3 className="admin-card-title">Две недели одним взглядом</h3>
+              <p className="admin-hint">Наведи курсор или пройди стрелками — покажет значение конкретного дня.</p>
+            </header>
+            <TrendGroup
+              points={series}
+              series={[
+                { key: 'visitors', label: 'Уникальные посетители', slot: 5 },
+                { key: 'views', label: 'Просмотры', slot: 2 },
+                { key: 'leads', label: 'Заявки', slot: 1 },
+              ]}
+            />
+          </section>
+        )}
+
+        {items.length > 0 && (
+          <section className="admin-panel adm-card">
+            <header className="adm-card__head">
+              <h3 className="admin-card-title">Требует решения</h3>
+              <p className="admin-hint">Сгруппировано по разделам: нажми, чтобы перейти и разобрать.</p>
+            </header>
+            <div className="today-cards">
+              {items.map((item) => {
+                const ui = LEVEL_UI[item.level];
+                const Icon = ui.icon;
+                return (
+                  <button key={item.id} type="button" className={`today-card is-${item.level}`} onClick={() => onNavigate(item.destination)}>
+                    <span className="today-card__top">
+                      <span className="today-card__level"><Icon aria-hidden="true" />{ui.label}</span>
+                      <span className="today-card__count">{item.count}</span>
+                    </span>
+                    <strong>{item.title}</strong>
+                    <span className="today-card__detail">{item.detail}</span>
+                    <span className="today-card__link">Открыть <ArrowUpRight aria-hidden="true" /></span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         </div>
-      </section>
+
+        <aside className="today-grid__rail" aria-label="Статус и быстрые переходы">
+        {(capi || health) && (
+          <section className="admin-panel adm-card">
+            <header className="adm-card__head">
+              <h3 className="admin-card-title"><Activity aria-hidden="true" /> Здоровье системы</h3>
+              <p className="admin-hint">Доставка событий и уведомлений за последние сутки.</p>
+            </header>
+            <div className="today-health">
+              <div className={capiOk ? 'is-ok' : 'is-warn'}>
+                <Activity aria-hidden="true" />
+                <span>Meta CAPI за сутки</span>
+                <strong>{capiOk ? 'в порядке' : 'нужна проверка'}</strong>
+                <em>{formatNumber(capi?.sent24h ?? null)} отправлено · {formatNumber(capi?.failed24h ?? null)} ошибок</em>
+              </div>
+              <div className={Number(health?.outboxPending || 0) + Number(health?.outboxRetry || 0) > 0 ? 'is-warn' : 'is-ok'}>
+                <Clock3 aria-hidden="true" />
+                <span>Очередь досылки</span>
+                <strong>{formatNumber((health?.outboxPending || 0) + (health?.outboxRetry || 0))}</strong>
+                <em>событий ждут повторной отправки</em>
+              </div>
+              <div className={Number(health?.outboxDead || 0) > 0 ? 'is-alarm' : 'is-ok'}>
+                <AlertTriangle aria-hidden="true" />
+                <span>Остановленные события</span>
+                <strong>{formatNumber(health?.outboxDead ?? 0)}</strong>
+                <em>исчерпаны попытки — нужна диагностика</em>
+              </div>
+              <div className={Number(health?.telegramMissing || 0) > 0 ? 'is-warn' : 'is-ok'}>
+                <Send aria-hidden="true" />
+                <span>Telegram-уведомления</span>
+                <strong>{formatNumber(health?.telegramMissing ?? 0)}</strong>
+                <em>заявок без подтверждения за 7 дней</em>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {stats && (
+          <div className="today-columns">
+            <AdminPanel className="adm-card">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title">Топ страниц за 7 дней</h3>
+              </header>
+              {(stats.topPages || []).length === 0 ? (
+                <p className="admin-muted">Пока нет данных — статистика начнёт собираться после деплоя.</p>
+              ) : (
+                <ul className="today-rank">
+                  {(stats.topPages || []).map((page, index) => (
+                    <li key={page.page_path}>
+                      <span className="today-rank__index">{index + 1}</span>
+                      <span className="today-rank__label" title={page.page_path}>{pageTitle(page.page_path)}</span>
+                      <span className="today-rank__value">{formatNumber(page.views)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </AdminPanel>
+
+            <AdminPanel className="adm-card">
+              <header className="adm-card__head adm-card__head--row">
+                <h3 className="admin-card-title">Последние заявки</h3>
+                <button type="button" className="admin-button admin-button--quiet" onClick={() => onNavigate('leads')}>
+                  Все сделки <ArrowRight aria-hidden="true" />
+                </button>
+              </header>
+              {(stats.recentLeads || []).length === 0 ? (
+                <p className="admin-muted">Заявок пока нет.</p>
+              ) : (
+                <ul className="today-leads">
+                  {(stats.recentLeads || []).map((lead) => {
+                    const status = LEAD_STATUS_LABELS[lead.status] || LEAD_STATUS_LABELS.new;
+                    return (
+                      <li key={lead.id}>
+                        <button type="button" onClick={() => onNavigate('leads')}>
+                          <span className="today-leads__name">{lead.name || 'Без имени'}</span>
+                          <span className="today-leads__meta">
+                            {[lead.service, lead.budget].filter(Boolean).join(' · ') || 'Без деталей'}
+                          </span>
+                          <span className={`today-leads__status ${status.tone}`}>{status.label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </AdminPanel>
+          </div>
+        )}
+
+        <section className="admin-panel adm-card">
+          <header className="adm-card__head">
+            <h3 className="admin-card-title">Быстрый переход</h3>
+          </header>
+          <div className="today-quick">
+            {QUICK_ACTIONS.map((action) => (
+              <button key={action.destination} type="button" onClick={() => onNavigate(action.destination)}>
+                <action.icon aria-hidden="true" />
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </section>
+        </aside>
+      </div>
 
       <p className="admin-meta">
         Уникальные посетители считаются по обезличенному отпечатку дня (без cookies), личные данные не сохраняются.

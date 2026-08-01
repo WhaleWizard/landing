@@ -8358,3 +8358,529 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
     transform: none;
   }
 }
+
+/* ==========================================================================
+   Оболочка админки: липкая шапка, сгруппированный сайдбар, рабочая область
+   с ограниченной шириной. Раньше содержимое растягивалось на всю ширину
+   монитора — строки становились нечитаемо длинными, а сетка разваливалась.
+   ========================================================================== */
+
+.admin-root {
+  --adm-content-max: 1320px;
+  --adm-sidebar-width: 244px;
+  --adm-topbar-height: 60px;
+  --adm-gutter: clamp(16px, 2vw, 28px);
+}
+
+/* Общий сброс ширины из старой вёрстки мешал любому max-width внутри main. */
+.admin-root .admin-app,
+.admin-root .admin-app__body {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-root .admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid color-mix(in srgb, var(--adm-border) 85%, transparent);
+  background: color-mix(in srgb, var(--adm-surface-canvas) 78%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+}
+
+.admin-root .admin-topbar__inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: calc(var(--adm-content-max) + var(--adm-sidebar-width) + var(--adm-gutter));
+  min-height: var(--adm-topbar-height);
+  margin: 0 auto;
+  padding: 0 var(--adm-gutter);
+}
+
+.admin-root .admin-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: none;
+}
+
+.admin-root .admin-topbar__brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.admin-root .admin-topbar__brand-name {
+  font-family: var(--ww-font-display, inherit);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: linear-gradient(92deg, var(--adm-primary), var(--adm-primary-strong));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.admin-root .admin-topbar__brand-note {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .admin-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+
+.admin-root .admin-app__body {
+  display: grid;
+  grid-template-columns: var(--adm-sidebar-width) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--adm-gutter);
+  max-width: calc(var(--adm-content-max) + var(--adm-sidebar-width) + var(--adm-gutter));
+  margin: 0 auto;
+  padding: 0 var(--adm-gutter) 48px;
+}
+
+/* --- Сайдбар --- */
+
+.admin-root .admin-sidebar {
+  position: sticky;
+  top: calc(var(--adm-topbar-height) + 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 12px;
+  border: 1px solid var(--adm-border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 6%, transparent) 0, transparent 42%),
+    var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-xs);
+}
+
+.admin-root .admin-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-root .admin-sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-root .admin-sidebar__group-title {
+  margin: 0 0 4px;
+  padding-inline-start: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .admin-sidebar__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--adm-text-secondary);
+  text-align: start;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.admin-root .admin-sidebar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--adm-text-tertiary) 12%, transparent);
+  color: var(--adm-text-tertiary);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.admin-root .admin-sidebar__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-root .admin-sidebar__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .admin-sidebar__link:hover {
+  background: color-mix(in srgb, var(--adm-surface-subtle) 70%, transparent);
+  color: var(--adm-text-primary);
+}
+
+.admin-root .admin-sidebar__link:hover .admin-sidebar__icon {
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .admin-sidebar__link[aria-current='page'] {
+  background: color-mix(in srgb, var(--adm-primary) 12%, transparent);
+  color: var(--adm-primary);
+  font-weight: 600;
+}
+
+.admin-root .admin-sidebar__link[aria-current='page'] .admin-sidebar__icon {
+  background: var(--adm-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--adm-primary) 90%, transparent);
+}
+
+/* Тонкая полоса слева — активный раздел читается даже боковым зрением. */
+.admin-root .admin-sidebar__link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: -12px;
+  inset-block: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--adm-primary);
+}
+
+.admin-root .admin-sidebar__link:focus-visible {
+  outline: 2px solid var(--adm-primary);
+  outline-offset: 2px;
+}
+
+.admin-root .admin-sidebar__foot {
+  margin: 0;
+  padding: 10px 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--adm-border) 70%, transparent);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--adm-text-tertiary);
+}
+
+/* --- Рабочая область --- */
+
+.admin-root .admin-content {
+  min-width: 0;
+  padding-top: 22px;
+}
+
+.admin-root .admin-content__inner {
+  max-width: var(--adm-content-max);
+  min-width: 0;
+}
+
+.admin-root .admin-breadcrumb {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--adm-text-tertiary);
+}
+
+/* Заголовок раздела: текст занимает читаемую колонку, кнопки прижаты вправо,
+   а описание больше не сжимается в узкий столбик рядом с пустотой. */
+.admin-root .admin-section-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px 24px;
+}
+
+.admin-root .admin-section-header > div:first-child {
+  min-width: 0;
+}
+
+.admin-root .admin-subtitle {
+  max-width: 78ch;
+}
+
+@media (max-width: 1023px) {
+  .admin-root {
+    --adm-sidebar-width: 100%;
+  }
+
+  .admin-root .admin-app__body {
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: 32px;
+  }
+
+  .admin-root .admin-sidebar {
+    display: none;
+  }
+
+  .admin-root .admin-content {
+    padding-top: 16px;
+  }
+
+  .admin-root .admin-mobile-nav {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    max-width: 280px;
+  }
+
+  .admin-root .admin-topbar__label {
+    display: none;
+  }
+
+  .admin-root .admin-topbar__actions .admin-button {
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-root .admin-topbar__brand-copy {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   График динамики v2: фиксированная высота, переключатель метрик,
+   крупный показатель слева сверху вместо трёх растянутых блоков.
+   ========================================================================== */
+
+.admin-root .adm-trend-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-root .adm-trend-panel__switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-root .adm-trend-panel__switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--adm-border);
+  border-radius: 12px;
+  background: var(--adm-surface-elevated);
+  font: inherit;
+  font-size: 13px;
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-root .adm-trend-panel__switch button:hover {
+  border-color: color-mix(in srgb, var(--adm-trend-color, var(--adm-primary)) 45%, var(--adm-border));
+  color: var(--adm-text-primary);
+}
+
+.admin-root .adm-trend-panel__switch button.is-active {
+  border-color: color-mix(in srgb, var(--adm-trend-color, var(--adm-primary)) 55%, transparent);
+  background: color-mix(in srgb, var(--adm-trend-color, var(--adm-primary)) 10%, var(--adm-surface-elevated));
+  color: var(--adm-text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--adm-trend-color, var(--adm-primary)) 22%, transparent);
+}
+
+.admin-root .adm-trend-panel__switch button:focus-visible {
+  outline: 2px solid var(--adm-primary);
+  outline-offset: 2px;
+}
+
+.admin-root .adm-trend-panel__name {
+  font-weight: 600;
+}
+
+.admin-root .adm-trend-panel__total {
+  padding-inline-start: 8px;
+  border-inline-start: 1px solid color-mix(in srgb, var(--adm-border) 80%, transparent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .adm-trend-panel__switch button.is-active .adm-trend-panel__total {
+  color: var(--adm-trend-color, var(--adm-primary));
+}
+
+.admin-root .adm-trend {
+  position: relative;
+  margin: 0;
+  display: block;
+}
+
+.admin-root .adm-trend__readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 6px;
+  min-height: 44px;
+}
+
+.admin-root .adm-trend__readout-value {
+  font-family: var(--ww-font-display, inherit);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .adm-trend__readout-note {
+  font-size: 12px;
+  color: var(--adm-text-tertiary);
+}
+
+/* Ключевое: размер задаётся в пикселях и не зависит от ширины колонки. */
+.admin-root .adm-trend__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 208px;
+  border-radius: var(--adm-radius-control);
+  touch-action: pan-y;
+}
+
+.admin-root .adm-trend__svg:focus-visible {
+  outline: 2px solid var(--adm-primary);
+  outline-offset: 2px;
+}
+
+.admin-root .adm-trend__grid {
+  stroke: color-mix(in srgb, var(--adm-border) 65%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+}
+
+.admin-root .adm-trend__baseline {
+  stroke: var(--adm-border-strong);
+  stroke-width: 1;
+}
+
+.admin-root .adm-trend__flat {
+  stroke: color-mix(in srgb, var(--adm-text-tertiary) 45%, transparent);
+  stroke-width: 2;
+  stroke-dasharray: 4 6;
+}
+
+.admin-root .adm-trend__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .adm-trend__empty {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--adm-text-tertiary);
+}
+
+/* --- Плитки: крупное число, компактный корпус --- */
+
+.admin-root .adm-tiles {
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+}
+
+.admin-root .adm-tile {
+  gap: 3px;
+  padding: 13px 15px 14px;
+  border-radius: 15px;
+}
+
+.admin-root .adm-tile__head {
+  gap: 7px;
+}
+
+.admin-root .adm-tile__icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+.admin-root .adm-tile__icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-root .adm-tile__title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .adm-tile__value {
+  margin-top: 2px;
+  font-size: clamp(26px, 2.4vw, 32px);
+  line-height: 1.04;
+}
+
+.admin-root .adm-tile__detail {
+  font-size: 12px;
+  line-height: 1.4;
+  /* Пояснение не должно перетягивать внимание с самого числа. */
+  color: color-mix(in srgb, var(--adm-text-tertiary) 88%, transparent);
+}
+
+/* Двухколоночная раскладка «Сегодня»: дела и график слева, статус и
+   переходы — в правом рельсе. Одна колонка во всю ширину монитора
+   превращала экран в длинную ленту одинаковых карточек. */
+.admin-root .today-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (min-width: 1180px) {
+  .admin-root .today-grid {
+    grid-template-columns: minmax(0, 1.62fr) minmax(300px, 0.85fr);
+  }
+}
+
+.admin-root .today-grid__main,
+.admin-root .today-grid__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* В рельсе колонки не нужны — блоки идут друг под другом. */
+.admin-root .today-grid__rail .today-columns {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-root .today-grid__rail .adm-card {
+  padding: 14px;
+}
+
+.admin-root .today-grid__rail .crm-health,
+.admin-root .today-grid__rail .today-health {
+  grid-template-columns: minmax(0, 1fr);
+}
