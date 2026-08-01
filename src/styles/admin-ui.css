@@ -4868,10 +4868,16 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   text-transform: capitalize;
 }
 
+/* Сон и энергия делят строку, настроение занимает свою: пять ступеней не
+   помещаются в треть карточки и раньше выезжали за её край. */
 .admin-root .planner-journal__meters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.admin-root .planner-field--mood {
+  grid-column: 1 / -1;
 }
 
 .admin-root .planner-journal__texts {
@@ -4898,7 +4904,10 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .planner-scale {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--adm-border-subtle);
@@ -4910,8 +4919,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   display: inline-grid;
   place-items: center;
   flex: 1 1 0;
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 0;
+  min-height: 44px;
   padding: 0;
   border: 0;
   border-radius: 9px;
@@ -4935,6 +4944,14 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 /* --- Адаптив --- */
+
+@media (max-width: 419px) {
+  /* На узком экране «сон» и «энергия» тоже занимают по строке: иначе три
+     молнии делят половину карточки и кнопка становится уже пальца. */
+  .admin-root .planner-journal__meters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 @media (max-width: 639px) {
   .admin-root .planner-day:not([data-active]),
@@ -5040,5 +5057,471 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .admin-root :is(.planner-ring__fill, .planner-bar__fill, .planner-col__track, .planner-col__fill, .planner-col__tip, .planner-daystrip__meter > span) {
     transition: none;
+  }
+}
+
+/* ==========================================================================
+   Планер: цветовой слой и свечения
+   Шкалы «энергия» и «настроение» — не категории, а порядковые ступени:
+   тёплый → жёлто-зелёный → зелёный. Значение читается по числу зажжённых
+   иконок и подписи, цвет только усиливает. Для каждой ступени две величины:
+   ink — насыщенный тон иконки (контраст к фону ≥ 3:1 в обеих темах),
+   tint — яркий тон для подложки и свечения.
+   ========================================================================== */
+
+.admin-root .planner {
+  --pl-e1-ink: #9a6b06;
+  --pl-e1-tint: #f5b40a;
+  --pl-e2-ink: #5f7d0a;
+  --pl-e2-tint: #a3cc1a;
+  --pl-e3-ink: #0f7a4a;
+  --pl-e3-tint: #22c07a;
+
+  --pl-m1-ink: #c02a4d;
+  --pl-m1-tint: #f2456e;
+  --pl-m2-ink: #b45309;
+  --pl-m2-tint: #f97316;
+  --pl-m3-ink: #9a6b06;
+  --pl-m3-tint: #f5b40a;
+  --pl-m4-ink: #5f7d0a;
+  --pl-m4-tint: #a3cc1a;
+  --pl-m5-ink: #0f7a4a;
+  --pl-m5-tint: #22c07a;
+
+  --pl-sleep-ink: #4c5bc4;
+  --pl-sleep-tint: #6f7ff0;
+
+  --pl-star-ink: #b8860b;
+  --pl-star-tint: #f5b40a;
+}
+
+.admin-root[data-theme='dark'] .planner {
+  --pl-e1-ink: #f5c33c;
+  --pl-e2-ink: #c3e05c;
+  --pl-e3-ink: #5fe0a5;
+
+  --pl-m1-ink: #ff8fa8;
+  --pl-m2-ink: #ffab5c;
+  --pl-m3-ink: #f5c33c;
+  --pl-m4-ink: #c3e05c;
+  --pl-m5-ink: #5fe0a5;
+
+  --pl-sleep-ink: #a3aeff;
+  --pl-star-ink: #f5c33c;
+}
+
+/* --- Шкалы «энергия» и «настроение» --- */
+
+.admin-root .planner-scale {
+  position: relative;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--adm-surface-subtle) 55%, transparent), var(--adm-input-bg));
+}
+
+.admin-root .planner-scale__button {
+  position: relative;
+  transition: color 180ms ease, background 180ms ease, box-shadow 220ms ease, transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.admin-root .planner-scale__button svg {
+  position: relative;
+  z-index: 1;
+  transition: filter 220ms ease, transform 180ms ease;
+}
+
+.admin-root .planner-scale[data-scale] .planner-scale__button[aria-pressed='true'] {
+  color: var(--pl-level-ink);
+  background:
+    radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--pl-level-tint) 40%, transparent), transparent 72%),
+    color-mix(in srgb, var(--pl-level-tint) 15%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--pl-level-tint) 34%, transparent),
+    0 3px 12px -4px color-mix(in srgb, var(--pl-level-tint) 62%, transparent);
+}
+
+.admin-root .planner-scale[data-scale] .planner-scale__button[aria-pressed='true'] svg {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--pl-level-tint) 55%, transparent));
+}
+
+.admin-root .planner-scale__button[aria-pressed='true']:active {
+  transform: scale(0.94);
+}
+
+.admin-root .planner-scale[data-scale='energy'] .planner-scale__button[data-level='1'] {
+  --pl-level-ink: var(--pl-e1-ink);
+  --pl-level-tint: var(--pl-e1-tint);
+}
+
+.admin-root .planner-scale[data-scale='energy'] .planner-scale__button[data-level='2'] {
+  --pl-level-ink: var(--pl-e2-ink);
+  --pl-level-tint: var(--pl-e2-tint);
+}
+
+.admin-root .planner-scale[data-scale='energy'] .planner-scale__button[data-level='3'] {
+  --pl-level-ink: var(--pl-e3-ink);
+  --pl-level-tint: var(--pl-e3-tint);
+}
+
+.admin-root .planner-scale[data-scale='mood'] .planner-scale__button[data-level='1'] {
+  --pl-level-ink: var(--pl-m1-ink);
+  --pl-level-tint: var(--pl-m1-tint);
+}
+
+.admin-root .planner-scale[data-scale='mood'] .planner-scale__button[data-level='2'] {
+  --pl-level-ink: var(--pl-m2-ink);
+  --pl-level-tint: var(--pl-m2-tint);
+}
+
+.admin-root .planner-scale[data-scale='mood'] .planner-scale__button[data-level='3'] {
+  --pl-level-ink: var(--pl-m3-ink);
+  --pl-level-tint: var(--pl-m3-tint);
+}
+
+.admin-root .planner-scale[data-scale='mood'] .planner-scale__button[data-level='4'] {
+  --pl-level-ink: var(--pl-m4-ink);
+  --pl-level-tint: var(--pl-m4-tint);
+}
+
+.admin-root .planner-scale[data-scale='mood'] .planner-scale__button[data-level='5'] {
+  --pl-level-ink: var(--pl-m5-ink);
+  --pl-level-tint: var(--pl-m5-tint);
+}
+
+/* Наведение подсвечивает будущую ступень её же тоном, а не общим серым. */
+.admin-root .planner-scale[data-scale] .planner-scale__button:hover {
+  color: var(--pl-level-ink);
+  background: color-mix(in srgb, var(--pl-level-tint) 12%, transparent);
+}
+
+/* --- Сон --- */
+
+.admin-root .planner-field--sleep .planner-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--pl-sleep-ink);
+}
+
+.admin-root .planner-field--sleep .planner-field__label svg {
+  width: 12px;
+  height: 12px;
+}
+
+.admin-root .planner-field--sleep .admin-select-trigger {
+  border-color: color-mix(in srgb, var(--pl-sleep-tint) 26%, var(--adm-border-subtle));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pl-sleep-tint) 9%, transparent), transparent),
+    var(--adm-input-bg);
+}
+
+.admin-root .planner-field--sleep .admin-select-trigger:hover {
+  border-color: color-mix(in srgb, var(--pl-sleep-tint) 45%, var(--adm-border-subtle));
+}
+
+/* --- Кольцо: свечение вокруг заливки --- */
+
+.admin-root .planner-ring::before {
+  content: '';
+  position: absolute;
+  inset: -14%;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--adm-primary) 26%, transparent), transparent 68%);
+  opacity: 0;
+  filter: blur(10px);
+  transition: opacity 420ms ease, background 320ms ease;
+  pointer-events: none;
+}
+
+.admin-root .planner-ring--lg::before,
+.admin-root .planner-ring--md::before {
+  opacity: 0.85;
+}
+
+.admin-root .planner-ring--sm::before {
+  inset: -22%;
+  filter: blur(7px);
+  opacity: 0.55;
+}
+
+.admin-root .planner-ring--complete::before {
+  background: radial-gradient(circle, color-mix(in srgb, var(--adm-success) 34%, transparent), transparent 68%);
+  opacity: 1;
+}
+
+.admin-root .planner-ring__fill {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--adm-primary) 45%, transparent));
+}
+
+.admin-root .planner-ring--complete .planner-ring__fill {
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--adm-success) 52%, transparent));
+}
+
+.admin-root .planner-total {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Мягкое северное сияние за кольцом недели. */
+.admin-root .planner-total::before {
+  content: '';
+  position: absolute;
+  inset: -40% -20% auto;
+  height: 78%;
+  background:
+    radial-gradient(circle at 30% 60%, color-mix(in srgb, var(--adm-primary) 16%, transparent), transparent 62%),
+    radial-gradient(circle at 72% 40%, color-mix(in srgb, var(--adm-info) 13%, transparent), transparent 58%);
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+.admin-root .planner-total > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- График: градиентные столбцы и свечение --- */
+
+.admin-root .planner-col__fill {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 92%, white), var(--adm-primary));
+  box-shadow: 0 0 14px -4px color-mix(in srgb, var(--adm-primary) 78%, transparent);
+}
+
+.admin-root[data-theme='dark'] .planner-col__fill {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 88%, white), var(--adm-primary-strong));
+}
+
+.admin-root .planner-col__track {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 18%, var(--adm-surface-subtle)), var(--planner-track));
+}
+
+.admin-root .planner-col[data-today] .planner-col__label {
+  position: relative;
+  color: var(--adm-primary);
+}
+
+.admin-root .planner-col[data-today] .planner-col__label::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--adm-primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--adm-primary) 70%, transparent);
+  transform: translateX(-50%);
+}
+
+.admin-root .planner-legend__swatch--fill {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 92%, white), var(--adm-primary));
+  box-shadow: 0 0 7px -1px color-mix(in srgb, var(--adm-primary) 60%, transparent);
+}
+
+/* --- Плитки показателей: свой тон у иконки --- */
+
+.admin-root .planner-stat {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+
+.admin-root .planner-stat::after {
+  content: '';
+  position: absolute;
+  inset: auto -30px -34px auto;
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pl-tone) 20%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.admin-root .planner-stat:hover {
+  border-color: color-mix(in srgb, var(--pl-tone) 34%, var(--adm-border-subtle));
+  box-shadow: var(--adm-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.admin-root .planner-stat__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  color: var(--pl-tone-ink);
+  background: color-mix(in srgb, var(--pl-tone) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pl-tone) 26%, transparent);
+}
+
+.admin-root .planner-stat__icon svg {
+  width: 14px;
+  height: 14px;
+  color: inherit;
+}
+
+.admin-root .planner-stat[data-tone='tasks'] { --pl-tone: var(--adm-primary); --pl-tone-ink: var(--adm-primary); }
+.admin-root .planner-stat[data-tone='done'] { --pl-tone: var(--pl-e3-tint); --pl-tone-ink: var(--pl-e3-ink); }
+.admin-root .planner-stat[data-tone='best'] { --pl-tone: var(--pl-star-tint); --pl-tone-ink: var(--pl-star-ink); }
+.admin-root .planner-stat[data-tone='goals'] { --pl-tone: var(--pl-m1-tint); --pl-tone-ink: var(--pl-m1-ink); }
+.admin-root .planner-stat[data-tone='habits'] { --pl-tone: var(--pl-sleep-tint); --pl-tone-ink: var(--pl-sleep-ink); }
+
+/* --- Чекбокс: заливка градиентом и мягкая вспышка --- */
+
+.admin-root .planner-checkbox__box {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
+}
+
+.admin-root .planner-checkbox[aria-checked='true'] .planner-checkbox__box {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--adm-primary) 88%, white), var(--adm-primary-strong));
+  box-shadow: 0 3px 10px -3px color-mix(in srgb, var(--adm-primary) 72%, transparent);
+}
+
+.admin-root .planner-row[data-done] {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--adm-primary) 5%, transparent), transparent 62%);
+}
+
+/* Отметка привычки — зелёная: это «сделал», а не «выбрано». */
+.admin-root .planner-habit__day .planner-checkbox[aria-checked='true'] .planner-checkbox__box {
+  border-color: color-mix(in srgb, var(--pl-e3-tint) 70%, transparent);
+  background: linear-gradient(155deg, color-mix(in srgb, var(--pl-e3-tint) 92%, white), var(--pl-e3-tint));
+  box-shadow: 0 3px 10px -3px color-mix(in srgb, var(--pl-e3-tint) 70%, transparent);
+}
+
+/* --- Привычки: звёзды и полный ряд --- */
+
+.admin-root .planner-stars svg.is-on {
+  color: var(--pl-star-ink);
+  fill: var(--pl-star-tint);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--pl-star-tint) 60%, transparent));
+  animation: planner-star-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--planner-star-index, 0) * 45ms);
+}
+
+@keyframes planner-star-pop {
+  from { transform: scale(0.4) rotate(-18deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.admin-root .planner-bar__fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--adm-primary) 65%, white), var(--adm-primary));
+  box-shadow: 0 0 8px -2px color-mix(in srgb, var(--adm-primary) 70%, transparent);
+}
+
+.admin-root .planner-bar--complete .planner-bar__fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pl-e3-tint) 70%, white), var(--pl-e3-tint));
+  box-shadow: 0 0 9px -2px color-mix(in srgb, var(--pl-e3-tint) 78%, transparent);
+}
+
+.admin-root .planner-habit {
+  transition: border-color 220ms ease, background 220ms ease;
+}
+
+.admin-root .planner-habit[data-complete] {
+  border-color: color-mix(in srgb, var(--pl-e3-tint) 34%, var(--adm-border-subtle));
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--pl-e3-tint) 9%, transparent), transparent 58%),
+    color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+}
+
+.admin-root .planner-habit[data-complete] .planner-habit__percent {
+  color: var(--pl-e3-ink);
+}
+
+/* --- Полоса дней и карточка дня --- */
+
+.admin-root .planner-daystrip {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 6%, var(--adm-surface-subtle)), var(--adm-surface-subtle));
+}
+
+.admin-root .planner-daystrip__tab[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--adm-primary) 30%, var(--adm-border-subtle));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 12%, var(--adm-surface-elevated)), var(--adm-surface-elevated));
+  box-shadow:
+    0 2px 10px -4px color-mix(in srgb, var(--adm-primary) 70%, transparent),
+    var(--adm-shadow-xs);
+}
+
+.admin-root .planner-daystrip__meter > span {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--adm-primary) 60%, white), var(--adm-primary));
+}
+
+.admin-root .planner-day {
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.admin-root .planner-day[data-today] {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--adm-primary) 16%, transparent),
+    0 14px 34px -22px color-mix(in srgb, var(--adm-primary) 85%, transparent),
+    var(--adm-shadow-xs);
+}
+
+.admin-root .planner-day__head {
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.admin-root .planner-day__head::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--adm-primary) 34%, transparent), transparent 72%);
+}
+
+/* --- Нумерация целей и заметок --- */
+
+.admin-root .planner-row__index {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 12px;
+  padding-top: 0;
+  border-radius: 7px;
+  color: var(--adm-primary);
+  background: color-mix(in srgb, var(--adm-primary) 11%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-root .planner-row[data-done] .planner-row__index {
+  color: var(--adm-text-tertiary);
+  background: color-mix(in srgb, var(--adm-surface-subtle) 70%, transparent);
+}
+
+/* --- Шапка раздела: более выраженное сияние --- */
+
+.admin-root .planner-hero {
+  background:
+    radial-gradient(circle at 88% -30%, color-mix(in srgb, var(--adm-info) 13%, transparent), transparent 46%),
+    linear-gradient(125deg, color-mix(in srgb, var(--adm-primary) 13%, transparent), transparent 58%),
+    var(--adm-surface-elevated);
+}
+
+.admin-root .planner-week-trigger svg {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--adm-primary) 45%, transparent));
+}
+
+.admin-root .planner-add {
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.admin-root .planner-add:hover:not(:disabled) {
+  box-shadow: 0 4px 14px -8px color-mix(in srgb, var(--adm-primary) 90%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Отключаем ровно то, что двигается; свечения и цвета остаются. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .planner-stars svg.is-on {
+    animation: none;
+  }
+
+  .admin-root :is(.planner-stat, .planner-add, .planner-scale__button):hover {
+    transform: none;
   }
 }

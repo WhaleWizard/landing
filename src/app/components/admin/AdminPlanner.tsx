@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
 } from 'react';
 import {
@@ -21,6 +22,7 @@ import {
   ListChecks,
   Loader2,
   Meh,
+  Moon,
   NotebookPen,
   Plus,
   Repeat,
@@ -557,8 +559,8 @@ function JournalCard({
       </header>
 
       <div className="planner-journal__meters">
-        <div className="planner-field">
-          <span className="planner-field__label">Сон</span>
+        <div className="planner-field planner-field--sleep">
+          <span className="planner-field__label"><Moon aria-hidden="true" /> Сон</span>
           <AdminSelect
             compact
             ariaLabel={`Сон, ${WEEKDAY_FULL[index]}`}
@@ -572,14 +574,15 @@ function JournalCard({
           />
         </div>
 
-        <fieldset className="planner-field planner-field--scale">
+        <fieldset className="planner-field planner-field--scale planner-field--energy">
           <legend className="planner-field__label">Энергия</legend>
-          <div className="planner-scale">
+          <div className="planner-scale" data-scale="energy">
             {ENERGY_LEVELS.map((level) => (
               <button
                 type="button"
                 key={level.value}
                 className="planner-scale__button"
+                data-level={level.value}
                 aria-pressed={journal.energy >= level.value}
                 aria-label={`Энергия: ${level.label}`}
                 title={level.label}
@@ -591,9 +594,9 @@ function JournalCard({
           </div>
         </fieldset>
 
-        <fieldset className="planner-field planner-field--scale">
+        <fieldset className="planner-field planner-field--scale planner-field--mood">
           <legend className="planner-field__label">Настроение</legend>
-          <div className="planner-scale">
+          <div className="planner-scale" data-scale="mood">
             {MOOD_LEVELS.map((level, moodIndex) => {
               const Icon = MOOD_ICONS[moodIndex];
               return (
@@ -601,6 +604,7 @@ function JournalCard({
                   type="button"
                   key={level.value}
                   className="planner-scale__button"
+                  data-level={level.value}
                   aria-pressed={journal.mood === level.value}
                   aria-label={`Настроение: ${level.label}`}
                   title={level.label}
@@ -662,7 +666,7 @@ function HabitRow({
   }, [focusId, habit.id]);
 
   return (
-    <div className="planner-habit">
+    <div className="planner-habit" data-complete={progress >= 1 || undefined}>
       <div className="planner-habit__name">
         <input
           ref={inputRef}
@@ -701,7 +705,7 @@ function HabitRow({
       <div className="planner-habit__progress">
         <span className="planner-stars" aria-hidden="true">
           {[0, 1, 2, 3, 4].map((star) => (
-            <Star key={star} className={star < stars ? 'is-on' : ''} />
+            <Star key={star} className={star < stars ? 'is-on' : ''} style={{ '--planner-star-index': star } as CSSProperties} />
           ))}
         </span>
         <ProgressBar value={progress} label={`${title}: выполнено ${habit.days.filter(Boolean).length} из 7 дней`} />
@@ -1018,26 +1022,26 @@ export default function AdminPlanner({ password }: { password: string }) {
           </div>
 
           <div className="planner-stats">
-            <div className="admin-card planner-stat">
-              <span className="planner-stat__label"><ListChecks aria-hidden="true" /> Всего задач</span>
+            <div className="admin-card planner-stat" data-tone="tasks">
+              <span className="planner-stat__label"><span className="planner-stat__icon"><ListChecks aria-hidden="true" /></span> Всего задач</span>
               <strong className="planner-stat__value">{stats.total}</strong>
             </div>
-            <div className="admin-card planner-stat">
-              <span className="planner-stat__label"><CheckCircle2 aria-hidden="true" /> Выполнено</span>
+            <div className="admin-card planner-stat" data-tone="done">
+              <span className="planner-stat__label"><span className="planner-stat__icon"><CheckCircle2 aria-hidden="true" /></span> Выполнено</span>
               <strong className="planner-stat__value">{stats.done}</strong>
             </div>
-            <div className="admin-card planner-stat">
-              <span className="planner-stat__label"><Trophy aria-hidden="true" /> Продуктивный день</span>
+            <div className="admin-card planner-stat" data-tone="best">
+              <span className="planner-stat__label"><span className="planner-stat__icon"><Trophy aria-hidden="true" /></span> Продуктивный день</span>
               <strong className="planner-stat__value planner-stat__value--text">
                 {stats.bestDayIndex === -1 ? '—' : WEEKDAY_SHORT[stats.bestDayIndex]}
               </strong>
             </div>
-            <div className="admin-card planner-stat">
-              <span className="planner-stat__label"><Target aria-hidden="true" /> Цели закрыты</span>
+            <div className="admin-card planner-stat" data-tone="goals">
+              <span className="planner-stat__label"><span className="planner-stat__icon"><Target aria-hidden="true" /></span> Цели закрыты</span>
               <strong className="planner-stat__value">{stats.goalsDone}<span className="planner-stat__of"> / {stats.goalsTotal}</span></strong>
             </div>
-            <div className="admin-card planner-stat">
-              <span className="planner-stat__label"><Repeat aria-hidden="true" /> Привычки</span>
+            <div className="admin-card planner-stat" data-tone="habits">
+              <span className="planner-stat__label"><span className="planner-stat__icon"><Repeat aria-hidden="true" /></span> Привычки</span>
               <strong className="planner-stat__value">
                 {stats.habitSlots ? formatPercent(stats.habitChecks / stats.habitSlots) : '—'}
               </strong>
