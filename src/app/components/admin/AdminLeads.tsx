@@ -22,6 +22,8 @@ import {
   X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
+import CrmBoard from './CrmBoard';
+import CrmAnalytics from './CrmAnalytics';
 
 type PipelineStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
 type Priority = 'low' | 'normal' | 'high' | 'urgent';
@@ -188,6 +190,25 @@ const TASK_KINDS: Array<{ value: TaskKind; label: string }> = [
 ];
 
 const CRM_PAGE_SIZE = 50;
+const CRM_VIEW_KEY = 'ww-admin-crm-view';
+
+type CrmView = 'board' | 'list' | 'analytics';
+
+const CRM_VIEWS: Array<{ value: CrmView; label: string; hint: string }> = [
+  { value: 'board', label: 'Доска', hint: 'Сделки по этапам, этап меняется перетаскиванием' },
+  { value: 'list', label: 'Список', hint: 'Поиск, фильтры, сортировка и массовые действия' },
+  { value: 'analytics', label: 'Аналитика', hint: 'Деньги, цикл сделки и здоровье пайплайна' },
+];
+
+function readStoredView(): CrmView {
+  try {
+    const stored = localStorage.getItem(CRM_VIEW_KEY);
+    if (stored === 'board' || stored === 'list' || stored === 'analytics') return stored;
+  } catch {
+    // приватный режим браузера — просто открываем доску
+  }
+  return 'board';
+}
 
 const ACTIVITY_LABELS: Record<string, string> = {
   pipeline_stage_changed: 'Этап изменён',
@@ -1065,6 +1086,18 @@ export default function AdminLeads({ password }: { password: string }) {
   const [checkedIds, setCheckedIds] = useState<number[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [trashVersion, setTrashVersion] = useState(0);
+  const [view, setView] = useState<CrmView>(readStoredView);
+  // На доске показывается больше сделок, чем на странице списка, поэтому
+  // открытая с доски карточка хранится отдельно от постраничной выборки.
+  const [boardLead, setBoardLead] = useState<LeadRow | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CRM_VIEW_KEY, view);
+    } catch {
+      // не критично: выбор просто не переживёт перезагрузку
+    }
+  }, [view]);
 
   const params = useMemo(() => {
     const value = new URLSearchParams({
@@ -1152,6 +1185,55 @@ export default function AdminLeads({ password }: { password: string }) {
         <div><CircleDollarSign aria-hidden="true" /><span>В работе</span><strong>{openValues.length ? openValues.map((item) => `${Number(item.open_value).toLocaleString('ru-RU')} ${item.deal_currency}`).join(' · ') : '—'}</strong></div>
       </div>
 
+      <div className="crm-view-switch" role="group" aria-label="Вид CRM">
+        {CRM_VIEWS.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            title={item.hint}
+            aria-pressed={view === item.value}
+            className={view === item.value ? 'is-active' : ''}
+            onClick={() => setView(item.value)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'analytics' ? <CrmAnalytics password={password} refreshToken={trashVersion} /> : null}
+
+      {view === 'board' ? (
+        <>
+          <CrmBoard<LeadRow>
+            password={password}
+            editingReady={editingReady}
+            selectedId={boardLead?.id ?? null}
+            refreshToken={trashVersion}
+            onOpenLead={(lead) => setBoardLead(lead)}
+            onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
+          />
+          {boardLead ? (
+            <div className="crm-board-detail">
+              <div className="crm-board-detail__head">
+                <strong>Карточка сделки</strong>
+                <button type="button" className="admin-button admin-button--quiet" onClick={() => setBoardLead(null)}>
+                  <X aria-hidden="true" /> Закрыть
+                </button>
+              </div>
+              <LeadDetail
+                key={boardLead.id}
+                lead={boardLead}
+                password={password}
+                editingReady={editingReady}
+                onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
+              />
+            </div>
+          ) : null}
+        </>
+      ) : null}
+
+      {view === 'list' ? (
+      <>
       <div className="admin-crm-toolbar admin-panel">
         <label className="admin-crm-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Имя, контакт, услуга, заметка или тег" aria-label="Поиск по CRM" /></label>
         <AdminSelect ariaLabel="Этап сделки" value={stage} options={[{ value: 'all', label: 'Все этапы' }, ...PIPELINE_STAGES]} onValueChange={setStage} />
@@ -1229,6 +1311,8 @@ export default function AdminLeads({ password }: { password: string }) {
       </div>
       <TrashPanel password={password} onChanged={() => void load(true)} refreshToken={trashVersion} />
       {facets?.services?.length ? <p className="admin-meta">Источники в текущей базе: {facets.services.slice(0, 5).map((item) => `${item.value} · ${item.count}`).join(', ')}</p> : null}
+      </>
+      ) : null}
     </div>
   );
 }

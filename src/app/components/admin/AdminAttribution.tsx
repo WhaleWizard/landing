@@ -1,21 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BarChart3, Eye, Filter, Info, RefreshCw, ShieldCheck,
-  Target, Trophy, UserCheck, Users,
+  ArrowDownUp, BarChart3, Coins, Download, Eye, Filter, Info, RefreshCw,
+  Search, ShieldCheck, Target, TrendingUp, Trophy, UserCheck, Users, Wallet, X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
+import AdminAdSpend from './AdminAdSpend';
+import {
+  CountUpValue, DeltaBadge, FunnelChart, StatTile, TrendGroup,
+  formatMoney, formatNumber, formatPercent,
+  type FunnelStep, type SeriesPoint,
+} from './AttributionCharts';
 
-type DimensionKey = 'page' | 'service' | 'utm' | 'form_id' | 'form_variant';
+type DimensionKey = 'page' | 'source' | 'campaign' | 'utm' | 'service' | 'form_id' | 'form_variant';
 
 interface DimensionRow {
   key: string;
   views: number | null;
   visitors: number | null;
   leads: number;
+  conversion: number | null;
   submissions: number | null;
   qualified: number | null;
   unqualified: number | null;
   won: number | null;
+  revenue: number | null;
+  spend: number | null;
+  cpl: number | null;
+  cpq: number | null;
+  romi: number | null;
 }
 
 interface DimensionResult {
@@ -23,7 +35,21 @@ interface DimensionResult {
   label: string;
   supported: boolean;
   reason: string | null;
+  hasViews: boolean;
+  hasSpend: boolean;
   rows: DimensionRow[];
+}
+
+interface PeriodTotals {
+  visitors: number | null;
+  views: number | null;
+  leads: number | null;
+  submissions: number | null;
+  qualified: number | null;
+  unqualified: number | null;
+  won: number | null;
+  revenue: number | null;
+  spend: number | null;
 }
 
 interface AttributionResponse {
@@ -32,42 +58,85 @@ interface AttributionResponse {
   code?: string;
   checkedAt?: string;
   days?: number;
-  summary?: {
-    visitors: number | null;
-    views: number | null;
-    leads: number | null;
-    submissions: number | null;
-    qualified: number | null;
-    unqualified: number | null;
-    won: number | null;
-  };
+  currency?: string | null;
+  summary?: PeriodTotals;
+  previous?: PeriodTotals;
+  series?: SeriesPoint[];
   dimensions?: DimensionResult[];
   coverage?: {
-    tables: { leads: boolean; pageStats: boolean; visitors: boolean };
+    tables: { leads: boolean; pageStats: boolean; visitors: boolean; spend: boolean };
     qualityAvailable: boolean;
     wonAvailable: boolean;
     wonSource: string | null;
     submissionsAvailable: boolean;
-    leadFields: {
-      pagePath: boolean;
-      utm: boolean;
-      formId: boolean;
-      formVariant: boolean;
-      marketingConsent: boolean;
-    };
+    revenueAvailable: boolean;
+    spendAvailable: boolean;
+    leadFields: Record<string, boolean>;
     leadRates: { pagePath: number | null; utm: number | null; marketingConsent: number | null };
     model: string;
   };
   limitations?: string[];
 }
 
-function formatNumber(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : value.toLocaleString('ru-RU');
+type SortKey = keyof Omit<DimensionRow, 'key'> | 'key';
+type SortDirection = 'asc' | 'desc';
+
+interface ColumnSpec {
+  key: SortKey;
+  label: string;
+  title?: string;
+  numeric: boolean;
+  format: (row: DimensionRow, currency: string | null) => string;
+  visible: (dimension: DimensionResult) => boolean;
+  tone?: (row: DimensionRow) => string;
 }
 
-function formatPercent(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : `${value.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`;
-}
+const COLUMNS: ColumnSpec[] = [
+  { key: 'key', label: 'Значение', numeric: false, format: (row) => row.key, visible: () => true },
+  { key: 'views', label: 'Просмотры', numeric: true, format: (row) => formatNumber(row.views), visible: (dimension) => dimension.hasViews },
+  { key: 'leads', label: 'Лиды', numeric: true, format: (row) => formatNumber(row.leads), visible: () => true },
+  {
+    key: 'conversion', label: 'CR', title: 'Конверсия из просмотра в заявку', numeric: true,
+    format: (row) => formatPercent(row.conversion), visible: (dimension) => dimension.hasViews,
+  },
+  {
+    key: 'qualified', label: 'Целевые', numeric: true, format: (row) => formatNumber(row.qualified),
+    visible: (dimension) => dimension.rows.some((row) => row.qualified !== null), tone: () => 'is-good',
+  },
+  {
+    key: 'unqualified', label: 'Нецелевые', numeric: true, format: (row) => formatNumber(row.unqualified),
+    visible: (dimension) => dimension.rows.some((row) => row.unqualified !== null), tone: () => 'is-bad',
+  },
+  {
+    key: 'won', label: 'Выиграно', numeric: true, format: (row) => formatNumber(row.won),
+    visible: (dimension) => dimension.rows.some((row) => row.won !== null),
+  },
+  {
+    key: 'spend', label: 'Расход', numeric: true, format: (row, currency) => formatMoney(row.spend, currency),
+    visible: (dimension) => dimension.hasSpend,
+  },
+  {
+    key: 'cpl', label: 'Цена лида', title: 'Расход, делённый на число заявок', numeric: true,
+    format: (row, currency) => formatMoney(row.cpl, currency), visible: (dimension) => dimension.hasSpend,
+  },
+  {
+    key: 'cpq', label: 'Цена целевого', title: 'Расход, делённый на число целевых заявок', numeric: true,
+    format: (row, currency) => formatMoney(row.cpq, currency), visible: (dimension) => dimension.hasSpend,
+  },
+  {
+    key: 'revenue', label: 'Выручка', numeric: true, format: (row, currency) => formatMoney(row.revenue, currency),
+    visible: (dimension) => dimension.rows.some((row) => row.revenue !== null && row.revenue > 0),
+  },
+  {
+    key: 'romi', label: 'ROMI', title: 'Окупаемость: (выручка − расход) ÷ расход', numeric: true,
+    format: (row) => formatPercent(row.romi), visible: (dimension) => dimension.hasSpend,
+    tone: (row) => (row.romi === null ? '' : row.romi >= 0 ? 'is-good' : 'is-bad'),
+  },
+  {
+    key: 'submissions', label: 'Отправки', title: 'Накопленный счётчик повторных заявок у этих контактов', numeric: true,
+    format: (row) => formatNumber(row.submissions), visible: (dimension) => dimension.rows.some((row) => row.submissions !== null),
+  },
+];
 
 function formatDate(value: string | undefined): string {
   if (!value) return '';
@@ -75,22 +144,25 @@ function formatDate(value: string | undefined): string {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('ru-RU');
 }
 
-function MetricCard({ icon, title, value, detail, unavailable = false }: {
-  icon: React.ReactNode;
-  title: string;
-  value: number | null | undefined;
-  detail: string;
-  unavailable?: boolean;
-}) {
-  return (
-    <div className="admin-panel p-4">
-      <div className="flex items-center gap-2 text-sm text-[var(--adm-fg)]/58">{icon}<span>{title}</span></div>
-      <div className={`mt-2 text-2xl font-semibold tracking-tight tabular-nums ${unavailable ? 'text-[var(--adm-fg)]/35' : ''}`}>
-        {formatNumber(value)}
-      </div>
-      <p className="mt-1 text-sm leading-relaxed text-[var(--adm-fg)]/50">{detail}</p>
-    </div>
-  );
+function compareRows(a: DimensionRow, b: DimensionRow, key: SortKey, direction: SortDirection): number {
+  const factor = direction === 'asc' ? 1 : -1;
+  if (key === 'key') return a.key.localeCompare(b.key, 'ru') * factor;
+  const left = a[key];
+  const right = b[key];
+  // «—» (нет данных) всегда внизу — иначе сортировка по цене лида
+  // выносила бы наверх строки, где расход просто не заведён.
+  if (left === null && right === null) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
+  return (Number(left) - Number(right)) * factor;
+}
+
+function toCsv(dimension: DimensionResult, rows: DimensionRow[], currency: string | null): string {
+  const columns = COLUMNS.filter((column) => column.visible(dimension));
+  const escape = (value: string) => (/[";\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  const header = columns.map((column) => escape(column.label)).join(';');
+  const body = rows.map((row) => columns.map((column) => escape(column.format(row, currency).replace(/ /g, ' '))).join(';'));
+  return [header, ...body].join('\n');
 }
 
 export default function AdminAttribution({ password }: { password: string }) {
@@ -99,6 +171,10 @@ export default function AdminAttribution({ password }: { password: string }) {
   const [selected, setSelected] = useState<DimensionKey>('page');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('leads');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [showAll, setShowAll] = useState(false);
   const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -138,24 +214,97 @@ export default function AdminAttribution({ password }: { password: string }) {
     [data, selected],
   );
 
+  const currency = data?.currency || null;
+  const summary = data?.summary;
+  const previous = data?.previous;
+  const coverage = data?.coverage;
+
+  const columns = useMemo(() => (active ? COLUMNS.filter((column) => column.visible(active)) : []), [active]);
+
+  const visibleRows = useMemo(() => {
+    if (!active) return [];
+    const normalized = query.trim().toLowerCase();
+    const filtered = normalized ? active.rows.filter((row) => row.key.toLowerCase().includes(normalized)) : active.rows;
+    return [...filtered].sort((a, b) => compareRows(a, b, sortKey, sortDirection));
+  }, [active, query, sortDirection, sortKey]);
+
+  const shownRows = showAll ? visibleRows : visibleRows.slice(0, 12);
+
+  const funnelSteps: FunnelStep[] = useMemo(() => {
+    if (!summary) return [];
+    return [
+      {
+        key: 'visitors',
+        label: 'Уникальные посетители',
+        value: summary.visitors,
+        hint: 'Сумма уникальных за каждый день периода.',
+      },
+      {
+        key: 'leads',
+        label: 'Заявки',
+        value: summary.leads,
+        hint: 'Дедуплицированные контакты, оставившие заявку.',
+      },
+      {
+        key: 'qualified',
+        label: 'Целевые',
+        value: summary.qualified,
+        hint: coverage?.qualityAvailable ? 'Отмечены целевыми в CRM.' : 'Оценка качества недоступна в текущей схеме.',
+        transitionNote: 'качество лидов не размечено',
+      },
+      {
+        key: 'won',
+        label: 'Выиграно',
+        value: summary.won,
+        hint: coverage?.wonAvailable ? `Текущий этап сделки · ${coverage.wonSource}.` : 'Нет однозначного этапа сделки.',
+        transitionNote: 'этап сделки не определяется',
+      },
+    ];
+  }, [coverage, summary]);
+
+  const cpl = summary && summary.spend !== null && summary.leads ? summary.spend / summary.leads : null;
+  const cpq = summary && summary.spend !== null && summary.qualified ? summary.spend / summary.qualified : null;
+  const previousCpl = previous && previous.spend !== null && previous.leads ? previous.spend / previous.leads : null;
+  const romi = summary && summary.spend !== null && summary.spend > 0 && summary.revenue !== null
+    ? ((summary.revenue - summary.spend) / summary.spend) * 100
+    : null;
+
+  const exportCsv = () => {
+    if (!active) return;
+    const csv = toCsv(active, visibleRows, currency);
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `voronka-${active.key}-${days}d.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection(key === 'key' ? 'asc' : 'desc');
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="admin-stack admin-stack--lg adm-attribution">
+      <div className="admin-section-header">
         <div>
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-[var(--adm-primary)]" />
-            <h2 className="text-lg font-semibold tracking-tight">Воронка и атрибуция</h2>
-          </div>
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--adm-fg)]/58">
-            Только показатели, которые можно подтвердить текущей схемой D1. Расходы, доход и окупаемость не подставляются без источника данных.
+          <p className="admin-eyebrow">Аналитика</p>
+          <h2 className="admin-title"><BarChart3 aria-hidden="true" /> Воронка и атрибуция</h2>
+          <p className="admin-subtitle">
+            Только показатели, которые подтверждаются данными. Деньги считаются по введённым расходам и суммам выигранных сделок — ничего не подставляется «примерно».
           </p>
-          {data?.checkedAt && <p className="admin-meta mt-1">Обновлено: {formatDate(data.checkedAt)}</p>}
+          {data?.checkedAt && <p className="admin-meta">Обновлено: {formatDate(data.checkedAt)}</p>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex min-w-[160px] items-center gap-2 rounded-xl text-sm">
-            <Filter className="h-4 w-4 text-[var(--adm-fg)]/50" />
-            <div className="min-w-0 flex-1">
-              <AdminSelect
+        <div className="adm-attribution__controls">
+          <div className="adm-attribution__period">
+            <Filter aria-hidden="true" />
+            <AdminSelect
               ariaLabel="Период атрибуции"
               value={String(days)}
               disabled={loading}
@@ -169,166 +318,265 @@ export default function AdminAttribution({ password }: { password: string }) {
                 setData(null);
                 setDays(Number(value));
               }}
-              />
-            </div>
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            className="admin-button admin-button--secondary"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <button type="button" onClick={() => void load()} disabled={loading} className="admin-button">
+            <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
             {loading ? 'Считаю…' : 'Обновить'}
           </button>
         </div>
       </div>
 
       {loading && !data && !error && (
-        <div className="admin-panel p-6 text-sm text-[var(--adm-fg)]/60" role="status" aria-live="polite">
-          Строю подтверждённую воронку…
-        </div>
+        <div className="admin-panel p-6 admin-muted" role="status" aria-live="polite">Строю подтверждённую воронку…</div>
       )}
 
       {error && (
-        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/8 p-4 text-sm leading-relaxed" role="alert">
-          <p className="font-semibold">Данные этого окружения недоступны</p>
-          <p className="mt-1 text-[var(--adm-fg)]/65">{error}</p>
-          {data?.code === 'D1_NOT_BOUND' && <p className="mt-1 text-[var(--adm-fg)]/50">Проверьте этот раздел на production, где подключён Cloudflare D1.</p>}
+        <div className="admin-notice admin-notice--warning" role="alert">
+          <strong>Данные этого окружения недоступны</strong>
+          <p>{error}</p>
+          {data?.code === 'D1_NOT_BOUND' && <p>Проверьте этот раздел на production, где подключён Cloudflare D1.</p>}
         </div>
       )}
 
-      {data?.success && data.summary && (
+      {data?.success && summary && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <MetricCard
-              icon={<Users className="h-4 w-4" />}
-              title="Дневные уникальные"
-              value={data.summary.visitors}
-              detail="Сумма уникальных за каждый день; один человек в разные дни может учитываться повторно."
-              unavailable={data.summary.visitors === null}
+          <div className="adm-tiles">
+            <StatTile
+              icon={<Users aria-hidden="true" />}
+              title="Уникальные"
+              value={<CountUpValue value={summary.visitors} />}
+              detail="Сумма уникальных за каждый день периода."
+              delta={<DeltaBadge current={summary.visitors} previous={previous?.visitors} label="Уникальные" />}
+              tone={summary.visitors === null ? 'muted' : 'default'}
             />
-            <MetricCard
-              icon={<Eye className="h-4 w-4" />}
+            <StatTile
+              icon={<Eye aria-hidden="true" />}
               title="Просмотры"
-              value={data.summary.views}
+              value={<CountUpValue value={summary.views} />}
               detail="Агрегированные просмотры страниц."
-              unavailable={data.summary.views === null}
+              delta={<DeltaBadge current={summary.views} previous={previous?.views} label="Просмотры" />}
+              tone={summary.views === null ? 'muted' : 'default'}
             />
-            <MetricCard
-              icon={<UserCheck className="h-4 w-4" />}
-              title="Лиды"
-              value={data.summary.leads}
-              detail={data.summary.submissions === null
-                ? 'Уникальные записи leads.'
-                : `${formatNumber(data.summary.submissions)} накопленных отправок у этих контактов.`}
-              unavailable={data.summary.leads === null}
+            <StatTile
+              icon={<UserCheck aria-hidden="true" />}
+              title="Заявки"
+              value={<CountUpValue value={summary.leads} />}
+              detail={summary.submissions === null
+                ? 'Уникальные контакты в leads.'
+                : `${formatNumber(summary.submissions)} накопленных отправок у этих контактов.`}
+              delta={<DeltaBadge current={summary.leads} previous={previous?.leads} label="Заявки" />}
+              tone={summary.leads === null ? 'muted' : 'default'}
             />
-            <MetricCard
-              icon={<Target className="h-4 w-4" />}
-              title="Квалифицированы"
-              value={data.summary.qualified}
-              detail={data.summary.unqualified === null ? 'Оценка качества недоступна.' : `${formatNumber(data.summary.unqualified)} отмечены нецелевыми.`}
-              unavailable={data.summary.qualified === null}
+            <StatTile
+              icon={<Target aria-hidden="true" />}
+              title="Целевые"
+              value={<CountUpValue value={summary.qualified} />}
+              detail={summary.unqualified === null
+                ? 'Оценка качества недоступна.'
+                : `${formatNumber(summary.unqualified)} отмечены нецелевыми.`}
+              delta={<DeltaBadge current={summary.qualified} previous={previous?.qualified} label="Целевые" />}
+              tone={summary.qualified === null ? 'muted' : 'default'}
             />
-            <MetricCard
-              icon={<Trophy className="h-4 w-4" />}
+            <StatTile
+              icon={<Trophy aria-hidden="true" />}
               title="Выиграно"
-              value={data.summary.won}
-              detail={data.coverage?.wonAvailable
-                ? `Текущий этап среди лидов периода · ${data.coverage.wonSource}.`
+              value={<CountUpValue value={summary.won} />}
+              detail={coverage?.wonAvailable
+                ? `Текущий этап среди лидов периода · ${coverage.wonSource}.`
                 : 'Нет однозначного этапа сделки — число не вычисляется.'}
-              unavailable={data.summary.won === null}
+              delta={<DeltaBadge current={summary.won} previous={previous?.won} label="Выиграно" />}
+              tone={summary.won === null ? 'muted' : 'default'}
             />
           </div>
 
-          <section className="admin-panel p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          {coverage?.spendAvailable ? (
+            <div className="adm-tiles adm-tiles--money">
+              <StatTile
+                icon={<Wallet aria-hidden="true" />}
+                title="Расход"
+                value={formatMoney(summary.spend, currency)}
+                detail="Сумма введённых вручную рекламных расходов за период."
+                delta={<DeltaBadge current={summary.spend} previous={previous?.spend} invert label="Расход" />}
+              />
+              <StatTile
+                icon={<Coins aria-hidden="true" />}
+                title="Цена лида"
+                value={formatMoney(cpl, currency)}
+                detail="Расход, делённый на число заявок периода."
+                delta={<DeltaBadge current={cpl} previous={previousCpl} invert label="Цена лида" />}
+              />
+              <StatTile
+                icon={<Target aria-hidden="true" />}
+                title="Цена целевого"
+                value={formatMoney(cpq, currency)}
+                detail="Расход, делённый на число целевых заявок."
+              />
+              <StatTile
+                icon={<TrendingUp aria-hidden="true" />}
+                title="Выручка"
+                value={formatMoney(summary.revenue, currency)}
+                detail={`Сумма выигранных сделок в ${currency || 'основной валюте'}.`}
+                delta={<DeltaBadge current={summary.revenue} previous={previous?.revenue} label="Выручка" />}
+              />
+              <StatTile
+                icon={<BarChart3 aria-hidden="true" />}
+                title="ROMI"
+                value={formatPercent(romi)}
+                detail="Окупаемость рекламы: (выручка − расход) ÷ расход."
+              />
+            </div>
+          ) : (
+            <div className="admin-notice" role="status">
+              <strong>Цена лида и окупаемость пока не считаются.</strong>
+              <p>В системе нет рекламных расходов, а выдумывать их нельзя. Заполни их в блоке «Рекламные расходы» ниже — все денежные показатели появятся сами.</p>
+            </div>
+          )}
+
+          <div className="adm-attribution__charts">
+            <section className="admin-panel adm-card">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title">Путь до сделки</h3>
+                <p className="admin-hint">Где именно теряются люди. Самый слабый переход помечен.</p>
+              </header>
+              <FunnelChart steps={funnelSteps} />
+            </section>
+
+            <section className="admin-panel adm-card">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title">Динамика по дням</h3>
+                <p className="admin-hint">Наведи курсор или пройди стрелками — покажет значение конкретного дня.</p>
+              </header>
+              <TrendGroup
+                points={data.series || []}
+                series={[
+                  { key: 'views', label: 'Просмотры', slot: 5 },
+                  { key: 'leads', label: 'Заявки', slot: 1 },
+                  { key: 'qualified', label: 'Целевые заявки', slot: 2 },
+                ]}
+              />
+            </section>
+          </div>
+
+          <section className="admin-panel adm-card">
+            <header className="adm-card__head adm-card__head--row">
               <div>
-                <h3 className="text-base font-semibold">Разрез данных</h3>
-                <p className="mt-0.5 text-sm text-[var(--adm-fg)]/50">Период: последние {data.days} дней, UTC.</p>
+                <h3 className="admin-card-title">Разрез данных</h3>
+                <p className="admin-hint">Период: последние {data.days} дней, UTC.</p>
               </div>
-              <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-[var(--adm-muted)]/45 p-1" role="group" aria-label="Разрез атрибуции">
+              <div className="adm-dimension-tabs" role="group" aria-label="Разрез атрибуции">
                 {data.dimensions?.map((dimension) => (
                   <button
                     key={dimension.key}
                     type="button"
-                    onClick={() => setSelected(dimension.key)}
+                    onClick={() => { setSelected(dimension.key); setShowAll(false); }}
                     disabled={!dimension.supported}
+                    aria-pressed={selected === dimension.key}
                     title={dimension.supported ? undefined : dimension.reason || undefined}
-                    className={`min-h-9 shrink-0 rounded-lg px-3 text-sm font-semibold transition-colors ${
-                      selected === dimension.key
-                        ? 'bg-[var(--adm-card)] text-[var(--adm-primary)] shadow-sm'
-                        : 'text-[var(--adm-fg)]/55 hover:text-[var(--adm-fg)] disabled:cursor-not-allowed disabled:opacity-35'
-                    }`}
+                    className={selected === dimension.key ? 'is-active' : ''}
                   >
                     {dimension.label}
                   </button>
                 ))}
               </div>
-            </div>
+            </header>
 
             {active?.reason && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--adm-muted)]/42 p-3 text-sm leading-relaxed text-[var(--adm-fg)]/58">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--adm-primary)]" /> {active.reason}
-              </div>
+              <p className="adm-card__note"><Info aria-hidden="true" /> {active.reason}</p>
             )}
 
-            <div className="mt-3 overflow-x-auto" role="region" aria-label="Таблица атрибуции" tabIndex={0}>
-              <table className="w-full min-w-[780px] text-left text-sm">
+            <div className="adm-table-toolbar">
+              <label className="adm-table-search">
+                <Search aria-hidden="true" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={`Поиск по «${active?.label || 'разрезу'}»`}
+                  aria-label="Поиск по строкам разреза"
+                />
+                {query ? (
+                  <button type="button" aria-label="Очистить поиск" onClick={() => setQuery('')}><X aria-hidden="true" /></button>
+                ) : null}
+              </label>
+              <span className="admin-meta">Строк: {visibleRows.length}</span>
+              <button type="button" className="admin-button admin-button--quiet" onClick={exportCsv} disabled={!visibleRows.length}>
+                <Download aria-hidden="true" /> Выгрузить CSV
+              </button>
+            </div>
+
+            <div className="adm-table-scroll" role="region" aria-label="Таблица атрибуции" tabIndex={0}>
+              <table className="adm-data-table">
                 <caption className="sr-only">Атрибуция по выбранному разрезу за последние {data.days} дней</caption>
-                <thead className="text-[var(--adm-fg)]/50">
-                  <tr className="border-b border-[var(--adm-border)]">
-                    <th scope="col" className="px-2 py-2 font-medium">{active?.label || 'Разрез'}</th>
-                    <th scope="col" className="px-2 py-2 text-right font-medium">Просмотры</th>
-                    <th scope="col" className="px-2 py-2 text-right font-medium">Лиды</th>
-                    <th scope="col" className="px-2 py-2 text-right font-medium">Отправки</th>
-                    <th scope="col" className="px-2 py-2 text-right font-medium">Целевые</th>
-                    <th scope="col" className="px-2 py-2 text-right font-medium">Нецелевые</th>
-                    <th scope="col" className="px-2 py-2 text-right font-medium">Выиграно</th>
+                <thead>
+                  <tr>
+                    {columns.map((column) => {
+                      const sorted = sortKey === column.key;
+                      return (
+                        <th
+                          key={String(column.key)}
+                          scope="col"
+                          className={column.numeric ? 'is-numeric' : ''}
+                          aria-sort={sorted ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        >
+                          <button type="button" onClick={() => toggleSort(column.key)} title={column.title || `Сортировать по «${column.label}»`}>
+                            {column.label}
+                            <ArrowDownUp aria-hidden="true" className={sorted ? `is-sorted is-${sortDirection}` : ''} />
+                          </button>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
-                  {active?.rows.map((row) => (
-                    <tr key={row.key} className="border-b border-[var(--adm-border)]/55 last:border-0">
-                      <td className="max-w-[300px] px-2 py-2.5 font-medium" title={row.key}>
-                        <span className="block truncate">{row.key}</span>
-                      </td>
-                      <td className="px-2 py-2.5 text-right tabular-nums">{formatNumber(row.views)}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums">{formatNumber(row.leads)}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums">{formatNumber(row.submissions)}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums text-green-500">{formatNumber(row.qualified)}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums text-[var(--adm-danger)]">{formatNumber(row.unqualified)}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums">{formatNumber(row.won)}</td>
+                  {shownRows.map((row) => (
+                    <tr key={row.key}>
+                      {columns.map((column) => (
+                        <td
+                          key={String(column.key)}
+                          className={`${column.numeric ? 'is-numeric' : 'is-key'} ${column.tone?.(row) || ''}`.trim()}
+                          title={column.key === 'key' ? row.key : undefined}
+                        >
+                          {column.format(row, currency)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {active?.supported && active.rows.length === 0 && (
-                <p className="py-5 text-sm text-[var(--adm-fg)]/50">За выбранный период данных нет.</p>
+              {active?.supported && visibleRows.length === 0 && (
+                <p className="admin-muted adm-table-empty">
+                  {query ? 'По этому запросу ничего не нашлось.' : 'За выбранный период данных нет.'}
+                </p>
               )}
             </div>
+
+            {visibleRows.length > shownRows.length && (
+              <button type="button" className="admin-button adm-table-more" onClick={() => setShowAll(true)}>
+                Показать все {visibleRows.length}
+              </button>
+            )}
           </section>
 
-          <div className="grid gap-3 lg:grid-cols-[.8fr_1.2fr]">
-            <section className="admin-panel p-4 sm:p-5">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-[var(--adm-primary)]" />
-                <h3 className="text-base font-semibold">Покрытие лидов</h3>
-              </div>
-              <div className="mt-3 space-y-3">
+          <AdminAdSpend password={password} days={days} onSaved={() => void load()} />
+
+          <div className="adm-attribution__footer">
+            <section className="admin-panel adm-card">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title"><ShieldCheck aria-hidden="true" /> Покрытие лидов</h3>
+              </header>
+              <div className="adm-coverage">
                 {[
-                  ['Страница входа', data.coverage?.leadRates.pagePath],
-                  ['UTM-метки', data.coverage?.leadRates.utm],
-                  ['Маркетинговое согласие', data.coverage?.leadRates.marketingConsent],
+                  ['Страница входа', coverage?.leadRates.pagePath],
+                  ['UTM-метки', coverage?.leadRates.utm],
+                  ['Маркетинговое согласие', coverage?.leadRates.marketingConsent],
                 ].map(([label, value]) => (
-                  <div key={String(label)}>
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-[var(--adm-fg)]/60">{label}</span>
-                      <span className="font-semibold tabular-nums">{formatPercent(value as number | null)}</span>
+                  <div key={String(label)} className="adm-coverage__row">
+                    <div className="adm-coverage__head">
+                      <span>{label}</span>
+                      <strong>{formatPercent(value as number | null)}</strong>
                     </div>
                     <div
-                      className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--adm-muted)]"
+                      className="adm-coverage__track"
                       role="progressbar"
                       aria-label={String(label)}
                       aria-valuemin={0}
@@ -336,27 +584,21 @@ export default function AdminAttribution({ password }: { password: string }) {
                       aria-valuenow={value === null || value === undefined ? undefined : Math.round(Number(value))}
                       aria-valuetext={value === null || value === undefined ? 'Недоступно' : formatPercent(value as number)}
                     >
-                      <div
-                        className="h-full rounded-full bg-[var(--adm-primary)]"
-                        style={{ width: `${Math.min(Math.max(Number(value || 0), 0), 100)}%` }}
-                      />
+                      <span style={{ width: `${Math.min(Math.max(Number(value || 0), 0), 100)}%` }} />
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-[var(--adm-fg)]/48">«—» означает, что нужного поля нет в схеме, а не нулевой результат.</p>
+              <p className="admin-hint">«—» означает, что нужного поля нет в схеме, а не нулевой результат.</p>
             </section>
 
-            <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/24 p-4 sm:p-5">
-              <div className="flex items-start gap-3">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--adm-primary)]" />
-                <div>
-                  <h3 className="text-base font-semibold">Ограничения расчёта</h3>
-                  <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-[var(--adm-fg)]/58">
-                    {data.limitations?.map((item) => <li key={item}>• {item}</li>)}
-                  </ul>
-                </div>
-              </div>
+            <section className="admin-panel adm-card adm-card--quiet">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title"><Info aria-hidden="true" /> Как это считается</h3>
+              </header>
+              <ul className="adm-limitations">
+                {data.limitations?.map((item) => <li key={item}>{item}</li>)}
+              </ul>
             </section>
           </div>
         </>

@@ -2,6 +2,7 @@ import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { UPLOADS_PREFIX, normalizeFolderName } from '../../_lib/media-folders';
 import type { Env } from '../../_lib/types';
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -87,7 +88,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const safeName = sanitizeFilename(file.name);
-    const key = `uploads/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+    // Папка выбирается в медиатеке; без неё раскладка остаётся прежней — по дате.
+    const folder = normalizeFolderName(formData.get('folder'));
+    const key = `${UPLOADS_PREFIX}${folder ? `${folder}/` : ''}${new Date().toISOString().slice(0, 10)}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
     const contentType = String(file.type || 'application/octet-stream').toLowerCase();
     const isImage = contentType.startsWith('image/');
 

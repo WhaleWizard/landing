@@ -66,10 +66,19 @@ declare interface R2ListOptions {
   include?: Array<'httpMetadata' | 'customMetadata'>;
 }
 
+declare interface R2ObjectBody extends R2Object {
+  body: ReadableStream;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
 declare interface R2Bucket {
-  put(key: string, value: ReadableStream | ArrayBuffer | string | Blob, options?: R2PutOptions): Promise<unknown>;
+  put(key: string, value: ReadableStream | ArrayBuffer | ArrayBufferView | string | Blob | null, options?: R2PutOptions): Promise<unknown>;
   list(options?: R2ListOptions): Promise<R2Objects>;
   delete(key: string): Promise<void>;
+  // Нужны для переноса файла между папками: R2 не умеет переименовывать,
+  // объект приходится прочитать и записать под новым ключом.
+  get(key: string): Promise<R2ObjectBody | null>;
+  head(key: string): Promise<R2Object | null>;
 }
 
 type PagesFunction<Env = unknown> = (context: {

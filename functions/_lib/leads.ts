@@ -13,6 +13,10 @@ export interface LeadRecord {
   message?: string;
   service?: string;
   page_path?: string;
+  // Какая форма принесла заявку (миграция 0022). Внутренние идентификаторы
+  // форм сайта — не персональные данные и не рекламные метки.
+  form_id?: string;
+  form_variant?: string;
   // Контекст для последующих событий качества лида в Meta (миграция 0010)
   fbp?: string;
   fbc?: string;
@@ -161,6 +165,7 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     const hasQuality = cols.has('quality'); // 0009
     const hasPipelineStage = cols.has('pipeline_stage'); // 0012
     const hasSoftDelete = cols.has('deleted_at'); // 0020
+    const hasFormSource = cols.has('form_id') && cols.has('form_variant'); // 0022
     const consentVersion = normalizeConsentVersion(lead.consent_version);
     const consentSource = normalizeConsentSource(lead.consent_source);
     const consentRegion = normalizeConsentRegion(lead.consent_region);
@@ -294,6 +299,18 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       if (cols.has('quality_updated_at')) set.push("quality_updated_at = datetime('now')");
       if (cols.has('quality_action_id')) set.push("quality_action_id = ''");
       if (cols.has('quality_processing')) set.push('quality_processing = 0');
+      // Повторная заявка могла прийти с другой формы — сохраняем последнюю
+      // известную, но не затираем её пустым значением.
+      if (hasFormSource) {
+        set.push(
+          "form_id = CASE WHEN ? != '' THEN ? ELSE form_id END",
+          "form_variant = CASE WHEN ? != '' THEN ? ELSE form_variant END",
+        );
+        values.push(
+          lead.form_id || '', lead.form_id || '',
+          lead.form_variant || '', lead.form_variant || '',
+        );
+      }
       if (hasUtm) {
         set.push('utm_source = ?', 'utm_medium = ?', 'utm_campaign = ?', 'utm_content = ?', 'utm_term = ?');
         values.push(
@@ -449,6 +466,11 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     if (cols.has('consent_recorded_at')) {
       insertCols.push('consent_recorded_at');
       placeholders.push("datetime('now')");
+    }
+    if (hasFormSource) {
+      insertCols.push('form_id', 'form_variant');
+      placeholders.push('?', '?');
+      insertVals.push(lead.form_id || '', lead.form_variant || '');
     }
     if (hasUtm) {
       insertCols.push('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term');

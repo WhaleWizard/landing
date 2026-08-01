@@ -30,7 +30,7 @@ npx -p typescript tsc -p tsconfig.functions.json --noEmit   # проверка �
 ### SPA (src/) и edge-бэкенд (functions/)
 
 - `src/app/` — React 18 + React Router 7. `routes.tsx` — дерево роутов, всё кроме Home лениво через `React.lazy`. `RouteErrorBoundary` ловит устаревшие чанки после деплоя и перезагружает страницу один раз.
-  - `components/` — фичи: Hero, Navbar, ContactForm, LandingForm, калькуляторы, Blog, Cases, ArticleEditor (блочный редактор), admin/ (Дашборд/Заявки/Медиатека), SEO.tsx, cookie/ (баннер согласия), legal/.
+  - `components/` — фичи: Hero, Navbar, ContactForm, LandingForm, калькуляторы, Blog, Cases, ArticleEditor (блочный редактор), admin/ (все разделы админки), SEO.tsx, cookie/ (баннер согласия), legal/.
   - `components/ui/` — shadcn/ui-примитивы, считать вендорными: не переписывать, следовать их паттернам.
   - `pages/` — по одной на роут; `BlogPage` обслуживает и /blog, и /cases.
   - `consent/consent.ts` — ядро трекинга: согласие, загрузка пикселей, track*-функции, сбор контекста для CAPI.
@@ -60,7 +60,7 @@ Meta CAPI и всё, что связано с доставкой и качест
 
 ### Заявки и первичная статистика
 
-`/api/lead`: заявка валидируется → пишется в D1 `leads` (`_lib/leads.ts`; дедупликация по email/телефону/telegram — повторная заявка поднимает существующую со счётчиком, а не создаёт дубль) → уведомление в Telegram напрямую через Bot API (секреты `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; если не заданы — fallback на старый Google Apps Script). `storeLead` определяет применённые миграции через PRAGMA и работает при любом их наборе.
+`/api/lead`: заявка валидируется → пишется в D1 `leads` (`_lib/leads.ts`; дедупликация по email/телефону/telegram — повторная заявка поднимает существующую со счётчиком, а не создаёт дубль) → уведомление в Telegram напрямую через Bot API (секреты `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; если не заданы — fallback на старый Google Apps Script). `storeLead` определяет применённые миграции через PRAGMA и работает при любом их наборе. Признаки формы `form_id`/`form_variant` сохраняются с миграции 0022 — без неё разрезы «Форма» и «Вариант формы» в воронке отключаются, а не показывают нули.
 
 Кнопки «целевой/нецелевой» в админке шлют в Meta CAPI события `QualifiedLead`/`UnqualifiedLead` (`_lib/lead-quality.ts`): только при marketing_consent, сохранённом с заявкой; PII — SHA-256 хеши + fbp/fbc; outbox-досылка и дедупликация по `event_id`. Consent-гейт не ослаблять.
 
@@ -68,7 +68,13 @@ Meta CAPI и всё, что связано с доставкой и качест
 
 ### Админка
 
-`/admin` — SPA с разделами Дашборд / Статьи / Кейсы / Заявки / Медиатека (компоненты в `src/app/components/admin/`), бэкенд `functions/api/admin/*` (articles, article-versions, upload, leads, media, stats). Аутентификация — общий `ADMIN_PASSWORD` (`_lib/auth.ts`), передаётся в теле/заголовке `X-Admin-Password`, НИКОГДА в query string. Загрузки в R2: лимит 15 МБ, белый список MIME (JPEG/PNG/WebP/GIF/AVIF/PDF/ZIP/DOCX/XLSX/PPTX); SVG/HTML/JS/XML заблокированы намеренно против stored-XSS — не ослаблять. Медиатека листает и удаляет только префикс `uploads/`. После сохранения статей кэш чистится локально + глобально через Cloudflare API, если заданы `CF_ZONE_ID` и `CF_CACHE_PURGE_TOKEN`. Настройка разделов v2 — `docs/ADMIN_SETUP_V2.md`.
+`/admin` — SPA с разделами Сегодня / Планер / Воронка / Meta CAPI / Скорость / Статьи / Кейсы / Тексты сайта / Заявки / Медиатека / Проверка (компоненты в `src/app/components/admin/`), бэкенд `functions/api/admin/*` (articles, article-versions, upload, leads, crm-leads, lead-crm, crm-analytics, lead-trash, attribution, ad-spend, media, stats, today, planner, health, meta-center, performance, site-sections). Аутентификация — общий `ADMIN_PASSWORD` (`_lib/auth.ts`), передаётся в теле/заголовке `X-Admin-Password`, НИКОГДА в query string. Загрузки в R2: лимит 15 МБ, белый список MIME (JPEG/PNG/WebP/GIF/AVIF/PDF/ZIP/DOCX/XLSX/PPTX); SVG/HTML/JS/XML заблокированы намеренно против stored-XSS — не ослаблять. После сохранения статей кэш чистится локально + глобально через Cloudflare API, если заданы `CF_ZONE_ID` и `CF_CACHE_PURGE_TOKEN`. Настройка разделов v2 — `docs/ADMIN_SETUP_V2.md`.
+
+**Воронка** (`AdminAttribution.tsx` + `api/admin/attribution.ts`): ступени с конверсиями, динамика по дням, сравнение с прошлым периодом, сортируемая таблица и выгрузка CSV. Денежные показатели (цена лида, цена целевого, ROMI) считаются только по вручную введённым расходам в таблице `ad_spend` (миграция 0023, `api/admin/ad-spend.ts`) — расходы, доход и окупаемость никогда не подставляются без источника, а разные валюты не суммируются, потому что курсов в системе нет.
+
+**CRM** (`AdminLeads.tsx`): три режима — доска (`CrmBoard.tsx`, смена этапа перетаскиванием или стрелками на карточке, оптимистичное обновление с откатом при отказе сервера), список и аналитика (`CrmAnalytics.tsx` + `api/admin/crm-analytics.ts`). Выбранный режим хранится в localStorage.
+
+**Медиатека** (`AdminMedia.tsx`): листает и меняет только префикс `uploads/`. Папки живут в ключе объекта — `uploads/<папка>/<дата>/<файл>`; старые загрузки `uploads/<дата>/<файл>` считаются файлами без папки (`_lib/media-folders.ts`). Пустая папка существует как объект-метка `.keep`. Перенос файла — это copy+delete в R2, то есть смена публичной ссылки, поэтому файлы, на которые ссылаются публикации, нельзя ни переносить, ни удалять.
 
 ## Грабли
 
