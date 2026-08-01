@@ -32,6 +32,12 @@
   min-width: 0;
 }
 
+/* fieldset по умолчанию не сжимается уже своего содержимого и вылезает за карточку. */
+.admin-root fieldset {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .admin-root[data-theme='light'] {
   color-scheme: light;
 }
@@ -118,6 +124,10 @@
   box-shadow: var(--adm-shadow-xs);
   font-weight: 600;
   line-height: 1;
+  /* Подпись всегда остаётся внутри кнопки: на узком экране она раньше вылезала на соседние блоки. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
@@ -2960,9 +2970,11 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
     flex-wrap: wrap;
   }
 
+  /* Фиксированные 44px обрезали кнопку по ширине, а подпись торчала поверх соседей. */
   .admin-root .admin-section-heading__action .admin-button {
-    width: 44px;
-    padding: 0;
+    width: auto;
+    min-width: 44px;
+    padding-inline: 12px;
   }
 
   .admin-root .admin-section-heading__action:has(.admin-media-actions) {
@@ -3295,6 +3307,295 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   .admin-root .admin-panel--interactive:hover,
   .admin-root .admin-action-card:hover {
     transform: none;
+  }
+}
+
+/*
+ * Строка списка публикаций.
+ * Десктоп — одна строка, телефон — карточка: заголовок в две строки,
+ * статус и действия уезжают на отдельный ряд вместо обрезки за краем экрана.
+ */
+.admin-root .admin-article-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .admin-article-row__main {
+  display: block;
+  min-width: 0;
+  text-align: left;
+}
+
+.admin-root .admin-article-row__title {
+  display: block;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .admin-article-row__slug {
+  display: block;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--adm-fg) 60%, transparent);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .admin-article-row__badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.admin-root .admin-article-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/*
+ * Смысловые секции редактора: длинная форма перестаёт читаться как простыня,
+ * на телефоне это единственный способ понять, где заканчивается один блок.
+ */
+.admin-root .admin-editor-section {
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-card);
+  background: color-mix(in srgb, var(--adm-surface-raised) 55%, transparent);
+  padding: 16px;
+}
+
+.admin-root .admin-editor-section + .admin-editor-section {
+  margin-top: 16px;
+}
+
+.admin-root .admin-editor-section__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: color-mix(in srgb, var(--adm-fg) 92%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-root .admin-editor-section__title::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--adm-primary), var(--adm-primary-strong));
+}
+
+@media (max-width: 767px) {
+  /* 16px в полях — iOS иначе зумит страницу при фокусе и ломает всю раскладку. */
+  .admin-root :is(input, textarea, select):not([type='checkbox']):not([type='radio']) {
+    font-size: 16px;
+  }
+
+  .admin-root :is(input, textarea):not([type='checkbox']):not([type='radio']) {
+    padding-block: 12px;
+  }
+
+  .admin-root input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+  }
+
+  .admin-root main {
+    padding-inline: 12px;
+  }
+
+  /* Шапка: бренд и действия в один компактный блок, источник — отдельной строкой. */
+  .admin-root .admin-header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .admin-root .admin-header__title {
+    font-size: 22px;
+  }
+
+  .admin-root .admin-header__actions {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .admin-root .admin-header__actions .admin-source-pill {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+    font-size: 11px;
+  }
+
+  .admin-root .admin-header__actions > button:nth-of-type(2) {
+    grid-column: 2;
+  }
+
+  .admin-root .admin-header__actions > button:nth-of-type(3) {
+    grid-column: 3;
+  }
+
+  .admin-root .admin-header__actions .admin-button {
+    padding-inline: 10px;
+    font-size: 13px;
+  }
+
+  /* Полупрозрачный фон просвечивал текстом карточек при прокрутке под селектором. */
+  .admin-root .admin-mobile-nav {
+    top: 6px;
+    margin-bottom: 14px;
+    border-color: var(--adm-border);
+    background: var(--adm-surface-elevated);
+  }
+
+  /* Список публикаций скроллится вместе со страницей — вложенный скролл на телефоне не поймать. */
+  .admin-root .admin-article-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .admin-root .admin-editor-list {
+    padding: 14px;
+  }
+
+  .admin-root .admin-article-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .admin-root .admin-article-row__main {
+    grid-column: 1;
+  }
+
+  .admin-root .admin-article-row__title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-root .admin-article-row__badges {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .admin-root .admin-article-row__actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Перетаскивание списка работает только мышью — на телефоне хэндл занимал место зря. */
+  .admin-root .admin-article-row__grab {
+    display: none;
+  }
+
+  .admin-root .admin-article-row__actions > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+  }
+
+  /* Одной липкой панели сверху достаточно: селектор раздела уже закреплён. */
+  .admin-root .admin-editor-toolbar {
+    position: static;
+    padding: 12px;
+  }
+
+  .admin-root .admin-editor-toolbar > button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-root .admin-editor-section {
+    padding: 14px;
+  }
+
+  .admin-root .admin-editor-section__title {
+    margin-bottom: 12px;
+  }
+
+  /* Панель действий: главная кнопка на всю ширину, остальные — парой под ней. */
+  .admin-root .admin-editor-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    bottom: 0;
+    padding: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .admin-root .admin-editor-actions > button:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .admin-root .admin-editor-actions > button {
+    min-height: 46px;
+    padding-inline: 12px;
+  }
+
+  /* Липкая панель перекрывала последний блок формы. */
+  .admin-root .admin-editor-main {
+    padding-bottom: 20px;
+  }
+
+  /* Палитра блоков: ровная сетка вместо «лесенки» из кнопок разной ширины. */
+  .admin-root .admin-block-palette {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Иконки управления блоком по 28px пальцем не нажимаются. */
+  .admin-root .admin-editor-block button:has(> svg:only-child),
+  .admin-root .admin-article-editor .admin-panel button:has(> svg:only-child) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* Подписи переносятся, а не обрезаются: «Полупрозрачная карточка» должна читаться целиком. */
+  .admin-root .admin-block-palette > button {
+    justify-content: center;
+    min-height: 44px;
+    padding-inline: 8px;
+    font-size: 13px;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 380px) {
+  .admin-root .admin-header__actions .admin-button {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .admin-root .admin-editor-list,
+  .admin-root .admin-editor-main {
+    padding: 12px;
+  }
+
+  .admin-root .admin-editor-section {
+    padding: 12px;
   }
 }
 

@@ -404,34 +404,35 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
       ref={ref}
       layout
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className={`flex items-center gap-2 p-2.5 rounded-xl border ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'}`}
+      className={`admin-article-row p-2.5 rounded-xl border ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'}`}
       style={{ opacity: isDragging ? 0.35 : 1 }}
     >
       <button
         type="button"
-        className={`p-1.5 rounded-lg text-[var(--adm-fg)]/50 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'}`}
+        className={`admin-article-row__grab p-1.5 rounded-lg text-[var(--adm-fg)]/50 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'}`}
         title={locked ? 'Статья защищена от изменений' : 'Перетащить'}
         aria-label={locked ? 'Статья защищена от перемещения' : 'Перетащить статью'}
         disabled={locked}
       >
         {locked ? <ShieldCheck className="w-4 h-4" /> : <GripVertical className="w-4 h-4" />}
       </button>
-      <button type="button" onClick={() => onEdit(article)} className="flex-1 text-left truncate" aria-label={`Редактировать: ${article.title}`}>
-        <div className="font-medium truncate flex items-center gap-2">
-          {article.title}
-          {locked && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]">защищена</span>
-          )}
-          {article.status === 'draft' ? (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">черновик</span>
-          ) : article.publishedAt && new Date(article.publishedAt) > new Date() ? (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">запланирована</span>
-          ) : (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">опубл.</span>
-          )}
-        </div>
-        <div className="text-xs text-[var(--adm-fg)]/60 truncate">{article.slug}</div>
+      <button type="button" onClick={() => onEdit(article)} className="admin-article-row__main" aria-label={`Редактировать: ${article.title}`}>
+        <span className="admin-article-row__title">{article.title}</span>
+        <span className="admin-article-row__slug">{article.slug}</span>
       </button>
+      <div className="admin-article-row__badges">
+        {locked && (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]">защищена</span>
+        )}
+        {article.status === 'draft' ? (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">черновик</span>
+        ) : article.publishedAt && new Date(article.publishedAt) > new Date() ? (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">запланирована</span>
+        ) : (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">опубл.</span>
+        )}
+      </div>
+      <div className="admin-article-row__actions">
       <button
         type="button"
         onClick={() => onDuplicate(article)}
@@ -450,6 +451,7 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
       >
         <Trash2 className="w-4 h-4" />
       </button>
+      </div>
     </motion.div>
   );
 }
@@ -1028,7 +1030,7 @@ export default function Admin() {
                 <p className="text-sm text-[var(--adm-fg)]/60">Загрузка...</p>
               ) : (
                 <DndProvider backend={HTML5Backend}>
-                  <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
+                  <div className="admin-article-list space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
                     {filteredBySection.length === 0 && (
                       <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 p-4 text-sm text-[var(--adm-fg)]/60">
                         Ничего не найдено. Проверьте поиск или фильтр раздела.
@@ -1098,6 +1100,8 @@ export default function Admin() {
                   )}
 
                   <fieldset disabled={isEditingProtected} className={`space-y-4 ${isEditingProtected ? 'opacity-70' : ''}`}>
+                  <section className="admin-editor-section space-y-4">
+                  <h3 className="admin-editor-section__title">Основное</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Заголовок</label>
@@ -1152,6 +1156,7 @@ export default function Admin() {
                       className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                     />
                   </div>
+                  </section>
 
                   {editingArticle.category === CASES_CATEGORY && (
                     <CaseFieldsEditor
@@ -1161,18 +1166,22 @@ export default function Admin() {
                     />
                   )}
 
+                  <section className="admin-editor-section space-y-4">
+                  <h3 className="admin-editor-section__title">Описания</h3>
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Краткое описание</label>
                     <textarea aria-label="Краткое описание" value={editingArticle.description} onChange={(e) => setEditingArticle({ ...editingArticle, description: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Краткое описание (AEO)</label>
-                    <textarea aria-label="Краткое описание AEO" value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <textarea aria-label="Краткое описание AEO" value={editingArticle.summary || ''} onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })} rows={3} maxLength={350} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <p className="mt-1 text-xs text-[var(--adm-fg)]/50">Ответ для поисковиков и ИИ: {(editingArticle.summary || '').length}/350 знаков — длиннее сервер обрежет.</p>
                   </div>
+                  </section>
 
-                  <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/25 p-4 space-y-4">
+                  <section className="admin-editor-section space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-[var(--adm-fg)]/90">SEO</h3>
+                      <h3 className="admin-editor-section__title mb-0">SEO</h3>
                       <div className="text-xs text-[var(--adm-fg)]/55">
                         title {contentStats.seoTitle}/70 · description {contentStats.seoDescription}/170 · intro {contentStats.description}/160
                       </div>
@@ -1216,8 +1225,10 @@ export default function Admin() {
                         className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                       />
                     </div>
-                  </div>
+                  </section>
 
+                  <section className="admin-editor-section space-y-4">
+                  <h3 className="admin-editor-section__title">Тезисы и FAQ</h3>
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Ключевые тезисы (по одному на строку)</label>
                     <textarea
@@ -1253,13 +1264,17 @@ export default function Admin() {
                       className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                     />
                   </div>
+                  </section>
 
+                  <section className="admin-editor-section space-y-4">
+                  <h3 className="admin-editor-section__title">Обложка и адрес</h3>
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">URL обложки</label>
                     <div className="admin-mobile-stack flex gap-2">
                       <input aria-label="URL обложки" type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className="flex-1 w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
-                      <label className="cursor-pointer px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50 text-[var(--adm-fg)] transition-all flex items-center gap-2">
+                      <label className="cursor-pointer px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50 text-[var(--adm-fg)] transition-all flex items-center justify-center gap-2 whitespace-nowrap">
                         <Upload className="w-4 h-4" />
+                        <span className="sm:hidden">Загрузить файл</span>
                         <input
                           type="file"
                           aria-label="Загрузить обложку"
@@ -1281,11 +1296,12 @@ export default function Admin() {
                     <input aria-label="Slug публикации" type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                     <p className="text-xs text-[var(--adm-fg)]/50 mt-1">Автоматически из заголовка (если не трогать вручную). Только латиница и дефисы.</p>
                   </div>
+                  </section>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Содержание статьи</label>
+                  <section className="admin-editor-section space-y-4">
+                    <h3 className="admin-editor-section__title">Содержание статьи</h3>
                     <ArticleEditor content={editingArticle.content} onChange={handleContentChange} onUpload={uploadFile} readOnly={isEditingProtected} />
-                  </div>
+                  </section>
                   </fieldset>
 
                   {Boolean(editingArticle.id) && editingArticle.slug && !isEditingProtected && (

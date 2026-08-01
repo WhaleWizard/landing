@@ -372,8 +372,8 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
       className={`admin-editor-block rounded-xl border bg-[var(--adm-card)] p-3 sm:p-4 space-y-3 transition ${selected ? 'border-[var(--adm-primary)]/70 ring-1 ring-[var(--adm-primary)]/40' : 'border-[var(--adm-border)]'} ${isOver && canDrop ? 'border-[var(--adm-primary)]/80' : ''}`}
       style={{ opacity: isDragging ? 0.45 : 1 }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex items-center gap-2">
+      <div className="admin-block-head flex flex-wrap items-center justify-between gap-2">
+        <div className="admin-block-head__type inline-flex min-w-0 flex-1 items-center gap-2">
           <button type="button" className="rounded-md p-1.5 text-[var(--adm-fg)]/60 hover:bg-[var(--adm-primary)]/10 cursor-grab active:cursor-grabbing" title="Перетащить" aria-label="Перетащить блок">
             <GripVertical className="h-4 w-4" />
           </button>
@@ -381,7 +381,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
           <select
             value={block.type}
             onChange={(e) => onUpdate(block.id, { type: e.target.value as BlockType, ...(e.target.value === 'heading' ? { level: 2 } : {}) })}
-            className="rounded-md border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm"
+            className="min-w-0 flex-1 rounded-md border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm"
             aria-label={`Тип блока ${index + 1}`}
           >
             {BLOCK_TYPES.map((type) => (
@@ -754,7 +754,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
               </button>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="admin-block-palette flex flex-wrap gap-2">
             {BLOCK_TYPES.map((type) => (
               <button
                 key={type}
