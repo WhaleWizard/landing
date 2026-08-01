@@ -91,6 +91,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ).first()),
     ]);
 
+    // Заявки по дням нужны графику на экране «Сегодня»: без них пришлось бы
+    // сравнивать трафик и заявки на глаз по разным экранам.
+    const leadsDaily = await safeAll<{ day: string; leads: number }>(db.prepare(
+      `SELECT date(created_at) AS day, COUNT(*) AS leads FROM leads
+       WHERE created_at >= datetime('now', '-13 day') AND ${activeCond}
+       GROUP BY day ORDER BY day ASC`
+    ).all());
+
     const uniquesTotals = await safeFirst<{ current: number; previous: number }>(db.prepare(
       `SELECT
          SUM(CASE WHEN day >= date('now', '-6 day') THEN 1 ELSE 0 END) AS current,
@@ -102,6 +110,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       success: true,
       viewsDaily,
       uniquesDaily,
+      leadsDaily,
       topPages,
       totals: {
         views7: viewTotals?.current || 0,

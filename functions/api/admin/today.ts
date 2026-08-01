@@ -8,14 +8,76 @@ const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
 type AttentionLevel = 'critical' | 'attention' | 'info';
 
+type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution';
+
 type TodayItem = {
   id: string;
   title: string;
   detail: string;
   count: number;
   level: AttentionLevel;
-  destination: 'leads' | 'articles' | 'health' | 'meta' | 'content';
+  destination: Destination;
 };
+
+/** Конкретное дело с именем и сроком, а не просто счётчик. */
+type FocusItem = {
+  id: string;
+  kind: 'lead_overdue' | 'lead_new' | 'task_overdue' | 'task_today' | 'planner_task';
+  title: string;
+  subtitle: string;
+  when: string | null;
+  destination: Destination;
+};
+
+const FOCUS_LIMIT_PER_KIND = 5;
+
+function leadTitle(row: { name?: string; email?: string; phone?: string; telegram_username?: string }): string {
+  const name = String(row.name || '').trim();
+  if (name) return name;
+  const contact = String(row.email || row.phone || row.telegram_username || '').trim();
+  return contact || 'Без имени';
+}
+
+/**
+ * Задачи планера на сегодня. Неделя хранится одним JSON, поэтому строка
+ * читается целиком, а невыполненные пункты нужного дня достаются в коде.
+ */
+async function plannerToday(db: D1Database): Promise<{ focus: FocusItem[]; done: number; total: number } | null> {
+  const now = new Date();
+  // В планере неделя начинается с понедельника, а getUTCDay() — с воскресенья.
+  const weekdayIndex = (now.getUTCDay() + 6) % 7;
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - weekdayIndex));
+  const weekStart = monday.toISOString().slice(0, 10);
+
+  const row = await db.prepare('SELECT data_json FROM planner_weeks WHERE week_start = ?')
+    .bind(weekStart)
+    .first<{ data_json: string }>();
+  if (!row?.data_json) return null;
+
+  let parsed: { days?: Array<{ tasks?: Array<{ id?: string; text?: string; done?: boolean }> }> };
+  try {
+    parsed = JSON.parse(row.data_json);
+  } catch {
+    return null;
+  }
+
+  const tasks = parsed.days?.[weekdayIndex]?.tasks || [];
+  const meaningful = tasks.filter((task) => String(task?.text || '').trim());
+  const done = meaningful.filter((task) => task?.done).length;
+  const focus = meaningful
+    .filter((task) => !task?.done)
+    .slice(0, FOCUS_LIMIT_PER_KIND)
+    .map((task, index) => ({
+      id: `planner-${task?.id || index}`,
+      kind: 'planner_task' as const,
+      title: String(task?.text || '').slice(0, 200),
+      subtitle: 'Задача из планера на сегодня',
+      when: null,
+      destination: 'planner' as Destination,
+    }));
+
+  return { focus, done, total: meaningful.length };
+}
 
 async function tableExists(db: D1Database, table: string): Promise<boolean> {
   const row = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
@@ -51,10 +113,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const db = env.DB;
     const items: TodayItem[] = [];
+    const focus: FocusItem[] = [];
     const hasLeads = await tableExists(db, 'leads');
     const hasArticles = await tableExists(db, 'articles');
     const hasOutbox = await tableExists(db, 'meta_outbox');
     const hasSections = await tableExists(db, 'site_sections');
+    const hasTasks = await tableExists(db, 'crm_tasks');
+    const hasPlanner = await tableExists(db, 'planner_weeks');
 
     let newLeads = 0;
     let overdueActions = 0;
@@ -67,7 +132,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     let contentDrafts = 0;
 
     if (hasLeads) {
-      const [hasPipelineStage, hasNextAction, hasLastSubmittedAt, hasStatus, hasTelegramDelivered, hasCreatedAt, hasSoftDelete] = await Promise.all([
+      const [hasPipelineStage, hasNextAction, hasLastSubmittedAt, hasStatus, hasTelegramDelivered, hasCreatedAt, hasSoftDelete, hasNextActionText] = await Promise.all([
         columnExists(db, 'leads', 'pipeline_stage'),
         columnExists(db, 'leads', 'next_action_at'),
         columnExists(db, 'leads', 'last_submitted_at'),
@@ -75,6 +140,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         columnExists(db, 'leads', 'telegram_delivered'),
         columnExists(db, 'leads', 'created_at'),
         columnExists(db, 'leads', 'deleted_at'),
+        columnExists(db, 'leads', 'next_action_text'),
       ]);
       // Заявки в корзине (миграция 0020) не попадают в сводку дня.
       const activeCond = hasSoftDelete ? 'deleted_at IS NULL' : '1=1';
@@ -109,6 +175,55 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
              ${terminalFilter}`,
         ).first<{ count: number }>();
         overdueActions = Number(overdue?.count || 0);
+      }
+
+      // Имена и сроки вместо голых счётчиков: по такому списку сразу видно,
+      // кому именно писать, и не нужно открывать CRM ради выяснения.
+      if (hasNextAction) {
+        const terminalFilter = hasPipelineStage
+          ? "AND COALESCE(pipeline_stage, '') NOT IN ('won', 'lost', 'archived')"
+          : '';
+        const rows = await db.prepare(
+          `SELECT id, name, email, phone, telegram_username, service, next_action_at
+             ${hasNextActionText ? ', next_action_text' : ''}
+           FROM leads
+           WHERE next_action_at IS NOT NULL AND next_action_at != ''
+             AND datetime(next_action_at) < datetime('now')
+             AND ${activeCond} ${terminalFilter}
+           ORDER BY datetime(next_action_at) ASC LIMIT ${FOCUS_LIMIT_PER_KIND}`,
+        ).all<{
+          id: number; name: string; email: string; phone: string; telegram_username: string;
+          service: string; next_action_at: string; next_action_text?: string;
+        }>();
+        for (const row of rows.results || []) {
+          focus.push({
+            id: `lead-overdue-${row.id}`,
+            kind: 'lead_overdue',
+            title: leadTitle(row),
+            subtitle: String(row.next_action_text || '').trim() || row.service || 'Следующий шаг просрочен',
+            when: row.next_action_at,
+            destination: 'leads',
+          });
+        }
+      }
+
+      if (hasCreatedAt) {
+        const rows = await db.prepare(
+          `SELECT id, name, email, phone, telegram_username, service, ${leadTime} AS at
+           FROM leads
+           WHERE ${newLeadPredicate} AND ${activeCond}
+           ORDER BY datetime(${leadTime}) DESC LIMIT ${FOCUS_LIMIT_PER_KIND}`,
+        ).all<{ id: number; name: string; email: string; phone: string; telegram_username: string; service: string; at: string }>();
+        for (const row of rows.results || []) {
+          focus.push({
+            id: `lead-new-${row.id}`,
+            kind: 'lead_new',
+            title: leadTitle(row),
+            subtitle: row.service ? `Новая заявка · ${row.service}` : 'Новая заявка',
+            when: row.at,
+            destination: 'leads',
+          });
+        }
       }
 
       pushItem(items, {
@@ -213,14 +328,85 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
 
+    let tasksOpen = 0;
+    let tasksOverdue = 0;
+    let tasksToday = 0;
+    if (hasTasks && hasLeads) {
+      const activeCond = (await columnExists(db, 'leads', 'deleted_at')) ? 'l.deleted_at IS NULL' : '1=1';
+      const counters = await db.prepare(
+        `SELECT
+           SUM(CASE WHEN t.status = 'open' THEN 1 ELSE 0 END) AS open,
+           SUM(CASE WHEN t.status = 'open' AND t.due_at IS NOT NULL AND datetime(t.due_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
+           SUM(CASE WHEN t.status = 'open' AND t.due_at IS NOT NULL AND date(t.due_at) = date('now') THEN 1 ELSE 0 END) AS today
+         FROM crm_tasks t INNER JOIN leads l ON l.id = t.lead_id
+         WHERE ${activeCond}`,
+      ).first<{ open: number; overdue: number; today: number }>();
+      tasksOpen = Number(counters?.open || 0);
+      tasksOverdue = Number(counters?.overdue || 0);
+      tasksToday = Number(counters?.today || 0);
+
+      const rows = await db.prepare(
+        `SELECT t.id, t.title, t.due_at, l.name, l.email, l.phone, l.telegram_username
+         FROM crm_tasks t INNER JOIN leads l ON l.id = t.lead_id
+         WHERE t.status = 'open' AND t.due_at IS NOT NULL
+           AND date(t.due_at) <= date('now') AND ${activeCond}
+         ORDER BY datetime(t.due_at) ASC LIMIT ${FOCUS_LIMIT_PER_KIND * 2}`,
+      ).all<{ id: number; title: string; due_at: string; name: string; email: string; phone: string; telegram_username: string }>();
+      for (const row of rows.results || []) {
+        const overdue = new Date(row.due_at).getTime() < Date.now();
+        focus.push({
+          id: `task-${row.id}`,
+          kind: overdue ? 'task_overdue' : 'task_today',
+          title: String(row.title || 'Задача').slice(0, 200),
+          subtitle: `Задача по сделке · ${leadTitle(row)}`,
+          when: row.due_at,
+          destination: 'leads',
+        });
+      }
+
+      pushItem(items, {
+        id: 'crm-tasks-overdue',
+        title: 'Просроченные задачи',
+        detail: 'Задачи по сделкам, срок которых уже прошёл.',
+        count: tasksOverdue,
+        level: 'critical',
+        destination: 'leads',
+      });
+    }
+
+    let planner: { done: number; total: number } | null = null;
+    if (hasPlanner) {
+      const result = await plannerToday(db);
+      if (result) {
+        planner = { done: result.done, total: result.total };
+        focus.push(...result.focus);
+      }
+    }
+
     const priority = { critical: 0, attention: 1, info: 2 } as const;
     items.sort((a, b) => priority[a.level] - priority[b.level] || b.count - a.count);
+
+    // Порядок фокуса: сначала то, что уже горит, потом сегодняшнее, потом новое.
+    const focusRank = { lead_overdue: 0, task_overdue: 1, task_today: 2, lead_new: 3, planner_task: 4 } as const;
+    focus.sort((a, b) => focusRank[a.kind] - focusRank[b.kind]
+      || (a.when || '').localeCompare(b.when || ''));
 
     return json({
       success: true,
       generatedAt: new Date().toISOString(),
       items,
+      focus,
+      planner,
+      health: {
+        outboxPending,
+        outboxRetry,
+        outboxDead,
+        telegramMissing,
+      },
       summary: {
+        tasksOpen,
+        tasksOverdue,
+        tasksToday,
         newLeads,
         overdueActions,
         telegramMissing,
