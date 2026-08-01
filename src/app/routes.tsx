@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-r
 import { lazy, Suspense, useEffect } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
 import { ArticlesProvider } from './context/ArticlesContext';
+import { useRememberPublicRoute } from './utils/siteNavigation';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 
 const Home = lazy(() => import('./pages/Home'));
@@ -64,6 +65,7 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
 
 function RootLayout() {
   const location = useLocation();
+  useRememberPublicRoute();
   const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
   const needsArticles = location.pathname === '/'
     || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname);

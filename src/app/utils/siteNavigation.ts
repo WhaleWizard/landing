@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 // Единая карта разделов сайта. Отсюда берутся подписи для хлебных крошек
@@ -107,6 +107,100 @@ export function routeLabel(pathOrUrl: string, short = false): string {
   return 'Главная';
 }
 
+const LAST_ROUTE_STORAGE_KEY = 'ww_last_public_route_v1';
+const LAST_ROUTE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+type RememberedRoute = {
+  path: string;
+  label: string;
+  savedAt: number;
+};
+
+function isTrackablePublicPath(pathname: string): boolean {
+  const path = normalizePath(pathname);
+  return Boolean(ROUTE_LABELS[path])
+    || /^\/(?:blog|cases)\/[^/]+$/.test(path);
+}
+
+function documentRouteLabel(pathname: string): string {
+  if (typeof document === 'undefined') return routeLabel(pathname);
+  const normalizedPath = normalizePath(pathname);
+  const isArticlePath = /^\/(?:blog|cases)\/[^/]+$/.test(normalizedPath);
+
+  // Для разделов и услуг короткое название быстрее считывается в CTA.
+  // Полный document.title нужен только статьям и кейсам, где он и есть контекст.
+  if (!isArticlePath) return routeLabel(normalizedPath);
+
+  const title = document.title
+    .replace(/\s*\|\s*Whale Wizard\s*$/i, '')
+    .trim();
+
+  // Такой заголовок лежит в index.html до загрузки ленивой страницы. На
+  // внутренних маршрутах он не должен становиться подписью возврата.
+  const isShellTitle = pathname !== '/' && /^Whale Wizard\s*[—-]/i.test(title);
+
+  if (title && !isShellTitle && title !== 'Whale Wizard' && title !== 'Страница не найдена') {
+    return title;
+  }
+
+  return routeLabel(pathname);
+}
+
+function readRememberedRoute(currentPath: string): RememberedRoute | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(LAST_ROUTE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RememberedRoute>;
+    const path = asInternalPath(parsed.path);
+    const label = typeof parsed.label === 'string' ? parsed.label.trim() : '';
+    const savedAt = typeof parsed.savedAt === 'number' ? parsed.savedAt : 0;
+
+    if (!path || !label || Date.now() - savedAt > LAST_ROUTE_MAX_AGE_MS) return null;
+    if (normalizePath(path.split('?')[0].split('#')[0]) === normalizePath(currentPath)) return null;
+
+    return { path, label, savedAt };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Запоминает последний реально существующий публичный маршрут в пределах вкладки.
+ * 404 намеренно не перезаписывает запись, поэтому страница ошибки знает, откуда
+ * пользователь пришёл даже после SPA-перехода, где document.referrer не меняется.
+ */
+export function useRememberPublicRoute(): void {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isTrackablePublicPath(location.pathname)) return;
+
+    const save = () => {
+      const route: RememberedRoute = {
+        path: `${location.pathname}${location.search || ''}${location.hash || ''}`,
+        label: documentRouteLabel(location.pathname),
+        savedAt: Date.now(),
+      };
+      window.sessionStorage.setItem(LAST_ROUTE_STORAGE_KEY, JSON.stringify(route));
+    };
+
+    save();
+    // SEO обновляет <title> эффектом дочерней страницы после загрузки ленивого
+    // чанка. Наблюдатель забирает точный заголовок независимо от скорости сети.
+    const titleElement = document.querySelector('title');
+    const titleObserver = titleElement ? new MutationObserver(save) : null;
+    titleObserver?.observe(titleElement, { childList: true, subtree: true, characterData: true });
+
+    const timer = window.setTimeout(save, 500);
+    return () => {
+      titleObserver?.disconnect();
+      window.clearTimeout(timer);
+    };
+  }, [location.hash, location.pathname, location.search]);
+}
+
 function sameOriginReferrer(currentPath: string): string | null {
   if (typeof document === 'undefined' || typeof window === 'undefined' || !document.referrer) return null;
   try {
@@ -126,7 +220,7 @@ export type ReturnTo = {
   label: string;
   /** Готовая надпись кнопки: «Назад в Meta Ads», «Назад к кейсам», «На главную». */
   buttonLabel: string;
-  /** true, если источник перехода известен точно (state или ?from=). */
+  /** true, если источник перехода известен точно (state, ?from= или история вкладки). */
   explicit: boolean;
   goBack: () => void;
 };
@@ -135,8 +229,9 @@ export type ReturnTo = {
  * Откуда пользователь пришёл на текущую страницу. Порядок источников:
  * 1) state.from — его проставляют внутренние ссылки сайта;
  * 2) ?from= — переживает перезагрузку и работает в расшаренной ссылке;
- * 3) реферер того же домена — для переходов без явного контекста;
- * 4) fallback: родительский раздел, затем главная.
+ * 3) последний существующий маршрут в этой вкладке — работает для SPA-переходов;
+ * 4) реферер того же домена — для переходов без явного контекста;
+ * 5) fallback: родительский раздел, затем главная.
  */
 export function useReturnTo(fallback?: string): ReturnTo {
   const navigate = useNavigate();
@@ -144,15 +239,27 @@ export function useReturnTo(fallback?: string): ReturnTo {
   const currentPath = normalizePath(location.pathname);
 
   const resolved = useMemo(() => {
-    const stateFrom = asInternalPath((location.state as { from?: string } | null)?.from);
+    const state = location.state as { from?: string; fromLabel?: string } | null;
+    const stateFrom = asInternalPath(state?.from);
     if (stateFrom && normalizePath(stateFrom.split('?')[0]) !== currentPath) {
-      return { path: stateFrom, explicit: true, viaHistory: false };
+      const stateLabel = typeof state?.fromLabel === 'string' ? state.fromLabel.trim() : '';
+      return { path: stateFrom, label: stateLabel || undefined, explicit: true, viaHistory: false };
     }
 
     const rawFrom = new URLSearchParams(location.search).get('from');
     const queryFrom = rawFrom ? (FROM_ALIASES[rawFrom] ?? asInternalPath(rawFrom)) : null;
     if (queryFrom && normalizePath(queryFrom.split('?')[0]) !== currentPath) {
       return { path: queryFrom, explicit: true, viaHistory: false };
+    }
+
+    const remembered = readRememberedRoute(currentPath);
+    if (remembered) {
+      return {
+        path: remembered.path,
+        label: remembered.label,
+        explicit: true,
+        viaHistory: false,
+      };
     }
 
     const referrer = sameOriginReferrer(currentPath);
@@ -165,7 +272,7 @@ export function useReturnTo(fallback?: string): ReturnTo {
     };
   }, [currentPath, fallback, location.search, location.state]);
 
-  const label = routeLabel(resolved.path, true);
+  const label = resolved.label ?? routeLabel(resolved.path, true);
   const buttonLabel = backLabel(resolved.path);
   const goBack = useCallback(() => {
     // Возврат по истории сохраняет позицию прокрутки на странице-источнике.
@@ -190,6 +297,11 @@ export function useReturnTo(fallback?: string): ReturnTo {
  * Ссылка внутрь сайта, которая помнит страницу-источник.
  * Использовать в `<Link to={...} state={withReturnTo(location)}>`.
  */
-export function withReturnTo(location: { pathname: string; search?: string }): { from: string } {
-  return { from: `${location.pathname}${location.search || ''}` };
+export function withReturnTo(
+  location: { pathname: string; search?: string },
+): { from: string; fromLabel: string } {
+  return {
+    from: `${location.pathname}${location.search || ''}`,
+    fromLabel: documentRouteLabel(location.pathname),
+  };
 }

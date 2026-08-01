@@ -1,125 +1,228 @@
-import { lazy, Suspense } from 'react';
+import { useEffect, useRef } from 'react';
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  BookOpen,
+  Briefcase,
+  Home,
+  MapPin,
+  MessageCircle,
+  TrendingUp,
+} from 'lucide-react';
 import { Link, useLocation } from 'react-router';
-import Navbar from '../components/Navbar';
 import SEO from '../components/SEO';
+import { useReturnTo } from '../utils/siteNavigation';
+import './NotFound.css';
 
-const Footer = lazy(() => import('../components/Footer'));
-
-const quickLinks = [
-  {
-    to: '/blog',
-    title: 'Открыть блог',
-    subtitle: 'Практические материалы о рекламе и аналитике',
-    emoji: '🧠',
-  },
-  {
-    to: '/cases',
-    title: 'Посмотреть кейсы',
-    subtitle: 'Проекты с бюджетами, метриками и выводами',
-    emoji: '📈',
-  },
-  {
-    to: '/calculator',
-    title: 'Оценить стоимость ведения',
-    subtitle: 'Получить предварительный ориентир по стоимости',
-    emoji: '🧮',
-  },
-  {
-    to: '/consult',
-    title: 'О консультации',
-    subtitle: 'Посмотреть формат и темы личного разбора',
-    emoji: '🛟',
-  },
+const secondaryLinks = [
+  { to: '/blog', label: 'Блог', caption: 'Разборы и практика', Icon: BookOpen },
+  { to: '/cases', label: 'Кейсы', caption: 'Цифры и выводы', Icon: TrendingUp },
+  { to: '/#services', label: 'Услуги', caption: 'Форматы работы', Icon: Briefcase },
+  { to: '/#contact', label: 'Контакты', caption: 'Обсудить задачу', Icon: MessageCircle },
 ];
 
 export default function NotFound() {
   const location = useLocation();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const returnTo = useReturnTo('/');
+  const isHomeFallback = returnTo.path === '/';
+  const primaryLabel = isHomeFallback ? 'На главную' : 'Вернуться';
+  const primaryAriaLabel = isHomeFallback
+    ? 'Перейти на главную'
+    : `Вернуться на страницу «${returnTo.label}»`;
+  const contextLabel = isHomeFallback && !returnTo.explicit
+    ? 'Точка возврата не сохранилась'
+    : returnTo.label;
+  const contextKicker = isHomeFallback && !returnTo.explicit ? 'Маршрут' : 'До портала';
+  const secondaryAction = isHomeFallback
+    ? { to: '/blog', label: 'Блог', Icon: BookOpen }
+    : { to: '/', label: 'Главная', Icon: Home };
+  const SecondaryActionIcon = secondaryAction.Icon;
+
+  useEffect(() => {
+    titleRef.current?.focus({ preventScroll: true });
+  }, [location.pathname]);
 
   return (
     <>
       <SEO
         title="Страница не найдена"
-        description="Такой страницы на сайте Whale Wizard нет."
+        description="Страница не найдена. Whale Wizard сохранит предыдущий маршрут и поможет вернуться к нужному разделу."
         url={location.pathname}
         noIndex
       />
-      <Navbar variant="content" />
-      <main className="marketing-typography relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050816] px-6 pb-14 pt-28 text-white md:pb-20 md:pt-32">
-      <style>{`
-        @keyframes floaty {
-          0%, 100% { transform: translateY(0px) rotate(-3deg); }
-          50% { transform: translateY(-12px) rotate(2deg); }
-        }
-        @keyframes twinkle {
-          0%, 100% { opacity: 0.35; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.15); }
-        }
-      `}</style>
 
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-16 left-[14%] text-2xl" style={{ animation: 'twinkle 2.8s ease-in-out infinite' }}>✨</div>
-        <div className="absolute top-28 right-[18%] text-xl" style={{ animation: 'twinkle 2.2s ease-in-out infinite' }}>⭐</div>
-        <div className="absolute bottom-28 left-[22%] text-xl" style={{ animation: 'twinkle 3.1s ease-in-out infinite' }}>✨</div>
-        <div className="absolute bottom-20 right-[15%] text-2xl" style={{ animation: 'twinkle 2.5s ease-in-out infinite' }}>⭐</div>
-      </div>
+      <main className="not-found-page marketing-typography">
+        <section className="not-found-stage" aria-labelledby="not-found-title">
+          <div className="not-found-orbit" aria-hidden="true">
+            <img
+              className="not-found-depth"
+              src="/images/404/portal-depth.png"
+              alt=""
+              width="896"
+              height="896"
+            />
+            <img
+              className="not-found-aura"
+              src="/images/404/portal-aura.png"
+              alt=""
+              width="896"
+              height="896"
+            />
+            <img
+              className="not-found-portal not-found-portal--halo"
+              src="/images/404/portal-rings-cutout.png"
+              alt=""
+              width="896"
+              height="896"
+            />
+            <img
+              className="not-found-portal"
+              src="/images/404/portal-rings-cutout.png"
+              alt=""
+              width="896"
+              height="896"
+            />
+            <img
+              className="not-found-accent not-found-accent--desktop"
+              src="/images/404/portal-accent-desktop.png"
+              alt=""
+              width="896"
+              height="896"
+            />
+            <img
+              className="not-found-accent not-found-accent--mobile"
+              src="/images/404/portal-accent-mobile.png"
+              alt=""
+              width="896"
+              height="896"
+            />
+            <img
+              className="not-found-grid"
+              src="/images/404/portal-grid.png"
+              alt=""
+              width="896"
+              height="896"
+            />
+            <img
+              className="not-found-preview"
+              src="/images/404/route-preview.png"
+              alt=""
+              width="364"
+              height="320"
+            />
 
-      <section className="relative z-10 w-full max-w-4xl rounded-3xl border border-white/15 bg-white/10 backdrop-blur-xl p-6 md:p-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)]">
-        <div className="grid md:grid-cols-[1.2fr_0.8fr] gap-8 items-center">
-          <div className="space-y-4">
-            <p className="inline-flex items-center gap-2 rounded-full border border-white/25 px-3 py-1 text-sm text-blue-100/90">
-              <span>🚨</span>
-              Такой страницы нет
-            </p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
-              Кит свернул не туда,
-              <br />
-              но курс уже пересчитан
-            </h1>
-            <p className="text-base md:text-lg text-slate-200/90 max-w-xl">
-              Возможно, ссылка устарела или в адресе есть опечатка. Вернитесь на главную или выберите нужный раздел ниже.
-            </p>
-
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link
-                to="/"
-                className="inline-flex items-center rounded-xl bg-[#3b82f6] px-5 py-3 text-white font-semibold hover:bg-[#2563eb] transition-colors"
-              >
-                🏠 На главную
-              </Link>
-              <Link
-                to="/blog"
-                className="inline-flex items-center rounded-xl border border-white/40 bg-white/10 px-5 py-3 text-white font-semibold hover:bg-white/20 transition-colors"
-              >
-                Читать блог
-              </Link>
+            <div className="not-found-whale">
+              <div className="not-found-whale-art">
+                <img
+                  className="not-found-whale-image"
+                  src="/images/brand/whale-wizard.png"
+                  width="640"
+                  height="640"
+                  alt=""
+                  draggable={false}
+                />
+                <img
+                  className="not-found-wand-glow"
+                  src="/images/brand/whale-wand-glow.png"
+                  width="96"
+                  height="96"
+                  alt=""
+                  draggable={false}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-black/25 border border-white/10 p-6 text-center">
-            <div className="text-7xl" style={{ animation: 'floaty 3.2s ease-in-out infinite' }}>🐋</div>
-            <p className="text-sm uppercase tracking-[0.2em] text-cyan-200/80">Whale Navigation</p>
-            <p className="text-sm text-slate-200/90">Выберите полезный раздел — нужный маршрут уже рядом.</p>
-          </div>
-        </div>
-
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {quickLinks.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="group rounded-2xl border border-white/15 bg-white/5 p-4 hover:bg-white/15 transition-colors"
+          <header className="not-found-intro">
+            <h1
+              ref={titleRef}
+              id="not-found-title"
+              tabIndex={-1}
+              aria-label="404 · Портал закрыт"
             >
-              <p className="text-2xl mb-2">{item.emoji}</p>
-              <p className="font-semibold">{item.title}</p>
-              <p className="text-sm text-slate-300 mt-1 group-hover:text-white transition-colors">{item.subtitle}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
+              <span className="not-found-code">404</span>
+              <span className="not-found-title-divider" aria-hidden="true"> · </span>
+              <span>ПОРТАЛ ЗАКРЫТ</span>
+            </h1>
+            <p className="not-found-tagline">Эта страница выпала из воронки.</p>
+            <p className="not-found-lead">Без паники — точка возврата сохранилась.</p>
+          </header>
+
+          <div className="not-found-actions">
+            <p className="not-found-context" title={contextLabel}>
+              <span className="not-found-context-mark" aria-hidden="true">
+                <MapPin className="not-found-context-icon" focusable="false" />
+              </span>
+              <span className="not-found-context-copy">
+                <span>{contextKicker}</span>
+                <strong>{contextLabel}</strong>
+              </span>
+            </p>
+
+            <div className="not-found-action-row">
+              <button
+                type="button"
+                className="not-found-return"
+                aria-label={primaryAriaLabel}
+                onClick={returnTo.goBack}
+              >
+                <span className="not-found-action-icon" aria-hidden="true">
+                  <ArrowLeft focusable="false" />
+                </span>
+                <span className="not-found-action-copy">
+                  <small>{isHomeFallback ? 'Главный маршрут' : 'Маршрут сохранён'}</small>
+                  <strong>{primaryLabel}</strong>
+                </span>
+              </button>
+
+              <Link className="not-found-home" to={secondaryAction.to}>
+                <span className="not-found-secondary-icon" aria-hidden="true">
+                  <SecondaryActionIcon focusable="false" />
+                </span>
+                <span className="not-found-action-copy">
+                  <small>{isHomeFallback ? 'Маршрут' : 'С нуля'}</small>
+                  <strong>{secondaryAction.label}</strong>
+                </span>
+              </Link>
+            </div>
+
+            <nav className="not-found-links" aria-label="Куда перейти">
+              <div className="not-found-links-head" aria-hidden="true">
+                <span>Быстрые маршруты</span>
+                <span>04 направления</span>
+              </div>
+              <div className="not-found-links-grid">
+                {secondaryLinks.map((item, index) => {
+                  const ItemIcon = item.Icon;
+
+                  return (
+                    <Link key={item.to} to={item.to}>
+                      <span className="not-found-link-index" aria-hidden="true">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className="not-found-link-icon" aria-hidden="true">
+                        <ItemIcon focusable="false" />
+                      </span>
+                      <span className="not-found-link-copy">
+                        <strong>{item.label}</strong>
+                        <small>{item.caption}</small>
+                      </span>
+                      <ArrowUpRight
+                        className="not-found-link-arrow"
+                        aria-hidden="true"
+                        focusable="false"
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
+
+            <p className="not-found-note">Ссылка потерялась. Маршрут сохранился.</p>
+          </div>
+        </section>
       </main>
-      <Suspense fallback={null}>
-        <Footer />
-      </Suspense>
     </>
   );
 }
