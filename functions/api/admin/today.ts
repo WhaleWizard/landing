@@ -38,11 +38,25 @@ function leadTitle(row: { name?: string; email?: string; phone?: string; telegra
   return contact || 'Без имени';
 }
 
+interface PlannerTask {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 /**
- * Задачи планера на сегодня. Неделя хранится одним JSON, поэтому строка
- * читается целиком, а невыполненные пункты нужного дня достаются в коде.
+ * План на сегодня. Неделя хранится одним JSON, поэтому строка читается
+ * целиком, а нужный день достаётся в коде. Возвращаются все задачи дня,
+ * а не только невыполненные: экран «Сегодня» показывает их списком с
+ * отметками, а не просто счётчиком.
  */
-async function plannerToday(db: D1Database): Promise<{ focus: FocusItem[]; done: number; total: number } | null> {
+async function plannerToday(db: D1Database): Promise<{
+  tasks: PlannerTask[];
+  done: number;
+  total: number;
+  weekStart: string;
+  dayIndex: number;
+} | null> {
   const now = new Date();
   // В планере неделя начинается с понедельника, а getUTCDay() — с воскресенья.
   const weekdayIndex = (now.getUTCDay() + 6) % 7;
@@ -52,31 +66,35 @@ async function plannerToday(db: D1Database): Promise<{ focus: FocusItem[]; done:
   const row = await db.prepare('SELECT data_json FROM planner_weeks WHERE week_start = ?')
     .bind(weekStart)
     .first<{ data_json: string }>();
-  if (!row?.data_json) return null;
+
+  // Недели ещё нет — это не ошибка: план на сегодня просто пустой, и его
+  // можно завести прямо с этого экрана.
+  const empty = { tasks: [] as PlannerTask[], done: 0, total: 0, weekStart, dayIndex: weekdayIndex };
+  if (!row?.data_json) return empty;
 
   let parsed: { days?: Array<{ tasks?: Array<{ id?: string; text?: string; done?: boolean }> }> };
   try {
     parsed = JSON.parse(row.data_json);
   } catch {
-    return null;
+    return empty;
   }
 
-  const tasks = parsed.days?.[weekdayIndex]?.tasks || [];
-  const meaningful = tasks.filter((task) => String(task?.text || '').trim());
-  const done = meaningful.filter((task) => task?.done).length;
-  const focus = meaningful
-    .filter((task) => !task?.done)
-    .slice(0, FOCUS_LIMIT_PER_KIND)
+  const tasks = (parsed.days?.[weekdayIndex]?.tasks || [])
+    .filter((task) => String(task?.text || '').trim())
+    .slice(0, 30)
     .map((task, index) => ({
-      id: `planner-${task?.id || index}`,
-      kind: 'planner_task' as const,
-      title: String(task?.text || '').slice(0, 200),
-      subtitle: 'Задача из планера на сегодня',
-      when: null,
-      destination: 'planner' as Destination,
+      id: String(task?.id || `task-${index}`),
+      text: String(task?.text || '').slice(0, 300),
+      done: Boolean(task?.done),
     }));
 
-  return { focus, done, total: meaningful.length };
+  return {
+    tasks,
+    done: tasks.filter((task) => task.done).length,
+    total: tasks.length,
+    weekStart,
+    dayIndex: weekdayIndex,
+  };
 }
 
 async function tableExists(db: D1Database, table: string): Promise<boolean> {
@@ -374,14 +392,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
 
-    let planner: { done: number; total: number } | null = null;
-    if (hasPlanner) {
-      const result = await plannerToday(db);
-      if (result) {
-        planner = { done: result.done, total: result.total };
-        focus.push(...result.focus);
-      }
-    }
+    // План на сегодня показывается отдельным списком с отметками, поэтому
+    // в «Фокус дня» он больше не дублируется.
+    const planner = hasPlanner ? await plannerToday(db) : null;
 
     const priority = { critical: 0, attention: 1, info: 2 } as const;
     items.sort((a, b) => priority[a.level] - priority[b.level] || b.count - a.count);

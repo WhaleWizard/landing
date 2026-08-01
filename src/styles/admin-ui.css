@@ -8884,3 +8884,238 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .today-grid__rail .today-health {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* --- План на сегодня --- */
+
+.admin-root .today-plan {
+  position: relative;
+}
+
+.admin-root .today-plan.is-saving {
+  /* Пока идёт запись, список остаётся видимым, но не кликается дважды. */
+  opacity: 0.86;
+}
+
+.admin-root .today-plan__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-root .today-plan__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 85%, transparent);
+  overflow: hidden;
+}
+
+.admin-root .today-plan__bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--adm-viz-1), color-mix(in srgb, var(--adm-viz-1) 55%, var(--adm-viz-2)));
+  transition: width 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.admin-root .today-plan__count {
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-secondary);
+  white-space: nowrap;
+}
+
+.admin-root .today-plan__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .today-plan__list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-surface-elevated);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.admin-root .today-plan__list li:hover {
+  border-color: color-mix(in srgb, var(--adm-primary) 32%, var(--adm-border));
+}
+
+.admin-root .today-plan__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border: 1.5px solid color-mix(in srgb, var(--adm-text-tertiary) 55%, transparent);
+  border-radius: 7px;
+  background: none;
+  color: transparent;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.admin-root .today-plan__check svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 3;
+}
+
+.admin-root .today-plan__check:hover:not(:disabled) {
+  border-color: var(--adm-primary);
+  color: color-mix(in srgb, var(--adm-primary) 45%, transparent);
+}
+
+.admin-root .today-plan__check[aria-pressed='true'] {
+  border-color: var(--adm-success);
+  background: var(--adm-success);
+  color: #fff;
+}
+
+.admin-root .today-plan__check:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.admin-root .today-plan__check:focus-visible {
+  outline: 2px solid var(--adm-primary);
+  outline-offset: 2px;
+}
+
+.admin-root .today-plan__text {
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  transition: color 200ms ease;
+}
+
+.admin-root .today-plan__list li.is-done .today-plan__text {
+  color: var(--adm-text-tertiary);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--adm-text-tertiary) 60%, transparent);
+}
+
+.admin-root .today-plan__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--adm-text-tertiary);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.admin-root .today-plan__remove svg {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-root .today-plan__list li:hover .today-plan__remove,
+.admin-root .today-plan__remove:focus-visible {
+  opacity: 1;
+}
+
+.admin-root .today-plan__remove:hover {
+  background: color-mix(in srgb, var(--adm-danger) 12%, transparent);
+  color: var(--adm-danger);
+}
+
+.admin-root .today-plan__empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed color-mix(in srgb, var(--adm-primary) 35%, var(--adm-border));
+  border-radius: var(--adm-radius-card);
+  background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
+}
+
+.admin-root .today-plan__empty svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--adm-primary);
+}
+
+.admin-root .today-plan__empty strong {
+  display: block;
+  font-size: 13.5px;
+}
+
+.admin-root .today-plan__empty p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .today-plan__done {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--adm-radius-control);
+  background: color-mix(in srgb, var(--adm-success) 12%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--adm-success);
+}
+
+.admin-root .today-plan__add {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .today-plan__add > svg {
+  position: absolute;
+  inset-inline-start: 12px;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .today-plan__add input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--adm-control-height);
+  padding: 0 12px 0 34px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-input-bg);
+  color: var(--adm-text-primary);
+  font: inherit;
+}
+
+.admin-root .today-plan__add input:focus-visible {
+  outline: none;
+  border-color: var(--adm-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--adm-primary) 22%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .today-plan__bar span {
+    transition: none;
+  }
+
+  .admin-root .today-plan__check:active:not(:disabled) {
+    transform: none;
+  }
+}

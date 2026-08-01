@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useArticles } from '../../context/ArticlesContext';
 import { AdminPanel } from './AdminUI';
+import TodayPlan, { type PlanTask } from './TodayPlan';
 import {
   CountUpValue, DeltaBadge, StatTile, TrendGroup,
   formatNumber, type SeriesPoint,
@@ -40,7 +41,7 @@ interface TodayResponse {
   generatedAt?: string;
   items?: TodayItem[];
   focus?: FocusItem[];
-  planner?: { done: number; total: number } | null;
+  planner?: { done: number; total: number; tasks: PlanTask[]; weekStart: string; dayIndex: number } | null;
   health?: { outboxPending: number; outboxRetry: number; outboxDead: number; telegramMissing: number };
   summary?: Record<string, number>;
 }
@@ -372,6 +373,17 @@ export default function AdminToday({
               </ul>
             )}
           </section>
+        )}
+
+        {data?.success && data.planner && (
+          <TodayPlan
+            password={password}
+            tasks={data.planner.tasks || []}
+            weekStart={data.planner.weekStart}
+            dayIndex={data.planner.dayIndex}
+            onNavigate={() => onNavigate('planner')}
+            onSaved={() => void load()}
+          />
         )}
 
         {stats && (
