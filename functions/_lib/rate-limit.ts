@@ -17,6 +17,10 @@ const RATE_LIMIT_PROFILES: Record<string, RateLimitProfile> = {
   // mandatory in the route; this profile only prevents the shared admin
   // limiter from cutting a valid batch off after request 30.
   admin_performance: { windowSeconds: 60, maxRequests: 500 },
+  // Планер сохраняется автоматически после каждой паузы в наборе: при живом
+  // заполнении недели общий лимит админки в 30 запросов/мин упирался бы в 429
+  // прямо во время работы. Роут по-прежнему требует пароль администратора.
+  admin_planner: { windowSeconds: 60, maxRequests: 240 },
 };
 
 // Ключ включает номер окна: у каждого окна свой счётчик, который истекает сам.

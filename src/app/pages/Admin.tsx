@@ -9,7 +9,7 @@ import {
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
-  Activity, BarChart3, PanelsTopLeft, Gauge
+  Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -26,11 +26,12 @@ import AdminMetaCenter from '../components/admin/AdminMetaCenter';
 import AdminAttribution from '../components/admin/AdminAttribution';
 import AdminContentControl from '../components/admin/AdminContentControl';
 import AdminPerformance from '../components/admin/AdminPerformance';
+import AdminPlanner from '../components/admin/AdminPlanner';
 import { AdminSelect } from '../components/admin/AdminUI';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
-type AdminView = 'dashboard' | 'articles' | 'leads' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -846,12 +847,13 @@ export default function Admin() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
-  type AdminNavKey = 'dashboard' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'media' | 'health';
+  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'media' | 'health';
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
     : adminView;
   const adminNavigation = [
     { key: 'dashboard', label: 'Сегодня', icon: LayoutDashboard },
+    { key: 'planner', label: 'Планер', icon: CalendarCheck },
     { key: 'attribution', label: 'Воронка', icon: BarChart3 },
     { key: 'meta', label: 'Meta CAPI', icon: Activity },
     { key: 'performance', label: 'Скорость', icon: Gauge },
@@ -964,6 +966,7 @@ export default function Admin() {
                   }}
                 />
               )}
+              {adminView === 'planner' && <AdminPlanner password={password} />}
               {adminView === 'attribution' && <AdminAttribution password={password} />}
               {adminView === 'meta' && <AdminMetaCenter password={password} />}
               {adminView === 'performance' && <AdminPerformance password={password} />}

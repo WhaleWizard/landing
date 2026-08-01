@@ -3600,3 +3600,1445 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 }
 
 /* Responsive containment is intentionally scoped to the admin surface. */
+
+/* ==========================================================================
+   Планер недели (/admin → Планер)
+   Мобильный порядок: один день на экране + полоса выбора дня; с 640px все семь
+   дней раскладываются сеткой. Графика — одна акцентная серия и её светлая
+   дорожка, статусный цвет только для «сделано полностью».
+   ========================================================================== */
+
+.admin-root .planner {
+  --planner-track: color-mix(in srgb, var(--adm-primary) 13%, var(--adm-surface-subtle));
+  --planner-gap: 12px;
+}
+
+.admin-root .planner-hero__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-root .planner-hero__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-root .planner-weeknav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.admin-root .planner-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 12px;
+  color: var(--adm-text-secondary);
+  background: var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-xs);
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.admin-root .planner-icon-button:hover {
+  border-color: color-mix(in srgb, var(--adm-primary) 40%, var(--adm-border-subtle));
+  color: var(--adm-primary);
+}
+
+.admin-root .planner-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.admin-root .planner-week-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 12px;
+  color: var(--adm-text-primary);
+  background: var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-xs);
+  font-weight: 600;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-root .planner-week-trigger:hover,
+.admin-root .planner-week-trigger[data-state='open'] {
+  border-color: color-mix(in srgb, var(--adm-primary) 45%, var(--adm-border-subtle));
+  box-shadow: var(--adm-shadow-sm);
+}
+
+.admin-root .planner-week-trigger svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--adm-primary);
+}
+
+.admin-root .planner-week-trigger__short {
+  display: none;
+}
+
+.admin-root .planner-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 16px 0 0;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--adm-warning) 32%, var(--adm-border-subtle));
+  border-radius: 12px;
+  color: var(--adm-text-secondary);
+  background: color-mix(in srgb, var(--adm-warning) 8%, var(--adm-surface-elevated));
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-root .planner-notice svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--adm-warning);
+}
+
+/* --- Выбор недели (портал Radix живёт вне .admin-root) --- */
+
+body[data-admin-theme] .planner-weekpick {
+  z-index: 10000;
+  width: min(322px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid var(--adm-border-strong);
+  border-radius: 16px;
+  color: var(--adm-text-primary);
+  background: var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-lg);
+  font-family: var(--ww-font-text, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif);
+}
+
+body[data-admin-theme] .planner-weekpick__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+body[data-admin-theme] .planner-weekpick__head strong {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Intl отдаёт «июль 2026 г.»; capitalize поднял бы и «г.» — поднимаем только
+   первую букву названия месяца. */
+body[data-admin-theme] .planner-weekpick__head strong::first-letter {
+  text-transform: uppercase;
+}
+
+body[data-admin-theme] .planner-weekpick .planner-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 11px;
+  color: var(--adm-text-secondary);
+  background: var(--adm-surface-elevated);
+}
+
+body[data-admin-theme] .planner-weekpick .planner-icon-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+body[data-admin-theme] .planner-weekpick__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  padding: 0 4px 6px;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+body[data-admin-theme] .planner-weekpick__rows {
+  display: grid;
+  gap: 2px;
+}
+
+body[data-admin-theme] .planner-weekpick__row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  min-height: 40px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+body[data-admin-theme] .planner-weekpick__row:hover {
+  background: color-mix(in srgb, var(--adm-primary) 9%, transparent);
+}
+
+body[data-admin-theme] .planner-weekpick__row[aria-current='true'] {
+  border-color: color-mix(in srgb, var(--adm-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--adm-primary) 13%, transparent);
+}
+
+body[data-admin-theme] .planner-weekpick__day {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border-radius: 8px;
+  color: var(--adm-text-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-admin-theme] .planner-weekpick__day[data-outside] {
+  color: var(--adm-text-tertiary);
+  opacity: 0.55;
+}
+
+body[data-admin-theme] .planner-weekpick__day[data-today] {
+  color: var(--adm-primary);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--adm-primary) 55%, transparent);
+}
+
+body[data-admin-theme] .planner-weekpick__today {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 10px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 11px;
+  color: var(--adm-primary);
+  background: transparent;
+  font-weight: 600;
+}
+
+body[data-admin-theme] .planner-weekpick__today:hover {
+  background: color-mix(in srgb, var(--adm-primary) 8%, transparent);
+}
+
+body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--adm-primary) 30%, transparent);
+  outline-offset: 2px;
+}
+
+/* --- Итог недели и график --- */
+
+.admin-root .planner-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.admin-root .planner-total {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 22px 18px;
+  text-align: center;
+}
+
+.admin-root .planner-total__caption {
+  max-width: 26ch;
+  margin: 0;
+  color: var(--adm-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-root .planner-chart-card {
+  padding: 16px;
+}
+
+/* Кольцо-мера: дорожка — светлая ступень акцента, заливка — сам акцент. */
+.admin-root .planner-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--planner-ring-size);
+  height: var(--planner-ring-size);
+}
+
+.admin-root .planner-ring--sm {
+  --planner-ring-size: 54px;
+  --planner-ring-width: 9;
+}
+
+.admin-root .planner-ring--md {
+  --planner-ring-size: 96px;
+  --planner-ring-width: 9;
+}
+
+.admin-root .planner-ring--lg {
+  --planner-ring-size: clamp(150px, 44vw, 172px);
+  --planner-ring-width: 9;
+}
+
+.admin-root .planner-ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.admin-root .planner-ring__track {
+  fill: none;
+  stroke: var(--planner-track, color-mix(in srgb, var(--adm-primary) 13%, var(--adm-surface-subtle)));
+  stroke-width: var(--planner-ring-width);
+}
+
+.admin-root .planner-ring__fill {
+  fill: none;
+  stroke: var(--adm-primary);
+  stroke-width: var(--planner-ring-width);
+  transition: stroke-dashoffset 420ms cubic-bezier(0.22, 0.61, 0.36, 1), stroke 220ms ease;
+}
+
+.admin-root .planner-ring--complete .planner-ring__fill {
+  stroke: var(--adm-success);
+}
+
+.admin-root .planner-ring__body {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.admin-root .planner-ring__hero {
+  color: var(--adm-text-primary);
+  font-family: var(--ww-font-display, "Segoe UI Variable Display", "Segoe UI", sans-serif);
+  font-size: clamp(34px, 11vw, 48px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.admin-root .planner-ring--complete .planner-ring__hero {
+  color: var(--adm-success);
+}
+
+.admin-root .planner-ring__caption {
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-root .planner-ring__value {
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-root .planner-ring--complete .planner-ring__value {
+  color: var(--adm-success);
+}
+
+.admin-root .planner-bar {
+  display: block;
+  width: 100%;
+  min-width: 48px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--planner-track, color-mix(in srgb, var(--adm-primary) 13%, var(--adm-surface-subtle)));
+  overflow: hidden;
+}
+
+.admin-root .planner-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--adm-primary);
+  transition: width 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.admin-root .planner-bar--complete .planner-bar__fill {
+  background: var(--adm-success);
+}
+
+/* --- График «Прогресс недели» --- */
+
+.admin-root .planner-chart {
+  margin: 0;
+}
+
+.admin-root .planner-chart__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.admin-root .planner-chart__head .admin-hint {
+  margin: 3px 0 0;
+}
+
+.admin-root .planner-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-root .planner-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-root .planner-legend__swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.admin-root .planner-legend__swatch--fill {
+  background: var(--adm-primary);
+}
+
+.admin-root .planner-legend__swatch--track {
+  background: var(--planner-track, color-mix(in srgb, var(--adm-primary) 13%, var(--adm-surface-subtle)));
+}
+
+.admin-root .planner-chart__plot {
+  position: relative;
+  height: 196px;
+  padding-left: 26px;
+}
+
+.admin-root .planner-chart__grid {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 24px;
+  left: 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.admin-root .planner-chart__gridline {
+  position: relative;
+  height: 0;
+  border-top: 1px solid var(--adm-border-subtle);
+}
+
+.admin-root .planner-chart__tick {
+  position: absolute;
+  right: calc(100% + 7px);
+  top: -8px;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .planner-chart__cols {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  height: 100%;
+}
+
+.admin-root .planner-col {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 24px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.admin-root .planner-col__slot {
+  position: relative;
+  min-height: 0;
+}
+
+.admin-root .planner-col__track,
+.admin-root .planner-col__fill {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: min(24px, 74%);
+  transform: translateX(-50%);
+  border-radius: 4px 4px 0 0;
+  transition: height 380ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.admin-root .planner-col__track {
+  background: var(--planner-track, color-mix(in srgb, var(--adm-primary) 13%, var(--adm-surface-subtle)));
+}
+
+.admin-root .planner-col__fill {
+  background: var(--adm-primary);
+}
+
+.admin-root .planner-col__value {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  margin-bottom: 4px;
+  color: var(--adm-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .planner-col__label {
+  display: grid;
+  place-items: center;
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-root .planner-col[data-today] .planner-col__label {
+  color: var(--adm-primary);
+}
+
+.admin-root .planner-col[data-active] .planner-col__label {
+  color: var(--adm-text-primary);
+}
+
+.admin-root .planner-col[data-active] .planner-col__track {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--adm-primary) 45%, transparent);
+}
+
+.admin-root .planner-col:hover .planner-col__track {
+  background: color-mix(in srgb, var(--adm-primary) 20%, var(--adm-surface-subtle));
+}
+
+.admin-root .planner-col__tip {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  z-index: 4;
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  max-width: 190px;
+  padding: 8px 10px;
+  border: 1px solid var(--adm-border-strong);
+  border-radius: 10px;
+  color: var(--adm-text-secondary);
+  background: var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-md);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(4px);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.admin-root .planner-col__tip strong {
+  color: var(--adm-text-primary);
+  font-weight: 700;
+}
+
+.admin-root .planner-col:hover .planner-col__tip,
+.admin-root .planner-col:focus-visible .planner-col__tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.admin-root .planner-col:first-child .planner-col__tip {
+  left: 0;
+  transform: translateY(4px);
+}
+
+.admin-root .planner-col:first-child:hover .planner-col__tip,
+.admin-root .planner-col:first-child:focus-visible .planner-col__tip {
+  transform: translateY(0);
+}
+
+.admin-root .planner-col:last-child .planner-col__tip {
+  right: 0;
+  left: auto;
+  transform: translateY(4px);
+}
+
+.admin-root .planner-col:last-child:hover .planner-col__tip,
+.admin-root .planner-col:last-child:focus-visible .planner-col__tip {
+  transform: translateY(0);
+}
+
+.admin-root .planner-chart__empty {
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--adm-border-strong);
+  border-radius: 12px;
+  color: var(--adm-text-tertiary);
+  text-align: center;
+  font-size: 13px;
+}
+
+.admin-root .planner-table-view {
+  margin-top: 14px;
+  border-top: 1px solid var(--adm-border-subtle);
+  padding-top: 10px;
+}
+
+.admin-root .planner-table-view > summary {
+  cursor: pointer;
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  list-style: none;
+}
+
+.admin-root .planner-table-view > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-root .planner-table-view > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 160ms ease;
+}
+
+.admin-root .planner-table-view[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.admin-root .planner-table-scroll {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.admin-root .planner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-root .planner-table :is(th, td) {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--adm-border-subtle);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .planner-table thead th {
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-root .planner-table :is(thead th:first-child, tbody th) {
+  text-align: left;
+  font-variant-numeric: normal;
+}
+
+.admin-root .planner-table tbody th {
+  color: var(--adm-text-secondary);
+  font-weight: 600;
+}
+
+/* --- Плитки показателей --- */
+
+.admin-root .planner-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
+  gap: 12px;
+}
+
+.admin-root .planner-stat {
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  min-height: 96px;
+  padding: 14px;
+}
+
+.admin-root .planner-stat__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.admin-root .planner-stat__label svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--adm-primary);
+}
+
+.admin-root .planner-stat__value {
+  color: var(--adm-text-primary);
+  font-family: var(--ww-font-display, "Segoe UI Variable Display", "Segoe UI", sans-serif);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.admin-root .planner-stat__value--text {
+  text-transform: lowercase;
+}
+
+.admin-root .planner-stat__of {
+  color: var(--adm-text-tertiary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* --- Секции --- */
+
+.admin-root .planner-section {
+  padding: 16px;
+}
+
+.admin-root .planner-section--days {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-root .planner-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.admin-root .planner-section__head--bare {
+  margin-bottom: 0;
+}
+
+.admin-root .planner-section__head .admin-hint {
+  margin: 3px 0 0;
+}
+
+/* --- Строки с чекбоксом --- */
+
+.admin-root .planner-list {
+  display: grid;
+  gap: 0;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .planner-row,
+.admin-root .planner-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  border-top: 1px solid var(--adm-border-subtle);
+}
+
+.admin-root .planner-list > .planner-row:first-child,
+.admin-root .planner-notes > .planner-note:first-child {
+  border-top: 0;
+}
+
+.admin-root .planner-row__index {
+  flex: none;
+  width: 18px;
+  padding-top: 13px;
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.admin-root .planner-checkbox {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.admin-root .planner-checkbox__box {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--adm-border-strong);
+  border-radius: 7px;
+  background: var(--adm-input-bg);
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.admin-root .planner-checkbox:hover .planner-checkbox__box {
+  border-color: var(--adm-primary);
+}
+
+.admin-root .planner-checkbox:active .planner-checkbox__box {
+  transform: scale(0.92);
+}
+
+.admin-root .planner-checkbox__box svg {
+  width: 15px;
+  height: 15px;
+  color: var(--adm-button-text);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.admin-root .planner-checkbox[aria-checked='true'] .planner-checkbox__box {
+  border-color: var(--adm-primary);
+  background: var(--adm-primary);
+}
+
+.admin-root .planner-checkbox[aria-checked='true'] .planner-checkbox__box svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.admin-root .planner-textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 2px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--adm-text-primary);
+  background: transparent;
+  font: inherit;
+  line-height: 1.4;
+  overflow: hidden;
+  resize: none;
+}
+
+/* Строка задачи — элемент списка, а не поле ввода: гасим общий фон и внутреннюю
+   тень полей админки (их специфичность выше из-за цепочки :not() в базе). */
+.admin-root .planner-textarea:not(.planner-textarea--boxed) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.admin-root .planner-textarea::placeholder {
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .planner-row[data-done] .planner-textarea {
+  color: var(--adm-text-tertiary);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.admin-root .planner-textarea--boxed {
+  padding: 9px 11px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-input-bg);
+  font-size: 13px;
+}
+
+.admin-root .planner-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-control);
+  color: var(--adm-text-primary);
+  background: var(--adm-input-bg);
+  font: inherit;
+}
+
+.admin-root .planner-row__remove {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  min-width: 40px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  color: var(--adm-text-tertiary);
+  background: transparent;
+  transition: color 150ms ease, background 150ms ease, opacity 150ms ease;
+}
+
+.admin-root .planner-row__remove svg {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-root .planner-row__remove:hover {
+  color: var(--adm-danger);
+  background: color-mix(in srgb, var(--adm-danger) 10%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-root :is(.planner-row, .planner-note, .planner-habit__name) .planner-row__remove {
+    opacity: 0;
+  }
+
+  .admin-root :is(.planner-row, .planner-note, .planner-habit__name):hover .planner-row__remove,
+  .admin-root :is(.planner-row, .planner-note, .planner-habit__name):focus-within .planner-row__remove {
+    opacity: 1;
+  }
+}
+
+.admin-root .planner-add {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px dashed var(--adm-border-strong);
+  border-radius: var(--adm-radius-control);
+  color: var(--adm-text-secondary);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.admin-root .planner-add svg {
+  width: 15px;
+  height: 15px;
+}
+
+.admin-root .planner-add:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--adm-primary) 55%, transparent);
+  color: var(--adm-primary);
+  background: color-mix(in srgb, var(--adm-primary) 7%, transparent);
+}
+
+.admin-root .planner-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Полоса выбора дня (мобильная) --- */
+
+.admin-root .planner-daystrip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 14px;
+  background: var(--adm-surface-subtle);
+}
+
+.admin-root .planner-daystrip__tab {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  min-height: 58px;
+  padding: 6px 2px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--adm-text-secondary);
+  background: transparent;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.admin-root .planner-daystrip__name {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-root .planner-daystrip__date {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.admin-root .planner-daystrip__meter {
+  display: block;
+  width: 20px;
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.admin-root .planner-daystrip__meter[data-filled] {
+  background: var(--planner-track, color-mix(in srgb, var(--adm-primary) 13%, var(--adm-surface-subtle)));
+}
+
+.admin-root .planner-daystrip__meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--adm-primary);
+  transition: width 300ms ease;
+}
+
+.admin-root .planner-daystrip__tab[data-today] .planner-daystrip__name {
+  color: var(--adm-primary);
+}
+
+.admin-root .planner-daystrip__tab[aria-pressed='true'] {
+  border-color: var(--adm-border-subtle);
+  color: var(--adm-text-primary);
+  background: var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-xs);
+}
+
+/* --- Карточки дней --- */
+
+.admin-root .planner-days {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--planner-gap);
+}
+
+.admin-root .planner-day {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-xs);
+}
+
+.admin-root .planner-day[data-today] {
+  border-color: color-mix(in srgb, var(--adm-primary) 40%, var(--adm-border-subtle));
+}
+
+.admin-root .planner-day__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-root .planner-day__title {
+  min-width: 0;
+}
+
+.admin-root .planner-day__title h3 {
+  margin: 0;
+  color: var(--adm-text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+
+.admin-root .planner-day__title .admin-hint {
+  display: block;
+  margin-top: 2px;
+}
+
+.admin-root .planner-day__counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--adm-border-subtle);
+}
+
+.admin-root .planner-day__counts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 60%, transparent);
+}
+
+.admin-root .planner-day__counts dt {
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+}
+
+.admin-root .planner-day__counts dd {
+  margin: 0;
+  color: var(--adm-text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .planner-day__notes h4 {
+  margin: 0 0 4px;
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.admin-root .planner-notes {
+  display: grid;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+/* --- Трекер привычек --- */
+
+.admin-root .planner-habits {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-root .planner-habit {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+}
+
+.admin-root .planner-habit__name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-root .planner-habit__days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.admin-root .planner-habit__day {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-root .planner-habit__weekday {
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-root .planner-habit__day .planner-checkbox {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.admin-root .planner-habit__day .planner-checkbox:hover {
+  background: color-mix(in srgb, var(--adm-primary) 8%, transparent);
+}
+
+.admin-root .planner-habit__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-root .planner-stars {
+  display: inline-flex;
+  flex: none;
+  gap: 1px;
+}
+
+.admin-root .planner-stars svg {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-border-strong);
+  fill: none;
+}
+
+.admin-root .planner-stars svg.is-on {
+  color: var(--adm-primary);
+  fill: var(--adm-primary);
+}
+
+.admin-root .planner-habit__percent {
+  flex: none;
+  min-width: 42px;
+  color: var(--adm-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* --- Дневник --- */
+
+.admin-root .planner-journals {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--planner-gap);
+}
+
+.admin-root .planner-journal {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+}
+
+.admin-root .planner-journal__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.admin-root .planner-journal__head h3 {
+  margin: 0;
+  color: var(--adm-text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.admin-root .planner-journal__meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 10px;
+}
+
+.admin-root .planner-journal__texts {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-root .planner-field {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-root .planner-field__label {
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-root .planner-scale {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 12px;
+  background: var(--adm-input-bg);
+}
+
+.admin-root .planner-scale__button {
+  display: inline-grid;
+  place-items: center;
+  flex: 1 1 0;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  color: var(--adm-text-tertiary);
+  background: transparent;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.admin-root .planner-scale__button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.admin-root .planner-scale__button:hover {
+  background: color-mix(in srgb, var(--adm-primary) 9%, transparent);
+}
+
+.admin-root .planner-scale__button[aria-pressed='true'] {
+  color: var(--adm-primary);
+  background: color-mix(in srgb, var(--adm-primary) 14%, transparent);
+}
+
+/* --- Адаптив --- */
+
+@media (max-width: 639px) {
+  .admin-root .planner-day:not([data-active]),
+  .admin-root .planner-journal:not([data-active]) {
+    display: none;
+  }
+
+  .admin-root .planner-hero__state {
+    width: 100%;
+  }
+
+  /* Стрелки по краям, диапазон недели между ними, «Сегодня» — отдельной строкой:
+     на 320px три контрола в одну строку не помещаются без переносов. */
+  .admin-root .planner-weeknav {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 8px;
+  }
+
+  .admin-root .planner-weeknav > .admin-button {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .admin-root .planner-weeknav .planner-week-trigger {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 10px;
+  }
+
+  .admin-root .planner-week-trigger__full {
+    display: none;
+  }
+
+  .admin-root .planner-week-trigger__short {
+    display: inline;
+  }
+}
+
+@media (min-width: 640px) {
+  .admin-root .planner-daystrip {
+    display: none;
+  }
+
+  .admin-root .planner-days {
+    grid-template-columns: repeat(auto-fill, minmax(264px, 1fr));
+  }
+
+  .admin-root .planner-journals {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  .admin-root .planner-day[data-active] {
+    border-color: color-mix(in srgb, var(--adm-primary) 40%, var(--adm-border-subtle));
+    box-shadow: var(--adm-shadow-sm);
+  }
+
+  .admin-root .planner-section,
+  .admin-root .planner-chart-card {
+    padding: 18px;
+  }
+
+  .admin-root .planner-habit {
+    grid-template-columns: minmax(140px, 1fr) auto minmax(150px, 200px);
+    align-items: center;
+    gap: 14px;
+  }
+
+  .admin-root .planner-habit__days {
+    grid-template-columns: repeat(7, 40px);
+  }
+
+  /* Дни недели подписаны один раз сверху: колонки фиксированы, повторять
+     подпись в каждой строке — лишний шум. */
+  .admin-root .planner-habit:not(:first-child) .planner-habit__weekday {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-root .planner-overview {
+    grid-template-columns: minmax(230px, 0.72fr) minmax(0, 2fr);
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 359px) {
+  .admin-root .planner-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-root .planner-daystrip__tab {
+    min-height: 54px;
+  }
+
+  .admin-root .planner-section,
+  .admin-root .planner-chart-card,
+  .admin-root .planner-day {
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root :is(.planner-ring__fill, .planner-bar__fill, .planner-col__track, .planner-col__fill, .planner-col__tip, .planner-daystrip__meter > span) {
+    transition: none;
+  }
+}
