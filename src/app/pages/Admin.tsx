@@ -9,7 +9,7 @@ import {
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
-  Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target
+  Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -25,6 +25,7 @@ import AdminToday from '../components/admin/AdminToday';
 import AdminMetaCenter from '../components/admin/AdminMetaCenter';
 import AdminAttribution from '../components/admin/AdminAttribution';
 import AdminGoals from '../components/admin/AdminGoals';
+import AdminReport from '../components/admin/AdminReport';
 import ContentPerformance from '../components/admin/ContentPerformance';
 import SeoAssistant from '../components/admin/SeoAssistant';
 import AdminContentControl from '../components/admin/AdminContentControl';
@@ -35,7 +36,7 @@ import { AdminConfirmProvider, AdminToaster, notify, useConfirm } from '../compo
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -861,7 +862,7 @@ export default function Admin() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
-  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'media' | 'health' | 'goals';
+  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'media' | 'health' | 'goals' | 'report';
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
     : adminView;
@@ -883,6 +884,7 @@ export default function Admin() {
         { key: 'attribution', label: 'Воронка', icon: BarChart3 },
         { key: 'meta', label: 'Meta CAPI', icon: Activity },
         { key: 'performance', label: 'Скорость', icon: Gauge },
+        { key: 'report', label: 'Отчёт за месяц', icon: FileText },
       ],
     },
     {
@@ -1028,6 +1030,7 @@ export default function Admin() {
               )}
               {adminView === 'planner' && <AdminPlanner password={password} />}
               {adminView === 'goals' && <AdminGoals password={password} />}
+              {adminView === 'report' && <AdminReport password={password} />}
               {adminView === 'attribution' && <AdminAttribution password={password} />}
               {adminView === 'meta' && <AdminMetaCenter password={password} />}
               {adminView === 'performance' && <AdminPerformance password={password} />}

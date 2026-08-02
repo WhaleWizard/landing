@@ -10644,3 +10644,89 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
     grid-column: 2 / -1;
   }
 }
+
+/* ==========================================================================
+   Отчёт за месяц
+   ========================================================================== */
+
+.admin-root .report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adm-space-2);
+}
+
+.admin-root .report__columns {
+  display: grid;
+  gap: var(--adm-space-3);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .admin-root .report__columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.admin-root .report__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .report__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--adm-space-3);
+  padding: 7px 0;
+  border-top: 1px solid color-mix(in srgb, var(--adm-border) 55%, transparent);
+  font-size: var(--adm-text-base);
+}
+
+.admin-root .report__list li:first-child { border-top: 0; }
+
+.admin-root .report__list li span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .report__list li strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .report__list li em {
+  font-style: normal;
+  font-size: var(--adm-text-xs);
+  color: var(--adm-text-tertiary);
+  white-space: nowrap;
+}
+
+/* Печать: остаётся только сам отчёт, без навигации и кнопок. */
+@media print {
+  .admin-root .admin-topbar,
+  .admin-root .admin-sidebar,
+  .admin-root .admin-breadcrumb,
+  .admin-root .report__actions,
+  .admin-root .goals__period {
+    display: none !important;
+  }
+
+  .admin-root,
+  .admin-root .admin-shell,
+  .admin-root .admin-panel,
+  .admin-root .adm-tile {
+    background: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+  }
+
+  .admin-root .admin-app__body {
+    display: block;
+    padding: 0;
+  }
+}
