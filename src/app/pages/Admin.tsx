@@ -28,6 +28,7 @@ import AdminContentControl from '../components/admin/AdminContentControl';
 import AdminPerformance from '../components/admin/AdminPerformance';
 import AdminPlanner from '../components/admin/AdminPlanner';
 import { AdminSelect } from '../components/admin/AdminUI';
+import { AdminConfirmProvider, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
@@ -148,6 +149,7 @@ interface ArticleVersionsPanelProps {
 }
 
 function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPanelProps) {
+  const confirmDialog = useConfirm();
   const [versions, setVersions] = useState<ArticleVersionRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -174,15 +176,21 @@ function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPane
     }
   }, [password, slug]);
 
-  const restoreVersion = (row: ArticleVersionRow) => {
+  const restoreVersion = async (row: ArticleVersionRow) => {
+    let parsed: Article;
     try {
-      const parsed = JSON.parse(row.version_data) as Article;
+      parsed = JSON.parse(row.version_data) as Article;
       if (!parsed || typeof parsed !== 'object' || !parsed.title) throw new Error('invalid payload');
-      if (!confirm(`Восстановить версию от ${formatVersionDate(row.created_at)}? Текущие несохранённые изменения в редакторе будут заменены.`)) return;
-      onRestore(parsed);
     } catch {
-      alert('Не удалось прочитать данные этой версии.');
+      notify.error('Не удалось прочитать данные этой версии');
+      return;
     }
+    const confirmed = await confirmDialog({
+      title: `Восстановить версию от ${formatVersionDate(row.created_at)}?`,
+      description: 'Текущие несохранённые изменения в редакторе будут заменены.',
+      confirmLabel: 'Восстановить',
+    });
+    if (confirmed) onRestore(parsed);
   };
 
   return (
@@ -209,7 +217,7 @@ function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPane
             <span className="text-sm text-[var(--adm-fg)]/80">{formatVersionDate(row.created_at)}</span>
             <button
               type="button"
-              onClick={() => restoreVersion(row)}
+              onClick={() => void restoreVersion(row)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs text-[var(--adm-fg)] hover:bg-[var(--adm-primary)]/10 hover:text-[var(--adm-primary)] transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Восстановить
@@ -331,7 +339,8 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
     <AdminThemeContext.Provider value={{ mode, toggleMode }}>
       <div style={{ ...vars, minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode}>
         <div className="admin-shell bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
-          {children}
+          <AdminConfirmProvider>{children}</AdminConfirmProvider>
+          <AdminToaster theme={mode} />
         </div>
       </div>
     </AdminThemeContext.Provider>
@@ -478,6 +487,7 @@ function useFilteredArticles(articles: Article[]) {
 }
 
 export default function Admin() {
+  const confirmDialog = useConfirm();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -587,13 +597,21 @@ export default function Admin() {
     return () => window.clearTimeout(timer);
   }, [editingArticle, hasUnsavedChanges, isEditingProtected]);
 
-  const closeArticleEditor = useCallback(() => {
-    if (hasUnsavedChanges && !confirm('Есть несохраненные изменения. Закрыть редактор?')) return;
+  const closeArticleEditor = useCallback(async () => {
+    if (hasUnsavedChanges) {
+      const confirmed = await confirmDialog({
+        title: 'Закрыть редактор?',
+        description: 'Есть несохранённые изменения — они пропадут.',
+        confirmLabel: 'Закрыть без сохранения',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    }
     setEditingArticle(null);
     setSavedArticleSnapshot('');
     setSlugManuallyEdited(false);
     clearEditorBackup();
-  }, [hasUnsavedChanges, clearEditorBackup]);
+  }, [confirmDialog, hasUnsavedChanges, clearEditorBackup]);
 
   const refreshHealth = async () => {
     try {
@@ -668,7 +686,7 @@ export default function Admin() {
       return data.url || null;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      alert('Ошибка загрузки файла: ' + message);
+      notify.error('Файл не загрузился', message);
       return null;
     }
   };
@@ -676,15 +694,15 @@ export default function Admin() {
   const handleSave = async (status: Article['status'] = 'published') => {
     if (!editingArticle) return;
     if (isEditingProtected) {
-      alert('Эта статья защищена от изменений. Ее нельзя сохранять, удалять или перетаскивать через админку.');
+      notify.error('Статья защищена', 'Её нельзя сохранять, удалять или перетаскивать через админку.');
       return;
     }
     if (!editingArticle.title.trim()) {
-      alert('Введите заголовок');
+      notify.error('Нужен заголовок', 'Без него статью нельзя сохранить.');
       return;
     }
     if (!editingArticle.slug.trim()) {
-      alert('Введите slug');
+      notify.error('Нужен адрес страницы', 'Заполните поле slug — это часть ссылки на статью.');
       return;
     }
 
@@ -709,7 +727,7 @@ export default function Admin() {
       article.slug === normalizedArticle.slug && article.id !== normalizedArticle.id
     ));
     if (conflictingArticle) {
-      alert(`Slug "${normalizedArticle.slug}" уже используется в статье "${conflictingArticle.title}". Выберите уникальный slug.`);
+      notify.error('Такой адрес уже занят', `Slug «${normalizedArticle.slug}» стоит у статьи «${conflictingArticle.title}». Выберите другой.`);
       return;
     }
 
@@ -742,7 +760,7 @@ export default function Admin() {
             body: JSON.stringify({ password, slug: normalizedArticle.slug, article: normalizedArticle }),
           }).catch(() => {});
         }
-        alert(status === 'draft' ? 'Черновик сохранён!' : 'Сохранено!');
+        notify.success(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
         setEditingArticle(null);
         setSavedArticleSnapshot('');
         setSlugManuallyEdited(false);
@@ -750,21 +768,27 @@ export default function Admin() {
         await forceRefreshAdminArticles(password);
         await refreshHealth();
       } else {
-        alert('Ошибка сохранения. Проверьте консоль (F12)');
+        notify.error('Не удалось сохранить', 'Проверьте консоль браузера (F12) — там будет причина.');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       console.error('Ошибка при сохранении:', err);
-      alert('Ошибка: ' + message);
+      notify.error('Ошибка при сохранении', message);
     }
   };
 
   const handleDelete = async (slug: string) => {
     if (slug === PROTECTED_ARTICLE_SLUG) {
-      alert('Эта статья защищена от удаления.');
+      notify.error('Статья защищена от удаления');
       return;
     }
-    if (!confirm('Удалить статью?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Удалить статью?',
+      description: 'Публикация исчезнет с сайта. Действие необратимо.',
+      confirmLabel: 'Удалить',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const updated = articles.filter(a => a.slug !== slug);
     try {
       const success = await updateArticles(updated, password);
@@ -773,17 +797,17 @@ export default function Admin() {
         await forceRefreshAdminArticles(password);
         await refreshHealth();
       } else {
-        alert('Ошибка удаления');
+        notify.error('Не удалось удалить статью');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      alert('Ошибка: ' + message);
+      notify.error('Ошибка при удалении', message);
     }
   };
 
   const handleDuplicate = (article: Article) => {
     if (isProtectedArticle(article)) {
-      alert('Защищенную статью нельзя дублировать.');
+      notify.error('Защищённую статью нельзя дублировать');
       return;
     }
     const newSlug = `${article.slug}-copy`;
@@ -823,13 +847,13 @@ export default function Admin() {
     try {
       const success = await updateArticles(draft, password);
       if (!success) {
-        alert('Не удалось сохранить новый порядок статей');
+        notify.error('Порядок статей не сохранился');
       }
       await forceRefreshAdminArticles(password);
       await refreshHealth();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      alert('Ошибка при смене порядка: ' + message);
+      notify.error('Ошибка при смене порядка', message);
       await forceRefreshAdminArticles(password);
     } finally {
       setDraftOrder(null);
@@ -1390,7 +1414,7 @@ export default function Admin() {
                           Восстановить
                         </button>
                         <button
-                          onClick={() => { if (confirm('Удалить автосохранённый черновик?')) clearEditorBackup(); }}
+                          onClick={() => { void confirmDialog({ title: 'Удалить автосохранённый черновик?', description: 'Восстановить его после этого будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' }).then((ok) => { if (ok) clearEditorBackup(); }); }}
                           className="rounded-lg border border-[var(--adm-border)] px-4 py-2 text-sm text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50 transition-colors"
                         >
                           Удалить

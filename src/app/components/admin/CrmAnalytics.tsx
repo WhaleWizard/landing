@@ -4,6 +4,7 @@ import {
   Info, RefreshCw, Target, TrendingUp, Trophy,
 } from 'lucide-react';
 import { StatTile, formatMoney, formatNumber, formatPercent } from './AttributionCharts';
+import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 
 interface StageRow {
   stage: string;
@@ -164,7 +165,7 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
 
   useEffect(() => { void load(); }, [load, refreshToken]);
 
-  if (loading && !data) return <div className="admin-panel p-6" role="status">Считаю аналитику…</div>;
+  if (loading && !data) return <AdminSectionSkeleton tiles={5} rows={3} />;
   if (error && !data) {
     return (
       <div className="admin-panel admin-stack p-6" role="alert">
@@ -178,6 +179,15 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
 
   const currency = data.currency || 'USD';
   const totals = data.totals;
+  if (!totals || totals.leads === 0) {
+    return (
+      <AdminBlank
+        icon={<Trophy />}
+        title="Сделок пока нет"
+        text="Аналитика включится, когда появятся заявки и вы проставите этапы и суммы в карточках. Ничего настраивать не нужно."
+      />
+    );
+  }
   const health = data.health;
   const activeStages = (data.stages || []).filter((stage) => !['archived'].includes(stage.stage));
 

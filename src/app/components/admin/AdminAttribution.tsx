@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
 import AdminAdSpend from './AdminAdSpend';
+import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import {
   CountUpValue, DeltaBadge, FunnelChart, StatTile, TrendGroup,
   formatMoney, formatNumber, formatPercent,
@@ -327,9 +328,7 @@ export default function AdminAttribution({ password }: { password: string }) {
         </div>
       </div>
 
-      {loading && !data && !error && (
-        <div className="admin-panel p-6 admin-muted" role="status" aria-live="polite">Строю подтверждённую воронку…</div>
-      )}
+      {loading && !data && !error && <AdminSectionSkeleton tiles={5} rows={3} />}
 
       {error && (
         <div className="admin-notice admin-notice--warning" role="alert">
@@ -544,9 +543,15 @@ export default function AdminAttribution({ password }: { password: string }) {
                 </tbody>
               </table>
               {active?.supported && visibleRows.length === 0 && (
-                <p className="admin-muted adm-table-empty">
-                  {query ? 'По этому запросу ничего не нашлось.' : 'За выбранный период данных нет.'}
-                </p>
+                <AdminBlank
+                  inline
+                  icon={<Search />}
+                  title={query ? 'Ничего не нашлось' : 'За период данных нет'}
+                  text={query
+                    ? 'Попробуйте другой запрос или снимите фильтр.'
+                    : 'Выберите период длиннее или другой разрез — возможно, данные ещё не накопились.'}
+                  actions={query ? <button type="button" className="admin-button" onClick={() => setQuery('')}>Сбросить поиск</button> : undefined}
+                />
               )}
             </div>
 

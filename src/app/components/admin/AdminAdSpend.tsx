@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleDollarSign, FileUp, Plus, RefreshCw, Trash2, Wallet } from 'lucide-react';
 import { formatMoney } from './AttributionCharts';
+import { confirmAsk, notify } from './AdminFeedback';
 
 interface SpendEntry {
   id: number;
@@ -110,7 +111,7 @@ export default function AdminAdSpend({
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       setEntries(payload.entries || []);
-      setNotice(success(payload));
+      notify.success(success(payload));
       onSaved();
       await load();
     } catch (saveError) {
@@ -305,8 +306,14 @@ export default function AdminAdSpend({
                       aria-label={`Удалить расход ${row.source} за ${formatDay(row.day)}`}
                       disabled={saving}
                       onClick={() => {
-                        if (!confirm(`Удалить расход ${row.source} за ${formatDay(row.day)}?`)) return;
-                        void post({ action: 'delete', id: row.id }, () => 'Строка удалена');
+                        void confirmAsk({
+                          title: 'Удалить расход?',
+                          description: `${row.source} за ${formatDay(row.day)} — ${formatMoney(row.amount, row.currency)}.`,
+                          confirmLabel: 'Удалить',
+                          tone: 'danger',
+                        }).then((ok) => {
+                          if (ok) void post({ action: 'delete', id: row.id }, () => 'Строка удалена');
+                        });
                       }}
                     >
                       <Trash2 aria-hidden="true" />

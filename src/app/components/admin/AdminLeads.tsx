@@ -24,6 +24,8 @@ import {
 import { AdminSelect } from './AdminUI';
 import CrmBoard from './CrmBoard';
 import CrmAnalytics from './CrmAnalytics';
+import { confirmAsk } from './AdminFeedback';
+import { AdminSectionSkeleton } from './AdminFeedback';
 
 type PipelineStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
 type Priority = 'low' | 'normal' | 'high' | 'urgent';
@@ -668,8 +670,14 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
           className="admin-button admin-button--danger"
           type="button"
           disabled={saving}
-          onClick={() => {
-            if (!confirm(`Убрать заявку «${leadLabel(lead)}» в корзину?\n\nОна пропадёт из списка и статистики. Восстановить можно в разделе «Корзина».`)) return;
+          onClick={async () => {
+            const confirmed = await confirmAsk({
+              title: `Убрать «${leadLabel(lead)}» в корзину?`,
+              description: 'Заявка пропадёт из списка и статистики. Восстановить можно в разделе «Корзина».',
+              confirmLabel: 'В корзину',
+              tone: 'danger',
+            });
+            if (!confirmed) return;
             setSaving(true);
             setError('');
             callTrashApi(password, { action: 'delete', ids: [lead.id] })
@@ -1167,7 +1175,7 @@ export default function AdminLeads({ password }: { password: string }) {
   const allOnPageChecked = leads.length > 0 && checkedIds.length === leads.length;
   const someOnPageChecked = checkedIds.length > 0 && !allOnPageChecked;
 
-  if (loading && leads.length === 0) return <div className="admin-panel p-6" role="status">Загружаю CRM…</div>;
+  if (loading && leads.length === 0) return <AdminSectionSkeleton tiles={5} rows={5} />;
   if (error && leads.length === 0) return <div className="admin-panel admin-stack p-6" role="alert"><div className="admin-notice admin-notice--danger"><strong>CRM пока недоступна</strong><br />{error}</div>{migration ? <p className="admin-muted">Нужно применить миграцию <code>{migration}</code> к production D1. Старые заявки и Meta CAPI при этом не затрагиваются.</p> : null}<button className="admin-button" type="button" onClick={() => void load()}><RefreshCw aria-hidden="true" /> Повторить</button></div>;
 
   return (
@@ -1268,8 +1276,14 @@ export default function AdminLeads({ password }: { password: string }) {
                 className="admin-button admin-button--danger"
                 type="button"
                 disabled={bulkBusy}
-                onClick={() => {
-                  if (!confirm(`Убрать в корзину выбранные заявки (${checkedIds.length})?\n\nОни пропадут из списка и статистики. Восстановить можно в разделе «Корзина».`)) return;
+                onClick={async () => {
+                  const confirmed = await confirmAsk({
+                    title: `Убрать в корзину ${checkedIds.length} заявок?`,
+                    description: 'Они пропадут из списка и статистики. Восстановить можно в разделе «Корзина».',
+                    confirmLabel: 'В корзину',
+                    tone: 'danger',
+                  });
+                  if (!confirmed) return;
                   setBulkBusy(true);
                   setError('');
                   callTrashApi(password, { action: 'delete', ids: checkedIds })

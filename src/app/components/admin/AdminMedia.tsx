@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { AdminButton, AdminMeta, AdminPanel, AdminSectionHeading, AdminSelect } from './AdminUI';
 import type { Article } from '../hooks/useArticlesApi';
+import { confirmAsk, notify } from './AdminFeedback';
+import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 
 interface MediaFile {
   key: string;
@@ -60,7 +62,6 @@ export default function AdminMedia({ password, articles }: { password: string; a
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [folders, setFolders] = useState<MediaFolder[]>([]);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -171,11 +172,17 @@ export default function AdminMedia({ password, articles }: { password: string; a
     }
     if (!targets.length) return;
     const label = targets.length === 1 ? `«${targets[0].name}»` : `${targets.length} файлов`;
-    if (!confirm(`Удалить ${label}? Действие необратимо.`)) return;
+    const confirmed = await confirmAsk({
+      title: `Удалить ${label}?`,
+      description: 'Файлы исчезнут из хранилища без возможности восстановления.',
+      confirmLabel: 'Удалить',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     if (await post({ action: 'delete', keys: targets.map((file) => file.key) })) {
       setFiles((current) => current.filter((item) => !targets.some((file) => file.key === item.key)));
       setSelected([]);
-      setNotice(`Удалено файлов: ${targets.length}`);
+      notify.success(`Удалено файлов: ${targets.length}`);
     }
   };
 
@@ -185,7 +192,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
       return;
     }
     if (await post({ action: 'move', key: file.key, folder })) {
-      setNotice(`«${file.name}» перенесён в ${folder ? `папку «${folder}»` : 'файлы без папки'}`);
+      notify.success('Файл перенесён', `«${file.name}» → ${folder ? `папка «${folder}»` : 'файлы без папки'}`);
       await load();
     }
   };
@@ -194,7 +201,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
     const name = prompt('Название новой папки (например: banners, кейсы, иконки):', '');
     if (name === null) return;
     if (await post({ action: 'create_folder', name })) {
-      setNotice('Папка создана');
+      notify.success('Папка создана');
       await load();
     }
   };
@@ -204,10 +211,16 @@ export default function AdminMedia({ password, articles }: { password: string; a
       setError('Сначала перенесите или удалите файлы из папки.');
       return;
     }
-    if (!confirm(`Удалить пустую папку «${folder.name}»?`)) return;
+    const confirmed = await confirmAsk({
+      title: `Удалить папку «${folder.name}»?`,
+      description: 'Папка пуста, файлы не пострадают.',
+      confirmLabel: 'Удалить',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     if (await post({ action: 'delete_folder', name: folder.name })) {
       if (activeFolder === folder.name) setActiveFolder(null);
-      setNotice('Папка удалена');
+      notify.success('Папка удалена');
       await load();
     }
   };
@@ -234,7 +247,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
           throw new Error(payload?.error || `HTTP ${res.status}`);
         }
       }
-      setNotice(`Загружено файлов: ${items.length}${activeFolder ? ` в папку «${activeFolder}»` : ''}`);
+      notify.success(`Загружено файлов: ${items.length}`, activeFolder ? `Папка «${activeFolder}»` : undefined);
       await load();
     } catch (err) {
       setError('Ошибка загрузки: ' + (err instanceof Error ? err.message : 'ошибка'));
@@ -253,7 +266,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
     ...folders.map((folder) => ({ value: folder.name, label: folder.name })),
   ];
 
-  if (loading && !files.length) return <div className="p-6 text-sm text-[var(--adm-fg)]/60" role="status">Загрузка медиатеки…</div>;
+  if (loading && !files.length) return <AdminSectionSkeleton tiles={0} rows={4} />;
 
   if (error && !files.length) {
     return (
@@ -296,7 +309,6 @@ export default function AdminMedia({ password, articles }: { password: string; a
       />
 
       {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
-      {notice ? <div className="admin-notice admin-notice--success" role="status">{notice}</div> : null}
 
       <div className="media-layout">
         <aside className="media-folders admin-panel" aria-label="Папки медиатеки">
@@ -421,15 +433,21 @@ export default function AdminMedia({ password, articles }: { password: string; a
             }}
           >
             {files.length === 0 && (
-              <AdminPanel className="p-6 text-sm text-[var(--adm-fg)]/60">
-                Файлов пока нет — перетащи их сюда или загрузи кнопкой выше.
-              </AdminPanel>
+              <AdminBlank
+                icon={<Upload />}
+                title="В медиатеке пока пусто"
+                text="Перетащите файлы прямо сюда или нажмите «Загрузить». Картинки до 15 МБ, документы — PDF, DOCX, XLSX, PPTX и ZIP."
+              />
             )}
 
             {files.length > 0 && visibleFiles.length === 0 && (
-              <AdminPanel className="p-6 text-center text-sm text-[var(--adm-fg)]/60">
-                Ничего не найдено. Измени запрос, подборку или папку.
-              </AdminPanel>
+              <AdminBlank
+                inline
+                icon={<Search />}
+                title="Ничего не нашлось"
+                text="Измените запрос, подборку или откройте другую папку."
+                actions={<button type="button" className="admin-button" onClick={() => { setQuery(''); setCollection('all'); setActiveFolder(null); }}>Показать все файлы</button>}
+              />
             )}
 
             <div className="media-grid">
