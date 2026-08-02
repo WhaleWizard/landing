@@ -8,6 +8,7 @@ import { useArticles } from '../../context/ArticlesContext';
 import { AdminPanel } from './AdminUI';
 import TodayPlan, { type PlanTask } from './TodayPlan';
 import TodayGoal from './TodayGoal';
+import AdminAlerts from './AdminAlerts';
 import {
   CountUpValue, DeltaBadge, StatTile, TrendGroup,
   formatNumber, type SeriesPoint,
@@ -321,6 +322,8 @@ export default function AdminToday({
           />
         </div>
       )}
+
+      <AdminAlerts password={password} onNavigate={(destination) => onNavigate(destination as Destination)} />
 
       {/* Широкий монитор: слева работа с делами и графиком, справа —
           рельс со статусами и переходами. Раньше всё шло одной колонкой

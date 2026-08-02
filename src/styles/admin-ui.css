@@ -10538,3 +10538,109 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   color: var(--adm-text-tertiary);
   white-space: nowrap;
 }
+
+/* ==========================================================================
+   Центр уведомлений
+   ========================================================================== */
+
+.admin-root .alerts.has-critical {
+  border-color: color-mix(in srgb, var(--adm-danger) 40%, var(--adm-border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--adm-danger) 7%, transparent) 0, transparent 55%),
+    var(--adm-surface-elevated);
+}
+
+.admin-root .alerts__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--adm-space-2);
+}
+
+.admin-root .alerts__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .alerts__list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--adm-space-3);
+  padding: 10px 12px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .alerts__list li.is-critical {
+  border-color: color-mix(in srgb, var(--adm-danger) 38%, var(--adm-border));
+  background: color-mix(in srgb, var(--adm-danger) 6%, var(--adm-surface-elevated));
+}
+
+.admin-root .alerts__list li.is-attention {
+  border-color: color-mix(in srgb, var(--adm-warning) 34%, var(--adm-border));
+}
+
+.admin-root .alerts__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--adm-radius-xs);
+  background: color-mix(in srgb, var(--adm-text-tertiary) 14%, transparent);
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .alerts__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.admin-root .alerts__list li.is-critical .alerts__icon {
+  background: color-mix(in srgb, var(--adm-danger) 16%, transparent);
+  color: var(--adm-danger);
+}
+
+.admin-root .alerts__list li.is-attention .alerts__icon {
+  background: color-mix(in srgb, var(--adm-warning) 16%, transparent);
+  color: var(--adm-warning);
+}
+
+.admin-root .alerts__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.admin-root .alerts__body strong {
+  font-size: var(--adm-text-base);
+}
+
+.admin-root .alerts__body span {
+  font-size: var(--adm-text-sm);
+  line-height: 1.45;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .alerts__meta {
+  font-size: var(--adm-text-xs);
+  white-space: nowrap;
+  color: var(--adm-text-tertiary);
+}
+
+@media (max-width: 720px) {
+  .admin-root .alerts__list li {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .admin-root .alerts__meta {
+    grid-column: 2 / -1;
+  }
+}
