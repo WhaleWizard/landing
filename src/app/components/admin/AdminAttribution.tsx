@@ -12,7 +12,7 @@ import {
   type FunnelStep, type SeriesPoint,
 } from './AttributionCharts';
 
-type DimensionKey = 'page' | 'source' | 'campaign' | 'utm' | 'service' | 'form_id' | 'form_variant';
+type DimensionKey = 'page' | 'source' | 'campaign' | 'utm' | 'service' | 'country' | 'device' | 'form_id' | 'form_variant';
 
 interface DimensionRow {
   key: string;
@@ -63,6 +63,7 @@ interface AttributionResponse {
   summary?: PeriodTotals;
   previous?: PeriodTotals;
   series?: SeriesPoint[];
+  cohorts?: Array<{ week: string; leads: number; qualified: number | null; won: number | null; conversion: number | null }>;
   dimensions?: DimensionResult[];
   coverage?: {
     tables: { leads: boolean; pageStats: boolean; visitors: boolean; spend: boolean };
@@ -456,6 +457,43 @@ export default function AdminAttribution({ password }: { password: string }) {
               />
             </section>
           </div>
+
+          {(data.cohorts || []).length > 1 && (
+            <section className="admin-panel adm-card">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title">Когорты по неделям</h3>
+                <p className="admin-hint">
+                  Заявки сгруппированы по неделе прихода. Свежая неделя всегда выглядит хуже старой — сделкам по ней ещё не хватило времени закрыться.
+                </p>
+              </header>
+              <ul className="cohorts">
+                {(data.cohorts || []).map((cohort) => {
+                  const max = Math.max(...(data.cohorts || []).map((item) => item.leads), 1);
+                  return (
+                    <li key={cohort.week}>
+                      <span className="cohorts__week">{new Date(`${cohort.week}T00:00:00Z`).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', timeZone: 'UTC' })}</span>
+                      <span className="cohorts__track">
+                        <span className="cohorts__leads" style={{ width: `${(cohort.leads / max) * 100}%` }} />
+                        {cohort.won !== null && cohort.won > 0 && (
+                          <span className="cohorts__won" style={{ width: `${(cohort.won / max) * 100}%` }} />
+                        )}
+                      </span>
+                      <span className="cohorts__numbers">
+                        <span title="Заявок за неделю">{formatNumber(cohort.leads)}</span>
+                        <span title="Целевых">{formatNumber(cohort.qualified)}</span>
+                        <span title="Дошло до сделки" className={cohort.won ? 'is-good' : ''}>{formatNumber(cohort.won)}</span>
+                        <span title="Доля дошедших до сделки">{formatPercent(cohort.conversion)}</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="cohorts__legend">
+                <span><i className="is-leads" aria-hidden="true" /> заявки</span>
+                <span><i className="is-won" aria-hidden="true" /> дошли до сделки</span>
+              </p>
+            </section>
+          )}
 
           <section className="admin-panel adm-card">
             <header className="adm-card__head adm-card__head--row">

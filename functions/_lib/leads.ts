@@ -17,6 +17,10 @@ export interface LeadRecord {
   // форм сайта — не персональные данные и не рекламные метки.
   form_id?: string;
   form_variant?: string;
+  // Страна (код из CF-IPCountry) и тип устройства (миграция 0026).
+  // Ни IP, ни полный user-agent не сохраняются.
+  country?: string;
+  device?: string;
   // Контекст для последующих событий качества лида в Meta (миграция 0010)
   fbp?: string;
   fbc?: string;
@@ -166,6 +170,7 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     const hasPipelineStage = cols.has('pipeline_stage'); // 0012
     const hasSoftDelete = cols.has('deleted_at'); // 0020
     const hasFormSource = cols.has('form_id') && cols.has('form_variant'); // 0022
+    const hasGeoDevice = cols.has('country') && cols.has('device'); // 0026
     const consentVersion = normalizeConsentVersion(lead.consent_version);
     const consentSource = normalizeConsentSource(lead.consent_source);
     const consentRegion = normalizeConsentRegion(lead.consent_region);
@@ -309,6 +314,18 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
         values.push(
           lead.form_id || '', lead.form_id || '',
           lead.form_variant || '', lead.form_variant || '',
+        );
+      }
+      // Повторная заявка могла прийти с другого устройства или из другой
+      // страны — обновляем, но пустым значением не затираем.
+      if (hasGeoDevice) {
+        set.push(
+          "country = CASE WHEN ? != '' THEN ? ELSE country END",
+          "device = CASE WHEN ? != '' THEN ? ELSE device END",
+        );
+        values.push(
+          lead.country || '', lead.country || '',
+          lead.device || '', lead.device || '',
         );
       }
       if (hasUtm) {
@@ -471,6 +488,11 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       insertCols.push('form_id', 'form_variant');
       placeholders.push('?', '?');
       insertVals.push(lead.form_id || '', lead.form_variant || '');
+    }
+    if (hasGeoDevice) {
+      insertCols.push('country', 'device');
+      placeholders.push('?', '?');
+      insertVals.push(lead.country || '', lead.device || '');
     }
     if (hasUtm) {
       insertCols.push('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term');

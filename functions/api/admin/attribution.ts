@@ -6,7 +6,7 @@ import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
-type DimensionKey = 'page' | 'source' | 'campaign' | 'utm' | 'service' | 'form_id' | 'form_variant';
+type DimensionKey = 'page' | 'source' | 'campaign' | 'utm' | 'service' | 'country' | 'device' | 'form_id' | 'form_variant';
 
 interface DimensionRow {
   key: string;
@@ -112,6 +112,19 @@ function campaignExpression(): string {
       LOWER(COALESCE(NULLIF(TRIM(utm_campaign), ''), '—')),
       1, 200
     )
+  END`;
+}
+
+function countryExpression(): string {
+  return "CASE WHEN TRIM(COALESCE(country, '')) = '' THEN 'Страна не определена' ELSE UPPER(TRIM(country)) END";
+}
+
+function deviceExpression(): string {
+  return `CASE
+    WHEN device = 'mobile' THEN 'Телефон'
+    WHEN device = 'tablet' THEN 'Планшет'
+    WHEN device = 'desktop' THEN 'Компьютер'
+    ELSE 'Устройство не определено'
   END`;
 }
 
@@ -507,6 +520,51 @@ async function readSeries(
   return [...points.values()];
 }
 
+interface CohortRow {
+  week: string;
+  leads: number;
+  qualified: number | null;
+  won: number | null;
+  conversion: number | null;
+}
+
+/**
+ * Когорты по неделе прихода заявки. Считаются всегда от даты создания
+ * контакта, а не от последней заявки: иначе повторное обращение переносило
+ * бы человека в более свежую когорту и портило картину.
+ */
+async function readCohorts(db: D1Database, context: LeadQueryContext, weeks: number): Promise<CohortRow[]> {
+  const qualified = context.columns.has('quality')
+    ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)"
+    : 'NULL';
+  const won = context.won.expression
+    ? `SUM(CASE WHEN ${context.won.expression} THEN 1 ELSE 0 END)`
+    : 'NULL';
+
+  const rows = await db.prepare(`
+    SELECT
+      strftime('%Y-%W', created_at) AS week,
+      MIN(date(created_at)) AS started,
+      COUNT(*) AS leads,
+      ${qualified} AS qualified,
+      ${won} AS won
+    FROM leads
+    WHERE date(created_at) >= date('now', ?) AND ${context.activeCondition}
+    GROUP BY week
+    ORDER BY week ASC
+  `).bind(`-${weeks * 7} day`).all<{ week: string; started: string; leads: number; qualified: number | null; won: number | null }>();
+
+  return (rows.results || []).map((row) => ({
+    week: String(row.started || row.week),
+    leads: number(row.leads),
+    qualified: nullableNumber(row.qualified),
+    won: nullableNumber(row.won),
+    conversion: row.won === null || row.won === undefined || number(row.leads) === 0
+      ? null
+      : percentage(number(row.won), number(row.leads)),
+  }));
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
@@ -575,6 +633,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const series = await readSeries(db, windows.current, days, context, availability);
+    const cohorts = availability.leads ? await readCohorts(db, context, 8) : [];
 
     let leadCoverage = { pagePath: null as number | null, utm: null as number | null, marketingConsent: null as number | null };
     if (availability.leads) {
@@ -681,6 +740,29 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       dimensions.push(unavailable('service', 'Услуга', 'В таблице leads нет поля service.'));
     }
 
+    for (const [key, label, expression, hint] of [
+      ['country', 'Страна', countryExpression(), 'Страна берётся из сети Cloudflare в момент заявки, без города и без IP.'],
+      ['device', 'Устройство', deviceExpression(), 'Тип устройства определяется грубо по user-agent; сама строка не сохраняется.'],
+    ] as const) {
+      if (availability.leads && columns.has(key)) {
+        dimensions.push({
+          key,
+          label,
+          supported: true,
+          reason: `${hint} Заявки до применения миграции 0026 попадают в строку «не определено».`,
+          hasViews: false,
+          hasSpend: false,
+          rows: sortRows(withDerivedMetrics(await groupedLeads(db, expression, windows.current, context))),
+        });
+      } else {
+        dimensions.push(unavailable(
+          key,
+          label,
+          `Примените миграцию 0026_leads_geo_device.sql — поле ${key} пока не сохраняется в leads.`,
+        ));
+      }
+    }
+
     for (const [key, label] of [['form_id', 'Форма'], ['form_variant', 'Вариант формы']] as const) {
       if (availability.leads && columns.has(key)) {
         dimensions.push({
@@ -706,6 +788,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       'Целевой, нецелевой и выигранный — текущие состояния среди лидов выбранного периода, а не число изменений этих состояний внутри периода.',
       'Повторная заявка обновляет страницу, услугу и UTM контакта, поэтому модель атрибуции — последний известный источник, а не история касаний.',
       'Конверсия страницы — заявки этой страницы к её просмотрам за тот же период; посетитель мог прийти на одну страницу, а оставить заявку на другой.',
+      'Когорты собираются по неделе первой заявки контакта: свежая неделя всегда выглядит хуже старой, потому что сделкам по ней ещё не хватило времени закрыться.',
       '«Дневные уникальные» — сумма уникальных посетителей за каждый день периода: один человек может учитываться снова в другой день. visitor_hashes_daily намеренно не хранит страницу или рекламные метки.',
       'Просмотры по услуге, источнику и UTM не вычисляются: агрегированная статистика страниц не содержит эти измерения.',
       won.supported
@@ -738,6 +821,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       summary,
       previous,
       series,
+      cohorts,
       dimensions,
       coverage: {
         tables: { leads: availability.leads, pageStats: availability.pageStats, visitors: availability.visitors, spend: spendTableExists },

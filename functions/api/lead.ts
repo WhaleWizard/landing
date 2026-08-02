@@ -27,6 +27,9 @@ interface LeadPayload {
   service_slug?: string;
   form_id?: string;
   form_variant?: string;
+  // Определяются на сервере из заголовков Cloudflare, не из тела запроса.
+  country?: string;
+  device?: string;
   lead_source_page?: string;
   event_id?: string;
   hp_trap?: string;   // honeypot – боты заполняют, люди нет
@@ -93,6 +96,21 @@ const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWcc
 
 function sanitizeText(value: string, max: number): string {
   return String(value || '').trim().slice(0, max);
+}
+
+/** Грубый тип устройства из user-agent: телефон, планшет или компьютер. */
+function detectDevice(userAgent: string): string {
+  const value = String(userAgent || '').toLowerCase();
+  if (!value) return '';
+  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(value)) return 'tablet';
+  if (/mobi|iphone|ipod|android|blackberry|windows phone/.test(value)) return 'mobile';
+  return 'desktop';
+}
+
+/** Двухбуквенный код страны от Cloudflare; XX и T1 (Tor) не сохраняем. */
+function detectCountry(request: Request): string {
+  const raw = String(request.headers.get('CF-IPCountry') || '').trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(raw) && raw !== 'XX' && raw !== 'T1' ? raw : '';
 }
 
 function sanitizeNumber(value: unknown): number | undefined {
@@ -651,6 +669,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   const normalized = normalizeLeadPayload(parsedPayload);
+  normalized.country = detectCountry(request);
+  normalized.device = detectDevice(request.headers.get('user-agent') || '');
   // Без event_id все лиды делили бы одну запись outbox ('lead:') и ломали дедупликацию.
   if (!normalized.event_id) {
     normalized.event_id = crypto.randomUUID();

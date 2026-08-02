@@ -10196,3 +10196,105 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
     text-align: start;
   }
 }
+
+/* --- Когорты по неделям --- */
+
+.admin-root .cohorts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .cohorts li {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--adm-space-3);
+  font-size: var(--adm-text-sm);
+}
+
+.admin-root .cohorts__week {
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-tertiary);
+}
+
+/* Полоса выигранных лежит поверх полосы заявок: видно, какая часть когорты
+   дошла до денег, без второго графика. */
+.admin-root .cohorts__track {
+  position: relative;
+  height: 18px;
+  border-radius: var(--adm-radius-xs);
+  background: color-mix(in srgb, var(--adm-surface-subtle) 80%, transparent);
+  overflow: hidden;
+}
+
+.admin-root .cohorts__leads,
+.admin-root .cohorts__won {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: var(--adm-radius-xs);
+}
+
+.admin-root .cohorts__leads {
+  background: color-mix(in srgb, var(--adm-viz-1) 42%, transparent);
+}
+
+.admin-root .cohorts__won {
+  background: var(--adm-success);
+}
+
+.admin-root .cohorts__numbers {
+  display: flex;
+  gap: var(--adm-space-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-tertiary);
+  white-space: nowrap;
+}
+
+.admin-root .cohorts__numbers .is-good {
+  color: var(--adm-success);
+  font-weight: 700;
+}
+
+.admin-root .cohorts__legend {
+  display: flex;
+  gap: var(--adm-space-4);
+  margin: 0;
+  font-size: var(--adm-text-xs);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .cohorts__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-root .cohorts__legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.admin-root .cohorts__legend i.is-leads {
+  background: color-mix(in srgb, var(--adm-viz-1) 42%, transparent);
+}
+
+.admin-root .cohorts__legend i.is-won {
+  background: var(--adm-success);
+}
+
+@media (max-width: 640px) {
+  .admin-root .cohorts li {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .admin-root .cohorts__numbers {
+    grid-column: 1 / -1;
+    gap: var(--adm-space-2);
+  }
+}
