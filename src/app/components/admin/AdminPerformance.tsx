@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import RealUserVitals from './RealUserVitals';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -509,6 +510,8 @@ export default function AdminPerformance({ password }: { password: string }) {
 
   return (
     <div className="admin-stack admin-stack--lg">
+      <RealUserVitals password={password} />
+
       <div className="admin-section-header">
         <div>
           <p className="admin-eyebrow">PageSpeed Insights</p>

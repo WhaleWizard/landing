@@ -10396,3 +10396,145 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   .admin-root .meta-trend { height: 132px; }
   .admin-root .meta-trend__day { display: none; }
 }
+
+/* --- Реальные Core Web Vitals --- */
+
+.admin-root .vitals__grid {
+  display: grid;
+  gap: var(--adm-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(192px, 1fr));
+}
+
+.admin-root .vitals__card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--adm-space-3);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .vitals__card.is-good { border-color: color-mix(in srgb, var(--adm-success) 36%, var(--adm-border)); }
+.admin-root .vitals__card.is-warn { border-color: color-mix(in srgb, var(--adm-warning) 36%, var(--adm-border)); }
+.admin-root .vitals__card.is-bad { border-color: color-mix(in srgb, var(--adm-danger) 40%, var(--adm-border)); }
+
+.admin-root .vitals__label {
+  font-size: var(--adm-text-sm);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .vitals__value {
+  font-family: var(--ww-font-display, inherit);
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .vitals__share {
+  font-size: var(--adm-text-sm);
+  font-weight: 600;
+}
+
+.admin-root .vitals__card.is-good .vitals__share { color: var(--adm-success); }
+.admin-root .vitals__card.is-warn .vitals__share { color: var(--adm-warning); }
+.admin-root .vitals__card.is-bad .vitals__share { color: var(--adm-danger); }
+
+/* Полоса распределения: хорошо / нужно улучшить / плохо в одну линию. */
+.admin-root .vitals__bar {
+  display: flex;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: var(--adm-radius-pill);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 85%, transparent);
+}
+
+.admin-root .vitals__bar i {
+  display: block;
+  height: 100%;
+}
+
+.admin-root .vitals__bar i.is-good { background: var(--adm-success); }
+.admin-root .vitals__bar i.is-warn { background: var(--adm-warning); }
+.admin-root .vitals__bar i.is-bad { background: var(--adm-danger); }
+
+.admin-root .vitals__samples {
+  font-size: var(--adm-text-xs);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .vitals__devices-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: var(--adm-text-sm);
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .vitals__devices-title svg {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .vitals__devices-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adm-space-3);
+  font-size: var(--adm-text-sm);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .vitals__devices-grid strong {
+  color: var(--adm-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .vitals__devices-grid em {
+  font-style: normal;
+  font-size: var(--adm-text-xs);
+  margin-inline-start: 5px;
+}
+
+.admin-root .vitals__pages ul {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .vitals__pages li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--adm-space-3);
+  padding: 5px 0;
+  border-top: 1px solid color-mix(in srgb, var(--adm-border) 55%, transparent);
+  font-size: var(--adm-text-sm);
+}
+
+.admin-root .vitals__pages li:first-child { border-top: 0; }
+
+.admin-root .vitals__pages li span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .vitals__pages li strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .vitals__pages li em {
+  font-style: normal;
+  font-size: var(--adm-text-xs);
+  color: var(--adm-text-tertiary);
+  white-space: nowrap;
+}
