@@ -2,17 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, CalendarCheck,
   CheckCircle2, CircleDot, Clock3, FileText, Gauge, Images, Inbox,
-  ListChecks, PanelsTopLeft, RefreshCw, Send, Sparkles, TrendingUp, Users,
+  ListChecks, PanelsTopLeft, RefreshCw, Send, Sparkles, Target, TrendingUp, Users,
 } from 'lucide-react';
 import { useArticles } from '../../context/ArticlesContext';
 import { AdminPanel } from './AdminUI';
 import TodayPlan, { type PlanTask } from './TodayPlan';
+import TodayGoal from './TodayGoal';
 import {
   CountUpValue, DeltaBadge, StatTile, TrendGroup,
   formatNumber, type SeriesPoint,
 } from './AttributionCharts';
 
-type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution' | 'performance' | 'media';
+type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution' | 'performance' | 'media' | 'goals';
 type Level = 'critical' | 'attention' | 'info';
 type FocusKind = 'lead_overdue' | 'lead_new' | 'task_overdue' | 'task_today' | 'planner_task';
 
@@ -79,6 +80,7 @@ const FOCUS_UI: Record<FocusKind, { icon: typeof AlertTriangle; label: string; t
 const QUICK_ACTIONS: Array<{ destination: Destination; label: string; icon: typeof AlertTriangle }> = [
   { destination: 'leads', label: 'Сделки', icon: Inbox },
   { destination: 'planner', label: 'Планер', icon: CalendarCheck },
+  { destination: 'goals', label: 'Цели', icon: Target },
   { destination: 'attribution', label: 'Воронка', icon: BarChart3 },
   { destination: 'articles', label: 'Написать статью', icon: FileText },
   { destination: 'content', label: 'Тексты сайта', icon: PanelsTopLeft },
@@ -432,6 +434,8 @@ export default function AdminToday({
         </div>
 
         <aside className="today-grid__rail" aria-label="Статус и быстрые переходы">
+          <TodayGoal password={password} onNavigate={() => onNavigate('goals')} />
+
         {(capi || health) && (
           <section className="admin-panel adm-card">
             <header className="adm-card__head">

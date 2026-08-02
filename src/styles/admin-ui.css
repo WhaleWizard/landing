@@ -9478,3 +9478,267 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   border-radius: var(--adm-radius-md) !important;
   box-shadow: var(--adm-shadow-md) !important;
 }
+
+/* ==========================================================================
+   Цели и деньги
+   ========================================================================== */
+
+.admin-root .goals__period {
+  display: flex;
+  align-items: center;
+  gap: var(--adm-space-2);
+}
+
+.admin-root .goals__period-label {
+  min-width: 148px;
+  font-size: var(--adm-text-base);
+  font-weight: 700;
+  text-align: center;
+}
+
+.admin-root .goals__rings {
+  display: grid;
+  gap: var(--adm-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+}
+
+.admin-root .goal-ring {
+  display: flex;
+  align-items: center;
+  gap: var(--adm-space-3);
+  padding: var(--adm-space-4);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-card);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--goal-color) 8%, transparent), transparent 60%),
+    var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-xs);
+}
+
+/* Кольцо: заливка conic-градиентом, внутренний круг вырезает середину. */
+.admin-root .goal-ring__dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  flex: none;
+  border-radius: var(--adm-radius-pill);
+  background: conic-gradient(
+    var(--goal-color) calc(var(--goal-ring-value, 0) * 1%),
+    color-mix(in srgb, var(--adm-surface-subtle) 92%, transparent) 0
+  );
+}
+
+.admin-root .goal-ring__dial::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: var(--adm-radius-pill);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .goal-ring__percent {
+  position: relative;
+  z-index: 1;
+  font-size: var(--adm-text-base);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--goal-color);
+}
+
+.admin-root .goal-ring.is-empty .goal-ring__percent {
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .goal-ring.is-good {
+  border-color: color-mix(in srgb, var(--adm-success) 38%, var(--adm-border));
+}
+
+.admin-root .goal-ring.is-warn {
+  border-color: color-mix(in srgb, var(--adm-warning) 40%, var(--adm-border));
+}
+
+.admin-root .goal-ring.is-bad {
+  border-color: color-mix(in srgb, var(--adm-danger) 42%, var(--adm-border));
+}
+
+.admin-root .goal-ring__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.admin-root .goal-ring__label {
+  font-size: var(--adm-text-sm);
+  font-weight: 600;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .goal-ring__value {
+  font-family: var(--ww-font-display, inherit);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .goal-ring__target,
+.admin-root .goal-ring__forecast {
+  font-size: var(--adm-text-xs);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .goal-ring__forecast {
+  margin-top: 2px;
+}
+
+.admin-root .goals__pace {
+  margin: 0;
+  padding: var(--adm-space-3) var(--adm-space-4);
+  border-radius: var(--adm-radius-control);
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+  font-size: var(--adm-text-base);
+  line-height: 1.5;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .goals__money {
+  display: grid;
+  gap: var(--adm-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+}
+
+.admin-root .goals__money-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--adm-space-3);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .goals__money-item span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--adm-text-sm);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .goals__money-item svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-root .goals__money-item strong {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .goals__money-item.is-good strong { color: var(--adm-success); }
+.admin-root .goals__money-item.is-bad strong { color: var(--adm-danger); }
+
+.admin-root .goals__form {
+  display: grid;
+  gap: var(--adm-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  align-items: end;
+}
+
+.admin-root .goals__form input {
+  width: 100%;
+  min-height: var(--adm-control-height);
+  padding: 0 12px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-input-bg);
+  color: var(--adm-text-primary);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .goals__form input:focus-visible {
+  outline: none;
+  border-color: var(--adm-primary);
+  box-shadow: var(--adm-ring);
+}
+
+.admin-root .goals__form-actions {
+  display: flex;
+  align-items: end;
+}
+
+.admin-root .goals__table tbody tr.is-current td {
+  background: color-mix(in srgb, var(--adm-primary) 8%, transparent);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .admin-root .goals__period-label {
+    min-width: 0;
+    flex: 1;
+    font-size: var(--adm-text-sm);
+  }
+}
+
+/* --- Цель месяца на «Сегодня» --- */
+
+.admin-root .today-goal__row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-root .today-goal__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--adm-space-2);
+  font-size: var(--adm-text-sm);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .today-goal__head strong {
+  font-size: var(--adm-text-base);
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .today-goal__head em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .today-goal__bar {
+  height: 7px;
+  border-radius: var(--adm-radius-pill);
+  background: color-mix(in srgb, var(--adm-surface-subtle) 88%, transparent);
+  overflow: hidden;
+}
+
+.admin-root .today-goal__bar span {
+  display: block;
+  height: 100%;
+  border-radius: var(--adm-radius-pill);
+  background: linear-gradient(90deg, var(--adm-viz-1), color-mix(in srgb, var(--adm-viz-1) 55%, var(--adm-viz-2)));
+  transition: width 460ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.admin-root .today-goal__warn {
+  margin: 0;
+  padding: var(--adm-space-2) var(--adm-space-3);
+  border-radius: var(--adm-radius-control);
+  background: color-mix(in srgb, var(--adm-warning) 12%, transparent);
+  font-size: var(--adm-text-sm);
+  font-weight: 600;
+  color: var(--adm-warning);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .today-goal__bar span { transition: none; }
+}
