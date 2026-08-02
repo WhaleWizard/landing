@@ -28,6 +28,84 @@ const OPTIONAL_DIAGNOSTIC_COLUMNS = [
   'score_consent', 'score_context', 'form_id', 'form_variant',
 ];
 
+interface QualityTrendPoint {
+  day: string;
+  events: number;
+  averageScore: number | null;
+  sent: number;
+  failed: number;
+}
+
+interface DedupeState {
+  available: boolean;
+  events: number;
+  withEventId: number;
+  coverage: number | null;
+  duplicateEventIds: number;
+}
+
+/**
+ * Качество совпадений по дням. Падение матчинга напрямую поднимает цену
+ * заявки, но заметить его можно было только в Events Manager.
+ */
+async function readQualityTrend(db: D1Database, columns: Set<string>, days: number): Promise<QualityTrendPoint[]> {
+  const score = columns.has('match_quality_score') ? 'AVG(match_quality_score)' : 'NULL';
+  const rows = await db.prepare(`
+    SELECT date(created_at) AS day,
+      COUNT(*) AS events,
+      ${score} AS average_score,
+      SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
+      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed
+    FROM meta_capi_diagnostics
+    WHERE created_at >= datetime('now', ?)
+    GROUP BY day ORDER BY day ASC
+  `).bind(`-${days} day`).all<{ day: string; events: number; average_score: number | null; sent: number; failed: number }>();
+
+  return (rows.results || []).map((row) => ({
+    day: String(row.day),
+    events: number(row.events),
+    averageScore: row.average_score === null || row.average_score === undefined
+      ? null
+      : Math.round(Number(row.average_score) * 10) / 10,
+    sent: number(row.sent),
+    failed: number(row.failed),
+  }));
+}
+
+/**
+ * Готовность к дедупликации с пикселем. Со стороны сервера видно только
+ * половину картины: есть ли у события event_id и не ушло ли одно и то же
+ * событие дважды. Совпадение с пикселем этим не проверяется — так и пишем.
+ */
+async function readDedupeState(db: D1Database, days: number): Promise<DedupeState> {
+  const row = await db.prepare(`
+    SELECT COUNT(*) AS events,
+      SUM(CASE WHEN TRIM(COALESCE(event_id, '')) != '' THEN 1 ELSE 0 END) AS with_event_id
+    FROM meta_capi_diagnostics
+    WHERE created_at >= datetime('now', ?)
+  `).bind(`-${days} day`).first<{ events: number; with_event_id: number }>();
+
+  const duplicates = await db.prepare(`
+    SELECT COUNT(*) AS total FROM (
+      SELECT event_id FROM meta_capi_diagnostics
+      WHERE created_at >= datetime('now', ?)
+        AND TRIM(COALESCE(event_id, '')) != ''
+        AND status = 'sent'
+      GROUP BY event_id HAVING COUNT(*) > 1
+    )
+  `).bind(`-${days} day`).first<{ total: number }>();
+
+  const events = number(row?.events);
+  const withEventId = number(row?.with_event_id);
+  return {
+    available: true,
+    events,
+    withEventId,
+    coverage: events > 0 ? Math.round((withEventId / events) * 1000) / 10 : null,
+    duplicateEventIds: number(duplicates?.total),
+  };
+}
+
 type PeriodKey = '24h' | '7d';
 
 interface DiagnosticsAggregateRow {
@@ -399,6 +477,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       periods['7d'] = await diagnosticsPeriod(db, diagnosticsColumns, '-7 day');
     }
 
+    const qualityTrend = diagnosticsReady ? await readQualityTrend(db, diagnosticsColumns, 14) : [];
+    const dedupe = diagnosticsReady
+      ? await readDedupeState(db, 7)
+      : { available: false, events: 0, withEventId: 0, coverage: null, duplicateEventIds: 0 };
+
     return json({
       success: true,
       checkedAt: new Date().toISOString(),
@@ -415,9 +498,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       },
       outbox,
       periods,
+      qualityTrend,
+      dedupe,
       latestErrors: await getLatestErrors(db, { diagnostics: diagnosticsReady, outbox: outboxReady }),
       limitations: [
         'Панель показывает фактические записи D1 и ответы Meta, но не заменяет проверку Events Manager после выкладки.',
+        'Дедупликация проверяется только со стороны сервера: видно, есть ли у события event_id и не ушло ли оно дважды. Совпадение с пикселем отсюда не проверить — это делает Events Manager.',
         'События объединяются по event_name + event_id: подтверждённая доставка имеет приоритет над предыдущими ошибками повтора и служебными дублями.',
         'Процент доставки считается среди уникальных подтверждённых отправок и ошибок; пропущенные по согласию события в знаменатель не входят.',
         'Процент согласия считается только среди событий, где флаг marketing_consent был записан; старые записи без флага исключаются.',

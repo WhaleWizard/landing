@@ -79,6 +79,8 @@ interface MetaCenterResponse {
     latestRecoveredAt: string | null;
   };
   periods?: { '24h'?: PeriodSummary; '7d'?: PeriodSummary };
+  qualityTrend?: Array<{ day: string; events: number; averageScore: number | null; sent: number; failed: number }>;
+  dedupe?: { available: boolean; events: number; withEventId: number; coverage: number | null; duplicateEventIds: number };
   latestErrors?: Array<{
     source: 'diagnostics' | 'outbox';
     eventName: string;
@@ -360,6 +362,59 @@ export default function AdminMetaCenter({ password }: { password: string }) {
             <PeriodCard label="24 часа" data={data.periods?.['24h']} />
             <PeriodCard label="7 дней" data={data.periods?.['7d']} />
           </div>
+
+          {(data.qualityTrend || []).length > 1 && (
+            <section className="admin-panel adm-card">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title">Качество совпадений по дням</h3>
+                <p className="admin-hint">
+                  Чем выше столбец, тем больше данных Meta может сопоставить с человеком. Падение матчинга поднимает цену заявки, и заметить его здесь можно раньше, чем в кабинете.
+                </p>
+              </header>
+              <div className="meta-trend">
+                {(data.qualityTrend || []).map((point) => {
+                  const score = point.averageScore ?? 0;
+                  const tone = score >= 70 ? 'is-good' : score >= 45 ? 'is-warn' : 'is-bad';
+                  return (
+                    <div className={`meta-trend__col ${point.averageScore === null ? 'is-empty' : tone}`} key={point.day}>
+                      <span
+                        className="meta-trend__bar"
+                        style={{ height: `${Math.max(score, point.averageScore === null ? 0 : 4)}%` }}
+                        title={`${point.day}: качество ${point.averageScore ?? '—'}, событий ${point.events}, ошибок ${point.failed}`}
+                      />
+                      <span className="meta-trend__value">{point.averageScore === null ? '—' : Math.round(score)}</span>
+                      <span className="meta-trend__day">{new Date(`${point.day}T00:00:00Z`).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {data.dedupe?.available && (
+            <section className="admin-panel adm-card">
+              <header className="adm-card__head">
+                <h3 className="admin-card-title">Дедупликация за 7 дней</h3>
+                <p className="admin-hint">
+                  Проверяется только серверная сторона: есть ли у события идентификатор и не ушло ли оно дважды. Совпадение с пикселем видно лишь в Events Manager.
+                </p>
+              </header>
+              <div className="meta-dedupe">
+                <div className={data.dedupe.coverage !== null && data.dedupe.coverage >= 99 ? 'is-good' : 'is-warn'}>
+                  <span>Событий с идентификатором</span>
+                  <strong>{data.dedupe.coverage === null ? '—' : `${data.dedupe.coverage}%`}</strong>
+                  <em>{data.dedupe.withEventId} из {data.dedupe.events}. Без event_id пиксель и сервер посчитаются дважды.</em>
+                </div>
+                <div className={data.dedupe.duplicateEventIds > 0 ? 'is-bad' : 'is-good'}>
+                  <span>Повторные отправки с сервера</span>
+                  <strong>{data.dedupe.duplicateEventIds}</strong>
+                  <em>{data.dedupe.duplicateEventIds > 0
+                    ? 'Одно и то же событие ушло больше раза — это двойной счёт.'
+                    : 'Каждое событие отправлено ровно один раз.'}</em>
+                </div>
+              </div>
+            </section>
+          )}
 
           <div className="grid gap-3 xl:grid-cols-[1.1fr_.9fr]">
             <section className="admin-panel p-4 sm:p-5">

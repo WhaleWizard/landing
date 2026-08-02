@@ -10298,3 +10298,101 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
     gap: var(--adm-space-2);
   }
 }
+
+/* --- Meta CAPI: качество совпадений и дедупликация --- */
+
+.admin-root .meta-trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 168px;
+  padding-bottom: 2px;
+}
+
+.admin-root .meta-trend__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  gap: 4px;
+}
+
+.admin-root .meta-trend__bar {
+  width: 100%;
+  max-width: 38px;
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  transform-origin: bottom center;
+  animation: adm-months-grow 480ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.admin-root .meta-trend__col.is-good .meta-trend__bar { background: var(--adm-success); }
+.admin-root .meta-trend__col.is-warn .meta-trend__bar { background: var(--adm-warning); }
+.admin-root .meta-trend__col.is-bad .meta-trend__bar { background: var(--adm-danger); }
+.admin-root .meta-trend__col.is-empty .meta-trend__bar {
+  background: color-mix(in srgb, var(--adm-text-tertiary) 30%, transparent);
+}
+
+.admin-root .meta-trend__value {
+  font-size: var(--adm-text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .meta-trend__day {
+  font-size: 10px;
+  white-space: nowrap;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .meta-dedupe {
+  display: grid;
+  gap: var(--adm-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+}
+
+.admin-root .meta-dedupe > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--adm-space-3);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .meta-dedupe span {
+  font-size: var(--adm-text-sm);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .meta-dedupe strong {
+  font-family: var(--ww-font-display, inherit);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.admin-root .meta-dedupe em {
+  font-style: normal;
+  font-size: var(--adm-text-xs);
+  line-height: 1.45;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .meta-dedupe .is-good strong { color: var(--adm-success); }
+.admin-root .meta-dedupe .is-warn strong { color: var(--adm-warning); }
+.admin-root .meta-dedupe .is-bad {
+  border-color: color-mix(in srgb, var(--adm-danger) 42%, var(--adm-border));
+  background: color-mix(in srgb, var(--adm-danger) 8%, var(--adm-surface-elevated));
+}
+.admin-root .meta-dedupe .is-bad strong { color: var(--adm-danger); }
+
+@media (max-width: 640px) {
+  .admin-root .meta-trend { height: 132px; }
+  .admin-root .meta-trend__day { display: none; }
+}
