@@ -58,9 +58,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
     const { currency, others } = await detectCurrency(db, activeCond);
     const hasClosedAt = columns.has('closed_at');
+    const hasFirstResponse = columns.has('first_response_at');
     const hasPipelineChangedAt = columns.has('pipeline_changed_at');
 
-    const [stageRows, health, tasks, cycle, revenueRows, lossRows, sourceRows, qualityRows] = await Promise.all([
+    const [stageRows, health, tasks, cycle, revenueRows, lossRows, sourceRows, responseRow, qualityRows] = await Promise.all([
       db.prepare(`
         SELECT pipeline_stage,
           COUNT(*) AS count,
@@ -130,6 +131,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         GROUP BY source ORDER BY value DESC, deals DESC LIMIT 8
       `).bind(currency).all<{ source: string; deals: number; value: number }>(),
 
+      hasFirstResponse
+        ? db.prepare(`
+            SELECT
+              AVG((julianday(first_response_at) - julianday(created_at)) * 24 * 60) AS avg_minutes,
+              COUNT(*) AS answered
+            FROM leads
+            WHERE ${activeCond} AND first_response_at IS NOT NULL
+          `).first<{ avg_minutes: number | null; answered: number }>()
+        : Promise.resolve(null),
+
       columns.has('quality')
         ? db.prepare(`
             SELECT
@@ -189,6 +200,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         overdue: number(tasks?.overdue),
         completed30d: number(tasks?.completed_30d),
       },
+      firstResponse: responseRow
+        ? {
+            averageMinutes: responseRow.avg_minutes === null || responseRow.avg_minutes === undefined
+              ? null
+              : round(number(responseRow.avg_minutes), 1),
+            answered: number(responseRow.answered),
+            available: true,
+          }
+        : { averageMinutes: null, answered: 0, available: false },
       cycle: {
         averageDays: cycle?.avg_days === null || cycle?.avg_days === undefined ? null : round(number(cycle.avg_days), 1),
         deals: number(cycle?.deals),
@@ -214,6 +234,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         hasClosedAt
           ? `Цикл сделки — среднее число дней от заявки до закрытия среди выигранных (${number(cycle?.deals)} шт.).`
           : 'Цикл сделки не считается: в схеме нет даты закрытия.',
+        hasFirstResponse
+          ? 'Время первого ответа фиксируется один раз — при первом касании; повторные касания его не улучшают.'
+          : 'Время первого ответа не считается: нужна миграция 0025.',
         ...(others.length ? [`Также встречаются валюты: ${others.join(', ')}.`] : []),
       ],
     }, { headers: noStore });

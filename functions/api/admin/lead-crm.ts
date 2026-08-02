@@ -439,6 +439,11 @@ function normalizeTagSlug(name: string): string {
     .slice(0, 64);
 }
 
+async function columnExists(db: D1Database, table: string, column: string): Promise<boolean> {
+  const rows = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+  return (rows.results || []).some((row) => row.name === column);
+}
+
 function normalizeTagColor(value: unknown): string {
   if (value === undefined || value === null || value === '') return '#8b5cf6';
   const color = String(value).trim().toLowerCase();
@@ -488,6 +493,11 @@ async function updateLead(
       setParts.push("pipeline_changed_at = datetime('now')");
       if (stage === 'contacted' || stage === 'discovery' || stage === 'proposal') {
         setParts.push("last_contacted_at = datetime('now')");
+        // Время первого ответа (миграция 0025) пишется только один раз:
+        // повторные касания не должны улучшать эту метрику задним числом.
+        if (await columnExists(db, 'leads', 'first_response_at')) {
+          setParts.push("first_response_at = COALESCE(first_response_at, datetime('now'))");
+        }
       }
       if (stage === 'won' || stage === 'lost') setParts.push("closed_at = datetime('now')");
       else setParts.push('closed_at = NULL');

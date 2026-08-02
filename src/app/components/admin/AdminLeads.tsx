@@ -25,6 +25,7 @@ import { AdminSelect } from './AdminUI';
 import CrmBoard from './CrmBoard';
 import CrmAnalytics from './CrmAnalytics';
 import { confirmAsk } from './AdminFeedback';
+import CrmQuickActions, { type QuickActionPlan } from './CrmQuickActions';
 import { AdminSectionSkeleton } from './AdminFeedback';
 
 type PipelineStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
@@ -190,6 +191,16 @@ const TASK_KINDS: Array<{ value: TaskKind; label: string }> = [
   { value: 'follow_up', label: 'Повторный контакт' },
   { value: 'other', label: 'Другое' },
 ];
+
+const LOSS_REASONS = [
+  'Дорого',
+  'Выбрали другого подрядчика',
+  'Отложили бюджет',
+  'Нет ответа',
+  'Не тот запрос',
+  'Делают своими силами',
+  'Не устроили сроки',
+] as const;
 
 const CRM_PAGE_SIZE = 50;
 const CRM_VIEW_KEY = 'ww-admin-crm-view';
@@ -550,6 +561,33 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
     }
   };
 
+  /**
+   * Быстрое действие: пишет заметку, при необходимости двигает этап и сразу
+   * ставит дату следующего шага. Порядок важен — сначала заметка, потом
+   * карточка: обновление карточки меняет ревизию, и повторно её слать нельзя.
+   */
+  const runQuickAction = async (plan: QuickActionPlan) => {
+    if (!draft) return;
+    const noteOk = await post(
+      { action: 'add_note', action_id: crypto.randomUUID(), body: plan.note },
+      plan.success,
+    );
+    if (!noteOk) return;
+
+    const next = new Date();
+    next.setDate(next.getDate() + plan.nextInDays);
+    next.setHours(12, 0, 0, 0);
+
+    await post({
+      action: 'update_lead',
+      action_id: crypto.randomUUID(),
+      expected_revision: draft.crm_revision,
+      pipeline_stage: plan.stage && draft.pipeline_stage === 'new' ? plan.stage : draft.pipeline_stage,
+      next_action_at: next.toISOString(),
+      next_action_text: plan.nextText,
+    }, plan.success);
+  };
+
   const addNote = async () => {
     if (!newNote.trim()) return;
     const actionId = noteActionId || crypto.randomUUID();
@@ -592,6 +630,13 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
         </div>
       </div>
 
+      <CrmQuickActions
+        password={password}
+        lead={{ id: lead.id, name: lead.name, service: lead.service, budget: lead.budget }}
+        disabled={saving || !editingReady}
+        onRun={runQuickAction}
+      />
+
       {notice ? <div className="admin-notice admin-notice--success" role="status">{notice}</div> : null}
       {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
 
@@ -631,7 +676,32 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
         <label className="admin-field admin-field--wide"><span className="admin-label">Что сделать следующим</span><input className="admin-input" maxLength={240} value={draft.next_action_text} onChange={(event) => setDraft({ ...draft, next_action_text: event.target.value })} placeholder="Например: отправить медиаплан и согласовать созвон" /></label>
         <label className="admin-field"><span className="admin-label">Сумма сделки</span><input className="admin-input" inputMode="decimal" value={draft.deal_value} onChange={(event) => setDraft({ ...draft, deal_value: event.target.value.replace(/[^\d.,]/g, '').replace(',', '.') })} placeholder="0" /></label>
         <label className="admin-field"><span className="admin-label">Валюта</span><input className="admin-input" maxLength={3} value={draft.deal_currency} onChange={(event) => setDraft({ ...draft, deal_currency: event.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} /></label>
-        {(draft.pipeline_stage === 'lost' || draft.loss_reason) ? <label className="admin-field admin-field--wide"><span className="admin-label">Причина проигрыша</span><textarea className="admin-input" rows={3} maxLength={500} value={draft.loss_reason} onChange={(event) => setDraft({ ...draft, loss_reason: event.target.value })} /></label> : null}
+        {(draft.pipeline_stage === 'lost' || draft.loss_reason) ? (
+          <div className="admin-field admin-field--wide">
+            <span className="admin-label">Причина проигрыша</span>
+            <div className="crm-loss-reasons" role="group" aria-label="Частые причины проигрыша">
+              {LOSS_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  aria-pressed={draft.loss_reason.trim() === reason}
+                  className={draft.loss_reason.trim() === reason ? 'is-active' : ''}
+                  onClick={() => setDraft({ ...draft, loss_reason: draft.loss_reason.trim() === reason ? '' : reason })}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="admin-input"
+              rows={2}
+              maxLength={500}
+              value={draft.loss_reason}
+              placeholder="Или впишите свою причину"
+              onChange={(event) => setDraft({ ...draft, loss_reason: event.target.value })}
+            />
+          </div>
+        ) : null}
         <label className="admin-field admin-field--wide"><span className="admin-label">Краткая сводка по сделке</span><textarea className="admin-input" rows={4} maxLength={5000} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} placeholder="Контекст, договорённости и важные ограничения" /></label>
       </div>
       <div className="admin-crm-save-row"><button className="admin-button admin-button--primary" type="button" onClick={() => void saveLead()} disabled={saving || !editingReady}><Save aria-hidden="true" /> {saving ? 'Сохраняю…' : 'Сохранить сделку'}</button></div>

@@ -9742,3 +9742,202 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .admin-root .today-goal__bar span { transition: none; }
 }
+
+/* ==========================================================================
+   Быстрые действия и шаблоны в карточке сделки
+   ========================================================================== */
+
+.admin-root .crm-quick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-space-2);
+}
+
+.admin-root .crm-quick__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adm-space-2);
+}
+
+.admin-root .crm-quick__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: var(--adm-control-height);
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--adm-primary) 32%, var(--adm-border));
+  border-radius: var(--adm-radius-pill);
+  background: color-mix(in srgb, var(--adm-primary) 8%, var(--adm-surface-elevated));
+  font: inherit;
+  font-size: var(--adm-text-base);
+  font-weight: 600;
+  color: var(--adm-text-primary);
+  cursor: pointer;
+  transition: transform var(--adm-transition), border-color var(--adm-transition), background var(--adm-transition);
+}
+
+.admin-root .crm-quick__button svg {
+  width: 15px;
+  height: 15px;
+  color: var(--adm-primary);
+}
+
+.admin-root .crm-quick__button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--adm-primary);
+  background: color-mix(in srgb, var(--adm-primary) 14%, var(--adm-surface-elevated));
+}
+
+.admin-root .crm-quick__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-root .crm-quick__button:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-ring);
+}
+
+.admin-root .crm-quick__button--ghost {
+  border-color: var(--adm-border);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .crm-quick__button--ghost svg {
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .crm-quick__templates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-space-2);
+  padding: var(--adm-space-3);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-card);
+  background: color-mix(in srgb, var(--adm-surface-subtle) 34%, transparent);
+}
+
+.admin-root .crm-quick__empty p {
+  margin: 0 0 var(--adm-space-2);
+  font-size: var(--adm-text-base);
+  line-height: 1.5;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .crm-quick__template {
+  padding: var(--adm-space-3);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .crm-quick__template-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--adm-space-2);
+  margin-bottom: 6px;
+}
+
+.admin-root .crm-quick__template-head > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-root .crm-quick__template p {
+  margin: 0;
+  font-size: var(--adm-text-base);
+  line-height: 1.5;
+  white-space: pre-line;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .crm-quick__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-space-2);
+  padding: var(--adm-space-3);
+  border: 1px dashed var(--adm-border-strong);
+  border-radius: var(--adm-radius-control);
+}
+
+.admin-root .crm-quick__form input,
+.admin-root .crm-quick__form textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-input-bg);
+  color: var(--adm-text-primary);
+  font: inherit;
+  font-size: var(--adm-text-base);
+  line-height: 1.5;
+}
+
+.admin-root .crm-quick__form input:focus-visible,
+.admin-root .crm-quick__form textarea:focus-visible {
+  outline: none;
+  border-color: var(--adm-primary);
+  box-shadow: var(--adm-ring);
+}
+
+.admin-root .crm-quick__preview {
+  margin: 0;
+  padding: var(--adm-space-2) var(--adm-space-3);
+  border-radius: var(--adm-radius-control);
+  background: color-mix(in srgb, var(--adm-primary) 7%, transparent);
+  font-size: var(--adm-text-sm);
+  line-height: 1.5;
+  white-space: pre-line;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .crm-quick__preview span {
+  font-weight: 700;
+  color: var(--adm-primary);
+}
+
+.admin-root .crm-quick__form-actions {
+  display: flex;
+  gap: var(--adm-space-2);
+}
+
+/* --- Причины проигрыша --- */
+
+.admin-root .crm-loss-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.admin-root .crm-loss-reasons button {
+  min-height: var(--adm-control-height-sm);
+  padding: 0 12px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-pill);
+  background: var(--adm-surface-elevated);
+  font: inherit;
+  font-size: var(--adm-text-sm);
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--adm-transition), background var(--adm-transition), color var(--adm-transition);
+}
+
+.admin-root .crm-loss-reasons button:hover {
+  border-color: color-mix(in srgb, var(--adm-danger) 40%, var(--adm-border));
+  color: var(--adm-text-primary);
+}
+
+.admin-root .crm-loss-reasons button.is-active {
+  border-color: color-mix(in srgb, var(--adm-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--adm-danger) 12%, transparent);
+  color: var(--adm-danger);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .crm-quick__button:hover:not(:disabled) { transform: none; }
+}

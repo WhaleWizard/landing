@@ -27,6 +27,7 @@ interface AnalyticsResponse {
   health?: { overdue: number; today: number; withoutNextAction: number; stale: number | null; staleDays: number };
   tasks?: { open: number; overdue: number; completed30d: number };
   cycle?: { averageDays: number | null; deals: number; available: boolean };
+  firstResponse?: { averageMinutes: number | null; answered: number; available: boolean };
   quality?: { target: number; nontarget: number; unrated: number } | null;
   revenueByMonth?: Array<{ month: string; deals: number; value: number }>;
   lossReasons?: Array<{ reason: string; count: number }>;
@@ -217,6 +218,19 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
           title="Доля побед"
           value={formatPercent(totals?.winRate ?? null)}
           detail="Выигранные среди закрытых сделок: открытые исход ещё не определили."
+        />
+        <StatTile
+          icon={<Timer aria-hidden="true" />}
+          title="Первый ответ"
+          value={data.firstResponse?.averageMinutes === null || data.firstResponse?.averageMinutes === undefined
+            ? '—'
+            : data.firstResponse.averageMinutes < 60
+              ? `${formatNumber(Math.round(data.firstResponse.averageMinutes))} мин`
+              : `${formatNumber(Math.round(data.firstResponse.averageMinutes / 6) / 10)} ч`}
+          detail={data.firstResponse?.available
+            ? `Среднее время до первого касания по ${formatNumber(data.firstResponse.answered)} заявкам.`
+            : 'Нужна миграция 0025 — до неё время первого ответа не фиксируется.'}
+          tone={data.firstResponse?.available ? 'default' : 'muted'}
         />
         <StatTile
           icon={<Gauge aria-hidden="true" />}
