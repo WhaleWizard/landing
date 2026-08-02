@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   AlertTriangle, CalendarClock, CircleDollarSign, Clock3, Gauge,
-  Info, RefreshCw, Target, TrendingUp, Trophy,
+  Info, RefreshCw, Target, Timer, TrendingUp, Trophy,
 } from 'lucide-react';
 import { StatTile, formatMoney, formatNumber, formatPercent } from './AttributionCharts';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
