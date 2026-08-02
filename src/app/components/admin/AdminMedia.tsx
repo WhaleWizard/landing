@@ -7,6 +7,7 @@ import { AdminButton, AdminMeta, AdminPanel, AdminSectionHeading, AdminSelect } 
 import type { Article } from '../hooks/useArticlesApi';
 import { confirmAsk, notify } from './AdminFeedback';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
+import { compressImage, formatBytes } from '../../utils/compressImage';
 
 interface MediaFile {
   key: string;
@@ -231,7 +232,12 @@ export default function AdminMedia({ password, articles }: { password: string; a
     setUploading(true);
     setError('');
     try {
-      for (const file of items) {
+      let saved = 0;
+      for (const original of items) {
+        // Пережимаем в браузере: в хранилище и посетителям уходит уже
+        // лёгкий WebP, а не оригинал с телефона на 8 МБ.
+        const { file, savedBytes } = await compressImage(original);
+        saved += savedBytes;
         const form = new FormData();
         form.append('file', file);
         form.append('password', password);
@@ -247,7 +253,9 @@ export default function AdminMedia({ password, articles }: { password: string; a
           throw new Error(payload?.error || `HTTP ${res.status}`);
         }
       }
-      notify.success(`Загружено файлов: ${items.length}`, activeFolder ? `Папка «${activeFolder}»` : undefined);
+      const where = activeFolder ? `Папка «${activeFolder}»` : '';
+      const lighter = saved > 0 ? `Сжатие сэкономило ${formatBytes(saved)}` : '';
+      notify.success(`Загружено файлов: ${items.length}`, [where, lighter].filter(Boolean).join(' · ') || undefined);
       await load();
     } catch (err) {
       setError('Ошибка загрузки: ' + (err instanceof Error ? err.message : 'ошибка'));

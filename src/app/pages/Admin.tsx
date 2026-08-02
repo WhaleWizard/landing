@@ -25,6 +25,8 @@ import AdminToday from '../components/admin/AdminToday';
 import AdminMetaCenter from '../components/admin/AdminMetaCenter';
 import AdminAttribution from '../components/admin/AdminAttribution';
 import AdminGoals from '../components/admin/AdminGoals';
+import ContentPerformance from '../components/admin/ContentPerformance';
+import SeoAssistant from '../components/admin/SeoAssistant';
 import AdminContentControl from '../components/admin/AdminContentControl';
 import AdminPerformance from '../components/admin/AdminPerformance';
 import AdminPlanner from '../components/admin/AdminPlanner';
@@ -80,18 +82,6 @@ function countWords(text = ''): number {
   return normalized ? normalized.split(/\s+/).length : 0;
 }
 
-function publicationIssues(article: Article | null): string[] {
-  if (!article) return [];
-  const issues: string[] = [];
-  if (!article.title.trim()) issues.push('нет заголовка');
-  if (!article.slug.trim()) issues.push('нет URL');
-  if (!article.image.trim()) issues.push('нет обложки');
-  if (article.description.trim().length < 80) issues.push('короткое описание');
-  if (article.seoTitle?.trim().length === 0) issues.push('нет SEO title');
-  if (article.seoDescription?.trim().length === 0) issues.push('нет SEO description');
-  if (countWords(stripHtmlToText(article.content || '')) < 120) issues.push('мало текста');
-  return issues;
-}
 
 function snapshotArticle(article: Article | null): string {
   if (!article) return '';
@@ -563,7 +553,6 @@ export default function Admin() {
       description: (editingArticle?.description || '').length,
     };
   }, [editingArticle?.content, editingArticle?.description, editingArticle?.seoDescription, editingArticle?.seoTitle]);
-  const editorIssues = useMemo(() => publicationIssues(editingArticle), [editingArticle]);
 
   const openArticleEditor = useCallback((article: Article, options?: { dirty?: boolean; slugEdited?: boolean }) => {
     const draft = { ...article };
@@ -1067,6 +1056,13 @@ export default function Admin() {
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
+              <div className="mb-3">
+                <ContentPerformance
+                  password={password}
+                  articles={orderedArticles}
+                  onOpen={(article) => openArticleEditor(article)}
+                />
+              </div>
               <div className="mb-3 grid grid-cols-4 gap-2 text-center">
                 <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.total}</div>
@@ -1163,10 +1159,7 @@ export default function Admin() {
                     )}
                   </div>
 
-                  <div className={`flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${editorIssues.length ? 'border-amber-500/25 bg-amber-500/8 text-amber-700 dark:text-amber-300' : 'border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300'}`}>
-                    <span className="font-semibold">{editorIssues.length ? `Перед публикацией: ${editorIssues.length}` : 'Материал готов к публикации'}</span>
-                    {editorIssues.length ? editorIssues.map((issue) => <span key={issue} className="rounded-full border border-current/15 bg-white/10 px-2 py-0.5">{issue}</span>) : <span className="opacity-75">проверьте финальную фактуру и ссылки</span>}
-                  </div>
+                  <SeoAssistant article={editingArticle} />
 
                   {isEditingProtected && (
                     <div className="rounded-xl border border-[var(--adm-primary)]/30 bg-[var(--adm-primary)]/10 px-4 py-3 text-sm text-[var(--adm-fg)]/80">

@@ -9941,3 +9941,258 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .admin-root .crm-quick__button:hover:not(:disabled) { transform: none; }
 }
+
+/* ==========================================================================
+   Окупаемость публикаций и проверка перед публикацией
+   ========================================================================== */
+
+.admin-root .content-perf {
+  gap: var(--adm-space-3);
+  padding: var(--adm-space-4);
+}
+
+.admin-root .content-perf__totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adm-space-3);
+  font-size: var(--adm-text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .content-perf__totals span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.admin-root .content-perf__totals svg {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .content-perf__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .content-perf__list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--adm-space-2);
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--adm-radius-control);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color var(--adm-transition), background var(--adm-transition);
+}
+
+.admin-root .content-perf__list button:hover {
+  border-color: color-mix(in srgb, var(--adm-primary) 32%, var(--adm-border));
+  background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
+}
+
+.admin-root .content-perf__title {
+  min-width: 0;
+  font-size: var(--adm-text-base);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .content-perf__numbers {
+  display: flex;
+  align-items: center;
+  gap: var(--adm-space-2);
+  font-size: var(--adm-text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-tertiary);
+  white-space: nowrap;
+}
+
+.admin-root .content-perf__numbers span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-root .content-perf__numbers svg {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-root .content-perf__numbers .is-good {
+  color: var(--adm-success);
+  font-weight: 700;
+}
+
+.admin-root .content-perf__list button > svg:last-child {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .content-perf__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--adm-text-xs);
+  line-height: 1.45;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .content-perf__note svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  margin-top: 1px;
+}
+
+/* --- Проверка перед публикацией --- */
+
+.admin-root .seo-assistant {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-space-3);
+  padding: var(--adm-space-4);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .seo-assistant.is-ok { border-color: color-mix(in srgb, var(--adm-success) 34%, var(--adm-border)); }
+.admin-root .seo-assistant.is-warn { border-color: color-mix(in srgb, var(--adm-warning) 34%, var(--adm-border)); }
+.admin-root .seo-assistant.is-fail { border-color: color-mix(in srgb, var(--adm-danger) 38%, var(--adm-border)); }
+
+.admin-root .seo-assistant__head {
+  display: flex;
+  align-items: center;
+  gap: var(--adm-space-3);
+}
+
+.admin-root .seo-assistant__score {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: var(--adm-radius-pill);
+  font-family: var(--ww-font-display, inherit);
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .seo-assistant.is-ok .seo-assistant__score {
+  background: color-mix(in srgb, var(--adm-success) 16%, transparent);
+  color: var(--adm-success);
+}
+
+.admin-root .seo-assistant.is-warn .seo-assistant__score {
+  background: color-mix(in srgb, var(--adm-warning) 16%, transparent);
+  color: var(--adm-warning);
+}
+
+.admin-root .seo-assistant.is-fail .seo-assistant__score {
+  background: color-mix(in srgb, var(--adm-danger) 16%, transparent);
+  color: var(--adm-danger);
+}
+
+.admin-root .seo-assistant__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--adm-text-base);
+  font-weight: 700;
+}
+
+.admin-root .seo-assistant__title svg {
+  width: 15px;
+  height: 15px;
+  color: var(--adm-primary);
+}
+
+.admin-root .seo-assistant__verdict {
+  margin: 2px 0 0;
+  font-size: var(--adm-text-sm);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .seo-assistant__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .seo-assistant__list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--adm-space-2);
+  padding: 6px 8px;
+  border-radius: var(--adm-radius-xs);
+  font-size: var(--adm-text-sm);
+}
+
+.admin-root .seo-assistant__list li.is-warn { background: color-mix(in srgb, var(--adm-warning) 8%, transparent); }
+.admin-root .seo-assistant__list li.is-fail { background: color-mix(in srgb, var(--adm-danger) 8%, transparent); }
+
+.admin-root .seo-assistant__icon {
+  display: inline-flex;
+}
+
+.admin-root .seo-assistant__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-root .seo-assistant__list li.is-ok .seo-assistant__icon { color: var(--adm-success); }
+.admin-root .seo-assistant__list li.is-warn .seo-assistant__icon { color: var(--adm-warning); }
+.admin-root .seo-assistant__list li.is-fail .seo-assistant__icon { color: var(--adm-danger); }
+
+.admin-root .seo-assistant__label {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .seo-assistant__detail {
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-tertiary);
+  text-align: end;
+}
+
+@media (max-width: 640px) {
+  .admin-root .content-perf__list button {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-root .content-perf__list button > svg:last-child { display: none; }
+
+  .admin-root .seo-assistant__list li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .admin-root .seo-assistant__detail {
+    grid-column: 2;
+    text-align: start;
+  }
+}
