@@ -3,7 +3,7 @@
 import '../../styles/admin-ui.css';
 import { useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
@@ -33,6 +33,7 @@ import AdminPerformance from '../components/admin/AdminPerformance';
 import AdminPlanner from '../components/admin/AdminPlanner';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
+import AdminCommandPalette, { type AdminCommandGroup } from '../components/admin/AdminCommandPalette';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
@@ -356,6 +357,54 @@ function AdminThemeToggleButton() {
 
 
 
+/**
+ * Палитра живёт внутри провайдера темы — только отсюда виден переключатель,
+ * поэтому команду «сменить тему» дописываем здесь, а не в теле Admin.
+ */
+function AdminCommandHost({ open, onOpenChange, groups }: {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  groups: AdminCommandGroup[];
+}) {
+  const { mode, toggleMode } = useAdminTheme();
+  const withTheme = groups.map((group) => (group.heading !== 'Действия' ? group : {
+    ...group,
+    items: [
+      ...group.items,
+      {
+        id: 'theme',
+        label: mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему',
+        // Ищется по «тема», а не по «включить»: иначе совпадение начинается
+        // с середины строки и команда тонет под статьями.
+        searchText: 'Тема оформления светлая тёмная',
+        keywords: ['theme', 'dark', 'light', 'оформление'],
+        icon: mode === 'dark' ? <Sun /> : <Moon />,
+        run: toggleMode,
+      },
+    ],
+  }));
+  return <AdminCommandPalette open={open} onOpenChange={onOpenChange} groups={withTheme} />;
+}
+
+// Синонимы для поиска: «лиды» должны находить «Заявки», «pagespeed» — «Скорость».
+// Само название раздела сюда не дублируется: поиск нечёткий, и повтор слова
+// создаёт лишние совпадения (запрос «тема» находил «Медиатека медиатека»).
+const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
+  dashboard: ['главная', 'дашборд', 'старт', 'dashboard'],
+  planner: ['неделя', 'задачи', 'привычки', 'planner'],
+  leads: ['лиды', 'crm', 'сделки', 'клиенты', 'контакты'],
+  goals: ['план', 'выручка', 'бюджет', 'romi'],
+  attribution: ['атрибуция', 'конверсия', 'источники', 'utm', 'расходы'],
+  meta: ['пиксель', 'события', 'facebook', 'фейсбук'],
+  performance: ['pagespeed', 'vitals', 'производительность', 'lcp'],
+  report: ['итоги', 'report'],
+  articles: ['блог', 'публикации'],
+  cases: ['портфолио', 'примеры'],
+  content: ['страницы', 'лендинг', 'faq'],
+  media: ['файлы', 'картинки', 'изображения', 'загрузки'],
+  health: ['здоровье', 'диагностика', 'health'],
+};
+
 const ADMIN_DND_TYPE = 'ADMIN_ARTICLE_ITEM';
 
 interface AdminArticleItemProps {
@@ -507,6 +556,8 @@ export default function Admin() {
   const { query, setQuery, filtered } = useFilteredArticles(orderedArticles);
   const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
+  const reduceMotion = useReducedMotion();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const currentArticleSnapshot = useMemo(() => snapshotArticle(editingArticle), [editingArticle]);
   const hasUnsavedChanges = Boolean(editingArticle && currentArticleSnapshot !== savedArticleSnapshot);
 
@@ -617,6 +668,13 @@ export default function Admin() {
     if (!isAuthenticated) return;
     void refreshHealth();
   }, [isAuthenticated]);
+
+  // Смена раздела начинается сверху: иначе после длинной страницы новый раздел
+  // открывается где-то в середине, и кажется, что он загрузился неправильно.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [adminView, isAuthenticated]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -914,6 +972,77 @@ export default function Admin() {
     setAdminView(destination);
   };
 
+  const createArticleDraft = (category: string) => openArticleEditor({
+    id: 0, slug: '', title: '', category, readTime: '5 мин',
+    date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
+    description: '', summary: '', keyTakeaways: [], faq: [], tags: [], content: '', image: '',
+    status: 'published',
+  }, { dirty: true });
+
+  const openArticleFromPalette = (article: Article) => {
+    setAdminSectionFilter('all');
+    setAdminView('articles');
+    openArticleEditor(article);
+  };
+
+  const commandGroups: AdminCommandGroup[] = [
+    {
+      heading: 'Разделы',
+      items: adminNavigation.map((item) => ({
+        id: `nav-${item.key}`,
+        label: item.label,
+        keywords: ADMIN_NAV_KEYWORDS[item.key],
+        icon: <item.icon />,
+        run: () => navigateToAdminSection(item.key),
+      })),
+    },
+    {
+      heading: 'Действия',
+      items: [
+        {
+          id: 'new-article',
+          label: 'Написать статью',
+          keywords: ['новая', 'создать', 'пост', 'блог'],
+          icon: <Plus />,
+          run: () => { setAdminSectionFilter('blog'); setAdminView('articles'); createArticleDraft('Блог'); },
+        },
+        {
+          id: 'new-case',
+          label: 'Добавить кейс',
+          keywords: ['новый', 'создать', 'портфолио'],
+          icon: <Briefcase />,
+          run: () => { setAdminSectionFilter('cases'); setAdminView('articles'); createArticleDraft(CASES_CATEGORY); },
+        },
+        {
+          id: 'refresh',
+          label: 'Обновить данные',
+          keywords: ['перезагрузить', 'обновить', 'refresh'],
+          icon: <RefreshCw />,
+          run: () => { void (async () => { await forceRefreshAdminArticles(password); await refreshHealth(); })(); },
+        },
+        {
+          id: 'open-site',
+          label: 'Открыть сайт',
+          keywords: ['сайт', 'главная', 'публичная'],
+          icon: <ExternalLink />,
+          run: () => navigate('/'),
+        },
+      ],
+    },
+    {
+      heading: 'Публикации',
+      items: orderedArticles.slice(0, 60).map((article) => ({
+        id: `article-${article.slug}`,
+        label: article.title || 'Без названия',
+        // Slug уникален — он же не даёт совпасть двум одинаковым заголовкам.
+        searchText: `${article.title} ${article.slug}`,
+        hint: article.category === CASES_CATEGORY ? 'кейс' : 'статья',
+        icon: article.category === CASES_CATEGORY ? <Briefcase /> : <Newspaper />,
+        run: () => openArticleFromPalette(article),
+      })),
+    },
+  ];
+
   if (!isAuthenticated) {
     return (
       <AdminThemeProvider>
@@ -949,6 +1078,7 @@ export default function Admin() {
   return (
     <AdminThemeProvider>
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
+      <AdminCommandHost open={paletteOpen} onOpenChange={setPaletteOpen} groups={commandGroups} />
       <div className="admin-app">
         <header className="admin-topbar">
           <div className="admin-topbar__inner">
@@ -970,6 +1100,17 @@ export default function Admin() {
             </div>
 
             <div className="admin-topbar__actions">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="admin-button admin-button--quiet admin-topbar__search"
+                title="Поиск и команды (Ctrl+K)"
+                aria-label="Поиск и команды"
+              >
+                <Search aria-hidden="true" />
+                <span className="admin-topbar__label">Найти</span>
+                <kbd className="admin-topbar__kbd" aria-hidden="true">Ctrl K</kbd>
+              </button>
               <button
                 type="button"
                 onClick={async () => { await forceRefreshAdminArticles(password); await refreshHealth(); }}
@@ -1014,7 +1155,13 @@ export default function Admin() {
             <div className="admin-content__inner">
               <p className="admin-breadcrumb">{currentSection?.label || 'Раздел'}</p>
 
-            <div className="min-w-0">
+            <motion.div
+              key={adminView}
+              className="min-w-0"
+              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.26, ease: [0.22, 0.61, 0.36, 1] }}
+            >
               {adminView === 'dashboard' && (
                 <AdminToday
                   password={password}
@@ -1047,14 +1194,9 @@ export default function Admin() {
                   {adminSectionFilter === 'cases' ? 'Кейсы' : adminSectionFilter === 'all' ? 'Все публикации' : 'Статьи'}
                 </h2>
                 <button onClick={() => {
-                  openArticleEditor({
-                    // Раздел новой статьи подстраивается под активный фильтр:
-                    // включён фильтр «Кейсы» — сразу создаём кейс
-                    id: 0, slug: '', title: '', category: adminSectionFilter === 'cases' ? CASES_CATEGORY : 'Блог', readTime: '5 мин',
-                    date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
-                    description: '', summary: '', keyTakeaways: [], faq: [], tags: [], content: '', image: '',
-                    status: 'published'
-                  }, { dirty: true });
+                  // Раздел новой статьи подстраивается под активный фильтр:
+                  // включён фильтр «Кейсы» — сразу создаём кейс
+                  createArticleDraft(adminSectionFilter === 'cases' ? CASES_CATEGORY : 'Блог');
                 }} className="admin-button h-10 w-10 p-0 text-[var(--adm-primary)]" aria-label="Создать публикацию" title="Создать публикацию">
                   <Plus className="w-4 h-4" />
                 </button>
@@ -1427,7 +1569,7 @@ export default function Admin() {
             </div>
           </div>
               )}
-            </div>
+            </motion.div>
             </div>
           </main>
         </div>
