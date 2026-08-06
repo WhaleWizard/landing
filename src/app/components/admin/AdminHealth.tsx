@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Send } from 'lucide-react';
 import { loadConsent } from '../../consent/consent';
 
@@ -101,6 +101,29 @@ export default function AdminHealth({ password }: { password: string }) {
     window.setTimeout(() => setTgStatus(''), 8000);
   };
 
+  /**
+   * Светофор считается только по серверным проверкам. Блок «пиксели в этом
+   * браузере» в него не входит намеренно: на /admin пиксели не загружаются
+   * специально, и его «внимание» — норма, а не поломка сайта.
+   */
+  const verdict = useMemo(() => {
+    const list = checks || [];
+    const failed = list.filter((item) => item.status === 'fail');
+    const warned = list.filter((item) => item.status === 'warn');
+    const status: HealthCheck['status'] = failed.length ? 'fail' : warned.length ? 'warn' : 'ok';
+    const title = status === 'fail'
+      ? 'Нужно вмешаться'
+      : status === 'warn'
+        ? 'Работает, но есть что посмотреть'
+        : 'Всё работает';
+    const text = status === 'fail'
+      ? `Проверок: ${list.length}. Сломано: ${failed.length}${warned.length ? `, требует внимания: ${warned.length}` : ''}.`
+      : status === 'warn'
+        ? `Проверок: ${list.length}. Требует внимания: ${warned.length}. Ничего не сломано.`
+        : `Проверок пройдено: ${list.length}. Сервер, база, хранилище и доставка событий отвечают.`;
+    return { status, title, text, problems: [...failed, ...warned] };
+  }, [checks]);
+
   const renderCheck = (item: HealthCheck) => {
     const ui = STATUS_UI[item.status];
     const Icon = ui.icon;
@@ -144,6 +167,31 @@ export default function AdminHealth({ password }: { password: string }) {
           <p className="text-sm text-[var(--adm-fg)]/75">{error}</p>
           <p className="text-xs text-[var(--adm-fg)]/55">Проверка работает на продакшене (нужны Cloudflare-функции). В локальной разработке — заглушка.</p>
         </div>
+      )}
+
+      {checks && (
+        <section className="health-verdict" data-status={verdict.status} aria-label="Итог проверки">
+          <span className="health-verdict__lamp" aria-hidden="true">
+            {(() => {
+              const Icon = STATUS_UI[verdict.status].icon;
+              return <Icon />;
+            })()}
+          </span>
+          <div className="health-verdict__body">
+            <p className="health-verdict__title">{verdict.title}</p>
+            <p className="health-verdict__text">{verdict.text}</p>
+            {verdict.problems.length > 0 && (
+              <ul className="health-verdict__list">
+                {verdict.problems.map((item) => (
+                  <li key={item.id} data-status={item.status}>
+                    <strong>{item.title}</strong>
+                    <span>{item.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
       )}
 
       {checks && (
