@@ -11762,3 +11762,67 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 .admin-root .article-calendar__day[data-outside] .article-calendar__dot {
   background: color-mix(in srgb, var(--adm-primary) 45%, transparent);
 }
+
+/* --- Медиатека: alt-подписи --- */
+
+.admin-root .media-alt {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--adm-border);
+}
+
+.admin-root .media-alt label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .media-alt__row {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-root .media-alt__row input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--adm-control-height);
+  padding: 0 12px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-input-bg);
+  color: var(--adm-text-primary);
+  font-size: 13.5px;
+}
+
+.admin-root .media-alt__row input:focus {
+  outline: none;
+  border-color: var(--adm-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--adm-primary) 22%, transparent);
+}
+
+.admin-root .media-card__noalt {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--adm-warning) 88%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  pointer-events: none;
+}
+
+@media (max-width: 560px) {
+  .admin-root .media-alt__row {
+    flex-direction: column;
+  }
+}
+
+/* Метка «без alt» привязана к самой картинке, а не к карточке целиком. */
+.admin-root .media-card__preview {
+  position: relative;
+}

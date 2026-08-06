@@ -25,6 +25,30 @@ interface MediaFile {
   contentType: string;
   name: string;
   folder: string;
+  alt: string;
+}
+
+const ALT_MIGRATION = '0031_media_alt.sql';
+const MAX_ALT_LENGTH = 300;
+const CONTROL_CHARS = new RegExp('[\\u0000-\\u001F\\u007F]', 'g');
+
+function isMissingTableError(error: unknown): boolean {
+  return /no such table/i.test(error instanceof Error ? error.message : String(error));
+}
+
+function cleanAlt(value: unknown): string {
+  return String(value ?? '').replace(CONTROL_CHARS, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_ALT_LENGTH);
+}
+
+/** Подписи ко всем файлам разом: их десятки, отдельный запрос на файл лишний. */
+async function readAltTexts(env: Env): Promise<{ map: Map<string, string>; migration: string }> {
+  if (!env.DB) return { map: new Map(), migration: '' };
+  try {
+    const rows = await env.DB.prepare('SELECT object_key, alt FROM media_alt').all<{ object_key: string; alt: string }>();
+    return { map: new Map((rows.results || []).map((row) => [row.object_key, row.alt])), migration: '' };
+  } catch (error) {
+    return { map: new Map(), migration: isMissingTableError(error) ? ALT_MIGRATION : '' };
+  }
 }
 
 function getPublicHost(env: Env): string {
@@ -57,6 +81,7 @@ async function listUploads(env: Env): Promise<{ files: MediaFile[]; markedFolder
         contentType: object.httpMetadata?.contentType || '',
         name: object.customMetadata?.originalName || object.key.split('/').pop() || object.key,
         folder,
+        alt: '',
       });
     }
     if (!listing.truncated) break;
@@ -93,7 +118,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const { files, markedFolders } = await listUploads(env);
-    return json({ success: true, files, folders: collectFolders(files, markedFolders) }, { headers: noStore });
+    const { map: altTexts, migration: altMigration } = await readAltTexts(env);
+    for (const file of files) file.alt = altTexts.get(file.key) || '';
+    return json(
+      { success: true, files, folders: collectFolders(files, markedFolders), altMigration },
+      { headers: noStore },
+    );
   } catch (error) {
     return json({ success: false, error: error instanceof Error ? error.message : 'Failed to list media' }, { status: 500, headers: noStore });
   }
@@ -110,7 +140,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (rateLimited) return rateLimited;
 
   const body = await request.json().catch(() => ({})) as {
-    password?: string; action?: string; key?: string; keys?: string[]; folder?: string; name?: string;
+    password?: string; action?: string; key?: string; keys?: string[]; folder?: string; name?: string; alt?: string;
   };
   if (!verifyAdminPassword(getPassword(request, body), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
@@ -130,7 +160,50 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         .slice(0, MAX_BULK_KEYS);
       if (!keys.length) return json({ success: false, error: 'Не указан ни один корректный файл' }, { status: 400, headers: noStore });
       for (const key of keys) await bucket.delete(key);
+      // Подпись без файла не нужна, но её потеря не должна ронять удаление.
+      if (env.DB) {
+        for (const key of keys) {
+          try {
+            await env.DB.prepare('DELETE FROM media_alt WHERE object_key = ?').bind(key).run();
+          } catch { /* таблицы может не быть — это не мешает удалить файл */ }
+        }
+      }
       return json({ success: true, deleted: keys.length }, { headers: noStore });
+    }
+
+    if (action === 'set_alt') {
+      const key = String(body.key || '');
+      if (!isSafeUploadKey(key) || isFolderMarker(key)) {
+        return json({ success: false, error: 'Некорректный файл' }, { status: 400, headers: noStore });
+      }
+      if (!env.DB) {
+        return json({ success: false, error: 'База D1 не подключена' }, { status: 503, headers: noStore });
+      }
+      const alt = cleanAlt(body.alt);
+      try {
+        if (alt) {
+          await env.DB
+            .prepare('INSERT OR REPLACE INTO media_alt (object_key, alt, updated_at) VALUES (?, ?, ?)')
+            .bind(key, alt, new Date().toISOString())
+            .run();
+        } else {
+          await env.DB.prepare('DELETE FROM media_alt WHERE object_key = ?').bind(key).run();
+        }
+      } catch (error) {
+        if (isMissingTableError(error)) {
+          return json(
+            {
+              success: false,
+              migrationRequired: true,
+              migration: ALT_MIGRATION,
+              error: `Примените миграцию ${ALT_MIGRATION} — до неё alt-тексты негде хранить.`,
+            },
+            { status: 503, headers: noStore },
+          );
+        }
+        throw error;
+      }
+      return json({ success: true, key, alt }, { headers: noStore });
     }
 
     if (action === 'create_folder') {
@@ -184,6 +257,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const written = await bucket.head(target);
       if (!written) return json({ success: false, error: 'Копия не создалась, файл оставлен на месте' }, { status: 500, headers: noStore });
       await bucket.delete(key);
+      // Подпись привязана к ключу объекта — переносим её вслед за файлом.
+      if (env.DB) {
+        try {
+          await env.DB.prepare('UPDATE media_alt SET object_key = ? WHERE object_key = ?').bind(target, key).run();
+        } catch { /* таблицы может не быть — перенос файла это не отменяет */ }
+      }
       return json({ success: true, key: target, previousKey: key, moved: true }, { headers: noStore });
     }
 

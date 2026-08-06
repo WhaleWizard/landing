@@ -17,6 +17,7 @@ interface MediaFile {
   contentType: string;
   name: string;
   folder: string;
+  alt?: string;
 }
 
 interface MediaFolder {
@@ -76,6 +77,38 @@ export default function AdminMedia({ password, articles }: { password: string; a
   const [preview, setPreview] = useState<MediaFile | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const dropDepth = useRef(0);
+  const [altMigration, setAltMigration] = useState('');
+  const [altDraft, setAltDraft] = useState('');
+  const [altSaving, setAltSaving] = useState(false);
+
+  /**
+   * Alt — это то, что прочитает поисковик и экранный диктор вместо картинки.
+   * Подпись живёт в D1 отдельно от файла: у объектного хранилища метаданные
+   * нельзя поменять на месте, пришлось бы перезаливать файл и менять ссылку.
+   */
+  const saveAlt = useCallback(async (file: MediaFile, alt: string) => {
+    setAltSaving(true);
+    try {
+      const res = await fetch('/api/admin/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'set_alt', key: file.key, alt }),
+      });
+      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; alt?: string; migration?: string } | null;
+      if (!res.ok || !payload?.success) {
+        if (payload?.migration) setAltMigration(payload.migration);
+        throw new Error(payload?.error || `HTTP ${res.status}`);
+      }
+      const saved = payload.alt || '';
+      setFiles((current) => current.map((item) => (item.key === file.key ? { ...item, alt: saved } : item)));
+      notify.success(saved ? 'Подпись сохранена' : 'Подпись убрана');
+    } catch (err) {
+      notify.error('Не удалось сохранить подпись', err instanceof Error ? err.message : undefined);
+    } finally {
+      setAltSaving(false);
+    }
+  }, [password]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,10 +119,13 @@ export default function AdminMedia({ password, articles }: { password: string; a
         credentials: 'same-origin',
         cache: 'no-store',
       });
-      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; files?: MediaFile[]; folders?: MediaFolder[] } | null;
+      const payload = await res.json().catch(() => null) as {
+        success?: boolean; error?: string; files?: MediaFile[]; folders?: MediaFolder[]; altMigration?: string;
+      } | null;
       if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
       setFiles(payload.files || []);
       setFolders(payload.folders || []);
+      setAltMigration(payload.altMigration || '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить список файлов');
     } finally {
@@ -98,6 +134,9 @@ export default function AdminMedia({ password, articles }: { password: string; a
   }, [password]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Черновик подписи всегда начинается с того, что уже сохранено у файла.
+  useEffect(() => { setAltDraft(preview?.alt || ''); }, [preview]);
 
   const mediaUsage = useMemo(() => {
     const usage = new Map<string, string[]>();
@@ -479,8 +518,12 @@ export default function AdminMedia({ password, articles }: { password: string; a
                       aria-label={`Открыть ${file.name}`}
                     >
                       {isImage
-                        ? <img src={file.url} alt={file.name} loading="lazy" />
+                        ? <img src={file.url} alt={file.alt || file.name} loading="lazy" />
                         : <FileText aria-hidden="true" />}
+                      {/* Картинка без подписи невидима для поиска — помечаем прямо в сетке. */}
+                      {isImage && !file.alt && !altMigration && (
+                        <span className="media-card__noalt" title="Нет подписи для поисковиков — откройте файл и добавьте">без alt</span>
+                      )}
                     </button>
                     <div className="media-card__body">
                       <div className="media-card__name" title={file.name}>{file.name}</div>
@@ -541,8 +584,45 @@ export default function AdminMedia({ password, articles }: { password: string; a
               </button>
             </div>
             {preview.contentType.startsWith('image/')
-              ? <img src={preview.url} alt={preview.name} />
+              ? <img src={preview.url} alt={preview.alt || preview.name} />
               : <p className="admin-muted">Предпросмотр доступен только для изображений.</p>}
+
+            {preview.contentType.startsWith('image/') && (
+              <div className="media-alt">
+                <label htmlFor="media-alt-input">Подпись для поисковиков (alt)</label>
+                {altMigration ? (
+                  <p className="admin-notice admin-notice--warning">
+                    Примените миграцию <code>{altMigration}</code> — до неё подписи негде хранить.
+                  </p>
+                ) : (
+                  <>
+                    <div className="media-alt__row">
+                      <input
+                        id="media-alt-input"
+                        type="text"
+                        maxLength={300}
+                        value={altDraft}
+                        placeholder="Например: график роста заявок из Meta Ads за три месяца"
+                        onChange={(event) => setAltDraft(event.target.value)}
+                        onKeyDown={(event) => { if (event.key === 'Enter') void saveAlt(preview, altDraft); }}
+                      />
+                      <button
+                        type="button"
+                        className="admin-button admin-button--primary"
+                        disabled={altSaving || altDraft.trim() === (preview.alt || '')}
+                        onClick={() => void saveAlt(preview, altDraft)}
+                      >
+                        {altSaving ? 'Сохраняю…' : 'Сохранить'}
+                      </button>
+                    </div>
+                    <p className="admin-hint">
+                      Опишите, что на картинке, одной фразой: это читают поисковики и экранные дикторы, когда изображение не загрузилось. {altDraft.length}/300
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="media-lightbox__foot">
               <AdminMeta>{formatSize(preview.size)} · {formatDate(preview.uploaded)}{preview.folder ? ` · папка «${preview.folder}»` : ''}</AdminMeta>
               <div className="media-lightbox__actions">
