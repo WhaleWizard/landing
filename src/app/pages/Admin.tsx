@@ -222,6 +222,10 @@ function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPane
   );
 }
 
+// Светлая тема раньше отставала от тёмной по контрасту: подписи, подсказки и
+// цветные статусы держались на 3,3–4,3:1 против 5–9:1 в тёмной, из-за чего
+// половина текста выглядела выцветшей. Тона ниже пересчитаны так, чтобы каждый
+// проходил 4,5:1 на всех четырёх поверхностях админки.
 const themeTokens = {
   light: {
     '--adm-surface-canvas': '#f4f6fb',
@@ -229,20 +233,20 @@ const themeTokens = {
     '--adm-surface-raised': '#fbfcff',
     '--adm-surface-subtle': '#edf1f7',
     '--adm-text-primary': '#171c28',
-    '--adm-text-secondary': '#566075',
-    '--adm-text-tertiary': '#7b8599',
-    '--adm-border-subtle': '#dce2ec',
-    '--adm-border-strong': '#c8d0de',
+    '--adm-text-secondary': '#495264',
+    '--adm-text-tertiary': '#646d80',
+    '--adm-border-subtle': '#d3dae6',
+    '--adm-border-strong': '#b9c3d4',
     '--adm-primary': '#6958e8',
     '--adm-primary-strong': '#5544d5',
-    '--adm-success': '#14795b',
-    '--adm-warning': '#ad6800',
-    '--adm-danger': '#d34867',
-    '--adm-info': '#2874c8',
-    '--adm-shadow-xs': '0 1px 2px rgba(24, 31, 47, 0.04)',
-    '--adm-shadow-sm': '0 8px 24px rgba(24, 31, 47, 0.06)',
-    '--adm-shadow-md': '0 16px 36px rgba(24, 31, 47, 0.09)',
-    '--adm-shadow-lg': '0 22px 52px rgba(24, 31, 47, 0.14)',
+    '--adm-success': '#0f6d52',
+    '--adm-warning': '#9a5c00',
+    '--adm-danger': '#c62d4f',
+    '--adm-info': '#1f68b8',
+    '--adm-shadow-xs': '0 1px 2px rgba(24, 31, 47, 0.05)',
+    '--adm-shadow-sm': '0 8px 24px rgba(24, 31, 47, 0.08)',
+    '--adm-shadow-md': '0 16px 36px rgba(24, 31, 47, 0.11)',
+    '--adm-shadow-lg': '0 22px 52px rgba(24, 31, 47, 0.16)',
     '--adm-bg': 'var(--adm-surface-canvas)',
     '--adm-fg': 'var(--adm-text-primary)',
     '--adm-card': 'var(--adm-surface-elevated)',
