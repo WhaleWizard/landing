@@ -296,6 +296,91 @@ async function listSitemapPages(request: Request, env: Env): Promise<Response> {
   }, { headers: noStore });
 }
 
+type CompactResult = ReturnType<typeof compactPsiResponse>;
+
+const HISTORY_MIGRATION = '0030_pagespeed_history.sql';
+
+function isMissingTableError(error: unknown): boolean {
+  return /no such table/i.test(error instanceof Error ? error.message : String(error));
+}
+
+/**
+ * Запись замера в историю — «лучшее усилие»: если таблицы ещё нет или база
+ * недоступна, проверка скорости всё равно должна вернуть результат.
+ * Одна строка на день, страницу и режим: повторный запуск в тот же день
+ * переписывает запись, а не плодит точки на графике.
+ */
+async function recordHistory(env: Env, result: CompactResult): Promise<void> {
+  if (!env.DB) return;
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    await env.DB
+      .prepare(`INSERT OR REPLACE INTO pagespeed_history
+        (day, url, strategy, performance, accessibility, best_practices, seo, lcp_ms, cls, tbt_ms, total_bytes, checked_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(
+        day,
+        result.url,
+        result.strategy,
+        result.scores.performance,
+        result.scores.accessibility,
+        result.scores.bestPractices,
+        result.scores.seo,
+        result.lab.lcp?.value ?? null,
+        result.lab.cls?.value ?? null,
+        result.lab.tbt?.value ?? null,
+        result.lab.totalBytes?.value ?? null,
+        result.fetchedAt,
+      )
+      .run();
+  } catch {
+    // История — приятное дополнение, а не условие работы раздела.
+  }
+}
+
+/** Средняя оценка скорости по дням: видно, куда движется сайт в целом. */
+async function listHistory(env: Env, days: number): Promise<Response> {
+  if (!env.DB) {
+    return json(
+      { success: false, localOnly: true, error: 'База D1 не подключена (доступно только на продакшене)' },
+      { status: 503, headers: noStore },
+    );
+  }
+  try {
+    const rows = await env.DB
+      .prepare(`SELECT day,
+                       ROUND(AVG(CASE WHEN strategy = 'mobile' THEN performance END)) AS mobile,
+                       ROUND(AVG(CASE WHEN strategy = 'desktop' THEN performance END)) AS desktop,
+                       COUNT(DISTINCT url) AS pages
+                FROM pagespeed_history
+                WHERE performance IS NOT NULL
+                GROUP BY day
+                ORDER BY day DESC
+                LIMIT ?`)
+      .bind(Math.min(120, Math.max(1, days)))
+      .all<{ day: string; mobile: number | null; desktop: number | null; pages: number }>();
+
+    const history = (rows.results || []).slice().reverse();
+    return json({ success: true, history }, { headers: noStore });
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return json(
+        {
+          success: false,
+          migrationRequired: true,
+          migration: HISTORY_MIGRATION,
+          error: `Примените миграцию ${HISTORY_MIGRATION} — до неё история замеров не сохраняется.`,
+        },
+        { status: 503, headers: noStore },
+      );
+    }
+    return json(
+      { success: false, error: error instanceof Error ? error.message : 'Не удалось загрузить историю' },
+      { status: 500, headers: noStore },
+    );
+  }
+}
+
 async function runAudit(
   request: Request,
   env: Env,
@@ -396,6 +481,7 @@ async function runAudit(
     }
 
     const result = compactPsiResponse(payload, target.toString(), strategy);
+    await recordHistory(env, result);
     if (cache) {
       try {
         await cache.put(cacheRequest, new Response(JSON.stringify(result), {
@@ -446,6 +532,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (performanceRateLimit) return adminRateLimitError(performanceRateLimit);
 
   const params = new URL(request.url).searchParams;
+  if (params.get('history') === '1') {
+    return listHistory(env, Number(params.get('days')) || 60);
+  }
+
   const requestedUrl = params.get('url')?.trim() || '';
   if (!requestedUrl) return listSitemapPages(request, env);
 

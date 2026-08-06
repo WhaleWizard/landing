@@ -11324,3 +11324,257 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
     font-size: 16px;
   }
 }
+
+/* ==========================================================================
+   «Скорость»: свёрнутые строки страниц
+
+   28 страниц × два режима держали раздел развёрнутым на 7600 px, и его
+   просто пролистывали. Свёрнутая строка показывает главное — оценку в
+   Mobile и Desktop; подробности открываются по клику. Строки с ошибкой
+   и те, что проверяются прямо сейчас, открыты всегда.
+   ========================================================================== */
+
+.admin-root .perf-row {
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-root .perf-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline-end: 10px;
+}
+
+.admin-root .perf-row__toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 4px 8px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.admin-root .perf-row__toggle:hover .perf-row__path {
+  color: var(--adm-primary);
+}
+
+.admin-root .perf-row__chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--adm-text-tertiary);
+  transition: transform 180ms ease;
+}
+
+.admin-root .perf-row[data-open] .perf-row__chevron {
+  transform: rotate(180deg);
+}
+
+.admin-root .perf-row__index {
+  flex: none;
+  min-width: 22px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .perf-row__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 140ms ease;
+}
+
+.admin-root .perf-row__chips {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.admin-root .perf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--adm-radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-root .perf-chip strong {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .perf-chip[data-tone='idle'] {
+  border-color: var(--adm-border);
+  background: color-mix(in srgb, var(--adm-muted) 45%, transparent);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .perf-chip[data-tone='good'] {
+  border-color: color-mix(in srgb, var(--adm-success) 34%, transparent);
+  background: color-mix(in srgb, var(--adm-success) 12%, transparent);
+  color: var(--adm-success);
+}
+
+.admin-root .perf-chip[data-tone='mid'] {
+  border-color: color-mix(in srgb, var(--adm-warning) 36%, transparent);
+  background: color-mix(in srgb, var(--adm-warning) 13%, transparent);
+  color: var(--adm-warning);
+}
+
+.admin-root .perf-chip[data-tone='bad'] {
+  border-color: color-mix(in srgb, var(--adm-danger) 34%, transparent);
+  background: color-mix(in srgb, var(--adm-danger) 12%, transparent);
+  color: var(--adm-danger);
+}
+
+.admin-root .perf-row__recheck {
+  flex: none;
+}
+
+.admin-root .perf-row__body {
+  padding: 0 12px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--adm-border) 70%, transparent);
+  padding-top: 12px;
+}
+
+.admin-root .perf-row__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--adm-text-tertiary);
+  word-break: break-all;
+}
+
+.admin-root .perf-row__link:hover {
+  color: var(--adm-primary);
+}
+
+@media (max-width: 640px) {
+  .admin-root .perf-row__toggle {
+    flex-wrap: wrap;
+    padding-inline-start: 10px;
+  }
+
+  .admin-root .perf-row__path {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  .admin-root .perf-row__chips {
+    margin-inline-start: auto;
+  }
+
+  .admin-root .perf-row__recheck-label {
+    display: none;
+  }
+}
+
+/* --- «Скорость»: история замеров --- */
+
+.admin-root .perf-history {
+  padding: 16px;
+}
+
+.admin-root .perf-history__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.admin-root .perf-history__head strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-root .perf-history__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .perf-history__list li {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-root .perf-history__legend {
+  padding-bottom: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .perf-history__day {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .perf-history__metric {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-root .perf-history__track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--adm-muted) 70%, transparent);
+  overflow: hidden;
+}
+
+.admin-root .perf-history__track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 320ms ease;
+}
+
+.admin-root .perf-history__track i[data-tone='good'] { background: var(--adm-success); }
+.admin-root .perf-history__track i[data-tone='mid'] { background: var(--adm-warning); }
+.admin-root .perf-history__track i[data-tone='bad'] { background: var(--adm-danger); }
+.admin-root .perf-history__track i[data-tone='idle'] { background: var(--adm-border-strong); }
+
+.admin-root .perf-history__metric b {
+  flex: none;
+  min-width: 24px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+@media (max-width: 560px) {
+  .admin-root .perf-history__list li {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+  }
+}

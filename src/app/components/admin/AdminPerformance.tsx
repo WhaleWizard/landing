@@ -3,6 +3,7 @@ import RealUserVitals from './RealUserVitals';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   ExternalLink,
   Gauge,
   LoaderCircle,
@@ -85,6 +86,13 @@ interface PageRow {
   desktopStatus: RunStatus;
   mobileError?: string;
   desktopError?: string;
+}
+
+interface HistoryPoint {
+  day: string;
+  mobile: number | null;
+  desktop: number | null;
+  pages: number;
 }
 
 interface PagesPayload {
@@ -223,6 +231,50 @@ function formatBytes(bytes: number): string {
   return `${Math.round(bytes / 1024)} КБ`;
 }
 
+/**
+ * Свёрнутая строка страницы показывает главное — оценку скорости в Mobile
+ * и Desktop. Раньше все 28 страниц были развёрнуты сразу и раздел вырастал
+ * до семи с лишним тысяч пикселей, из-за чего его просто пролистывали.
+ */
+function scoreTone2(score: number | null): 'good' | 'mid' | 'bad' | 'idle' {
+  if (score == null) return 'idle';
+  return score >= 90 ? 'good' : score >= 50 ? 'mid' : 'bad';
+}
+
+function HistoryBar({ score }: { score: number | null }) {
+  return (
+    <span className="perf-history__metric">
+      <span className="perf-history__track">
+        <i style={{ width: `${score ?? 0}%` }} data-tone={scoreTone2(score)} />
+      </span>
+      <b>{score ?? '—'}</b>
+    </span>
+  );
+}
+
+function ScoreChip({ label, score, status }: { label: string; score: number | null | undefined; status: RunStatus }) {
+  if (status === 'running') {
+    return (
+      <span className="perf-chip" data-tone="idle" title={`${label}: проверяется`}>
+        {label}<LoaderCircle className="h-3 w-3 animate-spin" aria-hidden="true" />
+      </span>
+    );
+  }
+  if (status === 'error') {
+    return (
+      <span className="perf-chip" data-tone="bad" title={`${label}: проверка не удалась`}>
+        {label}<AlertTriangle className="h-3 w-3" aria-hidden="true" />
+      </span>
+    );
+  }
+  const tone = score == null ? 'idle' : score >= 90 ? 'good' : score >= 50 ? 'mid' : 'bad';
+  return (
+    <span className="perf-chip" data-tone={tone} title={`${label}: ${score ?? 'ещё не проверялась'}`}>
+      {label}<strong>{score ?? '—'}</strong>
+    </span>
+  );
+}
+
 function AuditPanel({
   strategy,
   result,
@@ -311,6 +363,48 @@ export default function AdminPerformance({ password }: { password: string }) {
   const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
   const [apiBlocked, setApiBlocked] = useState<ApiBlock | null>(null);
   const [storageHydrated, setStorageHydrated] = useState(false);
+  const [openRows, setOpenRows] = useState<Set<string>>(() => new Set());
+  const [history, setHistory] = useState<HistoryPoint[] | null>(null);
+  const [historyMigration, setHistoryMigration] = useState('');
+  const wasRunning = useRef(false);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/performance?history=1&days=30', {
+        headers: { 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean; history?: HistoryPoint[]; migration?: string;
+      } | null;
+      if (!response.ok || !payload?.success) {
+        if (payload?.migration) setHistoryMigration(payload.migration);
+        return;
+      }
+      setHistoryMigration('');
+      setHistory(payload.history || []);
+    } catch {
+      // История — дополнение к разделу, без неё он работает как раньше.
+    }
+  }, [password]);
+
+  useEffect(() => { void loadHistory(); }, [loadHistory]);
+
+  // Прогон закончился — история пополнилась, перечитываем её.
+  useEffect(() => {
+    if (wasRunning.current && !running) void loadHistory();
+    wasRunning.current = running;
+  }, [loadHistory, running]);
+
+  const toggleRow = useCallback((url: string) => {
+    setOpenRows((current) => {
+      const next = new Set(current);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  }, []);
   const stopRequested = useRef(false);
 
   const applyFatalBlock = useCallback((code: FatalErrorCode) => {
@@ -603,43 +697,109 @@ export default function AdminPerformance({ password }: { password: string }) {
             style={{ width: totalRuns ? `${Math.round((completedRuns / totalRuns) * 100)}%` : '0%' }}
           />
         </div>
-        {sitemapUrl && (
-          <a className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--adm-primary)]" href={sitemapUrl} target="_blank" rel="noreferrer">
-            Открыть sitemap.xml <ExternalLink className="h-3 w-3" aria-hidden="true" />
-          </a>
-        )}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {rows.length > 0 && (
+            <button
+              type="button"
+              className="admin-button admin-button--quiet admin-button--compact"
+              onClick={() => setOpenRows((current) => (current.size ? new Set() : new Set(rows.map((row) => row.url))))}
+            >
+              {openRows.size ? 'Свернуть все' : 'Развернуть все'}
+            </button>
+          )}
+          {sitemapUrl && (
+            <a className="inline-flex items-center gap-1 text-xs text-[var(--adm-primary)]" href={sitemapUrl} target="_blank" rel="noreferrer">
+              Открыть sitemap.xml <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            </a>
+          )}
+        </div>
         {notice && <p className="mt-3 text-xs text-[var(--adm-fg)]/65" role="status">{notice}</p>}
       </section>
+
+      {(historyMigration || (history && history.length > 0)) && (
+        <section className="admin-panel perf-history" aria-label="История замеров">
+          <div className="perf-history__head">
+            <strong>История замеров</strong>
+            <span className="admin-hint">Средняя оценка скорости по всем проверенным за день страницам.</span>
+          </div>
+          {historyMigration ? (
+            <p className="admin-notice admin-notice--warning">
+              Примените миграцию <code>{historyMigration}</code> — до неё история замеров не сохраняется.
+            </p>
+          ) : (
+            <ul className="perf-history__list">
+              <li className="perf-history__legend">
+                <span className="perf-history__day">Дата</span>
+                <span className="perf-history__metric-label">Моб.</span>
+                <span className="perf-history__metric-label">ПК</span>
+              </li>
+              {(history || []).slice(-14).map((point) => (
+                <li key={point.day}>
+                  <span className="perf-history__day" title={`Страниц в замере: ${point.pages}`}>
+                    {new Date(`${point.day}T00:00:00Z`).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+                  </span>
+                  <HistoryBar score={point.mobile} />
+                  <HistoryBar score={point.desktop} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {loadingPages ? (
         <div className="admin-panel flex items-center justify-center gap-2 p-8 text-sm text-[var(--adm-fg)]/60">
           <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" /> Загружаю страницы…
         </div>
       ) : (
-        <div className="space-y-3">
-          {rows.map((row, index) => (
-            <article key={row.url} className="admin-panel p-3 sm:p-4">
-              <div className="grid gap-3 xl:grid-cols-[minmax(220px,0.75fr)_minmax(320px,1fr)_minmax(320px,1fr)_auto]">
-                <div className="min-w-0">
-                  <span className="admin-meta">Страница {index + 1}</span>
-                  <a className="mt-1 block break-all text-sm font-semibold text-[var(--adm-fg)] hover:text-[var(--adm-primary)]" href={row.url} target="_blank" rel="noreferrer">
-                    {new URL(row.url).pathname || '/'}
-                  </a>
-                  <p className="mt-1 truncate text-[10px] text-[var(--adm-fg)]/45" title={row.url}>{row.url}</p>
-                  <button type="button" className="admin-button admin-button--quiet mt-3" disabled={running || auditDisabled} onClick={() => void runOne(row.url)}>
-                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Перепроверить
+        <div className="space-y-2">
+          {rows.map((row, index) => {
+            const path = new URL(row.url).pathname || '/';
+            // Проблемы и идущие проверки раскрываются сами: их прячут в
+            // последнюю очередь, ради них раздел и открывают.
+            const forced = row.mobileStatus === 'error' || row.desktopStatus === 'error'
+              || row.mobileStatus === 'running' || row.desktopStatus === 'running';
+            const open = forced || openRows.has(row.url);
+            return (
+              <article key={row.url} className="admin-panel perf-row" data-open={open || undefined}>
+                <div className="perf-row__head">
+                  <button
+                    type="button"
+                    className="perf-row__toggle"
+                    aria-expanded={open}
+                    onClick={() => toggleRow(row.url)}
+                  >
+                    <ChevronDown className="perf-row__chevron" aria-hidden="true" />
+                    <span className="perf-row__index">{index + 1}</span>
+                    <span className="perf-row__path" title={row.url}>{path}</span>
+                    <span className="perf-row__chips">
+                      <ScoreChip label="Моб." score={row.mobile?.scores.performance} status={row.mobileStatus} />
+                      <ScoreChip label="ПК" score={row.desktop?.scores.performance} status={row.desktopStatus} />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-button admin-button--quiet admin-button--compact perf-row__recheck"
+                    disabled={running || auditDisabled}
+                    onClick={() => void runOne(row.url)}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="perf-row__recheck-label">Перепроверить</span>
                   </button>
                 </div>
-                <AuditPanel strategy="mobile" result={row.mobile} status={row.mobileStatus} error={row.mobileError} />
-                <AuditPanel strategy="desktop" result={row.desktop} status={row.desktopStatus} error={row.desktopError} />
-                <div className="hidden items-center xl:flex">
-                  {(row.mobileStatus === 'done' && row.desktopStatus === 'done')
-                    ? <CheckCircle2 className="h-5 w-5 text-emerald-500" aria-label="Оба режима проверены" />
-                    : <span className="h-5 w-5" />}
-                </div>
-              </div>
-            </article>
-          ))}
+
+                {open && (
+                  <div className="perf-row__body grid gap-3 xl:grid-cols-2">
+                    <AuditPanel strategy="mobile" result={row.mobile} status={row.mobileStatus} error={row.mobileError} />
+                    <AuditPanel strategy="desktop" result={row.desktop} status={row.desktopStatus} error={row.desktopError} />
+                    <a className="perf-row__link xl:col-span-2" href={row.url} target="_blank" rel="noreferrer">
+                      {row.url} <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  </div>
+                )}
+              </article>
+            );
+          })}
           {rows.length === 0 && !notice && <div className="admin-empty">В sitemap.xml нет страниц для проверки.</div>}
         </div>
       )}
