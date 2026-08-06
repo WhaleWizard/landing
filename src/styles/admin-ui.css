@@ -12032,3 +12032,35 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
     flex: 1 1 100%;
   }
 }
+
+/* --- Автооценка лида --- */
+
+.admin-root .lead-autoscore {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px dashed color-mix(in srgb, var(--adm-primary) 34%, var(--adm-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
+}
+
+.admin-root .lead-autoscore__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .lead-autoscore__row strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-primary);
+}
+
+.admin-root .lead-autoscore__why {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--adm-text-tertiary);
+}

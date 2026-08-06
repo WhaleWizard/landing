@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
+import { suggestLeadScore } from './leadScore';
 import CrmBoard from './CrmBoard';
 import CrmAnalytics from './CrmAnalytics';
 import { confirmAsk } from './AdminFeedback';
@@ -381,6 +382,9 @@ function leadLabel(lead: { name?: string; email?: string; phone?: string; telegr
 }
 
 function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow; password: string; onChanged: () => void; editingReady: boolean }) {
+  // Автооценка пересчитывается из самой заявки и ничего не перезаписывает:
+  // ручной ползунок остаётся главным, кнопка «Применить» — предложением.
+  const autoScore = useMemo(() => suggestLeadScore(lead), [lead]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -671,7 +675,25 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
       <div className="admin-crm-form-grid">
         <AdminSelect label="Этап сделки" value={draft.pipeline_stage} options={PIPELINE_STAGES} onValueChange={(value) => setDraft({ ...draft, pipeline_stage: value as PipelineStage })} />
         <AdminSelect label="Приоритет" value={draft.priority} options={PRIORITIES} onValueChange={(value) => setDraft({ ...draft, priority: value as Priority })} />
-        <label className="admin-field"><span className="admin-label-row"><span className="admin-label">Оценка лида</span><span className="admin-score-value">{draft.lead_score}/100</span></span><input type="range" min="0" max="100" step="5" value={draft.lead_score} onChange={(event) => setDraft({ ...draft, lead_score: Number(event.target.value) })} /></label>
+        <label className="admin-field"><span className="admin-label-row"><span className="admin-label">Оценка лида</span><span className="admin-score-value">{draft.lead_score}/100</span></span><input type="range" min="0" max="100" step="5" value={draft.lead_score} onChange={(event) => setDraft({ ...draft, lead_score: Number(event.target.value) })} />
+          <span className="lead-autoscore">
+            <span className="lead-autoscore__row">
+              <span>Автооценка по данным заявки: <strong>{autoScore.score}</strong></span>
+              {draft.lead_score !== autoScore.score && (
+                <button
+                  type="button"
+                  className="admin-button admin-button--quiet admin-button--compact"
+                  onClick={() => setDraft({ ...draft, lead_score: autoScore.score })}
+                >
+                  Применить
+                </button>
+              )}
+            </span>
+            <span className="lead-autoscore__why">
+              {autoScore.reasons.length ? autoScore.reasons.join(' · ') : 'Сигналов в заявке нет — оценка нулевая.'}
+            </span>
+          </span>
+        </label>
         <label className="admin-field"><span className="admin-label">Следующее действие · дата</span><input className="admin-input" type="datetime-local" value={draft.next_action_at} onChange={(event) => setDraft({ ...draft, next_action_at: event.target.value })} /></label>
         <label className="admin-field admin-field--wide"><span className="admin-label">Что сделать следующим</span><input className="admin-input" maxLength={240} value={draft.next_action_text} onChange={(event) => setDraft({ ...draft, next_action_text: event.target.value })} placeholder="Например: отправить медиаплан и согласовать созвон" /></label>
         <label className="admin-field"><span className="admin-label">Сумма сделки</span><input className="admin-input" inputMode="decimal" value={draft.deal_value} onChange={(event) => setDraft({ ...draft, deal_value: event.target.value.replace(/[^\d.,]/g, '').replace(',', '.') })} placeholder="0" /></label>
