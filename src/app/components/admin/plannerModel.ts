@@ -257,6 +257,58 @@ export function computeStats(data: PlannerWeekData): PlannerStats {
   };
 }
 
+/**
+ * Задачи, которые имеет смысл переносить: с текстом и не отмеченные.
+ * Пустые строки — это заготовки под ввод, тащить их в следующий день незачем.
+ */
+export function pendingTasks(day: PlannerDay): PlannerCheckItem[] {
+  return day.tasks.filter((task) => !task.done && task.text.trim().length > 0);
+}
+
+/* ---------- Шаблон недели ---------- */
+
+/**
+ * Повторяющиеся дела: тексты задач по дням недели и постоянные цели.
+ * Привычек здесь нет — их список и так переносится с прошлой недели.
+ */
+export type PlannerTemplate = { days: string[][]; goals: string[] };
+
+export function templateFromWeek(data: PlannerWeekData): PlannerTemplate {
+  return {
+    days: data.days.map((day) => day.tasks.map((task) => task.text.trim()).filter(Boolean)),
+    goals: data.goals.map((goal) => goal.text.trim()).filter(Boolean),
+  };
+}
+
+export function isEmptyTemplate(template: PlannerTemplate | null): boolean {
+  return !template || (template.goals.length === 0 && template.days.every((day) => day.length === 0));
+}
+
+export function countTemplateItems(template: PlannerTemplate | null): number {
+  if (!template) return 0;
+  return template.goals.length + template.days.reduce((sum, day) => sum + day.length, 0);
+}
+
+/** Неделя, в которой ещё ничего нет: только в такую шаблон подставляется сам. */
+export function isWeekUntouched(data: PlannerWeekData): boolean {
+  return data.goals.every((goal) => !goal.text.trim()) && data.days.every((day) => !isDayFilled(day));
+}
+
+/** Шаблон не затирает уже написанное: заполняются только пустые дни и цели. */
+export function applyTemplate(data: PlannerWeekData, template: PlannerTemplate): PlannerWeekData {
+  return {
+    ...data,
+    goals: data.goals.length
+      ? data.goals
+      : template.goals.map((text) => ({ id: createId('goal'), text, done: false })),
+    days: data.days.map((day, index) => (
+      day.tasks.length
+        ? day
+        : { ...day, tasks: (template.days[index] || []).map((text) => ({ id: createId('task'), text, done: false })) }
+    )),
+  };
+}
+
 export function habitProgress(habit: PlannerHabit): number {
   return habit.days.filter(Boolean).length / DAYS_IN_WEEK;
 }

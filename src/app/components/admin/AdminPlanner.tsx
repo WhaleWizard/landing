@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CloudOff,
+  CornerDownRight,
   Frown,
   Laugh,
   ListChecks,
@@ -35,6 +36,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { notify } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
 import { ProgressBar, ProgressRing, WeekProgressChart } from './AdminPlannerCharts';
 import {
@@ -56,8 +58,14 @@ import {
   formatWeekRangeShort,
   habitProgress,
   isDayFilled,
+  applyTemplate,
+  countTemplateItems,
+  isEmptyTemplate,
+  isWeekUntouched,
   mondayOf,
   normalizeWeekData,
+  pendingTasks,
+  templateFromWeek,
   parseIsoDate,
   shiftWeek,
   toIsoDate,
@@ -67,6 +75,7 @@ import {
   type PlannerDay,
   type PlannerHabit,
   type PlannerJournal,
+  type PlannerTemplate,
   type PlannerWeekData,
 } from './plannerModel';
 
@@ -75,6 +84,7 @@ type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 const SAVE_DEBOUNCE_MS = 1200;
 const SAVE_RETRY_MS = 5000;
 const LOCAL_STORAGE_KEY = 'ww-admin-planner-local-v1';
+const LOCAL_TEMPLATE_KEY = 'ww-admin-planner-template-v1';
 const SLEEP_NONE = 'none';
 
 const MOOD_ICONS = [Angry, Frown, Meh, Smile, Laugh] as const;
@@ -82,6 +92,24 @@ const MOOD_ICONS = [Angry, Frown, Meh, Smile, Laugh] as const;
 function isLocalEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
   return ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+}
+
+function readLocalTemplate(): PlannerTemplate | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_TEMPLATE_KEY);
+    return raw ? (JSON.parse(raw) as PlannerTemplate) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalTemplate(template: PlannerTemplate | null): void {
+  try {
+    if (template) localStorage.setItem(LOCAL_TEMPLATE_KEY, JSON.stringify(template));
+    else localStorage.removeItem(LOCAL_TEMPLATE_KEY);
+  } catch {
+    // приватный режим браузера — сохранять некуда, это не ломает интерфейс
+  }
 }
 
 function readLocalWeeks(): Record<string, PlannerWeekData> {
@@ -401,6 +429,9 @@ function DayCard({
   focusId,
   onChange,
   onFocusId,
+  onCarryOver,
+  carryLabel,
+  carryBusy,
 }: {
   index: number;
   date: Date;
@@ -410,6 +441,9 @@ function DayCard({
   focusId: string | null;
   onChange: (updater: (current: PlannerDay) => PlannerDay) => void;
   onFocusId: (id: string | null) => void;
+  onCarryOver: () => void;
+  carryLabel: string;
+  carryBusy: boolean;
 }) {
   const filled = day.tasks.filter((task) => task.text.trim());
   const done = filled.filter((task) => task.done).length;
@@ -493,6 +527,18 @@ function DayCard({
         <div><dt>Выполнено</dt><dd>{done}</dd></div>
         <div><dt>Осталось</dt><dd>{Math.max(0, filled.length - done)}</dd></div>
       </dl>
+
+      {filled.length > done && (
+        <button
+          type="button"
+          className="planner-day__carry"
+          onClick={onCarryOver}
+          disabled={carryBusy}
+        >
+          <CornerDownRight aria-hidden="true" />
+          {carryBusy ? 'Переношу…' : carryLabel}
+        </button>
+      )}
 
       <section className="planner-day__notes" aria-label={`Заметки дня: ${WEEKDAY_FULL[index]}`}>
         <h4>Заметки дня</h4>
@@ -801,9 +847,194 @@ export default function AdminPlanner({ password }: { password: string }) {
     scheduleSave(weekStart, next);
   }, [scheduleSave, weekStart]);
 
+  const [template, setTemplate] = useState<PlannerTemplate | null>(null);
+  const [templateMigration, setTemplateMigration] = useState('');
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [templateApplied, setTemplateApplied] = useState(false);
+  // Неделя, в которую шаблон уже подставляли: без этого он возвращался бы
+  // сразу после того, как все дела из него удалили вручную.
+  const appliedWeekRef = useRef<string | null>(null);
+
+  const loadTemplate = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/planner-template', {
+        headers: { 'X-Admin-Password': passwordRef.current },
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean; template?: PlannerTemplate | null; migration?: string;
+      } | null;
+      if (!response.ok || !payload?.success) {
+        if (payload?.migration) setTemplateMigration(payload.migration);
+        else if (response.status === 503 && isLocalEnvironment()) setTemplate(readLocalTemplate());
+        return;
+      }
+      setTemplateMigration('');
+      setTemplate(isEmptyTemplate(payload.template ?? null) ? null : payload.template ?? null);
+    } catch {
+      // Шаблон — удобство, а не основа: планер работает и без него.
+    }
+  }, []);
+
+  useEffect(() => { void loadTemplate(); }, [loadTemplate]);
+
+  const persistTemplate = useCallback(async (next: PlannerTemplate | null): Promise<boolean> => {
+    setTemplateBusy(true);
+    try {
+      if (localModeRef.current) {
+        writeLocalTemplate(next);
+        setTemplate(next);
+        return true;
+      }
+      const response = await fetch('/api/admin/planner-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          password: passwordRef.current,
+          template: next || { days: [], goals: [] },
+          clear: !next,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean; error?: string; template?: PlannerTemplate | null; migration?: string;
+      } | null;
+      if (!response.ok || !payload?.success) {
+        if (payload?.migration) setTemplateMigration(payload.migration);
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      setTemplateMigration('');
+      setTemplate(isEmptyTemplate(payload.template ?? null) ? null : payload.template ?? null);
+      return true;
+    } catch (error) {
+      notify.error('Шаблон не сохранился', error instanceof Error ? error.message : undefined);
+      return false;
+    } finally {
+      setTemplateBusy(false);
+    }
+  }, []);
+
+  const [carryingDay, setCarryingDay] = useState<number | null>(null);
+
+  /**
+   * Перенос невыполненного на следующий день. Внутри недели это обычная правка
+   * текущей записи; из воскресенья задачи уезжают в следующую неделю — это
+   * отдельная строка в базе, поэтому её приходится прочитать и сохранить
+   * отдельным запросом. Из текущей недели задачи убираются только после того,
+   * как следующая действительно сохранилась: иначе при обрыве сети они бы
+   * исчезли из одного дня и не появились в другом.
+   */
+  const carryOver = useCallback(async (index: number) => {
+    if (carryingDay !== null) return;
+    const moving = pendingTasks(dataRef.current.days[index]);
+    if (!moving.length) return;
+
+    const withoutCarried = (day: PlannerDay, carried: PlannerCheckItem[]): PlannerDay => ({
+      ...day,
+      tasks: day.tasks.filter((task) => !carried.some((item) => item.id === task.id)),
+    });
+
+    if (index < DAYS_IN_WEEK - 1) {
+      const capacity = Math.max(0, PLANNER_LIMITS.tasksPerDay - dataRef.current.days[index + 1].tasks.length);
+      const carried = moving.slice(0, capacity);
+      if (!carried.length) {
+        notify.error('В следующем дне нет места', `Там уже ${PLANNER_LIMITS.tasksPerDay} задач — сначала разберите их.`);
+        return;
+      }
+      update((current) => ({
+        ...current,
+        days: current.days.map((day, dayIndex) => {
+          if (dayIndex === index) return withoutCarried(day, carried);
+          if (dayIndex === index + 1) return { ...day, tasks: [...day.tasks, ...carried] };
+          return day;
+        }),
+      }));
+      notify.success(`Перенесено задач: ${carried.length}`, `Теперь они на ${WEEKDAY_FULL[index + 1]}.`);
+      return;
+    }
+
+    const nextWeek = shiftWeek(weekStart, 1);
+    setCarryingDay(index);
+    try {
+      let targetData: PlannerWeekData;
+      if (localModeRef.current) {
+        targetData = normalizeWeekData(readLocalWeeks()[nextWeek]);
+      } else {
+        const response = await fetch(`/api/admin/planner?week=${encodeURIComponent(nextWeek)}`, {
+          headers: { 'X-Admin-Password': passwordRef.current },
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => null) as { success?: boolean; data?: unknown; error?: string } | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+        targetData = normalizeWeekData(payload.data);
+      }
+
+      const capacity = Math.max(0, PLANNER_LIMITS.tasksPerDay - targetData.days[0].tasks.length);
+      const carried = moving.slice(0, capacity);
+      if (!carried.length) throw new Error(`В понедельнике следующей недели уже ${PLANNER_LIMITS.tasksPerDay} задач`);
+
+      const merged: PlannerWeekData = {
+        ...targetData,
+        days: targetData.days.map((day, dayIndex) => (
+          dayIndex === 0 ? { ...day, tasks: [...day.tasks, ...carried] } : day
+        )),
+      };
+
+      if (localModeRef.current) {
+        writeLocalWeek(nextWeek, merged);
+      } else {
+        const response = await fetch('/api/admin/planner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
+          credentials: 'same-origin',
+          body: JSON.stringify({ password: passwordRef.current, week: nextWeek, data: merged }),
+        });
+        const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+
+      update((current) => ({
+        ...current,
+        days: current.days.map((day, dayIndex) => (dayIndex === index ? withoutCarried(day, carried) : day)),
+      }));
+      notify.success(`Перенесено задач: ${carried.length}`, 'Они ждут в понедельник следующей недели.');
+    } catch (error) {
+      notify.error('Не удалось перенести', error instanceof Error ? error.message : undefined);
+    } finally {
+      setCarryingDay(null);
+    }
+  }, [carryingDay, update, weekStart]);
+
+  const saveWeekAsTemplate = useCallback(async () => {
+    const next = templateFromWeek(dataRef.current);
+    if (isEmptyTemplate(next)) {
+      notify.error('Нечего сохранять', 'Сначала заполните задачи или цели недели.');
+      return;
+    }
+    if (await persistTemplate(next)) {
+      appliedWeekRef.current = weekStart;
+      notify.success('Шаблон недели сохранён', `Повторяющихся дел: ${countTemplateItems(next)}.`);
+    }
+  }, [persistTemplate, weekStart]);
+
+  const applyTemplateNow = useCallback(() => {
+    if (!template) return;
+    update((current) => applyTemplate(current, template));
+    appliedWeekRef.current = weekStart;
+    setTemplateApplied(false);
+    notify.success('Шаблон подставлен', 'Заполнились только пустые дни — написанное не тронуто.');
+  }, [template, update, weekStart]);
+
+  const forgetTemplate = useCallback(async () => {
+    if (await persistTemplate(null)) notify.success('Шаблон забыт');
+  }, [persistTemplate]);
+
   const load = useCallback(async (week: string) => {
     setLoading(true);
     setLoadError('');
+    setTemplateApplied(false);
     try {
       const response = await fetch(`/api/admin/planner?week=${encodeURIComponent(week)}`, {
         headers: { 'X-Admin-Password': passwordRef.current },
@@ -848,6 +1079,20 @@ export default function AdminPlanner({ password }: { password: string }) {
   useEffect(() => {
     void load(weekStart);
   }, [load, weekStart]);
+
+  // Шаблон подставляется сам только в пустую текущую или будущую неделю и без
+  // сохранения: пролистывание недель не должно плодить записи в базе. Дела
+  // сохранятся вместе с первой же настоящей правкой.
+  useEffect(() => {
+    if (loading || !template || appliedWeekRef.current === weekStart) return;
+    if (weekStart < currentWeekStart()) return;
+    if (!isWeekUntouched(dataRef.current)) return;
+    appliedWeekRef.current = weekStart;
+    const next = applyTemplate(dataRef.current, template);
+    dataRef.current = next;
+    setData(next);
+    setTemplateApplied(true);
+  }, [loading, template, weekStart]);
 
   // Закрытие вкладки не отменяет последнюю правку: обычный fetch на выгрузке
   // страницы браузер может оборвать, поэтому недосохранённое уходит sendBeacon.
@@ -961,6 +1206,46 @@ export default function AdminPlanner({ password }: { password: string }) {
             </button>
           )}
         </div>
+
+        <div className="planner-template">
+          <div className="planner-template__info">
+            <strong><Repeat aria-hidden="true" /> Шаблон недели</strong>
+            <span className="admin-hint">
+              {templateMigration
+                ? `Примените миграцию ${templateMigration} — до неё шаблон негде хранить.`
+                : template
+                  ? `Повторяющихся дел: ${countTemplateItems(template)}. Новая пустая неделя открывается уже с ними.`
+                  : 'Сохраните удачную неделю как шаблон — повторяющиеся дела будут появляться в новых неделях сами.'}
+            </span>
+          </div>
+          <div className="planner-template__actions">
+            <button
+              type="button"
+              className="admin-button admin-button--compact"
+              disabled={templateBusy || Boolean(templateMigration)}
+              onClick={() => void saveWeekAsTemplate()}
+            >
+              {template ? 'Обновить шаблон' : 'Сделать шаблоном'}
+            </button>
+            {template && (
+              <>
+                <button type="button" className="admin-button admin-button--compact" disabled={templateBusy} onClick={applyTemplateNow}>
+                  Подставить
+                </button>
+                <button type="button" className="admin-button admin-button--quiet admin-button--compact" disabled={templateBusy} onClick={() => void forgetTemplate()}>
+                  Забыть
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {templateApplied && (
+          <p className="planner-notice planner-notice--info">
+            <Repeat aria-hidden="true" />
+            Дела подставлены из шаблона. Они сохранятся, как только вы что-нибудь измените в неделе.
+          </p>
+        )}
 
         {localMode && (
           <p className="planner-notice">
@@ -1137,6 +1422,15 @@ export default function AdminPlanner({ password }: { password: string }) {
                     ...current,
                     days: current.days.map((day, dayIndex) => (dayIndex === index ? updater(day) : day)),
                   }))}
+                  onCarryOver={() => void carryOver(index)}
+                  carryBusy={carryingDay === index}
+                  carryLabel={
+                    index === DAYS_IN_WEEK - 1
+                      ? 'Перенести на следующую неделю'
+                      : index === todayIndex
+                        ? 'Перенести невыполненное на завтра'
+                        : `Перенести на ${WEEKDAY_FULL[index + 1]}`
+                  }
                 />
               ))}
             </div>

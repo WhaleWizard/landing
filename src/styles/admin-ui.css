@@ -3721,6 +3721,69 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   color: var(--adm-warning);
 }
 
+/* Подстановка шаблона — не предупреждение, а сообщение: тон нейтральный. */
+.admin-root .planner-notice--info {
+  border-color: color-mix(in srgb, var(--adm-primary) 30%, var(--adm-border-subtle));
+  background: color-mix(in srgb, var(--adm-primary) 7%, var(--adm-surface-elevated));
+}
+
+.admin-root .planner-notice--info svg {
+  color: var(--adm-primary);
+}
+
+/* --- Шаблон недели --- */
+
+.admin-root .planner-template {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+}
+
+.admin-root .planner-template__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.admin-root .planner-template__info strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.admin-root .planner-template__info strong svg {
+  width: 15px;
+  height: 15px;
+  color: var(--adm-primary);
+}
+
+.admin-root .planner-template__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .admin-root .planner-template__actions {
+    width: 100%;
+  }
+
+  .admin-root .planner-template__actions .admin-button {
+    flex: 1 1 auto;
+  }
+}
+
 /* --- Выбор недели (портал Radix живёт вне .admin-root) --- */
 
 body[data-admin-theme] .planner-weekpick {
@@ -4712,6 +4775,42 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid var(--adm-border-subtle);
+}
+
+/* Перенос невыполненного: появляется только когда переносить есть что. */
+.admin-root .planner-day__carry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 38px;
+  margin-top: 8px;
+  padding: 0 10px;
+  border: 1px dashed color-mix(in srgb, var(--adm-primary) 42%, var(--adm-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--adm-primary) 7%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--adm-primary);
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.admin-root .planner-day__carry:hover:not(:disabled) {
+  border-style: solid;
+  background: color-mix(in srgb, var(--adm-primary) 14%, transparent);
+}
+
+.admin-root .planner-day__carry:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+.admin-root .planner-day__carry svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
 }
 
 .admin-root .planner-day__counts > div {
