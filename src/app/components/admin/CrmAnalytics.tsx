@@ -183,7 +183,6 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
   if (!totals || totals.leads === 0) {
     return (
       <AdminBlank
-        icon={<Trophy />}
         title="Сделок пока нет"
         text="Аналитика включится, когда появятся заявки и вы проставите этапы и суммы в карточках. Ничего настраивать не нужно."
       />

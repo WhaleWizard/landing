@@ -9337,6 +9337,14 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   filter: saturate(0.9);
 }
 
+/* Кит рисует себя сам — круглая подложка под иконку ему только мешает. */
+.admin-root .admin-blank__art--whale {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+}
+
 .admin-root .admin-blank__title {
   margin: 0;
   font-size: var(--adm-text-md);

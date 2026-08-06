@@ -253,7 +253,6 @@ export default function AdminGoals({ password }: { password: string }) {
           {!data.hasGoal && (
             <AdminBlank
               inline
-              icon={<Target />}
               title={`На ${periodLabel(period).toLowerCase()} цель ещё не задана`}
               text="Заполните план ниже — появятся кольца выполнения, прогноз к концу месяца и предупреждение, если темпа не хватает."
             />

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
+import WhaleMark from '../brand/WhaleMark';
 
 /**
  * Общий слой обратной связи админки: тосты вместо системных `alert`,
@@ -142,9 +143,15 @@ export function AdminBlank({
   actions?: ReactNode;
   inline?: boolean;
 }) {
+  // Пустой раздел — единственное место, где интерфейсу нечего показать по делу.
+  // Вместо очередной серой иконки здесь стоит кит: это не «ошибка», а просто
+  // экран, до которого ещё не дошли данные. Иконку можно передать явно —
+  // например, лупу там, где пусто именно из-за поиска.
   return (
     <div className={`admin-blank${inline ? ' admin-blank--inline' : ''}`}>
-      {icon ? <span className="admin-blank__art" aria-hidden="true">{icon}</span> : null}
+      <span className={`admin-blank__art${icon ? '' : ' admin-blank__art--whale'}`} aria-hidden="true">
+        {icon || <WhaleMark size={inline ? '46px' : '62px'} />}
+      </span>
       <div>
         <p className="admin-blank__title">{title}</p>
         {text ? <p className="admin-blank__text">{text}</p> : null}

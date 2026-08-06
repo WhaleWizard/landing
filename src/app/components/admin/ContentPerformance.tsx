@@ -104,7 +104,6 @@ export default function ContentPerformance({
       {rows.length === 0 ? (
         <AdminBlank
           inline
-          icon={<Eye />}
           title="Данных по публикациям пока нет"
           text="Статистика появится, когда на статьи пойдёт трафик. Заявка засчитывается материалу, если человек оставил её именно с этой страницы."
         />

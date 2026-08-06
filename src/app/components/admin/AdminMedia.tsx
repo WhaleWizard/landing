@@ -442,7 +442,6 @@ export default function AdminMedia({ password, articles }: { password: string; a
           >
             {files.length === 0 && (
               <AdminBlank
-                icon={<Upload />}
                 title="В медиатеке пока пусто"
                 text="Перетащите файлы прямо сюда или нажмите «Загрузить». Картинки до 15 МБ, документы — PDF, DOCX, XLSX, PPTX и ZIP."
               />

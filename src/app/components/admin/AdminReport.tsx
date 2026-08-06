@@ -142,7 +142,6 @@ export default function AdminReport({ password }: { password: string }) {
 
       {!data?.success ? (
         <AdminBlank
-          icon={<FileText />}
           title="Отчёт пока не собрать"
           text={data?.error || 'Данные появятся, когда накопится статистика за выбранный месяц.'}
         />

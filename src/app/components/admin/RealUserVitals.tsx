@@ -98,7 +98,6 @@ export default function RealUserVitals({ password }: { password: string }) {
       {!hasData ? (
         <AdminBlank
           inline
-          icon={<Gauge />}
           title="Данные ещё собираются"
           text="Метрики приходят от посетителей сайта и появятся здесь в течение суток после первых визитов."
         />

@@ -583,7 +583,7 @@ export default function AdminAttribution({ password }: { password: string }) {
               {active?.supported && visibleRows.length === 0 && (
                 <AdminBlank
                   inline
-                  icon={<Search />}
+                  icon={query ? <Search /> : undefined}
                   title={query ? 'Ничего не нашлось' : 'За период данных нет'}
                   text={query
                     ? 'Попробуйте другой запрос или снимите фильтр.'
