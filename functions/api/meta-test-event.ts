@@ -2,6 +2,7 @@ import { json } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
+import { verifyAdminPassword } from '../_lib/auth';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
 import { getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
 
@@ -130,8 +131,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
   const debugSecret = env.META_CAPI_DEBUG_SECRET;
   const providedSecret = request.headers.get('x-meta-debug-secret') || undefined;
+  const bySecret = Boolean(debugSecret) && providedSecret === debugSecret;
 
-  if (!debugSecret || providedSecret !== debugSecret) {
+  // Второй допуск — пароль админки: кнопка «Отправить тестовое событие» в
+  // разделе Meta CAPI не должна требовать отдельного секрета. Права те же:
+  // владелец админки и так управляет трекингом. Событие уходит только с
+  // test_event_code, то есть в «Тестирование событий», а не в живые данные.
+  const byAdmin = verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env);
+
+  if (!bySecret && !byAdmin) {
     return json(
       { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' },
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },

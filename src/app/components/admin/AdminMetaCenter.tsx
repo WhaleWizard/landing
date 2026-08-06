@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock3, Database,
-  Info, Inbox, RefreshCw, Server, ShieldCheck, XCircle,
+  Info, Inbox, RefreshCw, Send, Server, ShieldCheck, XCircle,
 } from 'lucide-react';
+import { notify } from './AdminFeedback';
 
 type Tone = 'ok' | 'warn' | 'fail' | 'neutral';
 
@@ -201,6 +202,8 @@ export default function AdminMetaCenter({ password }: { password: string }) {
   const [processing, setProcessing] = useState(false);
   const [processArmed, setProcessArmed] = useState(false);
   const [processNotice, setProcessNotice] = useState('');
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -225,6 +228,59 @@ export default function AdminMetaCenter({ password }: { password: string }) {
   }, [password]);
 
   useEffect(() => { void load(); }, [load]);
+
+  /**
+   * Тестовое событие уходит с `test_event_code`: оно видно в Events Manager →
+   * «Тестирование событий» и не смешивается с живой статистикой. Отправляем
+   * один PageView, а не весь набор — задача проверить связь, а не залить отчёт.
+   */
+  const sendTestEvent = useCallback(async () => {
+    setTestSending(true);
+    setTestResult(null);
+    try {
+      const response = await fetch('/api/meta-test-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        body: JSON.stringify({ event_name: 'PageView', page_url: window.location.origin }),
+      });
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean;
+        error?: string;
+        events_requested?: { event_name: string; event_id: string }[];
+        meta?: unknown;
+      } | null;
+
+      if (!response.ok || !payload?.success) {
+        const metaMessage = typeof payload?.meta === 'string'
+          ? payload.meta
+          : (payload?.meta as { error?: { message?: string } } | undefined)?.error?.message;
+        const raw = payload?.error || metaMessage || `HTTP ${response.status}`;
+        // Ответ сервера технический и на английском — самую частую причину
+        // переводим, иначе владельцу админки непонятно, что чинить.
+        const reason = raw.includes('META_CAPI_TEST_CODE')
+          ? 'В Cloudflare не задан META_CAPI_TEST_CODE — код тестирования событий из Events Manager. Без него Meta не примет тестовое событие.'
+          : raw;
+        setTestResult({ ok: false, text: `Тестовое событие не прошло: ${reason}` });
+        notify.error('Тестовое событие не дошло', reason);
+        return;
+      }
+
+      const eventId = payload.events_requested?.[0]?.event_id || '';
+      setTestResult({
+        ok: true,
+        text: `Meta подтвердила приём тестового PageView${eventId ? ` (event_id ${eventId})` : ''}. Событие ищите в Events Manager → «Тестирование событий».`,
+      });
+      notify.success('Тестовое событие принято Meta');
+      await load();
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setTestResult({ ok: false, text: `Не удалось отправить: ${reason}` });
+      notify.error('Не удалось отправить', reason);
+    } finally {
+      setTestSending(false);
+    }
+  }, [load, password]);
 
   const processQueue = async () => {
     setProcessing(true);
@@ -287,16 +343,37 @@ export default function AdminMetaCenter({ password }: { password: string }) {
           </p>
           {data?.checkedAt && <p className="admin-meta mt-1">Обновлено: {formatDate(data.checkedAt)}</p>}
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="admin-button admin-button--secondary"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Проверяю…' : 'Обновить'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void sendTestEvent()}
+            disabled={testSending}
+            className="admin-button"
+            title="Отправляет событие с test_event_code — оно видно в «Тестировании событий» Meta и не попадает в живые данные"
+          >
+            <Send className="h-4 w-4" />
+            {testSending ? 'Отправляю…' : 'Тестовое событие'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="admin-button admin-button--secondary"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Проверяю…' : 'Обновить'}
+          </button>
+        </div>
       </div>
+
+      {testResult && (
+        <div
+          className={`admin-notice ${testResult.ok ? 'admin-notice--success' : 'admin-notice--warning'}`}
+          role="status"
+        >
+          {testResult.text}
+        </div>
+      )}
 
       {loading && !data && !error && (
         <div className="admin-panel p-6 text-sm text-[var(--adm-fg)]/60" role="status" aria-live="polite">
