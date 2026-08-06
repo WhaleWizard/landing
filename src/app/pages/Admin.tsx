@@ -9,7 +9,8 @@ import {
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
-  Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText
+  Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
+  Rows2, Rows3
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -289,9 +290,13 @@ const themeTokens = {
   }
 };
 
+type AdminDensity = 'cozy' | 'compact';
+
 interface AdminThemeContextValue {
   mode: 'light' | 'dark';
   toggleMode: () => void;
+  density: AdminDensity;
+  setDensity: (value: AdminDensity) => void;
 }
 
 const AdminThemeContext = createContext<AdminThemeContextValue | null>(null);
@@ -302,6 +307,8 @@ function useAdminTheme() {
     return {
       mode: 'light' as const,
       toggleMode: () => {},
+      density: 'cozy' as const,
+      setDensity: () => {},
     };
   }
   return context;
@@ -330,11 +337,23 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
     setMode((current) => (current === 'dark' ? 'light' : 'dark'));
   }, []);
 
+  // Плотность списков: «просторно» удобно читать, «плотно» — когда заявок или
+  // файлов много и важнее увидеть больше строк за один экран.
+  const [density, setDensityState] = useState<AdminDensity>(() => (
+    localStorage.getItem('ww-admin-density') === 'compact' ? 'compact' : 'cozy'
+  ));
+
+  const setDensity = useCallback((value: AdminDensity) => setDensityState(value), []);
+
+  useEffect(() => {
+    localStorage.setItem('ww-admin-density', density);
+  }, [density]);
+
   const vars = themeTokens[mode] as React.CSSProperties;
 
   return (
-    <AdminThemeContext.Provider value={{ mode, toggleMode }}>
-      <div style={{ ...vars, minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode}>
+    <AdminThemeContext.Provider value={{ mode, toggleMode, density, setDensity }}>
+      <div style={{ ...vars, minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode} data-density={density}>
         <div className="admin-shell bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
           <AdminConfirmProvider>{children}</AdminConfirmProvider>
           <AdminToaster theme={mode} />
@@ -370,11 +389,19 @@ function AdminCommandHost({ open, onOpenChange, groups }: {
   onOpenChange: (value: boolean) => void;
   groups: AdminCommandGroup[];
 }) {
-  const { mode, toggleMode } = useAdminTheme();
+  const { mode, toggleMode, density, setDensity } = useAdminTheme();
   const withTheme = groups.map((group) => (group.heading !== 'Действия' ? group : {
     ...group,
     items: [
       ...group.items,
+      {
+        id: 'density',
+        label: density === 'compact' ? 'Просторные списки' : 'Плотные списки',
+        searchText: 'Плотность списков просторно плотно',
+        keywords: ['density', 'компактно', 'строки'],
+        icon: density === 'compact' ? <Rows3 /> : <Rows2 />,
+        run: () => setDensity(density === 'compact' ? 'cozy' : 'compact'),
+      },
       {
         id: 'theme',
         label: mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему',
@@ -408,6 +435,23 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   media: ['файлы', 'картинки', 'изображения', 'загрузки'],
   health: ['здоровье', 'диагностика', 'health'],
 };
+
+function AdminDensitySwitch() {
+  const { density, setDensity } = useAdminTheme();
+  return (
+    <div className="admin-density" role="group" aria-label="Плотность длинных списков">
+      <span className="admin-density__label">Списки</span>
+      <div className="admin-density__options">
+        <button type="button" className="admin-density__option" aria-pressed={density === 'cozy'} onClick={() => setDensity('cozy')}>
+          Просторно
+        </button>
+        <button type="button" className="admin-density__option" aria-pressed={density === 'compact'} onClick={() => setDensity('compact')}>
+          Плотно
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const ADMIN_DND_TYPE = 'ADMIN_ARTICLE_ITEM';
 
@@ -1152,6 +1196,7 @@ export default function Admin() {
                 </div>
               ))}
             </nav>
+            <AdminDensitySwitch />
             <p className="admin-sidebar__foot">Источник контента: {sourceLabel}</p>
           </aside>
 

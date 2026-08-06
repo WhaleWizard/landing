@@ -10989,3 +10989,99 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   Плотность длинных списков
+
+   «Просторно» — как было. «Плотно» ужимает строки там, где их бывает много:
+   список сделок, список публикаций, таблицы и сетка медиатеки. Остальной
+   интерфейс не трогаем — сжимать карточки показателей смысла нет.
+   ========================================================================== */
+
+.admin-root {
+  --adm-density-row: 12px;
+  --adm-density-article: 10px;
+  --adm-density-cell: 9px;
+  --adm-density-gap: 12px;
+}
+
+.admin-root[data-density='compact'] {
+  --adm-density-row: 7px;
+  --adm-density-article: 5px;
+  --adm-density-cell: 5px;
+  --adm-density-gap: 8px;
+}
+
+.admin-root .admin-crm-lead {
+  padding: var(--adm-density-row);
+}
+
+.admin-root .admin-article-row {
+  padding: var(--adm-density-article) 10px;
+}
+
+/* Специфичность выше, чем у Tailwind-утилиты space-y-2 на самом списке. */
+.admin-root .admin-article-list > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--adm-density-gap);
+}
+
+.admin-root .adm-data-table tbody td,
+.admin-root .adm-data-table thead th button {
+  padding-block: var(--adm-density-cell);
+}
+
+.admin-root .media-grid {
+  gap: var(--adm-density-gap);
+}
+
+/* --- Переключатель в сайдбаре --- */
+
+.admin-root .admin-density {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--adm-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--adm-muted) 34%, transparent);
+}
+
+.admin-root .admin-density__label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .admin-density__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--adm-surface-canvas) 70%, transparent);
+}
+
+.admin-root .admin-density__option {
+  min-height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--adm-text-tertiary);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.admin-root .admin-density__option:hover {
+  color: var(--adm-text-primary);
+}
+
+.admin-root .admin-density__option[aria-pressed='true'] {
+  background: var(--adm-surface-elevated);
+  box-shadow: var(--adm-shadow-xs);
+  color: var(--adm-primary);
+}
