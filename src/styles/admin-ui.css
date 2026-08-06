@@ -709,7 +709,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-editor-toolbar {
   position: sticky;
-  top: 12px;
+  top: var(--adm-sticky-top);
   z-index: 2;
   backdrop-filter: blur(14px);
 }
@@ -913,7 +913,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-block-nav {
   position: sticky;
-  top: 12px;
+  top: var(--adm-sticky-top);
   display: grid;
   min-width: 0;
   gap: 5px;
@@ -1128,7 +1128,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-content-aside {
   position: sticky;
-  top: 12px;
+  top: var(--adm-sticky-top);
 }
 
 .admin-root :is(.admin-form-grid, .admin-inline-fields, .admin-stat-fields) > * {
@@ -1695,10 +1695,10 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-crm-list {
   position: sticky;
-  top: 12px;
+  top: var(--adm-sticky-top);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 28px);
+  max-height: calc(100vh - var(--adm-topbar-height) - 28px);
   overflow: hidden;
 }
 
@@ -7243,7 +7243,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 @media (min-width: 900px) {
   .admin-root .media-folders {
     position: sticky;
-    top: 16px;
+    top: var(--adm-sticky-top);
   }
 }
 
@@ -8370,6 +8370,9 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   --adm-sidebar-width: 244px;
   --adm-topbar-height: 60px;
   --adm-gutter: clamp(16px, 2vw, 28px);
+  /* Общая «полка» для всего липкого внутри разделов: шапка перекрывает
+     первые 60px экрана, и панель с top: 12px пряталась под ней. */
+  --adm-sticky-top: calc(var(--adm-topbar-height) + 12px);
 }
 
 /* Общий сброс ширины из старой вёрстки мешал любому max-width внутри main. */
