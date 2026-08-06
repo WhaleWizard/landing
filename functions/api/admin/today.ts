@@ -52,10 +52,12 @@ interface PlannerTask {
  */
 async function plannerToday(db: D1Database): Promise<{
   tasks: PlannerTask[];
+  notes: Array<{ id: string; text: string }>;
   done: number;
   total: number;
   weekStart: string;
   dayIndex: number;
+  streak: number;
 } | null> {
   const now = new Date();
   // В планере неделя начинается с понедельника, а getUTCDay() — с воскресенья.
@@ -69,10 +71,24 @@ async function plannerToday(db: D1Database): Promise<{
 
   // Недели ещё нет — это не ошибка: план на сегодня просто пустой, и его
   // можно завести прямо с этого экрана.
-  const empty = { tasks: [] as PlannerTask[], done: 0, total: 0, weekStart, dayIndex: weekdayIndex };
+  const streak = await plannerStreak(db, weekStart, weekdayIndex);
+  const empty = {
+    tasks: [] as PlannerTask[],
+    notes: [] as Array<{ id: string; text: string }>,
+    done: 0,
+    total: 0,
+    weekStart,
+    dayIndex: weekdayIndex,
+    streak,
+  };
   if (!row?.data_json) return empty;
 
-  let parsed: { days?: Array<{ tasks?: Array<{ id?: string; text?: string; done?: boolean }> }> };
+  let parsed: {
+    days?: Array<{
+      tasks?: Array<{ id?: string; text?: string; done?: boolean }>;
+      notes?: Array<{ id?: string; text?: string }>;
+    }>;
+  };
   try {
     parsed = JSON.parse(row.data_json);
   } catch {
@@ -88,13 +104,132 @@ async function plannerToday(db: D1Database): Promise<{
       done: Boolean(task?.done),
     }));
 
+  const notes = (parsed.days?.[weekdayIndex]?.notes || [])
+    .filter((note) => String(note?.text || '').trim())
+    .slice(0, 10)
+    .map((note, index) => ({
+      id: String(note?.id || `note-${index}`),
+      text: String(note?.text || '').slice(0, 500),
+    }));
+
   return {
     tasks,
+    notes,
     done: tasks.filter((task) => task.done).length,
     total: tasks.length,
     weekStart,
     dayIndex: weekdayIndex,
+    streak,
   };
+}
+
+/**
+ * Стрик выполнения плана — сколько дней подряд план закрывался полностью.
+ *
+ * Правила намеренно щадящие: день без единой задачи не считается провалом
+ * (нельзя провалить план, который не составлял) — он просто пропускается.
+ * Сегодняшний день тоже не обрывает стрик, пока не кончился: если он ещё
+ * не закрыт, отсчёт начинается со вчерашнего. Обрывает только день, в
+ * котором задачи были и остались невыполненными.
+ */
+async function plannerStreak(db: D1Database, weekStart: string, todayIndex: number): Promise<number> {
+  const rows = await db
+    .prepare('SELECT week_start, data_json FROM planner_weeks WHERE week_start <= ? ORDER BY week_start DESC LIMIT 8')
+    .bind(weekStart)
+    .all<{ week_start: string; data_json: string }>();
+
+  // День → сколько задач было и сколько закрыто.
+  const byDay = new Map<string, { total: number; done: number }>();
+  for (const row of rows.results || []) {
+    let parsed: { days?: Array<{ tasks?: Array<{ text?: string; done?: boolean }> }> };
+    try {
+      parsed = JSON.parse(row.data_json);
+    } catch {
+      continue;
+    }
+    const monday = new Date(`${row.week_start}T00:00:00Z`);
+    if (Number.isNaN(monday.getTime())) continue;
+    for (let index = 0; index < 7; index += 1) {
+      const tasks = (parsed.days?.[index]?.tasks || []).filter((task) => String(task?.text || '').trim());
+      if (!tasks.length) continue;
+      const day = new Date(monday.getTime() + index * 86_400_000).toISOString().slice(0, 10);
+      byDay.set(day, { total: tasks.length, done: tasks.filter((task) => task.done).length });
+    }
+  }
+
+  const startOfToday = new Date(`${weekStart}T00:00:00Z`).getTime() + todayIndex * 86_400_000;
+  let streak = 0;
+  for (let back = 0; back < 45; back += 1) {
+    const day = new Date(startOfToday - back * 86_400_000).toISOString().slice(0, 10);
+    const stats = byDay.get(day);
+    if (!stats) continue;                       // в этот день плана не было — пропускаем
+    if (stats.done >= stats.total) {
+      streak += 1;
+      continue;
+    }
+    if (back === 0) continue;                   // сегодня ещё не кончилось
+    break;                                      // план этого дня остался незакрытым
+  }
+  return streak;
+}
+
+/**
+ * Три источника, которые принесли больше всего заявок за 30 дней.
+ * Цена лида появляется только там, где расход по этому источнику введён
+ * вручную и в одной валюте: курсов в системе нет, складывать разные валюты
+ * нельзя, а выдумывать расход — тем более.
+ */
+async function topSources(db: D1Database): Promise<Array<{
+  source: string;
+  leads: number;
+  spend: number | null;
+  currency: string;
+  costPerLead: number | null;
+}>> {
+  if (!(await tableExists(db, 'leads'))) return [];
+  const [hasUtm, hasCreatedAt, hasSoftDelete] = await Promise.all([
+    columnExists(db, 'leads', 'utm_source'),
+    columnExists(db, 'leads', 'created_at'),
+    columnExists(db, 'leads', 'deleted_at'),
+  ]);
+  if (!hasUtm || !hasCreatedAt) return [];
+
+  const rows = await db.prepare(
+    `SELECT COALESCE(NULLIF(TRIM(utm_source), ''), '') AS source, COUNT(*) AS leads
+     FROM leads
+     WHERE created_at >= date('now', '-29 day')${hasSoftDelete ? ' AND deleted_at IS NULL' : ''}
+     GROUP BY source ORDER BY leads DESC, source ASC LIMIT 3`,
+  ).all<{ source: string; leads: number }>();
+
+  const sources = rows.results || [];
+  if (!sources.length) return [];
+
+  const spendBySource = new Map<string, { amount: number; currencies: Set<string> }>();
+  if (await tableExists(db, 'ad_spend')) {
+    const spend = await db.prepare(
+      `SELECT source, currency, SUM(amount) AS amount FROM ad_spend
+       WHERE day >= date('now', '-29 day') GROUP BY source, currency`,
+    ).all<{ source: string; currency: string; amount: number }>();
+    for (const row of spend.results || []) {
+      const key = String(row.source || '').trim().toLowerCase();
+      const entry = spendBySource.get(key) || { amount: 0, currencies: new Set<string>() };
+      entry.amount += Number(row.amount) || 0;
+      entry.currencies.add(row.currency);
+      spendBySource.set(key, entry);
+    }
+  }
+
+  return sources.map((row) => {
+    const spend = spendBySource.get(String(row.source || '').trim().toLowerCase());
+    const currency = spend && spend.currencies.size === 1 ? [...spend.currencies][0] : '';
+    return {
+      source: row.source || 'без метки',
+      leads: row.leads,
+      spend: currency ? spend!.amount : null,
+      currency,
+      costPerLead: currency && row.leads > 0 ? spend!.amount / row.leads : null,
+    };
+  });
 }
 
 async function tableExists(db: D1Database, table: string): Promise<boolean> {
@@ -395,6 +530,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     // План на сегодня показывается отдельным списком с отметками, поэтому
     // в «Фокус дня» он больше не дублируется.
     const planner = hasPlanner ? await plannerToday(db) : null;
+    const sources = await topSources(db);
 
     const priority = { critical: 0, attention: 1, info: 2 } as const;
     items.sort((a, b) => priority[a.level] - priority[b.level] || b.count - a.count);
@@ -410,6 +546,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       items,
       focus,
       planner,
+      sources,
       health: {
         outboxPending,
         outboxRetry,

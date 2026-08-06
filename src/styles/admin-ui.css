@@ -11826,3 +11826,209 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 .admin-root .media-card__preview {
   position: relative;
 }
+
+/* ==========================================================================
+   «Сегодня»: заметка дня, изменения со вчера, источники заявок, стрик
+   ========================================================================== */
+
+.admin-root .today-plan__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-root .today-plan__streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--adm-warning) 38%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--adm-warning) 12%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--adm-warning);
+}
+
+.admin-root .today-plan__streak svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-root .today-note__list {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .today-note__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--adm-border);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-root .today-note__list li span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .today-note__remove {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--adm-text-tertiary);
+  cursor: pointer;
+}
+
+.admin-root .today-note__remove:hover {
+  background: color-mix(in srgb, var(--adm-danger) 12%, transparent);
+  color: var(--adm-danger);
+}
+
+.admin-root .today-note__remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-root .today-note__add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .today-note__add > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .today-note__add input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--adm-control-height);
+  padding: 0 12px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control);
+  background: var(--adm-input-bg);
+  color: var(--adm-text-primary);
+  font-size: 13.5px;
+}
+
+.admin-root .today-note__add input:focus {
+  outline: none;
+  border-color: var(--adm-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--adm-primary) 22%, transparent);
+}
+
+.admin-root .today-delta__list,
+.admin-root .today-sources__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .today-delta__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+}
+
+.admin-root .today-delta__label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .today-delta__value {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .today-delta__diff {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .today-delta__list li[data-tone='up'] .today-delta__diff { color: var(--adm-success); }
+.admin-root .today-delta__list li[data-tone='down'] .today-delta__diff { color: var(--adm-danger); }
+
+.admin-root .today-sources__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+}
+
+.admin-root .today-sources__name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .today-sources__leads {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .today-sources__price {
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--adm-text-tertiary);
+}
+
+@media (max-width: 560px) {
+  .admin-root .today-delta__list li,
+  .admin-root .today-sources__list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-root .today-delta__diff,
+  .admin-root .today-sources__price {
+    grid-column: 1 / -1;
+  }
+
+  .admin-root .today-note__add {
+    flex-wrap: wrap;
+  }
+
+  .admin-root .today-note__add input {
+    flex: 1 1 100%;
+  }
+}

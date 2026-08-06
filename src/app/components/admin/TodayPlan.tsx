@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, ListChecks, Plus, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Check, Flame, ListChecks, Plus, Sparkles, X } from 'lucide-react';
 import { createId, normalizeWeekData, type PlannerWeekData } from './plannerModel';
 
 export interface PlanTask {
@@ -24,6 +24,7 @@ export default function TodayPlan({
   tasks,
   weekStart,
   dayIndex,
+  streak = 0,
   onNavigate,
   onSaved,
 }: {
@@ -31,6 +32,7 @@ export default function TodayPlan({
   tasks: PlanTask[];
   weekStart: string;
   dayIndex: number;
+  streak?: number;
   onNavigate: () => void;
   onSaved: () => void;
 }) {
@@ -117,9 +119,19 @@ export default function TodayPlan({
           <h3 className="admin-card-title"><ListChecks aria-hidden="true" /> План на сегодня</h3>
           <p className="admin-hint">Что нужно сделать сегодня. Отметки сразу уходят в планер.</p>
         </div>
-        <button type="button" className="admin-button admin-button--quiet" onClick={onNavigate}>
-          Вся неделя <ArrowRight aria-hidden="true" />
-        </button>
+        <div className="today-plan__head-actions">
+          {streak > 1 && (
+            <span
+              className="today-plan__streak"
+              title="Дней подряд, когда план закрывался полностью. День без задач стрик не обрывает."
+            >
+              <Flame aria-hidden="true" /> {streak} {streak < 5 ? 'дня' : 'дней'} подряд
+            </span>
+          )}
+          <button type="button" className="admin-button admin-button--quiet" onClick={onNavigate}>
+            Вся неделя <ArrowRight aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {total > 0 && (

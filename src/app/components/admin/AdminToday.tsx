@@ -7,6 +7,7 @@ import {
 import { useArticles } from '../../context/ArticlesContext';
 import { AdminPanel } from './AdminUI';
 import TodayPlan, { type PlanTask } from './TodayPlan';
+import TodayNote, { type DayNote } from './TodayNote';
 import TodayGoal from './TodayGoal';
 import AdminAlerts from './AdminAlerts';
 import {
@@ -43,7 +44,11 @@ interface TodayResponse {
   generatedAt?: string;
   items?: TodayItem[];
   focus?: FocusItem[];
-  planner?: { done: number; total: number; tasks: PlanTask[]; weekStart: string; dayIndex: number } | null;
+  planner?: {
+    done: number; total: number; tasks: PlanTask[]; notes?: DayNote[];
+    weekStart: string; dayIndex: number; streak?: number;
+  } | null;
+  sources?: Array<{ source: string; leads: number; spend: number | null; currency: string; costPerLead: number | null }>;
   health?: { outboxPending: number; outboxRetry: number; outboxDead: number; telegramMissing: number };
   summary?: Record<string, number>;
 }
@@ -208,6 +213,27 @@ export default function AdminToday({
     () => buildSeries(stats?.viewsDaily || [], stats?.uniquesDaily || [], stats?.leadsDaily || []),
     [stats],
   );
+
+  /**
+   * Что изменилось со вчера. Сравниваются два последних завершённых дня —
+   * вчера и позавчера: сегодняшний ещё идёт, и сравнивать его не с чем.
+   * Дни считаются по UTC, как их пишет база.
+   */
+  const yesterday = useMemo(() => {
+    if (!stats?.success) return null;
+    const dayKey = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
+    const pick = <T,>(list: T[] | undefined, day: string, field: keyof T): number => {
+      const row = (list || []).find((item) => (item as unknown as { day: string }).day === day);
+      return row ? Number(row[field]) || 0 : 0;
+    };
+    const a = dayKey(1);
+    const b = dayKey(2);
+    return [
+      { key: 'uniques', label: 'Уникальные посетители', now: pick(stats.uniquesDaily, a, 'uniques'), before: pick(stats.uniquesDaily, b, 'uniques') },
+      { key: 'views', label: 'Просмотры страниц', now: pick(stats.viewsDaily, a, 'views'), before: pick(stats.viewsDaily, b, 'views') },
+      { key: 'leads', label: 'Заявки', now: pick(stats.leadsDaily, a, 'leads'), before: pick(stats.leadsDaily, b, 'leads') },
+    ];
+  }, [stats]);
 
   const pageTitle = useCallback((path: string): string => {
     const match = path.match(/^\/(blog|cases)\/(.+)$/);
@@ -386,9 +412,66 @@ export default function AdminToday({
             tasks={data.planner.tasks || []}
             weekStart={data.planner.weekStart}
             dayIndex={data.planner.dayIndex}
+            streak={data.planner.streak || 0}
             onNavigate={() => onNavigate('planner')}
             onSaved={() => void load()}
           />
+        )}
+
+        {data?.success && data.planner && (
+          <TodayNote
+            password={password}
+            notes={data.planner.notes || []}
+            weekStart={data.planner.weekStart}
+            dayIndex={data.planner.dayIndex}
+            onSaved={() => void load()}
+          />
+        )}
+
+        {yesterday && yesterday.some((row) => row.now > 0 || row.before > 0) && (
+          <section className="admin-panel adm-card today-delta" aria-label="Что изменилось со вчера">
+            <header className="adm-card__head">
+              <h3 className="admin-card-title"><TrendingUp aria-hidden="true" /> Что изменилось со вчера</h3>
+              <p className="admin-hint">Вчера в сравнении с позавчера. Сегодняшний день ещё идёт — его тут нет.</p>
+            </header>
+            <ul className="today-delta__list">
+              {yesterday.map((row) => {
+                const diff = row.now - row.before;
+                const tone = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+                return (
+                  <li key={row.key} data-tone={tone}>
+                    <span className="today-delta__label">{row.label}</span>
+                    <strong className="today-delta__value">{formatNumber(row.now)}</strong>
+                    <span className="today-delta__diff">
+                      {diff === 0 ? 'как позавчера' : `${diff > 0 ? '+' : '−'}${formatNumber(Math.abs(diff))} к позавчера`}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {(data?.sources || []).length > 0 && (
+          <section className="admin-panel adm-card today-sources" aria-label="Откуда приходят заявки">
+            <header className="adm-card__head">
+              <h3 className="admin-card-title"><Target aria-hidden="true" /> Откуда заявки за 30 дней</h3>
+              <p className="admin-hint">Цена лида считается только там, где расход по источнику введён вручную в «Воронке».</p>
+            </header>
+            <ul className="today-sources__list">
+              {(data?.sources || []).map((row) => (
+                <li key={row.source}>
+                  <span className="today-sources__name">{row.source}</span>
+                  <span className="today-sources__leads">{formatNumber(row.leads)} заявок</span>
+                  <span className="today-sources__price">
+                    {row.costPerLead != null
+                      ? `${Math.round(row.costPerLead).toLocaleString('ru-RU')} ${row.currency} за заявку`
+                      : 'расход не введён'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {stats && (
