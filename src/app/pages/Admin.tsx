@@ -35,6 +35,7 @@ import AdminPlanner from '../components/admin/AdminPlanner';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
 import AdminCommandPalette, { type AdminCommandGroup } from '../components/admin/AdminCommandPalette';
+import ArticleCalendar from '../components/admin/ArticleCalendar';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
@@ -453,6 +454,26 @@ function AdminDensitySwitch() {
   );
 }
 
+// Полгода без правок — материал пора перечитать: цифры, цены и скриншоты
+// в маркетинговых статьях устаревают быстрее, чем сам текст.
+const STALE_AFTER_DAYS = 180;
+
+function daysSinceUpdate(article: Article): number | null {
+  const raw = article.updatedAt || article.publishedAt;
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 86_400_000));
+}
+
+function formatStaleAge(days: number): string {
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} мес.`;
+  const years = Math.floor(months / 12);
+  if (years === 1) return 'год';
+  return `${years} ${years < 5 ? 'года' : 'лет'}`;
+}
+
 const ADMIN_DND_TYPE = 'ADMIN_ARTICLE_ITEM';
 
 interface AdminArticleItemProps {
@@ -469,6 +490,7 @@ interface AdminArticleItemProps {
 
 function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove, onDragEnd, locked }: AdminArticleItemProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const staleDays = daysSinceUpdate(article);
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ADMIN_DND_TYPE,
     item: { index },
@@ -522,6 +544,14 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
       <div className="admin-article-row__badges">
         {locked && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]">защищена</span>
+        )}
+        {staleDays !== null && staleDays >= STALE_AFTER_DAYS && article.status !== 'draft' && (
+          <span
+            className="admin-article-row__stale"
+            title={`Последнее изменение: ${new Date(article.updatedAt || article.publishedAt || '').toLocaleDateString('ru-RU')}`}
+          >
+            не обновлялась {formatStaleAge(staleDays)}
+          </span>
         )}
         {article.status === 'draft' ? (
           <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">черновик</span>
@@ -1253,6 +1283,12 @@ export default function Admin() {
               <div className="mb-3">
                 <ContentPerformance
                   password={password}
+                  articles={orderedArticles}
+                  onOpen={(article) => openArticleEditor(article)}
+                />
+              </div>
+              <div className="mb-3">
+                <ArticleCalendar
                   articles={orderedArticles}
                   onOpen={(article) => openArticleEditor(article)}
                 />
