@@ -89,6 +89,7 @@ interface ClientNote {
 interface Summary {
   recurring: Array<{ currency: string; amount: number }>;
   activeCount: number;
+  withoutRetainer?: number;
   totalCount: number;
   needAttention: number;
   averageLifetimeDays: number;
@@ -740,7 +741,11 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                 ? summary.recurring.map((item) => formatMoney(item.amount, item.currency)).join(' · ')
                 : '—'}
             </strong>
-            <span className="admin-hint">Только активные клиенты с заполненным чеком.</span>
+            <span className="admin-hint">
+              {summary.withoutRetainer
+                ? `Без заполненного чека: ${summary.withoutRetainer} — эти клиенты в сумму не попадают.`
+                : 'Считается по активным клиентам с заполненным чеком.'}
+            </span>
           </div>
           <div className="adm-tile">
             <span className="adm-tile__title">Активных</span>

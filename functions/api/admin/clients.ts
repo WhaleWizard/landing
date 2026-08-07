@@ -256,9 +256,16 @@ async function listClients(env: Env): Promise<Response> {
   // рублями без курса — это выдуманное число.
   const recurring = new Map<string, number>();
   let activeCount = 0;
+  let withoutRetainer = 0;
   for (const client of clients) {
-    if (client.status !== 'active' || client.retainer_amount <= 0) continue;
+    if (client.status !== 'active') continue;
+    // «Активных» — это про статус. Клиент без заполненного чека всё равно
+    // активный: он просто не попадает в сумму регулярного дохода.
     activeCount += 1;
+    if (client.retainer_amount <= 0) {
+      withoutRetainer += 1;
+      continue;
+    }
     recurring.set(client.retainer_currency, (recurring.get(client.retainer_currency) || 0) + client.retainer_amount);
   }
 
@@ -277,6 +284,7 @@ async function listClients(env: Env): Promise<Response> {
     summary: {
       recurring: [...recurring.entries()].map(([currency, amount]) => ({ currency, amount })),
       activeCount,
+      withoutRetainer,
       totalCount: clients.length,
       needAttention: clients.filter((client) => client.health !== 'ok').length,
       averageLifetimeDays: lifetimes.length
