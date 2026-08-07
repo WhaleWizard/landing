@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo, useCallback, useRef, createContext, useCo
 import { useNavigate } from 'react-router';
 import { motion, useReducedMotion } from 'motion/react';
 import {
-  Lock, LogIn, Save, Plus, Trash2, Sun, Moon,
+  LogIn, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
@@ -317,7 +317,48 @@ function useAdminTheme() {
   return context;
 }
 
+/*
+ * Свет за курсором. Обработчик один на всю админку и только пишет две
+ * координаты в CSS-переменные ближайшей карточки — рисует уже CSS. Слушатель
+ * пассивный и с кадровым троттлингом, поэтому прокрутка не проседает; при
+ * системной настройке «меньше движения» он вообще не подключается.
+ */
+function useCardSpotlight() {
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.matchMedia?.('(hover: none)').matches) return;
+
+    const selector = '.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .admin-panel--interactive';
+    let frame = 0;
+    let last: MouseEvent | null = null;
+
+    const paint = () => {
+      frame = 0;
+      const event = last;
+      if (!event) return;
+      const target = event.target instanceof Element ? event.target.closest(selector) : null;
+      if (!(target instanceof HTMLElement)) return;
+      const box = target.getBoundingClientRect();
+      target.style.setProperty('--adm-spot-x', `${Math.round(event.clientX - box.left)}px`);
+      target.style.setProperty('--adm-spot-y', `${Math.round(event.clientY - box.top)}px`);
+    };
+
+    const handleMove = (event: MouseEvent) => {
+      last = event;
+      if (frame) return;
+      frame = requestAnimationFrame(paint);
+    };
+
+    document.addEventListener('mousemove', handleMove, { passive: true });
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+}
+
 function AdminThemeProvider({ children }: { children: React.ReactNode }) {
+  useCardSpotlight();
   const [mode, setMode] = useState<'light' | 'dark'>(() => {
     const stored = localStorage.getItem('ww-admin-theme');
     if (stored === 'light' || stored === 'dark') return stored;
@@ -1131,26 +1172,37 @@ export default function Admin() {
     return (
       <AdminThemeProvider>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-        <main className="flex items-center justify-center p-4 min-h-screen">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="admin-panel w-full max-w-md p-6 sm:p-8">
-            <div className="flex justify-between items-center mb-6">
-              <div className="admin-login-brand">
-                <WhaleMark size="var(--adm-login-whale-size)" className="admin-brand-whale" priority />
-                <span className="admin-login-security">
-                  <Lock aria-hidden="true" />
-                  Защищённый доступ
-                </span>
-              </div>
+        <main className="admin-login">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.32, ease: [0.2, 0, 0, 1] }}
+            className="admin-login__card"
+          >
+            <div className="admin-login__head">
+              <WhaleMark size="var(--adm-login-whale-size)" className="admin-brand-whale" priority />
               <AdminThemeToggleButton />
             </div>
-            <h1 className="text-2xl text-center mb-2">Вход в админку</h1>
-            <p className="text-center text-sm text-[var(--adm-fg)]/70 mb-6">Безопасный вход в CMS для управления контентом.</p>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <label htmlFor="admin-password" className="block text-sm font-semibold text-[var(--adm-fg)]/80">Пароль администратора</label>
-              <input id="admin-password" name="password" type="password" autoComplete="current-password" placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/54 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50" autoFocus />
-              {error && <p className="text-[var(--adm-danger)] text-sm text-center" role="alert">{error}</p>}
-              <button type="submit" disabled={authLoading} className="admin-button admin-button--primary w-full">
-                <LogIn className="w-5 h-5" /> {authLoading ? 'Проверка...' : 'Войти'}
+            <h1 className="admin-login__title">Вход в админку</h1>
+            <p className="admin-login__note">Сайт, заявки и отчёты Whale Wizard.</p>
+            <form onSubmit={handleLogin} className="admin-login__form">
+              <div className="admin-field">
+                <label htmlFor="admin-password" className="admin-label">Пароль</label>
+                <input
+                  id="admin-password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Введите пароль"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="admin-input"
+                  autoFocus
+                />
+              </div>
+              {error && <p className="admin-login__error" role="alert">{error}</p>}
+              <button type="submit" disabled={authLoading} className="admin-button admin-button--primary admin-login__submit">
+                <LogIn aria-hidden="true" /> {authLoading ? 'Проверяю' : 'Войти'}
               </button>
             </form>
           </motion.div>
@@ -1237,8 +1289,18 @@ export default function Admin() {
           </aside>
 
           <main className="admin-content">
-            <div className="admin-content__inner">
-              <p className="admin-breadcrumb">{currentSection?.label || 'Раздел'}</p>
+            {/*
+              key по разделу заставляет React пересобрать поддерево при
+              переключении — иначе браузер считает узлы теми же самыми и
+              анимация появления проигрывается только один раз за загрузку.
+            */}
+            <div className="admin-content__inner" key={currentNavKey}>
+              {/*
+                Названия раздела над заголовком больше нет: оно повторяло и
+                подсвеченный пункт бокового меню, и сам заголовок страницы —
+                три раза одно слово подряд. На узком экране раздел по-прежнему
+                виден в шапке, там боковое меню скрыто.
+              */}
 
             <motion.div
               key={adminView}

@@ -3,11 +3,18 @@
  * Scoped to .admin-root so the CMS can evolve without changing the public site.
  */
 .admin-root {
-  --adm-radius-card: 16px;
-  --adm-radius-control: 10px;
-  --adm-control-height: 40px;
+  /*
+   * Радиусы и высоты задаются одним блоком ниже («дизайн-система админки»),
+   * здесь только то, чего в той шкале нет. Держать два набора значений в
+   * одном файле уже приводило к тому, что правка вверху молча не работала.
+   */
   --adm-header-whale-size: 48px;
   --adm-login-whale-size: 84px;
+
+  /* Единая кривая движения: короткая, без «резинки». */
+  --adm-ease: cubic-bezier(0.2, 0, 0, 1);
+  --adm-dur-fast: 120ms;
+  --adm-dur-base: 180ms;
 
   font-family: var(--ww-font-text, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif);
   font-size: 14px;
@@ -46,12 +53,14 @@
   color-scheme: dark;
 }
 
+/*
+ * Холст ровный. Два цветных пятна в верхних углах ничего не значили и
+ * подкрашивали шапку с боковым меню в разный оттенок — из-за этого граница
+ * между ними расплывалась, а светлая тема выглядела застиранной.
+ */
 .admin-root .admin-shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 12% -12%, color-mix(in srgb, var(--adm-primary) 9%, transparent) 0, transparent 34rem),
-    radial-gradient(circle at 92% 4%, color-mix(in srgb, var(--adm-info) 6%, transparent) 0, transparent 28rem),
-    var(--adm-surface-canvas);
+  background: var(--adm-surface-canvas);
 }
 
 .admin-root :is(h1, h2, h3, h4, h5, h6),
@@ -88,6 +97,15 @@
   color: var(--adm-text-tertiary);
 }
 
+/*
+ * Цифры моноширинной ширины. В пропорциональном начертании «1» уже «8», из-за
+ * чего в столбце сумм разряды не совпадали по вертикали и таблица выглядела
+ * рассыпанной. tabular-nums выравнивает их, не меняя шрифт.
+ */
+.admin-root :is(td, th, .admin-stat-value, .admin-action-card__count, .admin-metric-value, time, .admin-num) {
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-root .text-\[10px\],
 .admin-root .text-\[11px\] {
   font-size: 12px;
@@ -97,17 +115,19 @@
   border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .admin-panel--interactive {
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition: border-color var(--adm-dur-base) var(--adm-ease), background-color var(--adm-dur-base) var(--adm-ease);
 }
 
+/*
+ * Наведение меняет границу и подложку, но не двигает блок: подпрыгивание на
+ * -1px заставляло весь экран мелко дрожать при проходе мышью по списку.
+ */
 .admin-root .admin-panel--interactive:hover {
   border-color: var(--adm-border-strong);
-  box-shadow: var(--adm-shadow-md);
-  transform: translateY(-1px);
+  background: var(--adm-surface-raised);
 }
 
 .admin-root .admin-button {
@@ -121,7 +141,6 @@
   padding: 0 14px;
   color: var(--adm-text-secondary);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
   font-weight: 600;
   line-height: 1;
   /* Подпись всегда остаётся внутри кнопки: на узком экране она раньше вылезала на соседние блоки. */
@@ -141,18 +160,22 @@
   transform: translateY(1px);
 }
 
+/*
+ * Главная кнопка — плоская заливка. Градиент под углом 135° и цветная тень
+ * под ним были самой заметной приметой шаблона: дорогие интерфейсы держат
+ * акцент ровным цветом, а нажатие показывают сменой тона, а не свечением.
+ */
 .admin-root .admin-button--primary {
   border-color: transparent;
-  color: #fff;
-  background: linear-gradient(135deg, var(--adm-primary), var(--adm-primary-strong));
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--adm-primary) 24%, transparent);
+  color: var(--adm-button-text);
+  background: var(--adm-primary);
+  box-shadow: none;
 }
 
 .admin-root .admin-button--primary:hover:not(:disabled) {
-  color: #fff;
+  color: var(--adm-button-text);
   border-color: transparent;
-  background: linear-gradient(135deg, var(--adm-primary), var(--adm-primary-strong));
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--adm-primary) 30%, transparent);
+  background: var(--adm-primary-strong);
 }
 
 .admin-root .admin-button--quiet {
@@ -249,7 +272,7 @@ body[data-admin-theme] .admin-select-content {
   max-height: min(420px, var(--radix-select-content-available-height));
   padding: 5px;
   border: 1px solid var(--adm-border-strong);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   color: var(--adm-text-primary);
   background: color-mix(in srgb, var(--adm-surface-elevated) 97%, transparent);
   box-shadow: var(--adm-shadow-lg);
@@ -328,30 +351,30 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-sm);
 }
 
+/*
+ * Главный блок раздела. Раньше выделялся градиентной заливкой и размытым
+ * пятном в углу — приёмом, который одинаково выглядит на любом сайте.
+ * Теперь его выделяет вертикальная линия акцента слева: она же показывает,
+ * где начинается смысловой центр экрана, и не спорит с содержимым.
+ */
 .admin-root .admin-card--hero {
   position: relative;
   overflow: hidden;
   padding: clamp(18px, 3vw, 28px);
-  border: 1px solid color-mix(in srgb, var(--adm-primary) 22%, var(--adm-border-subtle));
+  padding-left: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
-  background:
-    linear-gradient(125deg, color-mix(in srgb, var(--adm-primary) 11%, transparent), transparent 55%),
-    var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-md);
+  background: var(--adm-surface-elevated);
 }
 
-.admin-root .admin-card--hero::after {
+.admin-root .admin-card--hero::before {
   content: '';
   position: absolute;
-  inset: -90px -70px auto auto;
-  width: 220px;
-  height: 220px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--adm-primary) 10%, transparent);
-  filter: blur(2px);
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--adm-primary);
   pointer-events: none;
 }
 
@@ -371,45 +394,61 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 16px;
 }
 
+/*
+ * Надзаголовок держит цвет текста, а не акцента: акцент в интерфейсе стоит
+ * тратить на то, что можно нажать. Раньше подпись раздела спорила по яркости
+ * с кнопкой действия рядом.
+ */
 .admin-root .admin-eyebrow {
   margin: 0 0 6px;
-  color: var(--adm-primary);
-  font-size: 12px;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.35;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
+/*
+ * Заголовок раздела стал на шаг тише. При 30px он весил столько же, сколько
+ * заголовок публичной страницы, хотя здесь это подпись рабочего экрана, а не
+ * витрина: на 13-дюймовом ноутбуке шапка съедала полтора экрана до данных.
+ */
 .admin-root .admin-title {
   margin: 0;
   color: var(--adm-text-primary);
   font-family: var(--ww-font-display, "Segoe UI Variable Display", "Segoe UI", sans-serif);
-  font-size: clamp(22px, 3vw, 30px);
+  font-size: clamp(20px, 2.2vw, 25px);
   font-weight: 700;
   line-height: 1.14;
   letter-spacing: -0.02em;
 }
 
 .admin-root .admin-subtitle {
-  max-width: 64ch;
-  margin: 8px 0 0;
-  color: var(--adm-text-secondary);
-  line-height: 1.55;
+  max-width: 62ch;
+  margin: 6px 0 0;
+  color: var(--adm-text-tertiary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
+/*
+ * Пустое состояние — приглашение, а не заглушка. Пунктирная рамка вокруг
+ * подложки читалась как «здесь сломалось»; спокойный фон без обводки даёт
+ * тот же смысл и не спорит с соседними блоками.
+ */
 .admin-root .admin-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: var(--adm-space-3);
   min-height: 128px;
-  padding: 24px;
-  border: 1px dashed var(--adm-border-strong);
+  padding: var(--adm-space-5);
+  border: 0;
   border-radius: var(--adm-radius-card);
   color: var(--adm-text-tertiary);
   text-align: center;
-  background: color-mix(in srgb, var(--adm-surface-subtle) 55%, transparent);
+  background: var(--adm-surface-subtle);
 }
 
 .admin-root .admin-empty > svg {
@@ -451,15 +490,13 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   border-radius: var(--adm-radius-card);
   color: var(--adm-text-primary);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition: border-color var(--adm-dur-base) var(--adm-ease), background-color var(--adm-dur-base) var(--adm-ease);
   text-align: left;
 }
 
 .admin-root .admin-action-card:hover {
   border-color: var(--adm-border-strong);
-  box-shadow: var(--adm-shadow-md);
-  transform: translateY(-1px);
+  background: var(--adm-surface-raised);
 }
 
 .admin-root .admin-action-card__top {
@@ -506,14 +543,19 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   height: 14px;
 }
 
+/*
+ * Статус — метка, а не пилюля. Скругление 999px превращало каждый ярлык в
+ * «таблетку»: их на экране десятки, и вместе они читались как реклама, а не
+ * как данные. Прямоугольная метка со скруглением 5px спокойнее и плотнее.
+ */
 .admin-root .admin-state {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 28px;
-  padding: 4px 9px;
-  border: 1px solid var(--adm-border-subtle);
-  border-radius: 999px;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--adm-radius-tag);
   color: var(--adm-text-secondary);
   background: var(--adm-surface-subtle);
   font-size: 12px;
@@ -573,25 +615,63 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   line-height: 1.1;
 }
 
-.admin-root .admin-login-brand {
+/*
+ * Экран входа. Раньше карточка тянулась во всю ширину, заголовок стоял по
+ * центру, а подпись поля — по левому краю: два разных выравнивания в одном
+ * блоке читаются как небрежность. Теперь всё выровнено по левому краю и
+ * карточка держит ширину читаемой строки.
+ */
+.admin-root .admin-login {
   display: grid;
-  justify-items: center;
-  gap: 2px;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--adm-space-5) var(--adm-space-4);
 }
 
-.admin-root .admin-login-security {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--adm-text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
+.admin-root .admin-login__card {
+  width: 100%;
+  max-width: 352px;
+  padding: var(--adm-space-5);
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .admin-login__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--adm-space-4);
+  margin-bottom: var(--adm-space-4);
+}
+
+.admin-root .admin-login__title {
+  margin: 0;
+  font-size: 20px;
   line-height: 1.2;
 }
 
-.admin-root .admin-login-security svg {
-  width: 12px;
-  height: 12px;
+.admin-root .admin-login__note {
+  margin: 6px 0 var(--adm-space-5);
+  color: var(--adm-text-tertiary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-root .admin-login__form {
+  display: grid;
+  gap: var(--adm-space-4);
+}
+
+.admin-root .admin-login__submit {
+  width: 100%;
+}
+
+.admin-root .admin-login__error {
+  margin: 0;
+  color: var(--adm-danger);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .admin-root .admin-brand-whale {
@@ -605,7 +685,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   transition: opacity 220ms ease, transform 220ms ease;
 }
 
-.admin-root :is(.admin-login-brand, .admin-header__brand):hover .admin-brand-whale .ww-whale-mark__glow {
+.admin-root :is(.admin-login__head, .admin-header__brand):hover .admin-brand-whale .ww-whale-mark__glow {
   opacity: 0.88;
   transform: translate(-50%, -50%) scale(1.12);
 }
@@ -631,7 +711,6 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-sidebar-nav {
   border-color: var(--adm-border-subtle);
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .admin-mobile-nav {
@@ -654,16 +733,6 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-height: 136px;
 }
 
-.admin-root .admin-stat-card::after {
-  content: '';
-  position: absolute;
-  inset: auto -22px -32px auto;
-  width: 92px;
-  height: 92px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--adm-primary) 7%, transparent);
-  pointer-events: none;
-}
 
 .admin-root .admin-stat-label {
   min-height: 34px;
@@ -687,9 +756,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 }
 
 .admin-root .admin-media-card__preview {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--adm-primary) 5%, transparent), transparent),
-    var(--adm-surface-subtle);
+  background: var(--adm-surface-subtle);
 }
 
 .admin-root .admin-editor-layout {
@@ -699,12 +766,10 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-editor-list,
 .admin-root .admin-editor-main {
   border-color: var(--adm-border-subtle);
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .admin-editor-block {
   border-radius: var(--adm-radius-card);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .admin-editor-toolbar {
@@ -727,10 +792,8 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 }
 
 .admin-root .admin-case-fields {
-  border-color: color-mix(in srgb, var(--adm-primary) 26%, var(--adm-border-subtle));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--adm-primary) 7%, transparent), transparent 56%),
-    var(--adm-surface-raised);
+  border-color: var(--adm-border-subtle);
+  background: var(--adm-surface-raised);
 }
 
 .admin-root .admin-status-success { color: var(--adm-success); }
@@ -747,7 +810,6 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .admin-field {
@@ -822,7 +884,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   padding: 4px;
   overflow-x: auto;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-subtle);
 }
 
@@ -844,7 +906,6 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   border-color: var(--adm-border-subtle);
   color: var(--adm-primary);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .admin-form-grid {
@@ -987,7 +1048,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-block-nav > button[aria-current='step'] > span:first-child {
   border-color: transparent;
   color: #fff;
-  background: linear-gradient(135deg, var(--adm-primary), var(--adm-primary-strong));
+  background: var(--adm-primary);
 }
 
 .admin-root .admin-block-nav-mobile {
@@ -1027,7 +1088,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-raised);
 }
 
@@ -1087,7 +1148,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-typography-panel {
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--adm-primary) 22%, var(--adm-border-subtle));
-  border-radius: 14px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-primary) 5%, var(--adm-surface-raised));
 }
 
@@ -1321,7 +1382,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 3px;
   padding: 3px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-subtle);
 }
 
@@ -1343,7 +1404,6 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   border-color: var(--adm-border-subtle);
   color: var(--adm-primary);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .admin-icon-toggle svg,
@@ -1358,7 +1418,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   padding: clamp(18px, 3vw, 30px);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--adm-primary) 22%, var(--adm-border-subtle));
-  border-radius: 18px;
+  border-radius: var(--adm-radius-lg);
   color: #f4f1ff;
   background:
     radial-gradient(circle at 88% 6%, rgba(119, 94, 238, 0.3), transparent 38%),
@@ -1490,7 +1550,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   padding: 0 13px;
   border: 0;
   color: #fff;
-  background: linear-gradient(135deg, #7d6df1, #5c4bd5);
+  background: var(--adm-primary);
   font-size: 12px;
   font-weight: 600;
   border-radius: var(--adm-radius-control);
@@ -1532,7 +1592,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-notice {
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--adm-info) 26%, var(--adm-border-subtle));
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   color: var(--adm-text-secondary);
   background: color-mix(in srgb, var(--adm-info) 7%, var(--adm-surface-elevated));
   font-size: 12px;
@@ -1578,12 +1638,9 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   padding: 14px;
   overflow: hidden;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 14px;
+  border-radius: var(--adm-radius-md);
   color: var(--adm-text-secondary);
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--adm-primary) 4%, transparent), transparent 66%),
-    var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
+  background: var(--adm-surface-elevated);
   text-align: left;
 }
 
@@ -1594,15 +1651,13 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-crm-summary > button:hover {
   border-color: var(--adm-border-strong);
-  box-shadow: var(--adm-shadow-sm);
-  transform: translateY(-1px);
+  border-color: var(--adm-border-strong);
+  background: var(--adm-surface-raised);
 }
 
 .admin-root .admin-crm-summary > :is(button, div).is-warning {
   border-color: color-mix(in srgb, var(--adm-warning) 32%, var(--adm-border-subtle));
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--adm-warning) 8%, transparent), transparent 66%),
-    var(--adm-surface-elevated);
+  background: color-mix(in srgb, var(--adm-warning) 7%, var(--adm-surface-elevated));
 }
 
 .admin-root .admin-crm-summary svg {
@@ -1835,7 +1890,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   margin-top: 4px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--adm-danger) 24%, var(--adm-border-subtle));
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-danger) 5%, transparent);
 }
 
@@ -1892,7 +1947,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-width: 24px;
   padding: 2px 8px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   color: var(--adm-text-tertiary);
   background: var(--adm-surface-subtle);
   font-size: 12px;
@@ -1998,7 +2053,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 10px;
   padding: 9px 12px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-subtle);
 }
 
@@ -2048,7 +2103,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-raised);
   transition: border-color 140ms ease, background-color 140ms ease;
 }
@@ -2095,7 +2150,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-trash__chip {
   max-width: 100%;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   color: var(--adm-text-tertiary);
   background: var(--adm-surface-subtle);
   font-size: 11px;
@@ -2154,7 +2209,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 10px 12px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--adm-danger) 38%, transparent);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-danger) 8%, var(--adm-surface-raised));
 }
 
@@ -2208,14 +2263,13 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-button--danger-solid {
   border-color: transparent;
   color: #fff;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--adm-danger) 92%, #000), var(--adm-danger));
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--adm-danger) 26%, transparent);
+  background: var(--adm-danger);
 }
 
 .admin-root .admin-button--danger-solid:hover:not(:disabled) {
   color: #fff;
   border-color: transparent;
-  background: linear-gradient(135deg, var(--adm-danger), color-mix(in srgb, var(--adm-danger) 82%, #fff));
+  background: color-mix(in srgb, var(--adm-danger) 86%, #000);
 }
 
 .admin-root .admin-crm-list__selectall {
@@ -2291,7 +2345,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-width: 28px;
   height: 23px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   background: color-mix(in srgb, var(--adm-primary) 9%, var(--adm-surface-subtle));
 }
 
@@ -2318,7 +2372,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   padding: 3px 7px;
   overflow: hidden;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   color: var(--adm-text-tertiary);
   background: color-mix(in srgb, var(--adm-surface-subtle) 72%, transparent);
   font-size: 10px;
@@ -2387,7 +2441,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   padding: 5px 9px;
   overflow: hidden;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   color: var(--adm-text-secondary);
   background: var(--adm-surface-subtle);
   font-size: 11px;
@@ -2419,10 +2473,8 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 12px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--adm-primary) 24%, var(--adm-border-subtle));
-  border-radius: 14px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--adm-primary) 7%, transparent), transparent 58%),
-    var(--adm-surface-raised);
+  border-radius: var(--adm-radius-md);
+  background: var(--adm-surface-raised);
 }
 
 .admin-root .admin-crm-quality > div:first-child > :is(strong, span) {
@@ -2565,7 +2617,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-width: 0;
   padding: 15px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 14px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-raised);
 }
 
@@ -2735,7 +2787,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   padding: 3px 8px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--tag-color, var(--adm-primary)) 28%, var(--adm-border-subtle));
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   color: color-mix(in srgb, var(--tag-color, var(--adm-primary)) 78%, var(--adm-text-primary));
   background: color-mix(in srgb, var(--tag-color, var(--adm-primary)) 7%, var(--adm-surface-elevated));
   font-size: 10px;
@@ -2816,7 +2868,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
     margin-bottom: 16px;
     padding: 8px;
     border: 1px solid var(--adm-border-subtle);
-    border-radius: 14px;
+    border-radius: var(--adm-radius-md);
     background: color-mix(in srgb, var(--adm-surface-elevated) 94%, transparent);
     box-shadow: var(--adm-shadow-md);
     backdrop-filter: blur(18px);
@@ -2868,7 +2920,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
     margin-bottom: 16px;
     padding: 8px;
     border: 1px solid var(--adm-border-subtle);
-    border-radius: 14px;
+    border-radius: var(--adm-radius-md);
     background: color-mix(in srgb, var(--adm-surface-elevated) 94%, transparent);
     box-shadow: var(--adm-shadow-md);
     backdrop-filter: blur(18px);
@@ -3390,7 +3442,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   width: 3px;
   height: 14px;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--adm-primary), var(--adm-primary-strong));
+  background: var(--adm-primary);
 }
 
 @media (max-width: 767px) {
@@ -3649,10 +3701,9 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-height: 44px;
   padding: 0;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   color: var(--adm-text-secondary);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
   transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
@@ -3673,10 +3724,9 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-height: 44px;
   padding: 0 15px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   color: var(--adm-text-primary);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
   font-weight: 600;
   text-align: left;
   transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -3685,7 +3735,6 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .planner-week-trigger:hover,
 .admin-root .planner-week-trigger[data-state='open'] {
   border-color: color-mix(in srgb, var(--adm-primary) 45%, var(--adm-border-subtle));
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .planner-week-trigger svg {
@@ -3706,7 +3755,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   margin: 16px 0 0;
   padding: 11px 13px;
   border: 1px solid color-mix(in srgb, var(--adm-warning) 32%, var(--adm-border-subtle));
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   color: var(--adm-text-secondary);
   background: color-mix(in srgb, var(--adm-warning) 8%, var(--adm-surface-elevated));
   font-size: 13px;
@@ -3742,7 +3791,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   margin-top: 14px;
   padding: 12px 14px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 14px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
 }
 
@@ -3791,7 +3840,7 @@ body[data-admin-theme] .planner-weekpick {
   width: min(322px, calc(100vw - 24px));
   padding: 12px;
   border: 1px solid var(--adm-border-strong);
-  border-radius: 16px;
+  border-radius: var(--adm-radius-lg);
   color: var(--adm-text-primary);
   background: var(--adm-surface-elevated);
   box-shadow: var(--adm-shadow-lg);
@@ -4284,7 +4333,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   margin: 0;
   padding: 18px;
   border: 1px dashed var(--adm-border-strong);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   color: var(--adm-text-tertiary);
   text-align: center;
   font-size: 13px;
@@ -4483,7 +4532,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: transparent;
   cursor: pointer;
 }
@@ -4655,7 +4704,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: 3px;
   padding: 4px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 14px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-subtle);
 }
 
@@ -4714,7 +4763,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   border-color: var(--adm-border-subtle);
   color: var(--adm-text-primary);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 /* --- Карточки дней --- */
@@ -4735,7 +4783,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .planner-day[data-today] {
@@ -4867,7 +4914,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 14px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
 }
 
@@ -4956,7 +5003,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-width: 0;
   padding: 13px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 14px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
 }
 
@@ -5017,7 +5064,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--adm-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-input-bg);
 }
 
@@ -5132,7 +5179,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
   .admin-root .planner-day[data-active] {
     border-color: color-mix(in srgb, var(--adm-primary) 40%, var(--adm-border-subtle));
-    box-shadow: var(--adm-shadow-sm);
   }
 
   .admin-root .planner-section,
@@ -5344,9 +5390,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .planner-field--sleep .admin-select-trigger {
   border-color: color-mix(in srgb, var(--pl-sleep-tint) 26%, var(--adm-border-subtle));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--pl-sleep-tint) 9%, transparent), transparent),
-    var(--adm-input-bg);
+  background: var(--adm-input-bg);
 }
 
 .admin-root .planner-field--sleep .admin-select-trigger:hover {
@@ -5419,7 +5463,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .planner-col__fill {
   background: linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 92%, white), var(--adm-primary));
-  box-shadow: 0 0 14px -4px color-mix(in srgb, var(--adm-primary) 78%, transparent);
 }
 
 .admin-root[data-theme='dark'] .planner-col__fill {
@@ -5444,13 +5487,11 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   height: 2px;
   border-radius: 999px;
   background: var(--adm-primary);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--adm-primary) 70%, transparent);
   transform: translateX(-50%);
 }
 
 .admin-root .planner-legend__swatch--fill {
   background: linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 92%, white), var(--adm-primary));
-  box-shadow: 0 0 7px -1px color-mix(in srgb, var(--adm-primary) 60%, transparent);
 }
 
 /* --- Плитки показателей: свой тон у иконки --- */
@@ -5461,20 +5502,9 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
 }
 
-.admin-root .planner-stat::after {
-  content: '';
-  position: absolute;
-  inset: auto -24px -26px auto;
-  width: 72px;
-  height: 72px;
-  border-radius: 999px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--pl-tone) 13%, transparent), transparent 70%);
-  pointer-events: none;
-}
 
 .admin-root .planner-stat:hover {
   border-color: color-mix(in srgb, var(--pl-tone) 34%, var(--adm-border-subtle));
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .planner-stat__icon {
@@ -5509,7 +5539,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .planner-checkbox[aria-checked='true'] .planner-checkbox__box {
   background: linear-gradient(155deg, color-mix(in srgb, var(--adm-primary) 88%, white), var(--adm-primary-strong));
-  box-shadow: 0 3px 10px -3px color-mix(in srgb, var(--adm-primary) 72%, transparent);
 }
 
 .admin-root .planner-row[data-done] {
@@ -5520,7 +5549,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .planner-habit__day .planner-checkbox[aria-checked='true'] .planner-checkbox__box {
   border-color: color-mix(in srgb, var(--pl-e3-tint) 70%, transparent);
   background: linear-gradient(155deg, color-mix(in srgb, var(--pl-e3-tint) 92%, white), var(--pl-e3-tint));
-  box-shadow: 0 3px 10px -3px color-mix(in srgb, var(--pl-e3-tint) 70%, transparent);
 }
 
 /* --- Привычки: звёзды и полный ряд --- */
@@ -5540,12 +5568,10 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .planner-bar__fill {
   background: linear-gradient(90deg, color-mix(in srgb, var(--adm-primary) 65%, white), var(--adm-primary));
-  box-shadow: 0 0 8px -2px color-mix(in srgb, var(--adm-primary) 70%, transparent);
 }
 
 .admin-root .planner-bar--complete .planner-bar__fill {
   background: linear-gradient(90deg, color-mix(in srgb, var(--pl-e3-tint) 70%, white), var(--pl-e3-tint));
-  box-shadow: 0 0 9px -2px color-mix(in srgb, var(--pl-e3-tint) 78%, transparent);
 }
 
 .admin-root .planner-habit {
@@ -5554,9 +5580,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .planner-habit[data-complete] {
   border-color: color-mix(in srgb, var(--pl-e3-tint) 34%, var(--adm-border-subtle));
-  background:
-    linear-gradient(120deg, color-mix(in srgb, var(--pl-e3-tint) 9%, transparent), transparent 58%),
-    color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
+  background: color-mix(in srgb, var(--adm-surface-subtle) 45%, transparent);
 }
 
 .admin-root .planner-habit[data-complete] .planner-habit__percent {
@@ -5571,8 +5595,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .planner-daystrip__tab[aria-pressed='true'] {
   border-color: color-mix(in srgb, var(--adm-primary) 30%, var(--adm-border-subtle));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 12%, var(--adm-surface-elevated)), var(--adm-surface-elevated));
+  background: color-mix(in srgb, var(--adm-primary) 10%, var(--adm-surface-elevated));
   box-shadow:
     0 2px 10px -4px color-mix(in srgb, var(--adm-primary) 70%, transparent),
     var(--adm-shadow-xs);
@@ -5633,10 +5656,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .planner-hero {
   padding: clamp(16px, 2vw, 20px);
-  background:
-    radial-gradient(circle at 88% -30%, color-mix(in srgb, var(--adm-info) 8%, transparent), transparent 46%),
-    linear-gradient(125deg, color-mix(in srgb, var(--adm-primary) 7%, transparent), transparent 58%),
-    var(--adm-surface-elevated);
+  background: var(--adm-surface-elevated);
 }
 
 .admin-root .planner-hero::after {
@@ -5668,8 +5688,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .planner-add:hover:not(:disabled) {
-  box-shadow: 0 4px 14px -8px color-mix(in srgb, var(--adm-primary) 90%, transparent);
-  transform: translateY(-1px);
+  border-color: var(--adm-border-strong);
+  background: var(--adm-surface-subtle);
 }
 
 /* Отключаем ровно то, что двигается; свечения и цвета остаются. */
@@ -5749,24 +5769,17 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   padding: 14px 16px;
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-card);
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--adm-primary) 6%, transparent) 0, transparent 62%),
-    var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
+  background: var(--adm-surface-elevated);
   overflow: hidden;
-  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  transition: border-color var(--adm-dur-base) var(--adm-ease), background-color var(--adm-dur-base) var(--adm-ease);
 }
 
 .admin-root .adm-tiles--money .adm-tile {
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--adm-viz-2) 9%, transparent) 0, transparent 62%),
-    var(--adm-surface-elevated);
+  background: var(--adm-surface-elevated);
 }
 
 .admin-root .adm-tile:hover {
-  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--adm-primary) 34%, var(--adm-border));
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .adm-tile.is-muted {
@@ -5784,16 +5797,21 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-width: 0;
 }
 
+/*
+ * Значок метрики без цветной плашки. Десять подсвеченных квадратов в ряд
+ * не сообщают ничего, но забирают внимание у самих чисел — а число здесь
+ * и есть содержание.
+ */
 .admin-root .adm-tile__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
   flex: none;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--adm-primary) 14%, transparent);
-  color: var(--adm-primary);
+  border-radius: 0;
+  background: none;
+  color: var(--adm-text-tertiary);
 }
 
 .admin-root .adm-tile__icon svg {
@@ -5834,7 +5852,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: 2px;
   margin-inline-start: auto;
   padding: 2px 7px 2px 5px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   font-size: 11.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -5990,7 +6008,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .adm-funnel__link.is-bottleneck .adm-funnel__link-label {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   background: color-mix(in srgb, var(--adm-warning) 16%, transparent);
   color: var(--adm-warning);
 }
@@ -6050,7 +6068,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
     color-mix(in srgb, var(--adm-viz-1) calc(74% + var(--adm-funnel-depth, 0) * 8%), var(--adm-surface-elevated)),
     color-mix(in srgb, var(--adm-viz-1) calc(92% + var(--adm-funnel-depth, 0) * 3%), var(--adm-surface-elevated))
   );
-  box-shadow: 0 6px 18px -12px color-mix(in srgb, var(--adm-viz-1) 90%, transparent);
 }
 
 .admin-root .adm-funnel__hint {
@@ -6359,7 +6376,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   max-width: 100%;
   padding: 3px;
   overflow-x: auto;
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-surface-subtle) 65%, transparent);
   scrollbar-width: thin;
 }
@@ -6387,7 +6404,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .adm-dimension-tabs button.is-active {
   background: var(--adm-surface-elevated);
   color: var(--adm-primary);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .adm-dimension-tabs button:disabled {
@@ -6716,7 +6732,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   display: inline-flex;
   gap: 3px;
   padding: 3px;
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-surface-subtle) 65%, transparent);
 }
 
@@ -6741,7 +6757,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .crm-view-switch button.is-active {
   background: var(--adm-surface-elevated);
   color: var(--adm-primary);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 /* --- Доска --- */
@@ -6832,7 +6847,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .crm-column__count {
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   background: color-mix(in srgb, var(--adm-text-tertiary) 16%, transparent);
   font-size: 11.5px;
   font-weight: 700;
@@ -6875,7 +6890,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-control);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
   overflow: hidden;
   cursor: grab;
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
@@ -6891,9 +6905,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .crm-card:hover {
-  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--adm-primary) 40%, var(--adm-border));
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .crm-card.is-selected {
@@ -6978,7 +6990,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   align-items: center;
   gap: 3px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   background: color-mix(in srgb, var(--adm-surface-subtle) 70%, transparent);
   font-variant-numeric: tabular-nums;
 }
@@ -7013,7 +7025,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .crm-card__tags > span {
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   border: 1px solid color-mix(in srgb, var(--tag-color, var(--adm-primary)) 45%, transparent);
   background: color-mix(in srgb, var(--tag-color, var(--adm-primary)) 12%, transparent);
   font-size: 11px;
@@ -7527,7 +7539,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   max-width: 100%;
   padding: 3px;
   overflow-x: auto;
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-surface-subtle) 60%, transparent);
   scrollbar-width: thin;
 }
@@ -7563,7 +7575,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .media-collections button.is-active {
   background: var(--adm-surface-elevated);
   color: var(--adm-primary);
-  box-shadow: var(--adm-shadow-xs);
 }
 
 .admin-root .media-sort {
@@ -7625,8 +7636,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .media-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--adm-shadow-sm);
+  border-color: var(--adm-border-strong);
 }
 
 .admin-root .media-card.is-selected {
@@ -7820,25 +7830,23 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 22px;
+  padding: 22px 22px 22px 26px;
   border: 1px solid var(--adm-border);
-  border-radius: calc(var(--adm-radius-card) + 4px);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--adm-primary) 12%, transparent) 0, transparent 58%),
-    var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-sm);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
   overflow: hidden;
 }
 
-/* Мягкое свечение в углу — как в планере, чтобы экраны выглядели одной системой. */
+/*
+ * Приветствие выделяет линия акцента у левого края — там же, где начинается
+ * текст. Прежнее размытое пятно в правом верхнем углу подсвечивало пустоту:
+ * смысловой центр блока слева, а взгляд уводило вправо.
+ */
 .admin-root .today-hero__glow {
   position: absolute;
-  inset-block-start: -140px;
-  inset-inline-end: -120px;
-  width: 340px;
-  height: 340px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--adm-primary) 26%, transparent) 0, transparent 68%);
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--adm-primary);
   pointer-events: none;
 }
 
@@ -7891,9 +7899,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .today-hero__planner:hover {
-  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--adm-primary) 42%, var(--adm-border));
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .today-hero__planner-copy {
@@ -8112,9 +8118,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .today-card.is-info::before { background: var(--adm-info); }
 
 .admin-root .today-card:hover {
-  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--adm-primary) 38%, var(--adm-border));
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .today-card__top {
@@ -8354,7 +8358,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   grid-row: 1 / span 2;
   grid-column: 2;
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -8392,7 +8396,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-height: 38px;
   padding: 0 14px;
   border: 1px solid var(--adm-border);
-  border-radius: 999px;
+  border-radius: var(--adm-radius-control);
   background: var(--adm-surface-elevated);
   font: inherit;
   font-size: 13px;
@@ -8410,7 +8414,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .today-quick button:hover {
-  transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--adm-primary) 42%, var(--adm-border));
   background: color-mix(in srgb, var(--adm-primary) 7%, var(--adm-surface-elevated));
   color: var(--adm-primary);
@@ -8517,15 +8520,17 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-width: 0;
 }
 
+/*
+ * Название бренда обычным цветом текста. Заливка градиентом через
+ * background-clip читается как приём с бесплатного шаблона и вдобавок роняет
+ * контраст: у буквы разная яркость слева и справа.
+ */
 .admin-root .admin-topbar__brand-name {
   font-family: var(--ww-font-display, inherit);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  background: linear-gradient(92deg, var(--adm-primary), var(--adm-primary-strong));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--adm-text-primary);
 }
 
 .admin-root .admin-topbar__brand-note {
@@ -8563,11 +8568,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: 14px;
   padding: 14px 12px;
   border: 1px solid var(--adm-border);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--adm-primary) 6%, transparent) 0, transparent 42%),
-    var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
+  border-radius: var(--adm-radius-lg);
+  background: var(--adm-surface-elevated);
 }
 
 .admin-root .admin-sidebar__nav {
@@ -8655,7 +8657,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .admin-sidebar__link[aria-current='page'] .admin-sidebar__icon {
   background: var(--adm-primary);
   color: #fff;
-  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--adm-primary) 90%, transparent);
 }
 
 /* Тонкая полоса слева — активный раздел читается даже боковым зрением. */
@@ -8687,7 +8688,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .admin-content {
   min-width: 0;
-  padding-top: 22px;
+  padding-top: 18px;
 }
 
 .admin-root .admin-content__inner {
@@ -8785,7 +8786,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid var(--adm-border);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: var(--adm-surface-elevated);
   font: inherit;
   font-size: 13px;
@@ -8911,7 +8912,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .adm-tile {
   gap: 3px;
   padding: 13px 15px 14px;
-  border-radius: 15px;
+  border-radius: var(--adm-radius-card);
 }
 
 .admin-root .adm-tile__head {
@@ -9240,11 +9241,18 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   --adm-space-6: 24px;
   --adm-space-8: 32px;
 
-  --adm-radius-xs: 8px;
-  --adm-radius-sm: 10px;
-  --adm-radius-md: 14px;
-  --adm-radius-lg: 18px;
+  /*
+   * Скругления уменьшены на шаг. При радиусе 14–18 px карточка размером с
+   * пол-экрана читается как наклейка, а не как поверхность: глаз считывает
+   * скругление раньше содержимого. Плотные рабочие интерфейсы живут на 6–10.
+   */
+  --adm-radius-xs: 6px;
+  --adm-radius-sm: 8px;
+  --adm-radius-md: 10px;
+  --adm-radius-lg: 12px;
   --adm-radius-pill: 999px;
+  /* Метки статусов: прямоугольник со скруглением, а не «таблетка». */
+  --adm-radius-tag: 5px;
 
   /* Существующие радиусы переведены на общую шкалу. */
   --adm-radius-card: var(--adm-radius-md);
@@ -9294,8 +9302,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .admin-button--danger-solid {
   border-color: transparent;
   color: #fff;
-  background: linear-gradient(135deg, var(--adm-danger), color-mix(in srgb, var(--adm-danger) 70%, #000));
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--adm-danger) 26%, transparent);
+  background: var(--adm-danger);
 }
 
 .admin-root .admin-button--danger:hover:not(:disabled) {
@@ -9411,9 +9418,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   padding: var(--adm-space-8) var(--adm-space-5);
   border: 1px dashed color-mix(in srgb, var(--adm-border-strong) 80%, transparent);
   border-radius: var(--adm-radius-card);
-  background:
-    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--adm-primary) 7%, transparent), transparent 62%),
-    color-mix(in srgb, var(--adm-surface-subtle) 26%, transparent);
+  background: color-mix(in srgb, var(--adm-surface-subtle) 26%, transparent);
   text-align: center;
 }
 
@@ -9619,10 +9624,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   padding: var(--adm-space-4);
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-card);
-  background:
-    linear-gradient(150deg, color-mix(in srgb, var(--goal-color) 8%, transparent), transparent 60%),
-    var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
+  background: var(--adm-surface-elevated);
 }
 
 /* Кольцо: заливка conic-градиентом, внутренний круг вырезает середину. */
@@ -9893,7 +9895,6 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .crm-quick__button:hover:not(:disabled) {
-  transform: translateY(-1px);
   border-color: var(--adm-primary);
   background: color-mix(in srgb, var(--adm-primary) 14%, var(--adm-surface-elevated));
 }
@@ -10655,9 +10656,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .alerts.has-critical {
   border-color: color-mix(in srgb, var(--adm-danger) 40%, var(--adm-border));
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--adm-danger) 7%, transparent) 0, transparent 55%),
-    var(--adm-surface-elevated);
+  background: color-mix(in srgb, var(--adm-danger) 6%, var(--adm-surface-elevated));
 }
 
 .admin-root .alerts__actions {
@@ -10922,7 +10921,7 @@ body[data-admin-theme] .admin-cmdk {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--adm-border-strong);
-  border-radius: 18px;
+  border-radius: var(--adm-radius-lg);
   background: var(--adm-surface-elevated);
   box-shadow: var(--adm-shadow-lg);
   color: var(--adm-text-primary);
@@ -10982,7 +10981,7 @@ body[data-admin-theme] .admin-cmdk__item {
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   cursor: pointer;
   font-size: 14px;
   line-height: 1.3;
@@ -11141,7 +11140,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   gap: 6px;
   padding: 10px;
   border: 1px solid var(--adm-border);
-  border-radius: 12px;
+  border-radius: var(--adm-radius-md);
   background: color-mix(in srgb, var(--adm-muted) 34%, transparent);
 }
 
@@ -11181,7 +11180,6 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 
 .admin-root .admin-density__option[aria-pressed='true'] {
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-xs);
   color: var(--adm-primary);
 }
 
@@ -11204,28 +11202,21 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-card);
   background: var(--adm-surface-elevated);
-  box-shadow: var(--adm-shadow-sm);
 }
 
 .admin-root .health-verdict[data-status='ok'] {
   border-color: color-mix(in srgb, var(--adm-success) 34%, var(--adm-border));
-  background:
-    linear-gradient(140deg, color-mix(in srgb, var(--adm-success) 9%, transparent), transparent 58%),
-    var(--adm-surface-elevated);
+  background: color-mix(in srgb, var(--adm-success) 7%, var(--adm-surface-elevated));
 }
 
 .admin-root .health-verdict[data-status='warn'] {
   border-color: color-mix(in srgb, var(--adm-warning) 38%, var(--adm-border));
-  background:
-    linear-gradient(140deg, color-mix(in srgb, var(--adm-warning) 10%, transparent), transparent 58%),
-    var(--adm-surface-elevated);
+  background: color-mix(in srgb, var(--adm-warning) 8%, var(--adm-surface-elevated));
 }
 
 .admin-root .health-verdict[data-status='fail'] {
   border-color: color-mix(in srgb, var(--adm-danger) 40%, var(--adm-border));
-  background:
-    linear-gradient(140deg, color-mix(in srgb, var(--adm-danger) 11%, transparent), transparent 58%),
-    var(--adm-surface-elevated);
+  background: color-mix(in srgb, var(--adm-danger) 8%, var(--adm-surface-elevated));
 }
 
 .admin-root .health-verdict__lamp {
@@ -11807,7 +11798,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   right: 6px;
   bottom: 6px;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   background: color-mix(in srgb, var(--adm-warning) 88%, transparent);
   font-size: 10px;
   font-weight: 700;
@@ -11844,7 +11835,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   gap: 5px;
   padding: 4px 10px;
   border: 1px solid color-mix(in srgb, var(--adm-warning) 38%, transparent);
-  border-radius: 999px;
+  border-radius: var(--adm-radius-tag);
   background: color-mix(in srgb, var(--adm-warning) 12%, transparent);
   font-size: 12px;
   font-weight: 700;
@@ -12246,8 +12237,8 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 
 .admin-root .clients__list button:hover {
   border-color: color-mix(in srgb, var(--adm-primary) 42%, var(--adm-border));
-  transform: translateY(-1px);
-  box-shadow: var(--adm-shadow-sm);
+  border-color: var(--adm-border-strong);
+  background: var(--adm-surface-raised);
 }
 
 .admin-root .clients__dot {
@@ -12588,5 +12579,127 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
     flex: 1 1 100%;
     order: 3;
     white-space: normal;
+  }
+}
+
+/* ==========================================================================
+   Живой слой: свет, глубина и движение
+   Плоский интерфейс читается дёшево не из-за отсутствия украшений, а из-за
+   того, что он никак не отвечает на действия. Ниже — три приёма, которые
+   отвечают: свет идёт за курсором, поверхности пропускают фон, разделы
+   появляются, а не подменяются мгновенно.
+   ========================================================================== */
+
+/* --- Свет за курсором ---
+   Мягкое пятно внутри карточки следует за мышью. Координаты подставляет
+   обработчик в Admin.tsx через --adm-spot-x/y; без него пятно просто не
+   показывается, потому что прозрачность держится на :hover. */
+.admin-root :is(.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .admin-card, .today-quick, .planner-stat, .media-card, .admin-panel--interactive) {
+  position: relative;
+  isolation: isolate;
+}
+
+.admin-root :is(.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .admin-card, .today-quick, .planner-stat, .media-card, .admin-panel--interactive)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+    260px circle at var(--adm-spot-x, 50%) var(--adm-spot-y, 0),
+    color-mix(in srgb, var(--adm-primary) 16%, transparent),
+    transparent 68%
+  );
+  opacity: 0;
+  transition: opacity 260ms var(--adm-ease);
+  pointer-events: none;
+}
+
+.admin-root :is(.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .admin-card, .today-quick, .planner-stat, .media-card, .admin-panel--interactive):hover::after {
+  opacity: 1;
+}
+
+/* --- Стекло ---
+   Боковое меню и липкие панели пропускают фон: при прокрутке под ними видно
+   движение содержимого, и слои перестают быть плоскими наклейками. */
+.admin-root .admin-sidebar {
+  background: color-mix(in srgb, var(--adm-surface-elevated) 74%, transparent);
+  backdrop-filter: saturate(170%) blur(16px);
+  -webkit-backdrop-filter: saturate(170%) blur(16px);
+}
+
+.admin-root .admin-sidebar__link {
+  transition:
+    background-color var(--adm-dur-base) var(--adm-ease),
+    color var(--adm-dur-base) var(--adm-ease);
+}
+
+/* Активный пункт держит вертикальную метку слева — она отъезжает от края. */
+.admin-root .admin-sidebar__link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-block: 7px;
+  inset-inline-start: -12px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--adm-primary);
+  animation: adm-mark-in 260ms var(--adm-ease) both;
+}
+
+@keyframes adm-mark-in {
+  from { opacity: 0; transform: scaleY(0.3); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- Появление раздела ---
+   Блоки поднимаются по очереди. Задержка маленькая: заметно как «собралось»,
+   но не как ожидание. Ключ на .admin-content__inner меняется при смене
+   раздела, поэтому анимация проигрывается на каждом переходе. */
+@keyframes adm-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.admin-root .admin-content__inner > *,
+.admin-root .admin-stack > *,
+.admin-root .adm-tiles > * {
+  animation: adm-rise 420ms var(--adm-ease) backwards;
+}
+
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(1) { animation-delay: 0ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(2) { animation-delay: 45ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(3) { animation-delay: 90ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(4) { animation-delay: 130ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(5) { animation-delay: 165ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(n + 6) { animation-delay: 195ms; }
+
+/* --- Отклик на нажатие ---
+   Кнопка слегка сжимается: физический отклик заметнее смены оттенка. */
+.admin-root .admin-button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.admin-root .admin-button {
+  transition:
+    color var(--adm-dur-base) var(--adm-ease),
+    background-color var(--adm-dur-base) var(--adm-ease),
+    border-color var(--adm-dur-base) var(--adm-ease),
+    transform var(--adm-dur-fast) var(--adm-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .admin-content__inner > *,
+  .admin-root .admin-stack > *,
+  .admin-root .adm-tiles > *,
+  .admin-root .admin-sidebar__link[aria-current='page']::before {
+    animation: none;
+  }
+
+  .admin-root :is(.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .admin-card, .today-quick, .planner-stat, .media-card, .admin-panel--interactive)::after {
+    transition: none;
+  }
+
+  .admin-root .admin-button:active:not(:disabled) {
+    transform: none;
   }
 }
