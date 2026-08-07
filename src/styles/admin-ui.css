@@ -1030,7 +1030,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-block-nav > button small {
   margin-top: 2px;
   color: var(--adm-text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .admin-root .admin-block-nav > button > svg {
@@ -1434,7 +1434,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   display: inline-flex;
   margin-bottom: 14px;
   color: #bdb5ff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2375,7 +2375,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   border-radius: var(--adm-radius-tag);
   color: var(--adm-text-tertiary);
   background: color-mix(in srgb, var(--adm-surface-subtle) 72%, transparent);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2693,7 +2693,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-task-row span {
   margin-top: 3px;
   color: var(--adm-text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -2747,13 +2747,13 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-note > div > span {
   color: var(--adm-text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .admin-root .admin-note .admin-button {
   min-height: 30px;
   padding-inline: 8px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .admin-root .admin-note p {
@@ -2790,7 +2790,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   border-radius: var(--adm-radius-tag);
   color: color-mix(in srgb, var(--tag-color, var(--adm-primary)) 78%, var(--adm-text-primary));
   background: color-mix(in srgb, var(--tag-color, var(--adm-primary)) 7%, var(--adm-surface-elevated));
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.15;
   text-overflow: ellipsis;
@@ -2847,7 +2847,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-crm-timeline time {
   color: var(--adm-text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .admin-root * {
@@ -7286,7 +7286,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .crm-months__label {
   padding-top: 5px;
-  font-size: 10.5px;
+  font-size: 11px;
   white-space: nowrap;
   color: var(--adm-text-tertiary);
 }
@@ -8534,7 +8534,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .admin-topbar__brand-note {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -8587,7 +8587,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .admin-sidebar__group-title {
   margin: 0 0 4px;
   padding-inline-start: 10px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -10465,7 +10465,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .meta-trend__day {
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
   color: var(--adm-text-tertiary);
 }
@@ -10871,7 +10871,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   border-radius: 6px;
   background: color-mix(in srgb, var(--adm-muted) 60%, transparent);
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--adm-text-tertiary);
@@ -10979,7 +10979,7 @@ body[data-admin-theme] .admin-cmdk__list {
 
 body[data-admin-theme] .admin-cmdk__group [cmdk-group-heading] {
   padding: 10px 12px 6px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -11067,7 +11067,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   border-radius: 5px;
   background: var(--adm-surface-elevated);
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--adm-text-secondary);
 }
 
@@ -11155,7 +11155,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 }
 
 .admin-root .admin-density__label {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -11523,7 +11523,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 
 .admin-root .perf-history__legend {
   padding-bottom: 2px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -11632,7 +11632,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 
 .admin-root .article-calendar__weekdays span {
   text-align: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -11810,7 +11810,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   padding: 2px 7px;
   border-radius: var(--adm-radius-tag);
   background: color-mix(in srgb, var(--adm-warning) 88%, transparent);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #fff;
@@ -12761,7 +12761,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
    плиток читался как сплошная серая масса. Теперь ясная лестница: число —
    главное, подпись над ним — тихая, пояснение под ним — ещё тише. */
 .admin-root .adm-tile__title {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--adm-text-tertiary);
@@ -12774,7 +12774,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 
 .admin-root .adm-tile .admin-hint,
 .admin-root .adm-tile__detail {
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.4;
   color: var(--adm-text-tertiary);
 }
