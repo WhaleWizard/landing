@@ -10,7 +10,7 @@ import {
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3, Users
+  Rows2, Rows3, Users, Wallet
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -21,6 +21,7 @@ import ArticleEditor from '../components/ArticleEditor';
 import CaseFieldsEditor from '../components/CaseFieldsEditor';
 import AdminLeads from '../components/admin/AdminLeads';
 import AdminClients from '../components/admin/AdminClients';
+import AdminFinance from '../components/admin/AdminFinance';
 import AdminMedia from '../components/admin/AdminMedia';
 import AdminHealth from '../components/admin/AdminHealth';
 import AdminToday from '../components/admin/AdminToday';
@@ -40,7 +41,7 @@ import ArticleCalendar from '../components/admin/ArticleCalendar';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -428,6 +429,7 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   leads: ['лиды', 'crm', 'сделки', 'контакты'],
   clients: ['абонентка', 'договор', 'отчёты', 'доступы', 'продление'],
   goals: ['план', 'выручка', 'бюджет', 'romi'],
+  finance: ['счета', 'оплаты', 'налог', 'прибыль', 'часы', 'расходы'],
   attribution: ['атрибуция', 'конверсия', 'источники', 'utm', 'расходы'],
   meta: ['пиксель', 'события', 'facebook', 'фейсбук'],
   performance: ['pagespeed', 'vitals', 'производительность', 'lcp'],
@@ -1000,7 +1002,7 @@ export default function Admin() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
-  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'clients' | 'media' | 'health' | 'goals' | 'report';
+  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'goals' | 'report';
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
     : adminView;
@@ -1019,6 +1021,7 @@ export default function Admin() {
     {
       title: 'Аналитика',
       items: [
+        { key: 'finance', label: 'Финансы', icon: Wallet },
         { key: 'goals', label: 'Цели и деньги', icon: Target },
         { key: 'attribution', label: 'Воронка', icon: BarChart3 },
         { key: 'meta', label: 'Meta CAPI', icon: Activity },
@@ -1266,6 +1269,7 @@ export default function Admin() {
               {adminView === 'content' && <AdminContentControl password={password} />}
               {adminView === 'leads' && <AdminLeads password={password} onOpenClients={() => setAdminView('clients')} />}
               {adminView === 'clients' && <AdminClients password={password} onOpenLead={() => setAdminView('leads')} />}
+              {adminView === 'finance' && <AdminFinance password={password} />}
               {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
               {adminView === 'health' && <AdminHealth password={password} />}
 
