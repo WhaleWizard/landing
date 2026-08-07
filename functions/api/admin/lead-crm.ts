@@ -62,6 +62,7 @@ interface LeadCrmPayload {
   lead_id?: unknown;
   note_id?: unknown;
   task_id?: unknown;
+  duplicate_id?: unknown;
   expected_revision?: unknown;
   expected_updated_at?: unknown;
   action_id?: unknown;
@@ -766,6 +767,98 @@ function normalizeTags(value: unknown): NormalizedTag[] {
   return Array.from(new Map(tags.map((tag) => [tag.slug, tag])).values());
 }
 
+async function leadHasColumn(db: D1Database, column: string): Promise<boolean> {
+  const rows = await db.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
+  return (rows.results || []).some((row) => row.name === column);
+}
+
+/**
+ * Слияние дублей: две карточки одного человека сводятся в одну.
+ *
+ * Ничего не удаляется безвозвратно — дубль уходит в корзину заявок, откуда
+ * его можно вернуть. Заполненные поля основной карточки не перезаписываются:
+ * из дубля подтягивается только то, чего в основной нет. Заметки и задачи
+ * переезжают целиком, счётчик обращений складывается, а в основную карточку
+ * добавляется заметка о слиянии — чтобы через месяц было понятно, откуда
+ * взялись чужие данные.
+ */
+async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): Promise<Record<string, unknown>> {
+  const duplicateId = parsePositiveInteger(body.duplicate_id);
+  if (!duplicateId) throw validationError('A valid duplicate_id is required');
+  if (duplicateId === leadId) throw validationError('Нельзя объединить заявку саму с собой');
+
+  const hasSoftDelete = await leadHasColumn(db, 'deleted_at');
+  if (!hasSoftDelete) throw validationError('Нужна миграция 0020: без корзины слияние необратимо');
+
+  const columns = ['id', 'name', 'email', 'phone', 'telegram_username', 'contact_method', 'budget', 'message', 'service', 'page_path'];
+  const optional = ['submissions_count', 'last_submitted_at', 'utm_source', 'utm_medium', 'utm_campaign'];
+  for (const column of optional) {
+    if (await leadHasColumn(db, column)) columns.push(column);
+  }
+  const select = columns.join(', ');
+
+  const [primary, duplicate] = await Promise.all([
+    db.prepare(`SELECT ${select} FROM leads WHERE id = ? AND deleted_at IS NULL`).bind(leadId).first<Record<string, unknown>>(),
+    db.prepare(`SELECT ${select} FROM leads WHERE id = ? AND deleted_at IS NULL`).bind(duplicateId).first<Record<string, unknown>>(),
+  ]);
+  if (!primary) throw validationError('Основная заявка не найдена или уже в корзине');
+  if (!duplicate) throw validationError('Дубль не найден или уже в корзине');
+
+  // Переносим только пустые поля: то, что уже заполнено руками, — приоритетнее.
+  const fillable = columns.filter((column) => column !== 'id' && column !== 'submissions_count' && column !== 'last_submitted_at');
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  const filled: string[] = [];
+  for (const column of fillable) {
+    const current = String(primary[column] ?? '').trim();
+    const incoming = String(duplicate[column] ?? '').trim();
+    if (current || !incoming) continue;
+    updates.push(`${column} = ?`);
+    values.push(incoming);
+    filled.push(column);
+  }
+
+  if (columns.includes('submissions_count')) {
+    const total = (Number(primary.submissions_count) || 1) + (Number(duplicate.submissions_count) || 1);
+    updates.push('submissions_count = ?');
+    values.push(total);
+  }
+  if (columns.includes('last_submitted_at')) {
+    const latest = [String(primary.last_submitted_at || ''), String(duplicate.last_submitted_at || '')]
+      .filter(Boolean)
+      .sort()
+      .pop();
+    if (latest) {
+      updates.push('last_submitted_at = ?');
+      values.push(latest);
+    }
+  }
+
+  const summary = [
+    `Объединено с заявкой #${duplicateId}${duplicate.name ? ` («${String(duplicate.name).slice(0, 80)}»)` : ''}.`,
+    filled.length ? `Перенесены пустые поля: ${filled.join(', ')}.` : 'Все поля основной заявки уже были заполнены.',
+    'Дубль отправлен в корзину — его можно вернуть.',
+  ].join(' ');
+
+  const statements = [
+    db.prepare('UPDATE crm_notes SET lead_id = ? WHERE lead_id = ?').bind(leadId, duplicateId),
+    db.prepare('UPDATE crm_tasks SET lead_id = ? WHERE lead_id = ?').bind(leadId, duplicateId),
+    db.prepare(
+      `UPDATE leads SET deleted_at = datetime('now'), deleted_reason = ?, updated_at = datetime('now')
+       WHERE id = ? AND deleted_at IS NULL`,
+    ).bind(`Объединена с заявкой #${leadId}`, duplicateId),
+    db.prepare('INSERT INTO crm_notes (lead_id, body, pinned) VALUES (?, ?, 0)').bind(leadId, summary),
+  ];
+  if (updates.length) {
+    statements.unshift(
+      db.prepare(`UPDATE leads SET ${updates.join(', ')}, updated_at = datetime('now') WHERE id = ?`).bind(...values, leadId),
+    );
+  }
+
+  await db.batch(statements);
+  return { merged: duplicateId, filled, summary };
+}
+
 async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Promise<Record<string, unknown>> {
   const requested = normalizeTags(body.tags);
   const actionId = normalizeActionId(body.action_id);
@@ -961,6 +1054,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     else if (action === 'update_task') result = await updateTask(env.DB, body, leadId);
     else if (action === 'delete_task') result = await deleteTask(env.DB, body, leadId);
     else if (action === 'set_tags') result = await setTags(env.DB, body, leadId);
+    else if (action === 'merge_lead') result = await mergeLead(env.DB, body, leadId);
     else throw validationError('Unknown action');
 
     return json({ success: true, action, ...result }, { headers: noStore });

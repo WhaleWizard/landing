@@ -19,13 +19,15 @@ import {
   Trash2,
   Undo2,
   UserRoundCheck,
+  Users,
   X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
 import { suggestLeadScore } from './leadScore';
 import CrmBoard from './CrmBoard';
 import CrmAnalytics from './CrmAnalytics';
-import { confirmAsk } from './AdminFeedback';
+import { confirmAsk, notify } from './AdminFeedback';
+import { findDuplicateGroups } from './leadDuplicates';
 import CrmQuickActions, { type QuickActionPlan } from './CrmQuickActions';
 import { AdminSectionSkeleton } from './AdminFeedback';
 
@@ -1199,6 +1201,11 @@ export default function AdminLeads({ password }: { password: string }) {
     }
   }, [view]);
 
+  // Дубли ищутся среди загруженных заявок: это ровно то, что человек сейчас
+  // видит, и никаких скрытых действий над невидимыми записями.
+  const duplicateGroups = useMemo(() => findDuplicateGroups(leads), [leads]);
+  const [merging, setMerging] = useState(0);
+
   const params = useMemo(() => {
     const value = new URLSearchParams({
       limit: String(CRM_PAGE_SIZE),
@@ -1256,6 +1263,42 @@ export default function AdminLeads({ password }: { password: string }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  /**
+   * Слияние группы: все дубли по очереди складываются в первую заявку.
+   * Ничего не удаляется — дубли уходят в корзину, и любой можно вернуть.
+   */
+  const mergeGroup = useCallback(async (primaryId: number, duplicateIds: number[], who: string) => {
+    const confirmed = await confirmAsk({
+      title: `Объединить заявки от «${who}»?`,
+      description: `Заметки и задачи переедут в заявку #${primaryId}, пустые поля дозаполнятся из ${duplicateIds.length === 1 ? 'дубля' : 'дублей'}. ${duplicateIds.length === 1 ? 'Дубль отправится' : 'Дубли отправятся'} в корзину заявок — оттуда их можно вернуть.`,
+      confirmLabel: 'Объединить',
+    });
+    if (!confirmed) return;
+
+    setMerging(primaryId);
+    try {
+      for (const duplicateId of duplicateIds) {
+        const response = await fetch('/api/admin/lead-crm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action: 'merge_lead', lead_id: primaryId, duplicate_id: duplicateId }),
+        });
+        const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      notify.success(
+        duplicateIds.length === 1 ? 'Заявки объединены' : `Объединено заявок: ${duplicateIds.length + 1}`,
+        `Всё собрано в заявке #${primaryId}.`,
+      );
+      await load(true);
+    } catch (mergeError) {
+      notify.error('Не удалось объединить', mergeError instanceof Error ? mergeError.message : undefined);
+    } finally {
+      setMerging(0);
+    }
+  }, [load, password]);
+
   const selected = leads.find((item) => item.id === selectedId) || null;
   const reminders = summary?.reminders || {};
   const taskSummary = summary?.tasks || {};
@@ -1284,6 +1327,42 @@ export default function AdminLeads({ password }: { password: string }) {
         <div><CheckCircle2 aria-hidden="true" /><span>Открытые задачи</span><strong>{taskSummary.open || 0}</strong></div>
         <div><CircleDollarSign aria-hidden="true" /><span>В работе</span><strong>{openValues.length ? openValues.map((item) => `${Number(item.open_value).toLocaleString('ru-RU')} ${item.deal_currency}`).join(' · ') : '—'}</strong></div>
       </div>
+
+      {duplicateGroups.length > 0 && (
+        <section className="crm-dupes" aria-label="Похожие заявки">
+          <header>
+            <strong><Users aria-hidden="true" /> Похоже на дубли: {duplicateGroups.length}</strong>
+            <span className="admin-hint">
+              Совпал телефон, почта или телеграм. При объединении заметки и задачи переезжают в первую заявку,
+              пустые поля дозаполняются, а дубль уходит в корзину — оттуда его можно вернуть.
+            </span>
+          </header>
+          <ul>
+            {duplicateGroups.map((group) => {
+              const [primary, ...rest] = group;
+              return (
+                <li key={primary.id}>
+                  <span className="crm-dupes__who">
+                    <strong>{primary.name || 'Без имени'}</strong>
+                    <em>{primary.email || primary.phone || primary.telegram_username || 'без контакта'}</em>
+                  </span>
+                  <span className="crm-dupes__ids">
+                    #{primary.id} + {rest.map((item) => `#${item.id}`).join(', ')}
+                  </span>
+                  <button
+                    type="button"
+                    className="admin-button admin-button--compact"
+                    disabled={merging === primary.id}
+                    onClick={() => void mergeGroup(primary.id, rest.map((item) => item.id), primary.name || 'Без имени')}
+                  >
+                    {merging === primary.id ? 'Объединяю…' : 'Объединить'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <div className="crm-view-switch" role="group" aria-label="Вид CRM">
         {CRM_VIEWS.map((item) => (
