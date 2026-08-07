@@ -12152,3 +12152,284 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Раздел «Клиенты»
+
+   CRM заканчивается на «Выиграно», а работа с абонентом только начинается.
+   Здесь список с одним взглядом на риск и карточка со всем, что нужно знать
+   про клиента: договор, отчёты по месяцам, доступы, памятки.
+   ========================================================================== */
+
+.admin-root .clients__detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-root .clients__detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- Светофор риска --- */
+
+.admin-root .clients__health {
+  padding: 12px 14px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .clients__health strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  text-transform: lowercase;
+}
+
+.admin-root .clients__health ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding-inline-start: 18px;
+  font-size: 12.5px;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .clients__health.is-attention {
+  border-color: color-mix(in srgb, var(--adm-warning) 40%, var(--adm-border));
+  background: color-mix(in srgb, var(--adm-warning) 8%, var(--adm-surface-elevated));
+}
+
+.admin-root .clients__health.is-attention strong { color: var(--adm-warning); }
+
+.admin-root .clients__health.is-critical {
+  border-color: color-mix(in srgb, var(--adm-danger) 42%, var(--adm-border));
+  background: color-mix(in srgb, var(--adm-danger) 8%, var(--adm-surface-elevated));
+}
+
+.admin-root .clients__health.is-critical strong { color: var(--adm-danger); }
+
+/* --- Список клиентов --- */
+
+.admin-root .clients__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .clients__list > li {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-root .clients__list button {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.admin-root .clients__list button:hover {
+  border-color: color-mix(in srgb, var(--adm-primary) 42%, var(--adm-border));
+  transform: translateY(-1px);
+  box-shadow: var(--adm-shadow-sm);
+}
+
+.admin-root .clients__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--adm-success);
+}
+
+.admin-root .clients__dot.is-attention { background: var(--adm-warning); }
+.admin-root .clients__dot.is-critical { background: var(--adm-danger); }
+
+.admin-root .clients__name {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.admin-root .clients__name strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .clients__name em {
+  overflow: hidden;
+  font-style: normal;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .clients__services {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .clients__money {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-root .clients__meta {
+  font-size: 11.5px;
+  white-space: nowrap;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .clients__reasons {
+  margin: 0 0 0 14px;
+  font-size: 11.5px;
+  color: var(--adm-warning);
+}
+
+.admin-root .clients__reasons.is-critical { color: var(--adm-danger); }
+
+/* --- Доступы, памятки, месяцы --- */
+
+.admin-root .clients__access,
+.admin-root .clients__notes {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .clients__access li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid var(--adm-border);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 40%, transparent);
+}
+
+.admin-root .clients__access-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .clients__access-preset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.admin-root .clients__notes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--adm-border);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--adm-surface-subtle) 40%, transparent);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-root .clients__notes li span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .clients__add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-root .clients__add-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-root .clients__month-form {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px dashed color-mix(in srgb, var(--adm-primary) 38%, var(--adm-border));
+  border-radius: var(--adm-radius-card);
+  background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
+}
+
+.admin-root .clients__month-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-root .clients__check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .clients__check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--adm-primary);
+}
+
+@media (max-width: 860px) {
+  .admin-root .clients__list button {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    row-gap: 4px;
+  }
+
+  .admin-root .clients__services {
+    grid-column: 2 / -1;
+  }
+
+  .admin-root .clients__meta {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-root .clients__access li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .admin-root .clients__access li > *:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .admin-root .clients__add-row {
+    flex-direction: column;
+  }
+}

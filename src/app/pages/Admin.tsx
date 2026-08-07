@@ -10,7 +10,7 @@ import {
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3
+  Rows2, Rows3, Users
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -20,6 +20,7 @@ import { API_ROUTES } from '../config';
 import ArticleEditor from '../components/ArticleEditor';
 import CaseFieldsEditor from '../components/CaseFieldsEditor';
 import AdminLeads from '../components/admin/AdminLeads';
+import AdminClients from '../components/admin/AdminClients';
 import AdminMedia from '../components/admin/AdminMedia';
 import AdminHealth from '../components/admin/AdminHealth';
 import AdminToday from '../components/admin/AdminToday';
@@ -39,7 +40,7 @@ import ArticleCalendar from '../components/admin/ArticleCalendar';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -424,7 +425,8 @@ function AdminCommandHost({ open, onOpenChange, groups }: {
 const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   dashboard: ['главная', 'дашборд', 'старт', 'dashboard'],
   planner: ['неделя', 'задачи', 'привычки', 'planner'],
-  leads: ['лиды', 'crm', 'сделки', 'клиенты', 'контакты'],
+  leads: ['лиды', 'crm', 'сделки', 'контакты'],
+  clients: ['абонентка', 'договор', 'отчёты', 'доступы', 'продление'],
   goals: ['план', 'выручка', 'бюджет', 'romi'],
   attribution: ['атрибуция', 'конверсия', 'источники', 'utm', 'расходы'],
   meta: ['пиксель', 'события', 'facebook', 'фейсбук'],
@@ -998,7 +1000,7 @@ export default function Admin() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
-  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'media' | 'health' | 'goals' | 'report';
+  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'clients' | 'media' | 'health' | 'goals' | 'report';
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
     : adminView;
@@ -1011,6 +1013,7 @@ export default function Admin() {
         { key: 'dashboard', label: 'Сегодня', icon: LayoutDashboard },
         { key: 'planner', label: 'Планер', icon: CalendarCheck },
         { key: 'leads', label: 'Заявки', icon: Inbox },
+        { key: 'clients', label: 'Клиенты', icon: Users },
       ],
     },
     {
@@ -1262,6 +1265,7 @@ export default function Admin() {
               {adminView === 'performance' && <AdminPerformance password={password} />}
               {adminView === 'content' && <AdminContentControl password={password} />}
               {adminView === 'leads' && <AdminLeads password={password} />}
+              {adminView === 'clients' && <AdminClients password={password} onOpenLead={() => setAdminView('leads')} />}
               {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
               {adminView === 'health' && <AdminHealth password={password} />}
 
