@@ -360,7 +360,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   try {
-    const id = Number(new URL(request.url).searchParams.get('id') || 0);
+    const params = new URL(request.url).searchParams;
+    // Быстрая проверка «а этот лид уже стал клиентом?» — чтобы карточка сделки
+    // в CRM не тянула ради этого весь список.
+    const leadId = Number(params.get('lead_id') || 0);
+    if (leadId > 0) {
+      const found = await (env.DB as D1Database)
+        .prepare('SELECT id, name FROM clients WHERE lead_id = ?')
+        .bind(leadId)
+        .first<{ id: number; name: string }>();
+      return json({ success: true, client: found || null }, { headers: noStore });
+    }
+    const id = Number(params.get('id') || 0);
     return id > 0 ? await getClient(env, id) : await listClients(env);
   } catch (error) {
     if (isMissingTableError(error)) return migrationResponse();

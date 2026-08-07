@@ -12433,3 +12433,62 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
     flex-direction: column;
   }
 }
+
+/* --- Договор файлом и переход «сделка → клиент» --- */
+
+.admin-root .clients__file {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-root .clients__file input.admin-input {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.admin-root .clients__file label.admin-button {
+  cursor: pointer;
+}
+
+.admin-root .clients__file label.admin-button.is-busy {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.admin-root .admin-crm-client {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--adm-primary) 32%, var(--adm-border));
+  border-radius: var(--adm-radius-card);
+  background: color-mix(in srgb, var(--adm-primary) 6%, var(--adm-surface-elevated));
+}
+
+.admin-root .admin-crm-client > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.admin-root .admin-crm-client strong {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.admin-root .admin-crm-client span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--adm-text-secondary);
+}
+
+@media (max-width: 560px) {
+  .admin-root .admin-crm-client .admin-button {
+    width: 100%;
+  }
+}

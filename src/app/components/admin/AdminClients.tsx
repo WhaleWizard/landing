@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft, CalendarClock, CircleDollarSign, ExternalLink, FileText, KeyRound,
-  NotebookPen, Plus, RefreshCw, Save, Trash2, UserPlus, Users, X,
+  NotebookPen, Plus, RefreshCw, Save, Trash2, Upload, UserPlus, Users, X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
@@ -179,6 +179,35 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
   const [noteDraft, setNoteDraft] = useState('');
   const [accessDraft, setAccessDraft] = useState('');
   const [monthDraft, setMonthDraft] = useState<ClientMonth | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  /**
+   * Договор кладётся в ту же медиатеку, что и остальные файлы: отдельного
+   * хранилища ради одного PDF заводить незачем, а белый список типов и лимит
+   * размера там уже настроены.
+   */
+  const uploadContract = useCallback(async (file: File): Promise<string | null> => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        body: form,
+      });
+      const payload = await response.json().catch(() => null) as { url?: string; error?: string } | null;
+      if (!response.ok || !payload?.url) throw new Error(payload?.error || `HTTP ${response.status}`);
+      notify.success('Договор загружен', 'Не забудьте сохранить карточку.');
+      return payload.url;
+    } catch (uploadError) {
+      notify.error('Файл не загрузился', uploadError instanceof Error ? uploadError.message : undefined);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  }, [password]);
 
   const request = useCallback(async (payload: Record<string, unknown>): Promise<Record<string, unknown> | null> => {
     const response = await fetch('/api/admin/clients', {
@@ -425,9 +454,40 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
               <input type="checkbox" checked={Boolean(draft.contract_auto_renew)} onChange={(e) => setDraft({ ...draft, contract_auto_renew: e.target.checked ? 1 : 0 })} />
               <span>Продлевается автоматически</span>
             </label>
-            <label className="admin-field admin-field--wide"><span className="admin-label">Ссылка на файл договора</span>
-              <input className="admin-input" maxLength={600} placeholder="Загрузите файл в медиатеку и вставьте ссылку" value={draft.contract_file_url} onChange={(e) => setDraft({ ...draft, contract_file_url: e.target.value })} />
-            </label>
+            <div className="admin-field admin-field--wide">
+              <span className="admin-label">Договор файлом</span>
+              <div className="clients__file">
+                <input
+                  className="admin-input"
+                  maxLength={600}
+                  placeholder="Загрузите PDF или DOCX — или вставьте ссылку"
+                  value={draft.contract_file_url}
+                  onChange={(e) => setDraft({ ...draft, contract_file_url: e.target.value })}
+                />
+                <label className={`admin-button admin-button--quiet${uploading ? ' is-busy' : ''}`}>
+                  <Upload aria-hidden="true" /> {uploading ? 'Загружаю…' : 'Загрузить'}
+                  <input
+                    type="file"
+                    className="sr-only"
+                    accept=".pdf,.doc,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
+                    disabled={uploading}
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (!file) return;
+                      const url = await uploadContract(file);
+                      if (url) setDraft((current) => (current ? { ...current, contract_file_url: url } : current));
+                    }}
+                  />
+                </label>
+                {draft.contract_file_url && (
+                  <a className="admin-button admin-button--quiet" href={draft.contract_file_url} target="_blank" rel="noreferrer">
+                    <ExternalLink aria-hidden="true" /> Открыть
+                  </a>
+                )}
+              </div>
+              <span className="admin-hint">Файл уходит в медиатеку. Ссылку не забудьте сохранить кнопкой сверху.</span>
+            </div>
           </div>
         </section>
 

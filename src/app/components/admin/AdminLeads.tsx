@@ -18,6 +18,7 @@ import {
   Target,
   Trash2,
   Undo2,
+  UserPlus,
   UserRoundCheck,
   Users,
   X,
@@ -383,10 +384,18 @@ function leadLabel(lead: { name?: string; email?: string; phone?: string; telegr
   return contact ? `${name} · ${contact}` : name;
 }
 
-function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow; password: string; onChanged: () => void; editingReady: boolean }) {
+function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: {
+  lead: LeadRow;
+  password: string;
+  onChanged: () => void;
+  editingReady: boolean;
+  onOpenClients?: () => void;
+}) {
   // Автооценка пересчитывается из самой заявки и ничего не перезаписывает:
   // ручной ползунок остаётся главным, кнопка «Применить» — предложением.
   const autoScore = useMemo(() => suggestLeadScore(lead), [lead]);
+  const [clientLink, setClientLink] = useState<{ id: number; name: string } | null>(null);
+  const [clientBusy, setClientBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -464,6 +473,86 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
       return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Заведён ли уже клиент из этой сделки — чтобы вместо кнопки показать ссылку
+  // на готовую карточку и не плодить дубли.
+  useEffect(() => {
+    let cancelled = false;
+    setClientLink(null);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/clients?lead_id=${lead.id}`, {
+          headers: { 'X-Admin-Password': password },
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => null) as { success?: boolean; client?: { id: number; name: string } | null } | null;
+        if (!cancelled && response.ok && payload?.success) setClientLink(payload.client || null);
+      } catch {
+        // Раздел «Клиенты» может быть без миграции — карточке сделки это не мешает.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [lead.id, password]);
+
+  /**
+   * «Стал клиентом»: из сделки вырастает карточка в разделе «Клиенты».
+   * Имя и контакт переносятся, чек не угадывается — сумма сделки это разовые
+   * деньги, а не ежемесячный платёж. Сделка при этом переходит в «Выиграны»:
+   * клиент, который платит, по определению выигранная сделка.
+   */
+  const convertToClient = async () => {
+    const confirmed = await confirmAsk({
+      title: `Завести клиента из сделки «${lead.name || 'без имени'}»?`,
+      description: 'Создам карточку в разделе «Клиенты», перенесу имя и контакт. Сделка перейдёт в «Выиграны». Чек и договор заполните в карточке — их из заявки не угадать.',
+      confirmLabel: 'Завести клиента',
+    });
+    if (!confirmed) return;
+
+    setClientBusy(true);
+    try {
+      const response = await fetch('/api/admin/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          action: 'create',
+          lead_id: lead.id,
+          name: lead.name || 'Без имени',
+          contact_method: lead.telegram_username ? 'telegram' : lead.phone ? 'телефон' : 'почта',
+          contact_value: lead.telegram_username || lead.phone || lead.email || '',
+          retainer_currency: lead.deal_currency || 'USD',
+          started_at: new Date().toISOString().slice(0, 10),
+        }),
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; id?: number; clientId?: number; error?: string } | null;
+
+      if (response.status === 409 && payload?.clientId) {
+        setClientLink({ id: payload.clientId, name: lead.name });
+        notify.info('Клиент из этой сделки уже заведён');
+        return;
+      }
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+
+      setClientLink({ id: Number(payload.id || 0), name: lead.name });
+
+      if (draft && draft.pipeline_stage !== 'won') {
+        await post({
+          action: 'update_lead', action_id: crypto.randomUUID(), expected_revision: draft.crm_revision,
+          pipeline_stage: 'won', priority: draft.priority, lead_score: draft.lead_score,
+          next_action_at: toUtcIso(draft.next_action_at), next_action_text: draft.next_action_text,
+          deal_value: draft.deal_value === '' ? null : Number(draft.deal_value), deal_currency: draft.deal_currency,
+          loss_reason: draft.loss_reason, notes: draft.notes,
+        }, 'Сделка переведена в «Выиграны».');
+      }
+
+      notify.success('Клиент заведён', 'Карточка ждёт в разделе «Клиенты» — заполните чек и договор.');
+    } catch (convertError) {
+      notify.error('Не удалось завести клиента', convertError instanceof Error ? convertError.message : undefined);
+    } finally {
+      setClientBusy(false);
     }
   };
 
@@ -672,6 +761,26 @@ function LeadDetail({ lead, password, onChanged, editingReady }: { lead: LeadRow
         {lead.quality_meta_processing && (lead.quality === 'target' || lead.quality === 'nontarget') ? <div className="admin-confirm-inline admin-crm-quality__confirm" role="status"><span>Операция была прервана до фиксации результата. Безопасно повторите ту же отправку.</span><button className="admin-button admin-button--primary" type="button" onClick={() => void setQuality(lead.quality as 'target' | 'nontarget', false, lead.quality_action_id)} disabled={saving || !editingReady}>Повторить отправку</button></div> : null}
         {pendingQuality !== null ? <div className="admin-confirm-inline admin-crm-quality__confirm" role="alert"><span>{lead.quality_meta_status === 'sent' ? 'Предыдущее событие уже доставлено в Meta и не может быть отозвано.' : lead.quality_meta_status === 'unknown' ? 'У предыдущего события нет надёжно зафиксированного статуса.' : 'Предыдущее событие уже находится в очереди и ещё может быть доставлено в Meta.'} {pendingQuality ? 'Отправить новую классификацию?' : 'Снять метку только в CRM?'}</span><button className="admin-button admin-button--primary" type="button" onClick={() => void setQuality(pendingQuality, true)} disabled={saving || !editingReady}>{pendingQuality ? 'Да, изменить' : 'Да, снять'}</button><button type="button" className="admin-button admin-button--quiet" onClick={() => { setPendingQuality(null); setQualityActionId(''); }}>Отмена</button></div> : null}
         {qualityHistory.length ? <details className="admin-disclosure admin-quality-history"><summary><span>История сигналов Meta · {qualityHistory.length}</span><ChevronRight aria-hidden="true" /></summary><div className="admin-quality-history__list">{qualityHistory.map((item) => { const state = qualityHistoryState(item); return <div key={item.event_id}><span>{item.event_name}{item.current ? ' · текущая' : ''}</span><span className={`admin-state admin-state--${state.tone}`}>{state.label}</span><small>{qualityReasonLabel(item.reason) || (item.sent_at ? formatDate(new Date(item.sent_at * 1000).toISOString()) : item.updated_at ? formatDate(item.updated_at) : 'Без дополнительной информации')}</small></div>; })}</div></details> : null}
+      </div>
+
+      <div className="admin-crm-client">
+        <div>
+          <strong>{clientLink ? 'Клиент заведён' : 'Стал клиентом?'}</strong>
+          <span>
+            {clientLink
+              ? 'Договор, отчёты по месяцам и доступы живут в карточке клиента.'
+              : 'Заведу карточку в разделе «Клиенты» и переведу сделку в «Выиграны».'}
+          </span>
+        </div>
+        {clientLink ? (
+          <button type="button" className="admin-button admin-button--quiet" onClick={() => onOpenClients?.()} disabled={!onOpenClients}>
+            <Users aria-hidden="true" /> Открыть карточку клиента
+          </button>
+        ) : (
+          <button type="button" className="admin-button admin-button--primary" disabled={clientBusy || !editingReady} onClick={() => void convertToClient()}>
+            <UserPlus aria-hidden="true" /> {clientBusy ? 'Завожу…' : 'Стал клиентом'}
+          </button>
+        )}
       </div>
 
       <div className="admin-crm-form-grid">
@@ -1168,7 +1277,7 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
   );
 }
 
-export default function AdminLeads({ password }: { password: string }) {
+export default function AdminLeads({ password, onOpenClients }: { password: string; onOpenClients?: () => void }) {
   const [query, setQuery] = useState('');
   const [stage, setStage] = useState('all');
   const [priority, setPriority] = useState('all');
@@ -1404,6 +1513,7 @@ export default function AdminLeads({ password }: { password: string }) {
                 lead={boardLead}
                 password={password}
                 editingReady={editingReady}
+                onOpenClients={onOpenClients}
                 onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
               />
             </div>
@@ -1492,7 +1602,7 @@ export default function AdminLeads({ password }: { password: string }) {
           </div>
           {total > CRM_PAGE_SIZE ? <nav className="admin-crm-pagination" aria-label="Страницы списка сделок"><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasPreviousPage} onClick={() => setOffset((value) => Math.max(0, value - CRM_PAGE_SIZE))}>Назад</button><span>{pageStart}–{pageEnd} из {total}</span><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasNextPage} onClick={() => setOffset((value) => value + CRM_PAGE_SIZE)}>Далее</button></nav> : null}
         </aside>
-        <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }} editingReady={editingReady} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
+        <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }} editingReady={editingReady} onOpenClients={onOpenClients} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
       </div>
       <TrashPanel password={password} onChanged={() => void load(true)} refreshToken={trashVersion} />
       {facets?.services?.length ? <p className="admin-meta">Источники в текущей базе: {facets.services.slice(0, 5).map((item) => `${item.value} · ${item.count}`).join(', ')}</p> : null}

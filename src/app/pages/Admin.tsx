@@ -1264,7 +1264,7 @@ export default function Admin() {
               {adminView === 'meta' && <AdminMetaCenter password={password} />}
               {adminView === 'performance' && <AdminPerformance password={password} />}
               {adminView === 'content' && <AdminContentControl password={password} />}
-              {adminView === 'leads' && <AdminLeads password={password} />}
+              {adminView === 'leads' && <AdminLeads password={password} onOpenClients={() => setAdminView('clients')} />}
               {adminView === 'clients' && <AdminClients password={password} onOpenLead={() => setAdminView('leads')} />}
               {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
               {adminView === 'health' && <AdminHealth password={password} />}
