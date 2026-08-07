@@ -328,19 +328,44 @@ function useCardSpotlight() {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     if (window.matchMedia?.('(hover: none)').matches) return;
 
-    const selector = '.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .admin-panel--interactive';
+    const selector = '.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .admin-card, .today-quick, .planner-stat, .media-card, .admin-panel--interactive';
+    // Наклон намеренно мелкий. Уже на 6-7° карточка начинает вести себя как
+    // игрушка, текст на дальнем краю плывёт и читается хуже; 3° дают ощущение
+    // отзывчивой поверхности, но буквы остаются на месте.
+    const MAX_TILT = 3;
     let frame = 0;
     let last: MouseEvent | null = null;
+    let active: HTMLElement | null = null;
+
+    const clear = (element: HTMLElement) => {
+      element.style.removeProperty('--adm-tilt-x');
+      element.style.removeProperty('--adm-tilt-y');
+    };
 
     const paint = () => {
       frame = 0;
       const event = last;
       if (!event) return;
       const target = event.target instanceof Element ? event.target.closest(selector) : null;
+
+      if (active && active !== target) {
+        clear(active);
+        active = null;
+      }
       if (!(target instanceof HTMLElement)) return;
+
       const box = target.getBoundingClientRect();
-      target.style.setProperty('--adm-spot-x', `${Math.round(event.clientX - box.left)}px`);
-      target.style.setProperty('--adm-spot-y', `${Math.round(event.clientY - box.top)}px`);
+      const x = event.clientX - box.left;
+      const y = event.clientY - box.top;
+      target.style.setProperty('--adm-spot-x', `${Math.round(x)}px`);
+      target.style.setProperty('--adm-spot-y', `${Math.round(y)}px`);
+
+      // Доля смещения от центра: -1 у одного края, +1 у противоположного.
+      const offsetX = box.width ? (x / box.width - 0.5) * 2 : 0;
+      const offsetY = box.height ? (y / box.height - 0.5) * 2 : 0;
+      target.style.setProperty('--adm-tilt-y', `${(offsetX * MAX_TILT).toFixed(2)}deg`);
+      target.style.setProperty('--adm-tilt-x', `${(-offsetY * MAX_TILT).toFixed(2)}deg`);
+      active = target;
     };
 
     const handleMove = (event: MouseEvent) => {
@@ -349,10 +374,22 @@ function useCardSpotlight() {
       frame = requestAnimationFrame(paint);
     };
 
+    // Уход курсора за пределы окна не даёт mousemove, и карточка осталась бы
+    // наклонённой навсегда.
+    const handleLeave = () => {
+      if (active) {
+        clear(active);
+        active = null;
+      }
+    };
+
     document.addEventListener('mousemove', handleMove, { passive: true });
+    document.addEventListener('mouseleave', handleLeave);
     return () => {
       document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseleave', handleLeave);
       if (frame) cancelAnimationFrame(frame);
+      if (active) clear(active);
     };
   }, []);
 }

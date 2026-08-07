@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
+import { CountUpValue } from './AttributionCharts';
 
 /**
  * Клиенты — то, что начинается после выигранной сделки.
@@ -749,12 +750,12 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
           </div>
           <div className="adm-tile">
             <span className="adm-tile__title">Активных</span>
-            <strong className="adm-tile__value">{summary.activeCount}</strong>
+            <strong className="adm-tile__value"><CountUpValue value={summary.activeCount} /></strong>
             <span className="admin-hint">Всего карточек: {summary.totalCount}.</span>
           </div>
           <div className="adm-tile">
             <span className="adm-tile__title">Требуют внимания</span>
-            <strong className="adm-tile__value">{summary.needAttention}</strong>
+            <strong className="adm-tile__value"><CountUpValue value={summary.needAttention} /></strong>
             <span className="admin-hint">Просроченный отчёт, касание или договор.</span>
           </div>
           <div className="adm-tile">

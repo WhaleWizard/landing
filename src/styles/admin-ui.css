@@ -12703,3 +12703,77 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
     transform: none;
   }
 }
+
+/* --- Наклон под курсором ---
+   Карточка слегка поворачивается вслед за мышью. Угол считает обработчик в
+   Admin.tsx и кладёт в --adm-tilt-x/y; без него переменные пусты и карточка
+   остаётся плоской. Наклоняются только небольшие плитки: у крупной панели
+   тот же угол уводит дальний край на десятки пикселей и текст начинает
+   плыть. */
+.admin-root :is(.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .planner-stat, .media-card) {
+  transform: perspective(900px) rotateX(var(--adm-tilt-x, 0deg)) rotateY(var(--adm-tilt-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 220ms var(--adm-ease), border-color var(--adm-dur-base) var(--adm-ease), background-color var(--adm-dur-base) var(--adm-ease);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root :is(.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .planner-stat, .media-card) {
+    transform: none;
+    transition: border-color var(--adm-dur-base) var(--adm-ease);
+  }
+}
+
+/* На узком экране курсора нет, а transform создаёт лишний слой композитинга. */
+@media (max-width: 900px) {
+  .admin-root :is(.adm-tile, .today-card, .crm-card, .admin-action-card, .clients__card, .fin-card, .planner-stat, .media-card) {
+    transform: none;
+    will-change: auto;
+  }
+}
+
+/* --- Никакой коробки внутри коробки ---
+   Пустое состояние и заглушка внутри карточки больше не рисуют собственную
+   поверхность: рамка внутри рамки — самый заметный признак вёрстки «на
+   скорую руку», а смысл здесь несёт текст, а не ещё один прямоугольник. */
+.admin-root :is(.admin-card, .admin-panel, .today-card, .adm-card) :is(.admin-empty, .admin-blank) {
+  border: 0;
+  background: none;
+}
+
+/* Цвет остаётся: он и был сигналом «всё в порядке». */
+.admin-root :is(.admin-card, .admin-panel, .today-card) .admin-empty--success {
+  color: var(--adm-success);
+}
+
+/* --- Иерархия внутри плитки ---
+   Подпись, число и пояснение раньше весили почти одинаково, и ряд из десяти
+   плиток читался как сплошная серая масса. Теперь ясная лестница: число —
+   главное, подпись над ним — тихая, пояснение под ним — ещё тише. */
+.admin-root .adm-tile__title {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .adm-tile__value {
+  color: var(--adm-text-primary);
+  letter-spacing: -0.025em;
+}
+
+.admin-root .adm-tile .admin-hint,
+.admin-root .adm-tile__detail {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--adm-text-tertiary);
+}
+
+/* Значок метрики уходит на второй план и не спорит с числом. */
+.admin-root .adm-tile__icon {
+  opacity: 0.65;
+}
+
+.admin-root .adm-tile:hover .adm-tile__icon {
+  opacity: 1;
+}
