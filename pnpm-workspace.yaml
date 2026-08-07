@@ -1,3 +1,10 @@
+# @types/react держим на 18: React в проекте 18.3, а @types/react-dom тянет
+# за собой 19-ю ветку типов. Без выравнивания проверка типов src/ выдаёт
+# сотни ложных «cannot be used as a JSX component» и настоящие ошибки в них
+# тонут.
+overrides:
+  '@types/react': 18.3.12
+
 allowBuilds:
   '@tailwindcss/oxide': true
   esbuild: true

@@ -360,6 +360,8 @@ interface TrashResult {
   restored?: number;
   purged?: number;
   cancelled_events?: number;
+  /** Сколько заявок ещё осталось в корзине — по нему цикл очистки решает, делать ли следующий заход. */
+  remaining?: number;
 }
 
 async function callTrashApi(password: string, body: Record<string, unknown>): Promise<TrashResult> {

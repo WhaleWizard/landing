@@ -352,13 +352,18 @@ function Receipt({
               `rotateZ(${pose.rotateZ}deg) translateZ(${pose.translateZ}px)`,
           }}
         >
+          {/*
+            Кадры анимации копируются в обычные массивы: описаны они через
+            `as const`, а motion ждёт изменяемый список значений и readonly-
+            кортеж не принимает.
+          */}
           <motion.article
             className="meta-receipt"
             style={{
               backgroundImage:
                 'linear-gradient(115deg, rgba(255, 255, 255, 0.34), transparent 34%, rgba(88, 77, 56, 0.07) 100%), var(--meta-receipt-paper-texture)',
             }}
-            animate={loop ? { y: path.y, rotate: path.rotate } : { y: 0, rotate: 0 }}
+            animate={loop ? { y: [...path.y], rotate: [...path.rotate] } : { y: 0, rotate: 0 }}
             transition={{
               duration: path.duration,
               repeat: loop ? Infinity : 0,

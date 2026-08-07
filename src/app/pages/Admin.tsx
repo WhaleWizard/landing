@@ -10,7 +10,8 @@ import {
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3, Users, Wallet
+  Rows2, Rows3, Users, Wallet,
+  type LucideIcon
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -1086,7 +1087,17 @@ export default function Admin() {
     : adminView;
   // Разделы сгруппированы по смыслу: одиннадцать пунктов подряд читаются
   // как список без приоритетов, а группами глаз находит нужное сразу.
-  const adminNavGroups = [
+  //
+  // Тип задан явно. С `as const` без него каждая группа получала свой кортеж
+  // с литеральными ключами, flatMap не выводил общий элемент и весь список
+  // разделов становился unknown — а вместе с ним и подсветка активного пункта,
+  // и заголовок раздела, и палитра команд.
+  type AdminNavItem = {
+    readonly key: AdminNavKey;
+    readonly label: string;
+    readonly icon: LucideIcon;
+  };
+  const adminNavGroups: ReadonlyArray<{ readonly title: string; readonly items: readonly AdminNavItem[] }> = [
     {
       title: 'Работа',
       items: [
@@ -1122,7 +1133,7 @@ export default function Admin() {
         { key: 'health', label: 'Проверка', icon: Stethoscope },
       ],
     },
-  ] as const;
+  ];
   const adminNavigation = adminNavGroups.flatMap((group) => group.items);
   const currentSection = adminNavigation.find((item) => item.key === currentNavKey);
   const navigateToAdminSection = (destination: AdminNavKey) => {

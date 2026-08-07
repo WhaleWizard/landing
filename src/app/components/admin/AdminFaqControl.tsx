@@ -218,7 +218,7 @@ export default function AdminFaqControl({ password }: { password: string }) {
         <section className="admin-card admin-content-editor">
           <div className="admin-stack">
             {indexedItems.map(({ item, index }) => (
-              <details className="admin-disclosure" key={item.id} defaultOpen={indexedItems.length <= 3 || (index === items.length - 1 && item.question === 'Новый вопрос')}>
+              <details className="admin-disclosure" key={item.id} open={indexedItems.length <= 3 || (index === items.length - 1 && item.question === 'Новый вопрос')}>
                 <summary><span>{index + 1}. {item.question}</span><span className="admin-meta">{item.category}</span></summary>
                 <div className="admin-form-grid">
                   <AdminSelect

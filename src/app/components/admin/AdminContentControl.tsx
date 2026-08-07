@@ -984,7 +984,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                           onMove={(direction) => update(['services', 'cards'], moveItem(content.services.cards, index, direction))}
                           onDelete={() => update(['services', 'cards'], content.services.cards.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                        <details className="admin-disclosure" open={index === 0}>
                           <summary><span>{card.title || 'Новая карточка услуги'}</span><ChevronRight aria-hidden="true" /></summary>
                           <div className="admin-form-grid"><Field id={`service-title-${index}`} label="Название" value={card.title} maxLength={160} onChange={(value) => update(['services', 'cards', index, 'title'], value)} /><Field id={`service-description-${index}`} label="Описание" value={card.description} multiline maxLength={700} onChange={(value) => update(['services', 'cards', index, 'description'], value)} /><StringListEditor label="Что входит" singular="Пункт" values={card.features} maxItems={8} maxLength={120} onChange={(value) => update(['services', 'cards', index, 'features'], value)} /></div>
                         </details>
@@ -1014,7 +1014,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                           onMove={(direction) => update(['services', 'detailed', 'sections'], moveItem(content.services.detailed.sections, index, direction))}
                           onDelete={() => update(['services', 'detailed', 'sections'], content.services.detailed.sections.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                        <details className="admin-disclosure" open={index === 0}>
                           <summary><span>{item.title || 'Новый раздел'}</span><ChevronRight aria-hidden="true" /></summary>
                           <div className="admin-form-grid">
                             <Field id={`detailed-title-${index}`} label="Заголовок раздела" value={item.title} maxLength={200} onChange={(value) => update(['services', 'detailed', 'sections', index, 'title'], value)} />
@@ -1063,7 +1063,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                           onMove={(direction) => update(['cases', 'items'], moveItem(content.cases.items, index, direction))}
                           onDelete={() => update(['cases', 'items'], content.cases.items.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                        <details className="admin-disclosure" open={index === 0}>
                           <summary><span>{item.title || 'Новая карточка кейса'}</span><ChevronRight aria-hidden="true" /></summary>
                           <div className="admin-form-grid">
                             <Field id={`case-title-${index}`} label="Название" value={item.title} maxLength={180} onChange={(value) => update(['cases', 'items', index, 'title'], value)} />
@@ -1138,7 +1138,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                           onMove={(direction) => update(['testimonials', 'items'], moveItem(content.testimonials.items, index, direction))}
                           onDelete={() => update(['testimonials', 'items'], content.testimonials.items.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" defaultOpen={index === 0}>
+                        <details className="admin-disclosure" open={index === 0}>
                           <summary>
                             <span>{item.name || 'Новый отзыв'}{item.company ? ` · ${item.company}` : ''}</span>
                             <ChevronRight aria-hidden="true" />
