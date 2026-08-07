@@ -4332,7 +4332,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-height: 150px;
   margin: 0;
   padding: 18px;
-  border: 1px dashed var(--adm-border-strong);
+  border: 0;
   border-radius: var(--adm-radius-md);
   color: var(--adm-text-tertiary);
   text-align: center;
@@ -4671,7 +4671,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: 8px;
   min-height: 40px;
   padding: 0 13px;
-  border: 1px dashed var(--adm-border-strong);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-control);
   color: var(--adm-text-secondary);
   background: transparent;
@@ -4834,7 +4834,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-height: 38px;
   margin-top: 8px;
   padding: 0 10px;
-  border: 1px dashed color-mix(in srgb, var(--adm-primary) 42%, var(--adm-border));
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 10px;
   background: color-mix(in srgb, var(--adm-primary) 7%, transparent);
   font-size: 12.5px;
@@ -6571,7 +6571,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border: 1px dashed var(--adm-border-strong);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
 }
 
@@ -6873,7 +6873,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .crm-column__empty {
   margin: 0;
   padding: 14px 8px;
-  border: 1px dashed var(--adm-border);
+  border: 0;
   border-radius: var(--adm-radius-control);
   font-size: 12px;
   line-height: 1.45;
@@ -7007,7 +7007,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .crm-card__states .is-idle {
-  border: 1px dashed color-mix(in srgb, var(--adm-warning) 45%, transparent);
+  border: 1px solid var(--adm-border-subtle);
   background: none;
   color: var(--adm-warning);
 }
@@ -9139,14 +9139,18 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   color: var(--adm-danger);
 }
 
+/*
+ * Приглашение записать план — часть карточки, а не отдельный блок в ней.
+ * Пунктирная рамка вокруг подложки читалась как «здесь чего-то не хватает»,
+ * хотя пустой план в начале дня — нормальное состояние.
+ */
 .admin-root .today-plan__empty {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px;
-  border: 1px dashed color-mix(in srgb, var(--adm-primary) 35%, var(--adm-border));
-  border-radius: var(--adm-radius-card);
-  background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
+  padding: 14px 0 16px;
+  border: 0;
+  background: none;
 }
 
 .admin-root .today-plan__empty svg {
@@ -9416,7 +9420,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   align-items: center;
   gap: var(--adm-space-3);
   padding: var(--adm-space-8) var(--adm-space-5);
-  border: 1px dashed color-mix(in srgb, var(--adm-border-strong) 80%, transparent);
+  border: 0;
   border-radius: var(--adm-radius-card);
   background: color-mix(in srgb, var(--adm-surface-subtle) 26%, transparent);
   text-align: center;
@@ -9841,11 +9845,17 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   transition: width 460ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/*
+ * Предупреждение о темпе — строка с меткой слева, а не залитая плашка.
+ * Плашка внутри карточки превращала обычный прогноз в аварийный баннер и
+ * перетягивала внимание с самих цифр цели.
+ */
 .admin-root .today-goal__warn {
   margin: 0;
-  padding: var(--adm-space-2) var(--adm-space-3);
-  border-radius: var(--adm-radius-control);
-  background: color-mix(in srgb, var(--adm-warning) 12%, transparent);
+  padding: var(--adm-space-1) 0 var(--adm-space-1) var(--adm-space-3);
+  border-left: 2px solid var(--adm-warning);
+  border-radius: 0;
+  background: none;
   font-size: var(--adm-text-sm);
   font-weight: 600;
   color: var(--adm-warning);
@@ -9970,7 +9980,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   flex-direction: column;
   gap: var(--adm-space-2);
   padding: var(--adm-space-3);
-  border: 1px dashed var(--adm-border-strong);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-control);
 }
 
@@ -12031,7 +12041,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   gap: 3px;
   margin-top: 6px;
   padding: 8px 10px;
-  border: 1px dashed color-mix(in srgb, var(--adm-primary) 34%, var(--adm-border));
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 10px;
   background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
 }
@@ -12372,7 +12382,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 .admin-root .clients__month-form {
   margin-bottom: 14px;
   padding: 12px;
-  border: 1px dashed color-mix(in srgb, var(--adm-primary) 38%, var(--adm-border));
+  border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
   background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
 }
@@ -12503,7 +12513,7 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 .admin-root .finance__form {
   margin-bottom: 14px;
   padding: 12px;
-  border: 1px dashed color-mix(in srgb, var(--adm-primary) 38%, var(--adm-border));
+  border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
   background: color-mix(in srgb, var(--adm-primary) 5%, transparent);
 }
@@ -12776,4 +12786,40 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 
 .admin-root .adm-tile:hover .adm-tile__icon {
   opacity: 1;
+}
+
+/* --- Стекло у всплывающих слоёв ---
+   Палитра команд, диалог подтверждения, выпадающие списки и тосты стоят над
+   содержимым. Полупрозрачная поверхность с размытием показывает, что под
+   ними что-то есть: слой читается как стекло над страницей, а не как
+   вырезанный прямоугольник, подменивший её кусок. Тень при этом остаётся —
+   у плавающего слоя она несёт смысл, в отличие от плоских блоков. */
+body[data-admin-theme] .admin-cmdk,
+.admin-root .admin-confirm__card,
+body[data-admin-theme] .admin-select-content,
+body[data-admin-theme] .planner-weekpick {
+  background: color-mix(in srgb, var(--adm-surface-elevated) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Подложка под диалогом тоже размывается — глубина вместо плоской заливки. */
+.admin-root .admin-confirm {
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+/*
+ * Прозрачность отключается там, где браузер не умеет размывать фон: без
+ * поддержки backdrop-filter полупрозрачная панель показала бы текст страницы
+ * прямо сквозь себя и стала бы нечитаемой.
+ */
+@supports not (backdrop-filter: blur(1px)) {
+  body[data-admin-theme] .admin-cmdk,
+  .admin-root .admin-confirm__card,
+  body[data-admin-theme] .admin-select-content,
+  body[data-admin-theme] .planner-weekpick,
+  .admin-root .admin-sidebar {
+    background: var(--adm-surface-elevated);
+  }
 }
