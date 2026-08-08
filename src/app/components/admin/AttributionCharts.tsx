@@ -304,7 +304,10 @@ export function TrendGroup({ series, points }: { series: TrendSeries[]; points: 
   );
 }
 
-const TREND_HEIGHT = 208;
+// Поднято с 208: на всю ширину экрана прежняя высота давала почти плоскую
+// ленту — перепады дня сжимались до пары пикселей и график переставал что-то
+// показывать.
+const TREND_HEIGHT = 248;
 const TREND_PADDING = 14;
 
 function TrendChart({
@@ -546,9 +549,16 @@ export function StatTile({
       <div className="adm-tile__head">
         <span className="adm-tile__icon" aria-hidden="true">{icon}</span>
         <span className="adm-tile__title">{title}</span>
+      </div>
+      {/*
+        Изменение стоит рядом с числом, а не рядом с подписью. В одной строке
+        с подписью оно отъедало половину ширины, и «Уникальные за 7 дней»
+        превращалось в «Уникальные з…». К числу оно и относится по смыслу.
+      */}
+      <div className="adm-tile__figure">
+        <div className="adm-tile__value">{value}</div>
         {delta}
       </div>
-      <div className="adm-tile__value">{value}</div>
       <p className="adm-tile__detail">{detail}</p>
       {spark ? <AdminSparkline values={spark} slot={sparkSlot} /> : null}
     </div>

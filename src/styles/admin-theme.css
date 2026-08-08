@@ -774,8 +774,27 @@ body[data-admin-theme],
   opacity: 1;
 }
 
-.admin-root .adm-tile__value {
+/* Подпись плитки теперь занимает всю ширину и переносится на вторую строку
+   вместо многоточия: «Уникальные за 7 дней» больше не превращается в
+   «Уникальные з…». */
+.admin-root .adm-tile__title {
+  min-width: 0;
+  overflow: visible;
+  white-space: normal;
+  text-wrap: balance;
+}
+
+/* Число и изменение — одна строка, выровненная по базовой линии числа. */
+.admin-root .adm-tile__figure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
   margin-top: 4px;
+  min-width: 0;
+}
+
+.admin-root .adm-tile__value {
   font-size: clamp(30px, 2.9vw, 38px);
   line-height: 1;
 }
