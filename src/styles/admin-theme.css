@@ -822,6 +822,22 @@ body[data-admin-theme],
   display: block;
   width: 100%;
   pointer-events: none;
+  /* Шторка слева направо: линия и заливка открываются вместе. Раньше здесь
+     была анимация pathLength — она рисуется пунктиром, и при неравномерном
+     растяжении viewBox штрихи попадали в другой масштаб, из-за чего линия
+     распадалась на куски с провалами посередине. */
+  animation: adm-spark-reveal 900ms var(--adm-ease) both;
+}
+
+@keyframes adm-spark-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .adm-spark {
+    animation: none;
+  }
 }
 
 .admin-root .adm-spark__line {

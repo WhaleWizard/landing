@@ -355,29 +355,6 @@ export default function AdminToday({
         </div>
       )}
 
-      {/*
-        График динамики стоит сразу под плитками и во всю ширину, а не внизу
-        левой колонки, где он был раньше. Это самый выразительный блок экрана,
-        и до него доходили прокруткой через шесть карточек — то есть чаще
-        всего не доходили вовсе. Плитки отвечают «сколько», он — «как шло».
-      */}
-      {stats && (
-        <section className="admin-panel adm-card today-pulse">
-          <header className="adm-card__head">
-            <h3 className="admin-card-title">Две недели одним взглядом</h3>
-            <p className="admin-hint">Наведи курсор или пройди стрелками — покажет значение конкретного дня.</p>
-          </header>
-          <TrendGroup
-            points={series}
-            series={[
-              { key: 'visitors', label: 'Уникальные посетители', slot: 5 },
-              { key: 'views', label: 'Просмотры', slot: 2 },
-              { key: 'leads', label: 'Заявки', slot: 1 },
-            ]}
-          />
-        </section>
-      )}
-
       <AdminAlerts password={password} onNavigate={(destination) => onNavigate(destination as Destination)} />
 
       {/* Широкий монитор: слева работа с делами и графиком, справа —
@@ -500,6 +477,23 @@ export default function AdminToday({
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {stats && (
+          <section className="admin-panel adm-card">
+            <header className="adm-card__head">
+              <h3 className="admin-card-title">Две недели одним взглядом</h3>
+              <p className="admin-hint">Наведи курсор или пройди стрелками — покажет значение конкретного дня.</p>
+            </header>
+            <TrendGroup
+              points={series}
+              series={[
+                { key: 'visitors', label: 'Уникальные посетители', slot: 5 },
+                { key: 'views', label: 'Просмотры', slot: 2 },
+                { key: 'leads', label: 'Заявки', slot: 1 },
+              ]}
+            />
           </section>
         )}
 

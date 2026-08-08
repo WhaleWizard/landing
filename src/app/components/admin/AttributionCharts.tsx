@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { useReducedMotion } from 'motion/react';
 import { ArrowDownRight, ArrowUpRight, Minus, TriangleAlert } from 'lucide-react';
 
 export function formatNumber(value: number | null | undefined): string {
@@ -304,10 +304,7 @@ export function TrendGroup({ series, points }: { series: TrendSeries[]; points: 
   );
 }
 
-// Поднято с 208: на всю ширину экрана прежняя высота давала почти плоскую
-// ленту — перепады дня сжимались до пары пикселей и график переставал что-то
-// показывать.
-const TREND_HEIGHT = 248;
+const TREND_HEIGHT = 208;
 const TREND_PADDING = 14;
 
 function TrendChart({
@@ -454,6 +451,11 @@ function TrendChart({
  * viewBox растягивается по ширине плитки (`preserveAspectRatio="none"`), а
  * толщина линии держится постоянной через `vector-effect` — иначе в широкой
  * плитке линия расплывалась бы в полосу, а в узкой превращалась в нитку.
+ *
+ * Появление сделано шторкой в CSS, а не анимацией `pathLength`. Последняя
+ * рисуется штриховым пунктиром, длина штриха считается в единицах viewBox, а
+ * при неравномерном растяжении и `non-scaling-stroke` попадает в другой
+ * масштаб — линия распадалась на куски с провалами посередине.
  */
 export function AdminSparkline({
   values,
@@ -464,7 +466,6 @@ export function AdminSparkline({
   slot?: 1 | 2 | 3 | 4 | 5 | 6;
   height?: number;
 }) {
-  const reduced = useReducedMotion();
   const id = useId().replace(/:/g, '');
   const clean = values.map((value) => Number(value || 0));
 
@@ -504,22 +505,8 @@ export function AdminSparkline({
           <stop offset="100%" stopColor="var(--adm-spark-color)" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <motion.path
-        className="adm-spark__area"
-        d={area}
-        fill={`url(#spark-${id})`}
-        initial={reduced ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      />
-      <motion.path
-        className="adm-spark__line"
-        d={line}
-        fill="none"
-        initial={reduced ? false : { pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-      />
+      <path className="adm-spark__area" d={area} fill={`url(#spark-${id})`} />
+      <path className="adm-spark__line" d={line} fill="none" />
     </svg>
   );
 }
