@@ -609,7 +609,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
               <div>
                 <h3 className="text-sm font-semibold">Как читать эту панель</h3>
                 <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-[var(--adm-fg)]/58">
-                  {data.limitations?.map((item) => <li key={item}>• {item}</li>)}
+                  {data.limitations?.map((item, index) => <li key={index}>• {item}</li>)}
                 </ul>
               </div>
             </div>

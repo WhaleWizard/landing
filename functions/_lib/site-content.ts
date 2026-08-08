@@ -1,3 +1,5 @@
+import { CONTENT_BODY_FONTS, CONTENT_TITLE_FONTS } from './content-font-ids';
+
 export const SERVICE_CONTENT_KEYS = [
   'service:meta-ads',
   'service:meta-apps',
@@ -59,17 +61,8 @@ function sanitizeSeo(value: unknown): UnknownRecord | undefined {
 function sanitizeTypography(value: unknown): UnknownRecord | undefined {
   const source = object(value);
   const sizePresets = new Set(['compact', 'standard', 'large']);
-  const titleFonts = new Set([
-    'auto', 'inter', 'onest', 'commissioner', 'prata', 'caveat', 'bad-script',
-    'arsenal', 'cormorant-garamond', 'geologica', 'golos-text', 'lora', 'manrope',
-    'marck-script', 'neucha', 'old-standard-tt', 'oranienbaum', 'pangolin',
-    'playfair-display', 'pt-serif', 'roboto-serif', 'shantell-sans', 'sofia-sans',
-    'tenor-sans', 'unbounded', 'yeseva-one',
-  ]);
-  const bodyFonts = new Set([
-    'auto', 'inter', 'onest', 'commissioner', 'arsenal', 'geologica', 'golos-text',
-    'lora', 'manrope', 'old-standard-tt', 'pt-serif', 'roboto-serif', 'sofia-sans',
-  ]);
+  const titleFonts = CONTENT_TITLE_FONTS;
+  const bodyFonts = CONTENT_BODY_FONTS;
   const target: UnknownRecord = {};
   for (const key of ['titleDesktop', 'titleMobile'] as const) {
     const current = source[key];
@@ -98,10 +91,16 @@ function sanitizeTypography(value: unknown): UnknownRecord | undefined {
   return Object.keys(target).length ? target : undefined;
 }
 
+// Совпадает с HERO_TITLE_EFFECTS/SPEEDS в src/app/components/HeroTitleEffect.tsx.
+const HERO_EFFECTS = new Set([
+  'none', 'fade-up', 'fade-in', 'slide-left', 'slide-right', 'blur-reveal', 'typewriter', 'words',
+]);
+const HERO_SPEEDS = new Set(['slow', 'normal', 'fast']);
+
 function sanitizeHeroTitleAnimation(value: unknown): UnknownRecord | undefined {
   const source = object(value);
-  const effects = new Set(['none', 'fade-up', 'fade-in', 'slide-left', 'slide-right', 'blur-reveal', 'typewriter', 'words']);
-  const speeds = new Set(['slow', 'normal', 'fast']);
+  const effects = HERO_EFFECTS;
+  const speeds = HERO_SPEEDS;
   const target: UnknownRecord = {};
   if (typeof source.effect === 'string' && effects.has(source.effect)) target.effect = source.effect;
   if (typeof source.speed === 'string' && speeds.has(source.speed)) target.speed = source.speed;
@@ -141,7 +140,14 @@ function sanitizeHero(value: unknown): UnknownRecord | undefined {
       const lineText = text(row.text, 180);
       if (!lineText) return null;
       const tone = row.tone === 'accent' || row.tone === 'supporting' ? row.tone : undefined;
-      return tone ? { text: lineText, tone } : { text: lineText };
+      const line: UnknownRecord = { text: lineText };
+      if (tone) line.tone = tone;
+      // Своя гарнитура и своя анимация строки. Пустое поле не пишем: оно
+      // означает «как у всего заголовка», и лишний ключ ломал бы наследование.
+      if (typeof row.font === 'string' && CONTENT_TITLE_FONTS.has(row.font)) line.font = row.font;
+      if (typeof row.effect === 'string' && HERO_EFFECTS.has(row.effect)) line.effect = row.effect;
+      if (typeof row.speed === 'string' && HERO_SPEEDS.has(row.speed)) line.speed = row.speed;
+      return line;
     }).filter(Boolean);
     // Пустой массив осмыслен: он переключает Hero обратно на две части
     // titlePrefix/titleAccent и не должен теряться при merge с pageConfig.

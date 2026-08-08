@@ -2,13 +2,23 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL, deleteCacheByUrl } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { isMissingSchemaError, migrationRequiredResponse } from '../../_lib/migration-guard';
 import { isSiteContentKey, safeSiteJsonObject, sanitizeSiteContent } from '../../_lib/site-content';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
-function missingSchema(error: unknown): boolean {
-  return /no such table|no such column/i.test(error instanceof Error ? error.message : String(error));
+const missingSchema = isMissingSchemaError;
+
+/** Тексты сайта живут в таблицах миграции 0013. */
+function sectionsMigrationResponse(error: unknown, action: 'read' | 'write'): Response {
+  return migrationRequiredResponse(
+    error,
+    '0013_site_sections.sql',
+    action === 'read'
+      ? 'до неё тексты страниц негде хранить, сайт показывает версию из кода.'
+      : 'до неё сохранять правки текстов некуда.',
+  );
 }
 
 function credentials(request: Request, body?: { password?: string }): string {
@@ -111,7 +121,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: true, sections: sections.results || [] }, { headers: noStore });
   } catch (error) {
     if (missingSchema(error)) {
-      return json({ success: false, error: 'Примените миграцию 0013_site_sections.sql' }, { status: 503, headers: noStore });
+      return sectionsMigrationResponse(error, 'read');
     }
     return json({ success: false, error: error instanceof Error ? error.message : 'Не удалось прочитать секции' }, { status: 500, headers: noStore });
   }
@@ -276,7 +286,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     }, { headers: noStore });
   } catch (error) {
     if (missingSchema(error)) {
-      return json({ success: false, error: 'Примените миграцию 0013_site_sections.sql' }, { status: 503, headers: noStore });
+      return sectionsMigrationResponse(error, 'write');
     }
     return json({ success: false, error: error instanceof Error ? error.message : 'Не удалось сохранить секцию' }, { status: 500, headers: noStore });
   }

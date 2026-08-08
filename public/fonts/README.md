@@ -1,37 +1,32 @@
 # Cyrillic font library
 
-Локальная библиотека шрифтов для русскоязычных маркетинговых страниц Whale Wizard.
-Все файлы получены из официального каталога Google Fonts и распространяются по SIL Open Font License 1.1 (`OFL.txt`).
+Локальная библиотека шрифтов для русскоязычных страниц Whale Wizard.
+Все файлы получены из официального каталога Google Fonts и распространяются по
+SIL Open Font License 1.1 (`OFL.txt`).
 
-## Шрифты, используемые в hero
+## Как это устроено
 
-- Meta Ads: Prata, Onest, Caveat.
-- Consultation: Commissioner, Bad Script.
+Библиотека **генерируется**, а не собирается руками:
 
-Файлы лежат в `hero/` и разделены на `cyrillic-ext`, `cyrillic` и `latin` WOFF2-подмножества. На странице браузер загружает только фактически используемые семейства и веса.
+- список семейств — `scripts/font-library.manifest.js`;
+- сборка — `npm run build:fonts` (качает недостающие WOFF2 и пересобирает
+  `src/styles/content-font-library.css`, `src/app/utils/contentFontCatalog.ts`
+  и `functions/_lib/content-font-ids.ts`);
+- проверка целостности — `npm run test:fonts`, входит в `npm run check`.
 
-## Дополнительная дизайнерская библиотека
+Правило одно: семейство попадает в библиотеку только с кириллическим subset.
+Скрипт проверяет это сам и молча пропускает остальные, так что список в
+манифесте можно расширять смело.
 
-Каталог `library/` хранит кириллические WOFF2, доступные в редакторе сайта:
+## Каталоги
 
-- Arsenal
-- Cormorant Garamond
-- Geologica
-- Golos Text
-- Lora
-- Manrope
-- Marck Script
-- Neucha
-- Old Standard TT
-- Oranienbaum
-- Pangolin
-- Playfair Display
-- PT Serif
-- Roboto Serif
-- Shantell Sans
-- Sofia Sans
-- Tenor Sans
-- Unbounded
-- Yeseva One
+- `hero/` — гарнитуры, зашитые в дизайн конкретных страниц: Prata, Onest,
+  Caveat (Meta Ads), Commissioner, Bad Script (консультация). Их файлы скрипт
+  не перекачивает.
+- `library/` — всё остальное, что доступно в редакторе страниц: без засечек,
+  с засечками, печатные и моноширинные, акцентные и рукописные.
 
-Гарнитуры подключены локальными `@font-face` с `unicode-range`. Браузер загружает только выбранный шрифт и нужное языковое подмножество, а не всю библиотеку.
+Каждое семейство разложено на `cyrillic-ext`, `cyrillic` и `latin` и подключено
+локальными `@font-face` с `unicode-range`. Посетитель скачивает только
+выбранную гарнитуру, выбранный вес и нужный языковой поднабор — не библиотеку
+целиком.

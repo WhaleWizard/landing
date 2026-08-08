@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
+  ChevronDown,
+  ChevronUp,
   Expand,
   Laptop,
   Maximize2,
@@ -18,12 +20,16 @@ import {
 import {
   CONTENT_PREVIEW_MESSAGE,
   CONTENT_PREVIEW_READY_MESSAGE,
+  CONTENT_PREVIEW_REPORT_MESSAGE,
   type ContentPreviewPayload,
+  type ContentPreviewReport,
 } from '../../content/contentPreviewProtocol';
 import type { EditableContent, EditorPage, EditorSection } from './AdminContentControl';
 
 type PreviewPresetId = 'desktop' | 'laptop' | 'tablet' | 'mobile-wide' | 'mobile' | 'mobile-small';
 type PreviewZoom = 'fit' | 'actual';
+
+const PREVIEW_COLLAPSED_KEY = 'ww_admin_preview_collapsed_v1';
 
 const PREVIEW_PRESETS: Array<{
   id: PreviewPresetId;
@@ -40,6 +46,19 @@ const PREVIEW_PRESETS: Array<{
   { id: 'mobile', label: 'Телефон · 390', shortLabel: 'Телефон', width: 390, height: 844, icon: Smartphone },
   { id: 'mobile-small', label: 'Телефон · 320', shortLabel: '320', width: 320, height: 700, icon: Smartphone },
 ];
+
+/**
+ * Держит предпросмотр на шаг позади набора текста. Без этого каждая нажатая
+ * клавиша перерисовывала внутри iframe целую страницу — отсюда и лаг.
+ */
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return settled;
+}
 
 function useAvailableWidth(ref: RefObject<HTMLDivElement | null>) {
   const [width, setWidth] = useState(0);
@@ -60,11 +79,13 @@ function PreviewViewport({
   preset,
   zoom,
   expanded = false,
+  onReport,
 }: {
   payload: ContentPreviewPayload;
   preset: (typeof PREVIEW_PRESETS)[number];
   zoom: PreviewZoom;
   expanded?: boolean;
+  onReport?: (report: ContentPreviewReport) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -89,10 +110,11 @@ function PreviewViewport({
       if (event.origin !== window.location.origin) return;
       if (event.source !== iframeRef.current?.contentWindow) return;
       if (event.data?.type === CONTENT_PREVIEW_READY_MESSAGE) postPayload();
+      if (event.data?.type === CONTENT_PREVIEW_REPORT_MESSAGE) onReport?.(event.data as ContentPreviewReport);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [postPayload]);
+  }, [postPayload, onReport]);
 
   const stageHeight = expanded
     ? `min(${Math.max(480, scaledHeight)}px, calc(100vh - 190px))`
@@ -141,16 +163,36 @@ export default function AdminContentPreview({
   const [expanded, setExpanded] = useState(false);
   const [replayKey, setReplayKey] = useState(0);
   const preset = PREVIEW_PRESETS.find((item) => item.id === presetId) ?? PREVIEW_PRESETS[1];
+  // Свёрнутое состояние переживает перезагрузку: длинные тексты правят без
+  // предпросмотра, и каждый раз сворачивать его заново — лишний шаг.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.localStorage.getItem(PREVIEW_COLLAPSED_KEY) === '1',
+  );
+  useEffect(() => {
+    window.localStorage.setItem(PREVIEW_COLLAPSED_KEY, collapsed ? '1' : '0');
+  }, [collapsed]);
+  const [clippedLines, setClippedLines] = useState<string[]>([]);
+  const settledContent = useDebounced(content, 220);
+  const pending = settledContent !== content;
+  const handleReport = useCallback((report: ContentPreviewReport) => {
+    setClippedLines(report.clippedTitleLines);
+  }, []);
+  // Предупреждение относится к конкретному блоку и конкретной ширине: при
+  // смене любого из них оно недействительно, пока кадр не отчитается заново.
+  useEffect(() => { setClippedLines([]); }, [page, section, presetId]);
   const payload = useMemo<ContentPreviewPayload>(() => ({
     type: CONTENT_PREVIEW_MESSAGE,
     page,
     section,
-    content,
+    content: settledContent,
     replayKey,
-  }), [content, page, replayKey, section]);
+  }), [settledContent, page, replayKey, section]);
 
   return (
-    <section className="admin-card admin-site-preview" aria-label="Точный предпросмотр страницы">
+    <section
+      className={`admin-card admin-site-preview${collapsed ? ' is-collapsed' : ''}`}
+      aria-label="Точный предпросмотр страницы"
+    >
       <div className="admin-site-preview__header">
         <div>
           <p className="admin-eyebrow">Так увидит посетитель</p>
@@ -175,9 +217,19 @@ export default function AdminContentPreview({
             <Maximize2 aria-hidden="true" />
             <span>На весь экран</span>
           </button>
+          <button
+            type="button"
+            className="admin-button admin-button--quiet"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            {collapsed ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
+            <span>{collapsed ? 'Показать' : 'Свернуть'}</span>
+          </button>
         </div>
       </div>
 
+      {collapsed ? null : (
       <div className="admin-site-preview__toolbar">
         <div className="admin-icon-toggle admin-site-preview__devices" role="group" aria-label="Ширина предпросмотра">
           {PREVIEW_PRESETS.map((item) => {
@@ -207,9 +259,21 @@ export default function AdminContentPreview({
         <span className="admin-site-preview__resolution" aria-live="polite">
           {preset.width} × {preset.height} px
         </span>
+        <span className={`admin-site-preview__sync${pending ? ' is-pending' : ''}`} role="status" aria-live="polite">
+          {pending ? 'Обновляю…' : 'Показан текущий текст'}
+        </span>
       </div>
+      )}
 
-      {!expanded ? <PreviewViewport payload={payload} preset={preset} zoom={zoom} /> : null}
+      {clippedLines.length > 0 ? (
+        <div className="admin-notice admin-notice--warning" role="status">
+          <strong>Не помещается на ширине {preset.width} px:</strong>{' '}
+          {clippedLines.map((line) => `«${line}»`).join(', ')}. Сайт уже уменьшил заголовок до предела
+          читаемости — сократите строку или разбейте её на две.
+        </div>
+      ) : null}
+
+      {!expanded && !collapsed ? <PreviewViewport payload={payload} preset={preset} zoom={zoom} onReport={handleReport} /> : null}
 
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent className="admin-site-preview-dialog">
@@ -217,7 +281,7 @@ export default function AdminContentPreview({
             <DialogTitle>Предпросмотр · {preset.label}</DialogTitle>
             <DialogDescription>{preset.width} × {preset.height} px · прокручивайте страницу внутри рамки</DialogDescription>
           </DialogHeader>
-          <PreviewViewport payload={payload} preset={preset} zoom={zoom} expanded />
+          <PreviewViewport payload={payload} preset={preset} zoom={zoom} expanded onReport={handleReport} />
         </DialogContent>
       </Dialog>
     </section>

@@ -171,6 +171,36 @@
   }
 }
 
+/*
+ * Два состояния «показать как есть».
+ *
+ * `data-title-fit-measuring` живёт доли миллисекунды: подгонка размера
+ * заголовка выключает эффекты, чтобы померить настоящую ширину текста.
+ *
+ * `data-hero-effects="settled"` ставит предпросмотр редактора: эффект должен
+ * проиграть один раз, а дальше владелец правит текст и обязан видеть готовый
+ * заголовок целиком, а не бесконечно перезапускающуюся анимацию.
+ */
+[data-title-fit-measuring] .hero-title-effect,
+[data-title-fit-measuring].hero-title-effect,
+[data-title-fit-measuring] .hero-title-effect__word,
+[data-title-fit-measuring] .hero-title-effect__character,
+[data-hero-effects='settled'] .hero-title-effect,
+[data-hero-effects='settled'] .hero-title-effect__word,
+[data-hero-effects='settled'] .hero-title-effect__character {
+  animation: none !important;
+  clip-path: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+[data-title-fit-measuring] .hero-title-effect[data-cursor='true']::after,
+[data-hero-effects='settled'] .hero-title-effect[data-cursor='true']::after {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-title-effect,
   .hero-title-effect__word,

@@ -1,6 +1,7 @@
 import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
+import { isMissingSchemaError, migrationRequiredResponse } from '../../_lib/migration-guard';
 import {
   AdminCrmMigrationRequiredError,
   adminCrmMigrationResponse,
@@ -29,9 +30,7 @@ function getPassword(request: Request, body?: { password?: string }): string {
   return request.headers.get('X-Admin-Password') || body?.password || '';
 }
 
-function isMissingTableError(error: unknown): boolean {
-  return /no such table/i.test(error instanceof Error ? error.message : String(error));
-}
+const isMissingTableError = isMissingSchemaError;
 
 type AdminLeadRow = LeadQualityRow & {
   quality?: string;
@@ -71,7 +70,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: true, leads, counts: byStatus }, { headers: noStore });
   } catch (error) {
     if (isMissingTableError(error)) {
-      return json({ success: false, error: 'Таблица заявок ещё не создана — примените миграцию 0008 в D1' }, { status: 503, headers: noStore });
+      return migrationRequiredResponse(
+        error,
+        '0008_leads_and_page_stats.sql',
+        'до неё заявки негде хранить и показывать.',
+      );
     }
     return json({ success: false, error: error instanceof Error ? error.message : 'Failed to load leads' }, { status: 500, headers: noStore });
   }

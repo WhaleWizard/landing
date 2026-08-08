@@ -1018,6 +1018,16 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   min-width: 0;
 }
 
+/* Блок с несохранёнными правками виден в списке, а не только в общей плашке. */
+.admin-root .admin-block-nav > button[data-changed='true'] > span:first-child {
+  border-color: color-mix(in srgb, var(--adm-warning, #f59e0b) 55%, transparent);
+  color: var(--adm-warning, #f59e0b);
+}
+
+.admin-root .admin-block-nav > button[data-changed='true'] small {
+  color: var(--adm-warning, #f59e0b);
+}
+
 .admin-root .admin-block-nav > button strong {
   overflow: hidden;
   color: inherit;
@@ -1057,6 +1067,11 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 
 .admin-root .admin-block-editor {
   min-width: 0;
+}
+
+.admin-root .admin-block-editor__heading > button {
+  margin-left: auto;
+  flex: none;
 }
 
 .admin-root .admin-block-editor__heading {
@@ -1859,6 +1874,41 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   text-align: right;
 }
 
+/*
+ * На широком экране предпросмотр остаётся на месте, пока прокручиваешь поля:
+ * иначе правку заголовка приходилось проверять, мотая страницу вверх-вниз.
+ * Высота кадра ограничена, чтобы под ним оставалось место для самой формы.
+ */
+@media (min-width: 1024px) {
+  /* Двойной класс не для красоты: общее правило карточек ниже по файлу
+     задаёт position: relative с той же специфичностью и перебивало sticky. */
+  .admin-root .admin-card.admin-site-preview {
+    position: sticky;
+    top: var(--adm-sticky-top);
+    z-index: 3;
+  }
+
+  .admin-root .admin-site-preview:not(.is-collapsed) .admin-site-preview__stage {
+    max-height: clamp(280px, 40vh, 520px);
+  }
+}
+
+/* Предпросмотр догоняет набор текста с небольшой задержкой — говорим об этом. */
+.admin-root .admin-site-preview__sync {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: 999px;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.admin-root .admin-site-preview__sync.is-pending {
+  border-color: color-mix(in srgb, var(--adm-accent) 40%, transparent);
+  color: var(--adm-accent);
+}
+
 .admin-root .admin-site-preview__stage {
   position: relative;
   display: flex;
@@ -1995,6 +2045,33 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   display: grid;
   grid-template-columns: minmax(90px, 0.42fr) minmax(0, 1fr);
   gap: 8px;
+}
+
+/* Свой шрифт и свой эффект для одной строки заголовка. */
+.admin-root .admin-line-style {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px dashed var(--adm-border-subtle);
+  border-radius: var(--adm-radius-md);
+  background: var(--adm-surface-subtle);
+}
+
+.admin-root .admin-line-style > * {
+  min-width: 0;
+}
+
+.admin-root .admin-line-style__note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .admin-root .admin-line-style {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .admin-root .admin-disclosure {

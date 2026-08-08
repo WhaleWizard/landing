@@ -6,7 +6,7 @@ import test from 'node:test';
 const ROOT = process.cwd();
 const DIST = join(ROOT, 'dist');
 const SITE_URL = String(process.env.SITE_URL || 'https://www.whalewzrd.com').replace(/\/$/, '');
-const NO_INDEX_ROUTES = new Set(['/admin', '/thank-you']);
+const NO_INDEX_ROUTES = new Set(['/admin', '/admin/content-preview', '/thank-you']);
 
 function walkIndexFiles(directory) {
   const files = [];

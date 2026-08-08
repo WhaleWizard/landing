@@ -6,293 +6,23 @@ import {
   type RefCallback,
 } from 'react';
 
+import { CONTENT_FONT_CATALOG, type ContentFontWeight } from './contentFontCatalog';
+
+export type {
+  ContentFontCategory,
+  ContentFontDefinition,
+  ContentFontSource,
+  ContentFontWeight,
+} from './contentFontCatalog';
+export { CONTENT_FONT_CATALOG } from './contentFontCatalog';
+
+type CatalogWeight = (typeof CONTENT_FONT_CATALOG)[number]['weights'][number];
+
 export type TypographyPreset = 'compact' | 'standard' | 'large';
 export type TypographySize = TypographyPreset | number;
-export type ContentFontWeight = 300 | 400 | 500 | 600 | 700 | 800;
-export type ContentTitleWeight = 'auto' | ContentFontWeight;
+export type ContentTitleWeight = 'auto' | CatalogWeight;
 export type ContentTitleLineHeight = 'auto' | 'tight' | 'snug' | 'normal' | 'relaxed';
 export type ContentTitleLetterSpacing = 'auto' | 'tight' | 'normal' | 'wide';
-export type ContentFontCategory = 'sans' | 'serif' | 'handwritten' | 'display';
-export type ContentFontSource = 'system' | 'hero' | 'library';
-
-export type ContentFontDefinition<Id extends string = string> = {
-  id: Id;
-  label: string;
-  cssFamily: string;
-  category: ContentFontCategory;
-  source: ContentFontSource;
-  bodySafe: boolean;
-  weights: readonly ContentFontWeight[];
-  description: string;
-};
-
-/**
- * Every bundled family contains Cyrillic glyphs. `bodySafe` deliberately stays
- * conservative: decorative families remain available for headings, while the
- * body-font picker can offer only faces that are comfortable in longer copy.
- */
-export const CONTENT_FONT_CATALOG = [
-  {
-    id: 'auto',
-    label: 'Авто · стиль сайта',
-    cssFamily: '',
-    category: 'sans',
-    source: 'system',
-    bodySafe: true,
-    weights: [300, 400, 500, 600, 700, 800],
-    description: 'Текущий шрифт и настройки выбранной страницы.',
-  },
-  {
-    id: 'inter',
-    label: 'Inter',
-    cssFamily: '"Inter Variable"',
-    category: 'sans',
-    source: 'system',
-    bodySafe: true,
-    weights: [300, 400, 500, 600, 700, 800],
-    description: 'Чистый универсальный гротеск для интерфейсов и длинного текста.',
-  },
-  {
-    id: 'onest',
-    label: 'Onest',
-    cssFamily: '"WW Onest"',
-    category: 'sans',
-    source: 'hero',
-    bodySafe: true,
-    weights: [400, 500, 600, 700],
-    description: 'Современный нейтральный гротеск для заголовков и текста.',
-  },
-  {
-    id: 'commissioner',
-    label: 'Commissioner',
-    cssFamily: '"WW Commissioner"',
-    category: 'sans',
-    source: 'hero',
-    bodySafe: true,
-    weights: [300, 400, 500, 600, 700],
-    description: 'Гибкий деловой гротеск с хорошей кириллицей.',
-  },
-  {
-    id: 'prata',
-    label: 'Prata',
-    cssFamily: '"WW Prata"',
-    category: 'display',
-    source: 'hero',
-    bodySafe: false,
-    weights: [400],
-    description: 'Контрастный акцидентный шрифт для коротких заголовков.',
-  },
-  {
-    id: 'caveat',
-    label: 'Caveat',
-    cssFamily: '"WW Caveat"',
-    category: 'handwritten',
-    source: 'hero',
-    bodySafe: false,
-    weights: [500, 600],
-    description: 'Живой рукописный акцент для коротких фраз.',
-  },
-  {
-    id: 'bad-script',
-    label: 'Bad Script',
-    cssFamily: '"WW Bad Script"',
-    category: 'handwritten',
-    source: 'hero',
-    bodySafe: false,
-    weights: [400],
-    description: 'Мягкий рукописный шрифт с естественной кириллицей.',
-  },
-  {
-    id: 'arsenal',
-    label: 'Arsenal',
-    cssFamily: '"WW Arsenal"',
-    category: 'sans',
-    source: 'library',
-    bodySafe: true,
-    weights: [400],
-    description: 'Узкий гуманистический гротеск для компактной верстки.',
-  },
-  {
-    id: 'cormorant-garamond',
-    label: 'Cormorant Garamond',
-    cssFamily: '"WW Cormorant Garamond"',
-    category: 'display',
-    source: 'library',
-    bodySafe: false,
-    weights: [500],
-    description: 'Выразительная антиква для премиальных заголовков.',
-  },
-  {
-    id: 'geologica',
-    label: 'Geologica',
-    cssFamily: '"WW Geologica"',
-    category: 'sans',
-    source: 'library',
-    bodySafe: true,
-    weights: [500],
-    description: 'Характерный геометрический гротеск для UI и текста.',
-  },
-  {
-    id: 'golos-text',
-    label: 'Golos Text',
-    cssFamily: '"WW Golos Text"',
-    category: 'sans',
-    source: 'library',
-    bodySafe: true,
-    weights: [500],
-    description: 'Очень читаемый шрифт, спроектированный для кириллицы.',
-  },
-  {
-    id: 'lora',
-    label: 'Lora',
-    cssFamily: '"WW Lora"',
-    category: 'serif',
-    source: 'library',
-    bodySafe: true,
-    weights: [500],
-    description: 'Современная антиква для спокойного редакционного текста.',
-  },
-  {
-    id: 'manrope',
-    label: 'Manrope',
-    cssFamily: '"WW Manrope"',
-    category: 'sans',
-    source: 'library',
-    bodySafe: true,
-    weights: [500],
-    description: 'Чистый геометрический гротеск для интерфейса и контента.',
-  },
-  {
-    id: 'marck-script',
-    label: 'Marck Script',
-    cssFamily: '"WW Marck Script"',
-    category: 'handwritten',
-    source: 'library',
-    bodySafe: false,
-    weights: [400],
-    description: 'Плавный рукописный акцент с полноценной кириллицей.',
-  },
-  {
-    id: 'neucha',
-    label: 'Neucha',
-    cssFamily: '"WW Neucha"',
-    category: 'handwritten',
-    source: 'library',
-    bodySafe: false,
-    weights: [400],
-    description: 'Неформальный рукописный шрифт для живых заголовков.',
-  },
-  {
-    id: 'old-standard-tt',
-    label: 'Old Standard TT',
-    cssFamily: '"WW Old Standard TT"',
-    category: 'serif',
-    source: 'library',
-    bodySafe: true,
-    weights: [400],
-    description: 'Классическая книжная антиква с историческим характером.',
-  },
-  {
-    id: 'oranienbaum',
-    label: 'Oranienbaum',
-    cssFamily: '"WW Oranienbaum"',
-    category: 'display',
-    source: 'library',
-    bodySafe: false,
-    weights: [400],
-    description: 'Тонкая контрастная антиква для крупных заголовков.',
-  },
-  {
-    id: 'pangolin',
-    label: 'Pangolin',
-    cssFamily: '"WW Pangolin"',
-    category: 'handwritten',
-    source: 'library',
-    bodySafe: false,
-    weights: [400],
-    description: 'Дружелюбный рисованный шрифт для неформальных акцентов.',
-  },
-  {
-    id: 'playfair-display',
-    label: 'Playfair Display',
-    cssFamily: '"WW Playfair Display"',
-    category: 'display',
-    source: 'library',
-    bodySafe: false,
-    weights: [500],
-    description: 'Редакционная контрастная антиква для выразительных заголовков.',
-  },
-  {
-    id: 'pt-serif',
-    label: 'PT Serif',
-    cssFamily: '"WW PT Serif"',
-    category: 'serif',
-    source: 'library',
-    bodySafe: true,
-    weights: [400],
-    description: 'Надежная русская антиква для заголовков и длинного текста.',
-  },
-  {
-    id: 'roboto-serif',
-    label: 'Roboto Serif',
-    cssFamily: '"WW Roboto Serif"',
-    category: 'serif',
-    source: 'library',
-    bodySafe: true,
-    weights: [500],
-    description: 'Современная экранная антиква с уверенной кириллицей.',
-  },
-  {
-    id: 'shantell-sans',
-    label: 'Shantell Sans',
-    cssFamily: '"WW Shantell Sans"',
-    category: 'handwritten',
-    source: 'library',
-    bodySafe: false,
-    weights: [500],
-    description: 'Экспрессивный, но аккуратный рукописный шрифт.',
-  },
-  {
-    id: 'sofia-sans',
-    label: 'Sofia Sans',
-    cssFamily: '"WW Sofia Sans"',
-    category: 'sans',
-    source: 'library',
-    bodySafe: true,
-    weights: [500],
-    description: 'Мягкий современный гротеск для заголовков и текста.',
-  },
-  {
-    id: 'tenor-sans',
-    label: 'Tenor Sans',
-    cssFamily: '"WW Tenor Sans"',
-    category: 'display',
-    source: 'library',
-    bodySafe: false,
-    weights: [400],
-    description: 'Элегантный заголовочный гротеск с журнальным настроением.',
-  },
-  {
-    id: 'unbounded',
-    label: 'Unbounded',
-    cssFamily: '"WW Unbounded"',
-    category: 'display',
-    source: 'library',
-    bodySafe: false,
-    weights: [500],
-    description: 'Широкий футуристичный шрифт для коротких сильных заголовков.',
-  },
-  {
-    id: 'yeseva-one',
-    label: 'Yeseva One',
-    cssFamily: '"WW Yeseva One"',
-    category: 'display',
-    source: 'library',
-    bodySafe: false,
-    weights: [400],
-    description: 'Декоративная антиква с выразительной русской пластикой.',
-  },
-] as const satisfies readonly ContentFontDefinition[];
 
 export type ContentFontId = (typeof CONTENT_FONT_CATALOG)[number]['id'];
 export type ContentFont = (typeof CONTENT_FONT_CATALOG)[number];
@@ -307,14 +37,20 @@ const CONTENT_FONT_BY_ID = new Map<string, ContentFont>(
 
 const SERIF_FALLBACK = 'Georgia, "Times New Roman", Times, serif';
 const HANDWRITTEN_FALLBACK = '"Segoe Print", "Bradley Hand", cursive';
+const MONO_FALLBACK = 'ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace';
 const TITLE_AUTO_FAMILY = 'var(--ww-font-display, "Segoe UI", ui-sans-serif, system-ui, sans-serif)';
 const BODY_AUTO_FAMILY = 'var(--ww-font-text, "Segoe UI", ui-sans-serif, system-ui, sans-serif)';
-const DISPLAY_SERIF_FONT_IDS = new Set<ContentFontId>([
+// Акцидентные шрифты с засечками: пока грузится файл, подмена должна быть
+// тоже с засечками, иначе строка на мгновение меняет ширину и «прыгает».
+const DISPLAY_SERIF_FONT_IDS = new Set<string>([
   'prata',
   'cormorant-garamond',
   'oranienbaum',
   'playfair-display',
   'yeseva-one',
+  'forum',
+  'kelly-slab',
+  'ruslan-display',
 ]);
 
 export function isContentFontId(value: unknown): value is ContentFontId {
@@ -338,11 +74,13 @@ export function fontFamilyForContent(
     return role === 'body' ? BODY_AUTO_FAMILY : TITLE_AUTO_FAMILY;
   }
 
-  const fallback = font.category === 'serif' || DISPLAY_SERIF_FONT_IDS.has(font.id)
-    ? SERIF_FALLBACK
-    : font.category === 'handwritten'
-      ? HANDWRITTEN_FALLBACK
-      : role === 'body' ? BODY_AUTO_FAMILY : TITLE_AUTO_FAMILY;
+  const fallback = font.category === 'mono'
+    ? MONO_FALLBACK
+    : font.category === 'serif' || DISPLAY_SERIF_FONT_IDS.has(font.id)
+      ? SERIF_FALLBACK
+      : font.category === 'handwritten'
+        ? HANDWRITTEN_FALLBACK
+        : role === 'body' ? BODY_AUTO_FAMILY : TITLE_AUTO_FAMILY;
   return `${font.cssFamily}, ${fallback}`;
 }
 
@@ -560,6 +298,12 @@ export function managedBodyStyle(typography: ContentTypography | undefined): Man
 export const managedTitleStyles = managedTitleStyle;
 export const managedBodyStyles = managedBodyStyle;
 
+/**
+ * Ставится на заголовок только на время замера. CSS эффектов появления по
+ * этому признаку показывает конечное состояние текста.
+ */
+export const TITLE_FIT_MEASURING_ATTRIBUTE = 'data-title-fit-measuring';
+
 function countRenderedTextLines(element: HTMLElement): number {
   const documentRef = element.ownerDocument;
   if (!documentRef || !element.textContent?.trim()) return 0;
@@ -584,10 +328,36 @@ function hasNestedNowrap(element: HTMLElement): boolean {
   ));
 }
 
+/**
+ * `scrollWidth` молчит, когда переполняет вложенная строка с `nowrap` и
+ * `max-inline-size: 100%`: её бокс упирается в ширину родителя, а текст уезжает
+ * за край и обрезается родительским `overflow: hidden`. Поэтому ширину строк
+ * меряем по реальным прямоугольникам текста.
+ */
+function textOverflowsHorizontally(element: HTMLElement): boolean {
+  if (element.scrollWidth > element.clientWidth + 1) return true;
+  const documentRef = element.ownerDocument;
+  if (!documentRef) return false;
+  const range = documentRef.createRange();
+  range.selectNodeContents(element);
+  const rectangles = Array.from(range.getClientRects()).filter((rect) => rect.width > 0.5);
+  range.detach?.();
+  if (rectangles.length === 0) return false;
+
+  const box = element.getBoundingClientRect();
+  const computed = window.getComputedStyle(element);
+  const left = box.left
+    + (Number.parseFloat(computed.paddingLeft) || 0)
+    + (Number.parseFloat(computed.borderLeftWidth) || 0);
+  const right = box.right
+    - (Number.parseFloat(computed.paddingRight) || 0)
+    - (Number.parseFloat(computed.borderRightWidth) || 0);
+  return rectangles.some((rect) => rect.right > right + 1 || rect.left < left - 1);
+}
+
 function elementTextFits(element: HTMLElement, maxLines: number, singleLine: boolean): boolean {
   if (element.clientWidth <= 0) return true;
-  const horizontalFit = element.scrollWidth <= element.clientWidth + 1;
-  if (!horizontalFit) return false;
+  if (textOverflowsHorizontally(element)) return false;
   if (singleLine) return countRenderedTextLines(element) <= 1;
   if (maxLines <= 0) return true;
 
@@ -681,14 +451,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       }
     };
 
-    const fit = () => {
-      animationFrame = 0;
-      if (cancelled || applyingFit || !element.isConnected || !enabled) {
-        if (!enabled) restoreOriginalFontSize();
-        return;
-      }
-
-      applyingFit = true;
+    const measureAndApply = () => {
       resetBeforeMeasurement();
 
       const maxLines = hasExplicitMaxLines
@@ -699,10 +462,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       const nestedNowrap = hasNestedNowrap(element);
 
       // Unlimited, normally wrapping headings must retain their authored CSS.
-      if (maxLines <= 0 && !wholeHeadingNowrap && !nestedNowrap) {
-        applyingFit = false;
-        return;
-      }
+      if (maxLines <= 0 && !wholeHeadingNowrap && !nestedNowrap) return;
 
       const originalWhiteSpace = element.style.getPropertyValue('white-space');
       const originalWhiteSpacePriority = element.style.getPropertyPriority('white-space');
@@ -710,23 +470,21 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         element.style.setProperty('white-space', 'nowrap', 'important');
       }
 
+      const restoreWhiteSpace = () => {
+        if (!forceNowrap || computedWhiteSpace === 'nowrap') return;
+        if (originalWhiteSpace) element.style.setProperty('white-space', originalWhiteSpace, originalWhiteSpacePriority);
+        else element.style.removeProperty('white-space');
+      };
+
       const computed = window.getComputedStyle(element);
       const authoredSize = Number.parseFloat(computed.fontSize);
       if (!Number.isFinite(authoredSize) || authoredSize <= 0 || element.clientWidth <= 0) {
-        if (forceNowrap && computedWhiteSpace !== 'nowrap') {
-          if (originalWhiteSpace) element.style.setProperty('white-space', originalWhiteSpace, originalWhiteSpacePriority);
-          else element.style.removeProperty('white-space');
-        }
-        applyingFit = false;
+        restoreWhiteSpace();
         return;
       }
 
       if (elementTextFits(element, maxLines, wholeHeadingNowrap)) {
-        if (forceNowrap && computedWhiteSpace !== 'nowrap') {
-          if (originalWhiteSpace) element.style.setProperty('white-space', originalWhiteSpace, originalWhiteSpacePriority);
-          else element.style.removeProperty('white-space');
-        }
-        applyingFit = false;
+        restoreWhiteSpace();
         return;
       }
 
@@ -751,12 +509,27 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
 
       lastAppliedFontSize = `${Math.floor(best * 10) / 10}px`;
       element.style.setProperty('font-size', lastAppliedFontSize, 'important');
+      restoreWhiteSpace();
+    };
 
-      if (forceNowrap && computedWhiteSpace !== 'nowrap') {
-        if (originalWhiteSpace) element.style.setProperty('white-space', originalWhiteSpace, originalWhiteSpacePriority);
-        else element.style.removeProperty('white-space');
+    const fit = () => {
+      animationFrame = 0;
+      if (cancelled || applyingFit || !element.isConnected || !enabled) {
+        if (!enabled) restoreOriginalFontSize();
+        return;
       }
-      applyingFit = false;
+
+      applyingFit = true;
+      // Эффекты появления сдвигают, размывают и прячут части заголовка. Пока
+      // они играют, любое измерение врёт, и подгонка ужимала заголовок почти
+      // до минимума. На время замера эффекты выключаем.
+      element.setAttribute(TITLE_FIT_MEASURING_ATTRIBUTE, '');
+      try {
+        measureAndApply();
+      } finally {
+        element.removeAttribute(TITLE_FIT_MEASURING_ATTRIBUTE);
+        applyingFit = false;
+      }
     };
 
     const scheduleFit = () => {

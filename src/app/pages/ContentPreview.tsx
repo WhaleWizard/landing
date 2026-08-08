@@ -30,7 +30,9 @@ import type { EditableContent } from '../components/admin/AdminContentControl';
 import {
   CONTENT_PREVIEW_MESSAGE,
   CONTENT_PREVIEW_READY_MESSAGE,
+  CONTENT_PREVIEW_REPORT_MESSAGE,
   type ContentPreviewPayload,
+  type ContentPreviewReport,
 } from '../content/contentPreviewProtocol';
 
 const SERVICE_THEMES: Record<ServiceType, {
@@ -95,8 +97,9 @@ function ServiceContactCopy({ page, content }: { page: ServiceType; content: Edi
               {content.description}
             </p>
             <div className="mx-auto max-w-md space-y-4 lg:mx-0">
-              {content.bullets.map((item) => (
-                <div key={item} className="flex items-center gap-3 text-left">
+              {/* Ключ по позиции: два одинаковых пункта — законный ввод. */}
+              {content.bullets.map((item, index) => (
+                <div key={index} className="flex items-center gap-3 text-left">
                   <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-r ${theme.checkGradientClassName} shadow-lg ${theme.shadowClassName}`}>
                     <CheckCircle2 className="h-4 w-4 text-white" aria-hidden="true" />
                   </div>
@@ -165,8 +168,29 @@ function SeoPreview({ content }: { content: EditableContent['seo'] }) {
   );
 }
 
+/**
+ * Сколько предпросмотр даёт эффекту отыграть, прежде чем показать конечный
+ * вид. С запасом на «печатную машинку» на медленной скорости и на задержку
+ * между строками.
+ */
+const EFFECT_PLAYBACK_MS = 6_000;
+
 function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) {
   const { page, section, content, replayKey = 0 } = payload;
+  // Эффект проигрывается один раз: при открытии блока, при смене самой
+  // анимации и по кнопке «Повторить». Правка текста его не перезапускает —
+  // иначе заголовок в предпросмотре постоянно выглядел бы обрезанным.
+  const effectSignature = JSON.stringify([
+    content.hero?.titleAnimation,
+    content.hero?.titleLines?.map((line) => [line.effect, line.speed]),
+  ]);
+  const [effectsSettled, setEffectsSettled] = useState(false);
+  useEffect(() => {
+    setEffectsSettled(false);
+    const timer = window.setTimeout(() => setEffectsSettled(true), EFFECT_PLAYBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [page, section, replayKey, effectSignature]);
+
   const source = page === 'home' ? null : pageConfigs[page];
   const theme = page === 'home' ? null : SERVICE_THEMES[page];
   const style = theme ? {
@@ -186,16 +210,17 @@ function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) 
 
   return (
     <main
-      key={`${page}-${section}-${replayKey}`}
+      key={`${page}-${section}-${replayKey}-${effectSignature}`}
       className="ww-content-preview-page marketing-typography min-h-screen overflow-x-hidden bg-background text-foreground"
       style={{ ...style, pointerEvents: 'none' }}
       data-preview-section={section}
+      data-hero-effects={effectsSettled ? 'settled' : 'playing'}
     >
       {section === 'seo' ? <SeoPreview content={content.seo} /> : null}
       {section === 'hero' ? (
         page === 'meta-ads' ? <MetaAdsEditorialHero content={hero} />
           : page === 'consult' ? <ConsultStudioHero content={hero} />
-            : <Hero content={hero} visual={page === 'meta-apps' ? 'meta-apps' : 'default'} />
+            : <Hero content={hero} visual={page === 'meta-apps' ? 'meta-apps' : 'default'} staticMotion />
       ) : null}
       {section === 'services' ? <Services content={services} /> : null}
       {section === 'cases' ? <Cases content={cases} /> : null}
@@ -215,8 +240,58 @@ function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) 
   );
 }
 
+/** Строки заголовка, которым не хватило ширины даже после уменьшения кегля. */
+function findClippedTitleLines(root: ParentNode): string[] {
+  const heading = root.querySelector('h1');
+  if (!heading) return [];
+  const box = heading.getBoundingClientRect();
+  const computed = window.getComputedStyle(heading);
+  const left = box.left + (Number.parseFloat(computed.paddingLeft) || 0);
+  const right = box.right - (Number.parseFloat(computed.paddingRight) || 0);
+  if (right - left <= 0) return [];
+
+  return Array.from(heading.children).flatMap((child) => {
+    const range = document.createRange();
+    range.selectNodeContents(child);
+    const rectangles = Array.from(range.getClientRects()).filter((rect) => rect.width > 0.5);
+    range.detach?.();
+    const overflows = rectangles.some((rect) => rect.right > right + 1 || rect.left < left - 1);
+    const text = child.textContent?.trim();
+    return overflows && text ? [text] : [];
+  });
+}
+
+/**
+ * Сообщает редактору о заголовках, которые не помещаются. Замер откладывается
+ * до загрузки шрифтов: до неё ширина строки считается по системной подмене и
+ * ничего не значит.
+ */
+function useClippedTitleReport(payload: ContentPreviewPayload | null) {
+  useEffect(() => {
+    if (!payload || payload.section !== 'hero') return;
+    let cancelled = false;
+
+    const report = () => {
+      if (cancelled) return;
+      const message: ContentPreviewReport = {
+        type: CONTENT_PREVIEW_REPORT_MESSAGE,
+        clippedTitleLines: findClippedTitleLines(document),
+      };
+      window.parent.postMessage(message, window.location.origin);
+    };
+
+    const timer = window.setTimeout(report, 260);
+    void document.fonts?.ready.then(report).catch(() => undefined);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [payload]);
+}
+
 export default function ContentPreview() {
   const [payload, setPayload] = useState<ContentPreviewPayload | null>(null);
+  useClippedTitleReport(payload);
 
   useEffect(() => {
     const receive = (event: MessageEvent) => {

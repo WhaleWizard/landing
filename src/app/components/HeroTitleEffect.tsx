@@ -4,6 +4,11 @@ import type {
   HTMLAttributes,
   ReactNode,
 } from 'react';
+import {
+  fontFamilyForContent,
+  isContentFontId,
+  type ContentFontId,
+} from '../utils/contentTypography';
 import '../../styles/hero-title-effects.css';
 
 export const HERO_TITLE_EFFECTS = [
@@ -50,6 +55,28 @@ export const HERO_TITLE_EFFECT_SPEED_OPTIONS = HERO_TITLE_EFFECT_SPEEDS.map((val
   label: HERO_TITLE_EFFECT_SPEED_LABELS[value],
 }));
 
+export type HeroTitleTone = 'default' | 'accent' | 'supporting';
+
+/**
+ * Строка заголовка. Шрифт, эффект и скорость необязательны: пустое значение
+ * означает «как у всего заголовка», а заполненное перебивает общую настройку.
+ * Так одна строка может быть рукописной и печататься по буквам, а соседняя —
+ * оставаться обычной.
+ */
+export type HeroTitleLine = {
+  text: string;
+  tone?: HeroTitleTone;
+  font?: ContentFontId;
+  effect?: HeroTitleEffect;
+  speed?: HeroTitleEffectSpeed;
+};
+
+export type HeroTitleAnimation = {
+  effect?: HeroTitleEffect;
+  speed?: HeroTitleEffectSpeed;
+  delayMs?: number;
+};
+
 const effectSet = new Set<string>(HERO_TITLE_EFFECTS);
 const speedSet = new Set<string>(HERO_TITLE_EFFECT_SPEEDS);
 
@@ -73,6 +100,33 @@ export function normalizeHeroTitleEffectSpeed(
   fallback: HeroTitleEffectSpeed = 'normal',
 ): HeroTitleEffectSpeed {
   return isHeroTitleEffectSpeed(value) ? value : fallback;
+}
+
+/** Гарнитура конкретной строки; `auto` и мусор дают наследование. */
+export function heroTitleLineFontStyle(font: unknown): CSSProperties | undefined {
+  if (!isContentFontId(font) || font === 'auto') return undefined;
+  return { fontFamily: fontFamilyForContent(font, 'title') };
+}
+
+/** Собирает итоговые настройки одной строки поверх настроек всего заголовка. */
+export function resolveHeroTitleLine(
+  line: HeroTitleLine | undefined,
+  animation: HeroTitleAnimation | undefined,
+  baseStyle?: CSSProperties,
+): {
+  effect: HeroTitleEffect;
+  speed: HeroTitleEffectSpeed;
+  delayMs: number | undefined;
+  style: CSSProperties | undefined;
+} {
+  const source = animation || {};
+  const fontStyle = heroTitleLineFontStyle(line?.font);
+  return {
+    effect: normalizeHeroTitleEffect(line?.effect, normalizeHeroTitleEffect(source.effect)),
+    speed: normalizeHeroTitleEffectSpeed(line?.speed, normalizeHeroTitleEffectSpeed(source.speed)),
+    delayMs: source.delayMs,
+    style: baseStyle || fontStyle ? { ...baseStyle, ...fontStyle } : undefined,
+  };
 }
 
 type HeroTitleEffectStyle = CSSProperties & {

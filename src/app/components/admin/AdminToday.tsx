@@ -67,6 +67,8 @@ interface StatsResponse {
   };
   recentLeads?: Array<{ id: number; name: string; service: string; budget: string; status: string; created_at: string }>;
   capi?: { outboxPending: number; sent24h: number; failed24h: number };
+  /** Таблицы, которых ещё нет в D1: их цифры выше — не ноль, а «нечего показать». */
+  schemaGaps?: Array<{ migration: string; tables: string[] }>;
 }
 
 const LEVEL_UI: Record<Level, { icon: typeof AlertTriangle; label: string }> = {
@@ -268,9 +270,18 @@ export default function AdminToday({
   // Очередь досылки — штатное состояние, у неё своя плитка; тревожит только
   // фактическая ошибка Meta или события, которые уже некуда повторять.
   const capiOk = Boolean(capi) && capi!.failed24h === 0 && Number(health?.outboxDead || 0) === 0;
+  const schemaGaps = stats?.schemaGaps || [];
 
   return (
     <div className="admin-stack admin-stack--lg today">
+      {/* Ноль и «таблицы ещё нет» на экране выглядят одинаково — говорим прямо. */}
+      {schemaGaps.length > 0 ? (
+        <div className="admin-notice admin-notice--warning" role="status">
+          <strong>Часть цифр ниже пока не считается.</strong>{' '}
+          {schemaGaps.map((gap) => `${gap.tables.join(', ')} — миграция ${gap.migration}`).join('; ')}.
+          Примените эти миграции к production D1, тогда сводка заполнится.
+        </div>
+      ) : null}
       <section className="today-hero" aria-labelledby="admin-today-title">
         <div className="today-hero__glow" aria-hidden="true" />
         <div className="today-hero__main">

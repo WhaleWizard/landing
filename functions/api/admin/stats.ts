@@ -2,29 +2,65 @@ import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { hasLeadSoftDelete } from '../../_lib/leads';
+import {
+  MIGRATION_BY_TABLE,
+  isMissingSchemaError,
+  missingTableFromError,
+} from '../../_lib/migration-guard';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
-function isMissingTableError(error: unknown): boolean {
-  return /no such table/i.test(error instanceof Error ? error.message : String(error));
+/**
+ * Сводка собирается из независимых таблиц, и падать целиком из-за одной
+ * непринятой миграции ей нельзя — иначе стартовый экран пропадает весь.
+ * Но и молча рисовать ноль вместо данных нельзя тоже: ноль заявок и
+ * «таблицы заявок ещё нет» для владельца выглядят одинаково. Поэтому
+ * отсутствующие таблицы собираются в список и уезжают в ответ.
+ */
+function createSchemaGaps() {
+  const tables = new Set<string>();
+
+  const remember = (error: unknown): boolean => {
+    if (!isMissingSchemaError(error)) return false;
+    const table = missingTableFromError(error);
+    if (table) tables.add(table);
+    return true;
+  };
+
+  return {
+    remember,
+    /** Пропуски в схеме, сгруппированные по файлу миграции. */
+    report() {
+      const byMigration = new Map<string, string[]>();
+      for (const table of tables) {
+        const migration = MIGRATION_BY_TABLE[table] || 'неизвестную миграцию';
+        byMigration.set(migration, [...(byMigration.get(migration) || []), table]);
+      }
+      return [...byMigration.entries()]
+        .sort(([left], [right]) => left.localeCompare(right, 'en'))
+        .map(([migration, missing]) => ({ migration, tables: missing.sort() }));
+    },
+  };
 }
 
-async function safeAll<T>(promise: Promise<{ results?: T[] }>): Promise<T[]> {
+type SchemaGaps = ReturnType<typeof createSchemaGaps>;
+
+async function safeAll<T>(gaps: SchemaGaps, promise: Promise<{ results?: T[] }>): Promise<T[]> {
   try {
     return (await promise).results || [];
   } catch (error) {
-    if (isMissingTableError(error)) return [];
+    if (gaps.remember(error)) return [];
     throw error;
   }
 }
 
-async function safeFirst<T>(promise: Promise<T | null>): Promise<T | null> {
+async function safeFirst<T>(gaps: SchemaGaps, promise: Promise<T | null>): Promise<T | null> {
   try {
     return await promise;
   } catch (error) {
-    if (isMissingTableError(error)) return null;
+    if (gaps.remember(error)) return null;
     throw error;
   }
 }
@@ -43,48 +79,49 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const db = env.DB;
+    const gaps = createSchemaGaps();
     // Заявки в корзине (миграция 0020) не учитываются в сводке дашборда.
     const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
     const [viewsDaily, uniquesDaily, topPages, viewTotals, leadCounts, recentLeads, outboxPending, capiDay] = await Promise.all([
       // просмотры по дням за 14 дней (для графика и сравнения недель)
-      safeAll<{ day: string; views: number }>(db.prepare(
+      safeAll<{ day: string; views: number }>(gaps, db.prepare(
         `SELECT day, SUM(views) AS views FROM page_stats_daily
          WHERE day >= date('now', '-13 day') GROUP BY day ORDER BY day ASC`
       ).all()),
       // уникальные по дням за 14 дней
-      safeAll<{ day: string; uniques: number }>(db.prepare(
+      safeAll<{ day: string; uniques: number }>(gaps, db.prepare(
         `SELECT day, COUNT(*) AS uniques FROM visitor_hashes_daily
          WHERE day >= date('now', '-13 day') GROUP BY day ORDER BY day ASC`
       ).all()),
       // топ страниц за 7 дней
-      safeAll<{ page_path: string; views: number }>(db.prepare(
+      safeAll<{ page_path: string; views: number }>(gaps, db.prepare(
         `SELECT page_path, SUM(views) AS views FROM page_stats_daily
          WHERE day >= date('now', '-6 day') GROUP BY page_path ORDER BY views DESC LIMIT 10`
       ).all()),
       // суммы просмотров: текущие 7 дней и предыдущие 7 дней
-      safeFirst<{ current: number; previous: number }>(db.prepare(
+      safeFirst<{ current: number; previous: number }>(gaps, db.prepare(
         `SELECT
            SUM(CASE WHEN day >= date('now', '-6 day') THEN views ELSE 0 END) AS current,
            SUM(CASE WHEN day < date('now', '-6 day') THEN views ELSE 0 END) AS previous
          FROM page_stats_daily WHERE day >= date('now', '-13 day')`
       ).first()),
       // заявки по статусам + за 7 дней
-      safeFirst<{ total: number; fresh: number; week: number }>(db.prepare(
+      safeFirst<{ total: number; fresh: number; week: number }>(gaps, db.prepare(
         `SELECT COUNT(*) AS total,
                 SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) AS fresh,
                 SUM(CASE WHEN created_at >= datetime('now', '-7 day') THEN 1 ELSE 0 END) AS week
          FROM leads WHERE ${activeCond}`
       ).first()),
       // последние заявки для дашборда
-      safeAll<{ id: number; name: string; service: string; budget: string; status: string; created_at: string }>(db.prepare(
+      safeAll<{ id: number; name: string; service: string; budget: string; status: string; created_at: string }>(gaps, db.prepare(
         `SELECT id, name, service, budget, status, created_at FROM leads WHERE ${activeCond} ORDER BY id DESC LIMIT 5`
       ).all()),
       // очередь недоставленных событий Meta
-      safeFirst<{ pending: number }>(db.prepare(
+      safeFirst<{ pending: number }>(gaps, db.prepare(
         "SELECT COUNT(*) AS pending FROM meta_outbox WHERE status = 'pending'"
       ).first()),
       // события CAPI за сутки: отправлено/ошибки
-      safeFirst<{ sent: number; failed: number }>(db.prepare(
+      safeFirst<{ sent: number; failed: number }>(gaps, db.prepare(
         `SELECT SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
                 SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed
          FROM meta_capi_diagnostics WHERE created_at >= datetime('now', '-1 day')`
@@ -93,13 +130,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     // Заявки по дням нужны графику на экране «Сегодня»: без них пришлось бы
     // сравнивать трафик и заявки на глаз по разным экранам.
-    const leadsDaily = await safeAll<{ day: string; leads: number }>(db.prepare(
+    const leadsDaily = await safeAll<{ day: string; leads: number }>(gaps, db.prepare(
       `SELECT date(created_at) AS day, COUNT(*) AS leads FROM leads
        WHERE created_at >= datetime('now', '-13 day') AND ${activeCond}
        GROUP BY day ORDER BY day ASC`
     ).all());
 
-    const uniquesTotals = await safeFirst<{ current: number; previous: number }>(db.prepare(
+    const uniquesTotals = await safeFirst<{ current: number; previous: number }>(gaps, db.prepare(
       `SELECT
          SUM(CASE WHEN day >= date('now', '-6 day') THEN 1 ELSE 0 END) AS current,
          SUM(CASE WHEN day < date('now', '-6 day') THEN 1 ELSE 0 END) AS previous
@@ -127,6 +164,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         sent24h: capiDay?.sent || 0,
         failed24h: capiDay?.failed || 0,
       },
+      // Пусто в обычной жизни. Непустое означает: часть цифр выше — не ноль,
+      // а «данных ещё негде взять», и интерфейс обязан сказать это словами.
+      schemaGaps: gaps.report(),
     }, { headers: noStore });
   } catch (error) {
     return json({ success: false, error: error instanceof Error ? error.message : 'Failed to load stats' }, { status: 500, headers: noStore });

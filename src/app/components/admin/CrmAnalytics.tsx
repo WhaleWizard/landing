@@ -329,7 +329,7 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
           <h3 className="admin-card-title"><Info aria-hidden="true" /> Как это считается</h3>
         </header>
         <ul className="adm-limitations">
-          {(data.notes || []).map((note) => <li key={note}>{note}</li>)}
+          {(data.notes || []).map((note, index) => <li key={index}>{note}</li>)}
         </ul>
       </section>
     </div>

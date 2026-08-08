@@ -648,7 +648,7 @@ export default function AdminAttribution({ password }: { password: string }) {
                 <h3 className="admin-card-title"><Info aria-hidden="true" /> Как это считается</h3>
               </header>
               <ul className="adm-limitations">
-                {data.limitations?.map((item) => <li key={item}>{item}</li>)}
+                {data.limitations?.map((item, index) => <li key={index}>{item}</li>)}
               </ul>
             </section>
           </div>

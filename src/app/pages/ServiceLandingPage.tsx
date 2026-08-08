@@ -949,9 +949,10 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
             </p>
 
             <div className="space-y-4 max-w-md mx-auto lg:mx-0">
+              {/* Ключ по позиции: два одинаковых пункта — законный ввод. */}
               {contact.bullets.map((item, i) => (
                 <motion.div
-                  key={item}
+                  key={i}
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}

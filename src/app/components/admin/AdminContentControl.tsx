@@ -33,18 +33,21 @@ import {
   fontFamilyForContent,
   getContentFontDefinition,
   normalizeContentTypography,
+  type ContentFont,
   type ContentFontId,
   type ContentTypography,
   type NormalizedContentTypography,
   type TypographySize,
 } from '../../utils/contentTypography';
 import {
+  HERO_TITLE_EFFECT_LABELS,
   HERO_TITLE_EFFECT_OPTIONS,
   HERO_TITLE_EFFECT_SPEED_OPTIONS,
   type HeroTitleEffect,
   type HeroTitleEffectSpeed,
 } from '../HeroTitleEffect';
 import AdminFaqControl from './AdminFaqControl';
+import { confirmAsk } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
 import AdminContentPreview from './AdminContentPreview';
 import {
@@ -72,7 +75,18 @@ export type EditableContent = {
     badge: string;
     titlePrefix: string;
     titleAccent: string;
-    titleLines: Array<{ text: string; tone?: 'accent' | 'supporting' }>;
+    /**
+     * Шрифт, эффект и скорость строки необязательны: пусто — «как у всего
+     * заголовка». Так одна строка может быть рукописной и печататься по
+     * буквам, а соседняя оставаться обычной.
+     */
+    titleLines: Array<{
+      text: string;
+      tone?: 'accent' | 'supporting';
+      font?: ContentFontId;
+      effect?: HeroTitleEffect;
+      speed?: HeroTitleEffectSpeed;
+    }>;
     paragraphs: string[];
     primaryButton: string;
     secondaryButton: string;
@@ -206,6 +220,9 @@ function homeDefaults(): EditableContent {
       titleLines: (defaultHeroContent.titleLines || []).map((line) => ({
         text: line.text,
         tone: line.tone === 'accent' || line.tone === 'supporting' ? line.tone : undefined,
+        font: line.font,
+        effect: line.effect,
+        speed: line.speed,
       })),
       paragraphs: defaultHeroContent.paragraphs.map(String),
       primaryButton: defaultHeroContent.primaryButton,
@@ -255,6 +272,9 @@ function serviceDefaults(service: ServiceType): EditableContent {
       titleLines: (source.hero.titleLines || []).map((line) => ({
         text: line.text,
         tone: line.tone === 'accent' || line.tone === 'supporting' ? line.tone : undefined,
+        font: line.font,
+        effect: line.effect,
+        speed: line.speed,
       })),
       paragraphs: (source.hero.paragraphs || []).map(String),
       primaryButton: source.hero.primaryButton || '',
@@ -365,6 +385,10 @@ function validateEditableContent(content: EditableContent): { section: EditorSec
   return null;
 }
 
+const SEARCHABLE_TEXT_SKIP_KEYS = new Set([
+  'typography', 'titleAnimation', 'visualSlot', 'tone', 'font', 'effect', 'speed',
+]);
+
 /** Все текстовые значения блока — для поиска «где это написано». */
 function collectSectionTexts(value: unknown, out: string[]): void {
   if (typeof value === 'string') {
@@ -378,8 +402,9 @@ function collectSectionTexts(value: unknown, out: string[]): void {
   }
   if (value && typeof value === 'object') {
     Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
-      // Пресеты размеров — не текст страницы, в поиске только мешают.
-      if (key === 'typography' || key === 'titleAnimation' || key === 'visualSlot' || key === 'tone') return;
+      // Оформление — не текст страницы: без этого поиск по слову «mono»
+      // находил бы строку заголовка из-за выбранного в ней шрифта.
+      if (SEARCHABLE_TEXT_SKIP_KEYS.has(key)) return;
       collectSectionTexts(item, out);
     });
   }
@@ -411,14 +436,25 @@ function highlightSnippet(text: string, query: string): string {
   return `${from > 0 ? '…' : ''}${snippet}${from + 110 < text.length ? '…' : ''}`;
 }
 
+/**
+ * Копирует только ветку по пути, остальное переиспользует. Раньше здесь был
+ * полный `JSON.parse(JSON.stringify(...))` на каждую нажатую клавишу — именно
+ * он вместе с непрерывной перерисовкой предпросмотра и давал заметный лаг.
+ */
 function setAtPath(content: EditableContent, path: Array<string | number>, value: unknown): EditableContent {
-  const next = clone(content) as unknown as Record<string | number, unknown>;
-  let cursor = next;
-  path.slice(0, -1).forEach((segment) => {
-    cursor = cursor[segment] as Record<string | number, unknown>;
-  });
-  cursor[path[path.length - 1]] = value;
-  return next as unknown as EditableContent;
+  if (path.length === 0) return value as EditableContent;
+  const [head, ...rest] = path;
+  const branch = (content as unknown as Record<string | number, unknown>)[head];
+  const nextBranch = rest.length === 0
+    ? value
+    : setAtPath(branch as EditableContent, rest, value);
+
+  if (Array.isArray(content)) {
+    const copy = (content as unknown as unknown[]).slice();
+    copy[head as number] = nextBranch;
+    return copy as unknown as EditableContent;
+  }
+  return { ...(content as unknown as Record<string | number, unknown>), [head]: nextBranch } as unknown as EditableContent;
 }
 
 /**
@@ -585,21 +621,88 @@ const FONT_CATEGORY_LABELS = {
   all: 'Все',
   sans: 'Без засечек',
   serif: 'С засечками',
-  handwritten: 'Рукописные',
+  mono: 'Печатная машинка',
   display: 'Акцентные',
+  handwritten: 'Рукописные',
 } as const;
+
+/**
+ * Карточка шрифта в диалоге. Гарнитура применяется, только когда карточка
+ * реально появилась на экране: в библиотеке под девяносто семейств, и без
+ * этого одно открытие списка тянуло бы десяток мегабайт шрифтов.
+ */
+function FontCard({
+  font,
+  role,
+  sample,
+  selected,
+  onSelect,
+}: {
+  font: ContentFont;
+  role: 'title' | 'body';
+  sample: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || revealed) return;
+    // Видимые сразу карточки показываем без ожидания наблюдателя: он срабатывает
+    // только на следующем кадре отрисовки, и первый экран успевал мигнуть.
+    const box = node.getBoundingClientRect();
+    if (box.height > 0 && box.top < window.innerHeight + 220 && box.bottom > -220) {
+      setRevealed(true);
+      return;
+    }
+    if (typeof IntersectionObserver === 'undefined') {
+      setRevealed(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setRevealed(true);
+    }, { rootMargin: '220px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [revealed]);
+
+  const family = revealed ? fontFamilyForContent(font.id, role) : undefined;
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className="admin-font-card"
+      aria-pressed={selected}
+      onClick={onSelect}
+    >
+      <span className="admin-font-card__name">
+        <strong style={{ fontFamily: family }}>{font.label}</strong>
+        {selected ? <Check aria-hidden="true" /> : null}
+      </span>
+      <span className="admin-font-card__sample" style={{ fontFamily: family }}>
+        {sample || 'Клиенты выбирают результат'}
+      </span>
+      <small>{font.description}</small>
+    </button>
+  );
+}
 
 function FontPicker({
   label,
   value,
   role,
   sample,
+  inheritLabel,
   onChange,
 }: {
   label: string;
   value: ContentFontId;
   role: 'title' | 'body';
   sample: string;
+  /** Чем подписать вариант «auto» — у строки это «как у заголовка». */
+  inheritLabel?: string;
   onChange: (value: ContentFontId) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -619,14 +722,19 @@ function FontPicker({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <button type="button" className="admin-font-trigger">
-            <span style={{ fontFamily: fontFamilyForContent(selected.id, role) }}>{selected.label}</span>
+            <span style={{ fontFamily: fontFamilyForContent(selected.id, role) }}>
+              {inheritLabel && selected.id === 'auto' ? inheritLabel : selected.label}
+            </span>
             <small>{selected.description}</small>
           </button>
         </DialogTrigger>
         <DialogContent className="admin-font-dialog">
           <DialogHeader>
             <DialogTitle>{label}</DialogTitle>
-            <DialogDescription>Все варианты локальные и содержат кириллицу. Посетителю загрузится только выбранная гарнитура.</DialogDescription>
+            <DialogDescription>
+              {options.length} из {source.length}: все варианты локальные и с кириллицей.
+              Посетителю загрузится только выбранная гарнитура.
+            </DialogDescription>
           </DialogHeader>
           <div className="admin-font-dialog__toolbar">
             <label className="admin-font-search">
@@ -649,30 +757,84 @@ function FontPicker({
           </div>
           <div className="admin-font-grid">
             {options.map((font) => (
-              <button
-                type="button"
+              <FontCard
                 key={font.id}
-                className="admin-font-card"
-                aria-pressed={selected.id === font.id}
-                onClick={() => {
+                font={font}
+                role={role}
+                sample={sample}
+                selected={selected.id === font.id}
+                onSelect={() => {
                   onChange(font.id);
                   setOpen(false);
                 }}
-              >
-                <span className="admin-font-card__name">
-                  <strong style={{ fontFamily: fontFamilyForContent(font.id, role) }}>{font.label}</strong>
-                  {selected.id === font.id ? <Check aria-hidden="true" /> : null}
-                </span>
-                <span className="admin-font-card__sample" style={{ fontFamily: fontFamilyForContent(font.id, role) }}>
-                  {sample || 'Клиенты выбирают результат'}
-                </span>
-                <small>{font.description}</small>
-              </button>
+              />
             ))}
             {options.length === 0 ? <p className="admin-muted">По такому запросу шрифтов не нашлось.</p> : null}
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+type HeroTitleLineValue = EditableContent['hero']['titleLines'][number];
+
+/**
+ * Оформление одной строки заголовка. Пустое значение здесь всегда значит
+ * «как у всего заголовка», поэтому владелец может тронуть только ту строку,
+ * которую действительно хочет выделить, и не трогать остальные.
+ */
+function TitleLineStyleControls({
+  line,
+  blockFont,
+  blockEffect,
+  onChange,
+}: {
+  line: HeroTitleLineValue;
+  blockFont: ContentFontId;
+  blockEffect: HeroTitleEffect;
+  onChange: (patch: Partial<HeroTitleLineValue>) => void;
+}) {
+  const effectValue = line.effect ?? 'inherit';
+  const lineEffect = line.effect ?? blockEffect;
+  const blockFontLabel = blockFont === 'auto' ? '' : getContentFontDefinition(blockFont).label;
+
+  return (
+    <div className="admin-line-style">
+      <FontPicker
+        label="Шрифт строки"
+        value={line.font ?? 'auto'}
+        role="title"
+        sample={line.text || 'Пример строки'}
+        inheritLabel={blockFontLabel ? `Как у заголовка · ${blockFontLabel}` : 'Как у заголовка'}
+        onChange={(font) => onChange({ font: font === 'auto' ? undefined : font })}
+      />
+      <AdminSelect
+        label="Эффект строки"
+        value={effectValue}
+        options={[
+          { value: 'inherit', label: `Как у заголовка · ${HERO_TITLE_EFFECT_LABELS[blockEffect]}` },
+          ...HERO_TITLE_EFFECT_OPTIONS,
+        ]}
+        onValueChange={(next) => onChange({
+          effect: next === 'inherit' ? undefined : next as HeroTitleEffect,
+          // Скорость без своего эффекта смысла не имеет.
+          speed: next === 'inherit' || next === 'none' ? undefined : line.speed,
+        })}
+      />
+      {line.effect && line.effect !== 'none' ? (
+        <AdminSelect
+          label="Скорость строки"
+          value={line.speed ?? 'inherit'}
+          options={[{ value: 'inherit', label: 'Как у заголовка' }, ...HERO_TITLE_EFFECT_SPEED_OPTIONS]}
+          onValueChange={(next) => onChange({ speed: next === 'inherit' ? undefined : next as HeroTitleEffectSpeed })}
+        />
+      ) : null}
+      {lineEffect !== 'none' && (line.font || line.effect) ? (
+        <p className="admin-hint admin-line-style__note">
+          Строки появляются по очереди сверху вниз — задержка считается от общей настройки блока.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -910,10 +1072,20 @@ export default function AdminContentControl({ password }: { password: string }) 
   const [publishArmed, setPublishArmed] = useState(false);
   const [contentMode, setContentMode] = useState<'pages' | 'faq'>('pages');
   const [search, setSearch] = useState('');
+  // Отдельно от notice: «нужна миграция» — не ошибка редактора, а недоделанная
+  // настройка базы, и подсказка должна пережить любое следующее сообщение.
+  const [migration, setMigration] = useState('');
   const loadSequence = useRef(0);
   const contentRef = useRef(content);
-  const loadedSnapshotRef = useRef(JSON.stringify(content));
-  contentRef.current = content;
+  // Сохранённая версия держится в состоянии, а не в ref: от неё зависит и
+  // «есть несохранённые изменения», и отметки изменённых блоков, а ref не
+  // вызывает перерисовку и обе подсказки отставали на один шаг.
+  const [baseline, setBaseline] = useState<EditableContent>(content);
+
+  // Один stringify на изменение контента вместо двух на каждый рендер.
+  const contentSignature = useMemo(() => JSON.stringify(content), [content]);
+  const baselineSignature = useMemo(() => JSON.stringify(baseline), [baseline]);
+  useEffect(() => { contentRef.current = content; }, [content]);
 
   const pageMeta = useMemo(() => PAGES.find((item) => item.value === page) || PAGES[0], [page]);
   // Блок отзывов есть и на страницах услуг — раньше он был только у главной.
@@ -921,7 +1093,30 @@ export default function AdminContentControl({ password }: { password: string }) 
     () => ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact'],
     [],
   );
-  const isDirty = JSON.stringify(content) !== loadedSnapshotRef.current;
+  const isDirty = contentSignature !== baselineSignature;
+
+  /**
+   * Какие блоки отличаются от сохранённой версии. Правка одного заголовка
+   * раньше просто зажигала «есть несохранённые изменения» — по какой странице
+   * и в каком блоке, приходилось вспоминать самому.
+   */
+  const changedSections = useMemo(() => {
+    const changed = new Set<EditorSection>();
+    if (!isDirty) return changed;
+    availableSections.forEach((value) => {
+      const left = JSON.stringify((content as unknown as Record<string, unknown>)[value]);
+      const right = JSON.stringify((baseline as unknown as Record<string, unknown>)[value]);
+      if (left !== right) changed.add(value);
+    });
+    return changed;
+  }, [availableSections, baseline, content, isDirty]);
+
+  /** Вернуть один блок к сохранённому виду, не трогая правки в остальных. */
+  const revertSection = (value: EditorSection) => {
+    setContent((current) => setAtPath(current, [value], clone((baseline as unknown as Record<string, unknown>)[value])));
+    setPublishArmed(false);
+    setNotice(`Блок «${SECTION_LABELS[value]}» возвращён к сохранённой версии.`);
+  };
 
   // Поиск по всем текстам страницы: показывает, в каком блоке лежит фраза,
   // и открывает его. Без него длинные блоки приходится обходить вручную.
@@ -946,8 +1141,15 @@ export default function AdminContentControl({ password }: { password: string }) 
         credentials: 'same-origin',
         cache: 'no-store',
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; section?: SectionPayload | null; versions?: VersionRow[] } | null;
-      if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean; error?: string; code?: string; migration?: string;
+        section?: SectionPayload | null; versions?: VersionRow[];
+      } | null;
+      if (!response.ok || !payload?.success) {
+        setMigration(payload?.code === 'MIGRATION_REQUIRED' ? String(payload.migration || '') : '');
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      setMigration('');
       if (requestId !== loadSequence.current) return false;
       if (JSON.stringify(contentRef.current) !== contentAtRequest) {
         setNotice('Ответ получен, но не применён: в редакторе уже есть более новые несохранённые изменения.');
@@ -958,7 +1160,7 @@ export default function AdminContentControl({ password }: { password: string }) 
       setSection(payload.section || null);
       setVersions(payload.versions || []);
       setContent(next);
-      loadedSnapshotRef.current = JSON.stringify(next);
+      setBaseline(next);
       return true;
     } catch (error) {
       if (requestId !== loadSequence.current) return false;
@@ -981,17 +1183,25 @@ export default function AdminContentControl({ password }: { password: string }) 
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
 
-  const switchPage = (nextPage: EditorPage) => {
+  const switchPage = async (nextPage: EditorPage) => {
     if (nextPage === page) return;
+    // Раньше редактор просто отказывался переключаться и оставлял владельца
+    // гадать, что делать дальше. Теперь выбор явный и остаётся в одном окне.
     if (isDirty) {
-      setNotice('Есть несохранённые изменения. Сохраните черновик или нажмите «Отменить изменения», затем смените страницу.');
-      return;
+      const discard = await confirmAsk({
+        title: `Перейти на страницу «${PAGES.find((item) => item.value === nextPage)?.label}»?`,
+        description: `Несохранённые правки в блоках «${[...changedSections].map((value) => SECTION_LABELS[value]).join('», «')}» пропадут. Сначала сохраните черновик, если они нужны.`,
+        confirmLabel: 'Перейти и потерять правки',
+        cancelLabel: 'Остаться',
+        tone: 'danger',
+      });
+      if (!discard) return;
     }
     loadSequence.current += 1;
     const next = editableDefaults(nextPage);
     setPage(nextPage);
     setContent(next);
-    loadedSnapshotRef.current = JSON.stringify(next);
+    setBaseline(next);
     setSection(null);
     setVersions([]);
     setActiveSection('hero');
@@ -1136,18 +1346,28 @@ export default function AdminContentControl({ password }: { password: string }) 
       </div>
 
       <div className="admin-toolbar admin-content-toolbar">
-        <AdminSelect label="Страница" value={page} disabled={loading} options={PAGES.map((item) => ({ value: item.value, label: item.label }))} onValueChange={(value) => switchPage(value as EditorPage)} />
+        <AdminSelect label="Страница" value={page} disabled={loading} options={PAGES.map((item) => ({ value: item.value, label: item.label }))} onValueChange={(value) => { void switchPage(value as EditorPage); }} />
         <div className="admin-content-statuses">
           <span className={section?.status === 'published' ? 'admin-state admin-state--success' : 'admin-state admin-state--warning'}>
             {section?.status === 'published' ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
             {section?.status === 'published' ? `На сайте · v${section.version}` : section ? `Черновик · v${section.version}` : 'Статическая версия'}
           </span>
-          {isDirty ? <span className="admin-state admin-state--warning">Есть несохранённые изменения</span> : <span className="admin-state">Редактор синхронизирован</span>}
+          {isDirty ? (
+            <span className="admin-state admin-state--warning">
+              Не сохранено: {[...changedSections].map((value) => SECTION_LABELS[value]).join(', ')}
+            </span>
+          ) : <span className="admin-state">Редактор синхронизирован</span>}
         </div>
         <button className="admin-button admin-button--secondary" type="button" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
-        {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); loadedSnapshotRef.current = JSON.stringify(restored); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}
+        {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); setBaseline(restored); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}
       </div>
 
+      {migration ? (
+        <div className="admin-notice admin-notice--warning" role="status">
+          Примените миграцию <code>{migration}</code> к production D1 — до неё тексты страниц негде хранить,
+          сайт продолжает показывать версию из кода, а сохранение здесь работать не будет.
+        </div>
+      ) : null}
       {notice ? <div className="admin-notice" role="status" aria-live="polite">{notice}</div> : null}
 
       <AdminContentPreview page={page} section={activeSection} content={content} />
@@ -1181,8 +1401,19 @@ export default function AdminContentControl({ password }: { password: string }) 
                 </div>
               ) : null}
               {availableSections.map((value, index) => (
-                <button key={value} type="button" aria-current={activeSection === value ? 'step' : undefined} onClick={() => setActiveSection(value)}>
-                  <span>{value === 'seo' ? 'SEO' : String(index)}</span><span><strong>{SECTION_LABELS[value]}</strong><small>{sectionSummary(content, value)}</small></span><ChevronRight aria-hidden="true" />
+                <button
+                  key={value}
+                  type="button"
+                  aria-current={activeSection === value ? 'step' : undefined}
+                  data-changed={changedSections.has(value) ? 'true' : undefined}
+                  onClick={() => setActiveSection(value)}
+                >
+                  <span>{value === 'seo' ? 'SEO' : String(index)}</span>
+                  <span>
+                    <strong>{SECTION_LABELS[value]}</strong>
+                    <small>{changedSections.has(value) ? 'Изменён, не сохранён' : sectionSummary(content, value)}</small>
+                  </span>
+                  <ChevronRight aria-hidden="true" />
                 </button>
               ))}
             </nav>
@@ -1194,6 +1425,15 @@ export default function AdminContentControl({ password }: { password: string }) 
               <div className="admin-block-editor__heading">
                 <span>{activeSection === 'seo' ? 'SEO' : availableSections.indexOf(activeSection)}</span>
                 <div><p className="admin-eyebrow">Редактируемый блок</p><h3>{SECTION_LABELS[activeSection]}</h3></div>
+                {changedSections.has(activeSection) ? (
+                  <button
+                    type="button"
+                    className="admin-button admin-button--quiet admin-button--compact"
+                    onClick={() => revertSection(activeSection)}
+                  >
+                    <RotateCcw aria-hidden="true" /> Вернуть блок
+                  </button>
+                ) : null}
               </div>
 
               {activeSection === 'seo' ? <div className="admin-form-grid">
@@ -1232,6 +1472,12 @@ export default function AdminContentControl({ password }: { password: string }) 
                             <Field id={`hero-line-${index}`} label="Текст" value={line.text} maxLength={180} onChange={(value) => update(['hero', 'titleLines', index, 'text'], value)} />
                             <AdminSelect label="Выделение" value={line.tone || 'default'} options={[{ value: 'default', label: 'Обычная' }, { value: 'accent', label: 'Акцент' }, { value: 'supporting', label: 'Поддерживающая' }]} onValueChange={(value) => update(['hero', 'titleLines', index, 'tone'], value === 'default' ? undefined : value)} />
                           </div>
+                          <TitleLineStyleControls
+                            line={line}
+                            blockFont={content.hero.typography?.titleFont ?? 'auto'}
+                            blockEffect={content.hero.titleAnimation?.effect ?? 'none'}
+                            onChange={(patch) => update(['hero', 'titleLines', index], { ...line, ...patch })}
+                          />
                         </div>
                       ))}
                       <div className="admin-content-statuses">

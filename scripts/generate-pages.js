@@ -38,6 +38,10 @@ async function loadSiteContent() {
     // (react, radix, motion, three и их транзитивные зависимости) резолвятся
     // самим Node через обычный import — так не нужно перечислять их вручную.
     packages: 'external',
+    // Из этой сборки берут только данные, стили в ней не нужны. А ещё они
+    // ссылаются на шрифты абсолютными путями вида /fonts/..., которые вне
+    // dev-сервера не резолвятся и валили генерацию страниц.
+    loader: { '.css': 'empty' },
     logLevel: 'silent',
   });
 
@@ -1118,6 +1122,16 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       description: 'Служебная панель управления контентом.',
       h1: 'Admin',
       lead: 'Служебная панель управления контентом. Эта страница закрыта от индексации.',
+      noIndex: true,
+    },
+    {
+      // Кадр точного предпросмотра редактора страниц. Без своего каталога
+      // iframe получал бы в production 404: SPA-фолбэка в _redirects нет.
+      route: '/admin/content-preview',
+      title: 'Предпросмотр редактора | Whale Wizard',
+      description: 'Служебный предпросмотр редактора страниц.',
+      h1: 'Предпросмотр редактора',
+      lead: 'Служебный кадр предпросмотра. Эта страница закрыта от индексации.',
       noIndex: true,
     },
   ];

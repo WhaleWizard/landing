@@ -386,7 +386,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
         {draft.healthReasons && draft.healthReasons.length > 0 && (
           <section className={`clients__health is-${draft.health}`} role="status">
             <strong>{HEALTH_LABEL[draft.health || 'ok']}</strong>
-            <ul>{draft.healthReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+            <ul>{draft.healthReasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
           </section>
         )}
 

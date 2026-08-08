@@ -1,7 +1,7 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { HeroContent } from '../Hero';
-import HeroTitleEffect from '../HeroTitleEffect';
+import HeroTitleEffect, { resolveHeroTitleLine } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
 import { Button } from '../ui/button';
 import {
@@ -11,6 +11,9 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
 } from '../../utils/contentTypography';
+// Стили живут рядом с компонентом, а не на странице: точный предпросмотр
+// редактора монтирует хиро напрямую и без этого рисовал голую вёрстку.
+import './meta-ads-editorial-hero.css';
 
 type MetaAdsEditorialHeroProps = {
   content: HeroContent;
@@ -76,21 +79,24 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
             style={managedTitleStyle(content.typography)}
           >
             {titleLines?.length ? (
-              titleLines.map((line, index) => (
-                <HeroTitleEffect
-                  as="span"
-                  key={`${line.text}-${index}`}
-                  className={line.tone === 'accent' ? 'meta-editorial-hero__title-accent' : undefined}
-                  style={{ display: 'block' }}
-                  text={line.text}
-                  effect={titleAnimation.effect}
-                  speed={titleAnimation.speed}
-                  delayMs={titleAnimation.delayMs}
-                  sequenceIndex={index}
-                >
-                  {line.text}
-                </HeroTitleEffect>
-              ))
+              titleLines.map((line, index) => {
+                const resolved = resolveHeroTitleLine(line, titleAnimation, { display: 'block' });
+                return (
+                  <HeroTitleEffect
+                    as="span"
+                    key={`line-${index}`}
+                    className={line.tone === 'accent' ? 'meta-editorial-hero__title-accent' : undefined}
+                    style={resolved.style}
+                    text={line.text}
+                    effect={resolved.effect}
+                    speed={resolved.speed}
+                    delayMs={resolved.delayMs}
+                    sequenceIndex={index}
+                  >
+                    {line.text}
+                  </HeroTitleEffect>
+                );
+              })
             ) : (
               <>
                 <HeroTitleEffect as="span" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={0}>{content.titlePrefix}</HeroTitleEffect>
@@ -99,9 +105,12 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
             )}
           </h1>
 
-          {supportingLine && (
-            <HeroTitleEffect as="p" className="meta-editorial-hero__supporting" style={{ display: 'block' }} text={supportingLine.text} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={titleLines?.length || 2}>{supportingLine.text}</HeroTitleEffect>
-          )}
+          {supportingLine && (() => {
+            const resolved = resolveHeroTitleLine(supportingLine, titleAnimation, { display: 'block' });
+            return (
+              <HeroTitleEffect as="p" className="meta-editorial-hero__supporting" style={resolved.style} text={supportingLine.text} effect={resolved.effect} speed={resolved.speed} delayMs={resolved.delayMs} sequenceIndex={titleLines?.length || 2}>{supportingLine.text}</HeroTitleEffect>
+            );
+          })()}
 
           <div className="meta-editorial-hero__paragraphs">
             {content.paragraphs.map((paragraph, index) => (

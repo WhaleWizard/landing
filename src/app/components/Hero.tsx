@@ -14,9 +14,12 @@ import {
   type ContentTypography,
 } from '../utils/contentTypography';
 import HeroTitleEffect, {
-  type HeroTitleEffect as HeroTitleEffectName,
-  type HeroTitleEffectSpeed,
+  resolveHeroTitleLine,
+  type HeroTitleAnimation,
+  type HeroTitleLine,
 } from './HeroTitleEffect';
+
+export type { HeroTitleLine } from './HeroTitleEffect';
 
 const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
 
@@ -85,11 +88,6 @@ BackgroundOrbs.displayName = 'BackgroundOrbs';
 // Три карточки статистики (дизайн не менялся)
 export type HeroStat = { value: string; label: string };
 
-export type HeroTitleLine = {
-  text: string;
-  tone?: 'default' | 'accent' | 'supporting';
-};
-
 export type HeroContent = {
   badge: string;
   titlePrefix: ReactNode;
@@ -100,11 +98,7 @@ export type HeroContent = {
   secondaryButton: string;
   stats: HeroStat[];
   typography?: ContentTypography;
-  titleAnimation?: {
-    effect?: HeroTitleEffectName;
-    speed?: HeroTitleEffectSpeed;
-    delayMs?: number;
-  };
+  titleAnimation?: HeroTitleAnimation;
 };
 
 export const defaultHeroContent: HeroContent = {
@@ -266,7 +260,11 @@ const LeftContent = memo(({
     initial={staticMotion ? false : { opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={staticMotion ? { duration: 0 } : { duration: 0.8 }}
-    className={`max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines?.length ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
+    // min-w-0 обязателен: строки заголовка не переносятся, а элемент сетки по
+    // умолчанию не даёт себя сжать — колонка раздувалась шире экрана, и текст
+    // уезжал под overflow:hidden. Теперь ширина честная, и подгонка кегля
+    // успевает уменьшить заголовок вместо того, чтобы его обрезало.
+    className={`min-w-0 max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines?.length ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
     <motion.div
       className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
@@ -292,10 +290,14 @@ const LeftContent = memo(({
         style={managedTitleStyle(content.typography)}
       >
         {content.titleLines.map((line, index) => {
+          // Ключ по позиции, а не по тексту: иначе правка буквы пересоздаёт
+          // строку и эффект появления запускается заново — в предпросмотре
+          // это выглядело как исчезающий и обрезанный заголовок.
           if (line.tone === 'supporting') {
+            const supporting = resolveHeroTitleLine(line, titleAnimation);
             return (
               <span
-                key={`${line.text}-${index}`}
+                key={`line-${index}`}
                 className="mt-2.5 flex items-center gap-2.5 text-[13px] min-[360px]:text-sm sm:text-base md:text-[17px] font-medium leading-snug tracking-[-0.01em] text-muted-foreground"
                 style={{ display: 'flex' }}
               >
@@ -306,9 +308,10 @@ const LeftContent = memo(({
                 <HeroTitleEffect
                   as="span"
                   text={line.text}
-                  effect={titleAnimation.effect}
-                  speed={titleAnimation.speed}
-                  delayMs={titleAnimation.delayMs}
+                  effect={supporting.effect}
+                  speed={supporting.speed}
+                  delayMs={supporting.delayMs}
+                  style={supporting.style}
                   sequenceIndex={index}
                 >
                   {line.text}
@@ -317,16 +320,17 @@ const LeftContent = memo(({
             );
           }
 
+          const resolved = resolveHeroTitleLine(line, titleAnimation, { display: 'block' });
           return (
             <HeroTitleEffect
               as="span"
-              key={`${line.text}-${index}`}
+              key={`line-${index}`}
               className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
-              style={{ display: 'block' }}
+              style={resolved.style}
               text={line.text}
-              effect={titleAnimation.effect}
-              speed={titleAnimation.speed}
-              delayMs={titleAnimation.delayMs}
+              effect={resolved.effect}
+              speed={resolved.speed}
+              delayMs={resolved.delayMs}
               sequenceIndex={index}
             >
               {line.text}
@@ -812,10 +816,17 @@ function Hero({
   content: contentProp = defaultHeroContent,
   visual = 'default',
   contentKey = null,
+  staticMotion: staticMotionProp = false,
 }: {
   content?: HeroContent;
   visual?: HeroVisual;
   contentKey?: string | null;
+  /**
+   * Замораживает фоновое движение: частицы, кольца, пульсацию пятен. Нужен
+   * предпросмотру редактора — там бесконечная анимация только жрёт кадры и
+   * мешает разглядывать текст.
+   */
+  staticMotion?: boolean;
 }) {
   const content = useSiteSection(contentKey, 'hero', contentProp);
   const sectionRef     = useRef<HTMLElement>(null);
@@ -833,8 +844,10 @@ function Hero({
   }, [scrollToWhenReady]);
 
   const isMetaApps = visual === 'meta-apps';
-  const staticMetaAppsMobile = isMetaApps && isMobile;
-  const resolvedInView = prefersReduced || staticMetaAppsMobile ? false : inView;
+  // Meta Apps на телефоне и предпросмотр редактора рисуются без фонового
+  // движения: там оно ничего не добавляет, а кадры съедает.
+  const freezeMotion = (isMetaApps && isMobile) || staticMotionProp;
+  const resolvedInView = prefersReduced || freezeMotion ? false : inView;
 
   return (
     <section
@@ -843,7 +856,7 @@ function Hero({
       className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
       style={{ contain: 'layout style paint' }}
     >
-      <BackgroundOrbs inView={resolvedInView} staticMotion={staticMetaAppsMobile} />
+      <BackgroundOrbs inView={resolvedInView} staticMotion={freezeMotion} />
 
       <div className={`relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
         <div className={`grid ${isMetaApps ? 'items-start gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-8 md:gap-12 lg:grid-cols-2'}`}>
@@ -853,7 +866,7 @@ function Hero({
             inView={resolvedInView}
             content={content}
             mobileFirst={isMetaApps}
-            staticMotion={staticMetaAppsMobile}
+            staticMotion={freezeMotion}
             statsVariant={isMetaApps ? (isMobile ? 'hidden' : 'meta-apps') : 'default'}
           />
           {isMetaApps ? (
