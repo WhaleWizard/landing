@@ -523,18 +523,29 @@ function renderJsonLdScripts(schemas = []) {
  * героя — четыре волны ожидания.
  *
  * Портрет (hero-portrait.jpg) рисует RightPanel в Hero.tsx, поэтому он нужен
- * ровно там, где визуал героя 'default' или 'portrait'. У /meta-apps свой
- * визуал — подставка и корпус телефона.
+ * для главной и Google Ads. У Meta Ads и консультации теперь свои LCP-кадры,
+ * а у /meta-apps — подставка и корпус телефона.
  *
- * priority: true ставит fetchpriority="high" — только для портрета, который и
- * есть LCP-элемент этих страниц. Картинкам /meta-apps высокий приоритет не
- * даём: они всё равно не отрисуются раньше JS, а канал у бандла отберут.
+ * priority: true ставит fetchpriority="high" только фактическому LCP-кадру
+ * маршрута. Картинкам /meta-apps высокий приоритет не даём: они всё равно не
+ * отрисуются раньше JS, а канал у бандла отберут.
  */
 const HERO_PRELOADS = {
   '/': [{ href: '/images/hero-portrait.jpg', priority: true }],
-  '/meta-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/meta-ads': [{ href: '/images/meta-proof/ecommerce-photo.webp', priority: true }],
   '/google-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
-  '/consult': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/consult': [
+    {
+      href: '/images/consult-proof/workspace-mobile.webp',
+      priority: true,
+      media: '(max-width: 1023px)',
+    },
+    {
+      href: '/images/consult-proof/workspace-portrait.webp',
+      priority: true,
+      media: '(min-width: 1024px)',
+    },
+  ],
   '/meta-apps': [
     {
       href: '/images/meta-hero-pedestal-rack-mobile.webp',

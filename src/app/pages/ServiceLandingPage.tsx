@@ -3,6 +3,8 @@ import { motion, useInView } from 'motion/react';
 import { BarChart3, Briefcase, CheckCircle2, Search, ShoppingCart, Sparkles, Target, TrendingUp, Users, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Hero, { type HeroContent } from '../components/Hero';
+import MetaAdsEditorialHero from '../components/service-heroes/MetaAdsEditorialHero';
+import ConsultStudioHero from '../components/service-heroes/ConsultStudioHero';
 import SEO from '../components/SEO';
 import type { ServicesContent } from '../components/Services';
 import type { CasesContent } from '../components/Cases';
@@ -136,10 +138,10 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     hero: {
       badge: 'Meta Ads для заявок и продаж',
       titlePrefix: 'Реклама в Meta:',
-      titleAccent: 'клиенты, а не просто лиды',
+      titleAccent: 'клиенты, а не лиды',
       titleLines: [
         { text: 'Реклама в Meta:' },
-        { text: 'клиенты, а не просто лиды', tone: 'accent' },
+        { text: 'клиенты, а не лиды', tone: 'accent' },
         { text: 'Instagram и Facebook — с оптимизацией на продажи', tone: 'supporting' },
       ],
       paragraphs: [
@@ -1021,10 +1023,16 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden" style={cssVars}>
       <SEO {...config.seo} />
       <Navbar variant="service" />
-      <Hero
-        content={config.hero}
-        visual={service === 'meta-apps' ? 'meta-apps' : service === 'consult' ? 'portrait' : 'default'}
-      />
+      {service === 'meta-ads' ? (
+        <MetaAdsEditorialHero content={config.hero} />
+      ) : service === 'consult' ? (
+        <ConsultStudioHero content={config.hero} />
+      ) : (
+        <Hero
+          content={config.hero}
+          visual={service === 'meta-apps' ? 'meta-apps' : 'default'}
+        />
+      )}
 
       {/* Высоты повторяют адаптивную геометрию секций до их монтирования:
           подвал — 1070/430, кейсы — 1050/1730 на mobile/desktop. */}

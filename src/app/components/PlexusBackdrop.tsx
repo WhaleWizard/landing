@@ -62,8 +62,23 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     const [pr, pg, pb] = parseHexColor(styles.getPropertyValue('--primary'), [139, 92, 246]);
     const [ar, ag, ab] = parseHexColor(styles.getPropertyValue('--accent'), [0, 210, 255]);
 
+    const createNode = (targetWidth: number, targetHeight: number): Node => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.12 + Math.random() * 0.14;
+      return {
+        x: Math.random() * targetWidth,
+        y: Math.random() * targetHeight,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        baseVx: Math.cos(angle) * speed,
+        baseVy: Math.sin(angle) * speed,
+      };
+    };
+
     const rebuild = () => {
       const rect = canvas.getBoundingClientRect();
+      const previousWidth = width;
+      const previousHeight = height;
       width = rect.width;
       height = rect.height;
       if (width === 0 || height === 0) return;
@@ -74,18 +89,22 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
 
       // Плотность узлов пропорциональна площади, с разумным потолком
       const count = Math.min(100, Math.max(40, Math.round((width * height) / 19000)));
-      nodes = Array.from({ length: count }, () => {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 0.12 + Math.random() * 0.14;
-        return {
-          x: Math.random() * width,
-          y: Math.random() * height,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          baseVx: Math.cos(angle) * speed,
-          baseVy: Math.sin(angle) * speed,
-        };
-      });
+      if (nodes.length === 0 || previousWidth === 0 || previousHeight === 0) {
+        nodes = Array.from({ length: count }, () => createNode(width, height));
+        return;
+      }
+
+      const scaleX = width / previousWidth;
+      const scaleY = height / previousHeight;
+      nodes = nodes.slice(0, count).map((node) => ({
+        ...node,
+        x: Math.min(width, Math.max(0, node.x * scaleX)),
+        y: Math.min(height, Math.max(0, node.y * scaleY)),
+      }));
+
+      while (nodes.length < count) {
+        nodes.push(createNode(width, height));
+      }
     };
 
     const mouse = { x: -9999, y: -9999 };

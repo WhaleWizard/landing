@@ -1,0 +1,528 @@
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-300-normal-cyrillic.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-300-normal-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-400-normal-cyrillic.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-400-normal-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-500-normal-cyrillic.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-500-normal-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-600-normal-cyrillic.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'WW Commissioner';
+  src: url('/fonts/hero/commissioner-600-normal-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+.consult-studio-hero {
+  --consult-cream: #f4efe8;
+  --consult-muted: #b9b4bd;
+  --consult-violet: #8b5cf6;
+  --consult-indigo: #6366f1;
+  --consult-blue: #3b82f6;
+  position: relative;
+  min-height: 100svh;
+  overflow-x: clip;
+  color: var(--consult-cream);
+  background: #09090e;
+  font-family: 'WW Commissioner', var(--ww-font-text);
+}
+
+.consult-studio-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 52%) minmax(0, 48%);
+  min-height: 100svh;
+}
+
+.consult-studio-hero__photo-wrap {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #17110d;
+  animation: consult-photo-enter 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.consult-studio-hero__photo-wrap picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.consult-studio-hero__photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 48% 50%;
+  filter: saturate(0.9) contrast(1.035) brightness(0.91);
+  transform: scale(1.006);
+}
+
+.consult-studio-hero__photo-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(7, 7, 11, 0.08) 0%, transparent 54%, rgba(9, 9, 14, 0.2) 69%, rgba(9, 9, 14, 0.88) 94%, #09090e 100%),
+    linear-gradient(180deg, rgba(7, 7, 10, 0.34), transparent 20%, transparent 76%, rgba(7, 7, 10, 0.52));
+}
+
+.consult-studio-hero__photo-caption {
+  position: absolute;
+  right: 9%;
+  bottom: 42px;
+  left: 7%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  background: rgba(9, 9, 14, 0.56);
+  color: rgba(246, 239, 232, 0.82);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  backdrop-filter: blur(14px);
+}
+
+.consult-studio-hero__photo-caption span:first-child {
+  color: #b9adff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.consult-studio-hero__photo-caption i {
+  flex: 1 1 22px;
+  max-width: 48px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.78), rgba(59, 130, 246, 0.28));
+}
+
+.consult-studio-hero__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  margin-left: -1px;
+  padding: 120px clamp(38px, 5vw, 76px) 54px clamp(44px, 4.7vw, 72px);
+  background:
+    radial-gradient(circle at 72% 18%, rgba(139, 92, 246, 0.14), transparent 27rem),
+    radial-gradient(circle at 20% 82%, rgba(59, 130, 246, 0.09), transparent 24rem),
+    #09090e;
+  animation: consult-copy-enter 720ms 80ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.consult-studio-hero__content::before {
+  content: '';
+  position: absolute;
+  top: 9%;
+  right: 8%;
+  width: 78px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.8));
+}
+
+.consult-studio-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 10px;
+  min-height: 42px;
+  margin-bottom: 24px;
+  padding: 10px 15px;
+  border: 1px solid rgba(139, 92, 246, 0.34);
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.1);
+  color: #c9bcff;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  backdrop-filter: blur(12px);
+}
+
+.consult-studio-hero__badge svg {
+  width: 16px;
+  height: 16px;
+  color: #92a8ff;
+}
+
+.marketing-typography .consult-studio-hero__title {
+  max-width: 610px;
+  margin: 0;
+  font-family: 'WW Commissioner', var(--ww-font-display);
+  font-size: clamp(2.55rem, 3.15vw, 2.85rem);
+  font-weight: 300;
+  font-variation-settings: 'FLAR' 26, 'VOLM' 0;
+  line-height: 1.06;
+  letter-spacing: -0.044em;
+  text-wrap: balance;
+}
+
+.consult-studio-hero__title span {
+  display: block;
+  white-space: nowrap;
+}
+
+.consult-studio-hero__title span:last-child {
+  padding: 0.07em 0 0.14em;
+  background: linear-gradient(92deg, #a990ff, var(--consult-indigo) 48%, #6ea1ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  font-weight: 600;
+  -webkit-text-fill-color: transparent;
+}
+
+.consult-studio-hero__paragraphs {
+  display: grid;
+  gap: 14px;
+  max-width: 610px;
+  margin-top: 20px;
+}
+
+.consult-studio-hero__paragraphs p {
+  margin: 0;
+  color: #d4d0d7;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.68;
+  text-wrap: pretty;
+}
+
+.consult-studio-hero__paragraphs .consult-studio-hero__format-note {
+  padding: 10px 0 10px 18px;
+  color: #cbc6d0;
+  border-left: 2px solid;
+  border-image: linear-gradient(to bottom, var(--consult-violet), var(--consult-indigo), var(--consult-blue)) 1;
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+.consult-studio-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px;
+  margin-top: 25px;
+}
+
+.consult-studio-hero__actions button {
+  min-height: 52px;
+  border-radius: 13px;
+  padding-inline: 22px;
+  font-family: 'WW Commissioner', var(--ww-font-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.consult-studio-hero__primary {
+  min-width: 238px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(100deg, var(--consult-violet), var(--consult-indigo) 58%, var(--consult-blue));
+  color: #fff;
+  box-shadow: 0 18px 38px rgba(99, 102, 241, 0.23);
+}
+
+.consult-studio-hero__primary:hover {
+  filter: brightness(1.08);
+}
+
+.consult-studio-hero__primary svg {
+  transition: transform 180ms ease;
+}
+
+.consult-studio-hero__primary:hover svg {
+  transform: translateX(4px);
+}
+
+.consult-studio-hero__secondary {
+  border-color: rgba(255, 255, 255, 0.17);
+  background: rgba(255, 255, 255, 0.035);
+  color: #ece8ef;
+}
+
+.consult-studio-hero__secondary:hover {
+  border-color: rgba(139, 92, 246, 0.48);
+  background: rgba(139, 92, 246, 0.1);
+  color: #fff;
+}
+
+.consult-studio-hero__proof {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 590px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.consult-studio-hero__proof > div {
+  min-width: 0;
+  padding-right: 14px;
+}
+
+.consult-studio-hero__proof > div + div {
+  padding-left: 15px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.consult-studio-hero__proof strong {
+  display: block;
+  color: #c4b7ff;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.consult-studio-hero__proof span {
+  display: block;
+  margin-top: 5px;
+  color: #8f8b95;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@keyframes consult-photo-enter {
+  from { opacity: 0; transform: scale(1.02); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes consult-copy-enter {
+  from { opacity: 0; transform: translateX(22px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 1280px) {
+  .consult-studio-hero__grid {
+    grid-template-columns: minmax(0, 50%) minmax(0, 50%);
+  }
+
+  .consult-studio-hero__content {
+    padding-inline: 42px 34px;
+  }
+
+  .marketing-typography .consult-studio-hero__title {
+    font-size: clamp(2.25rem, 3.25vw, 2.55rem);
+  }
+
+  .consult-studio-hero__paragraphs p {
+    font-size: 15px;
+  }
+
+  .consult-studio-hero__paragraphs .consult-studio-hero__format-note {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .consult-studio-hero__grid {
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .consult-studio-hero__photo-wrap {
+    order: 1;
+    min-height: 0;
+    height: clamp(250px, 66vw, 430px);
+  }
+
+  .consult-studio-hero__photo {
+    object-position: center 52%;
+  }
+
+  .consult-studio-hero__photo-shade {
+    background:
+      linear-gradient(180deg, rgba(9, 9, 14, 0.35) 0%, transparent 28%, transparent 58%, #09090e 100%),
+      linear-gradient(90deg, rgba(9, 9, 14, 0.1), transparent 18%, transparent 82%, rgba(9, 9, 14, 0.1));
+  }
+
+  .consult-studio-hero__photo-caption {
+    display: none;
+  }
+
+  .consult-studio-hero__content {
+    order: 2;
+    justify-content: flex-start;
+    margin: -46px 0 0;
+    padding: 36px 28px 42px;
+    border-radius: 28px 28px 0 0;
+  }
+
+  .consult-studio-hero__content::before {
+    top: 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .consult-studio-hero__photo-wrap {
+    height: 270px;
+  }
+
+  .consult-studio-hero__content {
+    margin-top: -42px;
+    padding: 32px 20px 36px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .consult-studio-hero__content::before {
+    display: none;
+  }
+
+  .consult-studio-hero__badge {
+    min-height: 38px;
+    margin-bottom: 18px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .marketing-typography .consult-studio-hero__title {
+    font-size: clamp(1.43rem, 7vw, 1.86rem);
+    line-height: 1.04;
+    letter-spacing: -0.052em;
+  }
+
+  .consult-studio-hero__paragraphs {
+    gap: 11px;
+    margin-top: 14px;
+  }
+
+  .consult-studio-hero__paragraphs p {
+    font-size: 14.5px;
+    line-height: 1.62;
+  }
+
+  .consult-studio-hero__paragraphs .consult-studio-hero__format-note {
+    padding: 7px 0 7px 13px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .consult-studio-hero__actions {
+    display: grid;
+    gap: 9px;
+    margin-top: 20px;
+  }
+
+  .consult-studio-hero__actions button {
+    width: 100%;
+    min-height: 51px;
+  }
+
+  .consult-studio-hero__proof {
+    margin-top: 19px;
+    padding-top: 15px;
+  }
+
+  .consult-studio-hero__proof > div {
+    padding-right: 8px;
+  }
+
+  .consult-studio-hero__proof > div + div {
+    padding-left: 9px;
+  }
+
+  .consult-studio-hero__proof strong {
+    font-size: 17px;
+  }
+
+  .consult-studio-hero__proof span {
+    font-size: 9.5px;
+  }
+}
+
+@media (max-width: 340px) {
+  .consult-studio-hero__photo-wrap {
+    height: 238px;
+  }
+
+  .consult-studio-hero__content {
+    padding-inline: 16px;
+  }
+
+  .marketing-typography .consult-studio-hero__title {
+    font-size: 1.42rem;
+  }
+
+  .consult-studio-hero__proof span {
+    font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .consult-studio-hero__photo-wrap,
+  .consult-studio-hero__content {
+    animation: none;
+  }
+
+  .consult-studio-hero__primary svg {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .consult-studio-hero__title span:last-child {
+    background: none;
+    color: LinkText;
+    -webkit-text-fill-color: currentColor;
+  }
+}
