@@ -497,7 +497,7 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   report: ['итоги', 'report'],
   articles: ['блог', 'публикации'],
   cases: ['портфолио', 'примеры'],
-  content: ['страницы', 'лендинг', 'faq'],
+  content: ['редактор сайта', 'страницы', 'тексты', 'лендинг', 'шрифты', 'faq'],
   media: ['файлы', 'картинки', 'изображения', 'загрузки'],
   health: ['здоровье', 'диагностика', 'health'],
 };
@@ -1105,7 +1105,7 @@ export default function Admin() {
       items: [
         { key: 'articles', label: 'Статьи', icon: Newspaper },
         { key: 'cases', label: 'Кейсы', icon: Briefcase },
-        { key: 'content', label: 'Тексты сайта', icon: PanelsTopLeft },
+        { key: 'content', label: 'Редактор сайта', icon: PanelsTopLeft },
         { key: 'media', label: 'Медиатека', icon: Images },
       ],
     },

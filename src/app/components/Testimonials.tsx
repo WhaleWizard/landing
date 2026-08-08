@@ -2,7 +2,14 @@ import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, lazy, Suspense, useMemo } from 'react';
 import { useSiteSection } from '../hooks/useServiceContent';
-import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
+import {
+  managedBodyClasses,
+  managedBodyStyle,
+  managedTitleClasses,
+  managedTitleStyle,
+  useManagedTitleFit,
+  type ContentTypography,
+} from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
@@ -232,6 +239,7 @@ function Testimonials({
   );
   const sectionContent = useSiteSection(contentKey, 'testimonials', fallback);
   const content: TestimonialsContent = sectionContent;
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 16 });
   const stats = sectionContent.stats ?? statsProp;
   // Карточки отзывов приходят из CMS; статический список — запасной вариант,
   // если раздел ещё не сохраняли или запрос не дошёл.
@@ -441,13 +449,13 @@ function Testimonials({
             <Users className="w-4 h-4 text-accent" />
             <span className="text-sm text-accent font-semibold">{content.badge}</span>
           </div>
-          <h2 className={`text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4 ${managedTitleClasses(content.typography)}`}>
+          <h2 ref={titleRef} style={managedTitleStyle(content.typography)} className={`text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4 ${managedTitleClasses(content.typography)}`}>
             {content.titlePrefix}{' '}
             <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
               {content.titleAccent}
             </span>
           </h2>
-          <p className={`text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto ${managedBodyClasses(content.typography)}`}>
+          <p style={managedBodyStyle(content.typography)} className={`text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto ${managedBodyClasses(content.typography)}`}>
             {content.description}
           </p>
         </motion.div>

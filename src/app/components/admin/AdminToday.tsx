@@ -89,7 +89,7 @@ const QUICK_ACTIONS: Array<{ destination: Destination; label: string; icon: type
   { destination: 'goals', label: 'Цели', icon: Target },
   { destination: 'attribution', label: 'Воронка', icon: BarChart3 },
   { destination: 'articles', label: 'Написать статью', icon: FileText },
-  { destination: 'content', label: 'Тексты сайта', icon: PanelsTopLeft },
+  { destination: 'content', label: 'Редактор сайта', icon: PanelsTopLeft },
   { destination: 'media', label: 'Медиатека', icon: Images },
   { destination: 'performance', label: 'Скорость', icon: Gauge },
   { destination: 'meta', label: 'Meta CAPI', icon: Activity },

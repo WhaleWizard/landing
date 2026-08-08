@@ -1,8 +1,16 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { HeroContent } from '../Hero';
+import HeroTitleEffect from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
 import { Button } from '../ui/button';
+import {
+  managedBodyClasses,
+  managedBodyStyle,
+  managedTitleClasses,
+  managedTitleStyle,
+  useManagedTitleFit,
+} from '../../utils/contentTypography';
 
 type MetaAdsEditorialHeroProps = {
   content: HeroContent;
@@ -42,6 +50,8 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 18 });
+  const titleAnimation = content.titleAnimation || {};
 
   const scrollTo = (elementId: 'contact' | 'cases') => {
     scrollToWhenReady(elementId, { offset: 88, attempts: 20, intervalMs: 80 });
@@ -59,31 +69,43 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
             <span>{content.badge}</span>
           </div>
 
-          <h1 id="meta-editorial-title" className="meta-editorial-hero__title">
+          <h1
+            ref={titleRef}
+            id="meta-editorial-title"
+            className={`meta-editorial-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
+            style={managedTitleStyle(content.typography)}
+          >
             {titleLines?.length ? (
               titleLines.map((line, index) => (
-                <span
+                <HeroTitleEffect
+                  as="span"
                   key={`${line.text}-${index}`}
                   className={line.tone === 'accent' ? 'meta-editorial-hero__title-accent' : undefined}
+                  style={{ display: 'block' }}
+                  text={line.text}
+                  effect={titleAnimation.effect}
+                  speed={titleAnimation.speed}
+                  delayMs={titleAnimation.delayMs}
+                  sequenceIndex={index}
                 >
                   {line.text}
-                </span>
+                </HeroTitleEffect>
               ))
             ) : (
               <>
-                <span>{content.titlePrefix}</span>
-                <span className="meta-editorial-hero__title-accent">{content.titleAccent}</span>
+                <HeroTitleEffect as="span" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={0}>{content.titlePrefix}</HeroTitleEffect>
+                <HeroTitleEffect as="span" className="meta-editorial-hero__title-accent" style={{ display: 'block' }} text={String(content.titleAccent || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={1}>{content.titleAccent}</HeroTitleEffect>
               </>
             )}
           </h1>
 
           {supportingLine && (
-            <p className="meta-editorial-hero__supporting">{supportingLine.text}</p>
+            <HeroTitleEffect as="p" className="meta-editorial-hero__supporting" style={{ display: 'block' }} text={supportingLine.text} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={titleLines?.length || 2}>{supportingLine.text}</HeroTitleEffect>
           )}
 
           <div className="meta-editorial-hero__paragraphs">
             {content.paragraphs.map((paragraph, index) => (
-              <p key={index} className={index === 1 ? 'meta-editorial-hero__data-note' : undefined}>
+              <p key={index} style={managedBodyStyle(content.typography)} className={`${index === 1 ? 'meta-editorial-hero__data-note' : ''} ${managedBodyClasses(content.typography)}`.trim()}>
                 {paragraph}
               </p>
             ))}

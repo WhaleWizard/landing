@@ -12,6 +12,7 @@ const CasesPage = lazy(() => import('./pages/CasesPage'));
 const Calculator = lazy(() => import('./pages/Calculator'));
 const RoiPage = lazy(() => import('./pages/RoiPage'));
 const Admin = lazy(() => import('./pages/Admin'));
+const ContentPreview = lazy(() => import('./pages/ContentPreview'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const Offer = lazy(() => import('./pages/Offer'));
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
@@ -67,8 +68,11 @@ function RootLayout() {
   const location = useLocation();
   useRememberPublicRoute();
   const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
-  const needsArticles = location.pathname === '/'
-    || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname);
+  const isContentPreview = location.pathname === '/admin/content-preview';
+  const needsArticles = !isContentPreview && (
+    location.pathname === '/'
+    || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname)
+  );
   const routeContent = <Outlet />;
 
   return (
@@ -109,6 +113,7 @@ export const router = createBrowserRouter([
       { path: 'cases', element: <LazyWrapper><CasesPage /></LazyWrapper> },
       { path: 'cases/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
       { path: 'admin', element: <LazyWrapper><Admin /></LazyWrapper> },
+      { path: 'admin/content-preview', element: <LazyWrapper><ContentPreview /></LazyWrapper> },
       { path: 'privacy-policy', element: <LazyWrapper><PrivacyPolicy /></LazyWrapper> },
       { path: 'offer', element: <LazyWrapper><Offer /></LazyWrapper> },
       { path: 'cookie-policy', element: <LazyWrapper><CookiePolicy /></LazyWrapper> },

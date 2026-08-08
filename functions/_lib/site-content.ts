@@ -58,10 +58,55 @@ function sanitizeSeo(value: unknown): UnknownRecord | undefined {
 
 function sanitizeTypography(value: unknown): UnknownRecord | undefined {
   const source = object(value);
-  const allowed = new Set(['compact', 'standard', 'large']);
+  const sizePresets = new Set(['compact', 'standard', 'large']);
+  const titleFonts = new Set([
+    'auto', 'inter', 'onest', 'commissioner', 'prata', 'caveat', 'bad-script',
+    'arsenal', 'cormorant-garamond', 'geologica', 'golos-text', 'lora', 'manrope',
+    'marck-script', 'neucha', 'old-standard-tt', 'oranienbaum', 'pangolin',
+    'playfair-display', 'pt-serif', 'roboto-serif', 'shantell-sans', 'sofia-sans',
+    'tenor-sans', 'unbounded', 'yeseva-one',
+  ]);
+  const bodyFonts = new Set([
+    'auto', 'inter', 'onest', 'commissioner', 'arsenal', 'geologica', 'golos-text',
+    'lora', 'manrope', 'old-standard-tt', 'pt-serif', 'roboto-serif', 'sofia-sans',
+  ]);
   const target: UnknownRecord = {};
-  for (const key of ['titleDesktop', 'titleMobile', 'body'] as const) {
-    if (typeof source[key] === 'string' && allowed.has(source[key] as string)) target[key] = source[key];
+  for (const key of ['titleDesktop', 'titleMobile'] as const) {
+    const current = source[key];
+    if (typeof current === 'string' && sizePresets.has(current)) target[key] = current;
+    else if (typeof current === 'number' && Number.isFinite(current)) target[key] = Math.min(240, Math.max(8, current));
+  }
+  if (typeof source.body === 'string' && sizePresets.has(source.body)) target.body = source.body;
+  for (const key of ['bodyDesktop', 'bodyMobile'] as const) {
+    const current = source[key];
+    if (typeof current === 'number' && Number.isFinite(current)) target[key] = Math.min(120, Math.max(8, current));
+  }
+  if (typeof source.titleFont === 'string' && titleFonts.has(source.titleFont)) target.titleFont = source.titleFont;
+  if (typeof source.bodyFont === 'string' && bodyFonts.has(source.bodyFont)) target.bodyFont = source.bodyFont;
+  for (const key of ['titleMaxLinesDesktop', 'titleMaxLinesMobile'] as const) {
+    const current = source[key];
+    if (typeof current === 'number' && Number.isFinite(current)) target[key] = Math.min(6, Math.max(0, Math.floor(current)));
+  }
+  if (source.titleWeight === 'auto') target.titleWeight = 'auto';
+  else if (typeof source.titleWeight === 'number' && [300, 400, 500, 600, 700, 800].includes(source.titleWeight)) target.titleWeight = source.titleWeight;
+  if (typeof source.titleLineHeight === 'string' && ['auto', 'tight', 'snug', 'normal', 'relaxed'].includes(source.titleLineHeight)) {
+    target.titleLineHeight = source.titleLineHeight;
+  }
+  if (typeof source.titleLetterSpacing === 'string' && ['auto', 'tight', 'normal', 'wide'].includes(source.titleLetterSpacing)) {
+    target.titleLetterSpacing = source.titleLetterSpacing;
+  }
+  return Object.keys(target).length ? target : undefined;
+}
+
+function sanitizeHeroTitleAnimation(value: unknown): UnknownRecord | undefined {
+  const source = object(value);
+  const effects = new Set(['none', 'fade-up', 'fade-in', 'slide-left', 'slide-right', 'blur-reveal', 'typewriter', 'words']);
+  const speeds = new Set(['slow', 'normal', 'fast']);
+  const target: UnknownRecord = {};
+  if (typeof source.effect === 'string' && effects.has(source.effect)) target.effect = source.effect;
+  if (typeof source.speed === 'string' && speeds.has(source.speed)) target.speed = source.speed;
+  if (typeof source.delayMs === 'number' && Number.isFinite(source.delayMs)) {
+    target.delayMs = Math.min(2_000, Math.max(0, Math.round(source.delayMs / 50) * 50));
   }
   return Object.keys(target).length ? target : undefined;
 }
@@ -79,12 +124,14 @@ function assignVisualSlot(target: UnknownRecord, source: UnknownRecord): void {
 function sanitizeHero(value: unknown): UnknownRecord | undefined {
   const source = object(value);
   const target: UnknownRecord = {};
-  assignText(target, source, 'badge', 120);
-  assignText(target, source, 'titlePrefix', 180);
-  assignText(target, source, 'titleAccent', 240);
-  assignText(target, source, 'primaryButton', 80);
-  assignText(target, source, 'secondaryButton', 80);
+  assignClearableText(target, source, 'badge', 120);
+  assignClearableText(target, source, 'titlePrefix', 180);
+  assignClearableText(target, source, 'titleAccent', 240);
+  assignClearableText(target, source, 'primaryButton', 80);
+  assignClearableText(target, source, 'secondaryButton', 80);
   assignTypography(target, source);
+  const titleAnimation = sanitizeHeroTitleAnimation(source.titleAnimation);
+  if (titleAnimation) target.titleAnimation = titleAnimation;
   const paragraphs = texts(source.paragraphs, 3, 900);
   if (paragraphs) target.paragraphs = paragraphs;
 
@@ -96,7 +143,9 @@ function sanitizeHero(value: unknown): UnknownRecord | undefined {
       const tone = row.tone === 'accent' || row.tone === 'supporting' ? row.tone : undefined;
       return tone ? { text: lineText, tone } : { text: lineText };
     }).filter(Boolean);
-    if (titleLines.length) target.titleLines = titleLines;
+    // Пустой массив осмыслен: он переключает Hero обратно на две части
+    // titlePrefix/titleAccent и не должен теряться при merge с pageConfig.
+    target.titleLines = titleLines;
   }
 
   if (Array.isArray(source.stats)) {
@@ -114,10 +163,10 @@ function sanitizeHero(value: unknown): UnknownRecord | undefined {
 function sanitizeSectionIntro(value: unknown): UnknownRecord | undefined {
   const source = object(value);
   const target: UnknownRecord = {};
-  assignText(target, source, 'badge', 120);
-  assignText(target, source, 'titlePrefix', 180);
-  assignText(target, source, 'titleAccent', 220);
-  assignText(target, source, 'description', 900);
+  assignClearableText(target, source, 'badge', 120);
+  assignClearableText(target, source, 'titlePrefix', 180);
+  assignClearableText(target, source, 'titleAccent', 220);
+  assignClearableText(target, source, 'description', 900);
   assignTypography(target, source);
   return Object.keys(target).length ? target : undefined;
 }
@@ -132,12 +181,17 @@ function clearableText(value: unknown, max: number): string | undefined {
   return value.replace(/<[^>]*>/g, '').replace(/[<>]/g, '').replace(/\r\n/g, '\n').trim().slice(0, max);
 }
 
+function assignClearableText(target: UnknownRecord, source: UnknownRecord, key: string, max: number): void {
+  const value = clearableText(source[key], max);
+  if (value !== undefined) target[key] = value;
+}
+
 /** Модалка «Как я работаю»: заголовок, кнопка и разделы с длинным текстом. */
 function sanitizeDetailed(value: unknown): UnknownRecord | undefined {
   const source = object(value);
   const target: UnknownRecord = {};
-  assignText(target, source, 'title', 160);
-  assignText(target, source, 'button', 80);
+  assignClearableText(target, source, 'title', 160);
+  assignClearableText(target, source, 'button', 80);
 
   if (Array.isArray(source.sections)) {
     const sections = source.sections.slice(0, 8).map((item) => {
@@ -151,7 +205,7 @@ function sanitizeDetailed(value: unknown): UnknownRecord | undefined {
       assignVisualSlot(section, row);
       return section;
     }).filter((item): item is UnknownRecord => Boolean(item));
-    if (sections.length) target.sections = sections;
+    target.sections = sections;
   }
 
   return Object.keys(target).length ? target : undefined;
@@ -198,9 +252,9 @@ function sanitizeCards(value: unknown): UnknownRecord[] | undefined {
 function sanitizeCta(value: unknown): UnknownRecord | undefined {
   const source = object(value);
   const target: UnknownRecord = {};
-  assignText(target, source, 'badge', 120);
+  assignClearableText(target, source, 'badge', 120);
   assignText(target, source, 'title', 260);
-  assignText(target, source, 'description', 900);
+  assignClearableText(target, source, 'description', 900);
   assignText(target, source, 'button', 80);
   assignTypography(target, source);
   return Object.keys(target).length ? target : undefined;
@@ -209,10 +263,10 @@ function sanitizeCta(value: unknown): UnknownRecord | undefined {
 function sanitizeContact(value: unknown): UnknownRecord | undefined {
   const source = object(value);
   const target: UnknownRecord = {};
-  assignText(target, source, 'badge', 120);
-  assignText(target, source, 'titlePrefix', 180);
-  assignText(target, source, 'titleAccent', 220);
-  assignText(target, source, 'description', 900);
+  assignClearableText(target, source, 'badge', 120);
+  assignClearableText(target, source, 'titlePrefix', 180);
+  assignClearableText(target, source, 'titleAccent', 220);
+  assignClearableText(target, source, 'description', 900);
   const bullets = texts(source.bullets, 8, 180);
   if (bullets) target.bullets = bullets;
   if (Array.isArray(source.benefits)) {

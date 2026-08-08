@@ -5,7 +5,18 @@ import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
 import { useIsMobile } from './ui/use-mobile';
 import { useSiteSection } from '../hooks/useServiceContent';
-import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
+import {
+  managedBodyClasses,
+  managedBodyStyle,
+  managedTitleClasses,
+  managedTitleStyle,
+  useManagedTitleFit,
+  type ContentTypography,
+} from '../utils/contentTypography';
+import HeroTitleEffect, {
+  type HeroTitleEffect as HeroTitleEffectName,
+  type HeroTitleEffectSpeed,
+} from './HeroTitleEffect';
 
 const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
 
@@ -89,6 +100,11 @@ export type HeroContent = {
   secondaryButton: string;
   stats: HeroStat[];
   typography?: ContentTypography;
+  titleAnimation?: {
+    effect?: HeroTitleEffectName;
+    speed?: HeroTitleEffectSpeed;
+    delayMs?: number;
+  };
 };
 
 export const defaultHeroContent: HeroContent = {
@@ -242,12 +258,15 @@ const LeftContent = memo(({
   staticMotion = false,
   statsVariant = 'default',
   statsClassName = '',
-}: LeftContentProps) => (
+}: LeftContentProps) => {
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 14 });
+  const titleAnimation = content.titleAnimation || {};
+  return (
   <motion.div
     initial={staticMotion ? false : { opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={staticMotion ? { duration: 0 } : { duration: 0.8 }}
-    className={`max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
+    className={`max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines?.length ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
     <motion.div
       className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
@@ -265,10 +284,12 @@ const LeftContent = memo(({
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </motion.div>
 
-    {content.titleLines ? (
+    {content.titleLines?.length ? (
       <h1
+        ref={titleRef}
         aria-label={content.titleLines.map((line) => line.text).join(' ')}
         className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
+        style={managedTitleStyle(content.typography)}
       >
         {content.titleLines.map((line, index) => {
           if (line.tone === 'supporting') {
@@ -276,38 +297,55 @@ const LeftContent = memo(({
               <span
                 key={`${line.text}-${index}`}
                 className="mt-2.5 flex items-center gap-2.5 text-[13px] min-[360px]:text-sm sm:text-base md:text-[17px] font-medium leading-snug tracking-[-0.01em] text-muted-foreground"
+                style={{ display: 'flex' }}
               >
                 <span
                   aria-hidden="true"
                   className="h-px w-6 sm:w-8 shrink-0 bg-gradient-to-r from-primary via-accent to-secondary opacity-80"
                 />
-                {line.text}
+                <HeroTitleEffect
+                  as="span"
+                  text={line.text}
+                  effect={titleAnimation.effect}
+                  speed={titleAnimation.speed}
+                  delayMs={titleAnimation.delayMs}
+                  sequenceIndex={index}
+                >
+                  {line.text}
+                </HeroTitleEffect>
               </span>
             );
           }
 
           return (
-            <span
+            <HeroTitleEffect
+              as="span"
               key={`${line.text}-${index}`}
               className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
+              style={{ display: 'block' }}
+              text={line.text}
+              effect={titleAnimation.effect}
+              speed={titleAnimation.speed}
+              delayMs={titleAnimation.delayMs}
+              sequenceIndex={index}
             >
               {line.text}
-            </span>
+            </HeroTitleEffect>
           );
         })}
       </h1>
     ) : (
-      <h1 className={`max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
-        <span className="block">{content.titlePrefix}</span>{' '}
-        <span className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]">
+      <h1 ref={titleRef} style={managedTitleStyle(content.typography)} className={`max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
+        <HeroTitleEffect as="span" className="block" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={0}>{content.titlePrefix}</HeroTitleEffect>{' '}
+        <HeroTitleEffect as="span" className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]" style={{ display: 'block' }} text={String(content.titleAccent || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={1}>
           {content.titleAccent}
-        </span>
+        </HeroTitleEffect>
       </h1>
     )}
 
     <div className={`space-y-3 ${mobileFirst ? 'meta-apps-hero-paragraphs' : ''}`}>
       {content.paragraphs.map((paragraph, index) => (
-        <p key={index} className={`max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-7 md:leading-relaxed ${managedBodyClasses(content.typography)}`}>
+        <p key={index} style={managedBodyStyle(content.typography)} className={`max-w-xl text-pretty text-[15px] md:text-lg lg:text-lg text-muted-foreground leading-7 md:leading-relaxed ${managedBodyClasses(content.typography)}`}>
           {paragraph}
         </p>
       ))}
@@ -342,7 +380,8 @@ const LeftContent = memo(({
       />
     )}
   </motion.div>
-));
+  );
+});
 LeftContent.displayName = 'LeftContent';
 
 const Particles = memo(({ count, inView }: { count: number; inView: boolean }) => {

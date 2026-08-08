@@ -41,7 +41,14 @@ import {
 } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
 import { useSiteSection } from '../hooks/useServiceContent';
-import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
+import {
+  managedBodyClasses,
+  managedBodyStyle,
+  managedTitleClasses,
+  managedTitleStyle,
+  useManagedTitleFit,
+  type ContentTypography,
+} from '../utils/contentTypography';
 
 const budgetOptions = [
   {
@@ -107,6 +114,7 @@ const useTouchDevice = () => {
 
 function ContactForm({ content: contentProp = defaultContactContent, contentKey = null }: { content?: ContactFormContent; contentKey?: string | null }) {
   const content = useSiteSection(contentKey, 'contact', contentProp);
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 16 });
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -320,13 +328,13 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
               <Sparkles className="w-4 h-4 text-primary animate-pulse" />
               <span className="text-sm text-primary font-semibold">{content.badge}</span>
             </div>
-            <h2 className={`max-w-[20ch] text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.12] ${managedTitleClasses(content.typography, 'contact')}`}>
+            <h2 ref={titleRef} style={managedTitleStyle(content.typography)} className={`max-w-[20ch] text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.12] ${managedTitleClasses(content.typography, 'contact')}`}>
               {content.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 {content.titleAccent}
               </span>
             </h2>
-            <p className={`max-w-[62ch] text-pretty text-base md:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(content.typography)}`}>
+            <p style={managedBodyStyle(content.typography)} className={`max-w-[62ch] text-pretty text-base md:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(content.typography)}`}>
               {content.description}
             </p>
             <div className="space-y-4 pt-4">

@@ -7,16 +7,16 @@ import {
   Clock3,
   ExternalLink,
   GripVertical,
-  Monitor,
+  Minus,
   Plus,
   RefreshCw,
   RotateCcw,
   Save,
   Search,
   Send,
-  Smartphone,
   Trash2,
   Type,
+  WandSparkles,
 } from 'lucide-react';
 import { META_APPS_TESTIMONIAL_CONTENT, pageConfigs, type ServiceType } from '../../pages/ServiceLandingPage';
 import { defaultHeroContent } from '../Hero';
@@ -26,15 +26,37 @@ import { defaultCallToActionContent } from '../CallToAction';
 import { defaultTestimonialsContent, defaultTestimonialsStats, type TestimonialsContent } from '../Testimonials';
 import { defaultContactContent } from '../ContactForm';
 import { mergeContent } from '../../hooks/useServiceContent';
+import {
+  BODY_SAFE_CONTENT_FONTS,
+  CONTENT_FONT_OPTIONS,
+  DEFAULT_CONTENT_TYPOGRAPHY,
+  fontFamilyForContent,
+  getContentFontDefinition,
+  normalizeContentTypography,
+  type ContentFontId,
+  type ContentTypography,
+  type NormalizedContentTypography,
+  type TypographySize,
+} from '../../utils/contentTypography';
+import {
+  HERO_TITLE_EFFECT_OPTIONS,
+  HERO_TITLE_EFFECT_SPEED_OPTIONS,
+  type HeroTitleEffect,
+  type HeroTitleEffectSpeed,
+} from '../HeroTitleEffect';
 import AdminFaqControl from './AdminFaqControl';
 import { AdminSelect } from './AdminUI';
+import AdminContentPreview from './AdminContentPreview';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../ui/dialog';
 
-type TypographyPreset = 'compact' | 'standard' | 'large';
-type TypographySettings = {
-  titleDesktop: TypographyPreset;
-  titleMobile: TypographyPreset;
-  body: TypographyPreset;
-};
+type TypographySettings = NormalizedContentTypography;
 
 type IntroContent = {
   badge: string;
@@ -44,7 +66,7 @@ type IntroContent = {
   typography: TypographySettings;
 };
 
-type EditableContent = {
+export type EditableContent = {
   seo: { title: string; description: string };
   hero: {
     badge: string;
@@ -56,6 +78,11 @@ type EditableContent = {
     secondaryButton: string;
     stats: Array<{ value: string; label: string }>;
     typography: TypographySettings;
+    titleAnimation: {
+      effect: HeroTitleEffect;
+      speed: HeroTitleEffectSpeed;
+      delayMs: number;
+    };
   };
   services: IntroContent & {
     cards: Array<{ title: string; description: string; features: string[]; visualSlot: number }>;
@@ -85,8 +112,8 @@ type EditableContent = {
   };
 };
 
-type EditorPage = ServiceType | 'home';
-type EditorSection = 'seo' | 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact';
+export type EditorPage = ServiceType | 'home';
+export type EditorSection = 'seo' | 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact';
 
 type SectionPayload = {
   key: string;
@@ -103,10 +130,12 @@ type SectionPayload = {
 
 type VersionRow = { id: number; source: 'draft' | 'published'; created_at: string };
 
-const DEFAULT_TYPOGRAPHY: TypographySettings = {
-  titleDesktop: 'standard',
-  titleMobile: 'standard',
-  body: 'standard',
+const DEFAULT_TYPOGRAPHY: TypographySettings = { ...DEFAULT_CONTENT_TYPOGRAPHY };
+
+const DEFAULT_HERO_TITLE_ANIMATION: EditableContent['hero']['titleAnimation'] = {
+  effect: 'none',
+  speed: 'normal',
+  delayMs: 100,
 };
 
 const HOME_SEO = {
@@ -131,12 +160,6 @@ const SECTION_LABELS: Record<EditorSection, string> = {
   testimonials: 'Отзывы и доверие',
   contact: 'Форма и контакт',
 };
-
-const typographyOptions = [
-  { value: 'compact', label: 'Компактный' },
-  { value: 'standard', label: 'Стандартный' },
-  { value: 'large', label: 'Крупный' },
-];
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -189,6 +212,7 @@ function homeDefaults(): EditableContent {
       secondaryButton: defaultHeroContent.secondaryButton,
       stats: defaultHeroContent.stats.map((item) => ({ ...item })),
       typography: { ...DEFAULT_TYPOGRAPHY },
+      titleAnimation: { ...DEFAULT_HERO_TITLE_ANIMATION },
     },
     services: {
       ...intro(defaultServicesContent),
@@ -237,6 +261,7 @@ function serviceDefaults(service: ServiceType): EditableContent {
       secondaryButton: source.hero.secondaryButton || '',
       stats: (source.hero.stats || []).map((item) => ({ ...item })),
       typography: { ...DEFAULT_TYPOGRAPHY },
+      titleAnimation: { ...DEFAULT_HERO_TITLE_ANIMATION },
     },
     services: {
       ...intro(source.services),
@@ -354,7 +379,7 @@ function collectSectionTexts(value: unknown, out: string[]): void {
   if (value && typeof value === 'object') {
     Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
       // Пресеты размеров — не текст страницы, в поиске только мешают.
-      if (key === 'typography' || key === 'visualSlot' || key === 'tone') return;
+      if (key === 'typography' || key === 'titleAnimation' || key === 'visualSlot' || key === 'tone') return;
       collectSectionTexts(item, out);
     });
   }
@@ -556,56 +581,321 @@ function AddItemButton({ label, count, maxItems, onAdd }: {
   );
 }
 
-function TypographyControls({ value, onChange }: { value: TypographySettings; onChange: (value: TypographySettings) => void }) {
+const FONT_CATEGORY_LABELS = {
+  all: 'Все',
+  sans: 'Без засечек',
+  serif: 'С засечками',
+  handwritten: 'Рукописные',
+  display: 'Акцентные',
+} as const;
+
+function FontPicker({
+  label,
+  value,
+  role,
+  sample,
+  onChange,
+}: {
+  label: string;
+  value: ContentFontId;
+  role: 'title' | 'body';
+  sample: string;
+  onChange: (value: ContentFontId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [category, setCategory] = useState<keyof typeof FONT_CATEGORY_LABELS>('all');
+  const selected = getContentFontDefinition(value);
+  const source = role === 'body' ? BODY_SAFE_CONTENT_FONTS : CONTENT_FONT_OPTIONS;
+  const normalizedSearch = searchValue.trim().toLocaleLowerCase('ru');
+  const options = source.filter((font) => (
+    (category === 'all' || font.category === category)
+    && (!normalizedSearch || `${font.label} ${font.description}`.toLocaleLowerCase('ru').includes(normalizedSearch))
+  ));
+
   return (
-    <div className="admin-typography-panel">
-      <div className="admin-typography-panel__heading"><Type aria-hidden="true" /><div><strong>Размеры текста</strong><span>Безопасные пресеты сохраняют адаптивность и не ломают карточки.</span></div></div>
-      <div className="admin-typography-grid">
-        <AdminSelect label="Заголовок · ПК" value={value.titleDesktop} options={typographyOptions} onValueChange={(next) => onChange({ ...value, titleDesktop: next as TypographyPreset })} />
-        <AdminSelect label="Заголовок · мобильный" value={value.titleMobile} options={typographyOptions} onValueChange={(next) => onChange({ ...value, titleMobile: next as TypographyPreset })} />
-        <AdminSelect label="Основной текст" value={value.body} options={typographyOptions} onValueChange={(next) => onChange({ ...value, body: next as TypographyPreset })} />
+    <div className="admin-field">
+      <span className="admin-label">{label}</span>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <button type="button" className="admin-font-trigger">
+            <span style={{ fontFamily: fontFamilyForContent(selected.id, role) }}>{selected.label}</span>
+            <small>{selected.description}</small>
+          </button>
+        </DialogTrigger>
+        <DialogContent className="admin-font-dialog">
+          <DialogHeader>
+            <DialogTitle>{label}</DialogTitle>
+            <DialogDescription>Все варианты локальные и содержат кириллицу. Посетителю загрузится только выбранная гарнитура.</DialogDescription>
+          </DialogHeader>
+          <div className="admin-font-dialog__toolbar">
+            <label className="admin-font-search">
+              <Search aria-hidden="true" />
+              <input
+                type="search"
+                className="admin-input"
+                placeholder="Найти шрифт"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+              />
+            </label>
+            <div className="admin-font-categories" role="group" aria-label="Категория шрифта">
+              {(Object.keys(FONT_CATEGORY_LABELS) as Array<keyof typeof FONT_CATEGORY_LABELS>).map((key) => (
+                <button type="button" key={key} aria-pressed={category === key} onClick={() => setCategory(key)}>
+                  {FONT_CATEGORY_LABELS[key]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="admin-font-grid">
+            {options.map((font) => (
+              <button
+                type="button"
+                key={font.id}
+                className="admin-font-card"
+                aria-pressed={selected.id === font.id}
+                onClick={() => {
+                  onChange(font.id);
+                  setOpen(false);
+                }}
+              >
+                <span className="admin-font-card__name">
+                  <strong style={{ fontFamily: fontFamilyForContent(font.id, role) }}>{font.label}</strong>
+                  {selected.id === font.id ? <Check aria-hidden="true" /> : null}
+                </span>
+                <span className="admin-font-card__sample" style={{ fontFamily: fontFamilyForContent(font.id, role) }}>
+                  {sample || 'Клиенты выбирают результат'}
+                </span>
+                <small>{font.description}</small>
+              </button>
+            ))}
+            {options.length === 0 ? <p className="admin-muted">По такому запросу шрифтов не нашлось.</p> : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function TypographySizeControl({
+  label,
+  value,
+  min,
+  max,
+  recommended,
+  onChange,
+}: {
+  label: string;
+  value: TypographySize | undefined;
+  min: number;
+  max: number;
+  recommended: number;
+  onChange: (value: TypographySize) => void;
+}) {
+  const numericValue = typeof value === 'number' ? value : recommended;
+  const inherited = typeof value !== 'number';
+  const inheritedLabel = value === 'compact' ? 'Компактный пресет' : value === 'large' ? 'Крупный пресет' : 'Как в дизайне';
+  return (
+    <div className="admin-size-control">
+      <div className="admin-label-row">
+        <span className="admin-label">{label}</span>
+        <output>{inherited ? inheritedLabel : `${numericValue} px`}</output>
+      </div>
+      <div className="admin-size-control__row">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={1}
+          value={numericValue}
+          aria-label={label}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        <button
+          type="button"
+          className="admin-button admin-button--quiet admin-button--compact"
+          aria-pressed={inherited}
+          onClick={() => onChange('standard')}
+        >
+          Авто
+        </button>
       </div>
     </div>
   );
 }
 
-function titleText(content: EditableContent, section: EditorSection): { badge?: string; title: string; accent?: string; description?: string } {
-  if (section === 'seo') return { title: content.seo.title, description: content.seo.description };
-  if (section === 'hero') return {
-    badge: content.hero.badge,
-    title: content.hero.titleLines.length ? content.hero.titleLines.map((line) => line.text).join(' ') : content.hero.titlePrefix,
-    accent: content.hero.titleLines.length ? undefined : content.hero.titleAccent,
-    description: content.hero.paragraphs[0],
-  };
-  if (section === 'cta') return { badge: content.cta.badge, title: content.cta.title, description: content.cta.description };
-  const value = section === 'services' ? content.services : section === 'cases' ? content.cases : section === 'testimonials' ? content.testimonials : content.contact;
-  return value ? { badge: value.badge, title: value.titlePrefix, accent: value.titleAccent, description: value.description } : { title: '' };
+function TypographyControls({
+  value,
+  variant,
+  sample,
+  onChange,
+}: {
+  value: TypographySettings;
+  variant: 'hero' | 'section' | 'cta' | 'contact';
+  sample: string;
+  onChange: (value: TypographySettings) => void;
+}) {
+  const normalized = normalizeContentTypography(value);
+  const titleRecommendations = variant === 'hero'
+    ? { mobile: 32, desktop: 56 }
+    : variant === 'cta'
+      ? { mobile: 26, desktop: 36 }
+      : variant === 'contact'
+        ? { mobile: 32, desktop: 44 }
+        : { mobile: 32, desktop: 44 };
+  const selectedTitleFont = getContentFontDefinition(normalized.titleFont);
+  const weightOptions = [
+    { value: 'auto', label: 'Как в дизайне' },
+    ...(normalized.titleFont === 'auto'
+      ? []
+      : selectedTitleFont.weights.map((weight) => ({ value: String(weight), label: String(weight) }))),
+  ];
+  const update = (patch: Partial<ContentTypography>) => onChange(normalizeContentTypography({ ...normalized, ...patch }));
+  const lineOptions = [
+    { value: '0', label: 'Без ограничения' },
+    ...Array.from({ length: 6 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} ${index === 0 ? 'строка' : index < 4 ? 'строки' : 'строк'}` })),
+  ];
+
+  return (
+    <section className="admin-typography-panel" aria-labelledby={`typography-${variant}`}>
+      <div className="admin-typography-panel__heading">
+        <Type aria-hidden="true" />
+        <div>
+          <strong id={`typography-${variant}`}>Оформление текста</strong>
+          <span>Шрифты с кириллицей, отдельные размеры для экранов и безопасное ограничение строк без обрезания текста.</span>
+        </div>
+        <button
+          type="button"
+          className="admin-button admin-button--quiet admin-button--compact admin-typography-reset"
+          onClick={() => onChange({ ...DEFAULT_CONTENT_TYPOGRAPHY })}
+        >
+          Сбросить
+        </button>
+      </div>
+
+      <div className="admin-font-role-grid">
+        <FontPicker label="Шрифт заголовка" value={normalized.titleFont} role="title" sample={sample} onChange={(titleFont) => update({ titleFont, titleWeight: 'auto' })} />
+        <FontPicker label="Шрифт основного текста" value={normalized.bodyFont} role="body" sample="Понятный текст помогает принять решение" onChange={(bodyFont) => update({ bodyFont })} />
+      </div>
+
+      <div className="admin-typography-subsection">
+        <div className="admin-typography-subsection__heading">
+          <strong>Размеры</strong>
+          <span>«Авто» сохраняет исходный дизайн конкретной страницы.</span>
+        </div>
+        <div className="admin-size-grid">
+          <TypographySizeControl label="Заголовок · ПК" value={normalized.titleDesktop} min={20} max={96} recommended={titleRecommendations.desktop} onChange={(titleDesktop) => update({ titleDesktop })} />
+          <TypographySizeControl label="Заголовок · телефон" value={normalized.titleMobile} min={16} max={64} recommended={titleRecommendations.mobile} onChange={(titleMobile) => update({ titleMobile })} />
+          <TypographySizeControl label="Текст · ПК" value={normalized.bodyDesktop} min={12} max={28} recommended={18} onChange={(bodyDesktop) => update({ bodyDesktop: typeof bodyDesktop === 'number' ? bodyDesktop : undefined, body: 'standard' })} />
+          <TypographySizeControl label="Текст · телефон" value={normalized.bodyMobile} min={12} max={24} recommended={16} onChange={(bodyMobile) => update({ bodyMobile: typeof bodyMobile === 'number' ? bodyMobile : undefined, body: 'standard' })} />
+        </div>
+      </div>
+
+      <div className="admin-typography-grid admin-typography-grid--advanced">
+        <AdminSelect label="Максимум строк · ПК" value={String(normalized.titleMaxLinesDesktop)} options={lineOptions} onValueChange={(next) => update({ titleMaxLinesDesktop: Number(next) })} />
+        <AdminSelect label="Максимум строк · телефон" value={String(normalized.titleMaxLinesMobile)} options={lineOptions} onValueChange={(next) => update({ titleMaxLinesMobile: Number(next) })} />
+        <AdminSelect label="Насыщенность заголовка" value={String(normalized.titleWeight)} options={weightOptions} onValueChange={(next) => update({ titleWeight: next === 'auto' ? 'auto' : Number(next) as TypographySettings['titleWeight'] })} />
+        <AdminSelect label="Межстрочный интервал" value={normalized.titleLineHeight} options={[{ value: 'auto', label: 'Как в дизайне' }, { value: 'tight', label: 'Плотный' }, { value: 'snug', label: 'Собранный' }, { value: 'normal', label: 'Обычный' }, { value: 'relaxed', label: 'Свободный' }]} onValueChange={(next) => update({ titleLineHeight: next as TypographySettings['titleLineHeight'] })} />
+        <AdminSelect label="Расстояние между буквами" value={normalized.titleLetterSpacing} options={[{ value: 'auto', label: 'Как в дизайне' }, { value: 'tight', label: 'Плотно' }, { value: 'normal', label: 'Обычно' }, { value: 'wide', label: 'Шире' }]} onValueChange={(next) => update({ titleLetterSpacing: next as TypographySettings['titleLetterSpacing'] })} />
+      </div>
+      {(normalized.titleMaxLinesDesktop > 0 || normalized.titleMaxLinesMobile > 0) ? (
+        <p className="admin-typography-note">Если текст не помещается, сайт немного уменьшит заголовок, но никогда не обрежет слова.</p>
+      ) : null}
+    </section>
+  );
 }
 
-function Preview({ content, section, device }: { content: EditableContent; section: EditorSection; device: 'desktop' | 'mobile' }) {
-  const copy = titleText(content, section);
-  const typography = section === 'seo' ? DEFAULT_TYPOGRAPHY : section === 'hero' ? content.hero.typography : section === 'cta' ? content.cta.typography : section === 'services' ? content.services.typography : section === 'cases' ? content.cases.typography : section === 'testimonials' ? content.testimonials?.typography || DEFAULT_TYPOGRAPHY : content.contact.typography;
-  const heroTitleLines = section === 'hero' ? content.hero.titleLines : [];
+const HERO_EFFECT_DESCRIPTIONS: Record<HeroTitleEffect, string> = {
+  none: 'Сразу',
+  'fade-up': 'Мягко снизу',
+  'fade-in': 'Проявление',
+  'slide-left': 'Слева',
+  'slide-right': 'Справа',
+  'blur-reveal': 'Из фокуса',
+  typewriter: 'По буквам',
+  words: 'По словам',
+};
+
+function AdminNumberStepper({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  onChange: (value: number) => void;
+}) {
+  const update = (direction: -1 | 1) => onChange(Math.min(max, Math.max(min, value + direction * step)));
   return (
-    <div className={`admin-copy-preview admin-copy-preview--${device}`} data-title-size={device === 'mobile' ? typography.titleMobile : typography.titleDesktop} data-body-size={typography.body}>
-      {copy.badge ? <span className="admin-copy-preview__badge">{copy.badge}</span> : null}
-      {heroTitleLines.length > 0 ? (
-        <h3>{heroTitleLines.map((line, index) => <span key={index} className={line.tone === 'accent' ? 'is-accent' : line.tone === 'supporting' ? 'is-supporting' : undefined}>{line.text || 'Новая строка'}</span>)}</h3>
-      ) : (
-        <h3>{copy.title}{copy.accent ? <> <em className="is-accent">{copy.accent}</em></> : null}</h3>
-      )}
-      {copy.description ? <p>{copy.description}</p> : null}
-      {section === 'hero' && content.hero.paragraphs.slice(1).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
-      {section === 'hero' && content.hero.stats.length > 0 ? <dl className="admin-copy-preview__stats">{content.hero.stats.map((stat, index) => <div key={index}><dt>{stat.value || '—'}</dt><dd>{stat.label || 'Без подписи'}</dd></div>)}</dl> : null}
-      {section === 'services' ? <div className="admin-preview-list">{content.services.cards.slice(0, 3).map((card, index) => <div key={index}><strong>{card.title}</strong><span>{card.description}</span></div>)}</div> : null}
-      {section === 'cases' ? <div className="admin-preview-list">{content.cases.items.slice(0, 3).map((item, index) => <div key={index}><strong>{item.title}</strong><span>{item.description}</span></div>)}</div> : null}
-      {section === 'testimonials' && content.testimonials ? <dl className="admin-copy-preview__stats">{content.testimonials.stats.map((stat, index) => <div key={index}><dt>{stat.value}</dt><dd>{stat.label}</dd></div>)}</dl> : null}
-      {section === 'testimonials' && content.testimonials ? <div className="admin-preview-list">{content.testimonials.items.slice(0, 2).map((item, index) => <div key={index}><strong>{[item.name, item.company].filter(Boolean).join(' · ') || 'Новый отзыв'}</strong><span>{item.text}</span></div>)}</div> : null}
-      {section === 'services' ? <div className="admin-preview-list">{content.services.detailed.sections.slice(0, 2).map((item, index) => <div key={index}><strong>{item.title || 'Новый раздел'}</strong><span>{item.text.split('\n')[0]}</span></div>)}</div> : null}
-      {section === 'contact' ? <div className="admin-preview-list">{(content.contact.benefits.length ? content.contact.benefits : content.contact.bullets.map((item) => ({ title: item, description: '' }))).slice(0, 3).map((item, index) => <div key={index}><strong>{item.title}</strong>{item.description ? <span>{item.description}</span> : null}</div>)}</div> : null}
-      {section === 'cta' ? <span className="admin-copy-preview__button">{content.cta.button}</span> : null}
-      {section === 'hero' ? <span className="admin-copy-preview__button">{content.hero.primaryButton}</span> : null}
+    <div className="admin-field">
+      <span className="admin-label">{label}</span>
+      <div className="admin-number-stepper" role="group" aria-label={label}>
+        <button type="button" onClick={() => update(-1)} disabled={value <= min} aria-label={`Уменьшить: ${label}`}><Minus aria-hidden="true" /></button>
+        <output aria-live="polite">{value}{suffix}</output>
+        <button type="button" onClick={() => update(1)} disabled={value >= max} aria-label={`Увеличить: ${label}`}><Plus aria-hidden="true" /></button>
+      </div>
     </div>
+  );
+}
+
+function HeroEffectControls({
+  value,
+  onChange,
+}: {
+  value: EditableContent['hero']['titleAnimation'];
+  onChange: (value: EditableContent['hero']['titleAnimation']) => void;
+}) {
+  return (
+    <section className="admin-motion-panel" aria-labelledby="hero-motion-title">
+      <div className="admin-typography-panel__heading">
+        <WandSparkles aria-hidden="true" />
+        <div>
+          <strong id="hero-motion-title">Появление заголовка</strong>
+          <span>Эффект проигрывается один раз и автоматически отключается для людей, выбравших уменьшение движения.</span>
+        </div>
+      </div>
+      <div className="admin-effect-grid" role="group" aria-label="Эффект появления заголовка">
+        {HERO_TITLE_EFFECT_OPTIONS.map((option) => (
+          <button
+            type="button"
+            key={option.value}
+            className="admin-effect-card"
+            aria-pressed={value.effect === option.value}
+            onClick={() => onChange({ ...value, effect: option.value })}
+          >
+            <span>{option.label}</span>
+            <small>{HERO_EFFECT_DESCRIPTIONS[option.value]}</small>
+          </button>
+        ))}
+      </div>
+      {value.effect !== 'none' ? (
+        <div className="admin-motion-settings">
+          <AdminSelect
+            label="Скорость"
+            value={value.speed}
+            options={HERO_TITLE_EFFECT_SPEED_OPTIONS}
+            onValueChange={(speed) => onChange({ ...value, speed: speed as HeroTitleEffectSpeed })}
+          />
+          <AdminNumberStepper
+            label="Задержка перед стартом"
+            value={value.delayMs}
+            min={0}
+            max={2000}
+            step={100}
+            suffix=" мс"
+            onChange={(delayMs) => onChange({ ...value, delayMs })}
+          />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -615,7 +905,6 @@ export default function AdminContentControl({ password }: { password: string }) 
   const [section, setSection] = useState<SectionPayload | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('hero');
-  const [preview, setPreview] = useState<'desktop' | 'mobile'>('desktop');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [publishArmed, setPublishArmed] = useState(false);
@@ -825,8 +1114,13 @@ export default function AdminContentControl({ password }: { password: string }) 
 
   if (contentMode === 'faq') return <div className="admin-stack admin-stack--lg">{contentModeSwitch}<AdminFaqControl password={password} /></div>;
 
-  const renderTypography = (key: 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact', value: TypographySettings) => (
-    <TypographyControls value={value} onChange={(next) => update([key, 'typography'], next)} />
+  const renderTypography = (
+    key: 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact',
+    value: TypographySettings,
+    variant: 'hero' | 'section' | 'cta' | 'contact',
+    sample: string,
+  ) => (
+    <TypographyControls value={value} variant={variant} sample={sample} onChange={(next) => update([key, 'typography'], next)} />
   );
 
   return (
@@ -835,8 +1129,8 @@ export default function AdminContentControl({ password }: { password: string }) 
       <div className="admin-section-header">
         <div>
           <p className="admin-eyebrow">Контент сайта</p>
-          <h2 className="admin-title">Редактор страниц</h2>
-          <p className="admin-subtitle">Меняется реальный текст React-страницы. Порядок основных блоков зафиксирован, а текст, абзацы и безопасные размеры можно настраивать без риска сломать вёрстку или трекинг.</p>
+          <h2 className="admin-title">Редактор сайта</h2>
+          <p className="admin-subtitle">Рабочая студия страниц: меняйте текст, типографику и эффекты, сразу проверяйте реальную вёрстку на разных экранах и публикуйте только готовый результат.</p>
         </div>
         <a className="admin-button admin-button--secondary" href={pageMeta.path} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" /> Открыть страницу</a>
       </div>
@@ -855,6 +1149,8 @@ export default function AdminContentControl({ password }: { password: string }) 
       </div>
 
       {notice ? <div className="admin-notice" role="status" aria-live="polite">{notice}</div> : null}
+
+      <AdminContentPreview page={page} section={activeSection} content={content} />
 
       <div className="admin-content-layout">
         <section className="admin-card admin-content-editor">
@@ -966,7 +1262,8 @@ export default function AdminContentControl({ password }: { password: string }) 
                   </div>
                   <span className="admin-hint">Публикуйте только цифры, подтверждённые кейсом или рекламным кабинетом.</span>
                 </div>
-                {renderTypography('hero', content.hero.typography)}
+                <HeroEffectControls value={content.hero.titleAnimation} onChange={(next) => update(['hero', 'titleAnimation'], next)} />
+                {renderTypography('hero', content.hero.typography, 'hero', content.hero.titleLines[0]?.text || content.hero.titlePrefix)}
               </div> : null}
 
               {activeSection === 'services' ? <div className="admin-stack admin-stack--lg">
@@ -1045,7 +1342,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                   </div>
                   <span className="admin-hint">Значок слева от заголовка закреплён за позицией раздела и меняется вместе с порядком.</span>
                 </div>
-                {renderTypography('services', content.services.typography)}
+                {renderTypography('services', content.services.typography, 'section', `${content.services.titlePrefix} ${content.services.titleAccent}`.trim())}
               </div> : null}
 
               {activeSection === 'cases' ? <div className="admin-stack admin-stack--lg">
@@ -1094,10 +1391,10 @@ export default function AdminContentControl({ password }: { password: string }) 
                     <AddItemButton label="Добавить карточку" count={content.cases.items.length} maxItems={12} onAdd={() => update(['cases', 'items'], [...content.cases.items, { title: '', category: '', description: '', stats: [], visualSlot: content.cases.items.length % editableDefaults(page).cases.items.length }])} />
                   </div>
                 </div>
-                {renderTypography('cases', content.cases.typography)}
+                {renderTypography('cases', content.cases.typography, 'section', `${content.cases.titlePrefix} ${content.cases.titleAccent}`.trim())}
               </div> : null}
 
-              {activeSection === 'cta' ? <div className="admin-stack admin-stack--lg"><div className="admin-form-grid"><Field id="cta-badge" label="Бейдж" value={content.cta.badge} maxLength={120} onChange={(value) => update(['cta', 'badge'], value)} /><Field id="cta-title" label="Заголовок" value={content.cta.title} maxLength={260} onChange={(value) => update(['cta', 'title'], value)} /><Field id="cta-description" label="Описание" value={content.cta.description} multiline maxLength={900} onChange={(value) => update(['cta', 'description'], value)} /><Field id="cta-button" label="Кнопка" value={content.cta.button} maxLength={80} onChange={(value) => update(['cta', 'button'], value)} /></div>{renderTypography('cta', content.cta.typography)}</div> : null}
+              {activeSection === 'cta' ? <div className="admin-stack admin-stack--lg"><div className="admin-form-grid"><Field id="cta-badge" label="Бейдж" value={content.cta.badge} maxLength={120} onChange={(value) => update(['cta', 'badge'], value)} /><Field id="cta-title" label="Заголовок" value={content.cta.title} maxLength={260} onChange={(value) => update(['cta', 'title'], value)} /><Field id="cta-description" label="Описание" value={content.cta.description} multiline maxLength={900} onChange={(value) => update(['cta', 'description'], value)} /><Field id="cta-button" label="Кнопка" value={content.cta.button} maxLength={80} onChange={(value) => update(['cta', 'button'], value)} /></div>{renderTypography('cta', content.cta.typography, 'cta', content.cta.title)}</div> : null}
 
               {activeSection === 'testimonials' && content.testimonials ? <div className="admin-stack admin-stack--lg">
                 <div className="admin-form-grid"><Field id="testimonials-badge" label="Бейдж" value={content.testimonials.badge} maxLength={120} onChange={(value) => update(['testimonials', 'badge'], value)} /><Field id="testimonials-prefix" label="Заголовок" value={content.testimonials.titlePrefix} maxLength={180} onChange={(value) => update(['testimonials', 'titlePrefix'], value)} /><Field id="testimonials-accent" label="Акцент заголовка" value={content.testimonials.titleAccent} maxLength={220} onChange={(value) => update(['testimonials', 'titleAccent'], value)} /><Field id="testimonials-description" label="Описание" value={content.testimonials.description} multiline maxLength={900} onChange={(value) => update(['testimonials', 'description'], value)} /></div>
@@ -1160,7 +1457,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                     />
                   </div>
                 </div>
-                {renderTypography('testimonials', content.testimonials.typography)}
+                {renderTypography('testimonials', content.testimonials.typography, 'section', `${content.testimonials.titlePrefix} ${content.testimonials.titleAccent}`.trim())}
               </div> : null}
 
               {activeSection === 'contact' ? <div className="admin-stack admin-stack--lg">
@@ -1186,7 +1483,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                     </div>
                   </div>
                 ) : <StringListEditor label="Что обсудим" singular="Пункт" values={content.contact.bullets} maxItems={8} maxLength={180} onChange={(value) => update(['contact', 'bullets'], value)} />}
-                {renderTypography('contact', content.contact.typography)}
+                {renderTypography('contact', content.contact.typography, 'contact', `${content.contact.titlePrefix} ${content.contact.titleAccent}`.trim())}
               </div> : null}
               <div className="admin-sticky-actions">
                 {!publishArmed ? <button type="button" className="admin-button admin-button--secondary" disabled={loading || !isDirty} onClick={() => void save('save')}><Save aria-hidden="true" /><span className="admin-action-label--desktop">Сохранить черновик</span><span className="admin-action-label--mobile">Черновик</span></button> : null}
@@ -1197,11 +1494,6 @@ export default function AdminContentControl({ password }: { password: string }) 
         </section>
 
         <aside className="admin-stack admin-content-aside">
-          <section className="admin-card admin-preview-card">
-            <div className="admin-section-header admin-section-header--compact"><div><p className="admin-eyebrow">Живой предпросмотр</p><h3 className="admin-card-title">{SECTION_LABELS[activeSection]}</h3></div><div className="admin-icon-toggle" role="group" aria-label="Размер предпросмотра"><button type="button" aria-pressed={preview === 'desktop'} onClick={() => setPreview('desktop')}><Monitor aria-hidden="true" /><span className="sr-only">ПК</span></button><button type="button" aria-pressed={preview === 'mobile'} onClick={() => setPreview('mobile')}><Smartphone aria-hidden="true" /><span className="sr-only">Мобильный</span></button></div></div>
-            <Preview content={content} section={activeSection} device={preview} />
-            <p className="admin-hint">Ширина и переносы меняются вместе с режимом. Визуальные эффекты страницы остаются защищёнными текущей вёрсткой.</p>
-          </section>
           <section className="admin-card"><div className="admin-section-header admin-section-header--compact"><div><p className="admin-eyebrow">История</p><h3 className="admin-card-title">Последние версии</h3></div></div>{versions.length === 0 ? <p className="admin-muted">Версии появятся после первого сохранения.</p> : <div className="admin-version-list">{versions.map((version) => <div key={version.id}><div><strong>{version.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${version.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div><button type="button" className="admin-icon-button" title="Восстановить в черновик" aria-label="Восстановить эту версию в черновик" disabled={loading || isDirty} onClick={() => void restore(version.id)}><RotateCcw aria-hidden="true" /></button></div>)}</div>}</section>
           <div className="admin-notice admin-notice--warning">Публикация сразу меняет видимый текст через D1. Если настроен CF_PAGES_DEPLOY_HOOK_URL, админка одновременно запускает production-сборку той же версии для SEO-HTML; черновик в поисковую копию не попадает.</div>
         </aside>

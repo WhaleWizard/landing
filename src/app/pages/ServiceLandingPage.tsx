@@ -11,7 +11,14 @@ import type { CasesContent } from '../components/Cases';
 import type { CallToActionContent } from '../components/CallToAction';
 import type { TestimonialsContent } from '../components/Testimonials';
 import useServiceContent from '../hooks/useServiceContent';
-import { managedBodyClasses, managedTitleClasses, type ContentTypography } from '../utils/contentTypography';
+import {
+  managedBodyClasses,
+  managedBodyStyle,
+  managedTitleClasses,
+  managedTitleStyle,
+  useManagedTitleFit,
+  type ContentTypography,
+} from '../utils/contentTypography';
 
 const Services = lazy(() => import('../components/Services'));
 const Cases = lazy(() => import('../components/Cases'));
@@ -896,6 +903,7 @@ function DeferredSection({
 
 function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProps, 'service' | 'contact' | 'theme'>) {
   const sectionRef = useRef<HTMLElement>(null);
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(contact.typography, { minFontSize: 16 });
   // Соседние секции монтируются только при приближении к viewport. Эта — нет,
   // поэтому её пятна размытием в 128px пульсировали
   // всё время, даже когда до формы ещё далеко. Ставим на паузу за пределами
@@ -929,14 +937,14 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
               <span className={`text-sm font-semibold ${theme.labelClassName}`}>{contact.badge}</span>
             </div>
 
-            <h2 className={`text-balance text-3xl md:text-4xl lg:text-[44px] font-bold mb-6 leading-tight tracking-[-0.02em] ${managedTitleClasses(contact.typography, 'contact')}`}>
+            <h2 ref={titleRef} style={managedTitleStyle(contact.typography)} className={`text-balance text-3xl md:text-4xl lg:text-[44px] font-bold mb-6 leading-tight tracking-[-0.02em] ${managedTitleClasses(contact.typography, 'contact')}`}>
               {contact.titlePrefix}{' '}
               <span className={`bg-gradient-to-r ${theme.titleGradientClassName} bg-clip-text text-transparent`}>
                 {contact.titleAccent}
               </span>
             </h2>
 
-            <p className={`text-muted-foreground text-base md:text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-pretty leading-relaxed ${managedBodyClasses(contact.typography)}`}>
+            <p style={managedBodyStyle(contact.typography)} className={`text-muted-foreground text-base md:text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-pretty leading-relaxed ${managedBodyClasses(contact.typography)}`}>
               {contact.description}
             </p>
 

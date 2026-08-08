@@ -1,7 +1,15 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import type { HeroContent } from '../Hero';
+import HeroTitleEffect from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
 import { Button } from '../ui/button';
+import {
+  managedBodyClasses,
+  managedBodyStyle,
+  managedTitleClasses,
+  managedTitleStyle,
+  useManagedTitleFit,
+} from '../../utils/contentTypography';
 
 type ConsultStudioHeroProps = {
   content: HeroContent;
@@ -9,6 +17,10 @@ type ConsultStudioHeroProps = {
 
 function ConsultStudioHero({ content }: ConsultStudioHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
+  const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
+  const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 17 });
+  const titleAnimation = content.titleAnimation || {};
 
   const scrollTo = (elementId: 'contact' | 'cases') => {
     scrollToWhenReady(elementId, { offset: 88, attempts: 20, intervalMs: 80 });
@@ -50,14 +62,41 @@ function ConsultStudioHero({ content }: ConsultStudioHeroProps) {
             <span>{content.badge}</span>
           </div>
 
-          <h1 id="consult-studio-title" className="consult-studio-hero__title">
-            <span>{content.titlePrefix}</span>
-            <span>{content.titleAccent}</span>
+          <h1
+            ref={titleRef}
+            id="consult-studio-title"
+            className={`consult-studio-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
+            style={managedTitleStyle(content.typography)}
+          >
+            {titleLines?.length ? titleLines.map((line, index) => (
+              <HeroTitleEffect
+                as="span"
+                key={`${line.text}-${index}`}
+                className={line.tone === 'accent' ? 'consult-studio-hero__title-accent' : undefined}
+                style={{ display: 'block' }}
+                text={line.text}
+                effect={titleAnimation.effect}
+                speed={titleAnimation.speed}
+                delayMs={titleAnimation.delayMs}
+                sequenceIndex={index}
+              >
+                {line.text}
+              </HeroTitleEffect>
+            )) : (
+              <>
+                <HeroTitleEffect as="span" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={0}>{content.titlePrefix}</HeroTitleEffect>
+                <HeroTitleEffect as="span" className="consult-studio-hero__title-accent" style={{ display: 'block' }} text={String(content.titleAccent || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={1}>{content.titleAccent}</HeroTitleEffect>
+              </>
+            )}
           </h1>
+
+          {supportingLine ? (
+            <HeroTitleEffect as="p" className="consult-studio-hero__supporting" style={{ display: 'block' }} text={supportingLine.text} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={titleLines?.length || 2}>{supportingLine.text}</HeroTitleEffect>
+          ) : null}
 
           <div className="consult-studio-hero__paragraphs">
             {content.paragraphs.map((paragraph, index) => (
-              <p key={index} className={index === 1 ? 'consult-studio-hero__format-note' : undefined}>
+              <p key={index} style={managedBodyStyle(content.typography)} className={`${index === 1 ? 'consult-studio-hero__format-note' : ''} ${managedBodyClasses(content.typography)}`.trim()}>
                 {paragraph}
               </p>
             ))}

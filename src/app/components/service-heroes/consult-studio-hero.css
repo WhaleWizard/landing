@@ -218,12 +218,12 @@
   text-wrap: balance;
 }
 
-.consult-studio-hero__title span {
+.consult-studio-hero__title > span {
   display: block;
   white-space: nowrap;
 }
 
-.consult-studio-hero__title span:last-child {
+.consult-studio-hero__title-accent {
   padding: 0.07em 0 0.14em;
   background: linear-gradient(92deg, #a990ff, var(--consult-indigo) 48%, #6ea1ff);
   background-clip: text;
@@ -231,6 +231,15 @@
   color: transparent;
   font-weight: 600;
   -webkit-text-fill-color: transparent;
+}
+
+.consult-studio-hero__supporting {
+  max-width: 610px;
+  margin: 14px 0 0;
+  color: #c9c4d0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .consult-studio-hero__paragraphs {
@@ -362,6 +371,11 @@
 
   .marketing-typography .consult-studio-hero__title {
     font-size: clamp(2.25rem, 3.25vw, 2.55rem);
+  }
+
+  .consult-studio-hero__supporting {
+    margin-top: 10px;
+    font-size: 14px;
   }
 
   .consult-studio-hero__paragraphs p {
@@ -520,7 +534,7 @@
 }
 
 @media (forced-colors: active) {
-  .consult-studio-hero__title span:last-child {
+  .consult-studio-hero__title-accent {
     background: none;
     color: LinkText;
     -webkit-text-fill-color: currentColor;
