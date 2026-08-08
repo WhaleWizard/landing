@@ -692,6 +692,27 @@ body[data-admin-theme],
   --adm-dur-slow: 420ms;
 }
 
+/*
+ * На телефоне контрол вырастает до 44 px — минимальная область нажатия из
+ * чек-листа проекта. Правило есть в admin-ui.css, но объявление шкалы выше
+ * идёт позже по каскаду при равной специфичности и молча его перебивало:
+ * на 320 px кнопки возвращались к 38 px. Повтор обязателен, пока базовая
+ * шкала живёт в этом файле.
+ */
+@media (max-width: 767px) {
+  body[data-admin-theme],
+  .admin-root {
+    --adm-control-height: 44px;
+  }
+
+  /* Переключатели режимов и фильтры задают высоту сами, мимо шкалы, и
+     оставались на 38 px. Это основные контролы разделов — с них начинается
+     работа на телефоне. */
+  .admin-root :is(.crm-view-switch, .adm-segmented, .admin-segmented, .adm-trend-panel__switch) > button {
+    min-height: 44px;
+  }
+}
+
 /* ==========================================================================
    9. Карточки и панели
    ========================================================================== */
@@ -1233,6 +1254,34 @@ body[data-admin-theme],
 
 .admin-root .goals__money-item.is-good strong { color: var(--adm-success); }
 .admin-root .goals__money-item.is-bad strong { color: var(--adm-danger); }
+
+/* --- Шапка раздела на узком экране ---
+   Она собрана гридом `minmax(0, 1fr) auto`: слева заголовок, справа кнопки.
+   Колонка `auto` берёт столько, сколько просит содержимое, а `minmax(0, 1fr)`
+   умеет сжаться до нуля — и на 390 px в разделах с богатой панелью действий
+   («Клиенты», «Воронка») заголовок схлопывался до 9 px при нужных 83.
+   Замерено в бою: `grid-template-columns: 9.2px 300.8px`.
+
+   Ниже 780 px шапка становится одной колонкой: кнопки уходят под заголовок,
+   и обоим хватает ширины. */
+@media (max-width: 780px) {
+  .admin-root :is(.admin-section-header, .admin-section-heading) {
+    grid-template-columns: minmax(0, 1fr);
+    display: grid;
+  }
+
+  .admin-root :is(.admin-section-header, .admin-section-heading) > * {
+    min-width: 0;
+  }
+
+  /* Ряд кнопок прокручивается вбок, если не помещается: перенос по одной на
+     строку уводит заголовок раздела за экран. */
+  .admin-root :is(.admin-section-header, .admin-section-heading) > *:last-child:not(:only-child) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
 
 /* --- Фокус дня ---
    Строка списка — цель для нажатия во всю ширину. Стрелка выезжает при
