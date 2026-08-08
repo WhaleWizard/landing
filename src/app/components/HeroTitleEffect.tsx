@@ -261,6 +261,67 @@ const TYPEWRITER_DURATIONS: Record<HeroTitleEffectSpeed, number> = {
   fast: 1050,
 };
 
+/*
+ * Ниже — те же числа, что в hero-title-effects.css. Держать их в JS пришлось
+ * ради предпросмотра: он обязан знать, когда анимация действительно кончилась.
+ * Раньше там стояло фиксированное «шесть секунд на всё», и медленная печатная
+ * машинка на трёх строках замирала недопечатанной.
+ */
+const BASE_DURATIONS: Record<HeroTitleEffectSpeed, number> = {
+  slow: 1100,
+  normal: 760,
+  fast: 480,
+};
+
+const WORD_STAGGERS: Record<HeroTitleEffectSpeed, number> = {
+  slow: 108,
+  normal: 72,
+  fast: 44,
+};
+
+/** Пауза между стартом соседних строк. */
+export function heroTitleSequenceGapMs(effect: HeroTitleEffect, speed: HeroTitleEffectSpeed): number {
+  return effect === 'typewriter' ? TYPEWRITER_DURATIONS[speed] + 120 : 90;
+}
+
+/** Сколько играет одна строка от своего старта до полной готовности. */
+export function heroTitleLineDurationMs(
+  effect: HeroTitleEffect,
+  speed: HeroTitleEffectSpeed,
+  text: string,
+): number {
+  if (effect === 'none') return 0;
+  // Курсор мигает ещё три такта по 720 мс после последней буквы.
+  if (effect === 'typewriter') return TYPEWRITER_DURATIONS[speed] + 720 * 3;
+  if (effect === 'words') {
+    const words = Math.max(1, text.trim().split(/\s+/u).filter(Boolean).length);
+    return BASE_DURATIONS[speed] + (words - 1) * WORD_STAGGERS[speed];
+  }
+  return BASE_DURATIONS[speed];
+}
+
+/**
+ * Общая длительность появления заголовка: самая поздняя строка от нуля до
+ * своего конца. Строки стартуют по очереди, поэтому решает не самая долгая,
+ * а та, у которой сумма задержки и длительности больше всех.
+ */
+export function heroTitleTotalDurationMs(
+  lines: Array<Pick<HeroTitleLine, 'text' | 'effect' | 'speed'>>,
+  animation: HeroTitleAnimation | undefined,
+): number {
+  const base = animation || {};
+  const startDelay = clampNumber(base.delayMs, 0, 10_000);
+  let total = 0;
+  lines.forEach((line, index) => {
+    const effect = normalizeHeroTitleEffect(line.effect, normalizeHeroTitleEffect(base.effect));
+    if (effect === 'none') return;
+    const speed = normalizeHeroTitleEffectSpeed(line.speed, normalizeHeroTitleEffectSpeed(base.speed));
+    const start = startDelay + index * heroTitleSequenceGapMs(effect, speed);
+    total = Math.max(total, start + heroTitleLineDurationMs(effect, speed, line.text));
+  });
+  return total;
+}
+
 function renderTypewriter(text: string, speed: HeroTitleEffectSpeed) {
   const characters = Array.from(text);
   const stepMs = TYPEWRITER_DURATIONS[speed] / Math.max(1, characters.length);

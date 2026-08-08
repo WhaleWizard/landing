@@ -8,6 +8,7 @@ import {
   ExternalLink,
   GripVertical,
   Minus,
+  Play,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -1010,9 +1011,11 @@ function AdminNumberStepper({
 
 function HeroEffectControls({
   value,
+  onReplay,
   onChange,
 }: {
   value: EditableContent['hero']['titleAnimation'];
+  onReplay: () => void;
   onChange: (value: EditableContent['hero']['titleAnimation']) => void;
 }) {
   return (
@@ -1021,8 +1024,17 @@ function HeroEffectControls({
         <WandSparkles aria-hidden="true" />
         <div>
           <strong id="hero-motion-title">Появление заголовка</strong>
-          <span>Эффект проигрывается один раз и автоматически отключается для людей, выбравших уменьшение движения.</span>
+          <span>Пока вы здесь, эффект повторяется в предпросмотре по кругу — так его видно. На сайте он проигрывается один раз и отключается для тех, кто выбрал уменьшение движения.</span>
         </div>
+        {/* Кнопка живёт рядом с эффектами, а не в шапке предпросмотра:
+            смотрят анимацию именно отсюда. */}
+        <button
+          type="button"
+          className="admin-button admin-button--quiet admin-button--compact admin-typography-reset"
+          onClick={onReplay}
+        >
+          <Play aria-hidden="true" /> Показать ещё раз
+        </button>
       </div>
       <div className="admin-effect-grid" role="group" aria-label="Эффект появления заголовка">
         {HERO_TITLE_EFFECT_OPTIONS.map((option) => (
@@ -1075,6 +1087,9 @@ export default function AdminContentControl({ password }: { password: string }) 
   // Отдельно от notice: «нужна миграция» — не ошибка редактора, а недоделанная
   // настройка базы, и подсказка должна пережить любое следующее сообщение.
   const [migration, setMigration] = useState('');
+  // Счётчик живёт здесь: кнопку повтора нажимают в настройках эффекта,
+  // а перезапускать анимацию надо в кадре предпросмотра.
+  const [replayKey, setReplayKey] = useState(0);
   const loadSequence = useRef(0);
   const contentRef = useRef(content);
   // Сохранённая версия держится в состоянии, а не в ref: от неё зависит и
@@ -1370,7 +1385,7 @@ export default function AdminContentControl({ password }: { password: string }) 
       ) : null}
       {notice ? <div className="admin-notice" role="status" aria-live="polite">{notice}</div> : null}
 
-      <AdminContentPreview page={page} section={activeSection} content={content} />
+      <AdminContentPreview page={page} section={activeSection} content={content} replayKey={replayKey} />
 
       <div className="admin-content-layout">
         <section className="admin-card admin-content-editor">
@@ -1508,7 +1523,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                   </div>
                   <span className="admin-hint">Публикуйте только цифры, подтверждённые кейсом или рекламным кабинетом.</span>
                 </div>
-                <HeroEffectControls value={content.hero.titleAnimation} onChange={(next) => update(['hero', 'titleAnimation'], next)} />
+                <HeroEffectControls value={content.hero.titleAnimation} onReplay={() => setReplayKey((v) => v + 1)} onChange={(next) => update(['hero', 'titleAnimation'], next)} />
                 {renderTypography('hero', content.hero.typography, 'hero', content.hero.titleLines[0]?.text || content.hero.titlePrefix)}
               </div> : null}
 

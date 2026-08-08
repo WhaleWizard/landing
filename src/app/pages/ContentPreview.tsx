@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CheckCircle2, Sparkles } from 'lucide-react';
 import Hero, { defaultHeroContent, type HeroContent } from '../components/Hero';
+import { heroTitleTotalDurationMs } from '../components/HeroTitleEffect';
 import Services, { defaultServicesContent, type ServicesContent } from '../components/Services';
 import Cases, { defaultCasesContent, type CasesContent } from '../components/Cases';
 import CallToAction, { defaultCallToActionContent, type CallToActionContent } from '../components/CallToAction';
@@ -26,7 +27,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
 } from '../utils/contentTypography';
-import type { EditableContent } from '../components/admin/AdminContentControl';
+import type { EditableContent, EditorSection } from '../components/admin/AdminContentControl';
 import {
   CONTENT_PREVIEW_MESSAGE,
   CONTENT_PREVIEW_READY_MESSAGE,
@@ -168,29 +169,78 @@ function SeoPreview({ content }: { content: EditableContent['seo'] }) {
   );
 }
 
+/** Пауза между повторами, чтобы зацикленный эффект не мельтешил. */
+const EFFECT_LOOP_PAUSE_MS = 900;
+
 /**
- * Сколько предпросмотр даёт эффекту отыграть, прежде чем показать конечный
- * вид. С запасом на «печатную машинку» на медленной скорости и на задержку
- * между строками.
+ * Показ эффекта появления заголовка.
+ *
+ * Эффект длится меньше секунды, а кадр предпросмотра маленький: разово
+ * проиграв его один раз, владелец просто не успевал ничего увидеть. Поэтому
+ * пока он находится в блоке «Хиро» и подбирает анимацию, она повторяется по
+ * кругу. Как только начинается правка текста — замирает в готовом виде, иначе
+ * заголовок дёргается под руками и выглядит обрезанным.
+ *
+ * Перезапуск сделан переключением атрибута, а не пересозданием разметки:
+ * `settled` гасит анимацию через `animation: none`, и снятие этого состояния
+ * запускает её заново само. Пересоздавать ради этого целую страницу дорого.
  */
-const EFFECT_PLAYBACK_MS = 6_000;
+function useHeroEffectPlayback({
+  section,
+  totalMs,
+  effectSignature,
+  textSignature,
+  replayKey,
+}: {
+  section: EditorSection;
+  totalMs: number;
+  effectSignature: string;
+  textSignature: string;
+  replayKey: number;
+}): 'playing' | 'settled' {
+  const [frozenByTyping, setFrozenByTyping] = useState(false);
+  const previous = useRef({ effectSignature, textSignature, replayKey, section });
+
+  useEffect(() => {
+    const last = previous.current;
+    previous.current = { effectSignature, textSignature, replayKey, section };
+    if (last.effectSignature !== effectSignature || last.replayKey !== replayKey || last.section !== section) {
+      setFrozenByTyping(false);
+    } else if (last.textSignature !== textSignature) {
+      setFrozenByTyping(true);
+    }
+  }, [effectSignature, textSignature, replayKey, section]);
+
+  const looping = section === 'hero' && totalMs > 0 && !frozenByTyping;
+  const [phase, setPhase] = useState<'playing' | 'settled'>('settled');
+
+  useEffect(() => {
+    if (!looping) {
+      setPhase('settled');
+      return undefined;
+    }
+    let cancelled = false;
+    let timer = 0;
+    const play = () => {
+      setPhase('playing');
+      timer = window.setTimeout(() => {
+        if (cancelled) return;
+        setPhase('settled');
+        timer = window.setTimeout(() => { if (!cancelled) play(); }, EFFECT_LOOP_PAUSE_MS);
+      }, totalMs + 120);
+    };
+    play();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [looping, totalMs, effectSignature, replayKey]);
+
+  return phase;
+}
 
 function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) {
   const { page, section, content, replayKey = 0 } = payload;
-  // Эффект проигрывается один раз: при открытии блока, при смене самой
-  // анимации и по кнопке «Повторить». Правка текста его не перезапускает —
-  // иначе заголовок в предпросмотре постоянно выглядел бы обрезанным.
-  const effectSignature = JSON.stringify([
-    content.hero?.titleAnimation,
-    content.hero?.titleLines?.map((line) => [line.effect, line.speed]),
-  ]);
-  const [effectsSettled, setEffectsSettled] = useState(false);
-  useEffect(() => {
-    setEffectsSettled(false);
-    const timer = window.setTimeout(() => setEffectsSettled(true), EFFECT_PLAYBACK_MS);
-    return () => window.clearTimeout(timer);
-  }, [page, section, replayKey, effectSignature]);
-
   const source = page === 'home' ? null : pageConfigs[page];
   const theme = page === 'home' ? null : SERVICE_THEMES[page];
   const style = theme ? {
@@ -208,13 +258,31 @@ function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) 
   const testimonials = mergeContent<TestimonialsContent & { stats?: TestimonialStat[] }>(testimonialSource, content.testimonials);
   const contact = content.contact;
 
+  // Длительность считается из настроек самой анимации: раньше здесь стояло
+  // фиксированное окно, и медленная «печатная машинка» не успевала доиграть.
+  const heroLines = hero.titleLines?.length
+    ? hero.titleLines
+    : [
+      { text: String(hero.titlePrefix || ''), effect: undefined, speed: undefined },
+      { text: String(hero.titleAccent || ''), effect: undefined, speed: undefined },
+    ];
+  const totalMs = heroTitleTotalDurationMs(heroLines, hero.titleAnimation);
+  const effectSignature = JSON.stringify([
+    hero.titleAnimation,
+    hero.titleLines?.map((line) => [line.effect, line.speed]),
+  ]);
+  const textSignature = heroLines.map((line) => line.text).join(' ');
+  const heroPhase = useHeroEffectPlayback({ section, totalMs, effectSignature, textSignature, replayKey });
+
   return (
     <main
-      key={`${page}-${section}-${replayKey}-${effectSignature}`}
+      // Перерисовка только при смене страницы или блока. Перезапуск эффекта
+      // идёт через data-hero-effects и разметку не пересоздаёт.
+      key={`${page}-${section}`}
       className="ww-content-preview-page marketing-typography min-h-screen overflow-x-hidden bg-background text-foreground"
       style={{ ...style, pointerEvents: 'none' }}
       data-preview-section={section}
-      data-hero-effects={effectsSettled ? 'settled' : 'playing'}
+      data-hero-effects={heroPhase}
     >
       {section === 'seo' ? <SeoPreview content={content.seo} /> : null}
       {section === 'hero' ? (

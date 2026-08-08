@@ -6,7 +6,6 @@ import {
   Laptop,
   Maximize2,
   Monitor,
-  Play,
   Smartphone,
   Tablet,
 } from 'lucide-react';
@@ -153,15 +152,17 @@ export default function AdminContentPreview({
   page,
   section,
   content,
+  replayKey,
 }: {
   page: EditorPage;
   section: EditorSection;
   content: EditableContent;
+  /** Растёт по кнопке «Показать ещё раз» в настройках эффекта. */
+  replayKey: number;
 }) {
   const [presetId, setPresetId] = useState<PreviewPresetId>('laptop');
   const [zoom, setZoom] = useState<PreviewZoom>('fit');
   const [expanded, setExpanded] = useState(false);
-  const [replayKey, setReplayKey] = useState(0);
   const preset = PREVIEW_PRESETS.find((item) => item.id === presetId) ?? PREVIEW_PRESETS[1];
   // Свёрнутое состояние переживает перезагрузку: длинные тексты правят без
   // предпросмотра, и каждый раз сворачивать его заново — лишний шаг.
@@ -200,15 +201,6 @@ export default function AdminContentPreview({
           <p className="admin-meta">Реальная вёрстка и переносы страницы. Ничего публиковать для проверки не нужно.</p>
         </div>
         <div className="admin-site-preview__actions">
-          <button
-            type="button"
-            className="admin-button admin-button--secondary"
-            onClick={() => setReplayKey((value) => value + 1)}
-            title="Повторить эффект заголовка"
-          >
-            <Play aria-hidden="true" />
-            <span>Повторить эффект</span>
-          </button>
           <button
             type="button"
             className="admin-button admin-button--secondary"
