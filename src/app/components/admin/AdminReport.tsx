@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ClipboardCopy, FileText, Info, Printer, RefreshCw } from 'lucide-react';
 import { AdminBlank, AdminSectionSkeleton, notify } from './AdminFeedback';
 import { formatMoney, formatNumber, formatPercent } from './AttributionCharts';
@@ -61,8 +61,13 @@ export default function AdminReport({ password }: { password: string }) {
   const [period, setPeriod] = useState(currentPeriod);
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
+    // Номер запроса: месяцы листаются стрелками быстрее, чем собирается отчёт,
+    // и ответ по предыдущему месяцу мог прийти последним — на экране
+    // оказывались цифры одного месяца под заголовком другого.
+    const requestId = ++requestSequence.current;
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/report?period=${period}`, {
@@ -70,11 +75,14 @@ export default function AdminReport({ password }: { password: string }) {
         credentials: 'same-origin',
         cache: 'no-store',
       });
-      setData(await response.json().catch(() => null));
+      const payload = await response.json().catch(() => null);
+      if (requestId !== requestSequence.current) return;
+      setData(payload);
     } catch {
+      if (requestId !== requestSequence.current) return;
       setData({ success: false, error: 'Не удалось собрать отчёт' });
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   }, [password, period]);
 

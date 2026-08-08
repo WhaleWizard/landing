@@ -218,12 +218,19 @@ export default function AdminFinance({ password }: { password: string }) {
       if (monthOf(expense.day) === month) addMoney(spentThisMonth, expense.currency, expense.amount);
     });
 
-    // Прибыль считается по каждой валюте отдельно и только там, где в этой
-    // валюте что-то получено: вычитать рублёвые расходы из долларов нельзя.
+    // Прибыль считается по каждой валюте отдельно: вычитать рублёвые расходы
+    // из долларов нельзя, курсов в системе нет.
+    //
+    // Валюта попадает в расчёт, если в ней было хоть что-то — приход или
+    // расход. Раньше перебирались только приходы, и месяц, где в валюте были
+    // одни траты, показывал по ней пустоту вместо минуса: расход существовал,
+    // но в итогах не появлялся нигде.
     const profit: Money = new Map();
-    receivedThisMonth.forEach((amount, currency) => {
-      const tax = amount * (Number(settings.tax_rate) || 0) / 100;
-      profit.set(currency, amount - tax - (spentThisMonth.get(currency) || 0));
+    const currencies = new Set<string>([...receivedThisMonth.keys(), ...spentThisMonth.keys()]);
+    currencies.forEach((currency) => {
+      const received = receivedThisMonth.get(currency) || 0;
+      const tax = received * (Number(settings.tax_rate) || 0) / 100;
+      profit.set(currency, received - tax - (spentThisMonth.get(currency) || 0));
     });
 
     const tax: Money = new Map();

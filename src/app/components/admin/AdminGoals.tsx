@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, Coins, Info, RefreshCw, Save,
   Target, TrendingUp, Trophy, UserCheck, Wallet,
@@ -135,12 +135,17 @@ export default function AdminGoals({ password }: { password: string }) {
   const [period, setPeriod] = useState(currentPeriod);
   const [data, setData] = useState<GoalsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestSequence = useRef(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [migration, setMigration] = useState('');
   const [draft, setDraft] = useState<Goal | null>(null);
 
   const load = useCallback(async () => {
+    // Номер запроса. Месяцы листаются стрелками быстрее, чем отвечает сервер,
+    // и ответ по предыдущему месяцу мог прийти последним — на экране
+    // оказывались цели одного месяца под заголовком другого.
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError('');
     try {
@@ -150,6 +155,7 @@ export default function AdminGoals({ password }: { password: string }) {
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => null) as GoalsResponse | null;
+      if (requestId !== requestSequence.current) return;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -158,9 +164,10 @@ export default function AdminGoals({ password }: { password: string }) {
       setData(payload);
       setDraft(payload.goal || null);
     } catch (loadError) {
+      if (requestId !== requestSequence.current) return;
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить цели');
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   }, [password, period]);
 
