@@ -349,6 +349,8 @@ export default function AdminAttribution({ password }: { password: string }) {
               detail="Сумма уникальных за каждый день периода."
               delta={<DeltaBadge current={summary.visitors} previous={previous?.visitors} label="Уникальные" />}
               tone={summary.visitors === null ? 'muted' : 'default'}
+              spark={(data.series || []).map((point) => point.visitors)}
+              sparkSlot={5}
             />
             <StatTile
               icon={<Eye aria-hidden="true" />}
@@ -357,6 +359,8 @@ export default function AdminAttribution({ password }: { password: string }) {
               detail="Агрегированные просмотры страниц."
               delta={<DeltaBadge current={summary.views} previous={previous?.views} label="Просмотры" />}
               tone={summary.views === null ? 'muted' : 'default'}
+              spark={(data.series || []).map((point) => point.views)}
+              sparkSlot={2}
             />
             <StatTile
               icon={<UserCheck aria-hidden="true" />}
@@ -367,6 +371,8 @@ export default function AdminAttribution({ password }: { password: string }) {
                 : `${formatNumber(summary.submissions)} накопленных отправок у этих контактов.`}
               delta={<DeltaBadge current={summary.leads} previous={previous?.leads} label="Заявки" />}
               tone={summary.leads === null ? 'muted' : 'default'}
+              spark={(data.series || []).map((point) => point.leads)}
+              sparkSlot={1}
             />
             <StatTile
               icon={<Target aria-hidden="true" />}
@@ -377,6 +383,8 @@ export default function AdminAttribution({ password }: { password: string }) {
                 : `${formatNumber(summary.unqualified)} отмечены нецелевыми.`}
               delta={<DeltaBadge current={summary.qualified} previous={previous?.qualified} label="Целевые" />}
               tone={summary.qualified === null ? 'muted' : 'default'}
+              spark={(data.series || []).map((point) => point.qualified)}
+              sparkSlot={4}
             />
             <StatTile
               icon={<Trophy aria-hidden="true" />}

@@ -324,6 +324,8 @@ export default function AdminToday({
             value={<CountUpValue value={totals.uniques7} />}
             detail="Обезличенный отпечаток дня, без cookies."
             delta={<DeltaBadge current={totals.uniques7} previous={totals.uniques7Prev} label="Уникальные" />}
+            spark={series.map((point) => point.visitors)}
+            sparkSlot={5}
           />
           <StatTile
             icon={<TrendingUp aria-hidden="true" />}
@@ -331,12 +333,16 @@ export default function AdminToday({
             value={<CountUpValue value={totals.views7} />}
             detail="Все просмотры страниц сайта."
             delta={<DeltaBadge current={totals.views7} previous={totals.views7Prev} label="Просмотры" />}
+            spark={series.map((point) => point.views)}
+            sparkSlot={2}
           />
           <StatTile
             icon={<Inbox aria-hidden="true" />}
             title="Заявки за 7 дней"
             value={<CountUpValue value={totals.leads7} />}
             detail={totals.leadsNew > 0 ? `${totals.leadsNew} ждут ответа.` : 'Все заявки обработаны.'}
+            spark={series.map((point) => point.leads)}
+            sparkSlot={1}
           />
           <StatTile
             icon={<ListChecks aria-hidden="true" />}

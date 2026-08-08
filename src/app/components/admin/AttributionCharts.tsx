@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useReducedMotion } from 'motion/react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ArrowDownRight, ArrowUpRight, Minus, TriangleAlert } from 'lucide-react';
 
 export function formatNumber(value: number | null | undefined): string {
@@ -440,6 +440,87 @@ function TrendChart({
   );
 }
 
+/**
+ * Мини-график для плитки метрики: форма ряда за период под самим числом.
+ *
+ * Число отвечает на «сколько», мини-график — на «куда идёт», и вместе они
+ * читаются за одно движение глаза. Точных значений здесь нет намеренно: для
+ * них есть большой график и таблица под ним. Поэтому у него `aria-hidden` —
+ * для чтения с экрана он не несёт ничего сверх соседнего числа.
+ *
+ * viewBox растягивается по ширине плитки (`preserveAspectRatio="none"`), а
+ * толщина линии держится постоянной через `vector-effect` — иначе в широкой
+ * плитке линия расплывалась бы в полосу, а в узкой превращалась в нитку.
+ */
+export function AdminSparkline({
+  values,
+  slot = 1,
+  height = 42,
+}: {
+  values: Array<number | null>;
+  slot?: 1 | 2 | 3 | 4 | 5 | 6;
+  height?: number;
+}) {
+  const reduced = useReducedMotion();
+  const id = useId().replace(/:/g, '');
+  const clean = values.map((value) => Number(value || 0));
+
+  // Один столбик или пустой ряд рисовать нечем: линия из одной точки — это
+  // точка, и она врёт про динамику сильнее, чем её отсутствие.
+  if (clean.length < 2 || clean.every((value) => value === 0)) return null;
+
+  const width = 100;
+  const top = 3;
+  const bottom = height - 3;
+  const max = Math.max(...clean);
+  const min = Math.min(...clean);
+  const span = max - min;
+  const stepX = width / (clean.length - 1);
+  // Ряд без разброса рисуется прямой по середине. Формула через (value - min)
+  // прижала бы её к самому низу, и ровный поток читался бы как ноль.
+  const points = clean.map((value, index) => [
+    index * stepX,
+    span === 0 ? (top + bottom) / 2 : bottom - ((value - min) / span) * (bottom - top),
+  ] as const);
+
+  const line = points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ');
+  const area = `${line} L${width} ${height} L0 ${height} Z`;
+
+  return (
+    <svg
+      className="adm-spark"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+      style={{ ['--adm-spark-color' as string]: `var(--adm-viz-${slot})`, height }}
+    >
+      <defs>
+        <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--adm-spark-color)" stopOpacity="0.38" />
+          <stop offset="100%" stopColor="var(--adm-spark-color)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <motion.path
+        className="adm-spark__area"
+        d={area}
+        fill={`url(#spark-${id})`}
+        initial={reduced ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      />
+      <motion.path
+        className="adm-spark__line"
+        d={line}
+        fill="none"
+        initial={reduced ? false : { pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+      />
+    </svg>
+  );
+}
+
 export function StatTile({
   icon,
   title,
@@ -447,6 +528,8 @@ export function StatTile({
   detail,
   delta,
   tone = 'default',
+  spark,
+  sparkSlot = 1,
 }: {
   icon: ReactNode;
   title: string;
@@ -454,9 +537,12 @@ export function StatTile({
   detail: string;
   delta?: ReactNode;
   tone?: 'default' | 'muted';
+  /** Ряд за период: под числом появится его форма. */
+  spark?: Array<number | null>;
+  sparkSlot?: 1 | 2 | 3 | 4 | 5 | 6;
 }) {
   return (
-    <div className={`adm-tile${tone === 'muted' ? ' is-muted' : ''}`}>
+    <div className={`adm-tile${tone === 'muted' ? ' is-muted' : ''}${spark ? ' has-spark' : ''}`}>
       <div className="adm-tile__head">
         <span className="adm-tile__icon" aria-hidden="true">{icon}</span>
         <span className="adm-tile__title">{title}</span>
@@ -464,6 +550,7 @@ export function StatTile({
       </div>
       <div className="adm-tile__value">{value}</div>
       <p className="adm-tile__detail">{detail}</p>
+      {spark ? <AdminSparkline values={spark} slot={sparkSlot} /> : null}
     </div>
   );
 }

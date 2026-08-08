@@ -788,6 +788,40 @@ body[data-admin-theme],
   background: var(--adm-primary-tint);
 }
 
+/* --- Мини-график в плитке ---
+   Уходит в самый низ плитки во всю её ширину, под текст. Отступ снизу
+   освобождает ему место, чтобы пояснение не легло поверх линии. */
+.admin-root .adm-tile.has-spark {
+  padding-bottom: 48px;
+}
+
+.admin-root .adm-spark {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  pointer-events: none;
+}
+
+.admin-root .adm-spark__line {
+  stroke: var(--adm-spark-color, var(--adm-viz-1));
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Толщина не тянется вместе с viewBox: иначе в широкой плитке линия
+     превращается в полосу, а в узкой — в нитку. */
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 1px 6px color-mix(in srgb, var(--adm-spark-color, var(--adm-viz-1)) 60%, transparent));
+}
+
+/* Текст плитки всегда над графиком. */
+.admin-root .adm-tile > :not(.adm-spark) {
+  position: relative;
+  z-index: 1;
+}
+
 /* ==========================================================================
    11. Кнопки
    Главная кнопка одна на всю админку и не перекрашивается по разделам: у
@@ -1280,6 +1314,99 @@ body[data-admin-theme],
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+}
+
+/* ==========================================================================
+   18. Моушен
+   Три правила, по которым здесь вообще что-то движется:
+   1. Движение отвечает на вопрос «откуда это взялось» или «что изменилось».
+   2. Ничего не двигается там, где человек читает или целится мышью.
+   3. Всё останавливается при системной настройке «меньше движения».
+   ========================================================================== */
+
+/* --- Световая волна при смене раздела ---
+   Полоса света проходит по обложке слева направо ровно один раз. Это
+   единственное, что говорит «экран сменился целиком», — без неё переход
+   между разделами читается как подмена содержимого в той же рамке. */
+.admin-root .admin-sweep {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: 460px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    color-mix(in srgb, var(--adm-sec-2) 26%, transparent) 48%,
+    color-mix(in srgb, #ffffff 16%, transparent) 50%,
+    color-mix(in srgb, var(--adm-sec-1) 26%, transparent) 52%,
+    transparent 62%
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
+  animation: adm-sweep 900ms var(--adm-ease) 1 both;
+}
+
+@keyframes adm-sweep {
+  from { transform: translate3d(-100%, 0, 0); opacity: 0; }
+  22% { opacity: 1; }
+  to { transform: translate3d(100%, 0, 0); opacity: 0; }
+}
+
+/* --- Появление блоков раздела ---
+   Блок поднимается и слегка доезжает по масштабу. Размытия здесь намеренно
+   нет: filter на контейнере меняет корень для backdrop-filter у вложенных
+   карточек, и всё стекло внутри на время анимации становится матовым, а в
+   конце скачком возвращается.
+
+   Шаг задержки 55 мс: заметно, что блоки приходят по очереди, но к моменту,
+   когда глаз доходит до третьего, он уже на месте. */
+@keyframes adm-enter {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.988); }
+  to { opacity: 1; transform: none; }
+}
+
+.admin-root .admin-content__inner > *,
+.admin-root .admin-stack > *,
+.admin-root .adm-tiles > * {
+  animation: adm-enter 540ms var(--adm-ease) backwards;
+}
+
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(1) { animation-delay: 0ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(2) { animation-delay: 55ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(3) { animation-delay: 110ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(4) { animation-delay: 160ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(5) { animation-delay: 205ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(6) { animation-delay: 245ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(7) { animation-delay: 280ms; }
+.admin-root :is(.admin-content__inner, .admin-stack, .adm-tiles) > *:nth-child(n + 8) { animation-delay: 310ms; }
+
+/* --- Значок активного раздела ---
+   Один короткий подскок в момент, когда раздел стал активным. Он привязывает
+   взгляд к меню после перехода. */
+.admin-root .admin-sidebar__link[aria-current='page'] .admin-sidebar__icon {
+  animation: adm-pop 420ms var(--adm-ease) both;
+}
+
+@keyframes adm-pop {
+  from { transform: scale(0.82); }
+  60% { transform: scale(1.06); }
+  to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .admin-sweep,
+  .admin-root .admin-content__inner > *,
+  .admin-root .admin-stack > *,
+  .admin-root .adm-tiles > *,
+  .admin-root .admin-sidebar__link[aria-current='page'] .admin-sidebar__icon {
+    animation: none;
+  }
+
+  .admin-root .admin-sweep {
+    display: none;
   }
 }
 

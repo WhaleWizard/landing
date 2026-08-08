@@ -1251,6 +1251,13 @@ export default function Admin() {
           задана в admin-theme.css, а не здесь, поэтому цвет и разметка не
           расходятся при добавлении раздела. */}
       <div className="admin-app" data-section={currentNavKey}>
+        {/*
+          Световая волна при смене раздела. key по разделу обязателен:
+          CSS-анимация запускается на монтировании узла, и без пересоздания
+          она проиграла бы один раз за загрузку страницы, а не на каждом
+          переходе.
+        */}
+        <span className="admin-sweep" key={`sweep-${currentNavKey}`} aria-hidden="true" />
         <header className="admin-topbar" ref={topbarRef}>
           <div className="admin-topbar__inner">
             <div className="admin-topbar__brand">
