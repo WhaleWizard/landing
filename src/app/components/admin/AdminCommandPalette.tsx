@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Command } from 'cmdk';
 import { Search } from 'lucide-react';
@@ -37,6 +37,11 @@ interface AdminCommandPaletteProps {
 
 export default function AdminCommandPalette({ open, onOpenChange, groups }: AdminCommandPaletteProps) {
   const [search, setSearch] = useState('');
+  // Куда вернуть фокус после закрытия. Radix отдаёт его элементу-триггеру, а
+  // здесь триггера нет: палитру открывают кнопкой из шапки и с Ctrl+K из
+  // любого места. Без этого фокус уходил в body, и после Esc человек с
+  // клавиатуры оказывался в начале страницы.
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -54,13 +59,32 @@ export default function AdminCommandPalette({ open, onOpenChange, groups }: Admi
     if (!open) setSearch('');
   }, [open]);
 
+  // Снимок активного элемента делается в момент открытия — позже фокус уже
+  // внутри палитры.
+  useEffect(() => {
+    if (!open) return;
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, [open]);
+
   const visibleGroups = groups.filter((group) => group.items.length > 0);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="admin-cmdk__overlay" />
-        <Dialog.Content className="admin-cmdk__content" aria-describedby={undefined}>
+        <Dialog.Content
+          className="admin-cmdk__content"
+          aria-describedby={undefined}
+          onCloseAutoFocus={(event) => {
+            const target = restoreFocusRef.current;
+            // isConnected: команда могла перерисовать раздел, и прежней
+            // кнопки в документе уже нет — тогда пусть работает поведение
+            // Radix по умолчанию.
+            if (!target || !target.isConnected) return;
+            event.preventDefault();
+            target.focus();
+          }}
+        >
           <Dialog.Title className="admin-cmdk__srtitle">Командная палитра</Dialog.Title>
           <Command label="Командная палитра" loop className="admin-cmdk">
             <div className="admin-cmdk__search">

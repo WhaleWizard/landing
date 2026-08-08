@@ -1,6 +1,16 @@
 // Стили админки живут здесь, а не в глобальном index.css: иначе их 74 КБ
 // попадают в блокирующую рендер таблицу стилей каждой публичной страницы.
+//
+// Шрифты подключены здесь же и по той же причине: Onest и Inter нужны только
+// админке, публичные страницы остаются на системном стеке. Пакеты отдают
+// woff2 из проекта — со сторонних доменов ничего не грузится, поэтому CSP
+// трогать не пришлось. Браузер скачивает только кириллицу и латиницу:
+// подмножества разделены unicode-range.
+import '@fontsource-variable/onest';
+import '@fontsource-variable/inter';
 import '../../styles/admin-ui.css';
+// Строго после admin-ui.css: слой темы переопределяет её поверхности.
+import '../../styles/admin-theme.css';
 import { useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, useReducedMotion } from 'motion/react';
@@ -227,73 +237,6 @@ function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPane
   );
 }
 
-// Светлая тема раньше отставала от тёмной по контрасту: подписи, подсказки и
-// цветные статусы держались на 3,3–4,3:1 против 5–9:1 в тёмной, из-за чего
-// половина текста выглядела выцветшей. Тона ниже пересчитаны так, чтобы каждый
-// проходил 4,5:1 на всех четырёх поверхностях админки.
-const themeTokens = {
-  light: {
-    '--adm-surface-canvas': '#f4f6fb',
-    '--adm-surface-elevated': '#ffffff',
-    '--adm-surface-raised': '#fbfcff',
-    '--adm-surface-subtle': '#edf1f7',
-    '--adm-text-primary': '#171c28',
-    '--adm-text-secondary': '#495264',
-    '--adm-text-tertiary': '#646d80',
-    '--adm-border-subtle': '#d3dae6',
-    '--adm-border-strong': '#b9c3d4',
-    '--adm-primary': '#6958e8',
-    '--adm-primary-strong': '#5544d5',
-    '--adm-success': '#0f6d52',
-    '--adm-warning': '#9a5c00',
-    '--adm-danger': '#c62d4f',
-    '--adm-info': '#1f68b8',
-    '--adm-shadow-xs': '0 1px 2px rgba(24, 31, 47, 0.05)',
-    '--adm-shadow-sm': '0 8px 24px rgba(24, 31, 47, 0.08)',
-    '--adm-shadow-md': '0 16px 36px rgba(24, 31, 47, 0.11)',
-    '--adm-shadow-lg': '0 22px 52px rgba(24, 31, 47, 0.16)',
-    '--adm-bg': 'var(--adm-surface-canvas)',
-    '--adm-fg': 'var(--adm-text-primary)',
-    '--adm-card': 'var(--adm-surface-elevated)',
-    '--adm-muted': 'var(--adm-surface-subtle)',
-    '--adm-border': 'var(--adm-border-subtle)',
-    '--adm-textarea-bg': 'var(--adm-surface-raised)',
-    '--adm-input-bg': 'var(--adm-surface-raised)',
-    '--adm-button-bg': 'var(--adm-primary)',
-    '--adm-button-text': '#ffffff',
-  },
-  dark: {
-    '--adm-surface-canvas': '#0d1119',
-    '--adm-surface-elevated': '#151b26',
-    '--adm-surface-raised': '#111722',
-    '--adm-surface-subtle': '#202938',
-    '--adm-text-primary': '#eef2f8',
-    '--adm-text-secondary': '#acb5c6',
-    '--adm-text-tertiary': '#7f8a9f',
-    '--adm-border-subtle': 'rgba(148, 163, 190, 0.21)',
-    '--adm-border-strong': 'rgba(159, 174, 202, 0.36)',
-    '--adm-primary': '#9185ff',
-    '--adm-primary-strong': '#7466ed',
-    '--adm-success': '#51c69a',
-    '--adm-warning': '#f2b55f',
-    '--adm-danger': '#ff7898',
-    '--adm-info': '#6db5ff',
-    '--adm-shadow-xs': '0 1px 2px rgba(0, 0, 0, 0.22)',
-    '--adm-shadow-sm': '0 10px 28px rgba(0, 0, 0, 0.2)',
-    '--adm-shadow-md': '0 18px 42px rgba(0, 0, 0, 0.28)',
-    '--adm-shadow-lg': '0 24px 58px rgba(0, 0, 0, 0.36)',
-    '--adm-bg': 'var(--adm-surface-canvas)',
-    '--adm-fg': 'var(--adm-text-primary)',
-    '--adm-card': 'var(--adm-surface-elevated)',
-    '--adm-muted': 'var(--adm-surface-subtle)',
-    '--adm-border': 'var(--adm-border-subtle)',
-    '--adm-textarea-bg': 'var(--adm-surface-raised)',
-    '--adm-input-bg': 'var(--adm-surface-raised)',
-    '--adm-button-bg': 'var(--adm-primary)',
-    '--adm-button-text': '#ffffff',
-  }
-};
-
 type AdminDensity = 'cozy' | 'compact';
 
 interface AdminThemeContextValue {
@@ -395,6 +338,48 @@ function useCardSpotlight() {
   }, []);
 }
 
+/*
+ * Фактическая высота шапки — в переменную. На неё опираются липкие панели
+ * внутри разделов (--adm-sticky-top), а записана она была числом 60px. Стоило
+ * шапке стать выше — на узком экране она переносится в две строки — и панели
+ * уезжали под неё. Наблюдатель за размером снимает вопрос навсегда: любая
+ * будущая правка шапки больше не ломает липкие панели.
+ */
+function useTopbarHeight() {
+  // Ref-функция, а не useRef: до входа шапки в разметке нет, и эффект с
+  // обычным ref отработал бы один раз на пустоте и больше не запустился —
+  // объект ref не меняется, зависимость не срабатывает. Состояние меняется
+  // ровно тогда, когда узел появляется и исчезает.
+  const [node, setNode] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!node) return undefined;
+    // Переменную нужно писать на .admin-root: она же объявляет её значение по
+    // умолчанию, и запись на body ниже по каскаду просто не видна.
+    const scope = node.closest('.admin-root') as HTMLElement | null;
+    if (!scope) return undefined;
+
+    // Пишем в отдельную переменную, а не в --adm-topbar-height. Та задаёт
+    // шапке min-height: записав в неё измеренную высоту, наблюдатель получал
+    // петлю — шапка запоминала свой самый высокий размер и уже не могла стать
+    // ниже при возврате на широкий экран.
+    const apply = (height: number) => {
+      if (height > 0) scope.style.setProperty('--adm-topbar-measured', `${Math.round(height)}px`);
+    };
+    apply(node.getBoundingClientRect().height);
+
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => apply(entries[0]?.contentRect.height || 0));
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      scope.style.removeProperty('--adm-topbar-measured');
+    };
+  }, [node]);
+
+  return setNode;
+}
+
 function AdminThemeProvider({ children }: { children: React.ReactNode }) {
   useCardSpotlight();
   const [mode, setMode] = useState<'light' | 'dark'>(() => {
@@ -403,15 +388,14 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
+  // Атрибут на body — единственное, что ставит JS. Сами значения живут в
+  // admin-theme.css: инлайновые стили побеждали бы таблицу стилей, и обе темы
+  // пришлось бы держать в двух местах сразу.
   useEffect(() => {
     localStorage.setItem('ww-admin-theme', mode);
     document.body.dataset.adminTheme = mode;
-    Object.entries(themeTokens[mode]).forEach(([name, value]) => {
-      document.body.style.setProperty(name, value);
-    });
     return () => {
       delete document.body.dataset.adminTheme;
-      Object.keys(themeTokens[mode]).forEach((name) => document.body.style.removeProperty(name));
     };
   }, [mode]);
 
@@ -431,11 +415,9 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('ww-admin-density', density);
   }, [density]);
 
-  const vars = themeTokens[mode] as React.CSSProperties;
-
   return (
     <AdminThemeContext.Provider value={{ mode, toggleMode, density, setDensity }}>
-      <div style={{ ...vars, minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode} data-density={density}>
+      <div style={{ minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode} data-density={density}>
         <div className="admin-shell bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
           <AdminConfirmProvider>{children}</AdminConfirmProvider>
           <AdminToaster theme={mode} />
@@ -1134,6 +1116,8 @@ export default function Admin() {
       ],
     },
   ];
+  const topbarRef = useTopbarHeight();
+
   const adminNavigation = adminNavGroups.flatMap((group) => group.items);
   const currentSection = adminNavigation.find((item) => item.key === currentNavKey);
   const navigateToAdminSection = (destination: AdminNavKey) => {
@@ -1263,8 +1247,11 @@ export default function Admin() {
     <AdminThemeProvider>
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
       <AdminCommandHost open={paletteOpen} onOpenChange={setPaletteOpen} groups={commandGroups} />
-      <div className="admin-app">
-        <header className="admin-topbar">
+      {/* data-section красит обложку раздела и активный пункт меню: пара тонов
+          задана в admin-theme.css, а не здесь, поэтому цвет и разметка не
+          расходятся при добавлении раздела. */}
+      <div className="admin-app" data-section={currentNavKey}>
+        <header className="admin-topbar" ref={topbarRef}>
           <div className="admin-topbar__inner">
             <div className="admin-topbar__brand">
               <WhaleMark size="var(--adm-header-whale-size)" className="admin-brand-whale" priority />

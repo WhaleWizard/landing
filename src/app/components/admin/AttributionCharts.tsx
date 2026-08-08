@@ -395,9 +395,13 @@ function TrendChart({
         onBlur={() => setActiveIndex(null)}
       >
         <defs>
+          {/* Три точки, а не две: заливка гаснет быстрее вверху и дольше
+              тянется внизу, поэтому под линией читается объём, а не ровный
+              треугольник цвета. */}
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--adm-trend-color)" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="var(--adm-trend-color)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--adm-trend-color)" stopOpacity="0.42" />
+            <stop offset="55%" stopColor="var(--adm-trend-color)" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="var(--adm-trend-color)" stopOpacity="0.01" />
           </linearGradient>
         </defs>
         {[0.25, 0.5, 0.75].map((step) => (

@@ -130,6 +130,52 @@ function GoalRing({
   );
 }
 
+/**
+ * Конфетти в момент, когда план по заявкам закрыт.
+ *
+ * Правила, из-за которых это не превращается в раздражитель:
+ * — только текущий месяц: листая прошлые, салюта не будет;
+ * — один раз на месяц, факт записан в localStorage;
+ * — при системной настройке «меньше движения» не срабатывает совсем.
+ * Библиотека грузится по требованию — ради салюта раз в месяц её не стоит
+ * держать в основном куске админки.
+ */
+function useGoalCelebration(
+  period: string,
+  goal: Goal | undefined,
+  fact: PeriodFact | undefined,
+) {
+  useEffect(() => {
+    if (!goal || !fact) return;
+    if (period !== currentPeriod()) return;
+    if (goal.leads_target <= 0 || fact.leads < goal.leads_target) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    const key = `ww-admin-goal-party-${period}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, '1');
+    } catch {
+      // Приватный режим: без памяти о салюте лучше не показывать его вовсе,
+      // чем запускать при каждом открытии раздела.
+      return;
+    }
+
+    let cancelled = false;
+    void import('canvas-confetti').then(({ default: confetti }) => {
+      if (cancelled) return;
+      const common = { spread: 74, startVelocity: 42, ticks: 160, scalar: 0.9, disableForReducedMotion: true };
+      const colors = ['#a78bfa', '#8b5cf6', '#60a5fa', '#3b82f6', '#c4b5fd'];
+      confetti({ ...common, particleCount: 70, origin: { x: 0.2, y: 0.35 }, angle: 62, colors });
+      confetti({ ...common, particleCount: 70, origin: { x: 0.8, y: 0.35 }, angle: 118, colors });
+    }).catch(() => {
+      // Салют — украшение. Если чанк не догрузился, раздел работает как был.
+    });
+
+    return () => { cancelled = true; };
+  }, [fact, goal, period]);
+}
+
 /** Раздел «Цели»: план на месяц, факт, прогноз и траектория по месяцам. */
 export default function AdminGoals({ password }: { password: string }) {
   const [period, setPeriod] = useState(currentPeriod);
@@ -209,6 +255,8 @@ export default function AdminGoals({ password }: { password: string }) {
   const history = useMemo(() => (data?.history || []).filter((item) => (
     item.goal || item.fact.leads > 0 || (item.fact.spend || 0) > 0
   )), [data]);
+
+  useGoalCelebration(period, goal, fact);
 
   const profit = fact && fact.revenue !== null && fact.spend !== null ? fact.revenue - fact.spend : null;
   const romi = fact && fact.revenue !== null && fact.spend !== null && fact.spend > 0
