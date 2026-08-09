@@ -3,9 +3,11 @@ import { router } from '../../routes';
 import {
   ensureAnalyticsLoaded,
   ensureMarketingLoaded,
+  isTrackingExcludedPath,
   loadConsent,
   onOpenCookieSettings,
   openCookieSettings,
+  prepareTrackingQueues,
   requiresConsentByDefault,
   resolveGeo,
   saveConsent,
@@ -32,26 +34,113 @@ const DOCS: Record<DocKey, { link: string; title: string }> = {
   cookie: { link: 'Cookie', title: 'Политика cookie' },
 };
 
-function applyConsent(consent: ConsentRecord): void {
-  updateConsentState(consent.categories);
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+
+let pendingAnalyticsRuntime = false;
+let pendingMarketingRuntime = false;
+let cancelScheduledRuntimeLoad: (() => void) | null = null;
+
+function cancelPendingTrackingRuntimeLoad(): void {
+  cancelScheduledRuntimeLoad?.();
+  cancelScheduledRuntimeLoad = null;
+  pendingAnalyticsRuntime = false;
+  pendingMarketingRuntime = false;
+}
+
+function loadPendingTrackingRuntimes(): void {
+  cancelScheduledRuntimeLoad?.();
+  cancelScheduledRuntimeLoad = null;
+
+  if (isTrackingExcludedPath(router.state.location.pathname)) {
+    pendingAnalyticsRuntime = false;
+    pendingMarketingRuntime = false;
+    return;
+  }
+
+  const currentConsent = loadConsent();
+  const loadAnalytics = pendingAnalyticsRuntime && currentConsent?.categories.analytics === true;
+  const loadMarketing = pendingMarketingRuntime && currentConsent?.categories.marketing === true;
+  pendingAnalyticsRuntime = false;
+  pendingMarketingRuntime = false;
+
   const tasks: Promise<void>[] = [];
+  if (loadAnalytics) tasks.push(ensureAnalyticsLoaded());
+  if (loadMarketing) tasks.push(ensureMarketingLoaded());
+  void Promise.allSettled(tasks);
+}
 
-  if (consent.categories.analytics) {
-    tasks.push(ensureAnalyticsLoaded());
+function scheduleTrackingRuntimeLoad(
+  categories: Pick<ConsentCategories, 'analytics' | 'marketing'>,
+  immediate = false,
+): void {
+  if (isTrackingExcludedPath(router.state.location.pathname)) {
+    cancelPendingTrackingRuntimeLoad();
+    return;
   }
 
-  if (consent.categories.marketing) {
-    tasks.push(ensureMarketingLoaded());
-  }
+  pendingAnalyticsRuntime ||= categories.analytics;
+  pendingMarketingRuntime ||= categories.marketing;
+  if (!pendingAnalyticsRuntime && !pendingMarketingRuntime) return;
 
-  void Promise.allSettled(tasks).then(() => {
-    const location = router.state.location;
-    const path = location.pathname;
-    if (consent.categories.analytics || consent.categories.marketing) {
-      trackPageView(path, { marketing: consent.categories.marketing });
-      trackServiceViewContent(path, { marketing: consent.categories.marketing });
-    }
-  });
+  if (immediate) {
+    loadPendingTrackingRuntimes();
+    return;
+  }
+  if (cancelScheduledRuntimeLoad) return;
+
+  const idleWindow = window as IdleWindow;
+  let delayId: number | undefined;
+  let idleId: number | undefined;
+  let loadListenerAttached = false;
+
+  const cleanup = () => {
+    if (delayId !== undefined) window.clearTimeout(delayId);
+    if (idleId !== undefined) idleWindow.cancelIdleCallback?.(idleId);
+    if (loadListenerAttached) window.removeEventListener('load', scheduleAfterLoad);
+    window.removeEventListener('pointerdown', runEarly);
+    window.removeEventListener('keydown', runEarly);
+    window.removeEventListener('touchstart', runEarly);
+  };
+  const run = () => loadPendingTrackingRuntimes();
+  const runEarly = () => run();
+  const scheduleAfterLoad = () => {
+    loadListenerAttached = false;
+    // Third-party analytics is deliberately outside the render path. Browser
+    // events are already queued and server PageView/CAPI events are sent now.
+    delayId = window.setTimeout(() => {
+      if (typeof idleWindow.requestIdleCallback === 'function') {
+        idleId = idleWindow.requestIdleCallback(run, { timeout: 2_000 });
+      } else {
+        run();
+      }
+    }, 4_000);
+  };
+
+  cancelScheduledRuntimeLoad = cleanup;
+  window.addEventListener('pointerdown', runEarly, { once: true, passive: true });
+  window.addEventListener('keydown', runEarly, { once: true });
+  window.addEventListener('touchstart', runEarly, { once: true, passive: true });
+
+  if (document.readyState === 'complete') scheduleAfterLoad();
+  else {
+    loadListenerAttached = true;
+    window.addEventListener('load', scheduleAfterLoad, { once: true });
+  }
+}
+
+function applyConsent(consent: ConsentRecord, immediateRuntimeLoad = false): void {
+  prepareTrackingQueues(consent.categories);
+  updateConsentState(consent.categories);
+  const location = router.state.location;
+  const path = location.pathname;
+  if (consent.categories.analytics || consent.categories.marketing) {
+    trackPageView(path, { marketing: consent.categories.marketing });
+    trackServiceViewContent(path, { marketing: consent.categories.marketing });
+  }
+  scheduleTrackingRuntimeLoad(consent.categories, immediateRuntimeLoad);
 }
 
 function Switch({
@@ -113,11 +202,13 @@ export default function CookieConsentManager() {
 
   const consentRef = useRef<ConsentRecord | null>(null);
 
+  useEffect(() => () => cancelPendingTrackingRuntimeLoad(), []);
+
   const saveAndApply = useCallback(
     (categories: Omit<ConsentCategories, 'necessary'>, source: ConsentRecord['source']) => {
       const consent = saveConsent(categories, region, source);
       consentRef.current = consent;
-      applyConsent(consent);
+      applyConsent(consent, true);
       setMode('hidden');
     },
     [region],
@@ -209,6 +300,13 @@ export default function CookieConsentManager() {
       if (pathname === previousPathname) return;
       previousPathname = pathname;
       if (pendingRouteTimer !== undefined) window.clearTimeout(pendingRouteTimer);
+      if (isTrackingExcludedPath(pathname)) {
+        cancelPendingTrackingRuntimeLoad();
+        return;
+      }
+
+      const consent = consentRef.current;
+      if (consent) scheduleTrackingRuntimeLoad(consent.categories);
       trackRouteWhenTitleIsReady(pathname);
     });
 

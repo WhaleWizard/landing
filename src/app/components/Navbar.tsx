@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { Menu, X, Briefcase, Trophy, Newspaper, Star, HelpCircle, Phone, Calculator, ChevronRight } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
-import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import BrandLogo from './brand/BrandLogo';
 
@@ -10,7 +9,7 @@ type NavbarVariant = 'home' | 'service' | 'content';
 const NAV_ICONS: Record<string, typeof Briefcase> = {
   'Услуги': Briefcase,
   'Кейсы': Trophy,
-  'Примеры проектов': Trophy,
+  'Все кейсы': Trophy,
   'Блог': Newspaper,
   'Отзывы': Star,
   'О нас': Star,
@@ -134,11 +133,11 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   const navItems = variant === 'service'
     ? [
       { label: 'Услуги', action: () => scrollToSection('services') },
-      { label: 'Примеры проектов', action: () => scrollToSection('cases') },
+      { label: 'Кейсы', action: () => scrollToSection('cases') },
       { label: 'Отзывы', action: () => scrollToSection('about') },
       // Со страниц услуг раньше не было выхода в контентные разделы:
       // все пункты вели на якоря внутри той же страницы.
-      { label: 'Кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); } },
+      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); } },
       { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); } },
     ]
     : variant === 'content'
@@ -182,22 +181,20 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
             {/* Десктопное меню */}
             <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-              {navItems.map((item, idx) => (
-                <motion.button
+              {navItems.map((item) => (
+                <button
                   key={item.label}
                   onClick={item.action}
                   aria-current={isContentItemActive(item.label) ? 'page' : undefined}
-                  className={`relative transition-colors group ${
+                  className={`relative transition-[color,transform] duration-200 hover:-translate-y-0.5 group ${
                     isContentItemActive(item.label)
                       ? 'text-primary'
                       : 'text-foreground/80 hover:text-primary'
                   }`}
-                  whileHover={{ y: -2 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   {item.label}
                   <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full ${isContentItemActive(item.label) ? 'w-full' : 'w-0'}`} />
-                </motion.button>
+                </button>
               ))}
               <Button
                 onClick={() => scrollToSection('contact')}
@@ -224,26 +221,17 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       </nav>
 
       {/* Мобильное меню — выезжающая панель */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+      {isMobileMenuOpen && (
+          <div
             className="fixed inset-0 z-[60] lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
-            <motion.div
+            <div
               id="mobile-navigation"
               role="dialog"
               aria-modal="true"
               aria-label="Основная навигация"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 320, damping: 34 }}
               className="absolute right-0 top-0 flex h-full w-[85%] max-w-sm flex-col border-l border-border bg-card/95 shadow-2xl backdrop-blur-2xl"
               onClick={(e) => e.stopPropagation()}
             >
@@ -271,19 +259,14 @@ function Navbar({ variant = 'home' }: NavbarProps) {
               </div>
 
               <nav className="flex-1 overflow-y-auto px-3 py-3">
-                {navItems.map((item, idx) => {
+                {navItems.map((item) => {
                   const Icon = NAV_ICONS[item.label] ?? Briefcase;
                   return (
-                    <motion.button
+                    <button
                       key={item.label}
                       onClick={item.action}
                       aria-current={isContentItemActive(item.label) ? 'page' : undefined}
-                      initial={{ opacity: 0, x: 16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 12 }}
-                      transition={{ delay: idx * 0.035, duration: 0.2 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-primary/10 active:bg-primary/15 ${isContentItemActive(item.label) ? 'bg-primary/10' : ''}`}
+                      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-[background-color,transform] hover:bg-primary/10 active:scale-[0.98] active:bg-primary/15 ${isContentItemActive(item.label) ? 'bg-primary/10' : ''}`}
                     >
                       <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
                         <Icon className="h-[18px] w-[18px]" />
@@ -292,18 +275,12 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                         {item.label}
                       </span>
                       <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground/50 transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
-                    </motion.button>
+                    </button>
                   );
                 })}
               </nav>
 
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ delay: 0.14, duration: 0.18 }}
-                className="border-t border-border/60 p-4"
-              >
+              <div className="border-t border-border/60 p-4">
                 <Button
                   onClick={() => {
                     scrollToSection('contact');
@@ -315,11 +292,10 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
                   <span className="relative">Обсудить проект</span>
                 </Button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+            </div>
+          </div>
+      )}
     </>
   );
 }

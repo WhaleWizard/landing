@@ -7,6 +7,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function migrateLegacyPublishedContent(cacheKey: string, override: unknown): unknown {
+  if (cacheKey !== 'service:meta-ads' || !isRecord(override) || !isRecord(override.cases)) {
+    return override;
+  }
+
+  const legacyCases = override.cases;
+  const isLegacyProblemSection = legacyCases.badge === 'С чем чаще всего приходят'
+    && legacyCases.titlePrefix === 'Где теряется результат'
+    && legacyCases.titleAccent === 'в Meta Ads';
+  if (!isLegacyProblemSection) return override;
+
+  // This exact published block predates the real case cards introduced in the
+  // source config. Drop only that stale section; all other CMS edits remain
+  // authoritative, and any newly published case heading will merge normally.
+  const { cases: _legacyCases, ...currentOverride } = override;
+  return currentOverride;
+}
+
 export function mergeContent<T>(base: T, override: unknown): T {
   if (Array.isArray(base)) {
     if (!Array.isArray(override)) return base;
@@ -63,7 +81,7 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
   const [content, setContent] = useState<T>(() => {
     if (!cacheKey) return fallback;
     const cached = serviceContentCache.get(cacheKey);
-    return cached ? mergeContent(fallback, cached) : fallback;
+    return cached ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, cached)) : fallback;
   });
 
   useEffect(() => {
@@ -73,13 +91,13 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
     }
     setContent(() => {
       const cached = serviceContentCache.get(cacheKey);
-      return cached ? mergeContent(fallback, cached) : fallback;
+      return cached ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, cached)) : fallback;
     });
     let active = true;
     void loadSiteContent(cacheKey)
       .then((loaded) => {
         if (!active || !loaded) return;
-        setContent(mergeContent(fallback, loaded));
+        setContent(mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, loaded)));
       })
       .catch(() => {
         // Публичная страница всегда остаётся на статическом проверенном тексте.

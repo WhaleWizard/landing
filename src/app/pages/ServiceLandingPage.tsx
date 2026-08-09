@@ -1,10 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { motion, useInView } from 'motion/react';
 import { BarChart3, Briefcase, CheckCircle2, Search, ShoppingCart, Sparkles, Target, TrendingUp, Users, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import Hero, { type HeroContent } from '../components/Hero';
+import type { HeroContent } from '../components/Hero';
 import MetaAdsEditorialHero from '../components/service-heroes/MetaAdsEditorialHero';
-import ConsultStudioHero from '../components/service-heroes/ConsultStudioHero';
 import SEO from '../components/SEO';
 import type { ServicesContent } from '../components/Services';
 import type { CasesContent } from '../components/Cases';
@@ -26,6 +24,8 @@ const CallToAction = lazy(() => import('../components/CallToAction'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
 const LandingForm = lazy(() => import('../components/LandingForm'));
 const Footer = lazy(() => import('../components/Footer'));
+const Hero = lazy(() => import('../components/Hero'));
+const ConsultStudioHero = lazy(() => import('../components/service-heroes/ConsultStudioHero'));
 
 export type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 
@@ -128,6 +128,13 @@ const CASE_IMAGES = {
   b2c: '/images/case-b2c.jpg',
 };
 
+const META_ADS_CASE_IMAGES = {
+  concierge: '/images/meta-ads-case-concierge-v2.webp',
+  ecommerce: '/images/meta-ads-case-ecommerce-v2.webp',
+  education: '/images/meta-ads-case-education-v2.webp',
+  b2c: '/images/meta-ads-case-b2c-services-v2.webp',
+};
+
 export const META_APPS_TESTIMONIAL_CONTENT: TestimonialsContent = {
   badge: 'Отзывы о работе',
   titlePrefix: 'Клиенты ценят',
@@ -156,7 +163,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
         'Подключаю Pixel, CAPI и продажи из CRM, чтобы Meta училась на покупателях, а бюджет уходил в кампании, которые приводят клиентов.',
       ],
       primaryButton: 'Разобрать рекламу',
-      secondaryButton: 'Частые ситуации',
+      secondaryButton: 'Перейти к кейсам',
       stats: [
         { value: 'Pixel', label: 'что делают люди на сайте' },
         { value: 'CAPI', label: 'продажи уходят в Meta' },
@@ -226,53 +233,53 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
       },
     },
     cases: {
-      badge: 'С чем чаще всего приходят',
-      titlePrefix: 'Где теряется результат',
-      titleAccent: 'в Meta Ads',
-      description: 'Лиды могут быть дорогими, не доходить до продаж, расходиться с аналитикой или перестать расти в объёме. Для каждой причины нужна своя проверка — универсальной «оптимизации кабинета» здесь нет.',
+      badge: 'Опубликованные кейсы',
+      titlePrefix: 'Кейсы с лучшими',
+      titleAccent: 'результатами',
+      description: 'Четыре опубликованных кейса из разных ниш. В карточках — фактические показатели проектов; названия клиентов скрыты по условиям NDA.',
       items: [
         {
-          title: 'Лиды есть, продаж мало',
-          category: 'Услуги и B2B',
-          description: 'Возвращаем из CRM статусы квалификации и продажи, чтобы видеть не только CPL, но и стоимость клиента.',
-          image: CASE_IMAGES.concierge,
+          title: 'Премиум-консьерж: лиды по качеству, а не по CPL',
+          category: 'Премиум-сервисы · Meta Ads',
+          description: 'За четыре года связали рекламу со статусами из CRM и оптимизировали кампании на платёжеспособные обращения, а не на минимальную цену формы.',
+          image: META_ADS_CASE_IMAGES.concierge,
           stats: [
-            { label: 'Заявка', value: 'CPL' },
-            { label: 'Качество', value: 'CRM' },
-            { label: 'Клиент', value: 'CAC' },
+            { label: 'Срок', value: '4 года' },
+            { label: 'Лиды', value: '65 000+' },
+            { label: 'Бюджет', value: '$1 млн+' },
           ],
         },
         {
-          title: 'Лиды слишком дорогие',
-          category: 'Лидогенерация',
-          description: 'Проверяем оффер, креатив, форму и посадочную по цепочке, чтобы понять, где именно теряется конверсия.',
-          image: CASE_IMAGES.info,
+          title: 'E-commerce: продажи по маржинальной экономике',
+          category: 'Интернет-магазин · Google + Meta',
+          description: 'Search и Shopping собирали горячий спрос, Meta возвращала аудиторию; решения принимались по покупкам и ROI с учётом маржи.',
+          image: META_ADS_CASE_IMAGES.ecommerce,
           stats: [
-            { label: 'Объявление', value: 'CTR' },
-            { label: 'Страница', value: 'CR' },
-            { label: 'Заявка', value: 'CPL' },
+            { label: 'В корзину', value: '120 000+' },
+            { label: 'Покупки', value: '30 000+' },
+            { label: 'ROI', value: '210%' },
           ],
         },
         {
-          title: 'Продажи есть, экономика не сходится',
-          category: 'E-commerce',
-          description: 'Проверяем Purchase, сумму покупки, CAPI, каталог и маржу. Оптимизируем кампании по продажам или выручке, когда данных уже достаточно.',
-          image: CASE_IMAGES.ecommerce,
+          title: 'Онлайн-образование: воронка до оплаты',
+          category: 'Инфопродукты · Google + Meta',
+          description: 'Вели русскоязычные кампании в нескольких регионах и считали результат по фактическим оплатам, а не по количеству дешёвых регистраций.',
+          image: META_ADS_CASE_IMAGES.education,
           stats: [
-            { label: 'Покупка', value: 'CPA' },
-            { label: 'Выручка', value: 'ROAS' },
-            { label: 'Экономика', value: 'Маржа' },
+            { label: 'Бюджет', value: '$600k+' },
+            { label: 'CPL', value: 'до $5' },
+            { label: 'ROI', value: '180%' },
           ],
         },
         {
-          title: 'Кампании упёрлись в объём',
-          category: 'Масштабирование',
-          description: 'Добавляем новые креативные направления и увеличиваем бюджет поэтапно — с контролем цены и качества результата.',
-          image: CASE_IMAGES.b2c,
+          title: 'B2C-услуги: повторяемая система локального спроса',
+          category: 'Сводный кейс · B2C',
+          description: 'Сводный опыт по салонам, клиникам, фитнесу и обучению: локальный спрос, ясный оффер и быстрая обработка заявок.',
+          image: META_ADS_CASE_IMAGES.b2c,
           stats: [
-            { label: 'Расход', value: 'Бюджет' },
-            { label: 'Результат', value: 'CPA' },
-            { label: 'Показы', value: 'Частота' },
+            { label: 'Проектов', value: '50+' },
+            { label: 'CPL', value: 'до $25' },
+            { label: 'ROI', value: 'до 300%' },
           ],
         },
       ],
@@ -850,7 +857,9 @@ function DeferredSection({
         mount();
       },
       {
-        rootMargin: '1400px 0px',
+        // Keep below-the-fold animation bundles out of the initial mobile
+        // render while still mounting a section shortly before it is visible.
+        rootMargin: '240px 0px',
         threshold: 0,
       },
     );
@@ -903,12 +912,27 @@ function DeferredSection({
 
 function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProps, 'service' | 'contact' | 'theme'>) {
   const sectionRef = useRef<HTMLElement>(null);
+  const [orbsInView, setOrbsInView] = useState(false);
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(contact.typography, { minFontSize: 16 });
   // Соседние секции монтируются только при приближении к viewport. Эта — нет,
   // поэтому её пятна размытием в 128px пульсировали
   // всё время, даже когда до формы ещё далеко. Ставим на паузу за пределами
   // экрана: пока пятно видно, оно ведёт себя ровно как раньше.
-  const orbsInView = useInView(sectionRef, { margin: '200px' });
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || typeof IntersectionObserver === 'undefined') {
+      setOrbsInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setOrbsInView(entry?.isIntersecting === true),
+      { rootMargin: '200px' },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
   const orbPlayState = orbsInView ? 'running' : 'paused';
 
   return (
@@ -925,13 +949,7 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-60px', amount: 0.2 }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="text-center lg:text-left"
-          >
+          <div className="text-center lg:text-left">
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6 backdrop-blur-sm ${theme.badgeClassName}`}>
               <Sparkles className={`w-4 h-4 ${theme.sparkleClassName}`} />
               <span className={`text-sm font-semibold ${theme.labelClassName}`}>{contact.badge}</span>
@@ -951,29 +969,20 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
             <div className="space-y-4 max-w-md mx-auto lg:mx-0">
               {/* Ключ по позиции: два одинаковых пункта — законный ввод. */}
               {contact.bullets.map((item, i) => (
-                <motion.div
+                <div
                   key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08, duration: 0.35 }}
                   className="flex items-center gap-3 text-left"
                 >
                   <div className={`w-6 h-6 rounded-full bg-gradient-to-r ${theme.checkGradientClassName} flex items-center justify-center shrink-0 shadow-lg ${theme.shadowClassName}`}>
                     <CheckCircle2 className="w-4 h-4 text-white" />
                   </div>
                   <span className="text-foreground">{item}</span>
-                </motion.div>
+                </div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-60px', amount: 0.2 }}
-            transition={{ duration: 0.45, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-          >
+          <div>
             <Suspense
               fallback={
                 <div
@@ -984,7 +993,7 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
             >
               <LandingForm service={service} />
             </Suspense>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>
@@ -1032,16 +1041,18 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden" style={cssVars}>
       <SEO {...config.seo} />
       <Navbar variant="service" />
-      {service === 'meta-ads' ? (
-        <MetaAdsEditorialHero content={config.hero} />
-      ) : service === 'consult' ? (
-        <ConsultStudioHero content={config.hero} />
-      ) : (
-        <Hero
-          content={config.hero}
-          visual={service === 'meta-apps' ? 'meta-apps' : 'default'}
-        />
-      )}
+      <Suspense fallback={<div className="min-h-screen bg-background" aria-hidden="true" />}>
+        {service === 'meta-ads' ? (
+          <MetaAdsEditorialHero content={config.hero} />
+        ) : service === 'consult' ? (
+          <ConsultStudioHero content={config.hero} />
+        ) : (
+          <Hero
+            content={config.hero}
+            visual={service === 'meta-apps' ? 'meta-apps' : 'default'}
+          />
+        )}
+      </Suspense>
 
       {/* Высоты повторяют адаптивную геометрию секций до их монтирования:
           подвал — 1070/430, кейсы — 1050/1730 на mobile/desktop. */}

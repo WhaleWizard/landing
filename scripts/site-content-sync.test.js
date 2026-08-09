@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   loadPublishedSiteContent,
   mergePublishedContent,
+  migrateLegacyPublishedContent,
   SITE_CONTENT_KEYS,
   writeSiteContentSnapshot,
 } from './site-content-sync.js';
@@ -69,6 +70,29 @@ test('published block arrays control additions, deletions and empty optional lis
     { title: 'Another new card', icon: 'second-icon', visualSlot: 1 },
   ]);
   assert.deepEqual(merged.stats, []);
+});
+
+test('only the superseded Meta Ads problem block yields to the new source cases', () => {
+  const legacy = migrateLegacyPublishedContent('service:meta-ads', {
+    hero: { badge: 'Published hero stays' },
+    cases: {
+      badge: 'С чем чаще всего приходят',
+      titlePrefix: 'Где теряется результат',
+      titleAccent: 'в Meta Ads',
+      items: [{ title: 'Лиды есть, продаж мало' }],
+    },
+  });
+  assert.deepEqual(legacy, { hero: { badge: 'Published hero stays' } });
+
+  const current = {
+    cases: {
+      badge: 'Свежая редакция',
+      titlePrefix: 'Кейсы для',
+      titleAccent: 'новой ниши',
+    },
+  };
+  assert.equal(migrateLegacyPublishedContent('service:meta-ads', current), current);
+  assert.equal(migrateLegacyPublishedContent('service:google-ads', current), current);
 });
 
 test('D1 content is fetched for every supported section and stored as a build snapshot', async () => {

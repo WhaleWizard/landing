@@ -35,7 +35,7 @@ export default function WhaleMark({
       aria-label={label}
     >
       <picture className="ww-whale-mark__picture">
-        <source srcSet="/images/brand/whale-wizard-256.webp" type="image/webp" />
+        <source srcSet="/images/brand/whale-wizard-96.webp" type="image/webp" />
         <img
           className="ww-whale-mark__image"
           src="/images/brand/whale-wizard-256.png"

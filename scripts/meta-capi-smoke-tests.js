@@ -8,6 +8,7 @@ const files = {
   lead: readFileSync('functions/api/lead.ts', 'utf8'),
   metaEvent: readFileSync('functions/api/meta-event.ts', 'utf8'),
   consent: readFileSync('src/app/consent/consent.ts', 'utf8'),
+  cookieConsentManager: readFileSync('src/app/components/cookie/CookieConsentManager.tsx', 'utf8'),
   landingForm: readFileSync('src/app/components/LandingForm.tsx', 'utf8'),
   metaTestEvent: readFileSync('functions/api/meta-test-event.ts', 'utf8'),
   diagnosticsSummary: readFileSync('functions/api/meta-diagnostics-summary.ts', 'utf8'),
@@ -471,6 +472,51 @@ mustContain('Consent-gated advertising storage', files.consent, [
   'clearMetaMarketingStorage',
   "win.fbq?.('consent', categories.marketing ? 'grant' : 'revoke')",
 ]);
+
+mustContain('Deferred tracking keeps browser queues ready', files.consent, [
+  'export function prepareTrackingQueues',
+  'function prepareDirectAnalyticsQueues',
+  'function prepareMetaQueue',
+  'function prepareTiktokQueue',
+  'queuedYm.a.push(args)',
+  '(fbq as any).queue.push(args)',
+]);
+
+const applyConsentSource = files.cookieConsentManager.slice(
+  files.cookieConsentManager.indexOf('function applyConsent('),
+  files.cookieConsentManager.indexOf('\nfunction Switch('),
+);
+mustContain('Consent records events before loading third-party runtimes', applyConsentSource, [
+  'prepareTrackingQueues(consent.categories)',
+  'trackPageView(path',
+  'trackServiceViewContent(path',
+  'scheduleTrackingRuntimeLoad(consent.categories',
+]);
+assert.ok(
+  applyConsentSource.indexOf('trackPageView(path') < applyConsentSource.indexOf('scheduleTrackingRuntimeLoad(consent.categories'),
+  'PageView/CAPI must be recorded before third-party runtimes are scheduled',
+);
+assert.ok(
+  files.cookieConsentManager.includes("currentConsent?.categories.marketing === true"),
+  'Deferred marketing runtime must re-check current consent before loading',
+);
+mustContain('Deferred runtimes stay consent-safe across races and route changes', files.consent + files.cookieConsentManager, [
+  "hasCurrentTrackingConsent('analytics')",
+  "hasCurrentTrackingConsent('marketing')",
+  'externalScriptLoads',
+  'analyticsLoadPromise',
+  'marketingLoadPromise',
+  'cancelPendingTrackingRuntimeLoad',
+  'isTrackingExcludedPath(router.state.location.pathname)',
+]);
+assert.ok(
+  (files.consent.match(/hasCurrentTrackingConsent\('analytics'\)/g) || []).length >= 2,
+  'Analytics consent must be checked again before a subsequent vendor runtime',
+);
+assert.ok(
+  (files.consent.match(/hasCurrentTrackingConsent\('marketing'\)/g) || []).length >= 2,
+  'Marketing consent must be checked again before a subsequent vendor runtime',
+);
 assert.ok(!files.consent.includes('getExtendedMetaContext'), 'Unverified sensitive URL parameters must not be forwarded to Meta');
 assert.ok(!files.lead.includes('lead_crm_http_'), 'CRM delivery must not be written as a Meta CAPI diagnostic');
 assert.ok(!files.lead.includes('lead_crm_network_error'), 'CRM network failures must not be written as Meta CAPI diagnostics');

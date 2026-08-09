@@ -4,7 +4,7 @@
     <meta name="facebook-domain-verification" content="rkv5huzx499szow91h46697jhrei1d" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/images/brand/whale-wizard-favicon.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/images/brand/whale-wizard-favicon-64.png" />
     <title>Whale Wizard — Google Ads, Meta Ads и аналитика</title>
     <meta name="description" content="Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM." />
     <meta property="og:title" content="Whale Wizard — Google Ads, Meta Ads и аналитика" />
@@ -19,12 +19,11 @@
     <link rel="canonical" href="https://www.whalewzrd.com/" />
     <link rel="alternate" type="application/rss+xml" title="Whale Wizard Blog Feed" href="/feed.xml" />
     <!-- Preload картинок героя задаётся пораутно в scripts/generate-pages.js:
-         портрет нужен только на /, /meta-ads, /google-ads и /consult, а на
-         /meta-apps свой герой. Общий preload здесь заставлял все 28 страниц
+         портрет нужен только на / и /google-ads; у Meta Ads, консультации и
+         Meta Apps свои LCP-кадры. Общий preload здесь заставлял все 28 страниц
          тянуть чужую картинку с высшим приоритетом. -->
-    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
-    <link rel="preconnect" href="https://mc.yandex.ru" crossorigin />
-    <link rel="preconnect" href="https://connect.facebook.net" crossorigin />
+    <!-- Внешние счётчики загружаются после первого рендера, поэтому ранний
+         preconnect только конкурировал с LCP. DNS можно подготовить дёшево. -->
     <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
     <link rel="dns-prefetch" href="https://mc.yandex.ru" />
     <link rel="dns-prefetch" href="https://connect.facebook.net" />

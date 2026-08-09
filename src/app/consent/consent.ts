@@ -211,7 +211,14 @@ let ymLoaded = false;
 let metaLoaded = false;
 let ttLoaded = false;
 let gtmLoaded = false;
+let analyticsLoadPromise: Promise<void> | null = null;
+let marketingLoadPromise: Promise<void> | null = null;
 let analyticsConfigLogged = false;
+let gaQueuePrepared = false;
+let ymQueuePrepared = false;
+let gtmQueuePrepared = false;
+let metaQueuePrepared = false;
+let tiktokQueuePrepared = false;
 let lastTrackedPath = '';
 let lastTrackedAt = 0;
 let engagedViewTimerId: number | undefined;
@@ -221,7 +228,7 @@ function normalizeTrackingPath(path: string): string {
   return normalized === '/' ? '/' : normalized;
 }
 
-function isTrackingExcludedPath(path: string): boolean {
+export function isTrackingExcludedPath(path: string): boolean {
   return /^\/admin(?:\/|$)/.test(normalizeTrackingPath(path));
 }
 
@@ -251,21 +258,53 @@ function setAnalyticsRuntimeStatus(status: AnalyticsRuntimeStatus): void {
   (window as Window & { __wwAnalyticsRuntime?: AnalyticsRuntimeStatus }).__wwAnalyticsRuntime = status;
 }
 
-function appendExternalScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      resolve();
-      return;
-    }
+const externalScriptLoads = new Map<string, Promise<void>>();
 
-    const script = document.createElement('script');
-    script.src = src;
+function appendExternalScript(src: string): Promise<void> {
+  const absoluteSrc = new URL(src, document.baseURI).href;
+  const pending = externalScriptLoads.get(absoluteSrc);
+  if (pending) return pending;
+
+  const existing = Array.from(document.scripts).find((candidate) => candidate.src === absoluteSrc);
+  if (existing?.dataset.wwRuntimeLoaded === 'true') return Promise.resolve();
+  const existingReadyState = (existing as (HTMLScriptElement & { readyState?: string }) | undefined)?.readyState;
+  if (existing && (existingReadyState === 'loaded' || existingReadyState === 'complete')) {
+    existing.dataset.wwRuntimeLoaded = 'true';
+    return Promise.resolve();
+  }
+
+  const script = existing ?? document.createElement('script');
+  const ownedScript = !existing;
+  if (ownedScript) {
+    script.src = absoluteSrc;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Failed to load script ${src}`));
-    document.head.appendChild(script);
+    script.dataset.wwTrackingRuntime = 'true';
+  }
+
+  const load = new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+    };
+    const onLoad = () => {
+      cleanup();
+      script.dataset.wwRuntimeLoaded = 'true';
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      if (ownedScript) script.remove();
+      reject(new Error(`Failed to load script ${absoluteSrc}`));
+    };
+
+    script.addEventListener('load', onLoad, { once: true });
+    script.addEventListener('error', onError, { once: true });
+    if (ownedScript) document.head.appendChild(script);
   });
+
+  externalScriptLoads.set(absoluteSrc, load);
+  void load.catch(() => externalScriptLoads.delete(absoluteSrc));
+  return load;
 }
 
 function env(name: string): string {
@@ -319,6 +358,127 @@ function gtagShim(): (...args: unknown[]) => void {
   return win.gtag;
 }
 
+function prepareTagManagerQueue(gtmId: string): void {
+  if (!gtmId || gtmQueuePrepared) return;
+  const win = window as Window & { dataLayer?: unknown[] };
+  win.dataLayer = win.dataLayer || [];
+  win.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+  gtmQueuePrepared = true;
+}
+
+function prepareDirectAnalyticsQueues(gaId: string, ymId: number | null): void {
+  if (gaId && !gaQueuePrepared) {
+    const gtag = gtagShim();
+    gtag('js', new Date());
+    gtag('config', gaId, { anonymize_ip: true, send_page_view: false });
+    gaQueuePrepared = true;
+  }
+
+  if (ymId && !ymQueuePrepared) {
+    const win = window as unknown as Window & {
+      ym?: ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
+      dataLayer?: unknown[];
+      [key: `yaCounter${number}`]: unknown;
+    };
+    win.dataLayer = win.dataLayer || [];
+
+    if (!win.ym) {
+      const queuedYm = ((...args: unknown[]) => {
+        queuedYm.a = queuedYm.a || [];
+        queuedYm.a.push(args);
+      }) as ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
+      queuedYm.l = Date.now();
+      win.ym = queuedYm;
+    }
+
+    const existingCounterKey = `yaCounter${ymId}` as const;
+    if (typeof win[existingCounterKey] === 'undefined') {
+      win.ym(ymId, 'init', {
+        webvisor: true,
+        clickmap: true,
+        ecommerce: 'dataLayer',
+        referrer: document.referrer,
+        url: location.href,
+        accurateTrackBounce: true,
+        trackLinks: true,
+      });
+    }
+    ymQueuePrepared = true;
+  }
+}
+
+function prepareMetaQueue(metaId: string): void {
+  if (!metaId || metaQueuePrepared) return;
+
+  const win = window as Window & { fbq?: (...args: unknown[]) => void; _fbq?: (...args: unknown[]) => void };
+  if (!win.fbq) {
+    const fbq = (...args: unknown[]) => {
+      (fbq as any).callMethod
+        ? (fbq as any).callMethod.apply(fbq, args)
+        : (fbq as any).queue.push(args);
+    };
+    (fbq as any).loaded = true;
+    (fbq as any).version = '2.0';
+    (fbq as any).queue = [];
+    win.fbq = fbq;
+    win._fbq = fbq;
+  }
+
+  const browserContext = getMetaBrowserContext(window.location.pathname);
+  const advancedMatching = {
+    external_id: browserContext.external_id,
+    em: browserContext.em,
+    ph: browserContext.ph,
+    fn: browserContext.fn,
+    ln: browserContext.ln,
+  };
+  const hasAdvancedMatching = Object.values(advancedMatching).some(Boolean);
+  if (hasAdvancedMatching) win.fbq?.('init', metaId, advancedMatching);
+  else win.fbq?.('init', metaId);
+  metaQueuePrepared = true;
+}
+
+function prepareTiktokQueue(tiktokId: string): void {
+  if (!tiktokId || tiktokQueuePrepared) return;
+
+  const win = window as Window & { ttq?: any };
+  if (!win.ttq || typeof win.ttq.load !== 'function') {
+    const ttq: any = (win.ttq = win.ttq || {});
+    const ttMethods = ['page', 'track', 'identify', 'instances', 'debug', 'on', 'off', 'once', 'ready', 'alias', 'group', 'enableCookie', 'disableCookie'];
+    ttMethods.forEach((method) => {
+      ttq[method] = (...args: unknown[]) => {
+        ((ttq as unknown as { _q?: unknown[][] })._q ||= []).push([method, ...args]);
+      };
+    });
+    ttq.load = (id: string) => {
+      ttq._t = ttq._t || {};
+      ttq._t[id] = [];
+      ttq._o = ttq._o || {};
+      ttq._o[id] = {};
+      ttq._partner = 'whalewzrd';
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.async = true;
+      script.src = 'https://analytics.tiktok.com/i18n/pixel/events.js';
+      const first = document.getElementsByTagName('script')[0];
+      first?.parentNode?.insertBefore(script, first);
+    };
+  }
+  tiktokQueuePrepared = true;
+}
+
+export function prepareTrackingQueues(categories: Pick<ConsentCategories, 'analytics' | 'marketing'>): void {
+  if (categories.analytics) {
+    if (shouldUseTagManagerForAnalytics()) prepareTagManagerQueue(getGoogleTagManagerId());
+    else prepareDirectAnalyticsQueues(getGoogleAnalyticsId(), getYandexMetrikaId());
+  }
+
+  if (categories.marketing) {
+    prepareMetaQueue(getMetaPixelId());
+    prepareTiktokQueue(getTiktokPixelId());
+  }
+}
+
 // Google Consent Mode v2. Должно вызываться максимально рано (до/во время
 // первого рендера), ещё до того как известно, даст ли пользователь согласие —
 // поэтому это отдельная функция, а не часть ensureAnalyticsLoaded().
@@ -351,11 +511,19 @@ export function updateConsentState(categories: Pick<ConsentCategories, 'analytic
   else win.ttq?.disableCookie?.();
 }
 
-export async function ensureAnalyticsLoaded(): Promise<void> {
+function hasCurrentTrackingConsent(category: 'analytics' | 'marketing'): boolean {
+  if (isTrackingExcludedPath(window.location.pathname)) return false;
+  return loadConsent()?.categories[category] === true;
+}
+
+async function loadAnalyticsRuntimes(): Promise<void> {
   const gaId = getGoogleAnalyticsId();
   const ymId = getYandexMetrikaId();
   const gtmId = getGoogleTagManagerId();
   const useTagManagerRuntime = shouldUseTagManagerForAnalytics();
+
+  if (useTagManagerRuntime) prepareTagManagerQueue(gtmId);
+  else prepareDirectAnalyticsQueues(gaId, ymId);
 
   if (!analyticsConfigLogged) {
     console.info('[analytics] bootstrap config', {
@@ -368,11 +536,8 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     analyticsConfigLogged = true;
   }
 
-  if (useTagManagerRuntime && gtmId && !gtmLoaded) {
+  if (useTagManagerRuntime && gtmId && !gtmLoaded && hasCurrentTrackingConsent('analytics')) {
     try {
-      const win = window as Window & { dataLayer?: unknown[] };
-      win.dataLayer = win.dataLayer || [];
-      win.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
       await appendExternalScript(`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`);
       gtmLoaded = true;
     } catch (error) {
@@ -380,56 +545,20 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
     }
   }
 
-  if (!useTagManagerRuntime && gaId && !gaLoaded) {
+  if (!useTagManagerRuntime && gaId && !gaLoaded && hasCurrentTrackingConsent('analytics')) {
     try {
       await appendExternalScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`);
-      (window as Window & { dataLayer?: unknown[] }).dataLayer = (window as Window & { dataLayer?: unknown[] }).dataLayer || [];
-      function gtag(...args: unknown[]) {
-        ((window as unknown as Window & { dataLayer: unknown[] }).dataLayer).push(args);
-      }
-      (window as Window & { gtag?: (...args: unknown[]) => void }).gtag = gtag;
-      gtag('js', new Date());
-      gtag('config', gaId, { anonymize_ip: true, send_page_view: false });
       gaLoaded = true;
     } catch (error) {
       console.warn('[analytics] Google Analytics load failed', error);
     }
   }
 
-  if (!useTagManagerRuntime && ymId && !ymLoaded) {
+  // Consent may be withdrawn while Google is still loading. Re-check before
+  // every subsequent vendor so a started request never opens the next one.
+  if (!useTagManagerRuntime && ymId && !ymLoaded && hasCurrentTrackingConsent('analytics')) {
     try {
-      const win = window as unknown as Window & {
-        ym?: ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
-        dataLayer?: unknown[];
-        [key: `yaCounter${number}`]: unknown;
-      };
-      win.dataLayer = win.dataLayer || [];
-
-      if (!win.ym) {
-        const queuedYm = ((...args: unknown[]) => {
-          queuedYm.a = queuedYm.a || [];
-          queuedYm.a.push(args);
-        }) as ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
-        queuedYm.l = Date.now();
-        win.ym = queuedYm;
-      }
-
       await appendExternalScript('https://mc.yandex.ru/metrika/tag.js');
-
-      const existingCounterKey = `yaCounter${ymId}` as const;
-      const hasExistingCounter = typeof win[existingCounterKey] !== 'undefined';
-
-      if (!hasExistingCounter) {
-        win.ym(ymId, 'init', {
-          webvisor: true,
-          clickmap: true,
-          ecommerce: 'dataLayer',
-          referrer: document.referrer,
-          url: location.href,
-          accurateTrackBounce: true,
-          trackLinks: true,
-        });
-      }
       ymLoaded = true;
     } catch (error) {
       console.warn('[analytics] Yandex Metrika load failed', error);
@@ -448,72 +577,46 @@ export async function ensureAnalyticsLoaded(): Promise<void> {
   });
 }
 
-export async function ensureMarketingLoaded(): Promise<void> {
+export function ensureAnalyticsLoaded(): Promise<void> {
+  if (analyticsLoadPromise) return analyticsLoadPromise;
+  analyticsLoadPromise = loadAnalyticsRuntimes().finally(() => {
+    analyticsLoadPromise = null;
+  });
+  return analyticsLoadPromise;
+}
+
+async function loadMarketingRuntimes(): Promise<void> {
   const metaId = getMetaPixelId();
   const tiktokId = getTiktokPixelId();
 
-  // Meta Pixel — создаём fbq правильно
-  if (metaId && !metaLoaded) {
-    const win = window as Window & { fbq?: (...args: unknown[]) => void; _fbq?: (...args: unknown[]) => void };
-    if (!win.fbq) {
-      const fbq = (...args: unknown[]) => {
-        (fbq as any).callMethod
-          ? (fbq as any).callMethod.apply(fbq, args)
-          : (fbq as any).queue.push(args);
-      };
-      (fbq as any).loaded = true;
-      (fbq as any).version = '2.0';
-      (fbq as any).queue = []; // обязательно массив
-      win.fbq = fbq;
-      win._fbq = fbq;
+  prepareMetaQueue(metaId);
+  prepareTiktokQueue(tiktokId);
+
+  // The queue already contains init and any early events; loading the runtime
+  // later flushes them without making the pixel part of the render path.
+  if (metaId && !metaLoaded && hasCurrentTrackingConsent('marketing')) {
+    try {
+      await appendExternalScript('https://connect.facebook.net/en_US/fbevents.js');
+      metaLoaded = true;
+    } catch (error) {
+      console.warn('[marketing] Meta Pixel load failed', error);
     }
-    await appendExternalScript('https://connect.facebook.net/en_US/fbevents.js');
-    const browserContext = getMetaBrowserContext(window.location.pathname);
-    const advancedMatching = {
-      external_id: browserContext.external_id,
-      em: browserContext.em,
-      ph: browserContext.ph,
-      fn: browserContext.fn,
-      ln: browserContext.ln,
-    };
-    const hasAdvancedMatching = Object.values(advancedMatching).some(Boolean);
-    if (hasAdvancedMatching) {
-      win.fbq?.('init', metaId, advancedMatching);
-    } else {
-      win.fbq?.('init', metaId);
-    }
-    metaLoaded = true;
   }
 
-  // TikTok Pixel — без изменений, если нужен
-  if (tiktokId && !ttLoaded) {
+  // A consent change while Meta is loading must stop the TikTok request.
+  if (tiktokId && !ttLoaded && hasCurrentTrackingConsent('marketing')) {
     const win = window as Window & { ttq?: any };
-    if (!win.ttq || typeof win.ttq.load !== 'function') {
-      const ttq: any = ((window as Window & { ttq?: any }).ttq = (window as Window & { ttq?: any }).ttq || {});
-      const ttMethods = ['page', 'track', 'identify', 'instances', 'debug', 'on', 'off', 'once', 'ready', 'alias', 'group', 'enableCookie', 'disableCookie'];
-      ttMethods.forEach((method) => {
-        ttq[method] = (...args: unknown[]) => {
-          ((ttq as unknown as { _q?: unknown[][] })._q ||= []).push([method, ...args]);
-        };
-      });
-      ttq.load = (id: string) => {
-        ttq._t = ttq._t || {};
-        ttq._t[id] = [];
-        ttq._o = ttq._o || {};
-        ttq._o[id] = {};
-        ttq._partner = 'whalewzrd';
-        const script = document.createElement('script');
-        script.type = 'text/javascript';
-        script.async = true;
-        script.src = 'https://analytics.tiktok.com/i18n/pixel/events.js';
-        const first = document.getElementsByTagName('script')[0];
-        first?.parentNode?.insertBefore(script, first);
-      };
-    }
     win.ttq.load?.(tiktokId);
-    win.ttq.page?.();
     ttLoaded = true;
   }
+}
+
+export function ensureMarketingLoaded(): Promise<void> {
+  if (marketingLoadPromise) return marketingLoadPromise;
+  marketingLoadPromise = loadMarketingRuntimes().finally(() => {
+    marketingLoadPromise = null;
+  });
+  return marketingLoadPromise;
 }
 
 export type MetaBrowserContext = {

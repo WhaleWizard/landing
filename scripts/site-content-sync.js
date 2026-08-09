@@ -19,6 +19,23 @@ function isUsableContent(value) {
   return isRecord(value) && Object.keys(value).length > 0;
 }
 
+export function migrateLegacyPublishedContent(key, content) {
+  if (key !== 'service:meta-ads' || !isRecord(content) || !isRecord(content.cases)) {
+    return content;
+  }
+
+  const legacyCases = content.cases;
+  const isLegacyProblemSection = legacyCases.badge === 'С чем чаще всего приходят'
+    && legacyCases.titlePrefix === 'Где теряется результат'
+    && legacyCases.titleAccent === 'в Meta Ads';
+  if (!isLegacyProblemSection) return content;
+
+  // Keep every other published CMS section, but allow the new source-backed
+  // case cards to replace this one exact pre-case problem block.
+  const { cases: _legacyCases, ...currentContent } = content;
+  return currentContent;
+}
+
 /**
  * Mirrors src/app/hooks/useServiceContent.ts. Keeping the same merge rules is
  * important: the interactive page and generated SEO HTML must resolve a
@@ -63,7 +80,8 @@ export function readSiteContentSnapshot(pathname) {
     if (!isRecord(parsed?.sections)) return {};
     const sections = {};
     for (const key of SITE_CONTENT_KEYS) {
-      if (isUsableContent(parsed.sections[key])) sections[key] = parsed.sections[key];
+      const content = migrateLegacyPublishedContent(key, parsed.sections[key]);
+      if (isUsableContent(content)) sections[key] = content;
     }
     return sections;
   } catch {
@@ -75,7 +93,8 @@ export function writeSiteContentSnapshot(pathname, sections) {
   if (!pathname) return;
   const safeSections = {};
   for (const key of SITE_CONTENT_KEYS) {
-    if (isUsableContent(sections[key])) safeSections[key] = sections[key];
+    const content = migrateLegacyPublishedContent(key, sections[key]);
+    if (isUsableContent(content)) safeSections[key] = content;
   }
   writeFileSync(pathname, `${JSON.stringify({ schemaVersion: 1, fetchedAt: new Date().toISOString(), sections: safeSections }, null, 2)}\n`, 'utf8');
 }
@@ -108,11 +127,12 @@ async function fetchSection({ endpoint, key, fetchImpl, timeoutMs, buildToken })
 
     // `source: static` is an authoritative answer that no published D1
     // override exists. It must clear a potentially stale local snapshot.
-    if (payload.source !== 'd1' || !isUsableContent(payload.content)) {
+    const content = migrateLegacyPublishedContent(key, payload.content);
+    if (payload.source !== 'd1' || !isUsableContent(content)) {
       return { key, status: 'static', content: null };
     }
 
-    return { key, status: 'd1', content: payload.content };
+    return { key, status: 'd1', content };
   } finally {
     clearTimeout(timer);
   }

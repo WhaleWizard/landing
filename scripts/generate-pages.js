@@ -536,7 +536,14 @@ function renderJsonLdScripts(schemas = []) {
  */
 const HERO_PRELOADS = {
   '/': [{ href: '/images/hero-portrait.jpg', priority: true }],
-  '/meta-ads': [{ href: '/images/meta-proof/ecommerce-photo.webp', priority: true }],
+  '/meta-ads': [
+    { href: '/images/meta-proof/paper-stack-768.webp', priority: true },
+    {
+      href: '/images/meta-proof/ecommerce-photo.webp',
+      imageSrcSet: '/images/meta-proof/ecommerce-photo-480.webp 480w, /images/meta-proof/ecommerce-photo-800.webp 800w, /images/meta-proof/ecommerce-photo.webp 1440w',
+      imageSizes: '(max-width: 767px) 230px, 400px',
+    },
+  ],
   '/google-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
   '/consult': [
     {

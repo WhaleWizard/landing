@@ -25,6 +25,7 @@ const proofCases = [
     title: 'E-commerce',
     metric: '30k+ покупок',
     image: '/images/meta-proof/ecommerce-photo.webp',
+    imageSrcSet: '/images/meta-proof/ecommerce-photo-480.webp 480w, /images/meta-proof/ecommerce-photo-800.webp 800w, /images/meta-proof/ecommerce-photo.webp 1440w',
     alt: 'Тележка для покупок — кейс продвижения e-commerce',
     width: 1440,
     height: 1080,
@@ -34,6 +35,7 @@ const proofCases = [
     title: 'Консьерж',
     metric: '65k+ лидов',
     image: '/images/meta-proof/concierge-photo.webp',
+    imageSrcSet: '/images/meta-proof/concierge-photo-480.webp 480w, /images/meta-proof/concierge-photo-800.webp 800w, /images/meta-proof/concierge-photo.webp 1448w',
     alt: 'Звонок консьержа — кейс лидогенерации для сервиса',
     width: 1448,
     height: 1086,
@@ -43,6 +45,7 @@ const proofCases = [
     title: 'Инфопродукты',
     metric: 'CPL до $5',
     image: '/images/meta-proof/infoproduct-photo.webp',
+    imageSrcSet: '/images/meta-proof/infoproduct-photo-480.webp 480w, /images/meta-proof/infoproduct-photo-800.webp 800w, /images/meta-proof/infoproduct-photo.webp 1448w',
     alt: 'Ноутбук и академическая шапочка — кейс продвижения инфопродуктов',
     width: 1448,
     height: 1086,
@@ -158,15 +161,6 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
         </div>
 
         <div className="meta-editorial-hero__visual" aria-label="Кейсы Meta Ads">
-          <button
-            type="button"
-            className="meta-proof__case-link"
-            onClick={() => scrollTo('cases')}
-          >
-            <span>Смотреть кейсы</span>
-            <ArrowRight aria-hidden="true" />
-          </button>
-
           <div className="meta-proof__collage">
             {proofCases.map((item, index) => (
               <article
@@ -176,40 +170,52 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
               >
                 <div className="meta-proof__art">
                   <img
-                    src="/images/meta-proof/paper-stack.webp"
-                    width="1536"
-                    height="1024"
+                    src="/images/meta-proof/paper-stack-768.webp"
+                    width="768"
+                    height="512"
                     alt=""
                     aria-hidden="true"
+                    loading={index === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    fetchPriority={index === 0 ? 'high' : 'low'}
                     className="meta-proof__paper"
                   />
                   <div className="meta-proof__photo-frame">
                     <img
                       src={item.image}
+                      srcSet={item.imageSrcSet}
+                      sizes="(max-width: 767px) 230px, 400px"
                       width={item.width}
                       height={item.height}
                       alt={item.alt}
                       loading={index === 0 ? 'eager' : 'lazy'}
                       decoding="async"
+                      fetchPriority={index === 0 ? 'high' : 'low'}
                       className="meta-proof__photo"
                     />
                   </div>
                   <img
-                    src="/images/meta-proof/tape-strip.webp"
-                    width="1536"
-                    height="1024"
+                    src="/images/meta-proof/tape-strip-384.webp"
+                    width="384"
+                    height="256"
                     alt=""
                     aria-hidden="true"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     className="meta-proof__tape"
                   />
                 </div>
 
                 <img
-                  src="/images/meta-proof/arrow-left.webp"
-                  width="1536"
-                  height="1024"
+                  src="/images/meta-proof/arrow-left-256.webp"
+                  width="256"
+                  height="171"
                   alt=""
                   aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
                   className="meta-proof__arrow"
                 />
 
@@ -217,11 +223,14 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
                   <span>{item.title}</span>
                   <strong>{item.metric}</strong>
                   <img
-                    src="/images/meta-proof/underline.png"
-                    width="1200"
-                    height="89"
+                    src="/images/meta-proof/underline-384.webp"
+                    width="384"
+                    height="28"
                     alt=""
                     aria-hidden="true"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     className="meta-proof__underline"
                   />
                 </div>
