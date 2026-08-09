@@ -518,7 +518,7 @@ assert.ok(
   'Marketing consent must be checked again before a subsequent vendor runtime',
 );
 assert.ok(
-  files.cookieConsentManager.includes('const TRACKING_RUNTIME_FALLBACK_DELAY_MS = 30_000')
+  files.cookieConsentManager.includes('const TRACKING_RUNTIME_FALLBACK_DELAY_MS = 90_000')
     && files.cookieConsentManager.includes('const TRACKING_RUNTIME_SCROLL_IDLE_MS = 2_000'),
   'Third-party runtimes must stay outside the initial interaction window',
 );
@@ -533,6 +533,24 @@ assert.ok(
     && files.cookieConsentManager.includes('const idleIds = new Set<number>()')
     && files.cookieConsentManager.includes('cancelIdleRuns()'),
   'Runtime loading after scroll must be debounced until the interaction is idle',
+);
+assert.ok(
+  files.cookieConsentManager.includes("window.addEventListener('wheel', markScrollIntent, { passive: true })")
+    && files.cookieConsentManager.includes("window.addEventListener('touchstart', markScrollIntent, { passive: true })")
+    && files.cookieConsentManager.includes("window.addEventListener('touchmove', markScrollIntent, { passive: true })")
+    && files.cookieConsentManager.includes("window.addEventListener('keydown', markKeyboardScrollIntent)")
+    && files.cookieConsentManager.includes('const TRACKING_RUNTIME_MIN_SCROLL_DISTANCE_PX = 48')
+    && files.cookieConsentManager.includes('if (!event.isTrusted) return')
+    && files.cookieConsentManager.includes('performance.now() > scrollIntentUntil')
+    && files.cookieConsentManager.includes('scrollDistance < TRACKING_RUNTIME_MIN_SCROLL_DISTANCE_PX')
+    && files.cookieConsentManager.includes("window.removeEventListener('touchmove', markScrollIntent)")
+    && files.cookieConsentManager.includes("window.removeEventListener('keydown', markKeyboardScrollIntent)"),
+  'Synthetic or initial scroll events must not start third-party runtimes without real scroll intent',
+);
+assert.ok(
+  files.cookieConsentManager.indexOf('cancelIdleRuns();', files.cookieConsentManager.indexOf('const scheduleAfterScroll'))
+    < files.cookieConsentManager.indexOf('performance.now() > scrollIntentUntil'),
+  'Continued scrolling must cancel a pending runtime even after the intent window expires',
 );
 assert.ok(
   files.cookieConsentManager.includes("document.addEventListener('focusin', runOnLeadIntent, true)")

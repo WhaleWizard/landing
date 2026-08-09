@@ -42,8 +42,10 @@ type IdleWindow = Window & {
 let pendingAnalyticsRuntime = false;
 let pendingMarketingRuntime = false;
 let cancelScheduledRuntimeLoad: (() => void) | null = null;
-const TRACKING_RUNTIME_FALLBACK_DELAY_MS = 30_000;
+const TRACKING_RUNTIME_FALLBACK_DELAY_MS = 90_000;
 const TRACKING_RUNTIME_SCROLL_IDLE_MS = 2_000;
+const TRACKING_RUNTIME_SCROLL_INTENT_WINDOW_MS = 5_000;
+const TRACKING_RUNTIME_MIN_SCROLL_DISTANCE_PX = 48;
 
 function cancelPendingTrackingRuntimeLoad(): void {
   cancelScheduledRuntimeLoad?.();
@@ -98,6 +100,9 @@ function scheduleTrackingRuntimeLoad(
   let scrollDelayId: number | undefined;
   const idleIds = new Set<number>();
   let loadListenerAttached = false;
+  let scrollIntentUntil = 0;
+  let lastScrollY = window.scrollY;
+  let scrollDistance = 0;
 
   const cancelIdleRuns = () => {
     idleIds.forEach((id) => idleWindow.cancelIdleCallback?.(id));
@@ -110,6 +115,10 @@ function scheduleTrackingRuntimeLoad(
     cancelIdleRuns();
     if (loadListenerAttached) window.removeEventListener('load', scheduleAfterLoad);
     window.removeEventListener('scroll', scheduleAfterScroll);
+    window.removeEventListener('wheel', markScrollIntent);
+    window.removeEventListener('touchstart', markScrollIntent);
+    window.removeEventListener('touchmove', markScrollIntent);
+    window.removeEventListener('keydown', markKeyboardScrollIntent);
     document.removeEventListener('focusin', runOnLeadIntent, true);
   };
   const run = () => loadPendingTrackingRuntimes();
@@ -128,11 +137,34 @@ function scheduleTrackingRuntimeLoad(
     const target = event.target;
     if (target instanceof Element && target.closest('form')) run();
   };
+  const markScrollIntent = (event: Event) => {
+    if (!event.isTrusted) return;
+    const now = performance.now();
+    if (now > scrollIntentUntil) {
+      lastScrollY = window.scrollY;
+      scrollDistance = 0;
+    }
+    scrollIntentUntil = now + TRACKING_RUNTIME_SCROLL_INTENT_WINDOW_MS;
+  };
+  const markKeyboardScrollIntent = (event: KeyboardEvent) => {
+    if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ', 'Spacebar'].includes(event.key)) {
+      markScrollIntent(event);
+    }
+  };
   const scheduleAfterScroll = () => {
     if (scrollDelayId !== undefined) window.clearTimeout(scrollDelayId);
     cancelIdleRuns();
-    // Wait until scrolling has actually stopped, then yield once more to the
-    // browser. This avoids turning the visitor's first swipe into a long task.
+
+    const currentScrollY = window.scrollY;
+    scrollDistance += Math.abs(currentScrollY - lastScrollY);
+    lastScrollY = currentScrollY;
+    if (
+      performance.now() > scrollIntentUntil
+      || scrollDistance < TRACKING_RUNTIME_MIN_SCROLL_DISTANCE_PX
+    ) return;
+
+    // Only a real wheel/touch/keyboard scroll can reach this branch. Initial
+    // scroll restoration and synthetic layout scroll events stay lightweight.
     scrollDelayId = window.setTimeout(runWhenIdle, TRACKING_RUNTIME_SCROLL_IDLE_MS);
   };
   const scheduleAfterLoad = () => {
@@ -149,6 +181,10 @@ function scheduleTrackingRuntimeLoad(
   // for GA/Yandex client IDs to be available by submit, without penalising
   // ordinary scrolling with several third-party scripts.
   document.addEventListener('focusin', runOnLeadIntent, true);
+  window.addEventListener('wheel', markScrollIntent, { passive: true });
+  window.addEventListener('touchstart', markScrollIntent, { passive: true });
+  window.addEventListener('touchmove', markScrollIntent, { passive: true });
+  window.addEventListener('keydown', markKeyboardScrollIntent);
   window.addEventListener('scroll', scheduleAfterScroll, { passive: true });
 
   if (document.readyState === 'complete') scheduleAfterLoad();
