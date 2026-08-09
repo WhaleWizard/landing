@@ -81,6 +81,25 @@ declare interface R2Bucket {
   head(key: string): Promise<R2Object | null>;
 }
 
+// HTMLRewriter отдаёт оболочке SPA мета-теги конкретной статьи потоком,
+// не собирая HTML в памяти воркера.
+declare interface HTMLRewriterElement {
+  setAttribute(name: string, value: string): HTMLRewriterElement;
+  getAttribute(name: string): string | null;
+  setInnerContent(content: string, options?: { html?: boolean }): HTMLRewriterElement;
+  append(content: string, options?: { html?: boolean }): HTMLRewriterElement;
+  remove(): HTMLRewriterElement;
+}
+
+declare interface HTMLRewriterElementHandlers {
+  element?(element: HTMLRewriterElement): void | Promise<void>;
+}
+
+declare class HTMLRewriter {
+  on(selector: string, handlers: HTMLRewriterElementHandlers): HTMLRewriter;
+  transform(response: Response): Response;
+}
+
 type PagesFunction<Env = unknown> = (context: {
   request: Request;
   env: Env;

@@ -155,3 +155,68 @@ test('discovery files are present and robots points to the canonical sitemap', (
   assert.match(robots, new RegExp(`Sitemap: ${SITE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/sitemap\\.xml`));
   assert.match(robots, /^Disallow: \/admin$/m);
 });
+
+test('article routes are served with their own meta, not the home page shell', () => {
+  // Раньше страница статьи отдавала обычному браузеру корневой index.html:
+  // Google видел на каждом материале canonical главной и не индексировал их.
+  const handler = readFileSync(join(ROOT, 'functions', '_lib', 'article-page.ts'), 'utf8');
+
+  for (const section of ['blog', 'cases']) {
+    const route = readFileSync(join(ROOT, 'functions', section, '[slug].ts'), 'utf8');
+    assert.match(route, /createArticlePageHandler/, `functions/${section}/[slug].ts must use the shared handler`);
+    assert.doesNotMatch(
+      route,
+      /new URL\('\/index\.html'/,
+      `functions/${section}/[slug].ts must not swap the article for the home shell`,
+    );
+  }
+
+  assert.match(handler, /applyArticleMeta/, 'handler must rewrite the shell meta tags');
+  assert.match(handler, /link\[rel="canonical"\]/, 'handler must rewrite the canonical link');
+  assert.match(handler, /Response\.redirect\(`\$\{siteUrl\}\$\{sectionPath\}\/\$\{slug\}`, 301\)/, 'trailing-slash article URLs must redirect to the canonical form');
+  assert.match(handler, /status: 404/, 'a missing article must answer 404, not 200');
+});
+
+test('crawlers that verify indexing are recognised as bots', () => {
+  const seoSource = readFileSync(join(ROOT, 'functions', '_lib', 'seo.ts'), 'utf8');
+  const patternMatch = seoSource.match(/const BOT_UA_PATTERN = (\/.+\/i);/);
+  assert.ok(patternMatch, 'BOT_UA_PATTERN must stay a single-line regexp literal');
+  const pattern = new RegExp(patternMatch[1].slice(1, -2), 'i');
+
+  const mustMatch = [
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'Mozilla/5.0 (compatible; Google-InspectionTool/1.0;)',
+    'AdsBot-Google (+http://www.google.com/adsbot.html)',
+    'Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)',
+    'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+    'Mozilla/5.0 (compatible; GPTBot/1.1; +https://openai.com/gptbot)',
+    'Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)',
+    'Mozilla/5.0 (compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)',
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+  ];
+  for (const userAgent of mustMatch) {
+    assert.ok(pattern.test(userAgent), `must be treated as a bot: ${userAgent}`);
+  }
+
+  const mustNotMatch = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+  ];
+  for (const userAgent of mustNotMatch) {
+    assert.ok(!pattern.test(userAgent), `must be treated as a visitor: ${userAgent}`);
+  }
+});
+
+test('unknown addresses answer with a noindex 404 page', () => {
+  // Без этого файла Cloudflare Pages отвечал на любой несуществующий адрес
+  // кодом 200 с разметкой главной — Google засчитывал soft 404.
+  const notFoundPath = join(DIST, '404.html');
+  assert.ok(existsSync(notFoundPath), 'dist/404.html is missing');
+  const html = readFileSync(notFoundPath, 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+
+  assert.equal(links(head, 'canonical').length, 0, '404 page must not claim a canonical URL');
+  const robots = meta(head, 'name', 'robots').map((tag) => attribute(tag, 'content'));
+  assert.deepEqual(robots, ['noindex, nofollow, noarchive'], '404 page must be closed from indexing');
+  assert.equal((html.match(/<h1\b/gi) || []).length, 1, '404 page needs exactly one H1');
+});

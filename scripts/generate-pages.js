@@ -498,6 +498,38 @@ function buildBreadcrumbJsonLd(article) {
   };
 }
 
+// Хлебные крошки в разметке помогают поиску показывать путь до страницы
+// вместо голого URL. Для статей они уже строились, для остальных страниц — нет.
+function buildStaticBreadcrumbJsonLd(route, name) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Главная', item: `${SITE_URL}/` },
+      { '@type': 'ListItem', position: 2, name, item: `${SITE_URL}${withTrailingSlashIfStaticRoute(route)}` },
+    ],
+  };
+}
+
+// Описывает саму услугу, а не сайт: без этого лендинги услуг для поиска и
+// ИИ-ответов ничем не отличались от обычной страницы.
+function buildServiceJsonLd(route, { name, description, serviceType }) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name,
+    description,
+    serviceType,
+    url: `${SITE_URL}${withTrailingSlashIfStaticRoute(route)}`,
+    provider: {
+      '@type': 'ProfessionalService',
+      name: 'Whale Wizard',
+      url: `${SITE_URL}/`,
+    },
+    inLanguage: 'ru',
+  };
+}
+
 function renderJsonLdScripts(schemas = []) {
   const serializeJsonLd = (schema) => JSON.stringify(schema)
     .replace(/</g, '\\u003c')
@@ -512,6 +544,7 @@ function renderJsonLdScripts(schemas = []) {
     if (type === 'FAQPage') return 'ld-faq-page';
     if (type === 'Article' || type === 'BlogPosting') return 'ld-article';
     if (type === 'BreadcrumbList') return 'ld-breadcrumbs';
+    if (type === 'Service') return 'ld-service';
     return '';
   };
   return schemas
@@ -596,6 +629,7 @@ function htmlTemplate({
   ogType = 'website',
   ogImage,
   noIndex = false,
+  dropCanonical = false,
   extraJsonLd = [],
   imagePreloads = [],
   articlePublishedTime,
@@ -624,9 +658,16 @@ function htmlTemplate({
   html = upsertNamedMeta(html, 'twitter:description', description);
   html = upsertNamedMeta(html, 'twitter:image', imageUrl);
   html = upsertNamedMeta(html, 'twitter:url', canonicalUrl);
-  html = upsertCanonical(html, canonicalUrl);
-  html = upsertAlternate(html, 'ru', canonicalUrl);
-  html = upsertAlternate(html, 'x-default', canonicalUrl);
+  if (dropCanonical) {
+    // Страница 404 отвечает по любому несуществующему адресу. Canonical здесь
+    // объявил бы каждый такой адрес копией конкретной страницы.
+    html = html.replace(/\s*<link\s+[^>]*rel=["'](?:canonical|alternate)["'][^>]*hreflang=[^>]*>/gi, '');
+    html = html.replace(/\s*<link\s+[^>]*rel=["']canonical["'][^>]*>/gi, '');
+  } else {
+    html = upsertCanonical(html, canonicalUrl);
+    html = upsertAlternate(html, 'ru', canonicalUrl);
+    html = upsertAlternate(html, 'x-default', canonicalUrl);
+  }
 
   const preloadHtml = renderImagePreloads(imagePreloads);
   if (preloadHtml) html = insertBeforeHeadClose(html, preloadHtml);
@@ -644,6 +685,32 @@ function htmlTemplate({
   }
 
   return html;
+}
+
+// Cloudflare Pages отдаёт этот файл с кодом 404 по любому несуществующему
+// адресу. Без него не найденный путь возвращал 200 с разметкой главной —
+// Google засчитывал это как soft 404 и как копию главной страницы.
+function writeNotFoundPage(baseHtml) {
+  const html = htmlTemplate({
+    baseHtml,
+    title: 'Страница не найдена | Whale Wizard',
+    description: 'Такой страницы нет. Вернитесь на главную или загляните в блог и кейсы.',
+    canonicalPath: '/',
+    noIndex: true,
+    dropCanonical: true,
+    bodyHtml: renderGeneratedShell({
+      eyebrow: 'Ошибка 404',
+      title: 'Страница не найдена',
+      lead: 'Адрес устарел или введён с опечаткой. Проверьте ссылку или начните с главной страницы.',
+      children: `        <div style="${generatedShellStyles.list}">
+          <a href="/" style="${generatedShellStyles.item}"><strong>На главную</strong></a>
+          <a href="/blog/" style="${generatedShellStyles.item}"><strong>Блог</strong></a>
+          <a href="/cases/" style="${generatedShellStyles.item}"><strong>Кейсы</strong></a>
+        </div>`,
+    }),
+  });
+
+  writeFileSync(join(DIST_DIR, '404.html'), html, 'utf8');
 }
 
 function writeRoute(route, html) {
@@ -987,6 +1054,25 @@ function heroHeading(hero = {}) {
   return [hero.titlePrefix, hero.titleAccent].map((part) => String(part || '').trim()).filter(Boolean).join(' ');
 }
 
+const SERVICE_TYPE_LABELS = {
+  'meta-ads': 'Реклама в Meta Ads',
+  'meta-apps': 'Реклама мобильных приложений в Meta Ads',
+  'google-ads': 'Реклама в Google Ads',
+  consult: 'Консультация по контекстной и таргетированной рекламе',
+};
+
+const BREADCRUMB_LABELS = {
+  '/blog': 'Блог',
+  '/cases': 'Кейсы',
+  '/faq': 'Вопросы и ответы',
+  '/marketing-glossary': 'Словарь маркетинга',
+  '/calculator': 'Калькулятор бюджета',
+  '/roi-calculator': 'Калькулятор ROI',
+  '/privacy-policy': 'Политика конфиденциальности',
+  '/offer': 'Публичная оферта',
+  '/cookie-policy': 'Политика cookie',
+};
+
 function renderStaticPages(baseHtml, { content, latestArticles, publishedContent = {} }) {
   const serviceStaticPage = (service) => {
     const sourceConfig = content.pageConfigs[service];
@@ -1000,13 +1086,24 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       testimonialItems: content.testimonialsData,
     };
 
+    const route = `/${service}`;
+    const serviceName = String(config.seo.title || '').trim() || heroHeading(config.hero);
+
     return {
-      route: `/${service}`,
+      route,
       title: documentTitle(config.seo.title),
       description: config.seo.description,
       h1: heroHeading(config.hero),
       lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderServicePageSections(config),
+      breadcrumbName: serviceName,
+      extraJsonLd: [
+        buildServiceJsonLd(route, {
+          name: serviceName,
+          description: config.seo.description,
+          serviceType: SERVICE_TYPE_LABELS[service] || serviceName,
+        }),
+      ],
     };
   };
 
@@ -1144,6 +1241,14 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
   ];
 
   for (const page of staticPages) {
+    const breadcrumbName = page.breadcrumbName || BREADCRUMB_LABELS[page.route];
+    const pageJsonLd = [
+      ...(page.extraJsonLd || []),
+      ...(!page.noIndex && breadcrumbName
+        ? [buildStaticBreadcrumbJsonLd(page.route, breadcrumbName)]
+        : []),
+    ];
+
     writeRoute(
       page.route,
       htmlTemplate({
@@ -1151,7 +1256,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
         description: page.description,
         canonicalPath: page.route,
         noIndex: Boolean(page.noIndex),
-        extraJsonLd: page.extraJsonLd || [],
+        extraJsonLd: pageJsonLd,
         imagePreloads: HERO_PRELOADS[page.route] || [],
         baseHtml,
         bodyHtml: renderGeneratedShell({
@@ -1183,6 +1288,7 @@ function renderArticleListPage({ articles, route, title, description, h1, lead, 
       title,
       description,
       canonicalPath: route,
+      extraJsonLd: [buildStaticBreadcrumbJsonLd(route, BREADCRUMB_LABELS[route] || h1)],
       baseHtml,
       bodyHtml: renderGeneratedShell({
         title: h1,
@@ -1409,6 +1515,7 @@ async function main() {
 
   const staticPages = renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
   renderBlogPages(articles, baseHtml);
+  writeNotFoundPage(baseHtml);
 
   const articleRoutes = articles.map((article) => getArticlePath(article));
   const allRoutes = [...new Set([...STATIC_ROUTES, ...articleRoutes])];

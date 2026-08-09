@@ -1,7 +1,11 @@
 import type { Article } from './types';
 import { sanitizeArticleHtml } from './sanitize';
 
-const BOT_UA_PATTERN = /(googlebot|googleother|google-extended|bingbot|yandexbot|duckduckbot|baiduspider|petalbot|slurp|facebot|meta-externalagent|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|discordbot|telegrambot|whatsapp|applebot|ia_archiver|archive\.org_bot|gptbot|chatgpt-user|oai-searchbot|ccbot|claudebot|claude-web|anthropic-ai|perplexitybot|perplexity-user|youbot|bytespider|cohere-ai|cohere-training-data-crawler|amazonbot|diffbot|timpibot|omgili|omgilibot|webzio-extended|semrushbot|ahrefsbot|mj12bot|dotbot|seekportbot|imagesiftbot|grok|xai-|mistralai-user|bravebot|bravesearch)/i;
+// Google обходит сайт не только под именем Googlebot. Проверка URL и запрос
+// индексирования в Search Console ходят под Google-InspectionTool, а качество
+// посадочных для Google Ads проверяет AdsBot — оба присылают Mozilla/5.0 и без
+// явного упоминания здесь считались бы обычным браузером.
+const BOT_UA_PATTERN = /(googlebot|googleother|google-extended|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|feedfetcher-google|apis-google|google-safety|google-site-verification|googleweblight|bingbot|bingpreview|msnbot|adidxbot|yandex|duckduckbot|baiduspider|petalbot|slurp|facebot|facebookexternalhit|meta-externalagent|meta-externalfetcher|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|discordbot|telegrambot|whatsapp|viber|skypeuripreview|vkshare|mail\.ru|pinterest|redditbot|tiktokspider|applebot|ia_archiver|archive\.org_bot|gptbot|chatgpt-user|oai-searchbot|ccbot|claudebot|claude-web|claude-searchbot|anthropic-ai|perplexitybot|perplexity-user|youbot|bytespider|cohere-ai|cohere-training-data-crawler|amazonbot|diffbot|timpibot|omgili|omgilibot|webzio-extended|semrushbot|ahrefsbot|mj12bot|dotbot|seekportbot|imagesiftbot|grok|xai-|mistralai-user|bravebot|bravesearch|duckassistbot|meta-webindexer)/i;
 
 // У большинства настоящих браузеров в User-Agent есть "Mozilla/5.0" — простые HTTP-клиенты,
 // SDK и многие ИИ-агенты (в т.ч. ещё не внесённые в список выше) его не подделывают.
@@ -88,12 +92,12 @@ function formatReadTime(value = ''): string {
   return /^\d+$/.test(raw) ? `${raw} мин` : raw;
 }
 
-function buildSeoTitle(article: Article): string {
+export function buildSeoTitle(article: Article): string {
   if (article.seoTitle?.trim()) return article.seoTitle.trim();
   return `${article.title} — ${article.category || 'Маркетинг'}`;
 }
 
-function buildSeoDescription(article: Article): string {
+export function buildSeoDescription(article: Article): string {
   if (article.seoDescription?.trim()) return article.seoDescription.trim();
   if (article.summary?.trim()) return article.summary.trim();
   return article.description || 'Практическая статья о маркетинге и рекламе.';
@@ -201,6 +205,18 @@ function faqJsonLd(article: Article): string | null {
   );
 }
 
+export function buildArticleMeta(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)) {
+  return {
+    canonical: `${siteUrl}${sectionPath}/${article.slug}`,
+    title: `${buildSeoTitle(article)} | Whale Wizard`,
+    description: buildSeoDescription(article),
+    image: toAbsoluteUrl(siteUrl, article.image || '/og-image-v2.jpg'),
+    publishedTime: toIsoDate(article.publishedAt || article.date),
+    modifiedTime: toIsoDate(article.updatedAt || article.publishedAt || article.date),
+    section: article.category || '',
+  };
+}
+
 export function renderArticleHtml(siteUrl: string, article: Article, sectionPath = getArticleSectionPath(article)): string {
   const canonical = `${siteUrl}${sectionPath}/${article.slug}`;
   const sectionLabel = getSectionLabel(sectionPath);
@@ -269,7 +285,9 @@ ${safeContent}
 
 export function renderArticleNotFoundHtml(siteUrl: string, sectionPath: '/blog' | '/cases'): string {
   const sectionLabel = getSectionLabel(sectionPath);
-  const canonical = `${siteUrl}${sectionPath}`;
+  // Раздел канонизирован со слешем: без него ссылка ловит 308 и Google
+  // считает такой canonical переадресацией, а не адресом раздела.
+  const canonical = `${siteUrl}${sectionPath}/`;
 
   return `<!doctype html>
 <html lang="ru">
@@ -355,7 +373,7 @@ export function renderFeedXml(siteUrl: string, articles: Article[]): string {
 <rss version="2.0">
 <channel>
   <title>Whale Wizard Blog</title>
-  <link>${xmlEscape(`${siteUrl}/blog`)}</link>
+  <link>${xmlEscape(`${siteUrl}/blog/`)}</link>
   <description>Новые статьи Whale Wizard</description>
   <language>ru-RU</language>
 ${items}

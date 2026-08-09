@@ -27,8 +27,15 @@ function buildCsp(): string {
   return directives.join('; ');
 }
 
-function withSecurityHeaders(response: Response): Response {
+function withSecurityHeaders(response: Response, request: Request): Response {
   const headers = new Headers(response.headers);
+
+  // JSON служебных эндпоинтов не должен попадать в поиск как отдельная
+  // страница. Закрывать их в robots.txt нельзя: тогда Googlebot не сможет
+  // прочитать /api/articles при рендеринге блога и увидит пустой список.
+  if (new URL(request.url).pathname.startsWith('/api/')) {
+    headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
 
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'SAMEORIGIN');
@@ -52,9 +59,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, next }) => {
     const redirectUrl = new URL(request.url);
     redirectUrl.hostname = CANONICAL_HOST;
     redirectUrl.protocol = 'https:';
-    return withSecurityHeaders(Response.redirect(redirectUrl.toString(), 301));
+    return withSecurityHeaders(Response.redirect(redirectUrl.toString(), 301), request);
   }
 
   const response = await next();
-  return withSecurityHeaders(response);
+  return withSecurityHeaders(response, request);
 };

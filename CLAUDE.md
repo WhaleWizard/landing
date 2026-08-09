@@ -73,8 +73,11 @@ npm run build:migration-map   # пересобрать карту «таблиц
 
 ### SEO: три уровня
 
-- `scripts/generate-pages.js` пре-рендерит статический HTML для роутов из `scripts/config.js` (`STATIC_ROUTES`) — при добавлении индексируемого роута синхронизируй этот список с `routes.tsx`.
-- `functions/blog/[slug].ts` и `functions/cases/[slug].ts` отдают ботам SEO-HTML статей на лету. Принадлежность к кейсам определяет ТОЛЬКО `isCaseArticle()` из `_lib/seo.ts` — не сравнивать категорию строкой.
+- `scripts/generate-pages.js` пре-рендерит статический HTML для роутов из `scripts/config.js` (`STATIC_ROUTES`) — при добавлении индексируемого роута синхронизируй этот список с `routes.tsx`. Он же пишет `dist/404.html`: Cloudflare Pages отдаёт этот файл кодом 404, а без него любой несуществующий адрес отвечал 200 с разметкой главной, и Google засчитывал soft 404.
+- Страницы статей обслуживает общий `_lib/article-page.ts`; `functions/blog/[slug].ts` и `functions/cases/[slug].ts` — только точки входа. Ботам он отдаёт SEO-HTML с полным текстом, человеку — пререндер статьи, и через HTMLRewriter гарантирует обоим одни и те же `title`/`description`/`canonical`. **Страница статьи никогда не отдаёт оболочку главной**: подмена на корневой `/index.html` показывала на каждом материале canonical главной, из-за чего Google не индексировал ни статьи, ни кейсы. Канонический адрес статьи — без завершающего слеша, вариант со слешем уходит в 301. Принадлежность к кейсам определяет ТОЛЬКО `isCaseArticle()` из `_lib/seo.ts` — не сравнивать категорию строкой.
+- `BOT_UA_PATTERN` в `_lib/seo.ts` обязан покрывать не только Googlebot: проверку URL в Search Console делает Google-InspectionTool, качество посадочных для рекламы — AdsBot-Google. Оба присылают `Mozilla/5.0` и без явного упоминания считаются обычным браузером.
+- Служебные `/api/*` закрыты от индексации заголовком `X-Robots-Tag` в `_middleware.ts`, а НЕ через robots.txt: запрет в robots.txt лишил бы Googlebot доступа к `/api/articles` при рендеринге блога.
+- Лендинги услуг несут схему `Service`, остальные индексируемые страницы — `BreadcrumbList`; уникальность `id` JSON-LD проверяет `test:seo-output`.
 - `sitemap.xml` и `feed.xml` генерируются динамически из живого хранилища статей.
 
 ### Трекинг: пиксели + серверный Meta CAPI
