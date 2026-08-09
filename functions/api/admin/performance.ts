@@ -446,7 +446,21 @@ async function runAudit(
 
   try {
     const response = await fetchWithTimeout(apiUrl.toString());
-    const payload = await response.json().catch(() => ({})) as PsiResponse;
+    let payload = await response.json().catch(() => ({})) as PsiResponse;
+
+    // Lighthouse иногда отвечает «Something went wrong» на исправной странице:
+    // отчёт приходит с кодом 200, но с runtimeError вместо результата. Одна
+    // повторная попытка снимает такой разовый сбой, из-за которого раздел
+    // показывал ошибку на странице, которая на самом деле проверяется.
+    if (response.ok && payload.lighthouseResult?.runtimeError?.message) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const retryResponse = await fetchWithTimeout(apiUrl.toString());
+      const retryPayload = await retryResponse.json().catch(() => ({})) as PsiResponse;
+      if (retryResponse.ok && !retryPayload.lighthouseResult?.runtimeError?.message && retryPayload.lighthouseResult) {
+        payload = retryPayload;
+      }
+    }
+
     if (!response.ok) {
       if (isQuotaError(response.status, payload)) {
         return json({
