@@ -42,7 +42,8 @@ type IdleWindow = Window & {
 let pendingAnalyticsRuntime = false;
 let pendingMarketingRuntime = false;
 let cancelScheduledRuntimeLoad: (() => void) | null = null;
-const TRACKING_RUNTIME_DELAY_MS = 10_000;
+const TRACKING_RUNTIME_FALLBACK_DELAY_MS = 30_000;
+const TRACKING_RUNTIME_SCROLL_IDLE_MS = 2_000;
 
 function cancelPendingTrackingRuntimeLoad(): void {
   cancelScheduledRuntimeLoad?.();
@@ -94,33 +95,53 @@ function scheduleTrackingRuntimeLoad(
 
   const idleWindow = window as IdleWindow;
   let delayId: number | undefined;
-  let idleId: number | undefined;
+  let scrollDelayId: number | undefined;
+  const idleIds = new Set<number>();
   let loadListenerAttached = false;
+
+  const cancelIdleRuns = () => {
+    idleIds.forEach((id) => idleWindow.cancelIdleCallback?.(id));
+    idleIds.clear();
+  };
 
   const cleanup = () => {
     if (delayId !== undefined) window.clearTimeout(delayId);
-    if (idleId !== undefined) idleWindow.cancelIdleCallback?.(idleId);
+    if (scrollDelayId !== undefined) window.clearTimeout(scrollDelayId);
+    cancelIdleRuns();
     if (loadListenerAttached) window.removeEventListener('load', scheduleAfterLoad);
+    window.removeEventListener('scroll', scheduleAfterScroll);
     document.removeEventListener('focusin', runOnLeadIntent, true);
   };
   const run = () => loadPendingTrackingRuntimes();
+  const runWhenIdle = () => {
+    if (typeof idleWindow.requestIdleCallback === 'function') {
+      const id = idleWindow.requestIdleCallback(() => {
+        idleIds.delete(id);
+        run();
+      }, { timeout: 2_000 });
+      idleIds.add(id);
+    } else {
+      run();
+    }
+  };
   const runOnLeadIntent = (event: FocusEvent) => {
     const target = event.target;
     if (target instanceof Element && target.closest('form')) run();
+  };
+  const scheduleAfterScroll = () => {
+    if (scrollDelayId !== undefined) window.clearTimeout(scrollDelayId);
+    cancelIdleRuns();
+    // Wait until scrolling has actually stopped, then yield once more to the
+    // browser. This avoids turning the visitor's first swipe into a long task.
+    scrollDelayId = window.setTimeout(runWhenIdle, TRACKING_RUNTIME_SCROLL_IDLE_MS);
   };
   const scheduleAfterLoad = () => {
     loadListenerAttached = false;
     // Third-party analytics is deliberately outside the render path. Browser
     // events are already queued and server PageView/CAPI events are sent now.
-    // Do not bind SDK startup to the first scroll/touch: that interaction is
-    // exactly when loading several vendor runtimes would make the page jank.
-    delayId = window.setTimeout(() => {
-      if (typeof idleWindow.requestIdleCallback === 'function') {
-        idleId = idleWindow.requestIdleCallback(run, { timeout: 2_000 });
-      } else {
-        run();
-      }
-    }, TRACKING_RUNTIME_DELAY_MS);
+    // The fallback covers an engaged reader who never scrolls or focuses a
+    // form, while staying outside the initial interaction window.
+    delayId = window.setTimeout(runWhenIdle, TRACKING_RUNTIME_FALLBACK_DELAY_MS);
   };
 
   cancelScheduledRuntimeLoad = cleanup;
@@ -128,6 +149,7 @@ function scheduleTrackingRuntimeLoad(
   // for GA/Yandex client IDs to be available by submit, without penalising
   // ordinary scrolling with several third-party scripts.
   document.addEventListener('focusin', runOnLeadIntent, true);
+  window.addEventListener('scroll', scheduleAfterScroll, { passive: true });
 
   if (document.readyState === 'complete') scheduleAfterLoad();
   else {

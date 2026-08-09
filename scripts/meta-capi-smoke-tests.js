@@ -518,13 +518,21 @@ assert.ok(
   'Marketing consent must be checked again before a subsequent vendor runtime',
 );
 assert.ok(
-  files.cookieConsentManager.includes('const TRACKING_RUNTIME_DELAY_MS = 10_000'),
+  files.cookieConsentManager.includes('const TRACKING_RUNTIME_FALLBACK_DELAY_MS = 30_000')
+    && files.cookieConsentManager.includes('const TRACKING_RUNTIME_SCROLL_IDLE_MS = 2_000'),
   'Third-party runtimes must stay outside the initial interaction window',
 );
 assert.ok(
   !files.cookieConsentManager.includes("window.addEventListener('pointerdown', runEarly")
     && !files.cookieConsentManager.includes("window.addEventListener('touchstart', runEarly"),
   'The first scroll/touch must not trigger all third-party runtimes',
+);
+assert.ok(
+  files.cookieConsentManager.includes("window.addEventListener('scroll', scheduleAfterScroll, { passive: true })")
+    && files.cookieConsentManager.includes('window.setTimeout(runWhenIdle, TRACKING_RUNTIME_SCROLL_IDLE_MS)')
+    && files.cookieConsentManager.includes('const idleIds = new Set<number>()')
+    && files.cookieConsentManager.includes('cancelIdleRuns()'),
+  'Runtime loading after scroll must be debounced until the interaction is idle',
 );
 assert.ok(
   files.cookieConsentManager.includes("document.addEventListener('focusin', runOnLeadIntent, true)")
