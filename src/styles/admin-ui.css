@@ -759,6 +759,37 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   background: var(--adm-surface-subtle);
 }
 
+/* Плитки состояния и парные блоки раздела Meta CAPI вставали в ряд только с
+   1280px (Tailwind xl). В рабочем окне поуже четыре карточки разъезжались по
+   две на всю ширину, а графики шли одной колонкой во весь экран. */
+.admin-root .admin-grid-quad,
+.admin-root .admin-grid-pair,
+.admin-root .admin-grid-split {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 560px) {
+  .admin-root .admin-grid-quad {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .admin-root .admin-grid-quad {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .admin-root .admin-grid-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-root .admin-grid-split {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+}
+
 /* Список слева, редактор справа. Порог в 1024px (Tailwind lg) оставлял окно
    шириной 900–1023px с одной колонкой: список и редактор выстраивались друг
    под другом, и до публикаций приходилось скроллить. */

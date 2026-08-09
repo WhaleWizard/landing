@@ -4,8 +4,25 @@ import {
   Info, Inbox, RefreshCw, Send, Server, ShieldCheck, XCircle,
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
+import { AdminSelect } from './AdminUI';
 
 type Tone = 'ok' | 'warn' | 'fail' | 'neutral';
+
+type TestEventChoice = 'Lead' | 'PageView' | 'all';
+
+// Подписи короткие намеренно: в шапке рядом с кнопками длинный вариант
+// растягивал ряд и ломал его ровную линию.
+const TEST_EVENT_OPTIONS = [
+  { value: 'Lead', label: 'Заявка' },
+  { value: 'PageView', label: 'Просмотр страницы' },
+  { value: 'all', label: 'Вся воронка' },
+];
+
+const TEST_EVENT_TITLES: Record<TestEventChoice, string> = {
+  Lead: 'тестовую заявку (Lead)',
+  PageView: 'тестовый просмотр страницы (PageView)',
+  all: 'все события воронки',
+};
 
 interface TestFieldPreview {
   key: string;
@@ -260,6 +277,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
   const [processNotice, setProcessNotice] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [testEvent, setTestEvent] = useState<TestEventChoice>('Lead');
   const [testDetail, setTestDetail] = useState<TestEventDetail[]>([]);
 
   const load = useCallback(async () => {
@@ -288,9 +306,9 @@ export default function AdminMetaCenter({ password }: { password: string }) {
 
   /**
    * Тестовое событие уходит с `test_event_code`: оно видно в Events Manager →
-   * «Тестирование событий» и не смешивается с живой статистикой. Шлём Lead:
-   * PageView подтверждал только связь, а разобраться нужно именно в том, какие
-   * параметры доходят с заявки.
+   * «Тестирование событий» и не смешивается с живой статистикой. По умолчанию
+   * выбрана заявка: PageView подтверждает только связь, а разобраться нужно
+   * именно в том, какие параметры доходят с Lead.
    */
   const sendTestEvent = useCallback(async () => {
     setTestSending(true);
@@ -301,7 +319,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ event_name: 'Lead', page_url: window.location.origin }),
+        body: JSON.stringify({ event_name: testEvent, page_url: window.location.origin }),
       });
       const payload = await response.json().catch(() => null) as {
         success?: boolean;
@@ -327,12 +345,13 @@ export default function AdminMetaCenter({ password }: { password: string }) {
         return;
       }
 
+      const sentCount = payload.events_requested?.length || 0;
       const eventId = payload.events_requested?.[0]?.event_id || '';
       const code = payload.test_event_code ? ` Код тестирования: ${payload.test_event_code}.` : '';
       setTestDetail(payload.events_detail || []);
       setTestResult({
         ok: true,
-        text: `Meta приняла тестовую заявку (Lead)${eventId ? ` — event_id ${eventId}` : ''}.${code} Событие ищите в Events Manager → «Тестирование событий».`,
+        text: `Meta приняла ${TEST_EVENT_TITLES[testEvent]}${sentCount === 1 && eventId ? ` — event_id ${eventId}` : ''}.${code} Событие ищите в Events Manager → «Тестирование событий».`,
       });
       notify.success('Тестовое событие принято Meta');
       await load();
@@ -343,7 +362,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
     } finally {
       setTestSending(false);
     }
-  }, [load, password]);
+  }, [load, password, testEvent]);
 
   const processQueue = async () => {
     setProcessing(true);
@@ -406,13 +425,25 @@ export default function AdminMetaCenter({ password }: { password: string }) {
           </p>
           {data?.checkedAt && <p className="admin-meta mt-1">Обновлено: {formatDate(data.checkedAt)}</p>}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Ширину задаёт обёртка: сам триггер тянется на 100%, поэтому в общем
+              ряду шапки он иначе разъезжался бы под длину подписи. Высота
+              совпадает с кнопками — компактный вариант был на 2px ниже. */}
+          <div className="w-[11rem]">
+            <AdminSelect
+              value={testEvent}
+              options={TEST_EVENT_OPTIONS}
+              onValueChange={(value) => setTestEvent(value as TestEventChoice)}
+              ariaLabel="Какое тестовое событие отправить"
+              disabled={testSending}
+            />
+          </div>
           <button
             type="button"
             onClick={() => void sendTestEvent()}
             disabled={testSending}
             className="admin-button"
-            title="Отправляет тестовую заявку (Lead) с test_event_code — она видна в «Тестировании событий» Meta и не попадает в живые данные"
+            title="Отправляет событие с test_event_code — оно видно в «Тестировании событий» Meta и не попадает в живые данные"
           >
             <Send className="h-4 w-4" />
             {testSending ? 'Отправляю…' : 'Тестовое событие'}
@@ -505,7 +536,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
 
       {data?.success && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="admin-grid-quad">
             <StateCard
               icon={<Database className="h-4 w-4" />}
               title="D1 и схема"
@@ -542,7 +573,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
             />
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-2">
+          <div className="admin-grid-pair">
             <PeriodCard label="24 часа" data={data.periods?.['24h']} />
             <PeriodCard label="7 дней" data={data.periods?.['7d']} />
           </div>
@@ -600,7 +631,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
             </section>
           )}
 
-          <div className="grid gap-3 xl:grid-cols-[1.1fr_.9fr]">
+          <div className="admin-grid-split">
             <section className="admin-panel p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">

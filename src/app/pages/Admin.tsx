@@ -1506,7 +1506,7 @@ export default function Admin() {
                 </div>
               </details>
 
-              <details className="admin-disclosure mt-2">
+              <details className="admin-disclosure mt-2" open>
                 <summary>
                   <span>Календарь публикаций</span>
                   <span className="admin-meta">{articleStats.planned} в плане</span>
