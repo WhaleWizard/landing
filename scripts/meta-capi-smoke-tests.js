@@ -214,6 +214,57 @@ mustContain('Meta CAPI test endpoint coverage', files.metaTestEvent, [
   'recordMetaDiagnostics',
 ]);
 
+// Тестовый Lead существует ради одного: показать владельцу, какие параметры
+// реально уходят с заявки. Как только он перестаёт повторять набор полей
+// настоящего события, он начинает врать — поэтому наборы сверяются здесь.
+{
+  const extractObjectKeys = (source, marker) => {
+    const start = source.indexOf(marker);
+    assert.ok(start !== -1, `smoke test could not find ${marker}`);
+    let depth = 0;
+    let end = start + marker.length - 1;
+    for (let i = start + marker.length - 1; i < source.length; i += 1) {
+      if (source[i] === '{') depth += 1;
+      else if (source[i] === '}') {
+        depth -= 1;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+    const body = source.slice(start + marker.length, end);
+    return new Set(
+      [...body.matchAll(/^\s{2,}([a-z_][a-z0-9_]*)\s*:/gim)].map((match) => match[1]),
+    );
+  };
+
+  const testUserDataBuilder = files.metaTestEvent.slice(
+    files.metaTestEvent.indexOf('async function buildLeadUserData'),
+  );
+
+  const liveLeadUserData = extractObjectKeys(files.lead, 'user_data: {');
+  const testLeadUserData = extractObjectKeys(testUserDataBuilder, 'return {');
+
+  // Поля, которых нет без соответствующих вопросов в форме: их отсутствие в
+  // тесте — не расхождение, а честность (индекс, дата рождения, пол, madid).
+  const optionalForTest = new Set(['zp', 'dobd', 'dobm', 'doby', 'ge', 'madid']);
+  const missing = [...liveLeadUserData].filter(
+    (key) => !optionalForTest.has(key) && !testLeadUserData.has(key),
+  );
+
+  assert.deepEqual(
+    missing,
+    [],
+    `Meta CAPI test Lead must cover the same user_data keys as the live Lead; missing: ${missing.join(', ')}`,
+  );
+  assert.ok(
+    files.metaTestEvent.includes('describeSentFields'),
+    'Meta CAPI test endpoint must report which fields were actually sent',
+  );
+  assert.ok(
+    !/describeSentFields[\s\S]{0,900}TEST_CONTACT\.email/.test(files.metaTestEvent),
+    'The sent-fields report must not echo raw contact values',
+  );
+}
+
 mustContain('Meta diagnostics summary endpoint', files.diagnosticsSummary, [
   'META_CAPI_DEBUG_SECRET',
   'meta_capi_diagnostics',

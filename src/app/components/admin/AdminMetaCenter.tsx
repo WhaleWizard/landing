@@ -4,8 +4,73 @@ import {
   Info, Inbox, RefreshCw, Send, Server, ShieldCheck, XCircle,
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
+import { AdminSelect } from './AdminUI';
 
 type Tone = 'ok' | 'warn' | 'fail' | 'neutral';
+
+type TestEventChoice = 'Lead' | 'PageView' | 'all';
+
+interface TestFieldPreview {
+  key: string;
+  preview: string;
+}
+
+interface TestEventDetail {
+  event_name: string;
+  event_id: string;
+  action_source?: string;
+  event_source_url?: string;
+  user_data: TestFieldPreview[];
+  custom_data: TestFieldPreview[];
+}
+
+const TEST_EVENT_OPTIONS = [
+  { value: 'Lead', label: 'Заявка (Lead) — полный набор параметров' },
+  { value: 'PageView', label: 'Просмотр страницы (PageView) — только связь' },
+  { value: 'all', label: 'Все события воронки' },
+];
+
+// Meta присылает поля короткими кодами. Владелец админки — не разработчик,
+// поэтому в разборе показываем, что каждый код означает по-русски.
+const FIELD_LABELS: Record<string, string> = {
+  em: 'E-mail (хеш)',
+  ph: 'Телефон (хеш)',
+  fn: 'Имя (хеш)',
+  ln: 'Фамилия (хеш)',
+  country: 'Страна (хеш)',
+  ct: 'Город (хеш)',
+  st: 'Регион (хеш)',
+  zp: 'Индекс (хеш)',
+  external_id: 'Свой идентификатор (хеш)',
+  fbp: 'Cookie пикселя _fbp',
+  fbc: 'Метка клика по рекламе _fbc',
+  client_ip_address: 'IP-адрес',
+  client_user_agent: 'Браузер (User-Agent)',
+  service: 'Услуга',
+  service_slug: 'Код услуги',
+  contact_method: 'Способ связи',
+  form_id: 'Форма',
+  form_variant: 'Вариант формы',
+  lead_source_page: 'Страница заявки',
+  content_name: 'Название содержимого',
+  content_type: 'Тип содержимого',
+  content_ids: 'Идентификаторы содержимого',
+  page_title: 'Заголовок страницы',
+  page_location: 'Адрес страницы',
+  page_path: 'Путь страницы',
+  utm_source: 'utm_source',
+  utm_medium: 'utm_medium',
+  utm_campaign: 'utm_campaign',
+  language: 'Язык браузера',
+  device_type: 'Тип устройства',
+  consent_source: 'Источник согласия',
+  consent_version: 'Версия согласия',
+  consent_timestamp: 'Время согласия',
+};
+
+function fieldLabel(key: string): string {
+  return FIELD_LABELS[key] || key;
+}
 
 interface EventSummary {
   eventName: string;
@@ -204,6 +269,8 @@ export default function AdminMetaCenter({ password }: { password: string }) {
   const [processNotice, setProcessNotice] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [testEvent, setTestEvent] = useState<TestEventChoice>('Lead');
+  const [testDetail, setTestDetail] = useState<TestEventDetail[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -231,23 +298,27 @@ export default function AdminMetaCenter({ password }: { password: string }) {
 
   /**
    * Тестовое событие уходит с `test_event_code`: оно видно в Events Manager →
-   * «Тестирование событий» и не смешивается с живой статистикой. Отправляем
-   * один PageView, а не весь набор — задача проверить связь, а не залить отчёт.
+   * «Тестирование событий» и не смешивается с живой статистикой. По умолчанию
+   * шлём Lead: PageView подтверждает только связь, а разобраться нужно именно
+   * в том, какие параметры доходят с заявки.
    */
   const sendTestEvent = useCallback(async () => {
     setTestSending(true);
     setTestResult(null);
+    setTestDetail([]);
     try {
       const response = await fetch('/api/meta-test-event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ event_name: 'PageView', page_url: window.location.origin }),
+        body: JSON.stringify({ event_name: testEvent, page_url: window.location.origin }),
       });
       const payload = await response.json().catch(() => null) as {
         success?: boolean;
         error?: string;
+        test_event_code?: string;
         events_requested?: { event_name: string; event_id: string }[];
+        events_detail?: TestEventDetail[];
         meta?: unknown;
       } | null;
 
@@ -266,10 +337,16 @@ export default function AdminMetaCenter({ password }: { password: string }) {
         return;
       }
 
+      const sentCount = payload.events_requested?.length || 0;
       const eventId = payload.events_requested?.[0]?.event_id || '';
+      const what = testEvent === 'all'
+        ? `${sentCount} событий воронки`
+        : `событие ${testEvent}`;
+      const code = payload.test_event_code ? ` Код тестирования: ${payload.test_event_code}.` : '';
+      setTestDetail(payload.events_detail || []);
       setTestResult({
         ok: true,
-        text: `Meta подтвердила приём тестового PageView${eventId ? ` (event_id ${eventId})` : ''}. Событие ищите в Events Manager → «Тестирование событий».`,
+        text: `Meta приняла ${what}${sentCount === 1 && eventId ? ` (event_id ${eventId})` : ''}.${code} Смотрите в Events Manager → «Тестирование событий».`,
       });
       notify.success('Тестовое событие принято Meta');
       await load();
@@ -280,7 +357,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
     } finally {
       setTestSending(false);
     }
-  }, [load, password]);
+  }, [load, password, testEvent]);
 
   const processQueue = async () => {
     setProcessing(true);
@@ -343,7 +420,16 @@ export default function AdminMetaCenter({ password }: { password: string }) {
           </p>
           {data?.checkedAt && <p className="admin-meta mt-1">Обновлено: {formatDate(data.checkedAt)}</p>}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <AdminSelect
+            value={testEvent}
+            options={TEST_EVENT_OPTIONS}
+            onValueChange={(value) => setTestEvent(value as TestEventChoice)}
+            ariaLabel="Какое тестовое событие отправить"
+            disabled={testSending}
+            compact
+            className="min-w-[15rem]"
+          />
           <button
             type="button"
             onClick={() => void sendTestEvent()}
@@ -372,6 +458,81 @@ export default function AdminMetaCenter({ password }: { password: string }) {
           role="status"
         >
           {testResult.text}
+        </div>
+      )}
+
+      {testDetail.length > 0 && (
+        <div className="admin-panel p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold tracking-tight">Что ушло в Meta</h3>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--adm-fg)]/58">
+                Состав тестового события: набор полей здесь тот же, что уходит с настоящей
+                заявки. Сами значения синтетические — проверяется доставка параметров,
+                а не качество данных реального клиента.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTestDetail([])}
+              className="admin-button admin-button--ghost"
+            >
+              Скрыть
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            {testDetail.map((event) => (
+              <div key={event.event_id} className="rounded-xl border border-[var(--adm-border)] p-3 sm:p-4">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="text-sm font-semibold">{event.event_name}</span>
+                  <span className="admin-meta break-all">event_id: {event.event_id}</span>
+                </div>
+
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="admin-meta">
+                      Параметры совпадения пользователя — {event.user_data.length}
+                    </p>
+                    {event.user_data.length > 0 ? (
+                      <dl className="mt-2 space-y-1.5">
+                        {event.user_data.map((field) => (
+                          <div key={field.key} className="flex flex-wrap items-baseline gap-x-2">
+                            <dt className="text-sm text-[var(--adm-fg)]/75">{fieldLabel(field.key)}</dt>
+                            <dd className="admin-meta break-all">{field.preview}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : (
+                      <p className="mt-2 text-sm text-[var(--adm-fg)]/55">
+                        Это событие не передаёт данные пользователя.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="admin-meta">
+                      Данные события — {event.custom_data.length}
+                    </p>
+                    {event.custom_data.length > 0 ? (
+                      <dl className="mt-2 space-y-1.5">
+                        {event.custom_data.map((field) => (
+                          <div key={field.key} className="flex flex-wrap items-baseline gap-x-2">
+                            <dt className="text-sm text-[var(--adm-fg)]/75">{fieldLabel(field.key)}</dt>
+                            <dd className="admin-meta break-all">{field.preview}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : (
+                      <p className="mt-2 text-sm text-[var(--adm-fg)]/55">
+                        У события нет дополнительных данных.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
