@@ -1,0 +1,10 @@
+/*
+ * Утилиты, которые встречаются только в админке. Публичный CSS больше не
+ * содержит классы CRM, планера и редактора, но сами классы и их порядок
+ * остаются ровно теми же. Theme и preflight уже загружены общим index.css.
+ */
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@source '../app/pages/Admin.tsx';
+@source '../app/components/admin';
+@source '../app/components/ArticleEditor.tsx';
+@source '../app/components/CaseFieldsEditor.tsx';

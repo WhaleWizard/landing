@@ -36,7 +36,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env, n
   if (cached) return cached;
 
   try {
-    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request));
+    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil));
     const article = articles.find((item) => item.slug === slug && getArticleSectionPath(item) === SECTION_PATH);
     const siteUrl = getSiteUrl(env, request);
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -9,6 +9,11 @@ interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElemen
 export function ImageWithFallback({ src, alt, fallback = '/placeholder.jpg', ...props }: ImageWithFallbackProps) {
   const [imgSrc, setImgSrc] = useState(src);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setImgSrc(src);
+    setError(false);
+  }, [fallback, src]);
 
   const handleError = () => {
     if (!error) {

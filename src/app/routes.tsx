@@ -18,11 +18,39 @@ const Offer = lazy(() => import('./pages/Offer'));
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
 const FAQPage = lazy(() => import('./pages/FAQPage'));
 const MarketingGlossaryPage = lazy(() => import('./pages/MarketingGlossaryPage'));
-const MetaAdsPage = lazy(() => import('./pages/MetaAdsPage'));
-const GoogleAdsPage = lazy(() => import('./pages/GoogleAdsPage'));
-const ConsultPage = lazy(() => import('./pages/ConsultPage'));
-const MetaAppsPage = lazy(() => import('./pages/MetaAppsPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+
+type ServiceType = import('./pages/ServiceLandingPage').ServiceType;
+type ServicePreload = () => Promise<unknown>;
+
+function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = []) {
+  return lazy(async () => {
+    // Above-the-fold hero chunks start together with the landing module instead
+    // of forming a second/third request waterfall after it has evaluated.
+    const [module] = await Promise.all([
+      import('./pages/ServiceLandingPage'),
+      ...preloads.map((preload) => preload()),
+    ]);
+
+    return {
+      default: function RoutedServiceLanding() {
+        return <module.ServiceLandingPage service={service} />;
+      },
+    };
+  });
+}
+
+const MetaAdsPage = lazyServiceLanding('meta-ads');
+const GoogleAdsPage = lazyServiceLanding('google-ads', [
+  () => import('./components/Hero'),
+]);
+const ConsultPage = lazyServiceLanding('consult', [
+  () => import('./components/service-heroes/ConsultStudioHero'),
+]);
+const MetaAppsPage = lazyServiceLanding('meta-apps', [
+  () => import('./components/Hero'),
+  () => import('./components/MetaAppsHeroVisual'),
+]);
 
 
 function RouteErrorBoundary() {
@@ -73,12 +101,24 @@ function RootLayout() {
     location.pathname === '/'
     || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname)
   );
+  const articleInitialLoad = isAdmin
+    ? 'manual'
+    : location.pathname === '/'
+      ? 'deferred'
+      : 'immediate';
   const routeContent = <Outlet />;
 
   return (
     <>
       {needsArticles ? (
-        <ArticlesProvider>{routeContent}</ArticlesProvider>
+        // Admin API includes drafts/future publications. The key creates a hard
+        // state boundary so protected records can never flash on public routes.
+        <ArticlesProvider
+          key={isAdmin ? 'admin-articles' : 'public-articles'}
+          initialLoad={articleInitialLoad}
+        >
+          {routeContent}
+        </ArticlesProvider>
       ) : routeContent}
       {!isAdmin ? (
         <Suspense fallback={null}>

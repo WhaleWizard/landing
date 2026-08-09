@@ -18,7 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const now = new Date().toISOString();
-    const allArticles = await fetchArticlesWithFallback(env, request);
+    const allArticles = await fetchArticlesWithFallback(env, request, waitUntil);
     const visibleArticles = filterVisibleArticles(allArticles, now);
     visibleArticles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 
@@ -47,9 +47,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       {
-        status: 502,
+        status: 503,
         headers: {
           'Cache-Control': CACHE_CONTROL.noStore,
+          'Retry-After': '300',
         },
       },
     );

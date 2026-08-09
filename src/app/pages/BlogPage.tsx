@@ -29,6 +29,9 @@ import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
 import { useScrollTo } from '../components/hooks/useScrollTo';
+import DeferredImage from '../components/DeferredImage';
+import { optimizeArticleContentImages } from '../utils/articleContentImages';
+import ArticlesLoadError from '../components/ArticlesLoadError';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 const Footer = lazy(() => import('../components/Footer'));
@@ -178,14 +181,16 @@ function articleReadMinutes(article: Article): number {
 // Раньше ref висел на секции, которая появлялась после скелетона загрузки —
 // observer привязывался к null, inView навсегда оставался false, и плексус
 // с орбами стояли замороженными. Обёртки ниже монтируют ref и хук синхронно.
-function InViewPlexus() {
+function InViewPlexus({ viewportBound = false }: { viewportBound?: boolean }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: false, margin: '0px 0px -10% 0px' });
   return (
     <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0">
-      <Suspense fallback={null}>
-        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
-      </Suspense>
+      <div className={viewportBound ? 'sticky top-0 h-[100svh] w-full' : 'absolute inset-0'}>
+        <Suspense fallback={null}>
+          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -406,8 +411,13 @@ function BlogPageComponent() {
   const routeBase = isCasesRoute ? '/cases' : '/blog';
   const preservedCaseSearch = isCasesRoute ? location.search : '';
   const listUrl = `${routeBase}${preservedCaseSearch}`;
-  const { articles: allArticles, loading } = useArticles();
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const { articles: allArticles, loading, error: articlesError, refreshArticles } = useArticles();
+  const selectedArticle = useMemo(() => {
+    if (!slug || loading) return null;
+    return allArticles.find((article) => (
+      article.slug === slug && (isCasesRoute ? isCaseArticle(article) : !isCaseArticle(article))
+    )) ?? null;
+  }, [allArticles, isCasesRoute, loading, slug]);
   // Поддержка /blog?search=… — этот формат заявлен в JSON-LD SearchAction (SEO.tsx)
   const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
   const [activeTopic, setActiveTopic] = useState(() => new URLSearchParams(window.location.search).get('topic') || '');
@@ -439,6 +449,7 @@ function BlogPageComponent() {
         heading.id = id;
         return { id, text };
       });
+      optimizeArticleContentImages(doc);
       return { articleHtml: doc.body.innerHTML, toc: items };
     } catch {
       return { articleHtml: safe, toc: [] };
@@ -457,14 +468,8 @@ function BlogPageComponent() {
   }, [slug]);
 
   useEffect(() => {
-    if (slug && !loading) {
-      const article = allArticles.find((a) => a.slug === slug && (isCasesRoute ? isCaseArticle(a) : !isCaseArticle(a)));
-      if (article) setSelectedArticle(article);
-      else navigate(listUrl, { replace: true });
-    } else {
-      setSelectedArticle(null);
-    }
-  }, [slug, allArticles, loading, navigate, isCasesRoute, listUrl]);
+    if (slug && !loading && !articlesError && !selectedArticle) navigate(listUrl, { replace: true });
+  }, [articlesError, listUrl, loading, navigate, selectedArticle, slug]);
 
   useEffect(() => {
     if (!selectedArticle) return;
@@ -526,7 +531,9 @@ function BlogPageComponent() {
       }
     };
     contentRef.current.addEventListener('click', handler);
-    return () => contentRef.current?.removeEventListener('click', handler);
+    return () => {
+      contentRef.current?.removeEventListener('click', handler);
+    };
   }, [selectedArticle, navigate, scrollToWhenReady]);
 
   const goToBlogList = useCallback(() => navigate(listUrl), [navigate, listUrl]);
@@ -726,6 +733,8 @@ function BlogPageComponent() {
                   src={selectedArticle.image}
                   alt={selectedArticle.title}
                   loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
                   className="w-full h-auto object-cover max-h-[500px]"
                   onError={(event) => {
                     // Битая обложка — прячем весь блок, статья начинается с текста
@@ -972,7 +981,7 @@ function BlogPageComponent() {
         style={{ contain: 'layout style paint' }}
       >
         {/* Плексус-сеть на весь список: карточки почти непрозрачные, сеть видна в промежутках и не мешает чтению */}
-        <InViewPlexus />
+        <InViewPlexus viewportBound />
 
         <div className="relative z-10 mx-auto max-w-7xl">
           <PageNav
@@ -1126,7 +1135,9 @@ function BlogPageComponent() {
                 />
               </div>
 
-              {scopedArticles.length === 0 ? (
+              {articlesError && scopedArticles.length === 0 ? (
+                <ArticlesLoadError onRetry={refreshArticles} />
+              ) : scopedArticles.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-card/70 p-8 text-center">
                   <h2 className="text-xl font-semibold">Раздел пока пуст</h2>
                   <p className="mt-2 text-muted-foreground">Расскажите о проекте — подскажу, с чего начать.</p>
@@ -1157,6 +1168,7 @@ function BlogPageComponent() {
                           alt=""
                           loading="eager"
                           decoding="async"
+                          fetchPriority="high"
                           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
                           onError={(event) => {
                             event.currentTarget.src = '/images/brand/whale-wizard.webp';
@@ -1211,7 +1223,7 @@ function BlogPageComponent() {
                               className="grid w-full grid-cols-[88px_minmax(0,1fr)] items-center gap-3 p-3 text-left transition hover:bg-primary/[0.05] sm:grid-cols-[136px_minmax(0,1fr)_auto] sm:gap-5 sm:p-4"
                             >
                               <div className="aspect-[4/3] overflow-hidden rounded-xl bg-background/60 sm:aspect-[16/10]">
-                                <img
+                                <DeferredImage
                                   src={hasCustomCover(article.image) ? article.image : '/images/brand/whale-wizard.webp'}
                                   alt=""
                                   loading="lazy"

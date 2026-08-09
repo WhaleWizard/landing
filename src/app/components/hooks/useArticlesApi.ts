@@ -1,6 +1,4 @@
-import { API_ROUTES, JSONBIN_PUBLIC_URL } from '../../config';
-
-const LOCAL_ARTICLES_BACKUP_KEY = 'ww_articles_backup_v1';
+import { API_ROUTES } from '../../config';
 
 export interface CaseMetric {
   value: string;
@@ -112,148 +110,9 @@ function hasValidSlug(slug?: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized);
 }
 
-function hasImage(image?: string): boolean {
-  return String(image || '').trim().length > 0;
-}
-
-function sanitizeArticles(source: Article[]): Article[] {
-  const unique = dedupeBySlug(asArticleArray(source));
-  return unique.filter((article) => hasValidSlug(article?.slug) && hasImage(article?.image));
-}
-
 function sanitizeAdminArticles(source: Article[]): Article[] {
   const unique = dedupeBySlug(asArticleArray(source));
   return unique.filter((article) => hasValidSlug(article?.slug));
-}
-
-function asIsoTimestamp(value?: string): number {
-  if (!value) return 0;
-  const ts = Date.parse(value);
-  return Number.isFinite(ts) ? ts : 0;
-}
-
-function articleRecencyScore(article?: Article): number {
-  if (!article) return 0;
-  return Math.max(
-    asIsoTimestamp(article.updatedAt),
-    asIsoTimestamp(article.publishedAt),
-  );
-}
-
-function pickPreferredArticle(current: Article | undefined, incoming: Article): Article {
-  if (!current) return incoming;
-
-  const currentScore = articleRecencyScore(current);
-  const incomingScore = articleRecencyScore(incoming);
-
-  if (incomingScore > currentScore) return incoming;
-  if (incomingScore < currentScore) return current;
-
-  const currentContentLength = String(current.content || '').length;
-  const incomingContentLength = String(incoming.content || '').length;
-  if (incomingContentLength > currentContentLength) return incoming;
-
-  return current;
-}
-
-function saveLocalArticlesBackup(articles: Article[]): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const safeArticles = Array.isArray(articles) ? articles : [];
-    window.localStorage.setItem(LOCAL_ARTICLES_BACKUP_KEY, JSON.stringify(safeArticles));
-  } catch {
-    // noop: localStorage can be unavailable in private mode
-  }
-}
-
-function fetchLocalArticlesBackup(): Article[] {
-  if (typeof window === 'undefined') return [];
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_ARTICLES_BACKUP_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function fetchLocalSeedFallback(): Promise<Article[]> {
-  try {
-    const res = await fetch('/articles.seed.json', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      cache: 'force-cache',
-    });
-
-    if (!res.ok) return [];
-    const json = await res.json();
-    return asArticleArray(json?.articles);
-  } catch {
-    return [];
-  }
-}
-
-async function fetchPublicJsonBinFallback(): Promise<Article[]> {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 1800);
-  try {
-    const res = await fetch(JSONBIN_PUBLIC_URL, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      cache: 'force-cache',
-      signal: controller.signal,
-    });
-
-    if (!res.ok) return [];
-    const json = await res.json();
-    if (Array.isArray(json?.record)) return asArticleArray(json.record);
-    return asArticleArray(json?.record?.articles);
-  } catch {
-    return [];
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-async function resolveFallbackArticles(): Promise<Article[]> {
-  const localBackup = sanitizeArticles(fetchLocalArticlesBackup());
-  const localSeed = await fetchLocalSeedFallback().then((articles) => sanitizeArticles(articles));
-
-  // Быстрый путь: если уже есть локальные данные — возвращаем их сразу,
-  // чтобы не блокировать UI медленными внешними запросами.
-  // Бэкап приоритетнее seed: он записан из последнего успешного ответа API,
-  // поэтому отражает удаления, сделанные после сборки сайта.
-  const quickSource = [localBackup, localSeed].find((source) => source.length > 0) || [];
-  if (quickSource.length > 0) {
-    saveLocalArticlesBackup(quickSource);
-    return quickSource;
-  }
-
-  const publicFallback = await fetchPublicJsonBinFallback().then((articles) => sanitizeArticles(articles));
-
-  // Prefer a single freshest non-empty fallback source to avoid mixing stale and current datasets.
-  const preferredSource = [publicFallback, localBackup, localSeed].find((source) => source.length > 0) || [];
-  if (preferredSource.length > 0) {
-    saveLocalArticlesBackup(preferredSource);
-    return preferredSource;
-  }
-
-  // Last-resort merge for rare edge-cases where all sources are tiny/partial.
-  const mergedMap = new Map<string, Article>();
-  [publicFallback, localSeed, localBackup].forEach((candidate) => {
-    candidate.forEach((article, index) => {
-      const key = articleIdentityKey(article, index);
-      const preferred = pickPreferredArticle(mergedMap.get(key), article);
-      mergedMap.set(key, preferred);
-    });
-  });
-
-  const merged = Array.from(mergedMap.values());
-  if (merged.length > 0) saveLocalArticlesBackup(merged);
-  return merged;
 }
 
 export const fetchArticles = async (options?: { bypassCache?: boolean }): Promise<Article[]> => {
@@ -276,15 +135,16 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     const primaryArticles = dedupeBySlug(asArticleArray(json.articles));
 
     if (primaryArticles.length > 0) {
-      // API is source of truth for admin operations. Do not restore deleted records from stale fallbacks.
-      saveLocalArticlesBackup(primaryArticles);
       return primaryArticles;
     }
 
     return [];
   } catch (error) {
     console.error('fetchArticles error:', error);
-    return resolveFallbackArticles();
+    // Runtime Pages Functions already maintain an authoritative last-known-good
+    // D1 snapshot. A second client fallback to old seed/JSONBin would resurrect
+    // deleted posts exactly when the server intentionally returns 503.
+    throw error instanceof Error ? error : new Error('Failed to load articles');
   }
 };
 
@@ -329,7 +189,6 @@ export const saveArticles = async (articles: Article[], password: string): Promi
     const result = (await res.json()) as AdminUpdateResponse;
     if (result?.success) {
       const savedArticles = Array.isArray(result.articles) ? result.articles : articles;
-      saveLocalArticlesBackup(savedArticles);
       return { success: true, articles: savedArticles };
     }
 

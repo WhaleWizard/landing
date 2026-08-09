@@ -1,10 +1,11 @@
 // src/app/context/ArticlesContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { fetchAdminArticles, fetchArticles, saveArticles, Article } from '../components/hooks/useArticlesApi';
 
 interface ArticlesContextType {
   articles: Article[];
   loading: boolean;
+  error: string | null;
   refreshArticles: () => Promise<void>;
   forceRefreshArticles: () => Promise<void>;
   forceRefreshAdminArticles: (password: string) => Promise<void>;
@@ -19,50 +20,81 @@ export const useArticles = () => {
   return context;
 };
 
+type InitialLoadMode = 'immediate' | 'deferred' | 'manual';
+
 interface Props {
   children: ReactNode;
+  initialLoad?: InitialLoadMode;
 }
 
-export const ArticlesProvider = ({ children }: Props) => {
+export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props) => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
 
-  const loadArticles = async () => {
+  const runArticlesRequest = useCallback(async (loader: () => Promise<Article[]>) => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
-    const data = await fetchArticles();
-    setArticles(data);
-    setLoading(false);
-  };
+    setError(null);
+    try {
+      const data = await loader();
+      // Быстрый переход или повторное обновление не должны позволять старому
+      // медленному ответу перезаписать результат последнего действия.
+      if (sequence === requestSequence.current) setArticles(data);
+    } catch (requestError) {
+      if (sequence === requestSequence.current) {
+        setError(requestError instanceof Error ? requestError.message : 'Не удалось загрузить публикации');
+      }
+      throw requestError;
+    } finally {
+      if (sequence === requestSequence.current) setLoading(false);
+    }
+  }, []);
 
-  const refreshArticles = async () => {
+  const loadArticles = useCallback(async () => {
+    await runArticlesRequest(() => fetchArticles());
+  }, [runArticlesRequest]);
+
+  const refreshArticles = useCallback(async () => {
     await loadArticles();
-  };
+  }, [loadArticles]);
 
-  const forceRefreshArticles = async () => {
-    setLoading(true);
-    const data = await fetchArticles({ bypassCache: true });
-    setArticles(data);
-    setLoading(false);
-  };
+  const forceRefreshArticles = useCallback(async () => {
+    await runArticlesRequest(() => fetchArticles({ bypassCache: true }));
+  }, [runArticlesRequest]);
 
-  const forceRefreshAdminArticles = async (password: string) => {
-    setLoading(true);
-    const data = await fetchAdminArticles(password);
-    setArticles(data);
-    setLoading(false);
-  };
+  const forceRefreshAdminArticles = useCallback(async (password: string) => {
+    await runArticlesRequest(() => fetchAdminArticles(password));
+  }, [runArticlesRequest]);
 
-  const updateArticles = async (newArticles: Article[], password: string) => {
+  const updateArticles = useCallback(async (newArticles: Article[], password: string) => {
+    const sequence = ++requestSequence.current;
     const result = await saveArticles(newArticles, password);
-    if (result.success) {
+    if (result.success && sequence === requestSequence.current) {
       setArticles(result.articles);
     }
     return result.success;
-  };
+  }, []);
 
   useEffect(() => {
+    // Вход в админку не должен заранее тянуть публичную выдачу: после успешной
+    // проверки пароля Admin сам загружает полный набор материалов.
+    if (initialLoad === 'manual') {
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    // В блоге и кейсах материалы — основной контент первого экрана, поэтому
+    // ожидание requestIdleCallback только ухудшает LCP и воспринимаемую скорость.
+    if (initialLoad === 'immediate') {
+      void loadArticles().catch(() => undefined);
+      return;
+    }
+
     if (typeof window === 'undefined') {
-      loadArticles();
+      void loadArticles().catch(() => undefined);
       return;
     }
 
@@ -72,7 +104,7 @@ export const ArticlesProvider = ({ children }: Props) => {
     let cancelled = false;
     const run = () => {
       if (cancelled) return;
-      void loadArticles();
+      void loadArticles().catch(() => undefined);
     };
 
     const idleWindow = window as Window & typeof globalThis & {
@@ -93,10 +125,14 @@ export const ArticlesProvider = ({ children }: Props) => {
       cancelled = true;
       globalThis.clearTimeout(timer);
     };
+  }, [initialLoad, loadArticles]);
+
+  useEffect(() => () => {
+    requestSequence.current += 1;
   }, []);
 
   return (
-    <ArticlesContext.Provider value={{ articles, loading, refreshArticles, forceRefreshArticles, forceRefreshAdminArticles, updateArticles }}>
+    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, forceRefreshArticles, forceRefreshAdminArticles, updateArticles }}>
       {children}
     </ArticlesContext.Provider>
   );

@@ -69,7 +69,7 @@ npm run build:migration-map   # пересобрать карту «таблиц
 
 ### Статьи: два источника с fallback-цепочкой
 
-Чтение (`_lib/articles.ts`): D1 (если `USE_D1_ARTICLES=true`) → JSONBin → статический `articles.seed.json` из сборки. `REQUIRE_FRESH_ARTICLES=true` валит сборку вместо устаревшего контента; `ALLOW_FALLBACK_BUILD=true` — аварийный обход. Черновики и будущие `publishedAt` отфильтровываются из публичных выдач.
+Чтение (`_lib/articles.ts`): при `USE_D1_ARTICLES=true` D1 (включая пустой результат как канон) → последний успешный D1-snapshot в R2; JSONBin в этом режиме никогда не читается, а статический seed разрешён только временным `ALLOW_EMERGENCY_ARTICLE_SEED=true`. Без D1-режима цепочка остаётся JSONBin → seed. `REQUIRE_FRESH_ARTICLES=true` валит сборку вместо устаревшего контента; `ALLOW_FALLBACK_BUILD=true` — аварийный обход только для сборки. Черновики и будущие `publishedAt` отфильтровываются из публичных выдач.
 
 ### SEO: три уровня
 

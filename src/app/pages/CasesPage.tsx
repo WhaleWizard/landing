@@ -47,6 +47,8 @@ import { useArticles } from '../context/ArticlesContext';
 import { isMetaSafeCaseFilterValue, trackCaseFilter } from '../consent/consent';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { useScrollTo } from '../components/hooks/useScrollTo';
+import DeferredImage from '../components/DeferredImage';
+import ArticlesLoadError from '../components/ArticlesLoadError';
 import {
   CASE_BACK_TARGETS,
   getCaseCover,
@@ -319,11 +321,12 @@ function CaseResultCard({ item, index, href, onOpen }: { item: CaseView; index: 
         aria-label={`Открыть кейс: ${item.title}`}
       >
         <div className="cases-result-cover">
-          <img
+          <DeferredImage
             src={item.image}
             alt={item.imageAlt}
             loading={index === 0 ? 'eager' : 'lazy'}
             decoding="async"
+            fetchPriority={index === 0 ? 'high' : 'low'}
           />
           {isFeatured ? <span className="cases-featured-label">Топ-кейс</span> : null}
         </div>
@@ -378,7 +381,7 @@ function StatCard({ icon: Icon, value, label }: { icon: ComponentType<{ classNam
 }
 
 export default function CasesPage() {
-  const { articles, loading } = useArticles();
+  const { articles, loading, error: articlesError, refreshArticles } = useArticles();
   const navigate = useNavigate();
   const location = useLocation();
   const reduceMotion = useReducedMotion();
@@ -741,6 +744,8 @@ export default function CasesPage() {
 
                 {loading && publishedCases.length === 0 ? (
                   <div className="cases-loading" role="status">Загружаю опубликованные кейсы…</div>
+                ) : articlesError && publishedCases.length === 0 ? (
+                  <ArticlesLoadError onRetry={refreshArticles} />
                 ) : filtered.length ? (
                   <div className="cases-results-list">
                     <AnimatePresence initial={false}>

@@ -56,8 +56,12 @@ export function mergeContent<T>(base: T, override: unknown): T {
 }
 
 function loadSiteContent(cacheKey: string): Promise<unknown> {
-  const cached = serviceContentCache.get(cacheKey);
-  if (cached) return Promise.resolve(cached);
+  // `null` — тоже завершённый и валидный ответ («для ключа нет CMS override»).
+  // Проверка по truthiness раньше не кэшировала его, поэтому Home параллельно
+  // запрашивал один и тот же site:home из SEO и Hero.
+  if (serviceContentCache.has(cacheKey)) {
+    return Promise.resolve(serviceContentCache.get(cacheKey));
+  }
   const pending = serviceContentPending.get(cacheKey);
   if (pending) return pending;
 
@@ -68,7 +72,7 @@ function loadSiteContent(cacheKey: string): Promise<unknown> {
     .then(async (response) => response.ok ? response.json() : null)
     .then((payload) => {
       const loaded = payload?.success && payload.content ? payload.content : null;
-      if (loaded) serviceContentCache.set(cacheKey, loaded);
+      serviceContentCache.set(cacheKey, loaded);
       return loaded;
     })
     .finally(() => serviceContentPending.delete(cacheKey));

@@ -268,7 +268,6 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router'],
           motion: ['motion'],
-          tiptap: ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-image'],
         },
       },
     },

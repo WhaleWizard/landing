@@ -3,7 +3,12 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
 import { fetchArticlesFromD1, writeArticlesToD1 } from '../../_lib/d1';
-import { fetchArticlesWithFallback, isPublishedArticle, shouldUseD1Articles } from '../../_lib/articles';
+import {
+  fetchArticlesWithFallback,
+  isPublishedArticle,
+  scheduleD1ArticlesSnapshot,
+  shouldUseD1Articles,
+} from '../../_lib/articles';
 import { getArticlePath } from '../../_lib/seo';
 import { json } from '../../_lib/http';
 import type { Article, Env } from '../../_lib/types';
@@ -206,7 +211,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   );
 };
 
-export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
@@ -223,7 +228,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   try {
-    const articles = await fetchArticlesWithFallback(env, request);
+    const articles = await fetchArticlesWithFallback(env, request, waitUntil);
     articles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 
     return json(
@@ -239,7 +244,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         error: error instanceof Error ? error.message : 'Failed to load admin articles',
       },
       {
-        status: 502,
+        status: 503,
         headers: { 'Cache-Control': CACHE_CONTROL.noStore },
       },
     );
@@ -327,6 +332,10 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
     const updated = useD1
       ? await writeArticlesToD1(env, articlesWithStatus, existing)
       : await writeArticlesToJsonBin(env, articlesWithStatus, existing);
+
+    if (useD1) {
+      scheduleD1ArticlesSnapshot(env, updated, waitUntil);
+    }
 
     const allSlugs = Array.from(new Set([...existing, ...updated].map((article) => article.slug)));
     const siteUrl = getSiteUrl(env, request);

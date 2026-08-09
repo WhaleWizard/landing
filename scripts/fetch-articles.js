@@ -1,4 +1,6 @@
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   DATA_DIR,
   BUILD_ARTICLES_PATH,
@@ -11,20 +13,16 @@ import {
   buildJsonBinHeaders,
 } from './config.js';
 
-// Fallback chain: JSONBin -> previous build cache -> committed local fallback.
-// Production can require fresh JSONBin content without relying on provider-specific CI flags.
-const REQUIRE_FRESH_ARTICLES = process.env.REQUIRE_FRESH_ARTICLES === 'true' || process.env.STRICT_ARTICLES_FETCH === 'true';
+// Build-time authority follows the runtime storage mode. In D1 mode JSONBin is
+// not a safe fallback: admin writes do not mirror D1 changes back to JSONBin.
+const REQUIRE_FRESH_ARTICLES = process.env.REQUIRE_FRESH_ARTICLES === 'true'
+  || process.env.STRICT_ARTICLES_FETCH === 'true';
 const ALLOW_FALLBACK_BUILD = process.env.ALLOW_FALLBACK_BUILD === 'true';
 const USE_D1_ARTICLES = process.env.USE_D1_ARTICLES === 'true';
-// When D1 is the runtime source of truth, build-time JSONBin is only a static SEO fallback.
-// Runtime Pages Functions will read current articles from D1 after deploy.
-const FAIL_ON_FALLBACK = REQUIRE_FRESH_ARTICLES && !ALLOW_FALLBACK_BUILD && !USE_D1_ARTICLES;
-
-function markFallbackBuildDisallowed() {
-  console.error('❌ Fresh article content is required, but JSONBin was unavailable.');
-  console.error('ℹ️ Keep REQUIRE_FRESH_ARTICLES=true for JSONBin-backed production. D1-backed production can build from static fallback because runtime reads D1.');
-  process.exitCode = 1;
-}
+const AUTHORITATIVE_BUILD_SOURCES = {
+  d1: new Set(['public-api', 'd1', 'd1-public-api']),
+  jsonbin: new Set(['public-api', 'jsonbin']),
+};
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -42,35 +40,97 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
 }
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }
 
-function readArticlesFromFile(pathname) {
+export function isUsableArticleList(value) {
+  if (!Array.isArray(value) || value.length === 0) return false;
+
+  const slugs = new Set();
+  return value.every((article) => {
+    if (!article || typeof article !== 'object' || Array.isArray(article)) return false;
+    const slug = String(article.slug || '').trim();
+    const title = String(article.title || '').trim();
+    if (!slug || !title || slugs.has(slug)) return false;
+    slugs.add(slug);
+    return true;
+  });
+}
+
+function hasValidSnapshotTimestamp(value) {
+  return typeof value === 'string' && value.trim() !== '' && Number.isFinite(Date.parse(value));
+}
+
+export function readArticleSnapshot(pathname) {
   if (!existsSync(pathname)) return null;
 
   try {
-    const raw = JSON.parse(readFileSync(pathname, 'utf8'));
-    return Array.isArray(raw?.articles) ? raw.articles : null;
+    const payload = JSON.parse(readFileSync(pathname, 'utf8'));
+    const articles = Array.isArray(payload) ? payload : payload?.articles;
+    if (!isUsableArticleList(articles)) return null;
+    if (Number.isFinite(Number(payload?.total)) && Number(payload.total) !== articles.length) return null;
+    return {
+      source: typeof payload?.source === 'string' ? payload.source : '',
+      fetchedAt: typeof payload?.fetchedAt === 'string' ? payload.fetchedAt : '',
+      articles,
+    };
   } catch {
     return null;
   }
 }
 
-function pickFallbackSource() {
-  const candidates = [
-    { source: 'public-seed-fallback', articles: readArticlesFromFile(PUBLIC_SEED_PATH) },
-    { source: 'local-fallback', articles: readArticlesFromFile(LOCAL_ARTICLES_PATH) },
-    { source: 'build-cache-fallback', articles: readArticlesFromFile(BUILD_ARTICLES_PATH) },
-  ].filter((candidate) => Array.isArray(candidate.articles));
+function isAuthoritativeBuildSnapshot(snapshot, useD1Articles) {
+  if (!snapshot || !hasValidSnapshotTimestamp(snapshot.fetchedAt)) return false;
+  const allowedSources = useD1Articles
+    ? AUTHORITATIVE_BUILD_SOURCES.d1
+    : AUTHORITATIVE_BUILD_SOURCES.jsonbin;
+  return allowedSources.has(snapshot.source) && isUsableArticleList(snapshot.articles);
+}
 
-  if (candidates.length === 0) return null;
+/**
+ * Explicit priority is intentional. Article count is not freshness: choosing
+ * the biggest snapshot can resurrect posts that were deleted in the CMS.
+ */
+export function selectFallbackSource({
+  useD1Articles,
+  buildSnapshot,
+  publicSeedSnapshot,
+  localSnapshot,
+}) {
+  if (isAuthoritativeBuildSnapshot(buildSnapshot, useD1Articles)) {
+    return {
+      source: 'build-cache-fallback',
+      articles: buildSnapshot.articles,
+      preserveBuildCache: true,
+    };
+  }
 
-  return candidates.sort((a, b) => {
-    const byCount = b.articles.length - a.articles.length;
-    if (byCount !== 0) return byCount;
-    return ['public-seed-fallback', 'local-fallback', 'build-cache-fallback'].indexOf(a.source) -
-      ['public-seed-fallback', 'local-fallback', 'build-cache-fallback'].indexOf(b.source);
-  })[0];
+  if (publicSeedSnapshot && isUsableArticleList(publicSeedSnapshot.articles)) {
+    return {
+      source: 'public-seed-fallback',
+      articles: publicSeedSnapshot.articles,
+      preserveBuildCache: false,
+    };
+  }
+
+  if (localSnapshot && isUsableArticleList(localSnapshot.articles)) {
+    return {
+      source: 'local-fallback',
+      articles: localSnapshot.articles,
+      preserveBuildCache: false,
+    };
+  }
+
+  return null;
+}
+
+function readFallbackSources(useD1Articles) {
+  return selectFallbackSource({
+    useD1Articles,
+    buildSnapshot: readArticleSnapshot(BUILD_ARTICLES_PATH),
+    publicSeedSnapshot: readArticleSnapshot(PUBLIC_SEED_PATH),
+    localSnapshot: readArticleSnapshot(LOCAL_ARTICLES_PATH),
+  });
 }
 
 function writeBuildArticles(articles, source) {
@@ -91,6 +151,24 @@ function writeBuildArticles(articles, source) {
   );
 }
 
+async function fetchArticlesFromPublicApi() {
+  const response = await fetchWithTimeout(
+    PUBLIC_ARTICLES_URL,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'WhaleWizard-SEO-Build/1.0',
+      },
+      method: 'GET',
+    },
+    TIMEOUT_MS,
+  );
+
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload = await response.json();
+  return Array.isArray(payload?.articles) ? payload.articles : [];
+}
+
 async function fetchArticlesFromJsonBin() {
   const headers = buildJsonBinHeaders();
   let lastError = null;
@@ -106,9 +184,7 @@ async function fetchArticlesFromJsonBin() {
         TIMEOUT_MS,
       );
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const payload = await response.json();
       if (Array.isArray(payload?.record)) return payload.record;
@@ -121,69 +197,85 @@ async function fetchArticlesFromJsonBin() {
     }
   }
 
-  throw lastError;
+  throw lastError || new Error('JSONBin fetch failed');
 }
 
-async function main() {
+/**
+ * Resolve live content without mutating the build snapshot. Tests inject the
+ * fetchers so the D1/JSONBin authority boundary stays covered without network.
+ */
+export async function resolveArticlesForBuild({
+  useD1Articles,
+  fetchPublicArticles,
+  fetchJsonBinArticles,
+  fallback,
+}) {
   try {
-    const response = await fetchWithTimeout(
-      PUBLIC_ARTICLES_URL,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'WhaleWizard-SEO-Build/1.0',
-        },
-        method: 'GET',
-      },
-      TIMEOUT_MS,
-    );
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const payload = await response.json();
-    const articles = Array.isArray(payload?.articles) ? payload.articles : [];
-    if (articles.length > 0) {
-      writeBuildArticles(articles, 'public-api');
-      console.log(`✅ Articles fetched from public API: ${articles.length}`);
-      return;
+    const articles = await fetchPublicArticles();
+    if (isUsableArticleList(articles)) {
+      return { source: 'public-api', articles, fallback: false, preserveBuildCache: false };
     }
-
-    console.warn('⚠️ Public articles API returned an empty dataset. Falling back to JSONBin.');
   } catch (error) {
-    console.warn('⚠️ Public articles API unavailable. Falling back to JSONBin.');
+    console.warn('⚠️ Public articles API unavailable.');
     console.warn(error);
   }
 
-  try {
-    // JSONBin — живой источник; локальные файлы могут содержать статьи,
-    // уже удалённые через админку, поэтому «богатый» fallback им не заменяем.
-    const articles = await fetchArticlesFromJsonBin();
-    writeBuildArticles(articles, 'jsonbin');
-    console.log(`✅ Articles fetched from JSONBin: ${articles.length}`);
-    return;
-  } catch (error) {
-    const fallback = pickFallbackSource();
-    if (fallback) {
-      writeBuildArticles(fallback.articles, fallback.source);
-      console.warn(`⚠️ JSONBin unavailable. Using ${fallback.source}: ${fallback.articles.length} articles.`);
-      console.warn(error);
-      if (FAIL_ON_FALLBACK) {
-        markFallbackBuildDisallowed();
+  if (!useD1Articles) {
+    try {
+      const articles = await fetchJsonBinArticles();
+      if (isUsableArticleList(articles)) {
+        return { source: 'jsonbin', articles, fallback: false, preserveBuildCache: false };
       }
-      return;
+    } catch (error) {
+      console.warn('⚠️ JSONBin unavailable.');
+      console.warn(error);
     }
+  }
 
-    if (REQUIRE_FRESH_ARTICLES) {
-      console.error('❌ JSONBin unavailable and no fallback source found.');
-      console.error(error);
-      process.exitCode = 1;
-      return;
-    }
+  if (!fallback) return null;
+  return { ...fallback, fallback: true };
+}
 
-    writeBuildArticles([], 'empty-fallback');
-    console.warn('⚠️ JSONBin unavailable and no fallback source found. Generated empty article list.');
-    console.warn(error);
+export function fallbackViolatesFreshness(requireFresh, allowFallback) {
+  return requireFresh && !allowFallback;
+}
+
+export async function main() {
+  const fallback = readFallbackSources(USE_D1_ARTICLES);
+  const result = await resolveArticlesForBuild({
+    useD1Articles: USE_D1_ARTICLES,
+    fetchPublicArticles: fetchArticlesFromPublicApi,
+    fetchJsonBinArticles: fetchArticlesFromJsonBin,
+    fallback,
+  });
+
+  if (!result) {
+    console.error('❌ Article sources are unavailable or invalid; refusing to generate an empty blog build.');
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!result.preserveBuildCache) {
+    writeBuildArticles(result.articles, result.source);
+  }
+
+  if (!result.fallback) {
+    console.log(`✅ Articles fetched from ${result.source}: ${result.articles.length}`);
+    return;
+  }
+
+  console.warn(`⚠️ Live article source unavailable. Using ${result.source}: ${result.articles.length} articles.`);
+  if (fallbackViolatesFreshness(REQUIRE_FRESH_ARTICLES, ALLOW_FALLBACK_BUILD)) {
+    console.error('❌ Fresh article content is required. Set ALLOW_FALLBACK_BUILD=true only for an explicit emergency build.');
+    process.exitCode = 1;
   }
 }
 
-main();
+const entryPath = process.argv[1] ? resolve(process.argv[1]) : '';
+if (entryPath && resolve(fileURLToPath(import.meta.url)) === entryPath) {
+  main().catch((error) => {
+    console.error('❌ Article build fetch failed.');
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

@@ -27,6 +27,7 @@ import {
   getMergedCaseData,
 } from '../data/caseCatalog';
 import { formatReadTime } from '../utils/articleMeta';
+import DeferredImage from './DeferredImage';
 
 const Footer = lazy(() => import('./Footer'));
 
@@ -140,7 +141,13 @@ export default function CaseArticleView({
                 animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
                 transition={reduceMotion ? undefined : { duration: 0.45, delay: 0.08 }}
               >
-                <img src={cover} alt={getCaseCoverAlt(article)} decoding="async" />
+                <img
+                  src={cover}
+                  alt={getCaseCoverAlt(article)}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                />
               </motion.figure>
 
               <aside className="case-article-toc-desktop" aria-label="Оглавление">
@@ -264,7 +271,7 @@ export default function CaseArticleView({
                       href={`/cases/${item.slug}${relatedSearch}`}
                       onClick={(event) => handleInternalLink(event, () => onRelated(item.slug))}
                     >
-                      <img src={getCaseCover(item)} alt="" loading="lazy" decoding="async" />
+                      <DeferredImage src={getCaseCover(item)} alt="" loading="lazy" decoding="async" />
                       <span>{data.niche || 'Кейс'}</span>
                       <strong>{getCaseDisplayTitle(item.title)}</strong>
                       <small>{formatReadTime(item.readTime)} <ArrowRight aria-hidden="true" /></small>

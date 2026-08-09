@@ -16,7 +16,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const siteUrl = getSiteUrl(env, request);
-    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request));
+    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil));
     const feed = renderFeedXml(siteUrl, articles);
 
     const response = xml(feed, {
@@ -29,9 +29,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     return response;
   } catch {
     return xml('<!-- feed generation failed -->', {
-      status: 502,
+      status: 503,
       headers: {
         'Cache-Control': CACHE_CONTROL.noStore,
+        'Retry-After': '300',
       },
     });
   }

@@ -62,6 +62,7 @@ export interface Env {
   BUCKET: R2Bucket;
   R2_PUBLIC_HOST?: string;
   USE_D1_ARTICLES?: string;
+  ALLOW_EMERGENCY_ARTICLE_SEED?: string;
   JSONBIN_BIN_ID: string;
   JSONBIN_MASTER_KEY: string;
   JSONBIN_ACCESS_KEY?: string;

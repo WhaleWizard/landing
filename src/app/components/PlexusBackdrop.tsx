@@ -1,28 +1,20 @@
 import { memo, useEffect, useRef } from 'react';
 import { useReducedMotion } from 'motion/react';
 
-// Фон-«плексус»: невидимые узлы медленно дрейфуют по секции, линии соединяют
-// те, что оказались рядом — сами собой образуются и распадаются треугольники
-// и многоугольники. Курсор притягивает узлы: сеть стягивается к нему в плотный
-// светящийся кластер, при уходе курсора разлетается обратно в свободный дрейф.
-// Canvas + rAF, состояние в refs — React не ре-рендерится. Базовая прозрачность
-// линий низкая, чтобы текст поверх оставался читабельным.
+// Интерактивный фон-сеть. Состояние живёт в refs/замыкании canvas, поэтому
+// кадры анимации не вызывают React-рендеры.
 type PlexusBackdropProps = {
   inView: boolean;
   className?: string;
 };
 
-const LINK_DIST = 150; // расстояние, при котором узлы соединяются линией
-const INFLUENCE_R = 260; // радиус притяжения курсора
-const REPEL_DIST = 55; // мин. дистанция между узлами (чтобы кластер не схлопывался в точку)
-
-// Оба парных цикла ниже перебирают ~9900 пар за кадр. Подавляющее большинство
-// пар отсеивается по расстоянию, поэтому сравниваем КВАДРАТЫ расстояний, а
-// корень извлекаем только для прошедших отбор. Результат тот же до последнего
-// знака, работы — примерно в 15 раз меньше.
+const LINK_DIST = 150;
+const INFLUENCE_R = 260;
+const REPEL_DIST = 55;
 const LINK_DIST_SQ = LINK_DIST * LINK_DIST;
 const REPEL_DIST_SQ = REPEL_DIST * REPEL_DIST;
 const REPEL_MIN_SQ = 0.5 * 0.5;
+const FRAME_MS = 1000 / 60;
 
 function parseHexColor(value: string, fallback: [number, number, number]): [number, number, number] {
   const hex = value.trim().replace('#', '');
@@ -44,9 +36,14 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const minFrameMs = FRAME_MS;
     let width = 0;
     let height = 0;
+    let canvasLeft = 0;
+    let canvasTop = 0;
+    let lastRectMeasureAt = -1e9;
 
     type Node = {
       x: number;
@@ -57,6 +54,12 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       baseVy: number;
     };
     let nodes: Node[] = [];
+
+    // Ячейки размером с максимальную дистанцию связи. Поэтому для каждой точки
+    // достаточно проверить только восемь соседних ячеек вместо всех N² пар.
+    let gridColumns = 1;
+    let gridRows = 1;
+    let grid: number[][] = [[]];
 
     const styles = getComputedStyle(canvas);
     const [pr, pg, pb] = parseHexColor(styles.getPropertyValue('--primary'), [139, 92, 246]);
@@ -77,17 +80,28 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
 
     const rebuild = () => {
       const rect = canvas.getBoundingClientRect();
+      canvasLeft = rect.left;
+      canvasTop = rect.top;
+      lastRectMeasureAt = performance.now();
+
+      const nextWidth = rect.width;
+      const nextHeight = rect.height;
+      if (nextWidth === 0 || nextHeight === 0) return;
+      if (Math.abs(nextWidth - width) < 0.5 && Math.abs(nextHeight - height) < 0.5) return;
+
       const previousWidth = width;
       const previousHeight = height;
-      width = rect.width;
-      height = rect.height;
-      if (width === 0 || height === 0) return;
+      width = nextWidth;
+      height = nextHeight;
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.lineCap = 'round';
 
-      // Плотность узлов пропорциональна площади, с разумным потолком
+      gridColumns = Math.max(1, Math.ceil(width / LINK_DIST));
+      gridRows = Math.max(1, Math.ceil(height / LINK_DIST));
+      grid = Array.from({ length: gridColumns * gridRows }, () => []);
+
       const count = Math.min(100, Math.max(40, Math.round((width * height) / 19000)));
       if (nodes.length === 0 || previousWidth === 0 || previousHeight === 0) {
         nodes = Array.from({ length: count }, () => createNode(width, height));
@@ -101,29 +115,31 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
         x: Math.min(width, Math.max(0, node.x * scaleX)),
         y: Math.min(height, Math.max(0, node.y * scaleY)),
       }));
-
-      while (nodes.length < count) {
-        nodes.push(createNode(width, height));
-      }
+      while (nodes.length < count) nodes.push(createNode(width, height));
     };
 
     const mouse = { x: -9999, y: -9999 };
     let lastMouseAt = -1e9;
-    const handleMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouse.x = e.clientX - rect.left;
-      mouse.y = e.clientY - rect.top;
-      lastMouseAt = performance.now();
+    const handleMove = (event: MouseEvent) => {
+      const now = performance.now();
+      // Геометрию canvas измеряем максимум раз в 120 мс, а не на каждое
+      // системное mousemove-событие. Между измерениями координаты стабильны.
+      if (now - lastRectMeasureAt > 120) {
+        const rect = canvas.getBoundingClientRect();
+        canvasLeft = rect.left;
+        canvasTop = rect.top;
+        lastRectMeasureAt = now;
+      }
+      mouse.x = event.clientX - canvasLeft;
+      mouse.y = event.clientY - canvasTop;
+      lastMouseAt = now;
     };
 
-    // Точка притяжения: следует за курсором, а на тач-устройствах и при
-    // бездействии мыши (>2.5с) сама плавно блуждает по секции (кривая Лиссажу),
-    // чтобы сеть жила и без курсора. Случайная фаза — секции не синхронны.
     const attractor = { x: -9999, y: -9999 };
     let time = Math.random() * 100;
 
-    const updateAttractor = () => {
-      time += 0.016;
+    const updateAttractor = (delta: number) => {
+      time += 0.016 * delta;
       let targetX: number;
       let targetY: number;
       if (performance.now() - lastMouseAt < 2500) {
@@ -137,144 +153,159 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
         attractor.x = targetX;
         attractor.y = targetY;
       }
-      attractor.x += (targetX - attractor.x) * 0.03;
-      attractor.y += (targetY - attractor.y) * 0.03;
+      const ease = 1 - Math.pow(0.97, delta);
+      attractor.x += (targetX - attractor.x) * ease;
+      attractor.y += (targetY - attractor.y) * ease;
     };
 
-    let rafId = 0;
+    const updateNodes = (delta: number) => {
+      updateAttractor(delta);
+      const damping = Math.pow(0.92, delta);
+      const restore = 1 - damping;
+      for (const node of nodes) {
+        node.vx = node.vx * damping + node.baseVx * restore;
+        node.vy = node.vy * damping + node.baseVy * restore;
 
-    const step = () => {
-      updateAttractor();
-      for (const n of nodes) {
-        // Скорость плавно возвращается к базовому дрейфу
-        n.vx = n.vx * 0.92 + n.baseVx * 0.08;
-        n.vy = n.vy * 0.92 + n.baseVy * 0.08;
-
-        // Притяжение к точке притяжения (курсор или автономное блуждание)
-        const dxm = attractor.x - n.x;
-        const dym = attractor.y - n.y;
-        const dm = Math.sqrt(dxm * dxm + dym * dym);
-        if (dm < INFLUENCE_R && dm > 1) {
-          const k = 1 - dm / INFLUENCE_R;
-          n.vx += (dxm / dm) * k * 0.5;
-          n.vy += (dym / dm) * k * 0.5;
+        const dxm = attractor.x - node.x;
+        const dym = attractor.y - node.y;
+        const dmSq = dxm * dxm + dym * dym;
+        if (dmSq < INFLUENCE_R * INFLUENCE_R && dmSq > 1) {
+          const dm = Math.sqrt(dmSq);
+          const force = (1 - dm / INFLUENCE_R) * 0.5 * delta;
+          node.vx += (dxm / dm) * force;
+          node.vy += (dym / dm) * force;
         }
 
-        n.x += n.vx;
-        n.y += n.vy;
-
-        // Отскок от краёв
-        if (n.x < 0) { n.x = 0; n.baseVx = Math.abs(n.baseVx); n.vx = Math.abs(n.vx); }
-        if (n.x > width) { n.x = width; n.baseVx = -Math.abs(n.baseVx); n.vx = -Math.abs(n.vx); }
-        if (n.y < 0) { n.y = 0; n.baseVy = Math.abs(n.baseVy); n.vy = Math.abs(n.vy); }
-        if (n.y > height) { n.y = height; n.baseVy = -Math.abs(n.baseVy); n.vy = -Math.abs(n.vy); }
-      }
-
-      // Короткодействующее отталкивание — кластер у курсора остаётся сетью, а не точкой
-      for (let i = 0; i < nodes.length; i++) {
-        const a = nodes[i];
-        for (let j = i + 1; j < nodes.length; j++) {
-          const b = nodes[j];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const distSq = dx * dx + dy * dy;
-          if (distSq >= REPEL_DIST_SQ || distSq <= REPEL_MIN_SQ) continue;
-          const d = Math.sqrt(distSq);
-          const push = ((REPEL_DIST - d) / REPEL_DIST) * 0.35;
-          const ux = dx / d;
-          const uy = dy / d;
-          a.vx -= ux * push;
-          a.vy -= uy * push;
-          b.vx += ux * push;
-          b.vy += uy * push;
-        }
+        node.x += node.vx * delta;
+        node.y += node.vy * delta;
+        if (node.x < 0) { node.x = 0; node.baseVx = Math.abs(node.baseVx); node.vx = Math.abs(node.vx); }
+        if (node.x > width) { node.x = width; node.baseVx = -Math.abs(node.baseVx); node.vx = -Math.abs(node.vx); }
+        if (node.y < 0) { node.y = 0; node.baseVy = Math.abs(node.baseVy); node.vy = Math.abs(node.vy); }
+        if (node.y > height) { node.y = height; node.baseVy = -Math.abs(node.baseVy); node.vy = -Math.abs(node.vy); }
       }
     };
 
-    const draw = () => {
+    const draw = (animate: boolean, delta = 1) => {
+      if (width === 0 || height === 0) return;
+      if (animate) updateNodes(delta);
       ctx.clearRect(0, 0, width, height);
+      for (const cell of grid) cell.length = 0;
 
-      // Линии между близкими узлами
       ctx.lineWidth = 1;
-      for (let i = 0; i < nodes.length; i++) {
-        const a = nodes[i];
-        for (let j = i + 1; j < nodes.length; j++) {
-          const b = nodes[j];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const distSq = dx * dx + dy * dy;
-          if (distSq >= LINK_DIST_SQ) continue;
-          const d = Math.sqrt(distSq);
+      for (let i = 0; i < nodes.length; i += 1) {
+        const node = nodes[i];
+        const cellX = Math.min(gridColumns - 1, Math.max(0, Math.floor(node.x / LINK_DIST)));
+        const cellY = Math.min(gridRows - 1, Math.max(0, Math.floor(node.y / LINK_DIST)));
 
-          const midX = (a.x + b.x) / 2;
-          const midY = (a.y + b.y) / 2;
-          const mdx = midX - attractor.x;
-          const mdy = midY - attractor.y;
-          const dm = Math.sqrt(mdx * mdx + mdy * mdy);
-          const glow = dm < INFLUENCE_R ? 1 - dm / INFLUENCE_R : 0;
+        for (let y = Math.max(0, cellY - 1); y <= Math.min(gridRows - 1, cellY + 1); y += 1) {
+          for (let x = Math.max(0, cellX - 1); x <= Math.min(gridColumns - 1, cellX + 1); x += 1) {
+            for (const otherIndex of grid[y * gridColumns + x]) {
+              const other = nodes[otherIndex];
+              const dx = node.x - other.x;
+              const dy = node.y - other.y;
+              const distSq = dx * dx + dy * dy;
 
-          const closeness = 1 - d / LINK_DIST;
-          const alpha = closeness * (0.1 + glow * 0.3);
-          const mix = Math.min(1, (midX / width) * 0.6 + glow * 0.55);
-          const r = Math.round(pr + (ar - pr) * mix);
-          const g = Math.round(pg + (ag - pg) * mix);
-          const bl = Math.round(pb + (ab - pb) * mix);
+              if (animate && distSq < REPEL_DIST_SQ && distSq > REPEL_MIN_SQ) {
+                const distance = Math.sqrt(distSq);
+                const push = ((REPEL_DIST - distance) / REPEL_DIST) * 0.35 * delta;
+                const ux = dx / distance;
+                const uy = dy / distance;
+                node.vx += ux * push;
+                node.vy += uy * push;
+                other.vx -= ux * push;
+                other.vy -= uy * push;
+              }
 
-          ctx.strokeStyle = `rgba(${r},${g},${bl},${alpha})`;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
+              if (distSq >= LINK_DIST_SQ) continue;
+              const distance = Math.sqrt(distSq);
+              const midX = (node.x + other.x) / 2;
+              const midY = (node.y + other.y) / 2;
+              const attractorDx = midX - attractor.x;
+              const attractorDy = midY - attractor.y;
+              const attractorDistance = Math.sqrt(attractorDx * attractorDx + attractorDy * attractorDy);
+              const glow = attractorDistance < INFLUENCE_R ? 1 - attractorDistance / INFLUENCE_R : 0;
+              const alpha = (1 - distance / LINK_DIST) * (0.1 + glow * 0.3);
+              const mix = Math.min(1, (midX / width) * 0.6 + glow * 0.55);
+              const red = Math.round(pr + (ar - pr) * mix);
+              const green = Math.round(pg + (ag - pg) * mix);
+              const blue = Math.round(pb + (ab - pb) * mix);
+
+              ctx.strokeStyle = `rgba(${red},${green},${blue},${alpha})`;
+              ctx.beginPath();
+              ctx.moveTo(node.x, node.y);
+              ctx.lineTo(other.x, other.y);
+              ctx.stroke();
+            }
+          }
         }
+
+        grid[cellY * gridColumns + cellX].push(i);
       }
 
-      // Узлы-точки
-      for (const n of nodes) {
-        const ndx = n.x - attractor.x;
-        const ndy = n.y - attractor.y;
-        const dm = Math.sqrt(ndx * ndx + ndy * ndy);
-        const glow = dm < INFLUENCE_R ? 1 - dm / INFLUENCE_R : 0;
-        const mix = Math.min(1, (n.x / width) * 0.6 + glow * 0.55);
-        const r = Math.round(pr + (ar - pr) * mix);
-        const g = Math.round(pg + (ag - pg) * mix);
-        const bl = Math.round(pb + (ab - pb) * mix);
-        ctx.fillStyle = `rgba(${r},${g},${bl},${0.25 + glow * 0.45})`;
+      for (const node of nodes) {
+        const dx = node.x - attractor.x;
+        const dy = node.y - attractor.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const glow = distance < INFLUENCE_R ? 1 - distance / INFLUENCE_R : 0;
+        const mix = Math.min(1, (node.x / width) * 0.6 + glow * 0.55);
+        const red = Math.round(pr + (ar - pr) * mix);
+        const green = Math.round(pg + (ag - pg) * mix);
+        const blue = Math.round(pb + (ab - pb) * mix);
+        ctx.fillStyle = `rgba(${red},${green},${blue},${0.25 + glow * 0.45})`;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, 1.6 + glow * 0.9, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, 1.6 + glow * 0.9, 0, Math.PI * 2);
         ctx.fill();
       }
     };
 
-    const loop = () => {
-      step();
-      draw();
+    let rafId = 0;
+    let lastFrameAt = 0;
+    const loop = (now: number) => {
+      if (document.hidden || !inView || prefersReduced) {
+        rafId = 0;
+        return;
+      }
+      const elapsed = lastFrameAt === 0 ? FRAME_MS : now - lastFrameAt;
+      if (lastFrameAt === 0 || elapsed >= minFrameMs - 0.5) {
+        lastFrameAt = now;
+        draw(true, Math.min(2.5, elapsed / FRAME_MS));
+      }
       rafId = requestAnimationFrame(loop);
+    };
+    const start = () => {
+      if (rafId || document.hidden || !inView || prefersReduced) return;
+      lastFrameAt = 0;
+      rafId = requestAnimationFrame(loop);
+    };
+    const stop = () => {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    };
+    const handleVisibility = () => {
+      if (document.hidden) stop();
+      else start();
     };
 
     rebuild();
-
     const resizeObserver = new ResizeObserver(() => {
       rebuild();
-      if (prefersReduced || !inView) draw();
+      if (!rafId) draw(false);
     });
     resizeObserver.observe(canvas);
 
-    if (prefersReduced) {
-      // Статичный кадр без анимации и реакции на курсор
-      draw();
+    if (prefersReduced || !inView) {
+      draw(false);
     } else {
-      window.addEventListener('mousemove', handleMove, { passive: true });
-      if (inView) {
-        loop();
-      } else {
-        draw();
-      }
+      if (!coarsePointer) window.addEventListener('mousemove', handleMove, { passive: true });
+      document.addEventListener('visibilitychange', handleVisibility);
+      start();
     }
 
     return () => {
-      cancelAnimationFrame(rafId);
+      stop();
       resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [inView, prefersReduced]);
 

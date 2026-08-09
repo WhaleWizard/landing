@@ -8,10 +8,11 @@
 // подмножества разделены unicode-range.
 import '@fontsource-variable/onest';
 import '@fontsource-variable/inter';
+import '../../styles/admin-tailwind.css';
 import '../../styles/admin-ui.css';
 // Строго после admin-ui.css: слой темы переопределяет её поверхности.
 import '../../styles/admin-theme.css';
-import { useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
+import { lazy, Suspense, useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, useReducedMotion } from 'motion/react';
 import {
@@ -26,33 +27,62 @@ import {
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useArticles } from '../context/ArticlesContext';
-import { Article } from '../components/hooks/useArticlesApi';
+import type { Article } from '../components/hooks/useArticlesApi';
 import { API_ROUTES } from '../config';
-import ArticleEditor from '../components/ArticleEditor';
-import CaseFieldsEditor from '../components/CaseFieldsEditor';
-import AdminLeads from '../components/admin/AdminLeads';
-import AdminClients from '../components/admin/AdminClients';
-import AdminFinance from '../components/admin/AdminFinance';
-import AdminMedia from '../components/admin/AdminMedia';
-import AdminHealth from '../components/admin/AdminHealth';
-import AdminToday from '../components/admin/AdminToday';
-import AdminMetaCenter from '../components/admin/AdminMetaCenter';
-import AdminAttribution from '../components/admin/AdminAttribution';
-import AdminGoals from '../components/admin/AdminGoals';
-import AdminReport from '../components/admin/AdminReport';
-import ContentPerformance from '../components/admin/ContentPerformance';
-import SeoAssistant from '../components/admin/SeoAssistant';
-import AdminContentControl from '../components/admin/AdminContentControl';
-import AdminPerformance from '../components/admin/AdminPerformance';
-import AdminPlanner from '../components/admin/AdminPlanner';
 import { AdminSelect } from '../components/admin/AdminUI';
-import { AdminConfirmProvider, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
+import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
 import AdminCommandPalette, { type AdminCommandGroup } from '../components/admin/AdminCommandPalette';
-import ArticleCalendar from '../components/admin/ArticleCalendar';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
+const ArticleEditor = lazy(() => import('../components/ArticleEditor'));
+const CaseFieldsEditor = lazy(() => import('../components/CaseFieldsEditor'));
+const AdminLeads = lazy(() => import('../components/admin/AdminLeads'));
+const AdminClients = lazy(() => import('../components/admin/AdminClients'));
+const AdminFinance = lazy(() => import('../components/admin/AdminFinance'));
+const AdminMedia = lazy(() => import('../components/admin/AdminMedia'));
+const AdminHealth = lazy(() => import('../components/admin/AdminHealth'));
+const AdminToday = lazy(() => import('../components/admin/AdminToday'));
+const AdminMetaCenter = lazy(() => import('../components/admin/AdminMetaCenter'));
+const AdminAttribution = lazy(() => import('../components/admin/AdminAttribution'));
+const AdminGoals = lazy(() => import('../components/admin/AdminGoals'));
+const AdminReport = lazy(() => import('../components/admin/AdminReport'));
+const ContentPerformance = lazy(() => import('../components/admin/ContentPerformance'));
+const SeoAssistant = lazy(() => import('../components/admin/SeoAssistant'));
+const AdminContentControl = lazy(() => import('../components/admin/AdminContentControl'));
+const AdminPerformance = lazy(() => import('../components/admin/AdminPerformance'));
+const AdminPlanner = lazy(() => import('../components/admin/AdminPlanner'));
+const ArticleCalendar = lazy(() => import('../components/admin/ArticleCalendar'));
+
 type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
+type AdminNavKey = AdminView | 'cases';
+
+function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
+  switch (destination) {
+    case 'dashboard': return import('../components/admin/AdminToday');
+    case 'planner': return import('../components/admin/AdminPlanner');
+    case 'goals': return import('../components/admin/AdminGoals');
+    case 'report': return import('../components/admin/AdminReport');
+    case 'attribution': return import('../components/admin/AdminAttribution');
+    case 'meta': return import('../components/admin/AdminMetaCenter');
+    case 'performance': return import('../components/admin/AdminPerformance');
+    case 'content': return import('../components/admin/AdminContentControl');
+    case 'leads': return import('../components/admin/AdminLeads');
+    case 'clients': return import('../components/admin/AdminClients');
+    case 'finance': return import('../components/admin/AdminFinance');
+    case 'media': return import('../components/admin/AdminMedia');
+    case 'health': return import('../components/admin/AdminHealth');
+    case 'articles':
+    case 'cases':
+      return Promise.all([
+        import('../components/ArticleEditor'),
+        import('../components/CaseFieldsEditor'),
+        import('../components/admin/ContentPerformance'),
+        import('../components/admin/SeoAssistant'),
+        import('../components/admin/ArticleCalendar'),
+      ]);
+  }
+}
 
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -829,6 +859,7 @@ export default function Admin() {
     try {
       const ok = await verifyAdminPassword(password);
       if (ok) {
+        void preloadAdminSection('dashboard');
         await forceRefreshAdminArticles(password);
         setIsAuthenticated(true);
         setError('');
@@ -1063,7 +1094,6 @@ export default function Admin() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
-  type AdminNavKey = 'dashboard' | 'planner' | 'attribution' | 'meta' | 'performance' | 'articles' | 'cases' | 'content' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'goals' | 'report';
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
     : adminView;
@@ -1121,6 +1151,7 @@ export default function Admin() {
   const adminNavigation = adminNavGroups.flatMap((group) => group.items);
   const currentSection = adminNavigation.find((item) => item.key === currentNavKey);
   const navigateToAdminSection = (destination: AdminNavKey) => {
+    void preloadAdminSection(destination);
     if (destination === 'articles' || destination === 'cases') {
       setAdminSectionFilter(destination === 'cases' ? 'cases' : 'blog');
       setAdminView('articles');
@@ -1316,6 +1347,8 @@ export default function Admin() {
                       type="button"
                       key={item.key}
                       onClick={() => navigateToAdminSection(item.key)}
+                      onPointerEnter={() => { void preloadAdminSection(item.key); }}
+                      onFocus={() => { void preloadAdminSection(item.key); }}
                       aria-current={currentNavKey === item.key ? 'page' : undefined}
                       className="admin-sidebar__link"
                     >
@@ -1344,13 +1377,14 @@ export default function Admin() {
                 виден в шапке, там боковое меню скрыто.
               */}
 
-            <motion.div
-              key={adminView}
-              className="min-w-0"
-              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.26, ease: [0.22, 0.61, 0.36, 1] }}
-            >
+            <Suspense fallback={<AdminSectionSkeleton />}>
+              <motion.div
+                key={adminView}
+                className="min-w-0"
+                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.26, ease: [0.22, 0.61, 0.36, 1] }}
+              >
               {adminView === 'dashboard' && (
                 <AdminToday
                   password={password}
@@ -1378,6 +1412,7 @@ export default function Admin() {
               {adminView === 'health' && <AdminHealth password={password} />}
 
               {adminView === 'articles' && (
+          <DndProvider backend={HTML5Backend}>
           <div className="admin-editor-layout grid lg:grid-cols-3">
             <div className="admin-editor-list lg:col-span-1 p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
               <div className="flex justify-between items-center mb-4">
@@ -1442,7 +1477,6 @@ export default function Admin() {
               {loading ? (
                 <p className="text-sm text-[var(--adm-fg)]/60">Загрузка...</p>
               ) : (
-                <DndProvider backend={HTML5Backend}>
                   <div className="admin-article-list space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
                     {filteredBySection.length === 0 && (
                       <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 p-4 text-sm text-[var(--adm-fg)]/60">
@@ -1466,7 +1500,6 @@ export default function Admin() {
                       );
                     })}
                   </div>
-                </DndProvider>
               )}
             </div>
 
@@ -1765,8 +1798,10 @@ export default function Admin() {
               )}
             </div>
           </div>
+          </DndProvider>
               )}
-            </motion.div>
+              </motion.div>
+            </Suspense>
             </div>
           </main>
         </div>

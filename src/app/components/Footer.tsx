@@ -1,10 +1,10 @@
 import { Mail, MessageSquare, ExternalLink } from 'lucide-react';
-import { motion, useInView, useReducedMotion } from 'motion/react';
-import { memo, useCallback, useRef, lazy, Suspense } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
 import { withReturnTo } from '../utils/siteNavigation';
 import WhaleMark from './brand/WhaleMark';
+import '../../styles/footer.css';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -20,11 +20,28 @@ function Footer() {
   const navigate = useNavigate();
   const location = useLocation();
   const footerRef = useRef<HTMLElement>(null);
-  const inView = useInView(footerRef, { once: false, margin: '0px 0px -10% 0px' });
-  const reduceMotion = useReducedMotion();
+  const [inView, setInView] = useState(false);
+  const [hasEntered, setHasEntered] = useState(false);
   // Внутренние переходы запоминают страницу-источник: кнопка «Назад»
   // на юридических страницах вернёт именно туда, откуда их открыли.
   const linkState = withReturnTo(location);
+
+  useEffect(() => {
+    const footer = footerRef.current;
+    if (!footer || typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      setHasEntered(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      const visible = Boolean(entry?.isIntersecting);
+      setInView(visible);
+      if (visible) setHasEntered(true);
+    }, { rootMargin: '160px 0px', threshold: 0 });
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
 
   const scrollToSection = useCallback((id: string) => {
     const scrollNow = () => {
@@ -60,21 +77,17 @@ function Footer() {
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
       {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
-      <Suspense fallback={null}>
-        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
-      </Suspense>
+      {inView ? (
+        <Suspense fallback={null}>
+          <PlexusBackdrop inView className="absolute inset-0 h-full w-full" />
+        </Suspense>
+      ) : null}
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           
           {/* Brand */}
-          <motion.div 
-            className="space-y-4"
-            initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: reduceMotion ? 0 : 0.5 }}
-          >
+          <div className={`footer-reveal space-y-4 ${hasEntered ? 'is-visible' : ''}`}>
             <div className="flex items-center gap-1">
               <WhaleMark size={52} animated />
               <h3 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
@@ -84,15 +97,12 @@ function Footer() {
             <p className="text-pretty text-sm text-muted-foreground">
               Performance-маркетинг в Google Ads и Meta Ads: от настройки аналитики до оптимизации по продажам.
             </p>
-          </motion.div>
+          </div>
 
           {/* Services */}
-          <motion.div
+          <div
             id="services"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            className={`footer-reveal footer-reveal-delay-1 ${hasEntered ? 'is-visible' : ''}`}
           >
             <h4 className={footerHeadingClass}>
               Услуги
@@ -124,15 +134,10 @@ function Footer() {
                 </Link>
               </li>
             </ul>
-          </motion.div>
+          </div>
 
           {/* Company */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
+          <div className={`footer-reveal footer-reveal-delay-2 ${hasEntered ? 'is-visible' : ''}`}>
             <h4 className={footerHeadingClass}>
               Разделы
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
@@ -195,15 +200,10 @@ function Footer() {
                 </button>
               </li>
             </ul>
-          </motion.div>
+          </div>
 
           {/* Contact */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
+          <div className={`footer-reveal footer-reveal-delay-3 ${hasEntered ? 'is-visible' : ''}`}>
             <h4 className={footerHeadingClass}>
               Контакты
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
@@ -250,17 +250,11 @@ function Footer() {
                 </button>
               </li>
             </ul>
-          </motion.div>
+          </div>
         </div>
 
         {/* Bottom */}
-        <motion.div 
-          className="pt-8 border-t border-border/50"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
+        <div className={`footer-reveal footer-reveal-fade footer-reveal-delay-4 pt-8 border-t border-border/50 ${hasEntered ? 'is-visible' : ''}`}>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
             <p className="flex items-center gap-2">
               © 2026 WhaleWzrd. Все права защищены.
@@ -295,7 +289,7 @@ function Footer() {
               </button>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </footer>
   );

@@ -101,7 +101,10 @@ function DeferredSection({
         observer.disconnect();
         mount();
       },
-      { rootMargin: '1600px 0px', threshold: 0 },
+      // 1600px монтировали следующую тяжёлую секцию ещё во время LCP хиро.
+      // 240px достаточно для упреждающей загрузки при обычном скролле, но не
+      // заставляет canvas и motion конкурировать за первый кадр страницы.
+      { rootMargin: '240px 0px', threshold: 0 },
     );
 
     observer.observe(section);

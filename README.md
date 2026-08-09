@@ -49,7 +49,8 @@ Set these environment variables in Cloudflare Pages project settings:
 - `TRACKING_SIG_TTL_SEC` (optional signature lifetime, defaults to `60` seconds)
 - `VITE_ANALYTICS_RUNTIME=direct` (loads GA4 and Yandex directly; choose `gtm` only when the container owns the equivalent consent-aware tags)
 - `DB` (D1 binding, optional while migrating)
-- `USE_D1_ARTICLES` (`true` to read/write articles from D1; requires `DB` binding)
+- `USE_D1_ARTICLES` (`true` makes D1 the sole live article authority; requires `DB` and `BUCKET` bindings)
+- `ALLOW_EMERGENCY_ARTICLE_SEED` (`true` only for a temporary runtime emergency when D1 and its last-known-good R2 snapshot are both unavailable; defaults to fail-closed)
 - `TELEGRAM_BOT_TOKEN` (secret; direct Telegram lead notifications from `/api/lead`)
 - `TELEGRAM_CHAT_ID` (secret; chat that receives lead notifications; while both are unset, leads fall back to the legacy Google Apps Script proxy)
 
@@ -58,7 +59,11 @@ Set these environment variables in Cloudflare Pages project settings:
 
 For JSONBin-backed production, keep `REQUIRE_FRESH_ARTICLES=true` so the build fails when JSONBin cannot be fetched. This prevents accidental deploys with stale `data/articles.build.json` or committed local fallback content.
 
-For D1-backed production (`USE_D1_ARTICLES=true`), runtime Pages Functions read current articles from D1. In that mode JSONBin is only a build-time static SEO fallback, so a temporary JSONBin outage should not block deploys.
+For D1-backed production (`USE_D1_ARTICLES=true`), runtime Pages Functions treat every successful D1 result as authoritative, including an empty article list after deletion. A successful read is copied in the background through `waitUntil` to a last-known-good R2 object under `_system/article-snapshots/` (outside the public media `uploads/` namespace). Its capability-style key is derived from the server-only `ADMIN_PASSWORD`; the key and snapshot URL must never be published or logged because the snapshot can include drafts.
+
+If D1 is unavailable, runtime reads that R2 snapshot first. It never reads JSONBin in D1 mode, so deleted D1 articles cannot reappear from an older JSONBin dataset. Without a valid snapshot it returns a retryable `503`; the committed seed is available only while `ALLOW_EMERGENCY_ARTICLE_SEED=true` is explicitly set. Disable that flag as soon as D1 is healthy again.
+
+The production build follows the same authority boundary: in D1 mode it fetches the public article API and never contacts JSONBin. A valid last build snapshot may keep an emergency build reproducible, but `REQUIRE_FRESH_ARTICLES=true` rejects that fallback unless `ALLOW_FALLBACK_BUILD=true` is explicitly set.
 
 Use `ALLOW_FALLBACK_BUILD=true` only as a temporary emergency override for JSONBin-backed production when you intentionally want to deploy code while JSONBin is unavailable. Remove it after the emergency deploy so fresh content is required again.
 
@@ -74,7 +79,7 @@ Use `ALLOW_FALLBACK_BUILD=true` only as a temporary emergency override for JSONB
 2. Apply SQL migrations from `migrations/0001_create_articles.sql` through the latest migration in order.
 3. Import data into `articles`.
 4. Set `USE_D1_ARTICLES=true` when D1 is the source of truth.
-5. Keep `JSONBIN_*` variables during the transition as a fallback source; after validation, you can deprecate them.
+5. Confirm a successful article request has populated the R2 last-known-good snapshot, then deprecate `JSONBIN_*`; D1 mode never uses them as a fallback.
 
 Required production bindings for the current Cloudflare setup:
 

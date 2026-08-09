@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upload, List, ListOrdered } from 'lucide-react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useDrag, useDrop } from 'react-dnd';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 type BlockType = 'heading' | 'paragraph' | 'accent' | 'list' | 'card' | 'quote' | 'code' | 'image' | 'separator' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
@@ -741,7 +740,6 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
       <div className="admin-article-editor space-y-4">
         <div className="admin-panel p-3 sm:p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -812,6 +810,5 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
           </div>
         </div>
       </div>
-    </DndProvider>
   );
 }

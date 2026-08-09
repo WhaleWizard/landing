@@ -567,7 +567,9 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
           alt=""
           width={1536}
           height={1024}
+          loading="eager"
           decoding="async"
+          fetchPriority="high"
           draggable={false}
           initial={reduced ? false : {
             opacity: 0,
@@ -640,7 +642,9 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
                       alt=""
                       width={770}
                       height={1270}
+                      loading="eager"
                       decoding="async"
+                      fetchPriority="high"
                       draggable={false}
                     />
                   </div>

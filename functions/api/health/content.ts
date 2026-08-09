@@ -3,9 +3,9 @@ import { fetchArticlesWithFallback } from '../../_lib/articles';
 import { json } from '../../_lib/http';
 import type { Env } from '../../_lib/types';
 
-export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
-    const articles = await fetchArticlesWithFallback(env, request);
+    const articles = await fetchArticlesWithFallback(env, request, waitUntil);
     return json(
       {
         ok: true,
@@ -29,9 +29,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         timestamp: new Date().toISOString(),
       },
       {
-        status: 502,
+        status: 503,
         headers: {
           'Cache-Control': CACHE_CONTROL.noStore,
+          'Retry-After': '300',
         },
       },
     );

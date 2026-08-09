@@ -8,33 +8,50 @@ import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
 import { isCaseArticle } from '../utils/articleCategory';
+import ArticlesLoadError from './ArticlesLoadError';
 
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { articles, loading } = useArticles();
+  const { articles, loading, error: articlesError, refreshArticles } = useArticles();
   const blogArticles = articles.filter((article) => !isCaseArticle(article));
 
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
+    let frame = 0;
+    let pendingDelta = 0;
+
     const handleWheel = (e: WheelEvent) => {
       if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
 
       const maxScrollLeft = container.scrollWidth - container.clientWidth;
       if (maxScrollLeft <= 0) return;
 
-      const nextScrollLeft = container.scrollLeft + e.deltaY;
       const isAtStart = container.scrollLeft <= 0;
       const isAtEnd = container.scrollLeft >= maxScrollLeft;
 
       if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
 
       e.preventDefault();
-      container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
+      pendingDelta += e.deltaY;
+      if (frame) return;
+
+      // Несколько wheel-событий за один кадр дают одну запись scrollLeft.
+      // Так карусель сохраняет то же поведение, но не заставляет браузер
+      // пересчитывать прокрутку десятки раз между двумя отрисовками.
+      frame = window.requestAnimationFrame(() => {
+        const latestMax = container.scrollWidth - container.clientWidth;
+        container.scrollLeft = Math.max(0, Math.min(latestMax, container.scrollLeft + pendingDelta));
+        pendingDelta = 0;
+        frame = 0;
+      });
     };
     container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   const openArticle = useCallback((slug: string) => {
@@ -45,6 +62,9 @@ function Blog() {
   }, [navigate]);
 
   if (loading) return <div className="py-16 text-center text-muted-foreground">Загружаю материалы...</div>;
+  if (articlesError && articles.length === 0) {
+    return <ArticlesLoadError onRetry={refreshArticles} className="mx-auto my-16 max-w-3xl" />;
+  }
 
   return (
     <section id="blog" className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible">
@@ -83,7 +103,7 @@ function Blog() {
         </motion.div>
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
-        <div ref={scrollContainerRef} className="blog-carousel-scroll scrollbar-brand flex gap-5 md:gap-7 overflow-x-auto scroll-smooth px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab', willChange: 'transform' }}>
+        <div ref={scrollContainerRef} className="blog-carousel-scroll scrollbar-brand flex gap-5 md:gap-7 overflow-x-auto scroll-smooth px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}>
           {blogArticles.map((article) => (
             <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">

@@ -1,9 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { motion } from 'motion/react';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
 import CookiePolicyContent from '../components/legal/CookiePolicyContent';
+import '../../styles/route-reveal.css';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -28,16 +28,12 @@ export default function CookiePolicy() {
               className="mb-8"
             />
 
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center mb-12"
-            >
+            <div className="route-intro-reveal text-center mb-12">
               <h1 className="text-balance break-words text-2xl font-bold sm:text-4xl md:text-5xl">
                 Политика<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> использования файлов cookie</span>
               </h1>
               <p className="text-muted-foreground mt-4">Дата последнего обновления: 29 мая 2026 г.</p>
-            </motion.div>
+            </div>
 
             <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary max-w-none space-y-6">
               <CookiePolicyContent />
