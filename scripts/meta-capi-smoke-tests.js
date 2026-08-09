@@ -517,6 +517,20 @@ assert.ok(
   (files.consent.match(/hasCurrentTrackingConsent\('marketing'\)/g) || []).length >= 2,
   'Marketing consent must be checked again before a subsequent vendor runtime',
 );
+assert.ok(
+  files.cookieConsentManager.includes('const TRACKING_RUNTIME_DELAY_MS = 10_000'),
+  'Third-party runtimes must stay outside the initial interaction window',
+);
+assert.ok(
+  !files.cookieConsentManager.includes("window.addEventListener('pointerdown', runEarly")
+    && !files.cookieConsentManager.includes("window.addEventListener('touchstart', runEarly"),
+  'The first scroll/touch must not trigger all third-party runtimes',
+);
+assert.ok(
+  files.cookieConsentManager.includes("document.addEventListener('focusin', runOnLeadIntent, true)")
+    && files.cookieConsentManager.includes("target.closest('form')"),
+  'Form intent must start runtimes early enough to recover analytics client IDs before submit',
+);
 assert.ok(!files.consent.includes('getExtendedMetaContext'), 'Unverified sensitive URL parameters must not be forwarded to Meta');
 assert.ok(!files.lead.includes('lead_crm_http_'), 'CRM delivery must not be written as a Meta CAPI diagnostic');
 assert.ok(!files.lead.includes('lead_crm_network_error'), 'CRM network failures must not be written as Meta CAPI diagnostics');

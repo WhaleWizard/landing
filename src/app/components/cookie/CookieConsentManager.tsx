@@ -42,6 +42,7 @@ type IdleWindow = Window & {
 let pendingAnalyticsRuntime = false;
 let pendingMarketingRuntime = false;
 let cancelScheduledRuntimeLoad: (() => void) | null = null;
+const TRACKING_RUNTIME_DELAY_MS = 10_000;
 
 function cancelPendingTrackingRuntimeLoad(): void {
   cancelScheduledRuntimeLoad?.();
@@ -100,29 +101,33 @@ function scheduleTrackingRuntimeLoad(
     if (delayId !== undefined) window.clearTimeout(delayId);
     if (idleId !== undefined) idleWindow.cancelIdleCallback?.(idleId);
     if (loadListenerAttached) window.removeEventListener('load', scheduleAfterLoad);
-    window.removeEventListener('pointerdown', runEarly);
-    window.removeEventListener('keydown', runEarly);
-    window.removeEventListener('touchstart', runEarly);
+    document.removeEventListener('focusin', runOnLeadIntent, true);
   };
   const run = () => loadPendingTrackingRuntimes();
-  const runEarly = () => run();
+  const runOnLeadIntent = (event: FocusEvent) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest('form')) run();
+  };
   const scheduleAfterLoad = () => {
     loadListenerAttached = false;
     // Third-party analytics is deliberately outside the render path. Browser
     // events are already queued and server PageView/CAPI events are sent now.
+    // Do not bind SDK startup to the first scroll/touch: that interaction is
+    // exactly when loading several vendor runtimes would make the page jank.
     delayId = window.setTimeout(() => {
       if (typeof idleWindow.requestIdleCallback === 'function') {
         idleId = idleWindow.requestIdleCallback(run, { timeout: 2_000 });
       } else {
         run();
       }
-    }, 4_000);
+    }, TRACKING_RUNTIME_DELAY_MS);
   };
 
   cancelScheduledRuntimeLoad = cleanup;
-  window.addEventListener('pointerdown', runEarly, { once: true, passive: true });
-  window.addEventListener('keydown', runEarly, { once: true });
-  window.addEventListener('touchstart', runEarly, { once: true, passive: true });
+  // A form focus is a high-value intent signal: start runtimes early enough
+  // for GA/Yandex client IDs to be available by submit, without penalising
+  // ordinary scrolling with several third-party scripts.
+  document.addEventListener('focusin', runOnLeadIntent, true);
 
   if (document.readyState === 'complete') scheduleAfterLoad();
   else {
