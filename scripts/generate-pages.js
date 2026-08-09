@@ -728,7 +728,9 @@ const generatedShellStyles = {
     'padding:48px 20px',
     'background:radial-gradient(circle at 18% 18%, rgba(139,92,246,.30), transparent 34%),radial-gradient(circle at 82% 8%, rgba(56,189,248,.20), transparent 30%),linear-gradient(135deg,#07070e 0%,#101226 52%,#07070e 100%)',
     'color:#f8fafc',
-    'font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+    // Тот же системный стек, что и у живых страниц: Inter в проект не
+    // подключён, и ссылка на него всё равно падала в этот же fallback.
+    'font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
   ].join(';'),
   card: [
     'width:min(100%,860px)',
