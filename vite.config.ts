@@ -260,14 +260,23 @@ export default defineConfig({
   build: {
     target: 'es2020',
     cssCodeSplit: true,
+    // Пре-рендер читает манифест, чтобы поставить modulepreload на чанки
+    // конкретного маршрута: без этого браузер узнаёт о них только после
+    // разбора index.js и выстраивает загрузку лесенкой.
+    manifest: true,
     modulePreload: {
       polyfill: false,
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router'],
-          motion: ['motion'],
+        manualChunks(id) {
+          if (/node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/.test(id)) return 'vendor';
+          if (/node_modules[\\/]motion/.test(id)) return 'motion';
+          // Каждая иконка уезжала в собственный чанк по 300–700 байт: страница
+          // статьи тянула около двадцати таких файлов отдельными запросами, и
+          // на мобильной сети водопад стоил дороже самих иконок.
+          if (/node_modules[\\/]lucide-react/.test(id)) return 'icons';
+          return undefined;
         },
       },
     },

@@ -255,6 +255,74 @@ function insertBeforeHeadClose(html, tag) {
   return html.replace('</head>', `  ${tag}\n</head>`);
 }
 
+// Какой модуль страницы отвечает за маршрут. Router грузит его лениво, поэтому
+// браузер узнаёт о файле только после разбора index.js — загрузка выстраивается
+// лесенкой и на мобильной сети стоит несколько сотен миллисекунд.
+const ROUTE_ENTRY_MODULES = {
+  '/': 'src/app/pages/Home.tsx',
+  '/blog': 'src/app/pages/BlogPage.tsx',
+  '/cases': 'src/app/pages/CasesPage.tsx',
+  '/faq': 'src/app/pages/FAQPage.tsx',
+  '/marketing-glossary': 'src/app/pages/MarketingGlossaryPage.tsx',
+  '/calculator': 'src/app/pages/Calculator.tsx',
+  '/roi-calculator': 'src/app/pages/RoiPage.tsx',
+  '/meta-ads': 'src/app/pages/ServiceLandingPage.tsx',
+  '/meta-apps': 'src/app/pages/ServiceLandingPage.tsx',
+  '/google-ads': 'src/app/pages/ServiceLandingPage.tsx',
+  '/consult': 'src/app/pages/ServiceLandingPage.tsx',
+};
+
+// JSON внутри <script> обязан пережить разбор HTML: незакрытый тег или
+// разделитель строки Unicode оборвали бы элемент и сломали страницу.
+function serializeInlineJson(value) {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+let viteManifestCache;
+
+function readViteManifest() {
+  if (viteManifestCache !== undefined) return viteManifestCache;
+  const manifestPath = join(DIST_DIR, '.vite', 'manifest.json');
+  viteManifestCache = existsSync(manifestPath)
+    ? JSON.parse(readFileSync(manifestPath, 'utf8'))
+    : null;
+  return viteManifestCache;
+}
+
+function resolveRouteEntry(route) {
+  if (ROUTE_ENTRY_MODULES[route]) return ROUTE_ENTRY_MODULES[route];
+  // Страницы статей и кейсов рисует тот же модуль, что и раздел блога.
+  if (/^\/(blog|cases)\/[^/]+$/.test(route)) return 'src/app/pages/BlogPage.tsx';
+  return null;
+}
+
+function renderModulePreloads(route, baseHtml) {
+  const manifest = readViteManifest();
+  const entry = resolveRouteEntry(route);
+  if (!manifest || !entry || !manifest[entry]) return '';
+
+  const files = [];
+  const seen = new Set();
+  const collect = (key, depth) => {
+    const item = manifest[key];
+    if (!item || seen.has(key) || depth > 1) return;
+    seen.add(key);
+    if (item.file) files.push(item.file);
+    for (const imported of item.imports || []) collect(imported, depth + 1);
+  };
+  collect(entry, 0);
+
+  return files
+    // Файлы, уже объявленные в index.html, повторять незачем.
+    .filter((file) => !baseHtml.includes(file))
+    .map((file) => `<link rel="modulepreload" href="/${file}" />`)
+    .join('\n  ');
+}
+
 function upsertTag(html, matcher, tag) {
   if (matcher.test(html)) return html.replace(matcher, tag);
   return insertBeforeHeadClose(html, tag);
@@ -630,6 +698,7 @@ function htmlTemplate({
   ogImage,
   noIndex = false,
   dropCanonical = false,
+  headExtra = '',
   extraJsonLd = [],
   imagePreloads = [],
   articlePublishedTime,
@@ -671,6 +740,11 @@ function htmlTemplate({
 
   const preloadHtml = renderImagePreloads(imagePreloads);
   if (preloadHtml) html = insertBeforeHeadClose(html, preloadHtml);
+
+  const modulePreloadHtml = renderModulePreloads(canonicalPath, baseHtml);
+  if (modulePreloadHtml) html = insertBeforeHeadClose(html, modulePreloadHtml);
+
+  if (headExtra) html = insertBeforeHeadClose(html, headExtra);
 
   if (!noIndex) {
     const jsonLdHtml = renderJsonLdScripts([buildOrganizationJsonLd(), buildWebsiteJsonLd(), ...extraJsonLd]);
@@ -1329,6 +1403,10 @@ function renderArticlePages(articles, baseHtml) {
           buildBreadcrumbJsonLd(article),
           articleFaqJsonLd,
         ],
+        // Данные самой статьи едут вместе со страницей. Раньше приложение
+        // рисовало текст только после ответа /api/articles — лишний запрос
+        // стоял ровно посреди пути к первой отрисовке.
+        headExtra: `<script type="application/json" id="ww-article-seed">${serializeInlineJson(article)}</script>`,
         baseHtml,
         bodyHtml: renderGeneratedShell({
           title: article.title,

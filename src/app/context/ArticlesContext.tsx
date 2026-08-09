@@ -22,20 +22,43 @@ export const useArticles = () => {
 
 type InitialLoadMode = 'immediate' | 'deferred' | 'manual';
 
+/**
+ * Страница статьи приезжает с уже вложенными данными этой статьи. Текст можно
+ * показать сразу, не дожидаясь ответа `/api/articles`: полный список нужен
+ * только для соседних материалов и догружается следом, не задерживая первую
+ * отрисовку.
+ */
+function readArticleSeed(): Article[] {
+  if (typeof document === 'undefined') return [];
+  const node = document.getElementById('ww-article-seed');
+  if (!node?.textContent) return [];
+  try {
+    const parsed = JSON.parse(node.textContent) as Article;
+    return parsed?.slug ? [parsed] : [];
+  } catch {
+    return [];
+  }
+}
+
 interface Props {
   children: ReactNode;
   initialLoad?: InitialLoadMode;
 }
 
 export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props) => {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [articles, setArticles] = useState<Article[]>(() => (
+    initialLoad === 'manual' ? [] : readArticleSeed()
+  ));
+  const seededRef = useRef(articles.length > 0);
+  const [loading, setLoading] = useState(!seededRef.current);
   const [error, setError] = useState<string | null>(null);
   const requestSequence = useRef(0);
 
-  const runArticlesRequest = useCallback(async (loader: () => Promise<Article[]>) => {
+  const runArticlesRequest = useCallback(async (loader: () => Promise<Article[]>, silent = false) => {
     const sequence = ++requestSequence.current;
-    setLoading(true);
+    // Догрузка поверх вложенных в страницу данных идёт молча: включённый
+    // индикатор подменил бы уже показанный текст статьи скелетоном.
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const data = await loader();
@@ -43,7 +66,9 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
       // медленному ответу перезаписать результат последнего действия.
       if (sequence === requestSequence.current) setArticles(data);
     } catch (requestError) {
-      if (sequence === requestSequence.current) {
+      // Молчаливая догрузка не должна рушить уже показанную статью экраном
+      // ошибки: на странице есть всё, что нужно читателю.
+      if (sequence === requestSequence.current && !silent) {
         setError(requestError instanceof Error ? requestError.message : 'Не удалось загрузить публикации');
       }
       throw requestError;
@@ -53,7 +78,7 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
   }, []);
 
   const loadArticles = useCallback(async () => {
-    await runArticlesRequest(() => fetchArticles());
+    await runArticlesRequest(() => fetchArticles(), seededRef.current);
   }, [runArticlesRequest]);
 
   const refreshArticles = useCallback(async () => {

@@ -789,7 +789,7 @@ export default function AdminPerformance({ password }: { password: string }) {
                 </div>
 
                 {open && (
-                  <div className="perf-row__body grid gap-3 xl:grid-cols-2">
+                  <div className="perf-row__body admin-grid-pair">
                     <AuditPanel strategy="mobile" result={row.mobile} status={row.mobileStatus} error={row.mobileError} />
                     <AuditPanel strategy="desktop" result={row.desktop} status={row.desktopStatus} error={row.desktopError} />
                     <a className="perf-row__link xl:col-span-2" href={row.url} target="_blank" rel="noreferrer">
