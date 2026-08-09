@@ -759,8 +759,20 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   background: var(--adm-surface-subtle);
 }
 
+/* Список слева, редактор справа. Порог в 1024px (Tailwind lg) оставлял окно
+   шириной 900–1023px с одной колонкой: список и редактор выстраивались друг
+   под другом, и до публикаций приходилось скроллить. */
 .admin-root .admin-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: 20px;
+}
+
+@media (min-width: 900px) {
+  .admin-root .admin-editor-layout {
+    grid-template-columns: minmax(300px, 1fr) minmax(0, 2fr);
+  }
 }
 
 .admin-root .admin-editor-list,

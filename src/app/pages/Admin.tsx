@@ -1413,8 +1413,8 @@ export default function Admin() {
 
               {adminView === 'articles' && (
           <DndProvider backend={HTML5Backend}>
-          <div className="admin-editor-layout grid lg:grid-cols-3">
-            <div className="admin-editor-list lg:col-span-1 p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
+          <div className="admin-editor-layout">
+            <div className="admin-editor-list p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">
                   {adminSectionFilter === 'cases' ? 'Кейсы' : adminSectionFilter === 'all' ? 'Все публикации' : 'Статьи'}
@@ -1426,19 +1426,6 @@ export default function Admin() {
                 }} className="admin-button h-10 w-10 p-0 text-[var(--adm-primary)]" aria-label="Создать публикацию" title="Создать публикацию">
                   <Plus className="w-4 h-4" />
                 </button>
-              </div>
-              <div className="mb-3">
-                <ContentPerformance
-                  password={password}
-                  articles={orderedArticles}
-                  onOpen={(article) => openArticleEditor(article)}
-                />
-              </div>
-              <div className="mb-3">
-                <ArticleCalendar
-                  articles={orderedArticles}
-                  onOpen={(article) => openArticleEditor(article)}
-                />
               </div>
               <div className="mb-3 grid grid-cols-4 gap-2 text-center">
                 <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
@@ -1501,9 +1488,39 @@ export default function Admin() {
                     })}
                   </div>
               )}
+
+              {/* Окупаемость и календарь стоят под списком и свёрнуты: раньше
+                  они занимали два экрана над списком, и до самих публикаций
+                  приходилось долго скроллить. */}
+              <details className="admin-disclosure mt-3">
+                <summary>
+                  <span>Что приносит заявки</span>
+                  <span className="admin-meta">за 90 дней</span>
+                </summary>
+                <div className="px-3.5 pb-3.5">
+                  <ContentPerformance
+                    password={password}
+                    articles={orderedArticles}
+                    onOpen={(article) => openArticleEditor(article)}
+                  />
+                </div>
+              </details>
+
+              <details className="admin-disclosure mt-2">
+                <summary>
+                  <span>Календарь публикаций</span>
+                  <span className="admin-meta">{articleStats.planned} в плане</span>
+                </summary>
+                <div className="px-3.5 pb-3.5">
+                  <ArticleCalendar
+                    articles={orderedArticles}
+                    onOpen={(article) => openArticleEditor(article)}
+                  />
+                </div>
+              </details>
             </div>
 
-            <div className="admin-editor-main lg:col-span-2 p-4 sm:p-6 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
+            <div className="admin-editor-main p-4 sm:p-6 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
               {editingArticle ? (
                 <div className="space-y-4">
                   <div className="admin-editor-toolbar flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/90 px-4 py-3">
