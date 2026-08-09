@@ -182,7 +182,10 @@
 }
 
 @media (max-width: 768px) {
-  [data-blog-ui='true'].blog-page {
+  /* Только список: у страницы статьи своих полей нет, их даёт каждый блок
+     внутри. Правило без --list добавляло второй отступ поверх внутреннего,
+     и на телефоне заголовок со статьёй теряли 32px ширины. */
+  [data-blog-ui='true'].blog-page--list {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
@@ -215,7 +218,7 @@
 }
 
 @media (max-width: 480px) {
-  [data-blog-ui='true'].blog-page {
+  [data-blog-ui='true'].blog-page--list {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }

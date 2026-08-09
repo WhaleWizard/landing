@@ -16,7 +16,7 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react';
-import { lazy, Suspense, type MouseEvent, type RefObject } from 'react';
+import { lazy, Suspense, useCallback, type MouseEvent, type MutableRefObject, type RefObject } from 'react';
 import type { Article } from './hooks/useArticlesApi';
 import Navbar from './Navbar';
 import PageNav from './PageNav';
@@ -27,9 +27,15 @@ import {
   getMergedCaseData,
 } from '../data/caseCatalog';
 import { formatReadTime } from '../utils/articleMeta';
+import { useManagedTitleFit } from '../utils/contentTypography';
+import { smartTitleBreaks } from '../utils/smartTitle';
 import DeferredImage from './DeferredImage';
 
 const Footer = lazy(() => import('./Footer'));
+
+// Колонка заголовка кейса узкая — рядом обложка, поэтому потолок здесь три
+// строки и на десктопе, и на телефоне. Четвёртая строка недопустима.
+const CASE_TITLE_LINES = { titleMaxLinesDesktop: 3, titleMaxLinesMobile: 3 };
 
 type TocItem = { id: string; text: string };
 
@@ -42,7 +48,7 @@ interface CaseArticleViewProps {
   listHref: string;
   relatedSearch: string;
   contentRef: RefObject<HTMLDivElement | null>;
-  articleTitleRef: RefObject<HTMLHeadingElement | null>;
+  articleTitleRef: MutableRefObject<HTMLHeadingElement | null>;
   onBackToCases: () => void;
   onContact: () => void;
   onRelated: (slug: string) => void;
@@ -89,6 +95,11 @@ export default function CaseArticleView({
   onRelated,
 }: CaseArticleViewProps) {
   const reduceMotion = useReducedMotion();
+  const titleFit = useManagedTitleFit<HTMLHeadingElement>(CASE_TITLE_LINES, { minFontSize: 19 });
+  const setTitleRef = useCallback((node: HTMLHeadingElement | null) => {
+    articleTitleRef.current = node;
+    titleFit(node);
+  }, [articleTitleRef, titleFit]);
   const caseData = getMergedCaseData(article);
   const cover = getCaseCover(article);
   const displayTitle = getCaseDisplayTitle(article.title);
@@ -127,7 +138,7 @@ export default function CaseArticleView({
                   <span><Clock3 aria-hidden="true" /> {formatReadTime(article.readTime)}</span>
                   <span><CalendarDays aria-hidden="true" /> {article.date}</span>
                 </div>
-                <h1 ref={articleTitleRef} tabIndex={-1}>{displayTitle}</h1>
+                <h1 ref={setTitleRef} tabIndex={-1}>{smartTitleBreaks(displayTitle)}</h1>
                 <p>{seoDescription}</p>
                 <div className="case-article-chips" aria-label="Каналы и тематика">
                   {(caseData.sources || []).map((source) => <SourceChip key={source} source={source} />)}

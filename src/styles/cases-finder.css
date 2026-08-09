@@ -93,12 +93,15 @@
   font-weight: 600;
 }
 
+/* Колонка шапки уже, чем max-width заголовка: при 61px строка «Найдите кейс,
+   похожий на ваш проект» ломалась на три части. Кегль считаем так, чтобы
+   двух строк хватало от 1024px и выше. */
 .cases-finder-intro h1 {
   max-width: 680px;
   margin-top: 14px;
-  font-size: clamp(40px, 4.1vw, 61px);
-  line-height: 1.02;
-  letter-spacing: -0.045em;
+  font-size: clamp(36px, 3.4vw, 46px);
+  line-height: 1.06;
+  letter-spacing: -0.042em;
   text-wrap: balance;
 }
 
@@ -983,12 +986,12 @@
   }
 
   .cases-finder-intro h1 {
-    max-width: 360px;
+    max-width: 400px;
     margin-top: 13px;
-    font-size: clamp(36px, 10.6vw, 43px);
-    line-height: 1.08;
-    letter-spacing: -0.04em;
-    text-wrap: pretty;
+    font-size: clamp(30px, 9.1vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.038em;
+    text-wrap: balance;
   }
 
   .cases-finder-intro p {
@@ -1111,7 +1114,7 @@
 
 @media (max-width: 350px) {
   .cases-finder-intro h1 {
-    font-size: 34px;
+    font-size: 29px;
   }
 
   .cases-mobile-controls {

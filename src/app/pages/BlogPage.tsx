@@ -32,6 +32,8 @@ import { useScrollTo } from '../components/hooks/useScrollTo';
 import DeferredImage from '../components/DeferredImage';
 import { optimizeArticleContentImages } from '../utils/articleContentImages';
 import ArticlesLoadError from '../components/ArticlesLoadError';
+import { useManagedTitleFit } from '../utils/contentTypography';
+import { smartTitleBreaks } from '../utils/smartTitle';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 const Footer = lazy(() => import('../components/Footer'));
@@ -39,6 +41,12 @@ const Footer = lazy(() => import('../components/Footer'));
 // грузил его и на списке статей, где ни одного .case-article-* нет.
 const CaseArticleView = lazy(() => import('../components/CaseArticleView'));
 const SITE_URL = 'https://www.whalewzrd.com';
+
+// Потолок строк в заголовках. Заголовки статей приходят из CMS и бывают
+// сколь угодно длинными: без потолка самый длинный разъезжался на семь строк.
+// Кегль подбирается вниз от заданного в вёрстке, вверх заголовок не растёт.
+const ARTICLE_TITLE_LINES = { titleMaxLinesDesktop: 2, titleMaxLinesMobile: 3 };
+const LIST_TITLE_LINES = { titleMaxLinesDesktop: 1, titleMaxLinesMobile: 2 };
 
 type BlogTopicRule = {
   id: string;
@@ -429,7 +437,15 @@ function BlogPageComponent() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [pendingZipDownload, setPendingZipDownload] = useState(null);
   const contentRef = useRef(null);
-  const articleTitleRef = useRef<HTMLHeadingElement>(null);
+  const articleTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const articleTitleFit = useManagedTitleFit<HTMLHeadingElement>(ARTICLE_TITLE_LINES, { minFontSize: 19 });
+  // Тот же элемент нужен и для подгонки кегля, и для переноса фокуса на
+  // заголовок после открытия статьи.
+  const setArticleTitleRef = useCallback((node: HTMLHeadingElement | null) => {
+    articleTitleRef.current = node;
+    articleTitleFit(node);
+  }, [articleTitleFit]);
+  const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
   const { scrollToWhenReady } = useScrollTo();
 
   // Прогресс чтения статьи — тонкая полоса под шапкой
@@ -708,7 +724,7 @@ function BlogPageComponent() {
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="h-4 w-4" /><span>{formatReadTime(selectedArticle.readTime)}</span></div>
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-4 w-4" /><span>{selectedArticle.date}</span></div>
                 </div>
-                <h1 ref={articleTitleRef} tabIndex={-1} className="text-balance text-[clamp(2rem,8vw,3.25rem)] font-bold leading-[1.05] tracking-[-0.035em] text-foreground focus:outline-none md:max-w-4xl">{selectedArticle.title}</h1>
+                <h1 ref={setArticleTitleRef} tabIndex={-1} className="text-balance text-[clamp(1.85rem,8vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.032em] text-foreground focus:outline-none md:max-w-4xl">{smartTitleBreaks(selectedArticle.title)}</h1>
                 <p className="max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">{seoDescription}</p>
                 <div className="flex items-center gap-3 border-t border-border/60 pt-5">
                   <img
@@ -997,7 +1013,7 @@ function BlogPageComponent() {
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               {isCasesRoute ? `Кейсы · ${scopedArticles.length}` : `Практический блог · ${russianCountLabel(scopedArticles.length, ['статья', 'статьи', 'статей'])}`}
             </div>
-            <h1 className="text-balance text-4xl font-bold leading-[1.03] tracking-[-0.04em] sm:text-5xl md:text-6xl">
+            <h1 ref={listTitleFit} className="text-balance text-[clamp(1.9rem,9.6vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.038em] md:text-[3.25rem]">
               {isCasesRoute ? 'Кейсы и ' : 'Решения для '}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {isCasesRoute ? 'разборы' : 'реальных задач'}

@@ -49,6 +49,7 @@ import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { useScrollTo } from '../components/hooks/useScrollTo';
 import DeferredImage from '../components/DeferredImage';
 import ArticlesLoadError from '../components/ArticlesLoadError';
+import { useManagedTitleFit } from '../utils/contentTypography';
 import {
   CASE_BACK_TARGETS,
   getCaseCover,
@@ -60,6 +61,7 @@ import {
 
 const Footer = lazy(() => import('../components/Footer'));
 
+const INTRO_TITLE_LINES = { titleMaxLinesDesktop: 2, titleMaxLinesMobile: 2 };
 
 // Keep only known acquisition parameters while the catalog rewrites its own
 // filters. This preserves attribution without forwarding arbitrary query data.
@@ -385,6 +387,8 @@ export default function CasesPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+  // Шапка витрины: две строки — потолок, третья ломает ритм экрана.
+  const introTitleFit = useManagedTitleFit<HTMLHeadingElement>(INTRO_TITLE_LINES, { minFontSize: 22 });
   const { scrollToWhenReady } = useScrollTo();
   const internalSearchRef = useRef<string | null>(null);
   const hydratedSearchRef = useRef<string | null>(null);
@@ -631,7 +635,7 @@ export default function CasesPage() {
                 animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
               >
                 <span className="cases-finder-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Библиотека кейсов</span>
-                <h1>Найдите кейс, похожий на <span>ваш проект</span></h1>
+                <h1 ref={introTitleFit}>Найдите кейс, похожий&nbsp;на <span>ваш проект</span></h1>
                 <p>Выберите канал, нишу или результат — и откройте полный разбор с контекстом, решениями и цифрами.</p>
               </motion.div>
               <label className="cases-search">
