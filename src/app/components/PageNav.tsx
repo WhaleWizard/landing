@@ -47,7 +47,10 @@ export default function PageNav({ crumbs, backFallback, hideBack = false, classN
         {crumbs.map((crumb, index) => {
           const isLast = index === crumbs.length - 1;
           return (
-            <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-1.5">
+            // Сжиматься разрешено только последней крошке — она и обрезается
+            // многоточием. У остальных без shrink-0 флекс ужимал сам блок, текст
+            // из него вылезал и наезжал на соседнюю крошку.
+            <span key={`${crumb.label}-${index}`} className={`flex items-center gap-1.5 ${isLast ? 'min-w-0' : 'shrink-0'}`}>
               {index > 0 && (
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
               )}
