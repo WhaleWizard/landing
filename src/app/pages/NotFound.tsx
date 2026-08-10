@@ -1,43 +1,30 @@
 import { useEffect, useRef } from 'react';
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  BookOpen,
-  Briefcase,
-  Home,
-  MapPin,
-  MessageCircle,
-  TrendingUp,
-} from 'lucide-react';
+import { ArrowLeft, Home, MapPin } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import SEO from '../components/SEO';
 import { useReturnTo } from '../utils/siteNavigation';
 import './NotFound.css';
 
-const secondaryLinks = [
-  { to: '/blog', label: 'Блог', caption: 'Разборы и практика', Icon: BookOpen },
-  { to: '/cases', label: 'Кейсы', caption: 'Цифры и выводы', Icon: TrendingUp },
-  { to: '/#services', label: 'Услуги', caption: 'Форматы работы', Icon: Briefcase },
-  { to: '/#contact', label: 'Контакты', caption: 'Обсудить задачу', Icon: MessageCircle },
+const destinations = [
+  { to: '/blog', label: 'Блог' },
+  { to: '/cases', label: 'Кейсы' },
+  { to: '/#services', label: 'Услуги' },
+  { to: '/#contact', label: 'Контакты' },
 ];
 
 export default function NotFound() {
   const location = useLocation();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const returnTo = useReturnTo('/');
-  const isHomeFallback = returnTo.path === '/';
-  const primaryLabel = isHomeFallback ? 'На главную' : 'Вернуться';
-  const primaryAriaLabel = isHomeFallback
-    ? 'Перейти на главную'
-    : `Вернуться на страницу «${returnTo.label}»`;
-  const contextLabel = isHomeFallback && !returnTo.explicit
-    ? 'Точка возврата не сохранилась'
-    : returnTo.label;
-  const contextKicker = isHomeFallback && !returnTo.explicit ? 'Маршрут' : 'До портала';
-  const secondaryAction = isHomeFallback
-    ? { to: '/blog', label: 'Блог', Icon: BookOpen }
-    : { to: '/', label: 'Главная', Icon: Home };
-  const SecondaryActionIcon = secondaryAction.Icon;
+
+  // Вторая кнопка появляется только когда возврат ведёт НЕ на главную.
+  // Иначе рядом стояли бы два одинаковых действия «На главную».
+  const returnsHome = returnTo.path === '/';
+  const knownReturnPoint = !returnsHome || returnTo.explicit;
+
+  const routeText = knownReturnPoint
+    ? `Точка возврата — ${returnTo.label}`
+    : 'Точка возврата не сохранилась';
 
   useEffect(() => {
     titleRef.current?.focus({ preventScroll: true });
@@ -53,175 +40,106 @@ export default function NotFound() {
       />
 
       <main className="not-found-page marketing-typography">
-        <section className="not-found-stage" aria-labelledby="not-found-title">
-          <div className="not-found-orbit" aria-hidden="true">
-            <img
-              className="not-found-depth"
-              src="/images/404/portal-depth.png"
-              alt=""
-              width="896"
-              height="896"
-            />
-            <img
-              className="not-found-aura"
-              src="/images/404/portal-aura.png"
-              alt=""
-              width="896"
-              height="896"
-            />
-            <img
-              className="not-found-portal not-found-portal--halo"
-              src="/images/404/portal-rings-cutout.png"
-              alt=""
-              width="896"
-              height="896"
-            />
-            <img
-              className="not-found-portal"
-              src="/images/404/portal-rings-cutout.png"
-              alt=""
-              width="896"
-              height="896"
-            />
-            <img
-              className="not-found-accent not-found-accent--desktop"
-              src="/images/404/portal-accent-desktop.png"
-              alt=""
-              width="896"
-              height="896"
-            />
-            <img
-              className="not-found-accent not-found-accent--mobile"
-              src="/images/404/portal-accent-mobile.png"
-              alt=""
-              width="896"
-              height="896"
-            />
-            <img
-              className="not-found-grid"
-              src="/images/404/portal-grid.png"
-              alt=""
-              width="896"
-              height="896"
-            />
-            <img
-              className="not-found-preview"
-              src="/images/404/route-preview.png"
-              alt=""
-              width="364"
-              height="320"
-            />
+        <div className="nf-frame">
 
-            <div className="not-found-whale">
-              <div className="not-found-whale-art">
-                <img
-                  className="not-found-whale-image"
-                  src="/images/brand/whale-wizard.png"
-                  width="640"
-                  height="640"
-                  alt=""
-                  draggable={false}
-                />
-                <img
-                  className="not-found-wand-glow"
-                  src="/images/brand/whale-wand-glow.png"
-                  width="96"
-                  height="96"
-                  alt=""
-                  draggable={false}
-                />
+          {/* слой 1 · портал и карточка маршрута внутри него */}
+          <div className="nf-portal" aria-hidden="true">
+            <img className="nf-depth" src="/images/404/portal-depth.png" alt="" width="896" height="896" />
+            <img className="nf-aura" src="/images/404/portal-aura.png" alt="" width="896" height="896" />
+            <img className="nf-rings nf-rings--halo" src="/images/404/portal-rings-cutout.png" alt="" width="896" height="896" />
+            <img className="nf-rings" src="/images/404/portal-rings-cutout.png" alt="" width="896" height="896" />
+            <img className="nf-accent nf-accent--desktop" src="/images/404/portal-accent-desktop.png" alt="" width="896" height="896" />
+            <img className="nf-accent nf-accent--mobile" src="/images/404/portal-accent-mobile.png" alt="" width="896" height="896" />
+            <img className="nf-grid" src="/images/404/portal-grid.png" alt="" width="896" height="896" />
+            <img className="nf-preview" src="/images/404/route-preview.png" alt="" width="364" height="320" />
+          </div>
+
+          {/* слой 2 · затемнение под текстом, обязательно НИЖЕ кита */}
+          <div className="nf-scrim nf-scrim--top" aria-hidden="true" />
+          <div className="nf-scrim nf-scrim--bottom" aria-hidden="true" />
+
+          {/* слой 3 · кит */}
+          <div className="nf-whale-layer" aria-hidden="true">
+            <div className="nf-whale">
+              <div className="nf-whale-drift">
+                <div className="nf-whale-art">
+                  <span className="nf-whale-glow" />
+                  <img
+                    className="nf-whale-image"
+                    src="/images/brand/whale-wizard.png"
+                    width="640"
+                    height="640"
+                    alt=""
+                    draggable={false}
+                  />
+                  <img
+                    className="nf-wand-glow"
+                    src="/images/brand/whale-wand-glow.png"
+                    width="96"
+                    height="96"
+                    alt=""
+                    draggable={false}
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <header className="not-found-intro">
-            <h1
-              ref={titleRef}
-              id="not-found-title"
-              tabIndex={-1}
-              aria-label="404 · Портал закрыт"
-            >
-              <span className="not-found-code">404</span>
-              <span className="not-found-title-divider" aria-hidden="true"> · </span>
-              <span>ПОРТАЛ ЗАКРЫТ</span>
-            </h1>
-            <p className="not-found-tagline">Эта страница выпала из воронки.</p>
-            <p className="not-found-lead">Без паники — точка возврата сохранилась.</p>
-          </header>
+          {/* слой 4 · текст */}
+          <div className="nf-content">
+            <header className="nf-intro">
+              <p className="nf-badge">
+                <span className="nf-badge-dot" aria-hidden="true" />
+                <b>404</b>
+                <i aria-hidden="true" />
+                страница не найдена
+              </p>
+              <h1 ref={titleRef} id="not-found-title" tabIndex={-1}>
+                Портал закрыт
+              </h1>
+              <p className="nf-lead">
+                Эта страница выпала из воронки. Без паники — маршрут сохранился.
+              </p>
+            </header>
 
-          <div className="not-found-actions">
-            <p className="not-found-context" title={contextLabel}>
-              <span className="not-found-context-mark" aria-hidden="true">
-                <MapPin className="not-found-context-icon" focusable="false" />
-              </span>
-              <span className="not-found-context-copy">
-                <span>{contextKicker}</span>
-                <strong>{contextLabel}</strong>
-              </span>
-            </p>
+            <div className="nf-nav">
+              <p className="nf-route" title={routeText}>
+                <MapPin focusable="false" aria-hidden="true" />
+                <span>{routeText}</span>
+              </p>
 
-            <div className="not-found-action-row">
-              <button
-                type="button"
-                className="not-found-return"
-                aria-label={primaryAriaLabel}
-                onClick={returnTo.goBack}
-              >
-                <span className="not-found-action-icon" aria-hidden="true">
-                  <ArrowLeft focusable="false" />
-                </span>
-                <span className="not-found-action-copy">
-                  <small>{isHomeFallback ? 'Главный маршрут' : 'Маршрут сохранён'}</small>
-                  <strong>{primaryLabel}</strong>
-                </span>
-              </button>
+              <div className="nf-actions">
+                <button
+                  type="button"
+                  className="nf-primary"
+                  aria-label={returnsHome ? 'Перейти на главную' : `Вернуться на страницу «${returnTo.label}»`}
+                  onClick={returnTo.goBack}
+                >
+                  <ArrowLeft focusable="false" aria-hidden="true" />
+                  {returnsHome ? 'На главную' : returnTo.buttonLabel}
+                </button>
 
-              <Link className="not-found-home" to={secondaryAction.to}>
-                <span className="not-found-secondary-icon" aria-hidden="true">
-                  <SecondaryActionIcon focusable="false" />
-                </span>
-                <span className="not-found-action-copy">
-                  <small>{isHomeFallback ? 'Маршрут' : 'С нуля'}</small>
-                  <strong>{secondaryAction.label}</strong>
-                </span>
-              </Link>
+                {!returnsHome ? (
+                  <Link className="nf-secondary" to="/">
+                    <Home focusable="false" aria-hidden="true" />
+                    На главную
+                  </Link>
+                ) : null}
+              </div>
+
+              <ul className="nf-links">
+                {destinations.map((item) => (
+                  <li key={item.to}>
+                    <Link to={item.to}>{item.label}</Link>
+                  </li>
+                ))}
+              </ul>
+
+              <p className="nf-note">Ссылка потерялась. Маршрут сохранился.</p>
             </div>
-
-            <nav className="not-found-links" aria-label="Куда перейти">
-              <div className="not-found-links-head" aria-hidden="true">
-                <span>Быстрые маршруты</span>
-                <span>04 направления</span>
-              </div>
-              <div className="not-found-links-grid">
-                {secondaryLinks.map((item, index) => {
-                  const ItemIcon = item.Icon;
-
-                  return (
-                    <Link key={item.to} to={item.to}>
-                      <span className="not-found-link-index" aria-hidden="true">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                      <span className="not-found-link-icon" aria-hidden="true">
-                        <ItemIcon focusable="false" />
-                      </span>
-                      <span className="not-found-link-copy">
-                        <strong>{item.label}</strong>
-                        <small>{item.caption}</small>
-                      </span>
-                      <ArrowUpRight
-                        className="not-found-link-arrow"
-                        aria-hidden="true"
-                        focusable="false"
-                      />
-                    </Link>
-                  );
-                })}
-              </div>
-            </nav>
-
-            <p className="not-found-note">Ссылка потерялась. Маршрут сохранился.</p>
           </div>
-        </section>
+
+        </div>
       </main>
     </>
   );
