@@ -43,9 +43,14 @@ interface CacheInvalidationReport {
 function buildSeoCacheTargets(siteUrl: string, articleSlugs: string[]): string[] {
   return [
     `${siteUrl}/api/articles`,
+    `${siteUrl}/api/articles?view=summary`,
     `${siteUrl}/sitemap.xml`,
     `${siteUrl}/feed.xml`,
-    ...articleSlugs.flatMap((slug) => [`${siteUrl}/blog/${slug}`, `${siteUrl}/cases/${slug}`]),
+    ...articleSlugs.flatMap((slug) => [
+      `${siteUrl}/api/articles?slug=${encodeURIComponent(slug)}`,
+      `${siteUrl}/blog/${slug}`,
+      `${siteUrl}/cases/${slug}`,
+    ]),
   ];
 }
 

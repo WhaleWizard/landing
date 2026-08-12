@@ -1,5 +1,10 @@
 import { fetchArticlesFromJsonBin, normalizeArticles } from './jsonbin';
-import { fetchArticlesFromD1 } from './d1';
+import {
+  fetchArticleFromD1,
+  fetchArticleCandidatesFromD1,
+  fetchArticleSummariesFromD1,
+  fetchArticlesFromD1,
+} from './d1';
 import type { Article, Env } from './types';
 
 interface SeedPayload {
@@ -247,4 +252,136 @@ export async function fetchArticlesWithFallback(
   }
 
   return (await fetchSeedArticles(getSiteUrl(env, request))) || [];
+}
+
+function filterArticleCandidates(articles: Article[], slug: string): Article[] {
+  const prefix = `${slug}-`;
+  return articles.filter((article) => article.slug === slug || article.slug.startsWith(prefix));
+}
+
+function findExactArticle(articles: Article[], slug: string): Article | null {
+  return articles.find((article) => article.slug === slug) || null;
+}
+
+/**
+ * Resolve one canonical article for the public detail API. Unlike the route
+ * resolver below, this deliberately does not support legacy prefix matching:
+ * clients ask for an exact slug and must not make D1 read several full bodies.
+ * A partial read also never replaces the full last-known-good snapshot.
+ */
+export async function fetchArticleWithFallback(
+  env: Env,
+  request: Request,
+  rawSlug: string,
+): Promise<Article | null> {
+  const slug = String(rawSlug || '').trim();
+  if (!slug) return null;
+
+  if (shouldUseD1Articles(env)) {
+    if (env.DB) {
+      try {
+        return await fetchArticleFromD1(env, slug);
+      } catch {
+        console.error('[articles] Failed to read an article from authoritative D1 storage.');
+      }
+    } else {
+      console.error('[articles] USE_D1_ARTICLES is enabled but the DB binding is missing.');
+    }
+
+    const snapshotArticles = await readD1Snapshot(env);
+    if (snapshotArticles !== null) return findExactArticle(snapshotArticles, slug);
+
+    if (isEnabledFlag(env.ALLOW_EMERGENCY_ARTICLE_SEED)) {
+      const seedArticles = await fetchSeedArticles(getSiteUrl(env, request));
+      if (seedArticles !== null) {
+        console.warn('[articles] Using the explicitly enabled emergency article seed.');
+        return findExactArticle(seedArticles, slug);
+      }
+    }
+
+    throw new Error('D1 articles are unavailable and no last-known-good D1 snapshot can be read');
+  }
+
+  return findExactArticle(await fetchArticlesWithFallback(env, request), slug);
+}
+
+/**
+ * Resolve the smallest dataset needed by /blog/:slug and /cases/:slug.
+ *
+ * A successful D1 response (including an empty one) is authoritative. Only a
+ * D1 error/missing binding may use the last-known-good R2 snapshot. Unlike a
+ * full collection read, a route read must never replace that snapshot with a
+ * partial collection.
+ */
+export async function fetchArticleCandidatesWithFallback(
+  env: Env,
+  request: Request,
+  rawSlug: string,
+): Promise<Article[]> {
+  const slug = String(rawSlug || '').trim();
+  if (!slug) return [];
+
+  if (shouldUseD1Articles(env)) {
+    if (env.DB) {
+      try {
+        return await fetchArticleCandidatesFromD1(env, slug);
+      } catch {
+        console.error('[articles] Failed to read article candidates from authoritative D1 storage.');
+      }
+    } else {
+      console.error('[articles] USE_D1_ARTICLES is enabled but the DB binding is missing.');
+    }
+
+    const snapshotArticles = await readD1Snapshot(env);
+    if (snapshotArticles !== null) return filterArticleCandidates(snapshotArticles, slug);
+
+    if (isEnabledFlag(env.ALLOW_EMERGENCY_ARTICLE_SEED)) {
+      const seedArticles = await fetchSeedArticles(getSiteUrl(env, request));
+      if (seedArticles !== null) {
+        console.warn('[articles] Using the explicitly enabled emergency article seed.');
+        return filterArticleCandidates(seedArticles, slug);
+      }
+    }
+
+    throw new Error('D1 articles are unavailable and no last-known-good D1 snapshot can be read');
+  }
+
+  return filterArticleCandidates(await fetchArticlesWithFallback(env, request), slug);
+}
+
+/**
+ * Public cards use the same authoritative/fail-closed chain as full articles,
+ * but a healthy D1 read omits the heavy HTML bodies and never writes a partial
+ * result over the last-known-good full snapshot.
+ */
+export async function fetchArticleSummariesWithFallback(
+  env: Env,
+  request: Request,
+): Promise<Article[]> {
+  if (shouldUseD1Articles(env)) {
+    if (env.DB) {
+      try {
+        return await fetchArticleSummariesFromD1(env);
+      } catch {
+        console.error('[articles] Failed to read article summaries from authoritative D1 storage.');
+      }
+    } else {
+      console.error('[articles] USE_D1_ARTICLES is enabled but the DB binding is missing.');
+    }
+
+    const snapshotArticles = await readD1Snapshot(env);
+    if (snapshotArticles !== null) return snapshotArticles;
+
+    if (isEnabledFlag(env.ALLOW_EMERGENCY_ARTICLE_SEED)) {
+      const seedArticles = await fetchSeedArticles(getSiteUrl(env, request));
+      if (seedArticles !== null) {
+        console.warn('[articles] Using the explicitly enabled emergency article seed.');
+        return seedArticles;
+      }
+    }
+
+    throw new Error('D1 articles are unavailable and no last-known-good D1 snapshot can be read');
+  }
+
+  return fetchArticlesWithFallback(env, request);
 }

@@ -419,7 +419,13 @@ function BlogPageComponent() {
   const routeBase = isCasesRoute ? '/cases' : '/blog';
   const preservedCaseSearch = isCasesRoute ? location.search : '';
   const listUrl = `${routeBase}${preservedCaseSearch}`;
-  const { articles: allArticles, loading, error: articlesError, refreshArticles } = useArticles();
+  const {
+    articles: allArticles,
+    loading,
+    error: articlesError,
+    refreshArticles,
+    loadArticle,
+  } = useArticles();
   const selectedArticle = useMemo(() => {
     if (!slug || loading) return null;
     return allArticles.find((article) => (
@@ -486,6 +492,11 @@ function BlogPageComponent() {
   useEffect(() => {
     if (slug && !loading && !articlesError && !selectedArticle) navigate(listUrl, { replace: true });
   }, [articlesError, listUrl, loading, navigate, selectedArticle, slug]);
+
+  useEffect(() => {
+    if (!slug || !selectedArticle?._summary) return;
+    void loadArticle(slug).catch(() => undefined);
+  }, [loadArticle, selectedArticle?._summary, slug]);
 
   useEffect(() => {
     if (!selectedArticle) return;
@@ -634,6 +645,13 @@ function BlogPageComponent() {
   }, [activeTopic, activeTopicRule, isCasesRoute, loading, location.pathname, location.search, navigate, searchQuery, slug, sort]);
 
   if (loading) return <RouteSkeleton />;
+
+  if (slug && selectedArticle?._summary) {
+    if (articlesError) {
+      return <ArticlesLoadError onRetry={() => loadArticle(slug).then(() => undefined)} />;
+    }
+    return <RouteSkeleton />;
+  }
 
   if (selectedArticle) {
     const relatedArticles = extractRelatedArticles(

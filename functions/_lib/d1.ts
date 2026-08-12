@@ -113,6 +113,76 @@ export async function fetchArticlesFromD1(env: Env): Promise<Article[]> {
   return (result.results || []).map(mapRowToArticle);
 }
 
+/**
+ * Public article detail requests know the canonical slug already. Read exactly
+ * that row so a short slug cannot pull every legacy-prefix candidate (and all
+ * of their HTML bodies) through the API response path.
+ */
+export async function fetchArticleFromD1(env: Env, rawSlug: string): Promise<Article | null> {
+  if (!hasD1(env)) return null;
+
+  const slug = String(rawSlug || '').trim();
+  if (!slug) return null;
+
+  const result = await env.DB
+    .prepare(`SELECT * FROM articles WHERE slug = ? LIMIT 1`)
+    .bind(slug)
+    .all<D1Row>();
+
+  const row = result.results?.[0];
+  return row ? mapRowToArticle(row) : null;
+}
+
+/**
+ * Listing cards need article metadata, not every HTML body. Selecting an empty
+ * content alias keeps the shared Article mapper/contract while avoiding the
+ * largest column in the D1 result and in the public response pipeline.
+ */
+export async function fetchArticleSummariesFromD1(env: Env): Promise<Article[]> {
+  if (!hasD1(env)) return [];
+
+  const articleColumns = await getArticlesColumns(env.DB);
+  const hasCaseColumn = articleColumns.has('case_data_json');
+  const statusSelection = articleColumns.has('status')
+    ? 'status'
+    : "'published' AS status";
+  const result = await env.DB
+    .prepare(`SELECT
+      id, slug, title, category, read_time, date, description,
+      '' AS content, image, seo_title, seo_description, published_at, updated_at,
+      tags_json, summary, key_takeaways_json, faq_json, ${statusSelection}
+      ${hasCaseColumn ? ', case_data_json' : ''}
+      FROM articles
+      ORDER BY id ASC`)
+    .all<D1Row>();
+
+  return (result.results || []).map(mapRowToArticle);
+}
+
+/**
+ * Read only the rows that can satisfy an article route. Besides the exact slug,
+ * the route supports a legacy shortened-slug redirect when exactly one article
+ * starts with `${slug}-`. The range predicate stays index-friendly and avoids
+ * treating `%`/`_` from an untrusted URL as LIKE wildcards.
+ */
+export async function fetchArticleCandidatesFromD1(env: Env, rawSlug: string): Promise<Article[]> {
+  if (!hasD1(env)) return [];
+
+  const slug = String(rawSlug || '').trim();
+  if (!slug) return [];
+
+  const prefixStart = `${slug}-`;
+  const prefixEnd = `${slug}.`;
+  const result = await env.DB
+    .prepare(`SELECT * FROM articles
+      WHERE slug = ? OR (slug >= ? AND slug < ?)
+      ORDER BY id ASC`)
+    .bind(slug, prefixStart, prefixEnd)
+    .all<D1Row>();
+
+  return (result.results || []).map(mapRowToArticle);
+}
+
 export async function writeArticlesToD1(env: Env, rawArticles: Article[], existingArticles: Article[]): Promise<Article[]> {
   if (!hasD1(env)) {
     throw new Error('D1 is not configured');

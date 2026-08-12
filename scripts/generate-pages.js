@@ -247,7 +247,11 @@ function readViteIndexHtml() {
     throw new Error('dist/index.html is missing. Run vite build before generate:pages.');
   }
 
-  return readFileSync(indexPath, 'utf8');
+  const html = readFileSync(indexPath, 'utf8');
+  if (!/<div id="root"><\/div>/i.test(html)) {
+    throw new Error('dist/index.html is already generated. Run vite build before generate:pages.');
+  }
+  return html;
 }
 
 function insertBeforeHeadClose(html, tag) {
@@ -259,17 +263,24 @@ function insertBeforeHeadClose(html, tag) {
 // браузер узнаёт о файле только после разбора index.js — загрузка выстраивается
 // лесенкой и на мобильной сети стоит несколько сотен миллисекунд.
 const ROUTE_ENTRY_MODULES = {
-  '/': 'src/app/pages/Home.tsx',
-  '/blog': 'src/app/pages/BlogPage.tsx',
-  '/cases': 'src/app/pages/CasesPage.tsx',
-  '/faq': 'src/app/pages/FAQPage.tsx',
-  '/marketing-glossary': 'src/app/pages/MarketingGlossaryPage.tsx',
-  '/calculator': 'src/app/pages/Calculator.tsx',
-  '/roi-calculator': 'src/app/pages/RoiPage.tsx',
-  '/meta-ads': 'src/app/pages/ServiceLandingPage.tsx',
-  '/meta-apps': 'src/app/pages/ServiceLandingPage.tsx',
-  '/google-ads': 'src/app/pages/ServiceLandingPage.tsx',
-  '/consult': 'src/app/pages/ServiceLandingPage.tsx',
+  '/': ['src/app/pages/Home.tsx'],
+  '/blog': ['src/app/pages/BlogPage.tsx'],
+  '/cases': ['src/app/pages/CasesPage.tsx'],
+  '/faq': ['src/app/pages/FAQPage.tsx'],
+  '/marketing-glossary': ['src/app/pages/MarketingGlossaryPage.tsx'],
+  '/calculator': ['src/app/pages/Calculator.tsx'],
+  '/roi-calculator': ['src/app/pages/RoiPage.tsx'],
+  '/meta-ads': ['src/app/pages/ServiceLandingPage.tsx'],
+  '/meta-apps': [
+    'src/app/pages/ServiceLandingPage.tsx',
+    'src/app/components/Hero.tsx',
+    'src/app/components/MetaAppsHeroVisual.tsx',
+  ],
+  '/google-ads': ['src/app/pages/ServiceLandingPage.tsx', 'src/app/components/Hero.tsx'],
+  '/consult': [
+    'src/app/pages/ServiceLandingPage.tsx',
+    'src/app/components/service-heroes/ConsultStudioHero.tsx',
+  ],
 };
 
 // JSON внутри <script> обязан пережить разбор HTML: незакрытый тег или
@@ -293,33 +304,112 @@ function readViteManifest() {
   return viteManifestCache;
 }
 
-function resolveRouteEntry(route) {
+function resolveRouteEntries(route) {
   if (ROUTE_ENTRY_MODULES[route]) return ROUTE_ENTRY_MODULES[route];
   // Страницы статей и кейсов рисует тот же модуль, что и раздел блога.
-  if (/^\/(blog|cases)\/[^/]+$/.test(route)) return 'src/app/pages/BlogPage.tsx';
-  return null;
+  if (/^\/cases\/[^/]+$/.test(route)) {
+    return ['src/app/pages/BlogPage.tsx', 'src/app/components/CaseArticleView.tsx'];
+  }
+  if (/^\/blog\/[^/]+$/.test(route)) return ['src/app/pages/BlogPage.tsx'];
+  return [];
+}
+
+function normalizeManifestReference(value = '') {
+  return String(value || '').replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+function manifestModuleName(moduleId = '') {
+  const filename = normalizeManifestReference(moduleId).split('/').pop() || '';
+  return filename.replace(/\.[^.]+$/, '');
+}
+
+/**
+ * Vite does not guarantee that a dynamic entry's manifest key is its source
+ * pathname. When Rollup promotes it to a private chunk the key becomes, for
+ * example, `_BlogPage-<hash>.js`, while the stable identity moves to `name`.
+ * Resolve both shapes (and older/custom manifests that expose only src/file)
+ * so route preloads do not silently disappear after a bundling change.
+ */
+function resolveManifestKey(manifest, reference) {
+  if (!manifest || !reference) return null;
+  if (manifest[reference]) return reference;
+
+  const normalizedReference = normalizeManifestReference(reference);
+  const expectedName = manifestModuleName(normalizedReference);
+  let bestKey = null;
+  let bestScore = 0;
+
+  for (const [key, item] of Object.entries(manifest)) {
+    if (!item || typeof item !== 'object') continue;
+
+    const source = normalizeManifestReference(item.src);
+    const file = normalizeManifestReference(item.file);
+    const name = String(item.name || '');
+    const fileName = file.split('/').pop() || '';
+    const fileStem = fileName.replace(/\.[^.]+$/, '');
+    let score = 0;
+
+    if (normalizeManifestReference(key) === normalizedReference) score = 100;
+    else if (source && source === normalizedReference) score = 90;
+    else if (file && file === normalizedReference) score = 80;
+    else if (name && (name === normalizedReference || name === expectedName)) score = 70;
+    else if (
+      expectedName
+      && file.endsWith('.js')
+      && (fileStem === expectedName || fileStem.startsWith(`${expectedName}-`))
+    ) score = 60;
+
+    if (score > bestScore) {
+      bestKey = key;
+      bestScore = score;
+    }
+  }
+
+  return bestKey;
+}
+
+function collectRouteManifestItems(route) {
+  const manifest = readViteManifest();
+  const entries = resolveRouteEntries(route);
+  if (!manifest || entries.length === 0) return [];
+
+  const items = [];
+  const seen = new Set();
+  const collect = (reference) => {
+    const key = resolveManifestKey(manifest, reference);
+    if (!key || seen.has(key)) return;
+    const item = manifest[key];
+    seen.add(key);
+    items.push(item);
+    for (const imported of item.imports || []) collect(imported);
+  };
+  for (const entry of entries) collect(entry);
+  return items;
 }
 
 function renderModulePreloads(route, baseHtml) {
-  const manifest = readViteManifest();
-  const entry = resolveRouteEntry(route);
-  if (!manifest || !entry || !manifest[entry]) return '';
-
-  const files = [];
-  const seen = new Set();
-  const collect = (key, depth) => {
-    const item = manifest[key];
-    if (!item || seen.has(key) || depth > 1) return;
-    seen.add(key);
-    if (item.file) files.push(item.file);
-    for (const imported of item.imports || []) collect(imported, depth + 1);
-  };
-  collect(entry, 0);
+  const seenFiles = new Set();
+  const files = collectRouteManifestItems(route)
+    .map((item) => item.file)
+    .filter((file) => file && !seenFiles.has(file) && seenFiles.add(file));
 
   return files
     // Файлы, уже объявленные в index.html, повторять незачем.
     .filter((file) => !baseHtml.includes(file))
     .map((file) => `<link rel="modulepreload" href="/${file}" />`)
+    .join('\n  ');
+}
+
+function renderRouteStylesheets(route, baseHtml) {
+  const seenFiles = new Set();
+  const files = collectRouteManifestItems(route)
+    .flatMap((item) => Array.isArray(item.css) ? item.css : [])
+    .filter((file) => file && !seenFiles.has(file) && seenFiles.add(file));
+
+  return files
+    // Global CSS is already linked by Vite in the original HTML shell.
+    .filter((file) => !baseHtml.includes(file))
+    .map((file) => `<link rel="stylesheet" href="/${file}" />`)
     .join('\n  ');
 }
 
@@ -740,6 +830,9 @@ function htmlTemplate({
 
   const preloadHtml = renderImagePreloads(imagePreloads);
   if (preloadHtml) html = insertBeforeHeadClose(html, preloadHtml);
+
+  const routeStylesheetHtml = renderRouteStylesheets(canonicalPath, baseHtml);
+  if (routeStylesheetHtml) html = insertBeforeHeadClose(html, routeStylesheetHtml);
 
   const modulePreloadHtml = renderModulePreloads(canonicalPath, baseHtml);
   if (modulePreloadHtml) html = insertBeforeHeadClose(html, modulePreloadHtml);
@@ -1571,7 +1664,8 @@ function appendLlmsContentIndex(articles) {
     }
   }
 
-  const existing = readFileSync(llmsPath, 'utf8');
+  const marker = '## 14) Content index (auto-generated at build)';
+  const existing = readFileSync(llmsPath, 'utf8').split(marker)[0].trimEnd();
   writeFileSync(llmsPath, `${existing.trimEnd()}\n${lines.join('\n')}\n`, 'utf8');
 }
 

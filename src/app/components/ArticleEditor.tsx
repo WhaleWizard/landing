@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upload, List, ListOrdered } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
@@ -45,6 +45,7 @@ interface ArticleEditorProps {
 
 const DRAG_TYPE = 'WW_BLOCK';
 const MAX_HISTORY = 80;
+const OUTPUT_SYNC_DELAY_MS = 220;
 
 const BLOCK_LABELS: Record<Exclude<BlockType, 'list' | 'separator'>, string> = {
   heading: 'Заголовок',
@@ -164,6 +165,10 @@ function blockToHtml(block: ContentBlock): string {
     default:
       return '';
   }
+}
+
+function serializeBlocks(blocks: ContentBlock[]): string {
+  return sanitizeHtml(blocks.map(blockToHtml).join('\n'));
 }
 
 function parseNodeToBlock(node: ChildNode): ContentBlock | null {
@@ -569,16 +574,23 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
 export default function ArticleEditor({ content, onChange, onUpload, readOnly = false }: ArticleEditorProps) {
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => parseHtmlToBlocks(content));
+  const [htmlOutput, setHtmlOutput] = useState(() => serializeBlocks(blocks));
   const [history, setHistory] = useState<{ past: ContentBlock[][]; future: ContentBlock[][] }>({ past: [], future: [] });
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [markdownMode, setMarkdownMode] = useState(false);
   const [mdText, setMdText] = useState('');
   const isLocalSyncRef = useRef(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const isExternalSyncRef = useRef(false);
 
   useEffect(() => {
     if (isLocalSyncRef.current) { isLocalSyncRef.current = false; return; }
-    setBlocks(parseHtmlToBlocks(content));
+    // Синхронизируем оба представления в одном проходе. Иначе старый
+    // htmlOutput ещё 220 мс мог затереть только что восстановленную версию при
+    // любом повторном рендере родителя.
+    const nextBlocks = parseHtmlToBlocks(content);
+    isExternalSyncRef.current = true;
+    setBlocks(nextBlocks);
+    setHtmlOutput(serializeBlocks(nextBlocks));
     setHistory({ past: [], future: [] });
   }, [content]);
 
@@ -591,17 +603,26 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
     return () => window.cancelAnimationFrame(frame);
   }, [selectedBlockId]);
 
-  const htmlOutput = useMemo(() => sanitizeHtml(blocks.map(blockToHtml).join('\n')), [blocks]);
+  // DOMPurify и сборка полного HTML заметны на длинных статьях. Не запускаем их
+  // на каждый символ: поле остаётся отзывчивым, а предпросмотр и черновик
+  // синхронизируются с той же задержкой, которая раньше стояла перед onChange.
+  useEffect(() => {
+    if (readOnly) return;
+    const timer = window.setTimeout(() => {
+      setHtmlOutput(serializeBlocks(blocks));
+    }, OUTPUT_SYNC_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [blocks, readOnly]);
 
   useEffect(() => {
     if (readOnly) return;
+    if (isExternalSyncRef.current) {
+      isExternalSyncRef.current = false;
+      return;
+    }
     if (htmlOutput === content) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      isLocalSyncRef.current = true;
-      onChange(htmlOutput);
-    }, 220);
-    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+    isLocalSyncRef.current = true;
+    onChange(htmlOutput);
   }, [htmlOutput, content, onChange, readOnly]);
 
   const toggleMarkdown = useCallback(() => {
@@ -625,7 +646,9 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
   const setBlocksWithHistory = useCallback((updater: ContentBlock[] | ((prev: ContentBlock[]) => ContentBlock[]), keepHistory = true) => {
     setBlocks((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (keepHistory && JSON.stringify(next) !== JSON.stringify(prev)) {
+      // Все реальные операции редактора возвращают новый массив, а no-op — prev.
+      // Сравнение ссылок не сериализует всю статью на каждое нажатие клавиши.
+      if (keepHistory && next !== prev) {
         setHistory((current) => ({
           past: [...current.past, prev].slice(-MAX_HISTORY),
           future: [],
@@ -667,7 +690,14 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
   }, [blocks, insertBlockAfter, selectedBlockId]);
 
   const updateBlock = useCallback((id: string, patch: Partial<ContentBlock>) => {
-    setBlocksWithHistory((prev) => prev.map((block) => (block.id === id ? { ...block, ...patch } : block)));
+    setBlocksWithHistory((prev) => {
+      const current = prev.find((block) => block.id === id);
+      if (!current) return prev;
+      const changed = (Object.keys(patch) as Array<keyof ContentBlock>)
+        .some((key) => current[key] !== patch[key]);
+      if (!changed) return prev;
+      return prev.map((block) => (block.id === id ? { ...block, ...patch } : block));
+    });
   }, [setBlocksWithHistory]);
 
   const removeBlock = useCallback((id: string) => {

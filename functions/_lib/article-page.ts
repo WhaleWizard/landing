@@ -1,5 +1,5 @@
 import { CACHE_CONTROL, matchCache, putCache } from './cache';
-import { fetchArticlesWithFallback, filterVisibleArticles } from './articles';
+import { fetchArticleCandidatesWithFallback, filterVisibleArticles } from './articles';
 import {
   buildArticleMeta,
   findArticleBySlugPrefix,
@@ -35,6 +35,49 @@ function assetRequest(request: Request, path: string): Request {
   });
 }
 
+function serializeInlineJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+function articleRedirect(requestUrl: URL, siteUrl: string, path: string): Response {
+  const target = new URL(path, `${siteUrl}/`);
+  target.search = requestUrl.search;
+  return Response.redirect(target.toString(), 301);
+}
+
+async function getArticleShell(
+  request: Request,
+  next: (request?: Request) => Promise<Response>,
+  path: string,
+  sectionPath: SectionPath,
+): Promise<Response> {
+  const articleShell = await next(assetRequest(request, `${path}/index.html`));
+  if (articleShell.ok || articleShell.status !== 404) return articleShell;
+
+  // A CMS article can be published between static builds. In that short window
+  // its generated directory does not exist yet. The section shell already has
+  // the BlogPage chunk and route CSS, while the root shell would eagerly fetch
+  // the home hero and Home-only chunks before discovering the article route.
+  const sectionShell = await next(assetRequest(request, `${sectionPath}/index.html`));
+  if (!sectionShell.headers.get('content-type')?.includes('text/html')) return articleShell;
+
+  const source = await sectionShell.text();
+  const withoutSectionBreadcrumbs = source.replace(
+    /<script\b[^>]*\bid=(["'])ld-breadcrumbs\1[^>]*>[\s\S]*?<\/script>\s*/gi,
+    '',
+  );
+  const neutral = withoutSectionBreadcrumbs.replace(
+    /(<body\b[^>]*>)[\s\S]*?<\/body>/i,
+    '$1<div id="root"></div></body>',
+  );
+  return new Response(neutral, { status: 200, headers: sectionShell.headers });
+}
+
 /**
  * Ставит на страницу-оболочку SPA мета-теги конкретной статьи.
  *
@@ -42,15 +85,21 @@ function assetRequest(request: Request, path: string): Request {
  * /index.html как есть — с заголовком и `canonical` главной страницы. Google
  * из-за этого помечал материалы как копию главной и не индексировал их.
  */
-function applyArticleMeta(response: Response, siteUrl: string, article: Article, sectionPath: SectionPath): Response {
+function applyArticleMeta(
+  response: Response,
+  siteUrl: string,
+  article: Article,
+  sectionPath: SectionPath,
+): Response {
   const meta = buildArticleMeta(siteUrl, article, sectionPath);
+  const articleSeed = serializeInlineJson(article);
   const setContent = (value: string) => ({
     element(element: HTMLRewriterElement) {
       element.setAttribute('content', value);
     },
   });
 
-  return new HTMLRewriter()
+  const rewriter = new HTMLRewriter()
     .on('title', {
       element(element) {
         element.setInnerContent(meta.title);
@@ -77,6 +126,24 @@ function applyArticleMeta(response: Response, siteUrl: string, article: Article,
     .on('meta[name="twitter:description"]', setContent(meta.description))
     .on('meta[name="twitter:image"]', setContent(meta.image))
     .on('meta[name="twitter:url"]', setContent(meta.canonical))
+    // Remove any build-time snapshot and append exactly one live, safely
+    // serialized article. This also seeds the neutral section-shell fallback
+    // used before a newly published article goes through a static build.
+    .on('script#ww-article-seed', {
+      element(element) {
+        element.remove();
+      },
+    })
+    .on('head', {
+      element(element) {
+        element.append(
+          `<script type="application/json" id="ww-article-seed">${articleSeed}</script>`,
+          { html: true },
+        );
+      },
+    });
+
+  return rewriter
     // Структурированные данные статьи сюда не добавляются намеренно: пререндер
     // уже несёт свой блок schema.org, а боты получают полную разметку из
     // renderArticleHtml. Вставка вслепую дала бы две конкурирующие схемы.
@@ -92,7 +159,7 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
     // Канонический адрес статьи — без завершающего слеша. Пока оба варианта
     // отвечали 200, один и тот же материал жил по двум URL.
     if (requestUrl.pathname.endsWith('/') && slug) {
-      return Response.redirect(`${siteUrl}${sectionPath}/${slug}`, 301);
+      return articleRedirect(requestUrl, siteUrl, `${sectionPath}/${slug}`);
     }
 
     if (!slug) {
@@ -109,7 +176,7 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
 
     let articles: Article[];
     try {
-      articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil));
+      articles = filterVisibleArticles(await fetchArticleCandidatesWithFallback(env, request, slug));
     } catch {
       // Хранилище недоступно. Человеку по-прежнему нужна рабочая страница:
       // SPA догрузит статью сам, поэтому отдаём оболочку без своих мета-тегов.
@@ -124,7 +191,7 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
     if (!article) {
       const redirectArticle = findArticleBySlugPrefix(articles, slug, sectionPath);
       if (redirectArticle) {
-        return Response.redirect(`${siteUrl}${getArticlePath(redirectArticle)}`, 301);
+        return articleRedirect(requestUrl, siteUrl, getArticlePath(redirectArticle));
       }
 
       if (!isBot) {
@@ -145,7 +212,7 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
     }
 
     if (!isBot) {
-      const shell = await next(assetRequest(request, `${sectionPath}/${slug}/index.html`));
+      const shell = await getArticleShell(request, next, `${sectionPath}/${slug}`, sectionPath);
       if (!shell.headers.get('content-type')?.includes('text/html')) return shell;
 
       const withMeta = applyArticleMeta(shell, siteUrl, article, sectionPath);
@@ -153,7 +220,9 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
         status: 200,
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': CACHE_CONTROL.botArticle,
+          // The HTML carries the current article payload. Do not let a browser
+          // or intermediary retain an older CMS revision as its next seed.
+          'Cache-Control': CACHE_CONTROL.noStore,
         },
       });
     }

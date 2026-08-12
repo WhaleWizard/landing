@@ -445,7 +445,7 @@ async function runAudit(
   apiUrl.searchParams.set('key', apiKey);
 
   try {
-    const response = await fetchWithTimeout(apiUrl.toString());
+    let response = await fetchWithTimeout(apiUrl.toString());
     let payload = await response.json().catch(() => ({})) as PsiResponse;
 
     // Lighthouse иногда отвечает «Something went wrong» на исправной странице:
@@ -456,9 +456,11 @@ async function runAudit(
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const retryResponse = await fetchWithTimeout(apiUrl.toString());
       const retryPayload = await retryResponse.json().catch(() => ({})) as PsiResponse;
-      if (retryResponse.ok && !retryPayload.lighthouseResult?.runtimeError?.message && retryPayload.lighthouseResult) {
-        payload = retryPayload;
-      }
+      // From this point the retry is the actual PSI response. Keeping the first
+      // 200/runtimeError here would hide a quota, key configuration or other
+      // HTTP error returned by the second request.
+      response = retryResponse;
+      payload = retryPayload;
     }
 
     if (!response.ok) {

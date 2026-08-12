@@ -53,10 +53,16 @@ export interface Article {
   }>;
   status?: 'draft' | 'published';
   caseData?: CaseData;
+  /** Public listing payloads omit the heavy article body. */
+  _summary?: boolean;
 }
 
 interface ArticlesResponse {
   articles: Article[];
+}
+
+interface ArticleResponse {
+  article: Article;
 }
 
 interface AdminUpdateResponse {
@@ -117,9 +123,9 @@ function sanitizeAdminArticles(source: Article[]): Article[] {
 
 export const fetchArticles = async (options?: { bypassCache?: boolean }): Promise<Article[]> => {
   try {
-    const endpoint = options?.bypassCache
-      ? `${API_ROUTES.articles}${API_ROUTES.articles.includes('?') ? '&' : '?'}_=${Date.now()}`
-      : API_ROUTES.articles;
+    const params = new URLSearchParams({ view: 'summary' });
+    if (options?.bypassCache) params.set('_', String(Date.now()));
+    const endpoint = `${API_ROUTES.articles}?${params.toString()}`;
 
     const res = await fetch(endpoint, {
       method: 'GET',
@@ -146,6 +152,32 @@ export const fetchArticles = async (options?: { bypassCache?: boolean }): Promis
     // deleted posts exactly when the server intentionally returns 503.
     throw error instanceof Error ? error : new Error('Failed to load articles');
   }
+};
+
+export const fetchArticle = async (
+  slug: string,
+  options?: { bypassCache?: boolean },
+): Promise<Article | null> => {
+  const normalizedSlug = String(slug || '').trim();
+  if (!hasValidSlug(normalizedSlug)) return null;
+
+  const params = new URLSearchParams({ slug: normalizedSlug });
+  if (options?.bypassCache) params.set('_', String(Date.now()));
+  const response = await fetch(`${API_ROUTES.articles}?${params.toString()}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    cache: options?.bypassCache ? 'no-store' : 'default',
+  });
+
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const payload = (await response.json()) as ArticleResponse;
+  if (!payload?.article || payload.article.slug !== normalizedSlug) {
+    throw new Error('Invalid article response');
+  }
+  return { ...payload.article, _summary: false };
 };
 
 export const fetchAdminArticles = async (password: string): Promise<Article[]> => {
