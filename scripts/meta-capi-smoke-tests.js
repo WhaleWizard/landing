@@ -436,7 +436,7 @@ assert.ok(
   'Admin health must never interpolate the tracking HMAC secret into its response',
 );
 const healthWithoutSecretValidator = files.adminHealth.replace(
-  /function hasValidTrackingHmacSecret[\s\S]*?\n}\n/,
+  /function hasValidTrackingHmacSecret[\s\S]*?\r?\n}\r?\n/,
   '',
 );
 assert.ok(

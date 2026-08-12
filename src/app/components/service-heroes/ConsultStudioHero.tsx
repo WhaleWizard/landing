@@ -45,7 +45,7 @@ function ConsultStudioHero({ content }: ConsultStudioHeroProps) {
               alt="Рабочий разбор рекламного кабинета: ноутбук, блокнот и заметки"
               loading="eager"
               decoding="async"
-              fetchPriority="high"
+              fetchpriority="high"
               className="consult-studio-hero__photo"
             />
           </picture>

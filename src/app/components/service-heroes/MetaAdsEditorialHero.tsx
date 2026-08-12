@@ -177,7 +177,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
                     aria-hidden="true"
                     loading={index === 0 ? 'eager' : 'lazy'}
                     decoding="async"
-                    fetchPriority={index === 0 ? 'high' : 'low'}
+                    fetchpriority={index === 0 ? 'high' : 'low'}
                     className="meta-proof__paper"
                   />
                   <div className="meta-proof__photo-frame">
@@ -190,7 +190,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
                       alt={item.alt}
                       loading={index === 0 ? 'eager' : 'lazy'}
                       decoding="async"
-                      fetchPriority={index === 0 ? 'high' : 'low'}
+                      fetchpriority={index === 0 ? 'high' : 'low'}
                       className="meta-proof__photo"
                     />
                   </div>
@@ -202,7 +202,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
                     aria-hidden="true"
                     loading="lazy"
                     decoding="async"
-                    fetchPriority="low"
+                    fetchpriority="low"
                     className="meta-proof__tape"
                   />
                 </div>
@@ -215,7 +215,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
                   aria-hidden="true"
                   loading="lazy"
                   decoding="async"
-                  fetchPriority="low"
+                  fetchpriority="low"
                   className="meta-proof__arrow"
                 />
 
@@ -230,7 +230,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
                     aria-hidden="true"
                     loading="lazy"
                     decoding="async"
-                    fetchPriority="low"
+                    fetchpriority="low"
                     className="meta-proof__underline"
                   />
                 </div>

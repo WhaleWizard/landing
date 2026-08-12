@@ -768,7 +768,7 @@ function BlogPageComponent() {
                   alt={selectedArticle.title}
                   loading="eager"
                   decoding="async"
-                  fetchPriority="high"
+                  fetchpriority="high"
                   className="w-full h-auto object-cover max-h-[500px]"
                   onError={(event) => {
                     // Битая обложка — прячем весь блок, статья начинается с текста
@@ -1202,7 +1202,7 @@ function BlogPageComponent() {
                           alt=""
                           loading="eager"
                           decoding="async"
-                          fetchPriority="high"
+                          fetchpriority="high"
                           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
                           onError={(event) => {
                             event.currentTarget.src = '/images/brand/whale-wizard.webp';

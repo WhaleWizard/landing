@@ -19,6 +19,12 @@ audit-reports/*.log
 # Логи dev-серверов Codex и скриншоты Playwright — рабочие артефакты, не код
 .codex-dev-*.log
 output/
+.playwright-cli/
+.wrangler/
+tmp/
+generated-images/
+design-qa-*.png
+implementation-*.png
 
 # Промежуточная сборка scripts/content-entry.tsx для generate:pages
 scripts/.content-entry.build.*

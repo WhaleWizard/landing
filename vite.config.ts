@@ -19,6 +19,7 @@ function figmaAssetResolver() {
 function localArticlesApi() {
   const localArticlesPath = path.resolve(__dirname, 'data/articles.local.json')
   const publicSeedPath = path.resolve(__dirname, 'public/articles.seed.json')
+  const localSiteContentPath = path.resolve(__dirname, 'data/site-content.local.json')
   const localAdminPassword = process.env.LOCAL_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'admin'
   const protectedArticleSlug = 'kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh'
 
@@ -57,6 +58,18 @@ function localArticlesApi() {
       }
     } catch {
       return { source: 'local-dev-invalid', total: 0, articles: [] }
+    }
+  }
+
+  const readSiteContentPayload = () => {
+    if (!existsSync(localSiteContentPath)) return { sections: {} }
+    try {
+      const payload = JSON.parse(readFileSync(localSiteContentPath, 'utf8'))
+      return payload?.schemaVersion === 1 && payload?.sections && typeof payload.sections === 'object'
+        ? payload
+        : { sections: {} }
+    } catch {
+      return { sections: {} }
     }
   }
 
@@ -119,8 +132,17 @@ function localArticlesApi() {
       articles: normalized,
     }
 
+    const publicArticles = normalized.filter(isVisibleArticle)
+    const publicPayload = {
+      ...payload,
+      total: publicArticles.length,
+      articles: publicArticles,
+    }
+
     writeFileSync(localArticlesPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
-    writeFileSync(publicSeedPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+    // Drafts and scheduled posts remain private even in local development.
+    // public/articles.seed.json is served without authentication.
+    writeFileSync(publicSeedPath, `${JSON.stringify(publicPayload, null, 2)}\n`, 'utf8')
     return payload
   }
 
@@ -144,7 +166,17 @@ function localArticlesApi() {
           const visibleArticles = payload.articles
             .filter(isVisibleArticle)
             .sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0))
-          sendJson(res, 200, { articles: visibleArticles })
+          const requestedSlug = String(url.searchParams.get('slug') || '').trim()
+          if (requestedSlug) {
+            const article = visibleArticles.find((item) => item?.slug === requestedSlug)
+            sendJson(res, article ? 200 : 404, article ? { article } : { error: 'Article not found' })
+            return
+          }
+
+          const articles = url.searchParams.get('view') === 'summary'
+            ? visibleArticles.map((article) => ({ ...article, content: '', _summary: true }))
+            : visibleArticles
+          sendJson(res, 200, { articles })
           return
         }
 
@@ -212,10 +244,14 @@ function localArticlesApi() {
         }
 
         if (url.pathname === '/api/site-content' && req.method === 'GET') {
+          const key = String(url.searchParams.get('key') || '')
+          const payload = readSiteContentPayload()
+          const content = payload.sections?.[key] || null
           sendJson(res, 200, {
             success: true,
-            content: null,
-            source: 'static',
+            content,
+            source: content ? 'production-snapshot' : 'static',
+            fetchedAt: payload.fetchedAt || null,
             localOnly: true,
           })
           return

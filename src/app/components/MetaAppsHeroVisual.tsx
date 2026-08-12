@@ -569,7 +569,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
           height={1024}
           loading="eager"
           decoding="async"
-          fetchPriority="high"
+          fetchpriority="high"
           draggable={false}
           initial={reduced ? false : {
             opacity: 0,
@@ -644,7 +644,7 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
                       height={1270}
                       loading="eager"
                       decoding="async"
-                      fetchPriority="high"
+                      fetchpriority="high"
                       draggable={false}
                     />
                   </div>

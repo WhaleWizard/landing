@@ -50,7 +50,7 @@ export default function DeferredImage({
       src={shouldLoad ? src : undefined}
       data-deferred-src={shouldLoad ? undefined : src}
       loading={loading}
-      fetchPriority={fetchPriority}
+      fetchpriority={fetchPriority}
     />
   );
 }

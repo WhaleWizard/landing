@@ -157,7 +157,7 @@ export default function CaseArticleView({
                   alt={getCaseCoverAlt(article)}
                   loading="eager"
                   decoding="async"
-                  fetchPriority="high"
+                  fetchpriority="high"
                 />
               </motion.figure>
 

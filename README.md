@@ -8,6 +8,8 @@ Run `pnpm install` to install the dependencies from `pnpm-lock.yaml`.
 
 Run `pnpm dev` to start the development server. The npm scripts remain available when dependencies are already installed, but pnpm is the lockfile source of truth.
 
+Run `npm run sync:production` before local content work to replace the local article/case snapshots and published CMS page text with the current public production state. The sync uses replacement semantics, so articles deleted in production cannot survive in a stale local merge. External article images keep the same production URLs; duplicating them in `public/` would make the local copy diverge and add unnecessary weight.
+
 If TypeScript is available in your environment, `tsc -p tsconfig.functions.json --noEmit` runs a scoped type check for Cloudflare Functions and the local Pages binding declarations.
 
 ## Cloudflare Pages Functions env vars
