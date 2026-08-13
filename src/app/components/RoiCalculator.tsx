@@ -4,11 +4,13 @@ import { Calculator, TrendingUp, ArrowRight } from 'lucide-react';
 import Modal from './Modal';
 import BudgetCalculatorPopup from './BudgetCalculatorPopup';
 import RoiCalculatorPopup from './RoiCalculatorPopup';
+import { useDragScroll } from '../hooks/useDragScroll';
 
 export default function CalculatorButtons() {
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isRoiModalOpen, setIsRoiModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useDragScroll(scrollContainerRef);
 
   return (
     <section className="relative py-12 md:py-16 overflow-hidden">

@@ -88,25 +88,90 @@ html[data-ww-instant-scroll='true'] {
   to { opacity: 0; transform: translate3d(340%, 0, 0); }
 }
 
+/*
+ * Фоновые петли хиро описаны в CSS намеренно. Их ведёт композитор, поэтому они
+ * живут и на телефоне, не отбирая кадры у прокрутки, а пауза оставляет элемент
+ * ровно там, где он был. Раньше эти же петли гасились размонтированием и
+ * переключением React-состояния — элемент замирал в случайной позе.
+ */
+
 .ww-hero-glow-loop {
   background: transparent;
   box-shadow: 0 0 20px 5px rgba(139, 92, 246, 0.3);
   animation: ww-hero-glow-loop 2s ease-in-out infinite;
+  opacity: 0;
   pointer-events: none;
+  will-change: opacity;
+}
+
+/*
+ * Только прозрачность. Масштабирование слоя рисует ореол вокруг коробки в
+ * полтора раза больше плашки — на экране это выглядит как вторая рамка,
+ * съехавшая относительно бейджа, а не как свечение самого бейджа.
+ */
+@keyframes ww-hero-glow-loop {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+.ww-hero-rim-pulse {
+  animation: ww-hero-rim-pulse 4s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@keyframes ww-hero-rim-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.65; }
+}
+
+/*
+ * Центрирование живёт внутри кадров: motion собирает transform из своих
+ * значений и затирает inline `translate(-50%, -50%)`, из-за чего кольца
+ * уезжали вправо-вниз от портрета и обрезались краем секции.
+ */
+.ww-hero-ring {
+  transform: translate3d(-50%, -50%, 0) scale(1);
+  opacity: 0.15;
+  animation: ww-hero-ring 8s ease-out infinite;
+  animation-delay: var(--ww-hero-ring-delay, 0s);
   will-change: transform, opacity;
 }
 
-@keyframes ww-hero-glow-loop {
-  0%, 100% { opacity: 0; transform: scale(1); }
-  50% { opacity: 0.82; transform: scale(1.5); }
+@keyframes ww-hero-ring {
+  0%   { transform: translate3d(-50%, -50%, 0) scale(1);   opacity: 0.15; }
+  50%  { transform: translate3d(-50%, -50%, 0) scale(2.5); opacity: 0; }
+  100% { transform: translate3d(-50%, -50%, 0) scale(1);   opacity: 0.15; }
+}
+
+.ww-hero-card-glow {
+  opacity: 0.3;
+  animation: ww-hero-card-glow var(--ww-hero-card-glow-duration, 3s) ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes ww-hero-card-glow {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% {
+    transform: scale(var(--ww-hero-card-glow-scale, 1.2));
+    opacity: var(--ww-hero-card-glow-peak, 0.5);
+  }
+}
+
+.ww-hero-particle {
+  opacity: 0;
+  animation: ww-hero-particle var(--ww-hero-particle-duration, 6s) ease-in-out infinite;
+  animation-delay: var(--ww-hero-particle-delay, 0s);
+  will-change: transform, opacity;
+}
+
+@keyframes ww-hero-particle {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0; }
+  50% { transform: translate3d(0, -60px, 0); opacity: 0.6; }
 }
 
 .ww-hero-scan-line {
   --ww-hero-scan-distance: 252px;
   transform: translate3d(0, 0, 0);
-}
-
-.ww-hero-scan-line.is-running {
   animation: ww-hero-scan-line 6s ease-in-out infinite;
   will-change: transform;
 }
@@ -124,15 +189,20 @@ html[data-ww-instant-scroll='true'] {
   .ww-hero-scan-line { --ww-hero-scan-distance: 420px; }
 }
 
-/* Pause paint-heavy decorative loops only while the viewport itself is moving. */
-html[data-ww-scrolling='true'] :is(.animate-pulse, .animate-ping, .premium-skeleton, .ww-ambient-motion, .ww-hero-glow-loop, .ww-hero-scan-line) {
+/*
+ * Пауза декоративных петель на время самой прокрутки. Скелетоны загрузки сюда
+ * не входят: замерший шиммер читается как зависшая страница, а не как экономия.
+ */
+html[data-ww-scrolling='true'] :is(.animate-pulse, .animate-ping, .ww-ambient-motion) {
   animation-play-state: paused !important;
 }
 
-html[data-ww-scrolling='true'] .ww-public-navbar[data-glass='true'] {
-  background-color: color-mix(in srgb, var(--background) 96%, transparent) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+/*
+ * Секция ушла с экрана — петли встают на паузу, а не обнуляются. Кадр остаётся
+ * тем же, поэтому возврат в зону видимости не даёт рывка.
+ */
+[data-hero-ambient='off'] .ww-ambient-motion {
+  animation-play-state: paused;
 }
 
 @supports (animation-timeline: scroll()) {

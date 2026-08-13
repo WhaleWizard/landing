@@ -2,6 +2,7 @@ import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, lazy, Suspense, useMemo } from 'react';
 import { useSiteSection } from '../hooks/useServiceContent';
+import { useDragScroll } from '../hooks/useDragScroll';
 import {
   managedBodyClasses,
   managedBodyStyle,
@@ -249,6 +250,7 @@ function Testimonials({
   const [isMobileAutoplayDisabled, setIsMobileAutoplayDisabled] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
+  useDragScroll(desktopScrollerRef);
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const mobileScrollFrameRef = useRef<number | null>(null);
   const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });

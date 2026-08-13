@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useRef, memo, useCallback } from 'react';
 import { trackContact } from '../consent/consent';
+import { useDragScroll } from '../hooks/useDragScroll';
 
 const socials = [
   { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
@@ -33,6 +34,7 @@ function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | '
 
 function SocialDock() {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  useDragScroll(scrollerRef);
 
   const scrollByCard = useCallback((direction: 'prev' | 'next') => {
     const scroller = scrollerRef.current;

@@ -1,10 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import { useReducedMotion } from 'motion/react';
-import {
-  isScrollActivityActive,
-  SCROLL_ACTIVITY_END_EVENT,
-  SCROLL_ACTIVITY_START_EVENT,
-} from '../utils/motionPerformance';
+import { isScrollActivityActive } from '../utils/motionPerformance';
 
 // Интерактивный фон-сеть. Состояние живёт в refs/замыкании canvas, поэтому
 // кадры анимации не вызывают React-рендеры.
@@ -275,20 +271,25 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
 
     let rafId = 0;
     let lastFrameAt = 0;
+    // Во время прокрутки сеть не останавливается, а разрежает кадры. Полная
+    // остановка освобождала главный поток, но при медленном скролле сеть на
+    // экране просто замирала — движение здесь и есть весь смысл фона.
+    const SCROLL_FRAME_FACTOR = 3;
     const loop = (now: number) => {
-      if (document.hidden || !inView || prefersReduced || isScrollActivityActive()) {
+      if (document.hidden || !inView || prefersReduced) {
         rafId = 0;
         return;
       }
+      const budget = isScrollActivityActive() ? minFrameMs * SCROLL_FRAME_FACTOR : minFrameMs;
       const elapsed = lastFrameAt === 0 ? FRAME_MS : now - lastFrameAt;
-      if (lastFrameAt === 0 || elapsed >= minFrameMs - 0.5) {
+      if (lastFrameAt === 0 || elapsed >= budget - 0.5) {
         lastFrameAt = now;
         draw(true, Math.min(2.5, elapsed / FRAME_MS));
       }
       rafId = requestAnimationFrame(loop);
     };
     const start = () => {
-      if (rafId || document.hidden || !inView || prefersReduced || isScrollActivityActive()) return;
+      if (rafId || document.hidden || !inView || prefersReduced) return;
       lastFrameAt = 0;
       rafId = requestAnimationFrame(loop);
     };
@@ -300,9 +301,6 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       if (document.hidden) stop();
       else start();
     };
-    const handleScrollStart = () => stop();
-    const handleScrollEnd = () => start();
-
     rebuild();
     const resizeObserver = new ResizeObserver(() => {
       rebuild();
@@ -315,8 +313,6 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     } else {
       if (!coarsePointer) window.addEventListener('mousemove', handleMove, { passive: true });
       document.addEventListener('visibilitychange', handleVisibility);
-      document.addEventListener(SCROLL_ACTIVITY_START_EVENT, handleScrollStart);
-      document.addEventListener(SCROLL_ACTIVITY_END_EVENT, handleScrollEnd);
       start();
     }
 
@@ -325,8 +321,6 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMove);
       document.removeEventListener('visibilitychange', handleVisibility);
-      document.removeEventListener(SCROLL_ACTIVITY_START_EVENT, handleScrollStart);
-      document.removeEventListener(SCROLL_ACTIVITY_END_EVENT, handleScrollEnd);
     };
   }, [inView, prefersReduced]);
 

@@ -8,10 +8,12 @@ import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
 import { isCaseArticle } from '../utils/articleCategory';
+import { useDragScroll } from '../hooks/useDragScroll';
 import ArticlesLoadError from './ArticlesLoadError';
 
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useDragScroll(scrollContainerRef);
   const navigate = useNavigate();
   const { articles, loading, error: articlesError, refreshArticles } = useArticles();
   const blogArticles = articles.filter((article) => !isCaseArticle(article));

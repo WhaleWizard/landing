@@ -124,10 +124,17 @@ function InstantScrollRestoration() {
   }, [location.key]);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      delete document.documentElement.dataset.wwInstantScroll;
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const release = () => delete document.documentElement.dataset.wwInstantScroll;
+    const frame = window.requestAnimationFrame(release);
+    // В фоновой вкладке кадры не выдаются, и снятие по requestAnimationFrame
+    // не наступало вовсе — на <html> оставался залипший атрибут. Таймер
+    // снимает его в любом случае, а сама уборка идемпотентна.
+    const timer = window.setTimeout(release, 200);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      release();
+    };
   }, [location.key]);
 
   return <ScrollRestoration />;

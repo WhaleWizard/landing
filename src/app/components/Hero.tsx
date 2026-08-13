@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Braces, Database } from 'lucide-react';
 import { Button } from './ui/button';
@@ -18,11 +18,6 @@ import HeroTitleEffect, {
   type HeroTitleAnimation,
   type HeroTitleLine,
 } from './HeroTitleEffect';
-import {
-  isScrollActivityActive,
-  SCROLL_ACTIVITY_END_EVENT,
-  SCROLL_ACTIVITY_START_EVENT,
-} from '../utils/motionPerformance';
 
 export type { HeroTitleLine } from './HeroTitleEffect';
 
@@ -56,32 +51,33 @@ const useTouchDevice = () => {
   return isTouch;
 };
 
-// Фоновые орбы с паузой анимации при выходе из вьюпорта
+// Фоновые орбы. Пауза при выходе из вьюпорта и на время прокрутки приходит
+// классом ww-ambient-motion, а не пересчётом в разметке.
+// Пятна остаются на своём слое (translateZ) даже на телефоне: без него каждый
+// шаг прозрачности перерисовывает размытие в 150px на главном потоке — ровно
+// та работа, ради экономии которой слой и нужен. Пауза — классом, а не
+// остановкой анимации в разметке.
 const BackgroundOrbs = memo(({
-  inView,
   staticMotion = false,
 }: {
-  inView: boolean;
   staticMotion?: boolean;
 }) => (
   <>
     <div
-      className="absolute top-1/4 left-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-primary/30 rounded-full blur-[150px] animate-pulse pointer-events-none"
-      style={{ 
+      className="ww-ambient-motion absolute top-1/4 left-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-primary/30 rounded-full blur-[150px] animate-pulse pointer-events-none"
+      style={{
         willChange: staticMotion ? 'auto' : 'opacity',
-        animationPlayState: inView ? 'running' : 'paused',
-        WebkitAnimationPlayState: inView ? 'running' : 'paused',
-        transform: staticMotion ? 'none' : 'translateZ(0)',
+        animationPlayState: staticMotion ? 'paused' : undefined,
+        transform: 'translateZ(0)',
       }}
     />
     <div
-      className="absolute bottom-1/4 right-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-accent/20 rounded-full blur-[150px] animate-pulse pointer-events-none"
-      style={{ 
-        animationDelay: '1s', 
+      className="ww-ambient-motion absolute bottom-1/4 right-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-accent/20 rounded-full blur-[150px] animate-pulse pointer-events-none"
+      style={{
+        animationDelay: '1s',
         willChange: staticMotion ? 'auto' : 'opacity',
-        animationPlayState: inView ? 'running' : 'paused',
-        WebkitAnimationPlayState: inView ? 'running' : 'paused',
-        transform: staticMotion ? 'none' : 'translateZ(0)',
+        animationPlayState: staticMotion ? 'paused' : undefined,
+        transform: 'translateZ(0)',
       }}
     />
     <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-30 pointer-events-none" />
@@ -240,7 +236,6 @@ MetaAppsStatsStrip.displayName = 'MetaAppsStatsStrip';
 interface LeftContentProps {
   onScrollToContact: () => void;
   onScrollToCases:   () => void;
-  inView: boolean;
   content: HeroContent;
   mobileFirst?: boolean;
   staticMotion?: boolean;
@@ -251,7 +246,6 @@ interface LeftContentProps {
 const LeftContent = memo(({
   onScrollToContact,
   onScrollToCases,
-  inView,
   content,
   mobileFirst = false,
   staticMotion = false,
@@ -274,7 +268,7 @@ const LeftContent = memo(({
     <motion.div
       className="relative inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
     >
-      {!staticMotion && inView ? <span className="ww-hero-glow-loop absolute inset-0 -z-10 rounded-full" aria-hidden="true" /> : null}
+      {!staticMotion ? <span className="ww-hero-glow-loop ww-ambient-motion absolute inset-0 -z-10 rounded-full" aria-hidden="true" /> : null}
       <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary" />
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </motion.div>
@@ -385,39 +379,33 @@ const LeftContent = memo(({
 });
 LeftContent.displayName = 'LeftContent';
 
-const Particles = memo(({ count, inView }: { count: number; inView: boolean }) => {
-  if (!inView) return null;
-  return (
-    <>
-      {PARTICLE_DATA.slice(0, count).map((p, i) => (
-        <motion.div
-          key={`particle-${i}`}
-          className="absolute rounded-full pointer-events-none"
-          style={{
-            width:      p.width,
-            height:     p.height,
-            left:       p.left,
-            top:        p.top,
-            background: p.color,
-            boxShadow:  `0 0 ${p.glow}px currentColor`,
-            willChange: 'transform, opacity',
-            transform: 'translateZ(0)',
-          }}
-          animate={{ y: [0, -60, 0], opacity: [0, 0.6, 0] }}
-          transition={{ duration: p.dur, repeat: Infinity, delay: p.delay, ease: 'easeInOut' }}
-        />
-      ))}
-    </>
-  );
-});
+const Particles = memo(({ count }: { count: number }) => (
+  <>
+    {PARTICLE_DATA.slice(0, count).map((p, i) => (
+      <span
+        key={`particle-${i}`}
+        className="ww-hero-particle ww-ambient-motion absolute rounded-full pointer-events-none"
+        style={{
+          width:      p.width,
+          height:     p.height,
+          left:       p.left,
+          top:        p.top,
+          background: p.color,
+          boxShadow:  `0 0 ${p.glow}px currentColor`,
+          '--ww-hero-particle-duration': `${p.dur}s`,
+          '--ww-hero-particle-delay': `${p.delay}s`,
+        } as CSSProperties}
+      />
+    ))}
+  </>
+));
 Particles.displayName = 'Particles';
 
 interface RightPanelProps {
-  inView: boolean;
   showCards?: boolean;
 }
 
-const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
+const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
   const isTouch = useTouchDevice();
 
   // Опционально: отключаем hover-анимации на тач-устройствах
@@ -464,8 +452,8 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
         </div>
 
         {/* Neon rim light */}
-        <motion.div
-          className="absolute inset-0 pointer-events-none"
+        <div
+          className="ww-hero-rim-pulse ww-ambient-motion absolute inset-0 pointer-events-none"
           style={{
             background:
               'radial-gradient(ellipse 75% 85% at 50% 45%, transparent 20%, rgba(127, 0, 255, 0.25) 50%, rgba(0, 210, 255, 0.2) 65%, transparent 85%)',
@@ -474,10 +462,8 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
             WebkitMaskImage:
               'radial-gradient(ellipse 68% 82% at 50% 45%, black 0%, transparent 80%)',
             mixBlendMode: 'screen',
-            willChange: 'opacity',
+            opacity: 0.4,
           }}
-          animate={inView ? { opacity: [0.4, 0.65, 0.4] } : { opacity: 0.4 }}
-          transition={{ duration: 4, repeat: inView ? Infinity : 0, ease: 'easeInOut' }}
         />
 
         {/* Edge accent */}
@@ -495,26 +481,14 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
 
         {/* Holographic rings */}
         {[0, 1].map((i) => (
-          <motion.div
+          <div
             key={`ring-${i}`}
-            className="absolute pointer-events-none"
+            className="ww-hero-ring ww-ambient-motion absolute pointer-events-none"
             style={{
               left: '50%',
               top: '45%',
-              transform: 'translate(-50%, -50%)',
-              willChange: 'transform, opacity',
-            }}
-            animate={
-              inView
-                ? { scale: [1, 2.5, 1], opacity: [0.15, 0, 0.15] }
-                : { scale: 1, opacity: 0.15 }
-            }
-            transition={{
-              duration: 8,
-              repeat: inView ? Infinity : 0,
-              delay: i * 4,
-              ease: 'easeOut',
-            }}
+              '--ww-hero-ring-delay': `${i * 4}s`,
+            } as CSSProperties}
           >
             <div
               className="rounded-full"
@@ -526,14 +500,14 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
                   i === 0 ? 'rgba(127, 0, 255, 0.3)' : 'rgba(0, 210, 255, 0.3)',
               }}
             />
-          </motion.div>
+          </div>
         ))}
 
-        <Particles count={12} inView={inView} />
+        <Particles count={12} />
 
         {/* Scan line */}
         <div
-          className={`ww-hero-scan-line absolute inset-x-0 top-[15%] h-px pointer-events-none opacity-30 ${inView ? 'is-running' : ''}`}
+          className="ww-hero-scan-line ww-ambient-motion absolute inset-x-0 top-[15%] h-px pointer-events-none opacity-30"
           style={{
             background:
               'linear-gradient(to right, transparent, rgba(0, 210, 255, 0.5), transparent)',
@@ -605,11 +579,8 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
         className="absolute top-1 right-1 md:top-4 md:right-4 w-28 sm:w-36 md:w-44 z-10 group"
       >
         <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-accent/25 overflow-hidden shadow-lg shadow-black/10">
-          <motion.div
-            className="absolute -top-8 -right-8 w-24 h-24 bg-accent/20 blur-3xl rounded-full pointer-events-none"
-            animate={inView ? { scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] } : {}}
-            transition={{ duration: 3, repeat: inView ? Infinity : 0 }}
-            style={{ willChange: 'transform, opacity' }}
+          <div
+            className="ww-hero-card-glow ww-ambient-motion absolute -top-8 -right-8 w-24 h-24 bg-accent/20 blur-3xl rounded-full pointer-events-none"
           />
           <div className="flex items-start justify-between mb-2 md:mb-3 relative z-10">
             <div>
@@ -723,11 +694,13 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
         className="absolute bottom-16 right-1 md:bottom-20 md:right-2 w-24 sm:w-32 md:w-40 z-10 group"
       >
         <div className="relative p-2.5 md:p-4 rounded-2xl bg-background/95 backdrop-blur-2xl border border-primary/25 overflow-hidden shadow-lg shadow-black/10">
-          <motion.div
-            className="absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent pointer-events-none"
-            animate={inView ? { scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] } : {}}
-            transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
-            style={{ willChange: 'transform, opacity' }}
+          <div
+            className="ww-hero-card-glow ww-ambient-motion absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent pointer-events-none"
+            style={{
+              '--ww-hero-card-glow-duration': '2s',
+              '--ww-hero-card-glow-scale': '1.3',
+              '--ww-hero-card-glow-peak': '0.6',
+            } as CSSProperties}
           />
           <div className="flex items-center justify-between mb-2 md:mb-3 relative z-10">
             <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium">
@@ -737,7 +710,7 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
               className="relative w-6 h-6 md:w-8 md:h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
               {...hoverPropsNoRotate}
             >
-              {inView ? <span className="ww-hero-glow-loop absolute inset-0 -z-10 rounded-lg" aria-hidden="true" /> : null}
+              <span className="ww-hero-glow-loop ww-ambient-motion absolute inset-0 -z-10 rounded-lg" aria-hidden="true" />
               <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-primary" />
             </motion.div>
           </div>
@@ -815,18 +788,6 @@ function Hero({
   const sectionRef     = useRef<HTMLElement>(null);
   const inView         = useInView(sectionRef, { margin: '0px 0px -10% 0px', once: false });
   const prefersReduced = useReducedMotion();
-  const [isPageScrolling, setIsPageScrolling] = useState(isScrollActivityActive);
-
-  useEffect(() => {
-    const pause = () => setIsPageScrolling(true);
-    const resume = () => setIsPageScrolling(false);
-    document.addEventListener(SCROLL_ACTIVITY_START_EVENT, pause);
-    document.addEventListener(SCROLL_ACTIVITY_END_EVENT, resume);
-    return () => {
-      document.removeEventListener(SCROLL_ACTIVITY_START_EVENT, pause);
-      document.removeEventListener(SCROLL_ACTIVITY_END_EVENT, resume);
-    };
-  }, []);
   const isMobile       = useIsMobile();
   const { scrollToWhenReady } = useScrollTo();
 
@@ -842,27 +803,27 @@ function Hero({
   // Meta Apps на телефоне и предпросмотр редактора рисуются без фонового
   // движения: там оно ничего не добавляет, а кадры съедает.
   const freezeMotion = (isMetaApps && isMobile) || staticMotionProp;
+  // Телефон получает ровно то же движение, что и десктоп: петли считает
+  // композитор, а не главный поток, поэтому «облегчение» больше не означает
+  // выключенную анимацию. Пауза за пределами экрана и на время прокрутки —
+  // через data-атрибут, чтобы React не перерисовывал хиро на каждый скролл.
   const resolvedInView = prefersReduced || freezeMotion ? false : inView;
-  // Touch devices keep the same composed hero, but its ambient loops are
-  // static. Entry animations still play; continuous particles, rings and
-  // 150px blur pulses no longer compete with the browser's scroll compositor.
-  const ambientInView = resolvedInView && !isMobile && !isPageScrolling;
 
   return (
     <section
       id="hero"
       ref={sectionRef}
+      data-hero-ambient={resolvedInView ? 'on' : 'off'}
       className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
       style={{ contain: 'layout style paint' }}
     >
-      <BackgroundOrbs inView={ambientInView} staticMotion={freezeMotion || isMobile} />
+      <BackgroundOrbs staticMotion={freezeMotion} />
 
       <div className={`relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
         <div className={`grid ${isMetaApps ? 'items-start gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-8 md:gap-12 lg:grid-cols-2'}`}>
           <LeftContent
             onScrollToContact={scrollToContact}
             onScrollToCases={scrollToCases}
-            inView={ambientInView}
             content={content}
             mobileFirst={isMetaApps}
             staticMotion={freezeMotion}
@@ -870,10 +831,10 @@ function Hero({
           />
           {isMetaApps ? (
             <Suspense fallback={<div className="order-2 h-[720px] md:h-[760px] lg:h-[690px]" />}>
-              <MetaAppsHeroVisual inView={resolvedInView && !isPageScrolling} />
+              <MetaAppsHeroVisual inView={resolvedInView} />
             </Suspense>
           ) : (
-            <RightPanel inView={ambientInView} showCards={visual !== 'portrait'} />
+            <RightPanel showCards={visual !== 'portrait'} />
           )}
           {isMetaApps && isMobile && (
             <MetaAppsStatsStrip
