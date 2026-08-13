@@ -281,7 +281,7 @@ export function useReturnTo(fallback?: string): ReturnTo {
       return;
     }
     navigate(resolved.path);
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' });
   }, [navigate, resolved]);
 
   return {

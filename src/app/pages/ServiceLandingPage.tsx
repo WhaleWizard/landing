@@ -859,7 +859,7 @@ function DeferredSection({
       {
         // Keep below-the-fold animation bundles out of the initial mobile
         // render while still mounting a section shortly before it is visible.
-        rootMargin: '240px 0px',
+        rootMargin: '720px 0px',
         threshold: 0,
       },
     );
@@ -884,7 +884,7 @@ function DeferredSection({
     const alignToHashTarget = () => {
       const target = document.getElementById(anchorId);
       if (target) {
-        target.scrollIntoView();
+        target.scrollIntoView({ behavior: 'auto', block: 'start' });
         return;
       }
 

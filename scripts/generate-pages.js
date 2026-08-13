@@ -287,10 +287,64 @@ const ROUTE_ENTRY_MODULES = {
 // разделитель строки Unicode оборвали бы элемент и сломали страницу.
 function serializeInlineJson(value) {
   return JSON.stringify(value)
+    .replace(/&/g, '\\u0026')
     .replace(/</g, '\\u003c')
     .replace(/>/g, '\\u003e')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
+}
+
+function renderSiteContentSeed(key, content) {
+  return `<script type="application/json" id="ww-site-content-seed">${serializeInlineJson({
+    schemaVersion: 1,
+    key,
+    content: content ?? null,
+  })}</script>`;
+}
+
+const INLINE_ARTICLE_SUMMARY_KEYS = new Set([
+  'slug',
+  'title',
+  'category',
+  'readTime',
+  'date',
+  'description',
+  'content',
+  'image',
+  'publishedAt',
+  'updatedAt',
+  'tags',
+  'summary',
+  'caseData',
+  '_summary',
+]);
+
+function toInlineArticleSummary(article) {
+  const summary = {
+    slug: String(article.slug || ''),
+    title: String(article.title || ''),
+    category: String(article.category || ''),
+    readTime: String(article.readTime || ''),
+    date: String(article.date || ''),
+    description: String(article.description || ''),
+    content: '',
+    image: String(article.image || ''),
+    _summary: true,
+  };
+
+  for (const key of ['publishedAt', 'updatedAt', 'summary']) {
+    if (typeof article[key] === 'string' && article[key]) summary[key] = article[key];
+  }
+  if (Array.isArray(article.tags) && article.tags.length > 0) summary.tags = article.tags;
+  // An explicitly empty object suppresses the legacy case catalog, so it is
+  // meaningful and must not be collapsed into an absent value.
+  if (article.caseData !== undefined) summary.caseData = article.caseData;
+
+  return summary;
+}
+
+function renderArticleSeed(value) {
+  return `<script type="application/json" id="ww-article-seed">${serializeInlineJson(value)}</script>`;
 }
 
 let viteManifestCache;
@@ -700,6 +754,7 @@ function renderJsonLdScripts(schemas = []) {
     if (type === 'ProfessionalService') return 'ld-organization';
     if (type === 'WebSite') return 'ld-website';
     if (type === 'FAQPage') return 'ld-faq-page';
+    if (type === 'DefinedTermSet') return 'ld-marketing-glossary';
     if (type === 'Article' || type === 'BlogPosting') return 'ld-article';
     if (type === 'BreadcrumbList') return 'ld-breadcrumbs';
     if (type === 'Service') return 'ld-service';
@@ -1246,8 +1301,10 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
   const serviceStaticPage = (service) => {
     const sourceConfig = content.pageConfigs[service];
     if (!sourceConfig) throw new Error(`Missing page config for ${service}`);
+    const contentKey = `service:${service}`;
+    const publishedOverride = publishedContent[contentKey] ?? null;
     const config = {
-      ...mergePublishedContent(sourceConfig, publishedContent[`service:${service}`]),
+      ...mergePublishedContent(sourceConfig, publishedOverride),
       service,
       defaultTestimonials: content.defaultTestimonialsContent,
       defaultTestimonialsStats: content.defaultTestimonialsStats,
@@ -1265,6 +1322,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       h1: heroHeading(config.hero),
       lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderServicePageSections(config),
+      siteContentSeed: { key: contentKey, content: publishedOverride },
       breadcrumbName: serviceName,
       extraJsonLd: [
         buildServiceJsonLd(route, {
@@ -1317,6 +1375,8 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       h1: heroHeading(homeContent.hero),
       lead: homeContent.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderHomeSections(homeContent, latestArticles),
+      siteContentSeed: { key: 'site:home', content: homeOverride ?? null },
+      articleSeed: latestArticles,
     },
     {
       route: '/calculator',
@@ -1343,6 +1403,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       h1: content.FAQ_SEO.h1,
       lead: content.FAQ_SEO.lead,
       sections: [{ heading: null, bodyHtml: renderFaqListHtml(faqItems, content.FAQ_CATEGORIES) }],
+      siteContentSeed: { key: 'site:faq', content: faqOverride ?? null },
       extraJsonLd: [buildFaqJsonLd(faqItems)],
     },
     {
@@ -1426,6 +1487,14 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
         canonicalPath: page.route,
         noIndex: Boolean(page.noIndex),
         extraJsonLd: pageJsonLd,
+        headExtra: [
+          page.siteContentSeed
+            ? renderSiteContentSeed(page.siteContentSeed.key, page.siteContentSeed.content)
+            : '',
+          page.articleSeed
+            ? renderArticleSeed(page.articleSeed.map(toInlineArticleSummary))
+            : '',
+        ].filter(Boolean).join('\n'),
         imagePreloads: HERO_PRELOADS[page.route] || [],
         baseHtml,
         bodyHtml: renderGeneratedShell({
@@ -1441,7 +1510,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
   return staticPages;
 }
 
-function renderArticleListPage({ articles, route, title, description, h1, lead, eyebrow, emptyText }, baseHtml) {
+function renderArticleListPage({ articles, seedArticles = articles, route, title, description, h1, lead, eyebrow, emptyText }, baseHtml) {
   const articleItems = articles
     .map(
       (article) => `          <a href="${getArticlePath(article)}" style="${generatedShellStyles.item}">
@@ -1458,6 +1527,9 @@ function renderArticleListPage({ articles, route, title, description, h1, lead, 
       description,
       canonicalPath: route,
       extraJsonLd: [buildStaticBreadcrumbJsonLd(route, BREADCRUMB_LABELS[route] || h1)],
+      // The generated list and React's first frame use the same build snapshot.
+      // Runtime summaries then revalidate it silently after mount.
+      headExtra: renderArticleSeed(seedArticles.map(toInlineArticleSummary)),
       baseHtml,
       bodyHtml: renderGeneratedShell({
         title: h1,
@@ -1499,7 +1571,7 @@ function renderArticlePages(articles, baseHtml) {
         // Данные самой статьи едут вместе со страницей. Раньше приложение
         // рисовало текст только после ответа /api/articles — лишний запрос
         // стоял ровно посреди пути к первой отрисовке.
-        headExtra: `<script type="application/json" id="ww-article-seed">${serializeInlineJson(article)}</script>`,
+        headExtra: renderArticleSeed(article),
         baseHtml,
         bodyHtml: renderGeneratedShell({
           title: article.title,
@@ -1521,6 +1593,7 @@ function renderBlogPages(articles, baseHtml) {
 
   renderArticleListPage({
     articles: blogArticles,
+    seedArticles: articles,
     route: '/blog',
     title: 'Блог о рекламе и аналитике | Whale Wizard',
     description: 'Практические материалы о Google Ads, Meta Ads, аналитике и экономике рекламы.',
@@ -1532,6 +1605,7 @@ function renderBlogPages(articles, baseHtml) {
 
   renderArticleListPage({
     articles: caseArticles,
+    seedArticles: articles,
     route: '/cases',
     title: 'Кейсы рекламных проектов — задачи, решения и результаты | Whale Wizard',
     description: 'Опубликованные проекты Whale Wizard: исходная задача, рекламные каналы, бюджет, ключевые метрики и логика решений.',
@@ -1580,7 +1654,7 @@ function assertFileContains(pathname, markers, label) {
   }
 }
 
-function validateGeneratedOutput(staticPages = []) {
+function validateGeneratedOutput(staticPages = [], latestArticles = []) {
   assertFileContains(routeIndexPath('/'), [
     'facebook-domain-verification',
     'feed.xml',
@@ -1606,8 +1680,27 @@ function validateGeneratedOutput(staticPages = []) {
     '"@type":"FAQPage"',
   ], 'Generated /faq HTML');
 
+  for (const page of staticPages.filter((candidate) => candidate.siteContentSeed)) {
+    const html = readFileSync(routeIndexPath(page.route), 'utf8');
+    const seeds = [...html.matchAll(/<script\b[^>]*\bid=["']ww-site-content-seed["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    if (seeds.length !== 1) {
+      throw new Error(`Generated ${page.route} HTML must contain exactly one site-content seed; found ${seeds.length}.`);
+    }
+
+    let seed;
+    try {
+      seed = JSON.parse(seeds[0][1]);
+    } catch {
+      throw new Error(`Generated ${page.route} HTML contains an invalid site-content seed.`);
+    }
+    if (seed?.schemaVersion !== 1 || seed?.key !== page.siteContentSeed.key) {
+      throw new Error(`Generated ${page.route} HTML contains a mismatched site-content seed.`);
+    }
+  }
+
   assertFileContains(routeIndexPath('/marketing-glossary'), [
     'application/ld+json',
+    'id="ld-marketing-glossary"',
     '"@type":"DefinedTermSet"',
     'id="term-meta-app-event-optimization"',
     'id="term-app-tracking-transparency"',
@@ -1617,6 +1710,49 @@ function validateGeneratedOutput(staticPages = []) {
     `${SITE_URL}/cases/`,
     'Проекты с цифрами и контекстом',
   ], 'Generated /cases HTML');
+
+  const expectedSummarySlugs = latestArticles.map((article) => article.slug);
+  for (const route of ['/', '/blog', '/cases']) {
+    const html = readFileSync(routeIndexPath(route), 'utf8');
+    const seeds = [...html.matchAll(/<script\b[^>]*\bid=["']ww-article-seed["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    if (seeds.length !== 1) {
+      throw new Error(`Generated ${route} HTML must contain exactly one article seed; found ${seeds.length}.`);
+    }
+
+    let seed;
+    try {
+      seed = JSON.parse(seeds[0][1]);
+    } catch {
+      throw new Error(`Generated ${route} HTML contains an invalid article seed.`);
+    }
+
+    if (!Array.isArray(seed) || seed.length !== latestArticles.length) {
+      throw new Error(`Generated ${route} HTML contains an incomplete article-list seed.`);
+    }
+    if (seed.some((article) => (
+      article?._summary !== true
+      || article?.content !== ''
+      || Object.keys(article || {}).some((key) => !INLINE_ARTICLE_SUMMARY_KEYS.has(key))
+    ))) {
+      throw new Error(`Generated ${route} HTML article-list seed must contain summaries only.`);
+    }
+    if (seed.map((article) => article.slug).join('\n') !== expectedSummarySlugs.join('\n')) {
+      throw new Error(`Generated ${route} HTML article-list seed is not synchronized with published articles.`);
+    }
+  }
+
+  for (const article of latestArticles) {
+    const route = getArticlePath(article);
+    const html = readFileSync(routeIndexPath(route), 'utf8');
+    const seeds = [...html.matchAll(/<script\b[^>]*\bid=["']ww-article-seed["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    if (seeds.length !== 1) {
+      throw new Error(`Generated ${route} HTML must contain exactly one article seed; found ${seeds.length}.`);
+    }
+    const seed = JSON.parse(seeds[0][1]);
+    if (Array.isArray(seed) || seed?.slug !== article.slug || seed?._summary === true) {
+      throw new Error(`Generated ${route} HTML contains a mismatched article detail seed.`);
+    }
+  }
 
   assertFileContains(routeIndexPath('/thank-you'), [
     'noindex, nofollow, noarchive',
@@ -1688,7 +1824,7 @@ async function main() {
     String(resolveArticleDate(b) || '').localeCompare(String(resolveArticleDate(a) || '')));
 
   const staticPages = renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
-  renderBlogPages(articles, baseHtml);
+  renderBlogPages(latestArticles, baseHtml);
   writeNotFoundPage(baseHtml);
 
   const articleRoutes = articles.map((article) => getArticlePath(article));
@@ -1697,7 +1833,7 @@ async function main() {
   writeSitemap(allRoutes);
   writeRobots();
   appendLlmsContentIndex(articles);
-  validateGeneratedOutput(staticPages);
+  validateGeneratedOutput(staticPages, latestArticles);
 
   console.log(`✅ Generated ${allRoutes.length} static routes`);
 }

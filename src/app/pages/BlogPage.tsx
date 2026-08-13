@@ -479,7 +479,7 @@ function BlogPageComponent() {
   }, [selectedArticle]);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [slug]);
 
   useEffect(() => {
@@ -567,7 +567,7 @@ function BlogPageComponent() {
 
   const openRelatedArticle = useCallback((nextSlug: string) => {
     navigate(`${routeBase}/${nextSlug}${preservedCaseSearch}`);
-    window.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [navigate, preservedCaseSearch, routeBase]);
 
   const goToContact = useCallback(() => {

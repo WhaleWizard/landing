@@ -162,7 +162,7 @@ export default function MarketingGlossaryPage() {
     setSelectedSection('all');
     setOpenTermId(termId);
     window.setTimeout(() => {
-      document.getElementById(termAnchor(termId))?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      document.getElementById(termAnchor(termId))?.scrollIntoView({ block: 'start', behavior: 'auto' });
     }, 80);
   }, []);
 

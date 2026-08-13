@@ -423,6 +423,7 @@ function Cases({ content, moreHref, contentKey = null }: { content?: CasesConten
             <button
               type="button"
               onClick={() => navigate(moreHref)}
+              data-route-preload={moreHref}
               className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 px-8 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />

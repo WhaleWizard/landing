@@ -21,6 +21,7 @@ const {
   articleVersion,
   mergeArticleDetailResult,
   mergePublicArticleSummaries,
+  parseArticleSeed,
   shouldReuseArticleDetailRequest,
 } = await bundleTypeScript('src/app/context/ArticlesContext.tsx');
 
@@ -55,6 +56,33 @@ test('public list summary keeps card metadata but removes the heavy article body
   assert.equal(summary._summary, true);
   assert.ok(JSON.stringify(summary).length < JSON.stringify(original).length / 100);
   assert.match(original.content, /heavy body/);
+});
+
+test('inline seed parser accepts full detail and compact listing contracts', () => {
+  const detail = fullArticle();
+  const summary = {
+    slug: detail.slug,
+    title: detail.title,
+    category: detail.category,
+    readTime: detail.readTime,
+    date: detail.date,
+    description: detail.description,
+    content: '',
+    image: detail.image,
+    publishedAt: detail.publishedAt,
+    updatedAt: detail.updatedAt,
+    tags: detail.tags,
+    summary: detail.summary,
+    caseData: detail.caseData,
+    _summary: true,
+  };
+
+  assert.deepEqual(parseArticleSeed(detail), [detail]);
+  assert.deepEqual(parseArticleSeed([summary]), [summary]);
+  assert.deepEqual(parseArticleSeed([]), [], 'an empty generated list is still an authoritative seed');
+  assert.equal(parseArticleSeed([{ ...summary, _summary: false }]), null);
+  assert.equal(parseArticleSeed([{ ...summary, slug: '../admin' }]), null);
+  assert.equal(parseArticleSeed({ title: 'Missing slug' }), null);
 });
 
 test('a stale cached summary never downgrades a newer full article seed', () => {

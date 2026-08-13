@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { readInlineSiteContentSeed } from '../utils/siteContentSeed';
 
 const serviceContentCache = new Map<string, unknown>();
 const serviceContentPending = new Map<string, Promise<unknown>>();
@@ -81,11 +82,26 @@ function loadSiteContent(cacheKey: string): Promise<unknown> {
   return request;
 }
 
+export function preloadSiteContent(cacheKey: string): Promise<unknown> {
+  return loadSiteContent(cacheKey).catch(() => undefined);
+}
+
+function initialContentOverride(cacheKey: string): unknown {
+  if (serviceContentCache.has(cacheKey)) return serviceContentCache.get(cacheKey);
+  return readInlineSiteContentSeed(cacheKey);
+}
+
+function resolveContent<T>(cacheKey: string, fallback: T): T {
+  const override = initialContentOverride(cacheKey);
+  return override
+    ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, override))
+    : fallback;
+}
+
 export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
   const [content, setContent] = useState<T>(() => {
     if (!cacheKey) return fallback;
-    const cached = serviceContentCache.get(cacheKey);
-    return cached ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, cached)) : fallback;
+    return resolveContent(cacheKey, fallback);
   });
 
   useEffect(() => {
@@ -93,15 +109,14 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
       setContent(fallback);
       return;
     }
-    setContent(() => {
-      const cached = serviceContentCache.get(cacheKey);
-      return cached ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, cached)) : fallback;
-    });
+    setContent(resolveContent(cacheKey, fallback));
     let active = true;
     void loadSiteContent(cacheKey)
       .then((loaded) => {
-        if (!active || !loaded) return;
-        setContent(mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, loaded)));
+        if (!active) return;
+        setContent(loaded
+          ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, loaded))
+          : fallback);
       })
       .catch(() => {
         // Публичная страница всегда остаётся на статическом проверенном тексте.

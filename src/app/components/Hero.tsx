@@ -18,6 +18,11 @@ import HeroTitleEffect, {
   type HeroTitleAnimation,
   type HeroTitleLine,
 } from './HeroTitleEffect';
+import {
+  isScrollActivityActive,
+  SCROLL_ACTIVITY_END_EVENT,
+  SCROLL_ACTIVITY_START_EVENT,
+} from '../utils/motionPerformance';
 
 export type { HeroTitleLine } from './HeroTitleEffect';
 
@@ -267,17 +272,9 @@ const LeftContent = memo(({
     className={`min-w-0 max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines?.length ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
     <motion.div
-      className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
-      animate={!staticMotion && inView ? {
-        boxShadow: [
-          '0 0 0 0 rgba(139, 92, 246, 0)',
-          '0 0 20px 5px rgba(139, 92, 246, 0.3)',
-          '0 0 0 0 rgba(139, 92, 246, 0)',
-        ],
-      } : {}}
-      transition={{ duration: 2, repeat: !staticMotion && inView ? Infinity : 0 }}
-      style={{ willChange: staticMotion ? 'auto' : 'box-shadow' }}
+      className="relative inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
     >
+      {!staticMotion && inView ? <span className="ww-hero-glow-loop absolute inset-0 -z-10 rounded-full" aria-hidden="true" /> : null}
       <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary" />
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </motion.div>
@@ -535,15 +532,12 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
         <Particles count={12} inView={inView} />
 
         {/* Scan line */}
-        <motion.div
-          className="absolute inset-x-0 h-px pointer-events-none opacity-30"
+        <div
+          className={`ww-hero-scan-line absolute inset-x-0 top-[15%] h-px pointer-events-none opacity-30 ${inView ? 'is-running' : ''}`}
           style={{
             background:
               'linear-gradient(to right, transparent, rgba(0, 210, 255, 0.5), transparent)',
-            willChange: 'top',
           }}
-          animate={inView ? { top: ['15%', '85%', '15%'] } : { top: '15%' }}
-          transition={{ duration: 6, repeat: inView ? Infinity : 0, ease: 'easeInOut' }}
         />
       </div>
 
@@ -740,22 +734,10 @@ const RightPanel = memo(({ inView, showCards = true }: RightPanelProps) => {
               сред. ROI
             </div>
             <motion.div
-              className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
+              className="relative w-6 h-6 md:w-8 md:h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
               {...hoverPropsNoRotate}
-              animate={
-                inView
-                  ? {
-                      boxShadow: [
-                        '0 0 0 0 rgba(139, 92, 246, 0)',
-                        '0 0 20px 5px rgba(139, 92, 246, 0.3)',
-                        '0 0 0 0 rgba(139, 92, 246, 0)',
-                      ],
-                    }
-                  : {}
-              }
-              transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
-              style={{ willChange: 'box-shadow' }}
             >
+              {inView ? <span className="ww-hero-glow-loop absolute inset-0 -z-10 rounded-lg" aria-hidden="true" /> : null}
               <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-primary" />
             </motion.div>
           </div>
@@ -833,6 +815,18 @@ function Hero({
   const sectionRef     = useRef<HTMLElement>(null);
   const inView         = useInView(sectionRef, { margin: '0px 0px -10% 0px', once: false });
   const prefersReduced = useReducedMotion();
+  const [isPageScrolling, setIsPageScrolling] = useState(isScrollActivityActive);
+
+  useEffect(() => {
+    const pause = () => setIsPageScrolling(true);
+    const resume = () => setIsPageScrolling(false);
+    document.addEventListener(SCROLL_ACTIVITY_START_EVENT, pause);
+    document.addEventListener(SCROLL_ACTIVITY_END_EVENT, resume);
+    return () => {
+      document.removeEventListener(SCROLL_ACTIVITY_START_EVENT, pause);
+      document.removeEventListener(SCROLL_ACTIVITY_END_EVENT, resume);
+    };
+  }, []);
   const isMobile       = useIsMobile();
   const { scrollToWhenReady } = useScrollTo();
 
@@ -849,6 +843,10 @@ function Hero({
   // движения: там оно ничего не добавляет, а кадры съедает.
   const freezeMotion = (isMetaApps && isMobile) || staticMotionProp;
   const resolvedInView = prefersReduced || freezeMotion ? false : inView;
+  // Touch devices keep the same composed hero, but its ambient loops are
+  // static. Entry animations still play; continuous particles, rings and
+  // 150px blur pulses no longer compete with the browser's scroll compositor.
+  const ambientInView = resolvedInView && !isMobile && !isPageScrolling;
 
   return (
     <section
@@ -857,14 +855,14 @@ function Hero({
       className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
       style={{ contain: 'layout style paint' }}
     >
-      <BackgroundOrbs inView={resolvedInView} staticMotion={freezeMotion} />
+      <BackgroundOrbs inView={ambientInView} staticMotion={freezeMotion || isMobile} />
 
       <div className={`relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
         <div className={`grid ${isMetaApps ? 'items-start gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-8 md:gap-12 lg:grid-cols-2'}`}>
           <LeftContent
             onScrollToContact={scrollToContact}
             onScrollToCases={scrollToCases}
-            inView={resolvedInView}
+            inView={ambientInView}
             content={content}
             mobileFirst={isMetaApps}
             staticMotion={freezeMotion}
@@ -872,10 +870,10 @@ function Hero({
           />
           {isMetaApps ? (
             <Suspense fallback={<div className="order-2 h-[720px] md:h-[760px] lg:h-[690px]" />}>
-              <MetaAppsHeroVisual inView={resolvedInView} />
+              <MetaAppsHeroVisual inView={resolvedInView && !isPageScrolling} />
             </Suspense>
           ) : (
-            <RightPanel inView={resolvedInView} showCards={visual !== 'portrait'} />
+            <RightPanel inView={ambientInView} showCards={visual !== 'portrait'} />
           )}
           {isMetaApps && isMobile && (
             <MetaAppsStatsStrip

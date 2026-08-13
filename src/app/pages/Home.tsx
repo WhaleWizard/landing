@@ -101,10 +101,9 @@ function DeferredSection({
         observer.disconnect();
         mount();
       },
-      // 1600px монтировали следующую тяжёлую секцию ещё во время LCP хиро.
-      // 240px достаточно для упреждающей загрузки при обычном скролле, но не
-      // заставляет canvas и motion конкурировать за первый кадр страницы.
-      { rootMargin: '240px 0px', threshold: 0 },
+      // One viewport of lead time lets the next chunk settle before a quick
+      // trackpad gesture reaches it, without mounting the whole page at LCP.
+      { rootMargin: '720px 0px', threshold: 0 },
     );
 
     observer.observe(section);
@@ -127,7 +126,7 @@ function DeferredSection({
     const alignToTarget = () => {
       const target = document.getElementById(anchorId);
       if (target) {
-        target.scrollIntoView();
+        target.scrollIntoView({ behavior: 'auto', block: 'start' });
         return;
       }
       attempts += 1;

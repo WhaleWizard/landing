@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 // Каркас юридического документа: оглавление, разделы-аккордеоны, прогресс
 // чтения. Разделы — нативные <details>, поэтому весь текст остаётся в HTML
@@ -24,7 +24,7 @@ function splitTitle(title: string): { num: string | null; text: string } {
 
 export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState(0);
+  const progressRef = useRef<HTMLSpanElement>(null);
 
   // Прогресс чтения: слушаем ближайшего скроллящегося родителя
   // (в попапе это тело модалки, на странице — окно).
@@ -40,13 +40,19 @@ export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
     }
 
     const target: HTMLElement | Window = scrollParent ?? window;
+    let frame = 0;
 
     const update = () => {
-      const scrollTop = scrollParent ? scrollParent.scrollTop : window.scrollY;
-      const max = scrollParent
-        ? scrollParent.scrollHeight - scrollParent.clientHeight
-        : document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(max > 0 ? Math.min(100, Math.max(0, (scrollTop / max) * 100)) : 0);
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const scrollTop = scrollParent ? scrollParent.scrollTop : window.scrollY;
+        const max = scrollParent
+          ? scrollParent.scrollHeight - scrollParent.clientHeight
+          : document.documentElement.scrollHeight - window.innerHeight;
+        const progress = max > 0 ? Math.min(1, Math.max(0, scrollTop / max)) : 0;
+        progressRef.current?.style.setProperty('--legal-progress', String(progress));
+      });
     };
 
     update();
@@ -56,6 +62,7 @@ export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
     toggles.forEach((d) => d.addEventListener('toggle', update));
 
     return () => {
+      if (frame) window.cancelAnimationFrame(frame);
       target.removeEventListener('scroll', update);
       toggles.forEach((d) => d.removeEventListener('toggle', update));
     };
@@ -79,7 +86,7 @@ export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
   return (
     <div ref={rootRef} className="legal-doc">
       <div className="legal-progress" aria-hidden="true">
-        <span style={{ width: `${progress}%` }} />
+        <span ref={progressRef} />
       </div>
 
       {intro ? <div className="legal-intro">{intro}</div> : null}

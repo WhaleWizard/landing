@@ -354,34 +354,6 @@ function Testimonials({
   }, [revealDesktopScrollbar]);
 
   useEffect(() => {
-    if (isMobile) return;
-
-    const scroller = desktopScrollerRef.current;
-    if (!scroller) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-
-      const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
-      if (maxScrollLeft <= 0) return;
-
-      const nextScrollLeft = scroller.scrollLeft + e.deltaY;
-      const edgeEpsilon = 2;
-      const isAtStart = scroller.scrollLeft <= edgeEpsilon;
-      const isAtEnd = scroller.scrollLeft >= maxScrollLeft - edgeEpsilon;
-
-      if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
-
-      e.preventDefault();
-      revealDesktopScrollbar();
-      scroller.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
-    };
-
-    scroller.addEventListener('wheel', handleWheel, { passive: false });
-    return () => scroller.removeEventListener('wheel', handleWheel);
-  }, [isMobile, revealDesktopScrollbar]);
-
-  useEffect(() => {
     return () => {
       if (desktopScrollbarTimerRef.current !== null) {
         window.clearTimeout(desktopScrollbarTimerRef.current);

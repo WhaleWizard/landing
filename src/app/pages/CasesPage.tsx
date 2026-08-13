@@ -584,7 +584,7 @@ export default function CasesPage() {
       return;
     }
     navigate(`/cases/${item.slug}${window.location.search}`);
-    window.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [goToContact, navigate]);
 
   const hasFilters = niches.size > 0 || sources.size > 0 || goals.size > 0 || Boolean(query.trim());

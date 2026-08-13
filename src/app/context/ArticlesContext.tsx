@@ -116,21 +116,73 @@ interface PendingArticleDetailRequest {
   promise: Promise<Article | null>;
 }
 
+const INLINE_SUMMARY_STRING_FIELDS = [
+  'slug',
+  'title',
+  'category',
+  'readTime',
+  'date',
+  'description',
+  'content',
+  'image',
+] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasSeedSlug(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+}
+
+function isInlineArticleSummary(value: unknown): value is Article {
+  if (!isRecord(value) || value._summary !== true || value.content !== '') return false;
+  if (!hasSeedSlug(value.slug)) return false;
+  if (!INLINE_SUMMARY_STRING_FIELDS.every((field) => typeof value[field] === 'string')) return false;
+  if (value.tags !== undefined && (!Array.isArray(value.tags) || value.tags.some((tag) => typeof tag !== 'string'))) {
+    return false;
+  }
+  if (value.caseData !== undefined && !isRecord(value.caseData)) return false;
+  return true;
+}
+
 /**
- * Страница статьи приезжает с уже вложенными данными этой статьи. Текст можно
- * показать сразу, не дожидаясь ответа `/api/articles`: полный список нужен
- * только для соседних материалов и догружается следом, не задерживая первую
- * отрисовку.
+ * Detail routes embed one complete article, while /blog and /cases embed a
+ * compact array of public summaries. `null` distinguishes an invalid or
+ * unrelated script from an intentionally empty, authoritative list (`[]`).
  */
-function readArticleSeed(): Article[] {
-  if (typeof document === 'undefined') return [];
+export function parseArticleSeed(value: unknown): Article[] | null {
+  if (Array.isArray(value)) {
+    return value.every(isInlineArticleSummary) ? value : null;
+  }
+
+  // Keep the established detail-seed contract deliberately permissive: the
+  // server owns the full Article shape and older generated pages may not have
+  // fields added to the CMS later.
+  if (isRecord(value) && hasSeedSlug(value.slug)) return [value as unknown as Article];
+  return null;
+}
+
+interface InlineArticleSeed {
+  articles: Article[];
+  present: boolean;
+}
+
+/**
+ * Страница статьи приезжает с полным материалом, а /blog и /cases — с лёгким
+ * списком карточек. Оба варианта можно показать сразу; актуальная публичная
+ * выдача догружается следом, не задерживая первую отрисовку.
+ */
+function readArticleSeed(): InlineArticleSeed {
+  const missing = { articles: [], present: false };
+  if (typeof document === 'undefined') return missing;
   const node = document.getElementById('ww-article-seed');
-  if (!node?.textContent) return [];
+  if (!node?.textContent) return missing;
   try {
-    const parsed = JSON.parse(node.textContent) as Article;
-    return parsed?.slug ? [parsed] : [];
+    const articles = parseArticleSeed(JSON.parse(node.textContent));
+    return articles === null ? missing : { articles, present: true };
   } catch {
-    return [];
+    return missing;
   }
 }
 
@@ -140,10 +192,13 @@ interface Props {
 }
 
 export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props) => {
-  const [articles, setArticles] = useState<Article[]>(() => (
-    initialLoad === 'manual' ? [] : readArticleSeed()
+  const [initialSeed] = useState<InlineArticleSeed>(() => (
+    initialLoad === 'manual'
+      ? { articles: [], present: false }
+      : readArticleSeed()
   ));
-  const seededRef = useRef(articles.length > 0);
+  const [articles, setArticles] = useState<Article[]>(() => initialSeed.articles);
+  const seededRef = useRef(initialSeed.present);
   const [loading, setLoading] = useState(!seededRef.current);
   const [error, setError] = useState<string | null>(null);
   const requestSequence = useRef(0);

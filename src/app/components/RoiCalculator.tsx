@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Calculator, TrendingUp, ArrowRight } from 'lucide-react';
 import Modal from './Modal';
@@ -9,19 +9,6 @@ export default function CalculatorButtons() {
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isRoiModalOpen, setIsRoiModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0 && window.innerWidth < 768) {
-        e.preventDefault();
-        container.scrollLeft += e.deltaY;
-      }
-    };
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, []);
 
   return (
     <section className="relative py-12 md:py-16 overflow-hidden">
@@ -83,7 +70,7 @@ export default function CalculatorButtons() {
           <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
           <div
             ref={scrollContainerRef}
-            className="roi-calculator-scroll scrollbar-brand flex gap-5 overflow-x-auto scroll-smooth pb-4"
+            className="roi-calculator-scroll scrollbar-brand flex gap-5 overflow-x-auto pb-4"
             style={{
               WebkitOverflowScrolling: 'touch',
               cursor: 'grab',
@@ -134,7 +121,6 @@ export default function CalculatorButtons() {
 
         <style>{`
           .roi-calculator-scroll {
-            scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;
             cursor: grab;
           }

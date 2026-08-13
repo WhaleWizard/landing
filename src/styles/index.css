@@ -4,6 +4,149 @@
 @import './blog-readable.css';
 @import './whale-brand.css';
 
+@media (min-width: 768px) and (hover: hover) {
+  html {
+    /* Prevents desktop layout from shifting sideways when a modal locks body scroll. */
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(139, 92, 246, 0.58) var(--background);
+  }
+
+  html::-webkit-scrollbar { width: 10px; }
+  html::-webkit-scrollbar-track { background: var(--background); }
+  html::-webkit-scrollbar-thumb {
+    border: 3px solid var(--background);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(59, 130, 246, 0.82));
+  }
+}
+
+html[data-ww-instant-scroll='true'] {
+  scroll-behavior: auto !important;
+}
+
+/* One restrained crossfade masks the SEO-shell to interactive-app hand-off. */
+::view-transition-old(root) {
+  animation: ww-app-shell-out 160ms ease-out both;
+}
+
+::view-transition-new(root),
+#root.ww-app-handoff {
+  animation: ww-app-shell-in 320ms var(--motion-ease-premium) both;
+}
+
+@keyframes ww-app-shell-out {
+  to { opacity: 0; }
+}
+
+@keyframes ww-app-shell-in {
+  from { opacity: 0.72; }
+  to { opacity: 1; }
+}
+
+/*
+ * A 2px compositor-only progress trail adds polish without replacing native
+ * scrolling. The moving route sheen is short-lived; no permanent blur layer is
+ * attached to the viewport.
+ */
+.ww-scroll-trail {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 80;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.ww-scroll-trail__progress,
+.ww-scroll-trail__route-sheen {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: left center;
+}
+
+.ww-scroll-trail__progress {
+  transform: scaleX(var(--ww-scroll-progress, 0));
+  background: linear-gradient(90deg, #7c3aed, #8b5cf6 46%, #38bdf8);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.65);
+  will-change: transform;
+}
+
+.ww-scroll-trail__route-sheen {
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.92), rgba(56, 189, 248, 0.88), transparent);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.45);
+  animation: ww-route-sheen 620ms var(--motion-ease-premium) both;
+  will-change: transform, opacity;
+}
+
+@keyframes ww-route-sheen {
+  from { opacity: 0; transform: translate3d(-115%, 0, 0); }
+  22% { opacity: 1; }
+  to { opacity: 0; transform: translate3d(340%, 0, 0); }
+}
+
+.ww-hero-glow-loop {
+  background: transparent;
+  box-shadow: 0 0 20px 5px rgba(139, 92, 246, 0.3);
+  animation: ww-hero-glow-loop 2s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes ww-hero-glow-loop {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.82; transform: scale(1.5); }
+}
+
+.ww-hero-scan-line {
+  --ww-hero-scan-distance: 252px;
+  transform: translate3d(0, 0, 0);
+}
+
+.ww-hero-scan-line.is-running {
+  animation: ww-hero-scan-line 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes ww-hero-scan-line {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, var(--ww-hero-scan-distance), 0); }
+}
+
+@media (min-width: 640px) {
+  .ww-hero-scan-line { --ww-hero-scan-distance: 280px; }
+}
+
+@media (min-width: 768px) {
+  .ww-hero-scan-line { --ww-hero-scan-distance: 420px; }
+}
+
+/* Pause paint-heavy decorative loops only while the viewport itself is moving. */
+html[data-ww-scrolling='true'] :is(.animate-pulse, .animate-ping, .premium-skeleton, .ww-ambient-motion, .ww-hero-glow-loop, .ww-hero-scan-line) {
+  animation-play-state: paused !important;
+}
+
+html[data-ww-scrolling='true'] .ww-public-navbar[data-glass='true'] {
+  background-color: color-mix(in srgb, var(--background) 96%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@supports (animation-timeline: scroll()) {
+  .ww-scroll-trail__progress {
+    animation: ww-native-scroll-progress linear both;
+    animation-timeline: scroll(root block);
+  }
+
+  @keyframes ww-native-scroll-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+}
+
 /* Public UI must never expose browser-default number steppers. */
 input[type='number'] {
   appearance: textfield;
@@ -59,6 +202,10 @@ input[type='number']::-webkit-outer-spin-button {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .ww-scroll-trail__route-sheen {
+    display: none;
   }
 }
 
@@ -217,7 +364,9 @@ input[type='number']::-webkit-outer-spin-button {
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--primary), var(--accent));
-  transition: width 0.15s linear;
+  transform: scaleX(var(--legal-progress, 0));
+  transform-origin: left center;
+  will-change: transform;
 }
 
 .legal-intro { margin-bottom: 18px; }

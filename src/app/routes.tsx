@@ -1,24 +1,46 @@
-import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-router';
-import { lazy, Suspense, useEffect } from 'react';
+import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useRouteError } from 'react-router';
+import { lazy, Suspense, useEffect, useInsertionEffect } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
+import ScrollExperience from './components/ScrollExperience';
+import RouteIntentPreloader from './components/RouteIntentPreloader';
 import { ArticlesProvider } from './context/ArticlesContext';
 import { useRememberPublicRoute } from './utils/siteNavigation';
+import {
+  loadAdmin,
+  loadBlogPage,
+  loadCalculator,
+  loadCasesPage,
+  loadConsultStudioHero,
+  loadContentPreview,
+  loadCookiePolicy,
+  loadFaqPage,
+  loadHero,
+  loadHome,
+  loadMarketingGlossaryPage,
+  loadMetaAppsHeroVisual,
+  loadNotFound,
+  loadOffer,
+  loadPrivacyPolicy,
+  loadRoiPage,
+  loadServiceLandingPage,
+  loadThankYou,
+} from './utils/routePreload';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 
-const Home = lazy(() => import('./pages/Home'));
-const ThankYou = lazy(() => import('./pages/ThankYou'));
-const BlogPage = lazy(() => import('./pages/BlogPage'));
-const CasesPage = lazy(() => import('./pages/CasesPage'));
-const Calculator = lazy(() => import('./pages/Calculator'));
-const RoiPage = lazy(() => import('./pages/RoiPage'));
-const Admin = lazy(() => import('./pages/Admin'));
-const ContentPreview = lazy(() => import('./pages/ContentPreview'));
-const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
-const Offer = lazy(() => import('./pages/Offer'));
-const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
-const FAQPage = lazy(() => import('./pages/FAQPage'));
-const MarketingGlossaryPage = lazy(() => import('./pages/MarketingGlossaryPage'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+const Home = lazy(loadHome);
+const ThankYou = lazy(loadThankYou);
+const BlogPage = lazy(loadBlogPage);
+const CasesPage = lazy(loadCasesPage);
+const Calculator = lazy(loadCalculator);
+const RoiPage = lazy(loadRoiPage);
+const Admin = lazy(loadAdmin);
+const ContentPreview = lazy(loadContentPreview);
+const PrivacyPolicy = lazy(loadPrivacyPolicy);
+const Offer = lazy(loadOffer);
+const CookiePolicy = lazy(loadCookiePolicy);
+const FAQPage = lazy(loadFaqPage);
+const MarketingGlossaryPage = lazy(loadMarketingGlossaryPage);
+const NotFound = lazy(loadNotFound);
 
 type ServiceType = import('./pages/ServiceLandingPage').ServiceType;
 type ServicePreload = () => Promise<unknown>;
@@ -28,7 +50,7 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
     // Above-the-fold hero chunks start together with the landing module instead
     // of forming a second/third request waterfall after it has evaluated.
     const [module] = await Promise.all([
-      import('./pages/ServiceLandingPage'),
+      loadServiceLandingPage(),
       ...preloads.map((preload) => preload()),
     ]);
 
@@ -42,14 +64,14 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
 
 const MetaAdsPage = lazyServiceLanding('meta-ads');
 const GoogleAdsPage = lazyServiceLanding('google-ads', [
-  () => import('./components/Hero'),
+  loadHero,
 ]);
 const ConsultPage = lazyServiceLanding('consult', [
-  () => import('./components/service-heroes/ConsultStudioHero'),
+  loadConsultStudioHero,
 ]);
 const MetaAppsPage = lazyServiceLanding('meta-apps', [
-  () => import('./components/Hero'),
-  () => import('./components/MetaAppsHeroVisual'),
+  loadHero,
+  loadMetaAppsHeroVisual,
 ]);
 
 
@@ -91,6 +113,26 @@ function LazyWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+function InstantScrollRestoration() {
+  const location = useLocation();
+
+  // React Router restores the position in a layout effect. Install the
+  // instant-scroll guard earlier so global smooth anchor scrolling cannot make
+  // a new route visibly travel from the previous page's position.
+  useInsertionEffect(() => {
+    document.documentElement.dataset.wwInstantScroll = 'true';
+  }, [location.key]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      delete document.documentElement.dataset.wwInstantScroll;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.key]);
+
+  return <ScrollRestoration />;
+}
+
 
 function RootLayout() {
   const location = useLocation();
@@ -110,6 +152,13 @@ function RootLayout() {
 
   return (
     <>
+      {!isContentPreview ? (
+        <>
+          <InstantScrollRestoration />
+          <ScrollExperience showTrail={!isAdmin} routeKey={location.key} />
+          {!isAdmin ? <RouteIntentPreloader /> : null}
+        </>
+      ) : null}
       {needsArticles ? (
         // Admin API includes drafts/future publications. The key creates a hard
         // state boundary so protected records can never flash on public routes.

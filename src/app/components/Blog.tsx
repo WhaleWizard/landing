@@ -2,7 +2,7 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Clock, BookOpen, MoveHorizontal } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useRef, useEffect, memo, useCallback } from 'react';
+import { useRef, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
@@ -15,44 +15,6 @@ function Blog() {
   const navigate = useNavigate();
   const { articles, loading, error: articlesError, refreshArticles } = useArticles();
   const blogArticles = articles.filter((article) => !isCaseArticle(article));
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    let frame = 0;
-    let pendingDelta = 0;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-
-      const maxScrollLeft = container.scrollWidth - container.clientWidth;
-      if (maxScrollLeft <= 0) return;
-
-      const isAtStart = container.scrollLeft <= 0;
-      const isAtEnd = container.scrollLeft >= maxScrollLeft;
-
-      if ((e.deltaY < 0 && isAtStart) || (e.deltaY > 0 && isAtEnd)) return;
-
-      e.preventDefault();
-      pendingDelta += e.deltaY;
-      if (frame) return;
-
-      // Несколько wheel-событий за один кадр дают одну запись scrollLeft.
-      // Так карусель сохраняет то же поведение, но не заставляет браузер
-      // пересчитывать прокрутку десятки раз между двумя отрисовками.
-      frame = window.requestAnimationFrame(() => {
-        const latestMax = container.scrollWidth - container.clientWidth;
-        container.scrollLeft = Math.max(0, Math.min(latestMax, container.scrollLeft + pendingDelta));
-        pendingDelta = 0;
-        frame = 0;
-      });
-    };
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, []);
 
   const openArticle = useCallback((slug: string) => {
     navigate(`/blog/${slug}`);
@@ -103,7 +65,7 @@ function Blog() {
         </motion.div>
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
-        <div ref={scrollContainerRef} className="blog-carousel-scroll scrollbar-brand flex gap-5 md:gap-7 overflow-x-auto scroll-smooth px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}>
+        <div ref={scrollContainerRef} className="blog-carousel-scroll scrollbar-brand flex gap-5 md:gap-7 overflow-x-auto px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}>
           {blogArticles.map((article) => (
             <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
@@ -139,13 +101,14 @@ function Blog() {
         </div>
       </div>
       <style>{`
-        .blog-carousel-scroll { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; cursor: grab; }
+        .blog-carousel-scroll { -webkit-overflow-scrolling: touch; cursor: grab; }
         .blog-carousel-scroll:active { cursor: grabbing; }
       `}</style>
       <div className="relative mt-14 md:mt-20 flex justify-center">
           <button
             type="button"
             onClick={() => navigate('/blog')}
+            data-route-preload="/blog"
             className="group relative inline-flex items-center justify-center gap-3 px-10 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-1000" />

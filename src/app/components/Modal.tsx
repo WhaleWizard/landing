@@ -45,7 +45,11 @@ export default function Modal({
     const previousTop = document.body.style.top;
     const previousWidth = document.body.style.width;
     const scrollY = window.scrollY;
-    const scrollbarCompensation = window.innerWidth - document.documentElement.clientWidth;
+    const hasStableScrollbarGutter = getComputedStyle(document.documentElement)
+      .scrollbarGutter.includes('stable');
+    const scrollbarCompensation = hasStableScrollbarGutter
+      ? 0
+      : window.innerWidth - document.documentElement.clientWidth;
 
     lastActiveElementRef.current = document.activeElement as HTMLElement;
 
@@ -98,7 +102,7 @@ export default function Modal({
       document.body.style.position = previousPosition;
       document.body.style.top = previousTop;
       document.body.style.width = previousWidth;
-      window.scrollTo(0, scrollY);
+      window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
       lastActiveElementRef.current?.focus();
     };
   }, [isOpen, onClose]);

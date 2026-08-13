@@ -192,6 +192,19 @@ test('every generated HTML route has one coherent SEO contract', () => {
       assert.equal(meta(head, 'property', 'og:type').map((tag) => attribute(tag, 'content'))[0], 'article', `${route}: og:type must be article`);
       assert.equal(meta(head, 'property', 'article:published_time').length, 1, `${route}: missing published time`);
     }
+    const articleSeeds = [...head.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+      .filter(([, attrs]) => attribute(`<script ${attrs}>`, 'id') === 'ww-article-seed')
+      .map(([, , content]) => content);
+    if (route === '/' || route === '/blog' || route === '/cases') {
+      assert.equal(articleSeeds.length, 1, `${route}: expected exactly one article-list seed`);
+      const seed = JSON.parse(articleSeeds[0]);
+      assert.ok(Array.isArray(seed), `${route}: article-list seed must be an array`);
+      assert.ok(seed.every((article) => article?._summary === true && article?.content === ''), `${route}: seed must contain summaries only`);
+    } else if (/^\/(blog|cases)\/[^/]+$/.test(route)) {
+      assert.equal(articleSeeds.length, 1, `${route}: expected exactly one article detail seed`);
+      const seed = JSON.parse(articleSeeds[0]);
+      assert.ok(!Array.isArray(seed) && seed?._summary !== true, `${route}: detail seed must stay complete`);
+    }
     if (route === '/faq') assert.ok(types.includes('FAQPage'), '/faq: missing FAQPage schema');
     if (route === '/marketing-glossary') assert.ok(types.includes('DefinedTermSet'), '/marketing-glossary: missing DefinedTermSet schema');
   }

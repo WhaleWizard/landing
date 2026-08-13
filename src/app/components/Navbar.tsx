@@ -22,6 +22,12 @@ interface NavbarProps {
   variant?: NavbarVariant;
 }
 
+type NavItem = {
+  label: string;
+  action: () => void;
+  preloadRoute?: string;
+};
+
 /** Ключ страницы услуги для ?from= — по нему кейсы знают, куда вернуть. */
 function serviceFromKey(pathname: string): string {
   return pathname.replace(/^\/+|\/+$/g, '') || 'home';
@@ -130,31 +136,31 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     setIsMobileMenuOpen(false);
   }, [location.pathname, navigate, variant]);
 
-  const navItems = variant === 'service'
+  const navItems: NavItem[] = variant === 'service'
     ? [
       { label: 'Услуги', action: () => scrollToSection('services') },
       { label: 'Кейсы', action: () => scrollToSection('cases') },
       { label: 'Отзывы', action: () => scrollToSection('about') },
       // Со страниц услуг раньше не было выхода в контентные разделы:
       // все пункты вели на якоря внутри той же страницы.
-      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); } },
-      { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); } },
+      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases' },
+      { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog' },
     ]
     : variant === 'content'
       ? [
-        { label: 'Услуги', action: () => scrollToSection('services') },
-        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`); setIsMobileMenuOpen(false); } },
-        { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); } },
-        { label: 'О нас', action: () => scrollToSection('about') },
-        { label: 'FAQ', action: () => { navigate('/faq'); setIsMobileMenuOpen(false); } },
-        { label: 'Контакты', action: () => scrollToSection('social') },
+        { label: 'Услуги', action: () => scrollToSection('services'), preloadRoute: '/' },
+        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases' },
+        { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog' },
+        { label: 'О нас', action: () => scrollToSection('about'), preloadRoute: '/' },
+        { label: 'FAQ', action: () => { navigate('/faq'); setIsMobileMenuOpen(false); }, preloadRoute: '/faq' },
+        { label: 'Контакты', action: () => scrollToSection('social'), preloadRoute: '/' },
       ]
       : [
         { label: 'Услуги', action: () => scrollToSection('services') },
         { label: 'Кейсы', action: () => scrollToSection('cases') },
         { label: 'Блог', action: () => scrollToSection('blog') },
         { label: 'Отзывы', action: () => scrollToSection('about') },
-        { label: 'FAQ', action: () => navigate('/faq') },
+        { label: 'FAQ', action: () => navigate('/faq'), preloadRoute: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social') },
         { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
       ];
@@ -162,7 +168,8 @@ function Navbar({ variant = 'home' }: NavbarProps) {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        data-glass={isScrolled || variant === 'content' ? 'true' : 'false'}
+        className={`ww-public-navbar fixed top-0 left-0 right-0 z-50 transition-[background-color,border-color,box-shadow] duration-300 ${
           isScrolled || variant === 'content'
             ? 'bg-background/80 backdrop-blur-xl border-b border-border shadow-lg shadow-primary/5'
             : 'bg-transparent'
@@ -171,7 +178,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             {/* Логотип */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0" data-route-preload={variant === 'content' ? '/' : undefined}>
               <BrandLogo
                 onClick={() => variant === 'content' ? navigate('/') : scrollToSection('hero')}
                 priority
@@ -185,6 +192,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                 <button
                   key={item.label}
                   onClick={item.action}
+                  data-route-preload={item.preloadRoute}
                   aria-current={isContentItemActive(item.label) ? 'page' : undefined}
                   className={`relative transition-[color,transform] duration-200 hover:-translate-y-0.5 group ${
                     isContentItemActive(item.label)
@@ -198,6 +206,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
               ))}
               <Button
                 onClick={() => scrollToSection('contact')}
+                data-route-preload={variant === 'content' ? '/' : undefined}
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
@@ -237,7 +246,10 @@ function Navbar({ variant = 'home' }: NavbarProps) {
             >
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
-              <div className="flex items-center justify-between px-5 py-5 border-b border-border/60">
+              <div
+                className="flex items-center justify-between px-5 py-5 border-b border-border/60"
+                data-route-preload={variant === 'content' ? '/' : undefined}
+              >
                 <BrandLogo
                   onClick={() => {
                     setIsMobileMenuOpen(false);
@@ -265,6 +277,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                     <button
                       key={item.label}
                       onClick={item.action}
+                      data-route-preload={item.preloadRoute}
                       aria-current={isContentItemActive(item.label) ? 'page' : undefined}
                       className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-[background-color,transform] hover:bg-primary/10 active:scale-[0.98] active:bg-primary/15 ${isContentItemActive(item.label) ? 'bg-primary/10' : ''}`}
                     >
@@ -286,6 +299,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                     scrollToSection('contact');
                     setIsMobileMenuOpen(false);
                   }}
+                  data-route-preload={variant === 'content' ? '/' : undefined}
                   size="lg"
                   className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
                 >

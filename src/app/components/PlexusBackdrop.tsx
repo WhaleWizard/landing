@@ -1,5 +1,10 @@
 import { memo, useEffect, useRef } from 'react';
 import { useReducedMotion } from 'motion/react';
+import {
+  isScrollActivityActive,
+  SCROLL_ACTIVITY_END_EVENT,
+  SCROLL_ACTIVITY_START_EVENT,
+} from '../utils/motionPerformance';
 
 // Интерактивный фон-сеть. Состояние живёт в refs/замыкании canvas, поэтому
 // кадры анимации не вызывают React-рендеры.
@@ -37,8 +42,16 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     if (!ctx) return;
 
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const minFrameMs = FRAME_MS;
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+    const constrainedDevice = coarsePointer
+      || navigator.hardwareConcurrency <= 4
+      || deviceMemory <= 4;
+    const targetFps = coarsePointer ? 30 : constrainedDevice ? 40 : 60;
+    const dpr = Math.min(
+      window.devicePixelRatio || 1,
+      coarsePointer ? 1.25 : constrainedDevice ? 1.5 : 2,
+    );
+    const minFrameMs = 1000 / targetFps;
     let width = 0;
     let height = 0;
     let canvasLeft = 0;
@@ -102,7 +115,9 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       gridRows = Math.max(1, Math.ceil(height / LINK_DIST));
       grid = Array.from({ length: gridColumns * gridRows }, () => []);
 
-      const count = Math.min(100, Math.max(40, Math.round((width * height) / 19000)));
+      const maxNodes = coarsePointer ? 56 : constrainedDevice ? 72 : 100;
+      const density = constrainedDevice ? 25000 : 19000;
+      const count = Math.min(maxNodes, Math.max(36, Math.round((width * height) / density)));
       if (nodes.length === 0 || previousWidth === 0 || previousHeight === 0) {
         nodes = Array.from({ length: count }, () => createNode(width, height));
         return;
@@ -261,7 +276,7 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     let rafId = 0;
     let lastFrameAt = 0;
     const loop = (now: number) => {
-      if (document.hidden || !inView || prefersReduced) {
+      if (document.hidden || !inView || prefersReduced || isScrollActivityActive()) {
         rafId = 0;
         return;
       }
@@ -273,7 +288,7 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       rafId = requestAnimationFrame(loop);
     };
     const start = () => {
-      if (rafId || document.hidden || !inView || prefersReduced) return;
+      if (rafId || document.hidden || !inView || prefersReduced || isScrollActivityActive()) return;
       lastFrameAt = 0;
       rafId = requestAnimationFrame(loop);
     };
@@ -285,6 +300,8 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       if (document.hidden) stop();
       else start();
     };
+    const handleScrollStart = () => stop();
+    const handleScrollEnd = () => start();
 
     rebuild();
     const resizeObserver = new ResizeObserver(() => {
@@ -298,6 +315,8 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     } else {
       if (!coarsePointer) window.addEventListener('mousemove', handleMove, { passive: true });
       document.addEventListener('visibilitychange', handleVisibility);
+      document.addEventListener(SCROLL_ACTIVITY_START_EVENT, handleScrollStart);
+      document.addEventListener(SCROLL_ACTIVITY_END_EVENT, handleScrollEnd);
       start();
     }
 
@@ -306,6 +325,8 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMove);
       document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener(SCROLL_ACTIVITY_START_EVENT, handleScrollStart);
+      document.removeEventListener(SCROLL_ACTIVITY_END_EVENT, handleScrollEnd);
     };
   }, [inView, prefersReduced]);
 
