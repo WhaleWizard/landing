@@ -1,29 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { readInlineSiteContentSeed } from '../utils/siteContentSeed';
 
-const serviceContentCache = new Map<string, unknown>();
+export const SITE_CONTENT_CACHE_TTL_MS = 15_000;
+const SITE_CONTENT_REVALIDATE_COOLDOWN_MS = 1_000;
+
+type ServiceContentCacheEntry = {
+  content: Record<string, unknown> | null;
+  version: number | null;
+  fetchedAt: number;
+};
+
+const serviceContentCache = new Map<string, ServiceContentCacheEntry>();
 const serviceContentPending = new Map<string, Promise<unknown>>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function migrateLegacyPublishedContent(cacheKey: string, override: unknown): unknown {
-  if (cacheKey !== 'service:meta-ads' || !isRecord(override) || !isRecord(override.cases)) {
-    return override;
-  }
-
-  const legacyCases = override.cases;
-  const isLegacyProblemSection = legacyCases.badge === 'С чем чаще всего приходят'
-    && legacyCases.titlePrefix === 'Где теряется результат'
-    && legacyCases.titleAccent === 'в Meta Ads';
-  if (!isLegacyProblemSection) return override;
-
-  // This exact published block predates the real case cards introduced in the
-  // source config. Drop only that stale section; all other CMS edits remain
-  // authoritative, and any newly published case heading will merge normally.
-  const { cases: _legacyCases, ...currentOverride } = override;
-  return currentOverride;
 }
 
 export function mergeContent<T>(base: T, override: unknown): T {
@@ -56,25 +47,62 @@ export function mergeContent<T>(base: T, override: unknown): T {
   return (override === undefined || override === null ? base : override) as T;
 }
 
-function loadSiteContent(cacheKey: string): Promise<unknown> {
+function publishedVersion(value: unknown): number | null {
+  const version = Number(value);
+  return Number.isSafeInteger(version) && version > 0 ? version : null;
+}
+
+function cacheResponse(
+  cacheKey: string,
+  content: Record<string, unknown> | null,
+  version: number | null,
+): Record<string, unknown> | null {
+  const current = serviceContentCache.get(cacheKey);
+  // A delayed edge response must never downgrade content already observed by
+  // this tab at a newer published version.
+  if (current && current.version !== null && (version === null || version < current.version)) {
+    serviceContentCache.set(cacheKey, { ...current, fetchedAt: Date.now() });
+    return current.content;
+  }
+  if (current && current.version !== null && version === current.version) {
+    serviceContentCache.set(cacheKey, { ...current, fetchedAt: Date.now() });
+    return current.content;
+  }
+  serviceContentCache.set(cacheKey, { content, version, fetchedAt: Date.now() });
+  return content;
+}
+
+function loadSiteContent(cacheKey: string, revalidate = false): Promise<unknown> {
   // `null` — тоже завершённый и валидный ответ («для ключа нет CMS override»).
   // Проверка по truthiness раньше не кэшировала его, поэтому Home параллельно
   // запрашивал один и тот же site:home из SEO и Hero.
-  if (serviceContentCache.has(cacheKey)) {
-    return Promise.resolve(serviceContentCache.get(cacheKey));
+  const cached = serviceContentCache.get(cacheKey);
+  const cacheTtl = revalidate ? SITE_CONTENT_REVALIDATE_COOLDOWN_MS : SITE_CONTENT_CACHE_TTL_MS;
+  if (cached && Date.now() - cached.fetchedAt < cacheTtl) {
+    return Promise.resolve(cached.content);
   }
   const pending = serviceContentPending.get(cacheKey);
   if (pending) return pending;
 
   const request = fetch(`/api/site-content?key=${encodeURIComponent(cacheKey)}`, {
     credentials: 'same-origin',
-    cache: 'default',
+    cache: 'no-cache',
   })
-    .then(async (response) => response.ok ? response.json() : null)
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`site content request failed: ${response.status}`);
+      return response.json();
+    })
     .then((payload) => {
-      const loaded = payload?.success && payload.content ? payload.content : null;
-      serviceContentCache.set(cacheKey, loaded);
-      return loaded;
+      if (!isRecord(payload) || payload.success !== true) {
+        throw new Error('site content response is invalid');
+      }
+      const loaded = payload.content === null
+        ? null
+        : isRecord(payload.content)
+          ? payload.content
+          : undefined;
+      if (loaded === undefined) throw new Error('site content payload is invalid');
+      return cacheResponse(cacheKey, loaded, publishedVersion(payload.version));
     })
     .finally(() => serviceContentPending.delete(cacheKey));
 
@@ -87,14 +115,15 @@ export function preloadSiteContent(cacheKey: string): Promise<unknown> {
 }
 
 function initialContentOverride(cacheKey: string): unknown {
-  if (serviceContentCache.has(cacheKey)) return serviceContentCache.get(cacheKey);
+  const cached = serviceContentCache.get(cacheKey);
+  if (cached) return cached.content;
   return readInlineSiteContentSeed(cacheKey);
 }
 
 function resolveContent<T>(cacheKey: string, fallback: T): T {
   const override = initialContentOverride(cacheKey);
   return override
-    ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, override))
+    ? mergeContent(fallback, override)
     : fallback;
 }
 
@@ -111,11 +140,14 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
     }
     setContent(resolveContent(cacheKey, fallback));
     let active = true;
-    void loadSiteContent(cacheKey)
+    // Mounting a route revalidates an old module-cache entry. A just-completed
+    // intent preload is reused for one second, and concurrent section hooks are
+    // still collapsed by serviceContentPending.
+    void loadSiteContent(cacheKey, true)
       .then((loaded) => {
         if (!active) return;
         setContent(loaded
-          ? mergeContent(fallback, migrateLegacyPublishedContent(cacheKey, loaded))
+          ? mergeContent(fallback, loaded)
           : fallback);
       })
       .catch(() => {

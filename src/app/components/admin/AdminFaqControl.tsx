@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Plus, RefreshCw, RotateCcw, Save, Send, Trash2 } from 'lucide-react';
 import { FAQ_CATEGORIES, FAQ_SEO, faqs, type FaqItem } from '../../pages/FAQPage';
 import { AdminSelect } from './AdminUI';
+import AdminDisclosure from './AdminDisclosure';
 
 type VersionRow = { id: number; source: 'draft' | 'published'; created_at: string };
 type FaqSeo = { title: string; description: string };
@@ -218,8 +219,11 @@ export default function AdminFaqControl({ password }: { password: string }) {
         <section className="admin-card admin-content-editor">
           <div className="admin-stack">
             {indexedItems.map(({ item, index }) => (
-              <details className="admin-disclosure" key={item.id} open={indexedItems.length <= 3 || (index === items.length - 1 && item.question === 'Новый вопрос')}>
-                <summary><span>{index + 1}. {item.question}</span><span className="admin-meta">{item.category}</span></summary>
+              <AdminDisclosure
+                key={item.id}
+                initialOpen={indexedItems.length <= 3 || (index === items.length - 1 && item.question === 'Новый вопрос')}
+                summary={<><span>{index + 1}. {item.question}</span><span className="admin-meta">{item.category}</span></>}
+              >
                 <div className="admin-form-grid">
                   <AdminSelect
                     label="Категория"
@@ -233,7 +237,7 @@ export default function AdminFaqControl({ password }: { password: string }) {
                   <label className="admin-field admin-field--wide" htmlFor={`faq-${index}-details`}><span className="admin-label">Подробности — один пункт на строку, максимум 10 пунктов</span><textarea id={`faq-${index}-details`} className="admin-input" rows={5} value={item.details.join('\n')} onChange={(event) => updateItem(index, { details: event.target.value.split('\n').slice(0, 10).map((line) => line.slice(0, 700)) })} /></label>
                   <div className="admin-field admin-field--wide"><button type="button" className="admin-button admin-button--danger" disabled={loading} onClick={() => removeItem(index)}><Trash2 aria-hidden="true" /> Убрать из черновика</button></div>
                 </div>
-              </details>
+              </AdminDisclosure>
             ))}
             {indexedItems.length === 0 && <div className="admin-empty"><div><strong>Ничего не найдено</strong><p>Измените запрос поиска.</p></div></div>}
           </div>

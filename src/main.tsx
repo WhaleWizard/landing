@@ -21,6 +21,25 @@ const rootElement = document.getElementById('root')!;
 const ROUTE_PREPARE_TIMEOUT_MS = 8_000;
 const hadGeneratedShell = rootElement.hasChildNodes();
 
+function currentSiteContentKey(pathname: string): string | null {
+  if (pathname === '/') return 'site:home';
+  const service = pathname.match(/^\/(meta-ads|meta-apps|google-ads|consult)\/?$/)?.[1];
+  return service ? `service:${service}` : null;
+}
+
+async function prepareCurrentSiteContent(): Promise<unknown> {
+  const cacheKey = currentSiteContentKey(window.location.pathname);
+  if (!cacheKey) return undefined;
+  const { preloadSiteContent } = await import('./app/hooks/useServiceContent');
+  try {
+    return await preloadSiteContent(cacheKey);
+  } catch {
+    // The inline production seed remains a valid fallback. A transient CMS
+    // request must never prevent React from mounting the public page.
+    return undefined;
+  }
+}
+
 function renderApp() {
   flushSync(() => {
     createRoot(rootElement).render(
@@ -55,15 +74,26 @@ function handOffToApp() {
 }
 
 async function bootstrap() {
+  // The admin UI (and especially its exact-preview iframe) has no useful
+  // public SEO shell to preserve. Waiting for a lazy route and cross-fading
+  // that placeholder only creates a visible stale frame inside the editor.
+  if (isAdminRoute) {
+    renderApp();
+    return;
+  }
+
   // Production pages contain a useful SEO-first shell. Keep it visible while
   // the current route module is being prepared, so a cold visit performs one
   // visual hand-off instead of shell -> generic skeleton -> real page.
   if (hadGeneratedShell) {
-    const pendingRoute = prepareRoute(window.location.href);
-    if (pendingRoute) {
+    const pending = [
+      prepareRoute(window.location.href),
+      prepareCurrentSiteContent(),
+    ].filter((task): task is Promise<unknown> => Boolean(task));
+    if (pending.length > 0) {
       let timeout = 0;
       await Promise.race([
-        pendingRoute,
+        Promise.all(pending),
         new Promise<void>((resolve) => {
           timeout = window.setTimeout(resolve, ROUTE_PREPARE_TIMEOUT_MS);
         }),

@@ -16,6 +16,132 @@ export type SiteContentKey = typeof SITE_CONTENT_KEYS[number];
 
 type UnknownRecord = Record<string, unknown>;
 
+/**
+ * One Meta Ads block used to describe common advertising problems in the slot
+ * that is now occupied by real case studies. Stored snapshots of that exact
+ * source block must yield to the current source-backed cases. Keep the full
+ * text fingerprint here: matching only the three headings can erase a newer
+ * CMS block that deliberately kept the old heading.
+ */
+const LEGACY_META_ADS_CASES = {
+  badge: 'С чем чаще всего приходят',
+  titlePrefix: 'Где теряется результат',
+  titleAccent: 'в Meta Ads',
+  description: 'Лиды могут быть дорогими, не доходить до продаж, расходиться с аналитикой или перестать расти в объёме. Для каждой причины нужна своя проверка — универсальной «оптимизации кабинета» здесь нет.',
+  items: [
+    {
+      title: 'Лиды есть, продаж мало',
+      category: 'Услуги и B2B',
+      description: 'Возвращаем из CRM статусы квалификации и продажи, чтобы видеть не только CPL, но и стоимость клиента.',
+      stats: [
+        { label: 'Заявка', value: 'CPL' },
+        { label: 'Качество', value: 'CRM' },
+        { label: 'Клиент', value: 'CAC' },
+      ],
+    },
+    {
+      title: 'Лиды слишком дорогие',
+      category: 'Лидогенерация',
+      description: 'Проверяем оффер, креатив, форму и посадочную по цепочке, чтобы понять, где именно теряется конверсия.',
+      stats: [
+        { label: 'Объявление', value: 'CTR' },
+        { label: 'Страница', value: 'CR' },
+        { label: 'Заявка', value: 'CPL' },
+      ],
+    },
+    {
+      title: 'Продажи есть, экономика не сходится',
+      category: 'E-commerce',
+      description: 'Проверяем Purchase, сумму покупки, CAPI, каталог и маржу. Оптимизируем кампании по продажам или выручке, когда данных уже достаточно.',
+      stats: [
+        { label: 'Покупка', value: 'CPA' },
+        { label: 'Выручка', value: 'ROAS' },
+        { label: 'Экономика', value: 'Маржа' },
+      ],
+    },
+    {
+      title: 'Кампании упёрлись в объём',
+      category: 'Масштабирование',
+      description: 'Добавляем новые креативные направления и увеличиваем бюджет поэтапно — с контролем цены и качества результата.',
+      stats: [
+        { label: 'Расход', value: 'Бюджет' },
+        { label: 'Результат', value: 'CPA' },
+        { label: 'Показы', value: 'Частота' },
+      ],
+    },
+  ],
+} as const;
+
+const LEGACY_DEFAULT_TYPOGRAPHY: Readonly<Record<string, unknown>> = {
+  titleDesktop: 'standard',
+  titleMobile: 'standard',
+  body: 'standard',
+  titleFont: 'auto',
+  bodyFont: 'auto',
+  titleMaxLinesDesktop: 0,
+  titleMaxLinesMobile: 0,
+  titleWeight: 'auto',
+  titleLineHeight: 'auto',
+  titleLetterSpacing: 'auto',
+};
+
+function isUnchangedLegacyTypography(value: unknown): boolean {
+  if (value === undefined) return true;
+  const typography = object(value);
+  const entries = Object.entries(typography);
+  return entries.length > 0 && entries.every(([key, current]) => (
+    Object.prototype.hasOwnProperty.call(LEGACY_DEFAULT_TYPOGRAPHY, key)
+    && LEGACY_DEFAULT_TYPOGRAPHY[key] === current
+  ));
+}
+
+function isExactLegacyMetaAdsCases(value: unknown): boolean {
+  const source = object(value);
+  if (
+    source.badge !== LEGACY_META_ADS_CASES.badge
+    || source.titlePrefix !== LEGACY_META_ADS_CASES.titlePrefix
+    || source.titleAccent !== LEGACY_META_ADS_CASES.titleAccent
+    || source.description !== LEGACY_META_ADS_CASES.description
+    || !isUnchangedLegacyTypography(source.typography)
+    || !Array.isArray(source.items)
+    || source.items.length !== LEGACY_META_ADS_CASES.items.length
+  ) {
+    return false;
+  }
+
+  return LEGACY_META_ADS_CASES.items.every((expected, index) => {
+    const item = object(source.items[index]);
+    if (
+      item.title !== expected.title
+      || item.category !== expected.category
+      || item.description !== expected.description
+      || (item.visualSlot !== undefined && item.visualSlot !== index)
+      || !Array.isArray(item.stats)
+      || item.stats.length !== expected.stats.length
+    ) {
+      return false;
+    }
+    return expected.stats.every((expectedStat, statIndex) => {
+      const stat = object(item.stats[statIndex]);
+      return stat.label === expectedStat.label && stat.value === expectedStat.value;
+    });
+  });
+}
+
+/**
+ * Applies compatibility only to JSON read from D1/version history. POST input
+ * still goes through sanitizeSiteContent unchanged, so a newly submitted block
+ * can never disappear merely because it resembles an older source version.
+ */
+function applyStoredSiteContentCompatibility(
+  key: SiteContentKey,
+  value: UnknownRecord,
+): UnknownRecord {
+  if (key !== 'service:meta-ads' || !isExactLegacyMetaAdsCases(value.cases)) return value;
+  const { cases: _legacyCases, ...current } = value;
+  return current;
+}
+
 export function isServiceContentKey(value: string): value is ServiceContentKey {
   return (SERVICE_CONTENT_KEYS as readonly string[]).includes(value);
 }
@@ -290,7 +416,10 @@ function sanitizeContact(value: unknown): UnknownRecord | undefined {
 
 function sanitizeCaseItems(value: unknown): UnknownRecord[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const items = value.slice(0, 12).map((item) => {
+  // The public layout, mobile navigation and deferred section geometry are a
+  // four-card contract. Accepting twelve here produced clipped navigation and
+  // severe layout shifts that the editor could not accurately preview.
+  const items = value.slice(0, 4).map((item) => {
     const source = object(item);
     const target: UnknownRecord = {};
     assignText(target, source, 'title', 180);
@@ -465,7 +594,8 @@ export function safeJsonObject(raw: string | null | undefined): UnknownRecord {
 export function safeSiteJsonObject(key: SiteContentKey, raw: string | null | undefined): UnknownRecord {
   if (!raw) return {};
   try {
-    return sanitizeSiteContent(key, JSON.parse(raw));
+    const sanitized = sanitizeSiteContent(key, JSON.parse(raw));
+    return applyStoredSiteContentCompatibility(key, sanitized);
   } catch {
     return {};
   }

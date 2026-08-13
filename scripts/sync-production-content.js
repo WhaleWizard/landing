@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'no
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isUsableArticleList } from './fetch-articles.js';
-import { migrateLegacyPublishedContent, SITE_CONTENT_KEYS } from './site-content-sync.js';
+import { applyStoredSiteContentCompatibility, SITE_CONTENT_KEYS } from './site-content-sync.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_ARTICLES_BYTES = 5_000_000;
@@ -31,7 +31,7 @@ export function normalizeProductionSiteContent(rows, fetchedAt = new Date().toIS
     const payload = rows.get(key);
     if (!payload?.success) throw new Error(`Production content request failed for ${key}.`);
     if (payload.source !== 'd1' || !payload.content || typeof payload.content !== 'object') continue;
-    const content = migrateLegacyPublishedContent(key, payload.content);
+    const content = applyStoredSiteContentCompatibility(key, payload.content);
     if (content && typeof content === 'object' && Object.keys(content).length > 0) sections[key] = content;
   }
   return { schemaVersion: 1, source: 'production-api', fetchedAt, sections };

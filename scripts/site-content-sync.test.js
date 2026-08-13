@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import {
+  applyStoredSiteContentCompatibility,
+  LEGACY_META_ADS_CASES,
   loadPublishedSiteContent,
   mergePublishedContent,
-  migrateLegacyPublishedContent,
   SITE_CONTENT_KEYS,
   writeSiteContentSnapshot,
 } from './site-content-sync.js';
@@ -72,27 +73,17 @@ test('published block arrays control additions, deletions and empty optional lis
   assert.deepEqual(merged.stats, []);
 });
 
-test('only the superseded Meta Ads problem block yields to the new source cases', () => {
-  const legacy = migrateLegacyPublishedContent('service:meta-ads', {
+test('build compatibility removes only the exact superseded Meta Ads cases', () => {
+  const legacy = applyStoredSiteContentCompatibility('service:meta-ads', {
     hero: { badge: 'Published hero stays' },
-    cases: {
-      badge: 'С чем чаще всего приходят',
-      titlePrefix: 'Где теряется результат',
-      titleAccent: 'в Meta Ads',
-      items: [{ title: 'Лиды есть, продаж мало' }],
-    },
+    cases: structuredClone(LEGACY_META_ADS_CASES),
   });
   assert.deepEqual(legacy, { hero: { badge: 'Published hero stays' } });
 
-  const current = {
-    cases: {
-      badge: 'Свежая редакция',
-      titlePrefix: 'Кейсы для',
-      titleAccent: 'новой ниши',
-    },
-  };
-  assert.equal(migrateLegacyPublishedContent('service:meta-ads', current), current);
-  assert.equal(migrateLegacyPublishedContent('service:google-ads', current), current);
+  const edited = structuredClone(LEGACY_META_ADS_CASES);
+  edited.items[0].description = 'Владелец изменил карточку.';
+  const current = applyStoredSiteContentCompatibility('service:meta-ads', { cases: edited });
+  assert.equal(current.cases.items[0].description, edited.items[0].description);
 });
 
 test('D1 content is fetched for every supported section and stored as a build snapshot', async () => {

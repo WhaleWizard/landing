@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -61,7 +69,7 @@ function useDebounced<T>(value: T, delayMs: number): T {
 
 function useAvailableWidth(ref: RefObject<HTMLDivElement | null>) {
   const [width, setWidth] = useState(0);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = ref.current;
     if (!node) return;
     const update = () => setWidth(node.clientWidth);
@@ -89,12 +97,19 @@ function PreviewViewport({
   const hostRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const availableWidth = useAvailableWidth(hostRef);
+  const [contentHeight, setContentHeight] = useState(preset.height);
+  const measured = availableWidth > 0;
   const sidePadding = expanded ? 24 : 32;
   const scale = zoom === 'fit'
-    ? Math.min(1, Math.max(0.1, (availableWidth - sidePadding) / preset.width))
+    ? measured ? Math.min(1, Math.max(0.1, (availableWidth - sidePadding) / preset.width)) : 1
     : 1;
+  const iframeHeight = Math.max(preset.height, Math.min(6000, contentHeight));
   const scaledWidth = preset.width * scale;
-  const scaledHeight = preset.height * scale;
+  const scaledHeight = iframeHeight * scale;
+
+  useLayoutEffect(() => {
+    setContentHeight(preset.height);
+  }, [payload.revision, preset.height, preset.id]);
 
   const postPayload = useCallback(() => {
     iframeRef.current?.contentWindow?.postMessage(payload, window.location.origin);
@@ -109,11 +124,21 @@ function PreviewViewport({
       if (event.origin !== window.location.origin) return;
       if (event.source !== iframeRef.current?.contentWindow) return;
       if (event.data?.type === CONTENT_PREVIEW_READY_MESSAGE) postPayload();
-      if (event.data?.type === CONTENT_PREVIEW_REPORT_MESSAGE) onReport?.(event.data as ContentPreviewReport);
+      if (event.data?.type === CONTENT_PREVIEW_REPORT_MESSAGE) {
+        const report = event.data as ContentPreviewReport;
+        if (report.revision !== payload.revision) return;
+        if (Number.isFinite(report.contentHeight) && report.contentHeight > 0) {
+          setContentHeight((current) => {
+            const next = Math.ceil(report.contentHeight);
+            return current === next ? current : next;
+          });
+        }
+        onReport?.(report);
+      }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [postPayload, onReport]);
+  }, [payload.revision, postPayload, onReport]);
 
   const stageHeight = expanded
     ? `min(${Math.max(480, scaledHeight)}px, calc(100vh - 190px))`
@@ -123,7 +148,7 @@ function PreviewViewport({
     <div
       ref={hostRef}
       className={`admin-site-preview__stage${zoom === 'actual' ? ' is-actual' : ''}`}
-      style={{ height: stageHeight }}
+      style={{ height: stageHeight, visibility: measured ? 'visible' : 'hidden' }}
     >
       <div
         className="admin-site-preview__scaled-frame"
@@ -139,7 +164,7 @@ function PreviewViewport({
           onLoad={postPayload}
           style={{
             width: preset.width,
-            height: preset.height,
+            height: iframeHeight,
             transform: `scale(${scale})`,
           }}
         />
@@ -175,19 +200,24 @@ export default function AdminContentPreview({
   const [clippedLines, setClippedLines] = useState<string[]>([]);
   const settledContent = useDebounced(content, 220);
   const pending = settledContent !== content;
+  const revisionRef = useRef(0);
   const handleReport = useCallback((report: ContentPreviewReport) => {
     setClippedLines(report.clippedTitleLines);
   }, []);
   // Предупреждение относится к конкретному блоку и конкретной ширине: при
   // смене любого из них оно недействительно, пока кадр не отчитается заново.
   useEffect(() => { setClippedLines([]); }, [page, section, presetId]);
-  const payload = useMemo<ContentPreviewPayload>(() => ({
-    type: CONTENT_PREVIEW_MESSAGE,
-    page,
-    section,
-    content: settledContent,
-    replayKey,
-  }), [settledContent, page, replayKey, section]);
+  const payload = useMemo<ContentPreviewPayload>(() => {
+    revisionRef.current += 1;
+    return {
+      type: CONTENT_PREVIEW_MESSAGE,
+      revision: revisionRef.current,
+      page,
+      section,
+      content: settledContent,
+      replayKey,
+    };
+  }, [settledContent, page, replayKey, section]);
 
   return (
     <section

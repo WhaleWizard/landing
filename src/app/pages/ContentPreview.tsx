@@ -21,6 +21,7 @@ import {
 } from './ServiceLandingPage';
 import { mergeContent } from '../hooks/useServiceContent';
 import {
+  getContentFontDefinition,
   managedBodyClasses,
   managedBodyStyle,
   managedTitleClasses,
@@ -75,6 +76,87 @@ const SERVICE_THEMES: Record<ServiceType, {
 
 const PREVIEW_PAGES = new Set(['home', 'meta-ads', 'meta-apps', 'google-ads', 'consult']);
 const PREVIEW_SECTIONS = new Set(['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact']);
+
+type PreviewFontRequest = {
+  descriptor: string;
+  sample: string;
+};
+
+function contentTextSample(value: unknown): string {
+  const parts: string[] = [];
+  const visit = (item: unknown) => {
+    if (typeof item === 'string') {
+      parts.push(item);
+      return;
+    }
+    if (Array.isArray(item)) {
+      item.forEach(visit);
+      return;
+    }
+    if (item && typeof item === 'object') Object.values(item).forEach(visit);
+  };
+  visit(value);
+  const uniqueCharacters = Array.from(new Set(parts.join(''))).join('');
+  return uniqueCharacters.slice(0, 512) || 'Whale Wizard АБВГД абвгд 0123456789';
+}
+
+function previewFontRequests(payload: ContentPreviewPayload): PreviewFontRequest[] {
+  const block = payload.content[payload.section];
+  if (!block || payload.section === 'seo' || !('typography' in block)) return [];
+
+  const typography = block.typography;
+  const sample = contentTextSample(block);
+  const requests = new Map<string, PreviewFontRequest>();
+  const add = (fontId: unknown, weight: unknown, fallbackWeight: number) => {
+    const definition = getContentFontDefinition(fontId);
+    if (definition.id === 'auto' || !definition.cssFamily) return;
+    const resolvedWeight = typeof weight === 'number' ? weight : fallbackWeight;
+    const descriptor = `normal ${resolvedWeight} 32px ${definition.cssFamily}`;
+    requests.set(descriptor, { descriptor, sample });
+  };
+
+  add(typography.titleFont, typography.titleWeight, 700);
+  add(typography.bodyFont, 400, 400);
+  if (payload.section === 'hero') {
+    payload.content.hero.titleLines.forEach((line) => add(line.font, typography.titleWeight, 700));
+  }
+  return Array.from(requests.values());
+}
+
+/**
+ * The iframe stays hidden until the exact selected faces have loaded. A
+ * revision-based state makes it hidden in the same render that swaps fonts,
+ * so an old or fallback face never gets a visible frame.
+ */
+function usePreviewFontsReady(payload: ContentPreviewPayload | null): boolean {
+  const [readyRevision, setReadyRevision] = useState<number | null>(null);
+  const requests = useMemo(() => payload ? previewFontRequests(payload) : [], [payload]);
+
+  useEffect(() => {
+    if (!payload) return undefined;
+    let cancelled = false;
+    const revision = payload.revision;
+
+    const load = async () => {
+      const fontSet = document.fonts;
+      if (fontSet) {
+        await Promise.all(requests.map(({ descriptor, sample }) => (
+          fontSet.load(descriptor, sample).catch(() => [])
+        )));
+        await fontSet.ready.catch(() => undefined);
+      }
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+      });
+      if (!cancelled) setReadyRevision(revision);
+    };
+
+    void load();
+    return () => { cancelled = true; };
+  }, [payload, requests]);
+
+  return Boolean(payload && readyRevision === payload.revision);
+}
 
 function ServiceContactCopy({ page, content }: { page: ServiceType; content: EditableContent['contact'] }) {
   const theme = SERVICE_THEMES[page];
@@ -239,7 +321,13 @@ function useHeroEffectPlayback({
   return phase;
 }
 
-function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) {
+function ContentPreviewSurface({
+  payload,
+  fontsReady,
+}: {
+  payload: ContentPreviewPayload;
+  fontsReady: boolean;
+}) {
   const { page, section, content, replayKey = 0 } = payload;
   const source = page === 'home' ? null : pageConfigs[page];
   const theme = page === 'home' ? null : SERVICE_THEMES[page];
@@ -250,26 +338,39 @@ function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) 
     '--ring': theme.primary,
   } as CSSProperties : undefined;
 
-  const hero = mergeContent<HeroContent>(source?.hero ?? defaultHeroContent, content.hero);
-  const services = mergeContent<ServicesContent>(source?.services ?? defaultServicesContent, content.services);
-  const cases = mergeContent<CasesContent>(source?.cases ?? defaultCasesContent, content.cases);
-  const cta = mergeContent<CallToActionContent>(source?.cta ?? defaultCallToActionContent, content.cta);
-  const testimonialSource = page === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : defaultTestimonialsContent;
-  const testimonials = mergeContent<TestimonialsContent & { stats?: TestimonialStat[] }>(testimonialSource, content.testimonials);
-  const contact = content.contact;
+  // A preview renders one block at a time. Merging every large block on every
+  // keystroke used to do work whose result could not possibly be displayed.
+  const hero = section === 'hero'
+    ? mergeContent<HeroContent>(source?.hero ?? defaultHeroContent, content.hero)
+    : null;
+  const services = section === 'services'
+    ? mergeContent<ServicesContent>(source?.services ?? defaultServicesContent, content.services)
+    : null;
+  const cases = section === 'cases'
+    ? mergeContent<CasesContent>(source?.cases ?? defaultCasesContent, content.cases)
+    : null;
+  const cta = section === 'cta'
+    ? mergeContent<CallToActionContent>(source?.cta ?? defaultCallToActionContent, content.cta)
+    : null;
+  const testimonials = section === 'testimonials'
+    ? mergeContent<TestimonialsContent & { stats?: TestimonialStat[] }>(
+      page === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : defaultTestimonialsContent,
+      content.testimonials,
+    )
+    : null;
 
   // Длительность считается из настроек самой анимации: раньше здесь стояло
   // фиксированное окно, и медленная «печатная машинка» не успевала доиграть.
-  const heroLines = hero.titleLines?.length
+  const heroLines = hero?.titleLines?.length
     ? hero.titleLines
-    : [
+    : hero ? [
       { text: String(hero.titlePrefix || ''), effect: undefined, speed: undefined },
       { text: String(hero.titleAccent || ''), effect: undefined, speed: undefined },
-    ];
-  const totalMs = heroTitleTotalDurationMs(heroLines, hero.titleAnimation);
+    ] : [];
+  const totalMs = hero ? heroTitleTotalDurationMs(heroLines, hero.titleAnimation) : 0;
   const effectSignature = JSON.stringify([
-    hero.titleAnimation,
-    hero.titleLines?.map((line) => [line.effect, line.speed]),
+    hero?.titleAnimation,
+    hero?.titleLines?.map((line) => [line.effect, line.speed]),
   ]);
   const textSignature = heroLines.map((line) => line.text).join(' ');
   const heroPhase = useHeroEffectPlayback({ section, totalMs, effectSignature, textSignature, replayKey });
@@ -280,28 +381,29 @@ function ContentPreviewSurface({ payload }: { payload: ContentPreviewPayload }) 
       // идёт через data-hero-effects и разметку не пересоздаёт.
       key={`${page}-${section}`}
       className="ww-content-preview-page marketing-typography min-h-screen overflow-x-hidden bg-background text-foreground"
-      style={{ ...style, pointerEvents: 'none' }}
+      style={{ ...style, pointerEvents: 'none', visibility: fontsReady ? 'visible' : 'hidden' }}
+      aria-busy={!fontsReady}
       data-preview-section={section}
       data-hero-effects={heroPhase}
     >
       {section === 'seo' ? <SeoPreview content={content.seo} /> : null}
       {section === 'hero' ? (
-        page === 'meta-ads' ? <MetaAdsEditorialHero content={hero} />
+        hero && (page === 'meta-ads' ? <MetaAdsEditorialHero content={hero} />
           : page === 'consult' ? <ConsultStudioHero content={hero} />
-            : <Hero content={hero} visual={page === 'meta-apps' ? 'meta-apps' : 'default'} staticMotion />
+            : <Hero content={hero} visual={page === 'meta-apps' ? 'meta-apps' : 'default'} staticMotion />)
       ) : null}
-      {section === 'services' ? <Services content={services} /> : null}
-      {section === 'cases' ? <Cases content={cases} /> : null}
-      {section === 'cta' ? <CallToAction content={cta} /> : null}
+      {section === 'services' && services ? <Services content={services} /> : null}
+      {section === 'cases' && cases ? <Cases content={cases} staticMotion /> : null}
+      {section === 'cta' && cta ? <CallToAction content={cta} /> : null}
       {section === 'testimonials' ? (
-        <Testimonials
+        testimonials ? <Testimonials
           content={testimonials}
           stats={testimonials.stats ?? defaultTestimonialsStats}
-        />
+        /> : null
       ) : null}
       {section === 'contact' ? (
         page === 'home'
-          ? <HomeContactCopy content={contact} />
+          ? <HomeContactCopy content={content.contact} />
           : <ServiceContactCopy page={page} content={content.contact} />
       ) : null}
     </main>
@@ -329,37 +431,79 @@ function findClippedTitleLines(root: ParentNode): string[] {
   });
 }
 
-/**
- * Сообщает редактору о заголовках, которые не помещаются. Замер откладывается
- * до загрузки шрифтов: до неё ширина строки считается по системной подмене и
- * ничего не значит.
- */
-function useClippedTitleReport(payload: ContentPreviewPayload | null) {
+/** Сообщает редактору финальную высоту блока и результат подгонки заголовка. */
+function usePreviewReport(payload: ContentPreviewPayload | null, fontsReady: boolean) {
   useEffect(() => {
-    if (!payload || payload.section !== 'hero') return;
+    if (!payload || !fontsReady) return undefined;
     let cancelled = false;
+    let animationFrame = 0;
+    let timer = 0;
+    let lastSignature = '';
+
+    const root = document.querySelector<HTMLElement>('.ww-content-preview-page');
+    if (!root) return undefined;
 
     const report = () => {
       if (cancelled) return;
+      animationFrame = 0;
+      const clippedTitleLines = payload.section === 'hero'
+        ? findClippedTitleLines(root)
+        : [];
+      const contentHeight = Math.ceil(Math.max(
+        root.scrollHeight,
+        root.getBoundingClientRect().height,
+      ));
+      const signature = JSON.stringify([clippedTitleLines, contentHeight]);
+      if (signature === lastSignature) return;
+      lastSignature = signature;
       const message: ContentPreviewReport = {
         type: CONTENT_PREVIEW_REPORT_MESSAGE,
-        clippedTitleLines: findClippedTitleLines(document),
+        revision: payload.revision,
+        clippedTitleLines,
+        contentHeight,
       };
       window.parent.postMessage(message, window.location.origin);
     };
 
-    const timer = window.setTimeout(report, 260);
-    void document.fonts?.ready.then(report).catch(() => undefined);
+    const scheduleReport = () => {
+      if (cancelled || animationFrame) return;
+      animationFrame = window.requestAnimationFrame(report);
+    };
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(scheduleReport)
+      : null;
+    resizeObserver?.observe(root);
+    const mutationObserver = typeof MutationObserver !== 'undefined'
+      ? new MutationObserver(scheduleReport)
+      : null;
+    mutationObserver?.observe(root, {
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+    window.addEventListener('resize', scheduleReport, { passive: true });
+    scheduleReport();
+    // Title fitting itself is requestAnimationFrame-based. This final pass
+    // catches a fit whose outer box happened to keep the same dimensions.
+    timer = window.setTimeout(report, 260);
+
     return () => {
       cancelled = true;
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
       window.clearTimeout(timer);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      window.removeEventListener('resize', scheduleReport);
     };
-  }, [payload]);
+  }, [fontsReady, payload]);
 }
 
 export default function ContentPreview() {
   const [payload, setPayload] = useState<ContentPreviewPayload | null>(null);
-  useClippedTitleReport(payload);
+  const fontsReady = usePreviewFontsReady(payload);
+  usePreviewReport(payload, fontsReady);
 
   useEffect(() => {
     const receive = (event: MessageEvent) => {
@@ -367,7 +511,10 @@ export default function ContentPreview() {
       const next = event.data as Partial<ContentPreviewPayload> | null;
       if (!next || next.type !== CONTENT_PREVIEW_MESSAGE || !next.content || !next.page || !next.section) return;
       if (!PREVIEW_PAGES.has(next.page) || !PREVIEW_SECTIONS.has(next.section)) return;
-      setPayload(next as ContentPreviewPayload);
+      if (!Number.isInteger(next.revision) || Number(next.revision) < 1) return;
+      setPayload((current) => current?.revision === next.revision
+        ? current
+        : next as ContentPreviewPayload);
     };
     window.addEventListener('message', receive);
     window.parent.postMessage({ type: CONTENT_PREVIEW_READY_MESSAGE }, window.location.origin);
@@ -383,7 +530,7 @@ export default function ContentPreview() {
   return (
     <>
       <SEO title="Предпросмотр редактора" description="Внутренний предпросмотр редактора сайта" url="/admin/content-preview" noIndex />
-      {payload ? <ContentPreviewSurface payload={payload} /> : waiting}
+      {payload ? <ContentPreviewSurface payload={payload} fontsReady={fontsReady} /> : waiting}
     </>
   );
 }

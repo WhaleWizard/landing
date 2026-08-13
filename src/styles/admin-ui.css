@@ -1918,19 +1918,10 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
 }
 
 /*
- * На широком экране предпросмотр остаётся на месте, пока прокручиваешь поля:
- * иначе правку заголовка приходилось проверять, мотая страницу вверх-вниз.
- * Высота кадра ограничена, чтобы под ним оставалось место для самой формы.
+ * Кадр остаётся в обычном потоке страницы: большая липкая рамка перекрывала
+ * поля редактора при прокрутке. Сам кадр прокручивается внутри этой высоты.
  */
 @media (min-width: 1024px) {
-  /* Двойной класс не для красоты: общее правило карточек ниже по файлу
-     задаёт position: relative с той же специфичностью и перебивало sticky. */
-  .admin-root .admin-card.admin-site-preview {
-    position: sticky;
-    top: var(--adm-sticky-top);
-    z-index: 3;
-  }
-
   .admin-root .admin-site-preview:not(.is-collapsed) .admin-site-preview__stage {
     max-height: clamp(280px, 40vh, 520px);
   }
@@ -1986,6 +1977,7 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   border-radius: 12px;
   background: #08090e;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.13), 0 24px 64px rgba(0, 0, 0, 0.42);
+  pointer-events: none;
   transform-origin: left top;
 }
 
@@ -13727,4 +13719,14 @@ body[data-admin-theme] .planner-weekpick {
   .admin-root .admin-sidebar {
     background: var(--adm-surface-elevated);
   }
+}
+.admin-editor-fields {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-editor-fields:disabled {
+  opacity: 0.72;
 }

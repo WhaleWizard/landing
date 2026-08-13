@@ -10,6 +10,11 @@ export const CONTENT_PREVIEW_REPORT_MESSAGE = 'ww:content-preview-report';
 
 export type ContentPreviewPayload = {
   type: typeof CONTENT_PREVIEW_MESSAGE;
+  /**
+   * Monotonically increasing id of the rendered editor snapshot. It keeps a
+   * late report from an older iframe render from overwriting fresh feedback.
+   */
+  revision: number;
   page: EditorPage;
   section: EditorSection;
   content: EditableContent;
@@ -24,6 +29,10 @@ export type ContentPreviewPayload = {
  */
 export type ContentPreviewReport = {
   type: typeof CONTENT_PREVIEW_REPORT_MESSAGE;
+  /** Snapshot this measurement belongs to. */
+  revision: number;
   /** Тексты строк заголовка, которым не хватило ширины. */
   clippedTitleLines: string[];
+  /** Полная высота настоящего блока после загрузки выбранных шрифтов. */
+  contentHeight: number;
 };

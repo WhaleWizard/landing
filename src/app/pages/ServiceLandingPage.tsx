@@ -557,7 +557,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Puzzle-игра с гибридной монетизацией',
           category: 'LATAM и MENA · 12 недель',
           description: 'Масштабировали Android-кампании на события Tutorial Complete, Level 10 и Purchase. Креативы ротировали по удержанию и D7 ROAS, а не по CTR. За период получили 108 600 установок по $0,35; выручка D90 от покупок и рекламы внутри игры — $91 600.',
-          image: '/images/meta-app-case-game.jpg',
+          image: '/images/meta-app-case-game.webp',
           stats: [
             { label: 'Потрачено', value: '$38 000' },
             { label: 'Установки', value: '108 600' },
@@ -568,7 +568,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Приложение онлайн-записи',
           category: 'Казахстан · 10 недель',
           description: 'Оптимизировали кампании на подтверждённую запись, разделили аудитории по городу и категории специалиста, исключили площадки с частыми отменами. Получили 6 120 установок и 1 342 подтверждённые записи; 32% клиентов вернулись повторно в течение 60 дней.',
-          image: '/images/meta-app-case-booking.jpg',
+          image: '/images/meta-app-case-booking.webp',
           stats: [
             { label: 'Потрачено', value: '$8 700' },
             { label: 'Записи', value: '1 342' },
@@ -579,7 +579,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Доставка продуктов в трёх городах',
           category: 'Казахстан и Узбекистан · 12 недель',
           description: 'Оптимизировали рекламу на первый оплаченный заказ и отдельно возвращали пользователей с незавершённой корзиной. Получили 32 800 установок и 6 450 первых заказов по $3,41; 41% покупателей сделали повторный заказ в течение 45 дней.',
-          image: '/images/meta-app-case-grocery.jpg',
+          image: '/images/meta-app-case-grocery.webp',
           stats: [
             { label: 'Потрачено', value: '$22 000' },
             { label: '1-е заказы', value: '6 450' },
@@ -590,7 +590,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Фитнес-приложение по подписке',
           category: 'Бразилия и Мексика · 12 недель',
           description: 'Перевели оптимизацию с установки на триал и первую оплату, локализовали креативы и вернули пользователей, не завершивших оформление. Получили 15 800 установок, 2 780 триалов и 646 новых подписок. Выручка D90 — $50 300.',
-          image: '/images/meta-app-case-fitness.jpg',
+          image: '/images/meta-app-case-fitness.webp',
           stats: [
             { label: 'Потрачено', value: '$19 000' },
             { label: 'Подписки', value: '646' },

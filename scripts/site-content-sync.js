@@ -19,21 +19,109 @@ function isUsableContent(value) {
   return isRecord(value) && Object.keys(value).length > 0;
 }
 
-export function migrateLegacyPublishedContent(key, content) {
-  if (key !== 'service:meta-ads' || !isRecord(content) || !isRecord(content.cases)) {
-    return content;
-  }
+// The first deploy containing the canonical server-side compatibility reader
+// is built while the previous production API can still return this superseded
+// block. Keep the same exact fingerprint in the build path so that one deploy
+// cannot bake the stale cards back into SEO HTML or the inline client seed.
+export const LEGACY_META_ADS_CASES = {
+  badge: 'С чем чаще всего приходят',
+  titlePrefix: 'Где теряется результат',
+  titleAccent: 'в Meta Ads',
+  description: 'Лиды могут быть дорогими, не доходить до продаж, расходиться с аналитикой или перестать расти в объёме. Для каждой причины нужна своя проверка — универсальной «оптимизации кабинета» здесь нет.',
+  items: [
+    {
+      title: 'Лиды есть, продаж мало',
+      category: 'Услуги и B2B',
+      description: 'Возвращаем из CRM статусы квалификации и продажи, чтобы видеть не только CPL, но и стоимость клиента.',
+      stats: [
+        { label: 'Заявка', value: 'CPL' },
+        { label: 'Качество', value: 'CRM' },
+        { label: 'Клиент', value: 'CAC' },
+      ],
+    },
+    {
+      title: 'Лиды слишком дорогие',
+      category: 'Лидогенерация',
+      description: 'Проверяем оффер, креатив, форму и посадочную по цепочке, чтобы понять, где именно теряется конверсия.',
+      stats: [
+        { label: 'Объявление', value: 'CTR' },
+        { label: 'Страница', value: 'CR' },
+        { label: 'Заявка', value: 'CPL' },
+      ],
+    },
+    {
+      title: 'Продажи есть, экономика не сходится',
+      category: 'E-commerce',
+      description: 'Проверяем Purchase, сумму покупки, CAPI, каталог и маржу. Оптимизируем кампании по продажам или выручке, когда данных уже достаточно.',
+      stats: [
+        { label: 'Покупка', value: 'CPA' },
+        { label: 'Выручка', value: 'ROAS' },
+        { label: 'Экономика', value: 'Маржа' },
+      ],
+    },
+    {
+      title: 'Кампании упёрлись в объём',
+      category: 'Масштабирование',
+      description: 'Добавляем новые креативные направления и увеличиваем бюджет поэтапно — с контролем цены и качества результата.',
+      stats: [
+        { label: 'Расход', value: 'Бюджет' },
+        { label: 'Результат', value: 'CPA' },
+        { label: 'Показы', value: 'Частота' },
+      ],
+    },
+  ],
+};
 
-  const legacyCases = content.cases;
-  const isLegacyProblemSection = legacyCases.badge === 'С чем чаще всего приходят'
-    && legacyCases.titlePrefix === 'Где теряется результат'
-    && legacyCases.titleAccent === 'в Meta Ads';
-  if (!isLegacyProblemSection) return content;
+const LEGACY_DEFAULT_TYPOGRAPHY = {
+  titleDesktop: 'standard',
+  titleMobile: 'standard',
+  body: 'standard',
+  titleFont: 'auto',
+  bodyFont: 'auto',
+  titleMaxLinesDesktop: 0,
+  titleMaxLinesMobile: 0,
+  titleWeight: 'auto',
+  titleLineHeight: 'auto',
+  titleLetterSpacing: 'auto',
+};
 
-  // Keep every other published CMS section, but allow the new source-backed
-  // case cards to replace this one exact pre-case problem block.
-  const { cases: _legacyCases, ...currentContent } = content;
-  return currentContent;
+function exactLegacyTypography(value) {
+  if (value === undefined) return true;
+  if (!isRecord(value) || Object.keys(value).length === 0) return false;
+  return Object.entries(value).every(([key, current]) => (
+    Object.prototype.hasOwnProperty.call(LEGACY_DEFAULT_TYPOGRAPHY, key)
+    && LEGACY_DEFAULT_TYPOGRAPHY[key] === current
+  ));
+}
+
+export function applyStoredSiteContentCompatibility(key, content) {
+  if (key !== 'service:meta-ads' || !isRecord(content) || !isRecord(content.cases)) return content;
+  const cases = content.cases;
+  const exact = cases.badge === LEGACY_META_ADS_CASES.badge
+    && cases.titlePrefix === LEGACY_META_ADS_CASES.titlePrefix
+    && cases.titleAccent === LEGACY_META_ADS_CASES.titleAccent
+    && cases.description === LEGACY_META_ADS_CASES.description
+    && exactLegacyTypography(cases.typography)
+    && Array.isArray(cases.items)
+    && cases.items.length === LEGACY_META_ADS_CASES.items.length
+    && LEGACY_META_ADS_CASES.items.every((expected, index) => {
+      const item = cases.items[index];
+      return isRecord(item)
+        && item.title === expected.title
+        && item.category === expected.category
+        && item.description === expected.description
+        && (item.visualSlot === undefined || item.visualSlot === index)
+        && Array.isArray(item.stats)
+        && item.stats.length === expected.stats.length
+        && expected.stats.every((stat, statIndex) => (
+          isRecord(item.stats[statIndex])
+          && item.stats[statIndex].label === stat.label
+          && item.stats[statIndex].value === stat.value
+        ));
+    });
+  if (!exact) return content;
+  const { cases: _legacyCases, ...current } = content;
+  return current;
 }
 
 /**
@@ -80,7 +168,7 @@ export function readSiteContentSnapshot(pathname) {
     if (!isRecord(parsed?.sections)) return {};
     const sections = {};
     for (const key of SITE_CONTENT_KEYS) {
-      const content = migrateLegacyPublishedContent(key, parsed.sections[key]);
+      const content = applyStoredSiteContentCompatibility(key, parsed.sections[key]);
       if (isUsableContent(content)) sections[key] = content;
     }
     return sections;
@@ -93,7 +181,7 @@ export function writeSiteContentSnapshot(pathname, sections) {
   if (!pathname) return;
   const safeSections = {};
   for (const key of SITE_CONTENT_KEYS) {
-    const content = migrateLegacyPublishedContent(key, sections[key]);
+    const content = sections[key];
     if (isUsableContent(content)) safeSections[key] = content;
   }
   writeFileSync(pathname, `${JSON.stringify({ schemaVersion: 1, fetchedAt: new Date().toISOString(), sections: safeSections }, null, 2)}\n`, 'utf8');
@@ -127,7 +215,7 @@ async function fetchSection({ endpoint, key, fetchImpl, timeoutMs, buildToken })
 
     // `source: static` is an authoritative answer that no published D1
     // override exists. It must clear a potentially stale local snapshot.
-    const content = migrateLegacyPublishedContent(key, payload.content);
+    const content = applyStoredSiteContentCompatibility(key, payload.content);
     if (payload.source !== 'd1' || !isUsableContent(content)) {
       return { key, status: 'static', content: null };
     }

@@ -48,7 +48,8 @@ import {
   type HeroTitleEffectSpeed,
 } from '../HeroTitleEffect';
 import AdminFaqControl from './AdminFaqControl';
-import { confirmAsk } from './AdminFeedback';
+import AdminDisclosure from './AdminDisclosure';
+import { AdminSectionSkeleton, confirmAsk } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
 import AdminContentPreview from './AdminContentPreview';
 import {
@@ -356,11 +357,11 @@ function validateEditableContent(content: EditableContent): { section: EditorSec
   ))) {
     return { section: 'services', message: 'заполните название, описание и пункты каждой карточки услуги' };
   }
-  if (!content.cases.items.length || content.cases.items.some((item) => (
+  if (content.cases.items.length !== 4 || content.cases.items.some((item) => (
     blank(item.title) || blank(item.category) || blank(item.description)
     || item.stats.some((stat) => blank(stat.value) || blank(stat.label))
   ))) {
-    return { section: 'cases', message: 'заполните текст карточек кейсов и все добавленные показатели' };
+    return { section: 'cases', message: 'в блоке должно быть четыре заполненные карточки кейсов; заполните также все добавленные показатели' };
   }
   if (content.services.detailed.sections.some((item) => blank(item.title) || blank(item.text))) {
     return { section: 'services', message: 'в разборе «как я работаю» остался пустой заголовок или текст' };
@@ -1079,7 +1080,8 @@ export default function AdminContentControl({ password }: { password: string }) 
   const [section, setSection] = useState<SectionPayload | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('hero');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [publishArmed, setPublishArmed] = useState(false);
   const [contentMode, setContentMode] = useState<'pages' | 'faq'>('pages');
@@ -1109,6 +1111,9 @@ export default function AdminContentControl({ password }: { password: string }) 
     [],
   );
   const isDirty = contentSignature !== baselineSignature;
+  const isHydrated = hydratedKey === pageMeta.key;
+  const hasUnpublishedDraft = section?.status === 'draft';
+  const canPublish = isDirty || hasUnpublishedDraft;
 
   /**
    * Какие блоки отличаются от сохранённой версии. Правка одного заголовка
@@ -1176,6 +1181,7 @@ export default function AdminContentControl({ password }: { password: string }) 
       setVersions(payload.versions || []);
       setContent(next);
       setBaseline(next);
+      setHydratedKey(pageMeta.key);
       return true;
     } catch (error) {
       if (requestId !== loadSequence.current) return false;
@@ -1214,7 +1220,9 @@ export default function AdminContentControl({ password }: { password: string }) 
     }
     loadSequence.current += 1;
     const next = editableDefaults(nextPage);
+    contentRef.current = next;
     setPage(nextPage);
+    setLoading(true);
     setContent(next);
     setBaseline(next);
     setSection(null);
@@ -1222,6 +1230,7 @@ export default function AdminContentControl({ password }: { password: string }) 
     setActiveSection('hero');
     setNotice('');
     setPublishArmed(false);
+    setHydratedKey(null);
   };
 
   const update = (path: Array<string | number>, value: unknown) => {
@@ -1258,6 +1267,10 @@ export default function AdminContentControl({ password }: { password: string }) 
   };
 
   const save = async (action: 'save' | 'publish') => {
+    if (!isHydrated) {
+      setNotice('Сначала дождитесь загрузки сохранённой версии страницы.');
+      return;
+    }
     const savedContent = clone(content);
     const validationIssue = validateEditableContent(savedContent);
     if (validationIssue) {
@@ -1365,13 +1378,13 @@ export default function AdminContentControl({ password }: { password: string }) 
         <div className="admin-content-statuses">
           <span className={section?.status === 'published' ? 'admin-state admin-state--success' : 'admin-state admin-state--warning'}>
             {section?.status === 'published' ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
-            {section?.status === 'published' ? `На сайте · v${section.version}` : section ? `Черновик · v${section.version}` : 'Статическая версия'}
+            {!isHydrated ? 'Загружаю сохранённую версию…' : section?.status === 'published' ? `На сайте · v${section.version}` : section ? `Черновик · v${section.version}` : 'Статическая версия'}
           </span>
           {isDirty ? (
             <span className="admin-state admin-state--warning">
               Не сохранено: {[...changedSections].map((value) => SECTION_LABELS[value]).join(', ')}
             </span>
-          ) : <span className="admin-state">Редактор синхронизирован</span>}
+          ) : <span className="admin-state">{isHydrated ? 'Редактор синхронизирован' : 'Редактор пока недоступен'}</span>}
         </div>
         <button className="admin-button admin-button--secondary" type="button" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
         {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); setBaseline(restored); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}
@@ -1385,6 +1398,21 @@ export default function AdminContentControl({ password }: { password: string }) 
       ) : null}
       {notice ? <div className="admin-notice" role="status" aria-live="polite">{notice}</div> : null}
 
+      {!isHydrated ? (
+        <section className="admin-card" aria-busy={loading}>
+          {loading ? (
+            <AdminSectionSkeleton tiles={2} rows={5} />
+          ) : (
+            <div className="admin-stack">
+              <div>
+                <h3 className="admin-card-title">Сохранённая версия не загрузилась</h3>
+                <p className="admin-muted">Редактирование заблокировано, чтобы случайно не записать поверх базы стандартный текст страницы.</p>
+              </div>
+              <div><button className="admin-button admin-button--primary" type="button" onClick={() => void load()}><RefreshCw aria-hidden="true" /> Повторить загрузку</button></div>
+            </div>
+          )}
+        </section>
+      ) : <>
       <AdminContentPreview page={page} section={activeSection} content={content} replayKey={replayKey} />
 
       <div className="admin-content-layout">
@@ -1436,7 +1464,7 @@ export default function AdminContentControl({ password }: { password: string }) 
               <AdminSelect label="Редактируемый блок" value={activeSection} options={availableSections.map((value, index) => ({ value, label: value === 'seo' ? `SEO · ${SECTION_LABELS[value]}` : `${index}. ${SECTION_LABELS[value]}` }))} onValueChange={(value) => setActiveSection(value as EditorSection)} />
             </div>
 
-            <div className="admin-block-editor">
+            <fieldset className="admin-block-editor admin-editor-fields" disabled={loading}>
               <div className="admin-block-editor__heading">
                 <span>{activeSection === 'seo' ? 'SEO' : availableSections.indexOf(activeSection)}</span>
                 <div><p className="admin-eyebrow">Редактируемый блок</p><h3>{SECTION_LABELS[activeSection]}</h3></div>
@@ -1542,10 +1570,12 @@ export default function AdminContentControl({ password }: { password: string }) 
                           onMove={(direction) => update(['services', 'cards'], moveItem(content.services.cards, index, direction))}
                           onDelete={() => update(['services', 'cards'], content.services.cards.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" open={index === 0}>
-                          <summary><span>{card.title || 'Новая карточка услуги'}</span><ChevronRight aria-hidden="true" /></summary>
+                        <AdminDisclosure
+                          initialOpen={index === 0}
+                          summary={<><span>{card.title || 'Новая карточка услуги'}</span><ChevronRight aria-hidden="true" /></>}
+                        >
                           <div className="admin-form-grid"><Field id={`service-title-${index}`} label="Название" value={card.title} maxLength={160} onChange={(value) => update(['services', 'cards', index, 'title'], value)} /><Field id={`service-description-${index}`} label="Описание" value={card.description} multiline maxLength={700} onChange={(value) => update(['services', 'cards', index, 'description'], value)} /><StringListEditor label="Что входит" singular="Пункт" values={card.features} maxItems={8} maxLength={120} onChange={(value) => update(['services', 'cards', index, 'features'], value)} /></div>
-                        </details>
+                        </AdminDisclosure>
                       </div>
                     ))}
                     <AddItemButton label="Добавить карточку" count={content.services.cards.length} maxItems={8} onAdd={() => update(['services', 'cards'], [...content.services.cards, { title: '', description: '', features: [''], visualSlot: content.services.cards.length % editableDefaults(page).services.cards.length }])} />
@@ -1572,8 +1602,10 @@ export default function AdminContentControl({ password }: { password: string }) 
                           onMove={(direction) => update(['services', 'detailed', 'sections'], moveItem(content.services.detailed.sections, index, direction))}
                           onDelete={() => update(['services', 'detailed', 'sections'], content.services.detailed.sections.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" open={index === 0}>
-                          <summary><span>{item.title || 'Новый раздел'}</span><ChevronRight aria-hidden="true" /></summary>
+                        <AdminDisclosure
+                          initialOpen={index === 0}
+                          summary={<><span>{item.title || 'Новый раздел'}</span><ChevronRight aria-hidden="true" /></>}
+                        >
                           <div className="admin-form-grid">
                             <Field id={`detailed-title-${index}`} label="Заголовок раздела" value={item.title} maxLength={200} onChange={(value) => update(['services', 'detailed', 'sections', index, 'title'], value)} />
                             <Field
@@ -1587,7 +1619,7 @@ export default function AdminContentControl({ password }: { password: string }) 
                               onChange={(value) => update(['services', 'detailed', 'sections', index, 'text'], value)}
                             />
                           </div>
-                        </details>
+                        </AdminDisclosure>
                       </div>
                     ))}
                     <AddItemButton
@@ -1609,7 +1641,8 @@ export default function AdminContentControl({ password }: { password: string }) 
               {activeSection === 'cases' ? <div className="admin-stack admin-stack--lg">
                 <div className="admin-form-grid"><Field id="cases-badge" label="Бейдж" value={content.cases.badge} maxLength={120} onChange={(value) => update(['cases', 'badge'], value)} /><Field id="cases-prefix" label="Заголовок" value={content.cases.titlePrefix} maxLength={180} onChange={(value) => update(['cases', 'titlePrefix'], value)} /><Field id="cases-accent" label="Акцент заголовка" value={content.cases.titleAccent} maxLength={220} onChange={(value) => update(['cases', 'titleAccent'], value)} /><Field id="cases-description" label="Описание блока" value={content.cases.description} multiline maxLength={900} onChange={(value) => update(['cases', 'description'], value)} /></div>
                 <div className="admin-field admin-field--wide">
-                  <div className="admin-label-row"><span className="admin-label">Карточки кейсов</span><span className="admin-char-count">{content.cases.items.length}/12</span></div>
+                  <div className="admin-label-row"><span className="admin-label">Карточки кейсов</span><span className="admin-char-count">{content.cases.items.length}/4</span></div>
+                  <span className="admin-hint">Блок состоит из четырёх карточек. Все они раскрыты сразу; порядок можно менять стрелками.</span>
                   <div className="admin-list-editor">
                     {content.cases.items.map((item, index) => (
                       <div key={index}>
@@ -1617,12 +1650,14 @@ export default function AdminContentControl({ password }: { password: string }) 
                           label="Карточка"
                           index={index}
                           count={content.cases.items.length}
-                          minItems={1}
+                          minItems={4}
                           onMove={(direction) => update(['cases', 'items'], moveItem(content.cases.items, index, direction))}
                           onDelete={() => update(['cases', 'items'], content.cases.items.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" open={index === 0}>
-                          <summary><span>{item.title || 'Новая карточка кейса'}</span><ChevronRight aria-hidden="true" /></summary>
+                        <AdminDisclosure
+                          initialOpen
+                          summary={<><span>{item.title || 'Новая карточка кейса'}</span><ChevronRight aria-hidden="true" /></>}
+                        >
                           <div className="admin-form-grid">
                             <Field id={`case-title-${index}`} label="Название" value={item.title} maxLength={180} onChange={(value) => update(['cases', 'items', index, 'title'], value)} />
                             <Field id={`case-category-${index}`} label="Категория" value={item.category} maxLength={100} onChange={(value) => update(['cases', 'items', index, 'category'], value)} />
@@ -1646,10 +1681,29 @@ export default function AdminContentControl({ password }: { password: string }) 
                               </div>
                             </div>
                           </div>
-                        </details>
+                        </AdminDisclosure>
                       </div>
                     ))}
-                    <AddItemButton label="Добавить карточку" count={content.cases.items.length} maxItems={12} onAdd={() => update(['cases', 'items'], [...content.cases.items, { title: '', category: '', description: '', stats: [], visualSlot: content.cases.items.length % editableDefaults(page).cases.items.length }])} />
+                    {content.cases.items.length < 4 ? (
+                      <AddItemButton
+                        label="Добавить недостающую карточку"
+                        count={content.cases.items.length}
+                        maxItems={4}
+                        onAdd={() => {
+                          const sourceItems = editableDefaults(page).cases.items;
+                          const visualSlot = sourceItems.findIndex((_, slot) => (
+                            !content.cases.items.some((item) => item.visualSlot === slot)
+                          ));
+                          update(['cases', 'items'], [...content.cases.items, {
+                            title: '',
+                            category: '',
+                            description: '',
+                            stats: [],
+                            visualSlot: visualSlot >= 0 ? visualSlot : content.cases.items.length % sourceItems.length,
+                          }]);
+                        }}
+                      />
+                    ) : null}
                   </div>
                 </div>
                 {renderTypography('cases', content.cases.typography, 'section', `${content.cases.titlePrefix} ${content.cases.titleAccent}`.trim())}
@@ -1696,18 +1750,20 @@ export default function AdminContentControl({ password }: { password: string }) 
                           onMove={(direction) => update(['testimonials', 'items'], moveItem(content.testimonials.items, index, direction))}
                           onDelete={() => update(['testimonials', 'items'], content.testimonials.items.filter((_, itemIndex) => itemIndex !== index))}
                         />
-                        <details className="admin-disclosure" open={index === 0}>
-                          <summary>
+                        <AdminDisclosure
+                          initialOpen={index === 0}
+                          summary={<>
                             <span>{item.name || 'Новый отзыв'}{item.company ? ` · ${item.company}` : ''}</span>
                             <ChevronRight aria-hidden="true" />
-                          </summary>
+                          </>}
+                        >
                           <div className="admin-form-grid">
                             <Field id={`review-name-${index}`} label="Имя" value={item.name} maxLength={80} onChange={(value) => update(['testimonials', 'items', index, 'name'], value)} />
                             <Field id={`review-company-${index}`} label="Компания" value={item.company} maxLength={120} hint="Показывается плашкой над текстом отзыва." onChange={(value) => update(['testimonials', 'items', index, 'company'], value)} />
                             <Field id={`review-position-${index}`} label="Должность" value={item.position} maxLength={120} onChange={(value) => update(['testimonials', 'items', index, 'position'], value)} />
                             <Field id={`review-text-${index}`} label="Текст отзыва" value={item.text} multiline rows={5} maxLength={900} onChange={(value) => update(['testimonials', 'items', index, 'text'], value)} />
                           </div>
-                        </details>
+                        </AdminDisclosure>
                       </div>
                     ))}
                     <AddItemButton
@@ -1748,9 +1804,9 @@ export default function AdminContentControl({ password }: { password: string }) 
               </div> : null}
               <div className="admin-sticky-actions">
                 {!publishArmed ? <button type="button" className="admin-button admin-button--secondary" disabled={loading || !isDirty} onClick={() => void save('save')}><Save aria-hidden="true" /><span className="admin-action-label--desktop">Сохранить черновик</span><span className="admin-action-label--mobile">Черновик</span></button> : null}
-                {!publishArmed ? <button type="button" className="admin-button admin-button--primary" disabled={loading || !isDirty} onClick={() => setPublishArmed(true)}><Send aria-hidden="true" /> Опубликовать</button> : <div className="admin-confirm-inline" role="alert"><span>Опубликовать изменения на {pageMeta.path}?</span><button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => void save('publish')}>Да, опубликовать</button><button type="button" className="admin-button admin-button--quiet" disabled={loading} onClick={() => setPublishArmed(false)}>Отмена</button></div>}
+                {!publishArmed ? <button type="button" className="admin-button admin-button--primary" disabled={loading || !canPublish} onClick={() => setPublishArmed(true)}><Send aria-hidden="true" /> Опубликовать</button> : <div className="admin-confirm-inline" role="alert"><span>{isDirty ? 'Опубликовать изменения' : 'Опубликовать сохранённый черновик'} на {pageMeta.path}?</span><button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => void save('publish')}>Да, опубликовать</button><button type="button" className="admin-button admin-button--quiet" disabled={loading} onClick={() => setPublishArmed(false)}>Отмена</button></div>}
               </div>
-            </div>
+            </fieldset>
           </div>
         </section>
 
@@ -1759,6 +1815,7 @@ export default function AdminContentControl({ password }: { password: string }) 
           <div className="admin-notice admin-notice--warning">Публикация сразу меняет видимый текст через D1. Если настроен CF_PAGES_DEPLOY_HOOK_URL, админка одновременно запускает production-сборку той же версии для SEO-HTML; черновик в поисковую копию не попадает.</div>
         </aside>
       </div>
+      </>}
     </div>
   );
 }

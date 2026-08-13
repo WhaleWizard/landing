@@ -17,8 +17,10 @@ import {
   STATIC_ROUTES,
 } from './config.js';
 import { loadPublishedSiteContent, mergePublishedContent } from './site-content-sync.js';
+import { FONT_LIBRARY, cssFamilyName } from './font-library.manifest.js';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = join(SCRIPTS_DIR, '..', 'public');
 
 // Собирает scripts/content-entry.tsx (реэкспорт реальных данных/легальных текстов
 // из src/app) в обычный ESM-модуль, чтобы взять из него настоящий контент
@@ -821,6 +823,90 @@ const HERO_PRELOADS = {
   ],
 };
 
+const FONT_LIBRARY_BY_ID = new Map(FONT_LIBRARY.map((font) => [font.id, font]));
+const DISPLAY_SERIF_FONT_IDS = new Set([
+  'prata',
+  'cormorant-garamond',
+  'oranienbaum',
+  'playfair-display',
+  'yeseva-one',
+  'forum',
+  'kelly-slab',
+  'ruslan-display',
+]);
+
+function shellFontFamily(fontId, role = 'title') {
+  if (!fontId || fontId === 'auto') return '';
+  if (fontId === 'inter') {
+    return "'Inter Variable',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+  }
+
+  const font = FONT_LIBRARY_BY_ID.get(fontId);
+  if (!font || (role === 'body' && !font.bodySafe)) return '';
+  const fallback = font.category === 'mono'
+    ? "ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace"
+    : font.category === 'serif' || DISPLAY_SERIF_FONT_IDS.has(font.id)
+      ? "Georgia,'Times New Roman',Times,serif"
+      : font.category === 'handwritten'
+        ? "'Segoe Print','Bradley Hand',cursive"
+        : "ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+  return `'${cssFamilyName(font.family)}',${fallback}`;
+}
+
+function nearestFontWeight(font, requestedWeight) {
+  const target = Number.isInteger(requestedWeight) ? requestedWeight : 700;
+  return font.weights.reduce((nearest, weight) => (
+    Math.abs(weight - target) < Math.abs(nearest - target) ? weight : nearest
+  ), font.weights[0]);
+}
+
+function resolveHeroFontPreloads(hero = {}) {
+  const typography = hero?.typography || {};
+  const defaultWeight = Number.isInteger(typography.titleWeight) ? typography.titleWeight : 700;
+  const requestedFonts = new Map();
+  const register = (fontId, text, weight = defaultWeight) => {
+    const font = FONT_LIBRARY_BY_ID.get(fontId);
+    if (!font) return;
+    const current = requestedFonts.get(fontId) || { font, text: '', weight };
+    current.text += ` ${String(text || '')}`;
+    requestedFonts.set(fontId, current);
+  };
+
+  register(typography.titleFont, heroHeading(hero), defaultWeight);
+  register(
+    FONT_LIBRARY_BY_ID.get(typography.bodyFont)?.bodySafe ? typography.bodyFont : undefined,
+    Array.isArray(hero.paragraphs) ? hero.paragraphs.join(' ') : '',
+    400,
+  );
+  if (Array.isArray(hero.titleLines)) {
+    for (const line of hero.titleLines) {
+      register(line?.font, line?.text, line?.tone === 'supporting' ? 500 : defaultWeight);
+    }
+  }
+
+  const hrefs = new Set();
+  for (const { font, text, weight } of requestedFonts.values()) {
+    const resolvedWeight = nearestFontWeight(font, weight);
+    const subsets = /[\u0400-\u052f]/u.test(text) ? ['cyrillic'] : [];
+    if (/[A-Za-z0-9]/u.test(text) || subsets.length === 0) subsets.push('latin');
+    const folder = font.dir === 'hero' ? 'hero' : 'library';
+    for (const subset of subsets) {
+      const fileName = `${font.id}-${resolvedWeight}-normal-${subset}.woff2`;
+      if (existsSync(join(PUBLIC_DIR, 'fonts', folder, fileName))) {
+        hrefs.add(`/fonts/${folder}/${fileName}`);
+      }
+    }
+  }
+
+  return [...hrefs];
+}
+
+function renderFontPreloads(preloads = []) {
+  return preloads
+    .map((href) => `<link rel="preload" as="font" type="font/woff2" href="${escapeHtml(href)}" crossorigin />`)
+    .join('\n  ');
+}
+
 function renderImagePreloads(preloads = []) {
   return preloads
     .map(({ href, priority, media, imageSrcSet, imageSizes }) => {
@@ -846,6 +932,7 @@ function htmlTemplate({
   headExtra = '',
   extraJsonLd = [],
   imagePreloads = [],
+  fontPreloads = [],
   articlePublishedTime,
   articleModifiedTime,
   articleSection,
@@ -885,6 +972,9 @@ function htmlTemplate({
 
   const preloadHtml = renderImagePreloads(imagePreloads);
   if (preloadHtml) html = insertBeforeHeadClose(html, preloadHtml);
+
+  const fontPreloadHtml = renderFontPreloads(fontPreloads);
+  if (fontPreloadHtml) html = insertBeforeHeadClose(html, fontPreloadHtml);
 
   const routeStylesheetHtml = renderRouteStylesheets(canonicalPath, baseHtml);
   if (routeStylesheetHtml) html = insertBeforeHeadClose(html, routeStylesheetHtml);
@@ -1010,7 +1100,83 @@ const generatedShellStyles = {
   articleBody: 'margin-top:34px;padding-top:28px;border-top:1px solid rgba(255,255,255,.12);color:rgba(226,232,240,.86);line-height:1.72;font-size:16px',
 };
 
-function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, children = '', sections = [] }) {
+const SHELL_TITLE_LINE_HEIGHTS = {
+  tight: 0.95,
+  snug: 1.05,
+  normal: 1.15,
+  relaxed: 1.3,
+};
+const SHELL_TITLE_LETTER_SPACING = {
+  tight: '-0.035em',
+  normal: '0em',
+  wide: '0.045em',
+};
+
+function shellTitleSize(value, fallback) {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.min(240, Math.max(8, value));
+  if (value === 'compact') return fallback - 3;
+  if (value === 'large') return fallback + 5;
+  return fallback;
+}
+
+function renderHeroShellTitle(hero, fallbackTitle) {
+  if (!hero || typeof hero !== 'object') {
+    return `<h1 style="${generatedShellStyles.title}">${escapeHtml(fallbackTitle)}</h1>`;
+  }
+
+  const typography = hero.typography || {};
+  const hasTitleLines = Array.isArray(hero.titleLines) && hero.titleLines.length > 0;
+  const mobileSize = shellTitleSize(typography.titleMobile, hasTitleLines ? 21 : 22);
+  const desktopSize = shellTitleSize(typography.titleDesktop, hasTitleLines ? 35 : 38);
+  const titleWeight = Number.isInteger(typography.titleWeight)
+    && typography.titleWeight >= 100
+    && typography.titleWeight <= 900
+    ? typography.titleWeight
+    : 700;
+  const style = [
+    generatedShellStyles.title,
+    `font-size:clamp(${mobileSize}px,4vw,${desktopSize}px)`,
+    `font-weight:${titleWeight}`,
+    'line-height:1.12',
+    'letter-spacing:-.03em',
+  ];
+  const family = shellFontFamily(typography.titleFont);
+  if (family) style.push(`font-family:${family}`);
+  if (SHELL_TITLE_LINE_HEIGHTS[typography.titleLineHeight]) {
+    style.push(`line-height:${SHELL_TITLE_LINE_HEIGHTS[typography.titleLineHeight]}`);
+  }
+  if (SHELL_TITLE_LETTER_SPACING[typography.titleLetterSpacing]) {
+    style.push(`letter-spacing:${SHELL_TITLE_LETTER_SPACING[typography.titleLetterSpacing]}`);
+  }
+
+  const renderLine = (line, index) => {
+    const lineStyle = ['display:block'];
+    const lineFamily = shellFontFamily(line?.font);
+    if (lineFamily) lineStyle.push(`font-family:${lineFamily}`);
+    if (line?.tone === 'accent') {
+      lineStyle.push('background:linear-gradient(90deg,#8b5cf6,#38bdf8,#60a5fa)', 'background-clip:text', '-webkit-background-clip:text', 'color:transparent', 'padding-bottom:.18em', 'margin-bottom:-.18em');
+    } else if (line?.tone === 'supporting') {
+      lineStyle.push('margin-top:.7em', 'color:rgba(203,213,225,.78)', 'font-size:.48em', 'font-weight:500', 'line-height:1.35', 'letter-spacing:-.01em');
+    }
+    return `<span data-ww-shell-title-line="${index + 1}" style="${lineStyle.join(';')}">${escapeHtml(line?.text || '')}</span>`;
+  };
+
+  const lines = hasTitleLines
+    ? hero.titleLines
+    : [
+      { text: hero.titlePrefix },
+      { text: hero.titleAccent, tone: 'accent' },
+    ];
+  const titleHtml = lines.map(renderLine).join('');
+  return `<h1 aria-label="${escapeHtml(fallbackTitle)}" style="${style.join(';')}">${titleHtml}</h1>`;
+}
+
+function heroShellLeadStyle(hero) {
+  const family = shellFontFamily(hero?.typography?.bodyFont, 'body');
+  return family ? `${generatedShellStyles.lead};font-family:${family}` : generatedShellStyles.lead;
+}
+
+function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, children = '', sections = [] }) {
   const sectionsHtml = sections
     .map(
       (s) => `
@@ -1024,8 +1190,8 @@ function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, children 
   return `    <main style="${generatedShellStyles.main}">
       <section style="${generatedShellStyles.card}${sections.length ? ';width:min(100%,920px)' : ''}">
         <p style="${generatedShellStyles.eyebrow}">${escapeHtml(eyebrow)}</p>
-        <h1 style="${generatedShellStyles.title}">${escapeHtml(title)}</h1>
-        <p style="${generatedShellStyles.lead}">${escapeHtml(lead)}</p>
+        ${renderHeroShellTitle(hero, title)}
+        <p style="${heroShellLeadStyle(hero)}">${escapeHtml(lead)}</p>
 ${children}${sectionsHtml}
         <div style="${generatedShellStyles.footer}" aria-hidden="true"><span style="${generatedShellStyles.dot}"></span><span>Загружаем интерактивную версию сайта…</span></div>
       </section>
@@ -1320,6 +1486,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       title: documentTitle(config.seo.title),
       description: config.seo.description,
       h1: heroHeading(config.hero),
+      hero: config.hero,
       lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderServicePageSections(config),
       siteContentSeed: { key: contentKey, content: publishedOverride },
@@ -1373,6 +1540,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       title: homeDocumentTitle,
       description: homeSeo.description,
       h1: heroHeading(homeContent.hero),
+      hero: homeContent.hero,
       lead: homeContent.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
       sections: renderHomeSections(homeContent, latestArticles),
       siteContentSeed: { key: 'site:home', content: homeOverride ?? null },
@@ -1496,10 +1664,14 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
             : '',
         ].filter(Boolean).join('\n'),
         imagePreloads: HERO_PRELOADS[page.route] || [],
+        fontPreloads: resolveHeroFontPreloads(page.hero),
         baseHtml,
-        bodyHtml: renderGeneratedShell({
+        bodyHtml: page.route === '/admin/content-preview'
+          ? `    <h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">${escapeHtml(page.h1)}</h1>`
+          : renderGeneratedShell({
           title: page.h1,
           lead: page.lead,
+          hero: page.hero,
           eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wizard',
           sections: page.sections || [],
         }),
