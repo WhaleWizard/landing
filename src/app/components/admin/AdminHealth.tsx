@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Send } from 'lucide-react';
 import { loadConsent } from '../../consent/consent';
+import { AdminSectionSkeleton } from './AdminFeedback';
 
 interface HealthCheck {
   id: string;
@@ -10,9 +11,9 @@ interface HealthCheck {
 }
 
 const STATUS_UI = {
-  ok: { icon: CheckCircle2, className: 'text-green-500', chip: 'bg-green-500/10 text-green-500', label: 'ок' },
-  warn: { icon: AlertTriangle, className: 'text-yellow-500', chip: 'bg-yellow-500/10 text-yellow-500', label: 'внимание' },
-  fail: { icon: XCircle, className: 'text-[var(--adm-danger)]', chip: 'bg-[var(--adm-danger)]/10 text-[var(--adm-danger)]', label: 'ошибка' },
+  ok: { icon: CheckCircle2, label: 'ок' },
+  warn: { icon: AlertTriangle, label: 'внимание' },
+  fail: { icon: XCircle, label: 'ошибка' },
 } as const;
 
 // Клиентские проверки. Важно: на /admin пиксели НАМЕРЕННО не загружаются
@@ -49,6 +50,18 @@ function runBrowserChecks(): HealthCheck[] {
     make('px-meta', 'Meta Pixel (fbq)', typeof w.fbq === 'function', Boolean(consent?.categories.marketing), 'маркетинг'),
     make('px-ym', 'Яндекс Метрика (ym)', typeof w.ym === 'function', Boolean(consent?.categories.analytics), 'аналитика'),
   ];
+}
+
+/** «7 в норме · 1 внимание · 1 ошибка» — состояние группы одной строкой. */
+function groupScore(list: HealthCheck[]): Array<{ status: HealthCheck['status']; count: number; label: string }> {
+  const counters: Array<{ status: HealthCheck['status']; label: string }> = [
+    { status: 'ok', label: 'в норме' },
+    { status: 'warn', label: 'внимание' },
+    { status: 'fail', label: 'ошибка' },
+  ];
+  return counters
+    .map((item) => ({ ...item, count: list.filter((check) => check.status === item.status).length }))
+    .filter((item) => item.count > 0);
 }
 
 export default function AdminHealth({ password }: { password: string }) {
@@ -124,50 +137,87 @@ export default function AdminHealth({ password }: { password: string }) {
     return { status, title, text, problems: [...failed, ...warned] };
   }, [checks]);
 
-  const renderCheck = (item: HealthCheck) => {
+  /**
+   * Строка проверки. Цвет несёт не только рамка: у каждого состояния свой
+   * значок и своя подпись — состояние читается и без различения цветов.
+   * Индекс уезжает в CSS, чтобы строки появлялись по очереди, а не разом.
+   */
+  const renderCheck = (item: HealthCheck, index: number) => {
     const ui = STATUS_UI[item.status];
     const Icon = ui.icon;
     return (
-      <div key={item.id} className="flex items-start gap-3 border-t border-[var(--adm-border)]/50 py-3 first:border-t-0">
-        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${ui.className}`} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium">{item.title}</span>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${ui.chip}`}>{ui.label}</span>
-          </div>
-          <p className="mt-0.5 text-xs leading-relaxed text-[var(--adm-fg)]/60">{item.detail}</p>
+      <li
+        key={item.id}
+        className="health-row"
+        data-status={item.status}
+        style={{ '--health-row-index': index } as CSSProperties}
+      >
+        <span className="health-row__lamp" aria-hidden="true"><Icon /></span>
+        <div className="health-row__body">
+          <p className="health-row__title">
+            <span>{item.title}</span>
+            <span className="health-row__chip">{ui.label}</span>
+          </p>
+          <p className="health-row__detail">{item.detail}</p>
         </div>
-      </div>
+      </li>
     );
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">Проверка сайта</h2>
-          {checkedAt && <p className="text-xs text-[var(--adm-fg)]/50">Последняя проверка: {new Date(checkedAt).toLocaleString('ru-RU')}</p>}
+  const renderGroup = (title: string, list: HealthCheck[], note?: string) => (
+    <section className="admin-card health-group" aria-label={title}>
+      <div className="health-group__head">
+        <h3>{title}</h3>
+        <div className="health-group__score">
+          {groupScore(list).map((item) => (
+            <span key={item.status} data-status={item.status}>{item.count} {item.label}</span>
+          ))}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => void telegramTest()} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-xs text-[var(--adm-fg)]/80 hover:bg-[var(--adm-primary)]/10">
-            <Send className="h-3.5 w-3.5" /> Тест Telegram
+      </div>
+      {/* Ключ по времени проверки: после «Запустить проверку» строки
+          проигрывают появление заново — видно, что данные свежие. */}
+      <ul className="health-list" key={checkedAt || 'initial'}>
+        {list.map(renderCheck)}
+      </ul>
+      {note ? <p className="health-group__note">{note}</p> : null}
+    </section>
+  );
+
+  return (
+    <div className="admin-stack admin-stack--lg">
+      <div className="admin-section-header">
+        <div>
+          <p className="admin-eyebrow">Система</p>
+          <h2 className="admin-title">Проверка сайта</h2>
+          <p className="admin-subtitle">
+            {checkedAt
+              ? `Последняя проверка: ${new Date(checkedAt).toLocaleString('ru-RU')}`
+              : 'Сервер, база, хранилище, приём заявок и доставка событий — одним прогоном.'}
+          </p>
+        </div>
+        <div className="admin-section-header__actions">
+          <button type="button" className="admin-button admin-button--secondary" onClick={() => void telegramTest()}>
+            <Send aria-hidden="true" /> Тест Telegram
           </button>
-          <button onClick={() => void run()} disabled={loading} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--adm-primary)] px-4 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> {loading ? 'Проверяю…' : 'Запустить проверку'}
+          <button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => void run()}>
+            <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
+            {loading ? 'Проверяю…' : 'Запустить проверку'}
           </button>
         </div>
       </div>
 
-      {tgStatus && (
-        <div className="rounded-xl border border-[var(--adm-primary)]/30 bg-[var(--adm-primary)]/10 px-4 py-2.5 text-sm">{tgStatus}</div>
-      )}
+      {tgStatus ? <div className="admin-notice" role="status" aria-live="polite">{tgStatus}</div> : null}
 
       {error && (
-        <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-6 space-y-2">
-          <p className="text-sm text-[var(--adm-fg)]/75">{error}</p>
-          <p className="text-xs text-[var(--adm-fg)]/55">Проверка работает на продакшене (нужны Cloudflare-функции). В локальной разработке — заглушка.</p>
-        </div>
+        <section className="admin-card health-error">
+          <p className="admin-subtitle">{error}</p>
+          <p className="admin-muted">Проверка работает на продакшене (нужны Cloudflare-функции). В локальной разработке — заглушка.</p>
+        </section>
       )}
+
+      {/* До первого ответа раздел был просто пустым: скелетон показывает, что
+          проверка идёт, а не что проверять нечего. */}
+      {!checks && !error && loading ? <AdminSectionSkeleton tiles={0} rows={6} /> : null}
 
       {checks && (
         <section className="health-verdict" data-status={verdict.status} aria-label="Итог проверки">
@@ -194,19 +244,12 @@ export default function AdminHealth({ password }: { password: string }) {
         </section>
       )}
 
-      {checks && (
-        <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] px-4 py-1">
-          <h3 className="pt-3 text-xs font-semibold uppercase tracking-wider text-[var(--adm-fg)]/55">Сервер и интеграции</h3>
-          {checks.map(renderCheck)}
-        </div>
-      )}
+      {checks && renderGroup('Сервер и интеграции', checks)}
 
-      {browserChecks.length > 0 && (
-        <div className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] px-4 py-1">
-          <h3 className="pt-3 text-xs font-semibold uppercase tracking-wider text-[var(--adm-fg)]/55">Пиксели в этом браузере</h3>
-          {browserChecks.map(renderCheck)}
-          <p className="pb-3 pt-1 text-[11px] text-[var(--adm-fg)]/45">На /admin пиксели намеренно не загружаются, чтобы визиты администратора не попадали в статистику рекламы. Эта проверка показывает согласие на cookie в текущем браузере; работу самих пикселей смотрите на публичных страницах сайта.</p>
-        </div>
+      {browserChecks.length > 0 && renderGroup(
+        'Пиксели в этом браузере',
+        browserChecks,
+        'На /admin пиксели намеренно не загружаются, чтобы визиты администратора не попадали в статистику рекламы. Эта проверка показывает согласие на cookie в текущем браузере; работу самих пикселей смотрите на публичных страницах сайта.',
       )}
     </div>
   );

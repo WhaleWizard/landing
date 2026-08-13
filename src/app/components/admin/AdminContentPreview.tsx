@@ -107,9 +107,19 @@ function PreviewViewport({
   const scaledWidth = preset.width * scale;
   const scaledHeight = iframeHeight * scale;
 
+  /**
+   * Высота рамки сбрасывается только при смене страницы, блока или устройства.
+   * Раньше сброс шёл на каждую правку текста: кадр схлопывался до размера
+   * устройства и через мгновение вырастал обратно — блок дёргался под руками.
+   *
+   * Вместе с высотой возвращаем и прокрутку кадра: она оставалась от прошлого
+   * блока, и новый открывался с середины — выглядело так, будто предпросмотр
+   * показывает не то, что выбрали.
+   */
   useLayoutEffect(() => {
     setContentHeight(preset.height);
-  }, [payload.revision, preset.height, preset.id]);
+    if (hostRef.current) hostRef.current.scrollTop = 0;
+  }, [payload.page, payload.section, preset.height, preset.id]);
 
   const postPayload = useCallback(() => {
     iframeRef.current?.contentWindow?.postMessage(payload, window.location.origin);

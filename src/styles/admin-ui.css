@@ -394,6 +394,15 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 16px;
 }
 
+/* Несколько кнопок в шапке раздела: на узком экране переносятся, а не жмутся. */
+.admin-root .admin-section-header__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /*
  * Надзаголовок держит цвет текста, а не акцента: акцент в интерфейсе стоит
  * тратить на то, что можно нажать. Раньше подпись раздела спорила по яркости
@@ -906,6 +915,22 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   grid-template-columns: minmax(0, 1.75fr) minmax(280px, 0.75fr);
   align-items: start;
   gap: 18px;
+}
+
+/*
+ * До 1440 px «История версий» уезжает под редактор. В две колонки на ноутбуке
+ * под сами поля оставалось 430 px на всё: подписи не помещались, выпадающие
+ * списки обрезали значения многоточием, а длинный текст правился в окошке
+ * шириной в два слова.
+ */
+@media (max-width: 1439px) {
+  .admin-root .admin-content-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-root .admin-content-aside {
+    position: static;
+  }
 }
 
 .admin-root .admin-content-layout > *,
@@ -1773,8 +1798,12 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     flex-wrap: wrap;
   }
 
+  /* Кнопка уезжает на свою строку. Ширину задаёт не 100%, а базис с усадкой:
+     при `width: 100%` отступ слева прибавлялся сверху, и кнопка вылезала
+     из панели на эти самые 28 px. */
   .admin-root .admin-typography-reset {
-    width: 100%;
+    flex: 0 1 100%;
+    width: auto;
     margin-left: 28px;
   }
 
@@ -1920,10 +1949,14 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
 /*
  * Кадр остаётся в обычном потоке страницы: большая липкая рамка перекрывала
  * поля редактора при прокрутке. Сам кадр прокручивается внутри этой высоты.
+ *
+ * Потолок совпадает с тем, что считает сам компонент (680 px). Прежние 40vh
+ * давали на ноутбуке окно в 360 px: от блока было видно верхнюю треть, и
+ * предпросмотр читался как обрезанный.
  */
 @media (min-width: 1024px) {
   .admin-root .admin-site-preview:not(.is-collapsed) .admin-site-preview__stage {
-    max-height: clamp(280px, 40vh, 520px);
+    max-height: clamp(360px, 64vh, 680px);
   }
 }
 
@@ -12207,6 +12240,279 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   color: var(--adm-text-tertiary);
 }
 
+/* Мягкая волна вокруг лампы итога: раздел выглядит живым, а не застывшим
+   скриншотом. Одно кольцо, медленное — это фон, а не мигалка. */
+.admin-root .health-verdict__lamp {
+  position: relative;
+}
+
+.admin-root .health-verdict__lamp::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  animation: adm-health-radar 2800ms var(--adm-ease) infinite;
+}
+
+/* ==========================================================================
+   Строки проверок
+
+   Раньше это был плоский список: тонкая линейка, серый значок и одинаковый
+   для всех фон. Пробежать двадцать строк глазами и понять «всё ли хорошо»
+   было невозможно. Теперь каждая строка окрашена своим состоянием: зелёная
+   норма, янтарное внимание, малиновая ошибка — и строки появляются по
+   очереди, поэтому видно, что проверка отработала заново.
+
+   Цвет не единственный признак: у каждого состояния свой значок и своя
+   подпись, так строка читается и без различения цветов.
+   ========================================================================== */
+
+/* Отступы задаём здесь: у самой .admin-card их нет, каждый раздел ставит свои.
+   Без этого заголовок группы и счётчики упирались в рамку карточки. */
+.admin-root .health-group {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.admin-root .health-group__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--adm-border-subtle);
+}
+
+.admin-root .health-group__head h3 {
+  margin: 0;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-root .health-group__score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-root .health-group__score span {
+  --health-tone: var(--adm-success);
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--health-tone) 30%, transparent);
+  border-radius: 999px;
+  color: var(--health-tone);
+  background: color-mix(in srgb, var(--health-tone) 12%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .health-group__note {
+  margin: 0;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-root .health-error {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+}
+
+.admin-root .health-error p {
+  margin: 0;
+}
+
+.admin-root .health-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .health-row {
+  --health-tone: var(--adm-success);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px 12px 17px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--health-tone) 24%, var(--adm-border-subtle));
+  border-radius: var(--adm-radius-md);
+  background:
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--health-tone) 13%, transparent) 0%,
+      color-mix(in srgb, var(--health-tone) 5%, transparent) 44%,
+      transparent 80%
+    ),
+    var(--adm-surface-raised);
+  animation: adm-health-row-in 460ms var(--adm-ease) backwards;
+  animation-delay: calc(var(--health-row-index, 0) * 55ms);
+  transition:
+    border-color var(--adm-dur-base) var(--adm-ease),
+    transform var(--adm-dur-base) var(--adm-ease);
+}
+
+/* Цветной рельс слева: состояние видно даже боковым зрением. */
+.admin-root .health-row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--health-tone);
+}
+
+/* Одна пробежка света по строке сразу после появления. */
+.admin-root .health-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 22%,
+    color-mix(in srgb, var(--health-tone) 20%, transparent) 50%,
+    transparent 78%
+  );
+  transform: translateX(-101%);
+  pointer-events: none;
+  animation: adm-health-sweep 1100ms var(--adm-ease) backwards;
+  animation-delay: calc(var(--health-row-index, 0) * 55ms + 200ms);
+}
+
+.admin-root .health-row:hover {
+  border-color: color-mix(in srgb, var(--health-tone) 45%, var(--adm-border-subtle));
+  transform: translateY(-1px);
+}
+
+.admin-root .health-row[data-status='warn'] {
+  --health-tone: var(--adm-warning);
+}
+
+.admin-root .health-row[data-status='fail'] {
+  --health-tone: var(--adm-danger);
+}
+
+.admin-root .health-group__score span[data-status='warn'] {
+  --health-tone: var(--adm-warning);
+}
+
+.admin-root .health-group__score span[data-status='fail'] {
+  --health-tone: var(--adm-danger);
+}
+
+.admin-root .health-row__lamp {
+  display: grid;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--health-tone);
+  background: color-mix(in srgb, var(--health-tone) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--health-tone) 34%, transparent);
+}
+
+.admin-root .health-row__lamp svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Пульсирует только сломанное: если бы «дышали» все строки, внимание не
+   доставалось бы ни одной. */
+.admin-root .health-row[data-status='fail'] .health-row__lamp {
+  animation: adm-health-beacon 2400ms ease-in-out infinite;
+}
+
+.admin-root .health-row__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-root .health-row__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  color: var(--adm-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-root .health-row__chip {
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--health-tone) 30%, transparent);
+  border-radius: 999px;
+  color: var(--health-tone);
+  background: color-mix(in srgb, var(--health-tone) 14%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-root .health-row__detail {
+  margin: 3px 0 0;
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@keyframes adm-health-row-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes adm-health-sweep {
+  from { transform: translateX(-101%); }
+  to { transform: translateX(101%); }
+}
+
+@keyframes adm-health-beacon {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--health-tone) 34%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--health-tone) 45%, transparent);
+  }
+  60% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--health-tone) 34%, transparent),
+      0 0 0 7px transparent;
+  }
+}
+
+@keyframes adm-health-radar {
+  0% { opacity: 0.45; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(1.55); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root .health-row,
+  .admin-root .health-row::after,
+  .admin-root .health-row[data-status='fail'] .health-row__lamp,
+  .admin-root .health-verdict__lamp::after {
+    animation: none;
+  }
+
+  .admin-root .health-row::after {
+    display: none;
+  }
+
+  .admin-root .health-row:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 560px) {
   .admin-root .health-verdict {
     padding: 14px;
@@ -12220,6 +12526,25 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 
   .admin-root .health-verdict__title {
     font-size: 16px;
+  }
+
+  .admin-root .health-group {
+    padding: 14px;
+  }
+
+  .admin-root .health-row {
+    padding: 11px 12px 11px 15px;
+    gap: 10px;
+  }
+
+  .admin-root .health-row__lamp {
+    width: 30px;
+    height: 30px;
+  }
+
+  .admin-root .health-row__lamp svg {
+    width: 16px;
+    height: 16px;
   }
 }
 

@@ -158,6 +158,24 @@ function usePreviewFontsReady(payload: ContentPreviewPayload | null): boolean {
   return Boolean(payload && readyRevision === payload.revision);
 }
 
+/**
+ * Место формы заявки. Раньше здесь стоял пустой тёмный прямоугольник, и блок
+ * «Форма и контакт» читался как незагрузившийся. Форма живая: она отправляет
+ * заявки и ставит события трекинга, поэтому в предпросмотре её не монтируем.
+ */
+function FormPlaceholder({ minHeightClassName }: { minHeightClassName: string }) {
+  return (
+    <div
+      className={`grid place-items-center rounded-3xl border border-dashed border-primary/25 bg-card/40 p-8 text-center ${minHeightClassName}`}
+      aria-hidden="true"
+    >
+      <p className="max-w-[24ch] text-pretty text-sm leading-relaxed text-muted-foreground">
+        Здесь форма заявки. Её поля и кнопки заданы кодом — текстом они не редактируются.
+      </p>
+    </div>
+  );
+}
+
 function ServiceContactCopy({ page, content }: { page: ServiceType; content: EditableContent['contact'] }) {
   const theme = SERVICE_THEMES[page];
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 16 });
@@ -191,7 +209,7 @@ function ServiceContactCopy({ page, content }: { page: ServiceType; content: Edi
               ))}
             </div>
           </div>
-          <div className="min-h-[420px] rounded-3xl border border-white/10 bg-card/40" aria-hidden="true" />
+          <FormPlaceholder minHeightClassName="min-h-[420px]" />
         </div>
       </div>
     </section>
@@ -232,7 +250,7 @@ function HomeContactCopy({ content }: { content: EditableContent['contact'] }) {
               ))}
             </div>
           </div>
-          <div className="min-h-[440px] rounded-3xl border border-primary/20 bg-card/40" aria-hidden="true" />
+          <FormPlaceholder minHeightClassName="min-h-[440px]" />
         </div>
       </div>
     </section>
@@ -393,7 +411,11 @@ function ContentPreviewSurface({
             : <Hero content={hero} visual={page === 'meta-apps' ? 'meta-apps' : 'default'} staticMotion />)
       ) : null}
       {section === 'services' && services ? <Services content={services} /> : null}
-      {section === 'cases' && cases ? <Cases content={cases} staticMotion /> : null}
+      {/* moreHref повторяет ссылку живой страницы: без неё в кадре не было
+          кнопки «Перейти ко всем кейсам», и высота блока не сходилась. */}
+      {section === 'cases' && cases ? (
+        <Cases content={cases} moreHref={page === 'home' ? '/cases' : `/cases?from=${page}`} staticMotion />
+      ) : null}
       {section === 'cta' && cta ? <CallToAction content={cta} /> : null}
       {section === 'testimonials' ? (
         testimonials ? <Testimonials
@@ -431,6 +453,23 @@ function findClippedTitleLines(root: ParentNode): string[] {
   });
 }
 
+/**
+ * Реальная высота блока.
+ *
+ * Мерить `scrollHeight` самой страницы нельзя: у неё стоит `min-h-screen`, то
+ * есть она всегда не ниже кадра. Из-за этого рамка редактора умела только
+ * расти: удалили абзац — высота осталась прежней, и под блоком висела пустота.
+ * Меряем по нижней границе самих блоков.
+ */
+function measureContentHeight(root: HTMLElement): number {
+  const top = root.getBoundingClientRect().top;
+  const bottom = Array.from(root.children).reduce(
+    (lowest, child) => Math.max(lowest, child.getBoundingClientRect().bottom),
+    top,
+  );
+  return Math.max(1, Math.ceil(bottom - top));
+}
+
 /** Сообщает редактору финальную высоту блока и результат подгонки заголовка. */
 function usePreviewReport(payload: ContentPreviewPayload | null, fontsReady: boolean) {
   useEffect(() => {
@@ -449,10 +488,7 @@ function usePreviewReport(payload: ContentPreviewPayload | null, fontsReady: boo
       const clippedTitleLines = payload.section === 'hero'
         ? findClippedTitleLines(root)
         : [];
-      const contentHeight = Math.ceil(Math.max(
-        root.scrollHeight,
-        root.getBoundingClientRect().height,
-      ));
+      const contentHeight = measureContentHeight(root);
       const signature = JSON.stringify([clippedTitleLines, contentHeight]);
       if (signature === lastSignature) return;
       lastSignature = signature;
