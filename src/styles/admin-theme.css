@@ -38,6 +38,62 @@ body[data-admin-theme='dark'],
   --adm-glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   --adm-glass-blur: 20px;
 
+  /* Материал поверхности — см. раздел 19. Рисунок, свет и рёбра объявлены
+     токенами: одна карточка и одна вложенная плашка на всю админку, а сам
+     характер поверхности меняется подменой двух значений ниже.
+
+     Здесь стояло плёночное зерно; на большом тёмном экране оно читается не как
+     ткань, а как снег на нерабочем телевизоре, и владелец его забраковал.
+     Фактуру теперь дают цвет, свет и контур, а не рисунок из шума.
+
+     `--adm-pattern` остался слотом под пятна матового камня: у стеклянных
+     поверхностей он пустой. */
+  --adm-pattern: none;
+  --adm-pattern-blend: normal;
+
+  /* ЦВЕТНОЕ СТЕКЛО и НЕОН заданы здесь только СИЛОЙ, без самого цвета.
+     Цвет подмешивается в разделе 19, на самих карточках.
+
+     Так пришлось сделать не для красоты. Значение пользовательского свойства
+     подставляется там, где свойство ОБЪЯВЛЕНО, а не там, где используется.
+     Токен с `color-mix(… var(--adm-sec-1) …)`, объявленный здесь, на
+     `.admin-root`, подставлялся бы до того, как раздел задаст свою пару тонов
+     ниже по дереву, на `.admin-app`, — то есть не разрешался бы ни во что,
+     становился невалидным и весь слой подкраски молча пропадал. Ровно это и
+     произошло при первой сборке гибрида: камень лёг, стекло — нет. */
+  /* 14% и 13% — не «на глаз», а посчитанный потолок. Третичный текст
+     (#838ca4: подписи плиток, подсказки, `.admin-meta`) на самом густом углу
+     подкраски даёт ровно 4,5:1 при 15% фиолетового и 14% синего. Начальные
+     24% и 18% роняли его до 4,13 — то есть подкраска красиво выглядела и тихо
+     ломала читаемость половины мелкого текста в админке. Здесь взят шаг вниз
+     от предела, чтобы запас оставался и при наложении на светлое пятно. */
+  --adm-tint-1: 14%;
+  --adm-tint-2: 13%;
+  --adm-rim-strength: 46%;
+  --adm-halo-offset: 0 0;
+  --adm-halo-blur: 24px;
+  --adm-halo-strength: 22%;
+
+  /* МАТОВЫЙ КАМЕНЬ. Два широких пятна разной плотности — неравномерность без
+     единой чёткой детали. Именно поэтому камень не мешает читать: глазу не за
+     что зацепиться, а поверхность всё равно не плоская. */
+  --adm-stone:
+    radial-gradient(72% 90% at 18% 8%, rgba(255, 255, 255, 0.05), transparent 62%),
+    radial-gradient(58% 80% at 86% 88%, rgba(255, 255, 255, 0.03), transparent 60%);
+
+  /* Свет падает сверху слева: блик на верхнем ребре, тень на нижнем. Пара
+     обязательна — один блик без тени читается как засветка, а не как объём. */
+  --adm-edge-light: rgba(255, 255, 255, 0.095);
+  --adm-edge-shade: rgba(0, 0, 0, 0.42);
+  --adm-face-sheen: rgba(255, 255, 255, 0.06);
+  --adm-sheen-raised: rgba(255, 255, 255, 0.07);
+  /* Утопленная плашка: темнее карточки, с тенью сверху и светлым ребром
+     снизу. Обратная карточке пара, поэтому и читается как углубление. */
+  --adm-inset-bg: color-mix(in srgb, #05060d 52%, transparent);
+  --adm-inset-border: rgba(255, 255, 255, 0.055);
+  --adm-inset-shade: rgba(0, 0, 0, 0.5);
+  --adm-inset-light: rgba(255, 255, 255, 0.055);
+
   /* Текст. Все три уровня проверены на 4,5:1 против холста, карточки и
      утопленного поля. */
   --adm-text-primary: #f1f3fb;
@@ -65,6 +121,13 @@ body[data-admin-theme='dark'],
   --adm-danger: #fb7185;
   --adm-danger-solid: #be123c;
   --adm-info: #60a5fa;
+
+  /* Тона для заливок графиков. На тёмной теме совпадают с текстовыми: там
+     ограничение задаёт фон, а не роль. Смысл пары появляется в светлой теме —
+     см. комментарий там же. */
+  --adm-fill-success: var(--adm-success);
+  --adm-fill-warning: var(--adm-warning);
+  --adm-fill-danger: var(--adm-danger);
 
   /* Тени холодные и глубокие, с фиолетовым следом на дальнем слое. */
   --adm-shadow-xs: 0 1px 2px rgba(2, 3, 10, 0.55);
@@ -105,6 +168,39 @@ body[data-admin-theme='light'],
   --adm-glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --adm-glass-blur: 18px;
 
+  --adm-pattern: none;
+  --adm-pattern-blend: normal;
+
+  /* Те же материалы вполовину слабее. На белом любой цветной слой набирает
+     насыщенность вдвое быстрее, чем на тёмном: подкраска в 24%, честная на
+     #12131d, на #ffffff превращает карточку в цветную плашку и роняет
+     контраст текста под порог.
+
+     Свечение на светлом фоне физически невозможно — светлее белого не бывает.
+     Поэтому ореол здесь смещён вниз и работает как мягкая цветная тень: край
+     всё так же отделён от холста, но приёмом, который на белом читается. */
+  /* Тот же расчёт для светлой темы: предел третичного #5d6579 — 13% на
+     фиолетовом и 15% на синем. Здесь и так было под порогом, оставлено. */
+  --adm-tint-1: 12%;
+  --adm-tint-2: 9%;
+  --adm-rim-strength: 32%;
+  --adm-halo-offset: 0 6px;
+  --adm-halo-blur: 20px;
+  --adm-halo-strength: 20%;
+
+  --adm-stone:
+    radial-gradient(72% 90% at 18% 8%, rgba(21, 28, 48, 0.03), transparent 62%),
+    radial-gradient(58% 80% at 86% 88%, rgba(21, 28, 48, 0.02), transparent 60%);
+
+  --adm-edge-light: rgba(255, 255, 255, 0.9);
+  --adm-edge-shade: rgba(21, 28, 48, 0.09);
+  --adm-face-sheen: rgba(255, 255, 255, 0.5);
+  --adm-sheen-raised: rgba(255, 255, 255, 0.75);
+  --adm-inset-bg: color-mix(in srgb, #e8ebf5 60%, transparent);
+  --adm-inset-border: rgba(21, 28, 48, 0.08);
+  --adm-inset-shade: rgba(21, 28, 48, 0.1);
+  --adm-inset-light: rgba(255, 255, 255, 0.85);
+
   --adm-text-primary: #12141d;
   --adm-text-secondary: #454d61;
   --adm-text-tertiary: #5d6579;
@@ -126,6 +222,15 @@ body[data-admin-theme='light'],
   --adm-danger: #be123c;
   --adm-danger-solid: #be123c;
   --adm-info: #1d4ed8;
+
+  /* Заливка столбца — не подпись, и порог у неё другой: 3:1 к соседнему
+     цвету вместо 4,5:1 для текста. Текстовые тона выше выбраны затемнёнными
+     ровно потому, что ими же пишут; столбец, залитый #92400e, читается как
+     коричневый — цвет пропадает, и график выглядит выцветшим. Здесь стоят те
+     самые «чистые» тона, которые для подписи не годятся, а для заливки верны. */
+  --adm-fill-success: #059669;
+  --adm-fill-warning: #d97706;
+  --adm-fill-danger: #e11d48;
 
   --adm-shadow-xs: 0 1px 2px rgba(21, 28, 48, 0.06);
   --adm-shadow-sm: 0 2px 6px rgba(21, 28, 48, 0.06), 0 8px 22px rgba(21, 28, 48, 0.07);
@@ -1664,7 +1769,672 @@ body[data-admin-theme],
 }
 
 /* ==========================================================================
-   19. Меньше движения
+   19. Материал
+   Раздел, из-за которого админка перестала выглядеть дёшево.
+
+   До него поверхность была одной заливкой: карточка отличалась от холста
+   только светлотой, а вложенная плашка — вообще ничем, кроме скругления. На
+   тёмном фоне десять таких прямоугольников читаются как один серый лист с
+   насечками, и никакая типографика этого не спасает.
+
+   Выбран гибрид: ЦВЕТНОЕ СТЕКЛО + НЕОН, с МАТОВЫМ КАМНЕМ на части элементов.
+   Три материала не намазаны поверх всего подряд, а разведены по ролям — и
+   роль тут не украшательство, а ответ на вопрос «что это за поверхность».
+
+   1. ЦВЕТНОЕ СТЕКЛО — общий язык всех несущих карточек. Диагональная подкраска
+      двумя тонами раздела: у «Заявок» она сине-фиолетовая, у «Целей» —
+      пурпурно-розовая. Экраны перестают быть одинаковыми, а карточка получает
+      неравномерность по лицу, ради которой затевалась вся история с фактурой.
+   2. НЕОН — светящаяся кромка по контуру плюс ореол наружу. Он НЕ на всём:
+      двадцать светящихся прямоугольников на одном экране превращаются в рябь,
+      и тогда не выделено ничего. Неон достаётся только витрине — карточкам с
+      заголовком, плиткам с числами и плавающим слоям, которых на экране
+      всегда один.
+   3. МАТОВЫЙ КАМЕНЬ — там, где смотрят не на поверхность, а сквозь неё: в
+      утопленных плашках с цифрами, в жёлобе доски, в лотках с кнопками.
+      Блеска нет, подкраски нет, только мягкие широкие пятна. Подкрашенное
+      стекло под плотной колонкой чисел мешает читать — это тот случай, когда
+      материал обязан замолчать.
+
+   Механика одна на все три: слой `--adm-tint` (подкраска), слой
+   `--adm-pattern` (пятна камня), кольцо `--adm-rim` и ореол `--adm-glow`.
+   По умолчанию кольцо и ореол выключены, камень выключен, стекло включено —
+   то есть уровень «рабочая поверхность». Витрина включает кольцо, камень
+   выключает стекло и блеск. Больше нигде ничего дописывать не нужно.
+
+   Всё живёт в слоях `background` и `box-shadow`, без единого нового
+   псевдоэлемента: `::before` и `::after` у карточек уже заняты акцентной
+   полосой и светом за курсором, и перехват любого из них сломал бы их.
+   ========================================================================== */
+
+/* Выключатели материала. Значения по умолчанию — уровень «рабочая
+   поверхность»; ниже их переопределяют витрина и камень.
+
+   Нулевая тень записана как `0 0 transparent`, а не `none`: `none` внутри
+   списка теней делает НЕВАЛИДНЫМ всё правило целиком, и карточка осталась бы
+   вообще без рёбер. */
+body[data-admin-theme],
+.admin-root {
+  --adm-rim: transparent;
+  --adm-glow: 0 0 transparent;
+  --adm-tint: none;
+}
+
+/*
+ * Готовый слой подкраски. Объявлен ИМЕННО на `.admin-app` и на `body`, а не
+ * на `.admin-root`, и это не стилистический выбор.
+ *
+ * `--adm-sec-1` и `--adm-sec-2` задаются на `.admin-app[data-section]`. Если
+ * объявить подкраску выше, на `.admin-root`, то `color-mix()` внутри неё
+ * подставится там же — где тонов раздела ещё нет. Значение станет невалидным,
+ * невалидность унаследуется вниз, и слой подкраски пропадёт целиком. Именно
+ * так и вышло при первой сборке: камень лёг, стекла не было нигде.
+ *
+ * На `.admin-app` тона уже свои, поэтому подстановка даёт настоящий цвет
+ * раздела, а карточки внутри получают его по наследству готовым.
+ *
+ * Строка для `body` нужна порталам — палитре команд, выпадающим спискам и
+ * диалогу подтверждения: они рендерятся вне `.admin-root` и берут пару тонов
+ * по умолчанию, заданную ниже.
+ */
+body[data-admin-theme],
+.admin-root .admin-app {
+  --adm-tint: linear-gradient(
+    152deg,
+    color-mix(in srgb, var(--adm-sec-1) var(--adm-tint-1), transparent),
+    transparent 48%,
+    color-mix(in srgb, var(--adm-sec-2) var(--adm-tint-2), transparent)
+  );
+}
+
+/* Тона раздела продублированы на body: палитра команд, выпадающие списки и
+   диалог подтверждения рендерятся порталами вне `.admin-root`, и без этой
+   пары `color-mix()` с `--adm-sec-1` там не разрешался бы ни во что —
+   а невалидный color-mix убивает всё объявление, вместе с подкраской. */
+body[data-admin-theme] {
+  --adm-sec-1: #8b5cf6;
+  --adm-sec-2: #3b82f6;
+}
+
+/* --- 19.1. Несущая карточка --- */
+
+.admin-root :is(
+  .admin-sidebar,
+  .admin-panel,
+  .admin-card,
+  .adm-card,
+  .adm-tile,
+  .today-card,
+  .today-hero,
+  .crm-card,
+  .clients__card,
+  .fin-card,
+  .planner-stat,
+  .planner-chart-card,
+  .media-card,
+  .admin-action-card,
+  .vitals__card,
+  .admin-login__card
+),
+.admin-root .admin-crm-summary > :is(button, div),
+body[data-admin-theme] :is(.admin-cmdk, .admin-select-content, .planner-weekpick),
+.admin-root .admin-confirm__card {
+  background-image:
+    var(--adm-pattern),
+    var(--adm-tint),
+    radial-gradient(150% 120% at 0% 0%, var(--adm-face-sheen), transparent 58%);
+  background-blend-mode: var(--adm-pattern-blend), normal, normal;
+  box-shadow:
+    inset 0 0 0 1px var(--adm-rim),
+    inset 0 1px 0 var(--adm-edge-light),
+    inset 0 -1px 0 var(--adm-edge-shade),
+    var(--adm-glow),
+    var(--adm-shadow-sm);
+}
+
+/* --- Витрина: сюда приходит неон ---
+   Карточки с заголовком, плитки с числами и плавающие слои. Их на экране
+   единицы, и это ровно те поверхности, на которые смотрят. */
+.admin-root :is(.adm-card, .adm-tile, .today-hero, .admin-card--hero),
+.admin-root .admin-crm-summary > :is(button, div),
+body[data-admin-theme] :is(.admin-cmdk, .admin-select-content, .planner-weekpick),
+.admin-root :is(.admin-confirm__card, .admin-login__card) {
+  --adm-rim: color-mix(in srgb, var(--adm-sec-1) var(--adm-rim-strength), transparent);
+}
+
+/* Ореол наружу — только у крупных одиночных поверхностей. У плиток его нет
+   намеренно: шесть штук в ряд, и шесть ореолов сливаются в одно пятно. */
+.admin-root :is(.adm-card, .today-hero, .admin-card--hero),
+body[data-admin-theme] :is(.admin-cmdk, .planner-weekpick),
+.admin-root :is(.admin-confirm__card, .admin-login__card) {
+  --adm-glow:
+    var(--adm-halo-offset) var(--adm-halo-blur)
+    color-mix(in srgb, var(--adm-sec-1) var(--adm-halo-strength), transparent);
+}
+
+/* Плавающие слои сохраняют свою глубокую тень: они висят над страницей, а не
+   лежат в ней. Материал при этом тот же. */
+body[data-admin-theme] :is(.admin-cmdk, .admin-select-content, .planner-weekpick),
+.admin-root :is(.admin-confirm__card, .admin-login__card) {
+  box-shadow:
+    inset 0 0 0 1px var(--adm-rim),
+    inset 0 1px 0 var(--adm-edge-light),
+    inset 0 -1px 0 var(--adm-edge-shade),
+    var(--adm-glow),
+    var(--adm-shadow-lg);
+}
+
+/* Наведение добавляет света сверху и глубины снизу — карточка приподнимается
+   освещением, а не сдвигом. Сдвиг в списке из двадцати карточек превращает
+   проход мышью в дрожь всего экрана. */
+.admin-root :is(
+  .admin-panel--interactive,
+  .adm-tile,
+  .today-card,
+  .crm-card,
+  .clients__card,
+  .fin-card,
+  .media-card,
+  .admin-action-card
+):hover {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--adm-edge-light) 160%, transparent),
+    inset 0 -1px 0 var(--adm-edge-shade),
+    0 0 0 1px color-mix(in srgb, var(--adm-sec-1) 16%, transparent),
+    var(--adm-shadow-md);
+}
+
+/* Титульная карточка раздела получает световую нить по верхнему ребру в тонах
+   раздела. Она связывает карточку с обложкой сверху: видно, что это один
+   экран, а не набор случайных прямоугольников. Только у `.adm-card` — у
+   карточек с заголовком; на каждой мелкой панели это стало бы рябью. */
+.admin-root .adm-card {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--adm-sec-1) 55%, transparent) 18%,
+      color-mix(in srgb, var(--adm-sec-2) 55%, transparent) 68%,
+      transparent
+    ),
+    var(--adm-pattern),
+    var(--adm-tint),
+    radial-gradient(150% 120% at 0% 0%, var(--adm-face-sheen), transparent 58%);
+  background-repeat: no-repeat, repeat, no-repeat, no-repeat;
+  background-size: 100% 1px, auto, auto, auto;
+  background-position: top left, top left, top left, top left;
+  background-blend-mode: normal, var(--adm-pattern-blend), normal, normal;
+}
+
+/* --- 19.2. Утопленная плашка: матовый камень ---
+   Общее имя для всех блоков внутри карточки: цифры сводки, поля-колодцы,
+   строки состояния. Раньше каждый такой блок был полупрозрачной заливкой без
+   границы и тени — на скриншоте раздела Meta CAPI четыре числа буквально
+   висели в воздухе.
+
+   Здесь материал переключается на камень: подкраска снимается, вместо неё —
+   мягкие пятна. Причина не в разнообразии, а в чтении: цветное стекло под
+   колонкой чисел подкрашивает сами цифры и роняет их контраст, а плашка с
+   числом — единственное место, где смотрят строго на содержимое. */
+
+.admin-root :is(
+  .adm-inset,
+  .meta-dedupe > div,
+  .crm-column,
+  .admin-toolbar,
+  .admin-crm-toolbar,
+  .admin-site-preview__toolbar,
+  .media-toolbar,
+  .crm-view-switch,
+  .adm-segmented,
+  .admin-segmented,
+  .adm-trend-panel__switch
+),
+.admin-root :is(.admin-panel, .admin-card, .adm-card, .today-card, .clients__card, .fin-card)
+  :is(.admin-panel, .admin-card, .adm-card) {
+  --adm-pattern: var(--adm-stone);
+  --adm-tint: none;
+  --adm-rim: transparent;
+  --adm-glow: 0 0 transparent;
+  --adm-face-sheen: transparent;
+}
+
+.admin-root .adm-inset {
+  border: 1px solid var(--adm-inset-border);
+  border-radius: var(--adm-radius-sm);
+  background-color: var(--adm-inset-bg);
+  background-image:
+    var(--adm-pattern),
+    linear-gradient(180deg, color-mix(in srgb, #000 10%, transparent), transparent 38%);
+  background-blend-mode: var(--adm-pattern-blend), normal;
+  box-shadow:
+    inset 0 1px 2px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+/* Плашка со смыслом: тонкая полоса цвета по левому краю вместо перекраски
+   всей подложки. Заливка цветом съедает контраст числа, полоса — нет. */
+.admin-root .adm-inset[data-tone] {
+  border-inline-start-color: color-mix(in srgb, var(--adm-inset-tone) 42%, var(--adm-inset-border));
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--adm-inset-tone) 62%, transparent),
+    inset 0 1px 2px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+/* Число в плашке красится тем же тоном, что и её полоса: подпись остаётся
+   тихой, цвет несёт только цифра. */
+.admin-root .adm-inset[data-tone] .adm-inset__value {
+  color: var(--adm-inset-tone);
+}
+
+.admin-root .adm-inset[data-tone='success'] { --adm-inset-tone: var(--adm-success); }
+.admin-root .adm-inset[data-tone='warning'] { --adm-inset-tone: var(--adm-warning); }
+.admin-root .adm-inset[data-tone='danger'] { --adm-inset-tone: var(--adm-danger); }
+.admin-root .adm-inset[data-tone='primary'] { --adm-inset-tone: var(--adm-primary); }
+.admin-root .adm-inset[data-tone='info'] { --adm-inset-tone: var(--adm-info); }
+
+/* Карточка внутри карточки — тот же утопленный материал. Прежнее правило
+   гасило ей и тень, и подложку — отличить её от воздуха можно было только по
+   скруглению. */
+.admin-root :is(.admin-panel, .admin-card, .adm-card, .today-card, .clients__card, .fin-card)
+  :is(.admin-panel, .admin-card, .adm-card) {
+  background-color: var(--adm-inset-bg);
+  background-image:
+    var(--adm-pattern),
+    linear-gradient(180deg, color-mix(in srgb, #000 10%, transparent), transparent 38%);
+  background-blend-mode: var(--adm-pattern-blend), normal;
+  border-color: var(--adm-inset-border);
+  box-shadow:
+    inset 0 1px 2px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+/* Блоки дедупликации в Meta CAPI собраны тем же материалом. */
+.admin-root .meta-dedupe > div {
+  background-color: var(--adm-inset-bg);
+  background-image:
+    var(--adm-pattern),
+    linear-gradient(180deg, color-mix(in srgb, #000 10%, transparent), transparent 38%);
+  background-blend-mode: var(--adm-pattern-blend), normal;
+  border-color: var(--adm-inset-border);
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--adm-inset-tone, var(--adm-success)) 62%, transparent),
+    inset 0 1px 2px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+.admin-root .meta-dedupe > .is-good { --adm-inset-tone: var(--adm-success); }
+.admin-root .meta-dedupe > .is-warn { --adm-inset-tone: var(--adm-warning); }
+.admin-root .meta-dedupe > .is-bad { --adm-inset-tone: var(--adm-danger); }
+
+/* --- 19.3. Столбчатые графики ---
+   Плоская заливка тоном — самая заметная дешевизна в разделе: столбец выглядит
+   как прямоугольник, залитый краской, а не как объём. Градиент сверху вниз,
+   блик по верхнему ребру и свечение вокруг превращают его в предмет.
+
+   Цвет остаётся смыслом: `--adm-bar` берётся из состояния столбца, светлота
+   меняется, оттенок — нет. */
+
+.admin-root .meta-trend__col.is-good { --adm-bar: var(--adm-fill-success); }
+.admin-root .meta-trend__col.is-warn { --adm-bar: var(--adm-fill-warning); }
+.admin-root .meta-trend__col.is-bad { --adm-bar: var(--adm-fill-danger); }
+.admin-root .meta-trend__col.is-empty { --adm-bar: color-mix(in srgb, var(--adm-text-tertiary) 42%, transparent); }
+
+.admin-root .meta-trend__col.is-good .meta-trend__bar,
+.admin-root .meta-trend__col.is-warn .meta-trend__bar,
+.admin-root .meta-trend__col.is-bad .meta-trend__bar,
+.admin-root .meta-trend__col.is-empty .meta-trend__bar {
+  border-radius: 6px 6px 3px 3px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, #fff 30%, var(--adm-bar)) 0%,
+      var(--adm-bar) 38%,
+      color-mix(in srgb, var(--adm-bar) 62%, transparent) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px color-mix(in srgb, var(--adm-bar) 34%, transparent),
+    0 0 18px color-mix(in srgb, var(--adm-bar) 28%, transparent);
+}
+
+/* Колонка под курсором выходит вперёд: свечение усиливается, остальные тускнеют
+   не сами по себе, а на контрасте с ней. */
+.admin-root .meta-trend__col:hover .meta-trend__bar {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 0 1px color-mix(in srgb, var(--adm-bar) 52%, transparent),
+    0 0 26px color-mix(in srgb, var(--adm-bar) 48%, transparent);
+}
+
+.admin-root .meta-trend__col:hover .meta-trend__value {
+  color: var(--adm-text-primary);
+}
+
+/* Линии сетки за столбцами. Без них высота столбца сравнивается только с
+   соседним столбцом; с ними — ещё и со шкалой. Нижние 34 px оставлены
+   подписям дней, поэтому сетка обрывается над ними. */
+.admin-root .meta-trend {
+  position: relative;
+}
+
+.admin-root .meta-trend::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 34px;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--adm-chart-grid) 0 1px,
+    transparent 1px 25%
+  );
+}
+
+/* Столбцы позиционируются, чтобы лечь поверх сетки: непозиционированный
+   элемент рисуется ниже абсолютного псевдоэлемента, и сетка шла бы по
+   столбцам. */
+.admin-root .meta-trend__col {
+  position: relative;
+}
+
+/* --- 19.4. Полосы и заливки --- */
+
+/* Ступень воронки получает зерно и блик поверх готового градиента. */
+.admin-root .adm-funnel__bar {
+  background-image:
+    var(--adm-pattern),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 52%),
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--adm-sec-1) calc(70% + var(--adm-funnel-depth, 0) * 7%), var(--adm-surface-elevated)),
+      color-mix(in srgb, var(--adm-sec-2) calc(78% + var(--adm-funnel-depth, 0) * 5%), var(--adm-surface-elevated))
+    );
+  background-blend-mode: var(--adm-pattern-blend), normal, normal;
+}
+
+/* Дорожки под полосами утоплены: полоса лежит в канавке, а не на плоскости. */
+.admin-root :is(
+  .adm-funnel__track,
+  .planner-col__track,
+  .planner-ring__track,
+  .perf-history__track,
+  .admin-progress,
+  .adm-progress,
+  .today-goal__bar,
+  .today-plan__bar,
+  .planner-bar
+) {
+  background-color: var(--adm-inset-bg);
+  box-shadow:
+    inset 0 1px 3px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+/* Заливка внутри дорожки получает тот же объём, что и столбец, — но только
+   тенями. Блик здесь нельзя класть слоем `background-image`: у этих полос
+   собственный градиент задан сокращённой записью `background` в admin-ui.css,
+   и любой мой слой не лёг бы поверх, а стёр бы его — полосы планера и колец
+   выполнения остались бы прозрачными. Внутренняя тень добавляет свет, ничего
+   не затирая. */
+.admin-root :is(
+  .planner-col__fill,
+  .planner-bar__fill,
+  .admin-progress > *,
+  .adm-progress > *,
+  .today-goal__bar > *,
+  .today-plan__bar > *
+) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 7px 9px -7px rgba(255, 255, 255, 0.4),
+    inset 0 -4px 8px -6px rgba(0, 0, 0, 0.35),
+    0 0 14px color-mix(in srgb, var(--adm-sec-1) 30%, transparent);
+}
+
+/* --- 19.5. Таблицы ---
+   Шапка перестаёт быть строкой текста и становится краем таблицы: подложка
+   с уклоном и волосяная линия снизу. Строка под курсором подсвечивается не
+   только фоном, но и меткой у левого края — видно, где именно ты находишься,
+   в таблице на сорок строк. */
+
+.admin-root :is(.adm-table, .admin-table) thead th {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--adm-sec-1) 10%, transparent),
+    transparent
+  );
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--adm-border-strong) 60%, transparent);
+}
+
+.admin-root :is(.adm-table, .admin-table) tbody tr:hover {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--adm-sec-1) 13%, transparent),
+    transparent 62%
+  );
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--adm-sec-1) 68%, transparent);
+}
+
+/* --- 19.6. Мелкие элементы управления ---
+   Материал доводится до самых мелких деталей не из педантизма: на экране их
+   больше всего, и именно на них взгляд возвращается чаще всего. Карточка с
+   объёмом, внутри которой лежат плоские метки и плоские переключатели,
+   выглядит незаконченной — глаз считывает разнобой быстрее, чем сам объём. */
+
+/* Шапка получает ту же подкраску раздела, что и карточки. Без неё единственная
+   поверхность во всю ширину экрана оставалась нейтрально-серой и рвала связь
+   с обложкой, которая светится прямо под ней. Кольца и ореола у шапки нет: она
+   и так отделена от содержимого светящейся линией снизу. */
+.admin-root .admin-topbar {
+  background-image: var(--adm-tint);
+}
+
+/* Метки состояний и уведомления: пара рёбер поверх собственной цветной
+   подложки. Цвет продолжает означать статус, объём добавляется отдельно. */
+.admin-root :is(
+  .admin-state,
+  .admin-notice,
+  .admin-badge,
+  .adm-badge,
+  .admin-tag,
+  .adm-tag,
+  .admin-chip,
+  .adm-delta
+) {
+  box-shadow:
+    inset 0 1px 0 var(--adm-edge-light),
+    inset 0 -1px 0 var(--adm-edge-shade);
+}
+
+/* Переключатель режимов: дорожка утоплена, активная кнопка приподнята. Это
+   единственный честный способ показать, что выбрано, не раскрашивая её, —
+   выбранная кнопка физически лежит выше остальных. */
+.admin-root :is(.crm-view-switch, .adm-segmented, .admin-segmented, .adm-trend-panel__switch) {
+  background-color: var(--adm-inset-bg);
+  background-image: var(--adm-pattern);
+  box-shadow:
+    inset 0 1px 3px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+/* Выбранная кнопка — единственное исключение внутри каменного лотка: она
+   приподнята и потому получает блеск обратно. Камень с неё снимается, иначе
+   она сливается с дорожкой, на которой лежит, и выбор перестаёт читаться. */
+.admin-root :is(.crm-view-switch, .adm-segmented, .admin-segmented) button.is-active {
+  background-image: linear-gradient(180deg, var(--adm-sheen-raised), transparent 62%);
+  box-shadow:
+    inset 0 1px 0 var(--adm-edge-light),
+    inset 0 -1px 0 var(--adm-edge-shade),
+    var(--adm-shadow-xs);
+}
+
+/* Кнопки. У главной уже есть свой блик из раздела 11 — здесь только зерно,
+   чтобы её заливка не осталась единственной идеально гладкой плоскостью на
+   экране. Второстепенные получают полную пару рёбер. */
+.admin-root .admin-button--primary {
+  background-image:
+    var(--adm-pattern),
+    linear-gradient(140deg, var(--adm-primary-solid-hover), var(--adm-primary-solid));
+  background-blend-mode: var(--adm-pattern-blend), normal;
+}
+
+.admin-root .admin-button--primary:hover:not(:disabled) {
+  background-image:
+    var(--adm-pattern),
+    linear-gradient(140deg, var(--adm-primary-solid), var(--adm-primary-solid));
+  background-blend-mode: var(--adm-pattern-blend), normal;
+}
+
+.admin-root :is(.admin-button--default, .admin-button--secondary) {
+  background-image:
+    var(--adm-pattern),
+    linear-gradient(180deg, var(--adm-face-sheen), transparent 64%);
+  background-blend-mode: var(--adm-pattern-blend), normal;
+  box-shadow:
+    inset 0 1px 0 var(--adm-edge-light),
+    inset 0 -1px 0 var(--adm-edge-shade);
+}
+
+/* --- 19.7. Поверхности разделов ---
+   Несколько блоков живут в admin-ui.css со своей непрозрачной подложкой и не
+   попадают ни под стекло, ни под материал по имени класса. Без них разделы
+   «Заявки» и «Планер» — а это те два экрана, где владелец проводит почти всё
+   время, — оставались бы плоскими на фоне остальной админки. */
+
+/* Приподнятые: карточка дня в планере, заметка, светофор клиента, блок
+   дублей. Все они лежат НА странице. */
+.admin-root :is(.planner-day, .admin-note, .clients__health, .crm-dupes, .admin-card--hero) {
+  background-image:
+    var(--adm-pattern),
+    radial-gradient(150% 120% at 0% 0%, var(--adm-face-sheen), transparent 58%);
+  background-blend-mode: var(--adm-pattern-blend), normal;
+  box-shadow:
+    inset 0 1px 0 var(--adm-edge-light),
+    inset 0 -1px 0 var(--adm-edge-shade),
+    var(--adm-shadow-sm);
+}
+
+/* Утопленные: колонка доски и панели инструментов. Колонка — не карточка, а
+   жёлоб, в котором лежат карточки заявок, иначе на доске получается карточка
+   в карточке и обе теряют край. Панель инструментов — лоток, в котором лежат
+   кнопки и поля: приподними её, и она начнёт спорить с содержимым раздела. */
+.admin-root :is(.admin-toolbar, .admin-crm-toolbar, .admin-site-preview__toolbar, .media-toolbar) {
+  background-color: var(--adm-inset-bg);
+  background-image: var(--adm-pattern);
+  background-blend-mode: var(--adm-pattern-blend);
+  border-color: var(--adm-inset-border);
+  box-shadow:
+    inset 0 1px 3px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+.admin-root .crm-column {
+  background-color: var(--adm-inset-bg);
+  background-image: var(--adm-pattern);
+  background-blend-mode: var(--adm-pattern-blend);
+  border-color: var(--adm-inset-border);
+  box-shadow:
+    inset 0 1px 3px var(--adm-inset-shade),
+    inset 0 -1px 0 var(--adm-inset-light);
+}
+
+/* --- 19.8. Печать ---
+   «Отчёт за месяц» и «Цели» печатают на бумаге. Материал там вреден целиком:
+   зерно ложится грязью и жрёт тонер, свечения не печатаются вовсе, а
+   утопленные плашки выходят серыми прямоугольниками поверх текста.
+
+   Блок в admin-ui.css обеляет только `.admin-panel` и `.adm-tile` — он писался
+   до того, как поверхностей стало два десятка. Здесь гасится всё остальное.
+
+   Заливки графиков намеренно остаются: столбец и ступень воронки несут смысл
+   цветом, и на печати он нужен так же, как на экране. С них снимается только
+   свечение. */
+@media print {
+  .admin-root *,
+  .admin-root *::before,
+  .admin-root *::after {
+    background-image: none !important;
+    background-blend-mode: normal !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  .admin-root :is(
+    .adm-card,
+    .today-card,
+    .crm-card,
+    .clients__card,
+    .fin-card,
+    .planner-day,
+    .planner-stat,
+    .admin-note,
+    .clients__health,
+    .crm-dupes,
+    .admin-card--hero,
+    .vitals__card,
+    .adm-inset,
+    .meta-dedupe > div,
+    .admin-toolbar,
+    .crm-column,
+    .crm-view-switch,
+    .adm-segmented,
+    .admin-segmented,
+    .adm-trend-panel__switch
+  ) {
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #ccc !important;
+  }
+
+  /* Кнопки и метки состояний. Их заливка держалась на слое
+     `background-image`, а он выше снят целиком — без этих строк главная
+     кнопка ушла бы в печать прозрачной, то есть белым текстом по белому. */
+  .admin-root .admin-button {
+    background: #fff !important;
+    color: #111 !important;
+    border: 1px solid #999 !important;
+  }
+
+  .admin-root .admin-button--primary {
+    background: #ede9fe !important;
+    border-color: #6d28d9 !important;
+    color: #4c1d95 !important;
+  }
+
+  .admin-root :is(.admin-state, .admin-notice, .admin-badge, .adm-badge, .admin-tag, .adm-tag, .admin-chip, .adm-delta) {
+    background: #fff !important;
+    border: 1px solid currentColor !important;
+  }
+
+  /* Столбцы и полосы возвращают себе цвет: `background-image: none` выше снял
+     бы их градиент вместе с зерном, и график ушёл бы в печать пустыми
+     прямоугольниками. Плоская заливка тоном честнее градиента на бумаге. */
+  .admin-root .meta-trend__col.is-good .meta-trend__bar { background: #059669 !important; }
+  .admin-root .meta-trend__col.is-warn .meta-trend__bar { background: #d97706 !important; }
+  .admin-root .meta-trend__col.is-bad .meta-trend__bar { background: #e11d48 !important; }
+  .admin-root .meta-trend__col.is-empty .meta-trend__bar { background: #d4d4d8 !important; }
+
+  .admin-root :is(.adm-funnel__bar, .planner-col__fill, .planner-bar__fill, .admin-progress > *, .adm-progress > *) {
+    background: #6d28d9 !important;
+  }
+
+  .admin-root :is(.adm-funnel__track, .planner-col__track, .admin-progress, .adm-progress, .today-goal__bar, .today-plan__bar, .planner-bar) {
+    background: #eceef6 !important;
+  }
+
+  /* Сетка за столбцами на бумаге только мешает: линий шкалы нет, а серые
+     полосы поперёк графика читаются как брак печати. */
+  .admin-root .meta-trend::before {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   20. Меньше движения
    Системная настройка выключает не только анимации, но и всё, что движется
    само: живой фон, свет за курсором, наклон карточек.
    ========================================================================== */

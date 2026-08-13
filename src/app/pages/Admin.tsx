@@ -232,7 +232,7 @@ function ArticleVersionsPanel({ slug, password, onRestore }: ArticleVersionsPane
   };
 
   return (
-    <details className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/25">
+    <details className="adm-inset">
       <summary
         onClick={() => { if (versions === null && !loading) void loadVersions(); }}
         className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-semibold text-[var(--adm-fg)]/90"
@@ -1428,19 +1428,19 @@ export default function Admin() {
                 </button>
               </div>
               <div className="mb-3 grid grid-cols-4 gap-2 text-center">
-                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                <div className="adm-inset px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.total}</div>
                   <div className="admin-meta">всего</div>
                 </div>
-                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                <div className="adm-inset px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.shown}</div>
                   <div className="admin-meta">видно</div>
                 </div>
-                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                <div className="adm-inset px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.drafts}</div>
                   <div className="admin-meta">черн.</div>
                 </div>
-                <div className="rounded-lg border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 px-2 py-1.5">
+                <div className="adm-inset px-2 py-1.5">
                   <div className="text-sm font-semibold">{articleStats.planned}</div>
                   <div className="admin-meta">план</div>
                 </div>
@@ -1466,7 +1466,7 @@ export default function Admin() {
               ) : (
                   <div className="admin-article-list space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
                     {filteredBySection.length === 0 && (
-                      <div className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/30 p-4 text-sm text-[var(--adm-fg)]/60">
+                      <div className="adm-inset p-4 text-sm text-[var(--adm-fg)]/60">
                         Ничего не найдено. Проверьте поиск или фильтр раздела.
                       </div>
                     )}
@@ -1523,7 +1523,7 @@ export default function Admin() {
             <div className="admin-editor-main p-4 sm:p-6 rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
               {editingArticle ? (
                 <div className="space-y-4">
-                  <div className="admin-editor-toolbar flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/90 px-4 py-3">
+                  <div className="admin-editor-toolbar adm-inset flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                         <span>{editingArticle.id ? 'Редактирование статьи' : 'Новая статья'}</span>

@@ -221,15 +221,15 @@ function PeriodCard({ label, data }: { label: string; data?: PeriodSummary }) {
       ) : (
         <>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[
-              ['Подтверждено', data.sent, 'text-green-500'],
-              ['Ошибки', data.failed, 'text-[var(--adm-danger)]'],
-              ['Пропущено', data.skipped, 'text-amber-500'],
-              ['Принято Meta', data.eventsReceived, 'text-[var(--adm-primary)]'],
-            ].map(([name, value, className]) => (
-              <div key={String(name)} className="rounded-xl bg-[var(--adm-muted)]/42 p-3">
+            {([
+              ['Подтверждено', data.sent, 'success'],
+              ['Ошибки', data.failed, 'danger'],
+              ['Пропущено', data.skipped, 'warning'],
+              ['Принято Meta', data.eventsReceived, 'primary'],
+            ] as Array<[string, number, string]>).map(([name, value, tone]) => (
+              <div key={name} className="adm-inset p-3" data-tone={tone}>
                 <div className="text-sm text-[var(--adm-fg)]/55">{name}</div>
-                <div className={`mt-1 text-xl font-semibold tabular-nums ${className}`}>{formatNumber(value as number)}</div>
+                <div className="adm-inset__value mt-1 text-xl font-semibold tabular-nums">{formatNumber(value)}</div>
               </div>
             ))}
           </div>
@@ -668,7 +668,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
                   ['Восстановлены очередью', data.outbox?.recoveredAfterRetry || 0],
                   ['Всего записей', data.outbox?.total || 0],
                 ].map(([label, value]) => (
-                  <div key={String(label)} className="rounded-xl border border-[var(--adm-border)]/70 bg-[var(--adm-muted)]/28 p-3">
+                  <div key={String(label)} className="adm-inset p-3">
                     <div className="text-sm text-[var(--adm-fg)]/52">{label}</div>
                     <div className="mt-1 text-xl font-semibold tabular-nums">{formatNumber(value as number)}</div>
                   </div>
@@ -741,7 +741,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
             )}
           </section>
 
-          <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/24 p-4">
+          <section className="adm-inset p-4">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--adm-primary)]" />
               <div>

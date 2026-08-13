@@ -327,7 +327,7 @@ function AuditPanel({
             <div><span className="block text-[10px] text-[var(--adm-fg)]/50">CLS</span><strong className="text-xs tabular-nums">{formatMetric(result?.lab.cls || null)}</strong></div>
             <div><span className="block text-[10px] text-[var(--adm-fg)]/50">Вес</span><strong className="text-xs tabular-nums">{formatMetric(result?.lab.totalBytes || null)}</strong></div>
           </div>
-          <div className="mt-2 rounded-lg bg-[var(--adm-muted)]/35 px-2.5 py-2 text-[10px] text-[var(--adm-fg)]/60">
+          <div className="adm-inset mt-2 px-2.5 py-2 text-[10px] text-[var(--adm-fg)]/60">
             {result?.field.scope === 'none' || !result
               ? 'Реальные данные CrUX: нет данных'
               : `CrUX ${result.field.scope === 'page' ? 'страницы' : 'домена'} · LCP ${formatField(result.field.lcp, 'ms')} · INP ${formatField(result.field.inp, 'ms')} · CLS ${formatField(result.field.cls, 'score')}`}

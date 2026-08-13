@@ -746,7 +746,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
       </div>
       {lead.message ? <blockquote className="admin-crm-message">{lead.message}</blockquote> : null}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-muted)]/28 p-3">
+      <div className="adm-inset flex flex-wrap items-center gap-2 p-3">
         <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-[var(--adm-fg)]/45">Быстрый шаг</span>
         <button className="admin-button admin-button--quiet" type="button" disabled={saving || !editingReady} onClick={() => prepareQuickAction('start')}>Начать работу</button>
         <button className="admin-button admin-button--quiet" type="button" disabled={saving || !editingReady} onClick={() => prepareQuickAction('today')}>Связаться сегодня</button>
