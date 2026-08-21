@@ -1,4 +1,4 @@
-import { formatEta, pageLockLabel, resolveLockCopy, type PageLock } from './page-locks';
+import { findPageLock, formatEta, resolveLockCopy, resolveLockSuggestions, type PageLock, type SubscriberFields } from './page-locks';
 
 /**
  * Заглушка закрытой страницы.
@@ -8,24 +8,34 @@ import { formatEta, pageLockLabel, resolveLockCopy, type PageLock } from './page
  * инструментах разработчика за пять секунд, и недописанный текст стал бы
  * публичным. Стекло собрано из абстрактного фирменного фона.
  *
- * Форма «сообщить, когда откроется» работает без JavaScript: обычная отправка
- * формы, затем переадресация обратно (иначе обновление страницы отправляло бы
- * почту повторно).
+ * Форма «оставить контакт» работает без JavaScript: обычная отправка формы,
+ * затем переадресация обратно (иначе обновление страницы отправляло бы
+ * контакт повторно). Поля необязательны по отдельности — сервер требует
+ * хотя бы одно, потому что без JavaScript «одно из трёх» разметкой не
+ * выражается.
  */
 
-export type PageLockFormState = 'idle' | 'ok' | 'duplicate' | 'error' | 'email' | 'limit';
+export type PageLockFormState =
+  | 'idle' | 'ok' | 'duplicate' | 'error' | 'email' | 'phone' | 'telegram' | 'contact' | 'limit';
 
 export interface PageLockPageOptions {
   lock: PageLock;
   path: string;
   formState: PageLockFormState;
   formStamp: string;
+  /** Какие поля доступны: телефон, телеграм и согласие появляются миграцией 0035. */
+  fields?: SubscriberFields;
+  /** Все закрытые страницы: из подсказок «куда пойти» они исключаются. */
+  otherLocks?: readonly PageLock[];
 }
 
 const FORM_STATE_TEXT: Record<Exclude<PageLockFormState, 'idle'>, { tone: 'ok' | 'warn'; text: string }> = {
-  ok: { tone: 'ok', text: 'Готово. Напишем на эту почту, как только страница откроется.' },
-  duplicate: { tone: 'ok', text: 'Эта почта уже в списке — напишем, как только страница откроется.' },
+  ok: { tone: 'ok', text: 'Готово. Напишем, как только страница откроется.' },
+  duplicate: { tone: 'ok', text: 'Этот контакт уже в списке — напишем, как только страница откроется.' },
   email: { tone: 'warn', text: 'Проверьте адрес почты: похоже, в нём опечатка.' },
+  phone: { tone: 'warn', text: 'Проверьте номер телефона — лучше с кодом страны, например +7 999 123-45-67.' },
+  telegram: { tone: 'warn', text: 'Имя в телеграме — латиница, цифры и подчёркивание, от 5 символов.' },
+  contact: { tone: 'warn', text: 'Оставьте хотя бы одно: почту, телефон или телеграм.' },
   limit: { tone: 'warn', text: 'Слишком много попыток подряд. Попробуйте через минуту.' },
   error: { tone: 'warn', text: 'Не получилось сохранить. Попробуйте ещё раз чуть позже.' },
 };
@@ -45,6 +55,9 @@ export function normalizeFormState(value: string | null): PageLockFormState {
     case 'duplicate':
     case 'error':
     case 'email':
+    case 'phone':
+    case 'telegram':
+    case 'contact':
     case 'limit':
       return value;
     default:
@@ -233,9 +246,24 @@ h1 {
   color: var(--ink-soft);
   text-align: center;
 }
-.row { display: flex; gap: 8px; flex-wrap: wrap; }
-input[type="email"] {
-  flex: 1 1 190px;
+.field { display: block; margin-bottom: 10px; }
+.field-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.pair .field { margin-bottom: 10px; }
+.notify input[type="email"],
+.notify input[type="tel"],
+.notify input[type="text"] {
+  width: 100%;
   min-width: 0;
   min-height: 48px;
   padding: 0 15px;
@@ -246,15 +274,22 @@ input[type="email"] {
   font: 400 15px/1.4 var(--font);
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
-input[type="email"]::placeholder { color: rgba(245, 245, 247, 0.34); }
-input[type="email"]:focus {
+.notify input::placeholder { color: rgba(245, 245, 247, 0.32); }
+.notify input:focus {
   outline: none;
   border-color: rgba(139, 92, 246, 0.7);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.22);
 }
+.field-hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
 .submit {
-  flex: 0 0 auto;
-  min-height: 48px;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 14px;
   padding: 0 20px;
   border: 0;
   border-radius: 14px;
@@ -270,7 +305,7 @@ input[type="email"]:focus {
 .consent {
   display: flex;
   gap: 9px;
-  margin-top: 12px;
+  margin-top: 10px;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--ink-faint);
@@ -278,13 +313,20 @@ input[type="email"]:focus {
 }
 .consent input {
   flex: none;
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   margin: 1px 0 0;
   accent-color: var(--violet);
   cursor: pointer;
 }
 .consent a { color: rgba(196, 181, 253, 0.95); }
+.consent-optional { color: var(--ink-soft); }
+.consent-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
 .trap,
 .sr-only {
   position: absolute;
@@ -311,21 +353,30 @@ input[type="email"]:focus {
   background: rgba(245, 158, 11, 0.12);
   color: #fde68a;
 }
-.actions {
+.actions { margin-top: 26px; }
+.actions-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.actions-row {
   display: flex;
-  gap: 10px;
+  gap: 9px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 24px;
 }
 .btn {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0 22px;
-  border-radius: 14px;
-  font-size: 15px;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   text-decoration: none;
   transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
@@ -347,16 +398,21 @@ input[type="email"]:focus {
   font-size: 12.5px;
   color: var(--ink-faint);
 }
+.foot-link {
+  color: rgba(196, 181, 253, 0.95);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(196, 181, 253, 0.3);
+}
+.foot-link:hover { border-bottom-color: rgba(196, 181, 253, 0.8); }
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
   outline: 2px solid #a78bfa;
   outline-offset: 2px;
 }
-@media (max-width: 380px) {
-  .row { flex-direction: column; }
-  .submit { width: 100%; }
-  .actions { flex-direction: column; }
+@media (max-width: 400px) {
+  .pair { grid-template-columns: minmax(0, 1fr); }
+  .actions-row { flex-direction: column; }
   .btn { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -367,6 +423,8 @@ input:focus-visible {
 
 function renderNotifyForm(options: PageLockPageOptions): string {
   const { lock, path, formState, formStamp } = options;
+  const fields = options.fields || { phone: false, telegram: false, marketing: false };
+
   if (formState === 'ok' || formState === 'duplicate') {
     const state = FORM_STATE_TEXT[formState];
     return `<p class="note note-${state.tone}">${escapeHtml(state.text)}</p>`;
@@ -376,21 +434,46 @@ function renderNotifyForm(options: PageLockPageOptions): string {
     return formState === 'idle' ? '' : renderStateNote(formState);
   }
 
+  // Поля не помечены required: без JavaScript «обязательно одно из трёх»
+  // разметкой не выражается, и браузер требовал бы заполнить все.
+  const contactRow = fields.phone || fields.telegram
+    ? `<div class="pair">
+          ${fields.phone ? `<label class="field">
+            <span class="field-label">Телефон</span>
+            <input type="tel" name="phone" maxlength="32" autocomplete="tel" inputmode="tel" placeholder="+7 999 123-45-67">
+          </label>` : ''}
+          ${fields.telegram ? `<label class="field">
+            <span class="field-label">Телеграм</span>
+            <input type="text" name="telegram" maxlength="40" autocomplete="off" spellcheck="false" placeholder="@username">
+          </label>` : ''}
+        </div>`
+    : '';
+
+  const marketing = fields.marketing
+    ? `<label class="consent consent-optional">
+          <input type="checkbox" name="marketing" value="1">
+          <span>Можно присылать полезные материалы и предложения<span class="consent-note">Тогда отметим ваш интерес в рекламных системах. Без этой галочки туда не уходит ничего.</span></span>
+        </label>`
+    : '';
+
   return `${renderStateNote(formState)}
       <form class="notify" method="post" action="/api/page-lock-notify">
         <p class="notify-title">Написать вам, когда страница откроется?</p>
         <input type="hidden" name="path" value="${escapeHtml(path)}">
         <input type="hidden" name="stamp" value="${escapeHtml(formStamp)}">
         <div class="trap" aria-hidden="true"><label>Компания<input type="text" name="company" tabindex="-1" autocomplete="off"></label></div>
-        <div class="row">
-          <label class="sr-only" for="ww-email">Ваша почта</label>
-          <input id="ww-email" type="email" name="email" required maxlength="120" autocomplete="email" placeholder="you@example.com" inputmode="email">
-          <button class="submit" type="submit">Сообщить</button>
-        </div>
+        <label class="field">
+          <span class="field-label">Почта</span>
+          <input type="email" name="email" maxlength="120" autocomplete="email" inputmode="email" placeholder="you@example.com">
+        </label>
+        ${contactRow}
+        <p class="field-hint">${fields.phone || fields.telegram ? 'Достаточно чего-то одного — куда вам удобнее.' : 'Напишем один раз, когда страница откроется.'}</p>
         <label class="consent">
           <input type="checkbox" name="consent" value="1" required>
-          <span>Согласен на обработку почты для одного письма об открытии страницы — <a href="/privacy-policy">политика конфиденциальности</a></span>
+          <span>Согласен на обработку контактов для сообщения об открытии страницы — <a href="/privacy-policy">политика конфиденциальности</a></span>
         </label>
+        ${marketing}
+        <button class="submit" type="submit">Сообщить, когда откроется</button>
       </form>`;
 }
 
@@ -405,8 +488,12 @@ export function renderPageLockHtml(options: PageLockPageOptions): string {
   const { lock, path } = options;
   const copy = resolveLockCopy(lock);
   const eta = formatEta(lock.eta);
-  const ctaLabel = pageLockLabel(lock.ctaPath);
-  const showCta = lock.ctaPath !== '/';
+  // Куда звать вместо этой страницы. Первая кнопка — основная, остальные
+  // спокойнее. Закрытых адресов и самой страницы в списке быть не может.
+  const locks = options.otherLocks || [lock];
+  const suggestions = resolveLockSuggestions(lock, locks);
+  // Выход на главную обязан быть всегда — кроме случая, когда закрыта и она.
+  const homeAvailable = path !== '/' && !findPageLock(locks, '/');
 
   return `<!doctype html>
 <html lang="ru">
@@ -431,11 +518,13 @@ export function renderPageLockHtml(options: PageLockPageOptions): string {
   <p class="lede">${escapeHtml(copy.message)}</p>
   ${eta ? `<p class="eta">Планируем открыть <span>${escapeHtml(eta)}</span></p>` : ''}
   ${renderNotifyForm(options)}
-  <div class="actions">
-    <a class="btn btn-primary" href="/">На главную</a>
-    ${showCta ? `<a class="btn btn-ghost" href="${escapeHtml(lock.ctaPath)}">${escapeHtml(ctaLabel)}</a>` : ''}
-  </div>
-  <p class="foot">Остальные разделы сайта работают как обычно.</p>
+  ${suggestions.length ? `<nav class="actions" aria-label="Другие разделы сайта">
+    <p class="actions-title">Пока посмотрите</p>
+    <div class="actions-row">
+      ${suggestions.map((item, index) => `<a class="btn ${index === 0 ? 'btn-primary' : 'btn-ghost'}" href="${escapeHtml(item.path)}">${escapeHtml(item.label)}</a>`).join('')}
+    </div>
+  </nav>` : ''}
+  <p class="foot">${homeAvailable ? '<a class="foot-link" href="/">На главную</a> · ' : ''}Остальные разделы сайта работают как обычно.</p>
 </main>
 </body>
 </html>`;

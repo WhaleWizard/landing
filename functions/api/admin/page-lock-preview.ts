@@ -7,10 +7,11 @@ import {
   isLockablePath,
   LOCK_MESSAGE_MAX,
   LOCK_TITLE_MAX,
-  normalizeCtaPath,
+  normalizeCtaPaths,
   normalizeEta,
   normalizePagePath,
   normalizePreset,
+  readSubscriberFields,
   sanitizeLockText,
 } from '../../_lib/page-locks';
 import { enforceRateLimit } from '../../_lib/rate-limit';
@@ -48,7 +49,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     message: sanitizeLockText(body.message, LOCK_MESSAGE_MAX),
     eta: normalizeEta(body.eta),
     showSubscribe: body.showSubscribe !== false,
-    ctaPath: normalizeCtaPath(body.ctaPath),
+    ctaPaths: normalizeCtaPaths(body.ctaPaths ?? body.ctaPath),
   };
 
   return json({
@@ -56,6 +57,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     html: renderPageLockHtml({
       lock,
       path,
+      fields: await readSubscriberFields(env),
+      // В кадре предпросмотра подсказки считаются так, будто закрыта только
+      // эта страница: владелец видит набор, который получит посетитель.
+      otherLocks: [lock],
       formState: 'idle',
       // Подпись в кадре предпросмотра не нужна: форма здесь ничего не отправляет.
       formStamp: lock.showSubscribe ? 'preview' : '',

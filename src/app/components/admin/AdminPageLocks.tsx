@@ -39,7 +39,7 @@ interface RouteState {
   eta: string;
   hideInNav: boolean;
   showSubscribe: boolean;
-  ctaPath: string;
+  ctaPaths: string[];
   lockedAt: string;
   updatedAt: string;
   weeklyViews: number;
@@ -56,8 +56,18 @@ interface Subscriber {
   id: number;
   path: string;
   email: string;
+  phone: string;
+  telegram: string;
+  marketingConsent: boolean;
   createdAt: string;
   notifiedAt: string;
+}
+
+/** Какие поля контактов доступны: телефон и телеграм даёт миграция 0035. */
+interface ContactFields {
+  phone: boolean;
+  telegram: boolean;
+  marketing: boolean;
 }
 
 interface LocksResponse {
@@ -70,10 +80,14 @@ interface LocksResponse {
   subscribers?: Subscriber[];
   trafficDays?: number;
   listSource?: string;
+  fields?: ContactFields;
 }
 
 type Draft = Pick<RouteState,
-  'preset' | 'title' | 'message' | 'eta' | 'includeChildren' | 'hideInNav' | 'showSubscribe' | 'ctaPath'>;
+  'preset' | 'title' | 'message' | 'eta' | 'includeChildren' | 'hideInNav' | 'showSubscribe' | 'ctaPaths'>;
+
+const CTA_SLOTS = [0, 1, 2];
+const CTA_AUTO = 'auto';
 
 const PRESET_OPTIONS = [
   { value: 'development', label: 'Страница в разработке' },
@@ -98,8 +112,13 @@ function toDraft(route: RouteState): Draft {
     includeChildren: route.includeChildren,
     hideInNav: route.hideInNav,
     showSubscribe: route.showSubscribe,
-    ctaPath: route.ctaPath,
+    ctaPaths: [...(route.ctaPaths || [])],
   };
+}
+
+/** Контакт одной строкой: показываем то, что человек оставил. */
+function subscriberContact(item: Subscriber): string {
+  return [item.email, item.phone, item.telegram ? `@${item.telegram}` : ''].filter(Boolean).join(' · ');
 }
 
 /** «Закрыта 12 дней» — чтобы забытая блокировка бросалась в глаза. */
@@ -208,7 +227,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
         eta: patch.eta ?? route.eta,
         hideInNav: patch.hideInNav ?? route.hideInNav,
         showSubscribe: patch.showSubscribe ?? route.showSubscribe,
-        ctaPath: patch.ctaPath ?? route.ctaPath,
+        ctaPaths: patch.ctaPaths ?? route.ctaPaths,
       });
       await load();
       return true;
@@ -325,13 +344,14 @@ export default function AdminPageLocks({ password }: { password: string }) {
     };
   }, [activeRoute, draft, password]);
 
+  // В кнопки предлагаем только открытые страницы: закрытая вела бы на вторую
+  // заглушку подряд. Пустой слот означает «подберём сами по теме страницы».
   const ctaOptions = useMemo(() => ([
-    { value: '/', label: 'Только «На главную»' },
-    ...routes.filter((route) => route.path !== '/' && !route.locked).map((route) => ({
-      value: route.path,
-      label: route.label,
-    })),
-  ]), [routes]);
+    { value: CTA_AUTO, label: 'Автоматически' },
+    ...routes
+      .filter((route) => route.path !== '/' && route.path !== openPath && !route.locked)
+      .map((route) => ({ value: route.path, label: route.label })),
+  ]), [openPath, routes]);
 
   if (loading && !data) return <AdminSectionSkeleton tiles={0} rows={6} />;
 
@@ -498,12 +518,24 @@ export default function AdminPageLocks({ password }: { password: string }) {
                           <span className="admin-hint">Необязательно — покажем на заглушке</span>
                         </label>
 
-                        <AdminSelect
-                          label="Вторая кнопка ведёт на"
-                          value={draft.ctaPath}
-                          options={ctaOptions}
-                          onValueChange={(value) => setDraft({ ...draft, ctaPath: value })}
-                        />
+                        {CTA_SLOTS.map((slot) => (
+                          <AdminSelect
+                            key={slot}
+                            label={slot === 0 ? 'Кнопка 1 — куда зовём' : `Кнопка ${slot + 1}`}
+                            value={draft.ctaPaths[slot] || CTA_AUTO}
+                            options={ctaOptions}
+                            hint={slot === 0 ? 'Пусто — подберём по теме страницы' : undefined}
+                            onValueChange={(value) => {
+                              const next = [...draft.ctaPaths];
+                              if (value === CTA_AUTO) next.splice(slot, 1);
+                              else next[slot] = value;
+                              setDraft({
+                                ...draft,
+                                ctaPaths: next.filter((item, index) => item && next.indexOf(item) === index),
+                              });
+                            }}
+                          />
+                        ))}
                       </div>
 
                       <div className="plock-editor__switches">
@@ -540,8 +572,12 @@ export default function AdminPageLocks({ password }: { password: string }) {
                             onChange={(event) => setDraft({ ...draft, showSubscribe: event.target.checked })}
                           />
                           <span>
-                            Спрашивать почту «сообщить, когда откроется»
-                            <span className="admin-hint">Такие записи не попадают в заявки и не участвуют в воронке и цене лида</span>
+                            Спрашивать контакт «сообщить, когда откроется»
+                            <span className="admin-hint">
+                              {data?.fields?.phone
+                                ? 'Почта, телефон и телеграм — хватит любого одного. В заявки и в воронку такие записи не попадают, приходят в Telegram.'
+                                : 'Пока только почта: телефон и телеграм включит миграция 0035. В заявки и в воронку такие записи не попадают.'}
+                            </span>
                           </span>
                         </label>
                       </div>
@@ -584,7 +620,10 @@ export default function AdminPageLocks({ password }: { password: string }) {
                               .slice(0, 12)
                               .map((item) => (
                                 <li key={item.id}>
-                                  <span>{item.email}</span>
+                                  <span>
+                                    {subscriberContact(item)}
+                                    {item.marketingConsent ? <span className="plock-tag plock-tag--quiet">согласие на маркетинг</span> : null}
+                                  </span>
                                   <span className="admin-hint">{formatDateTime(item.createdAt)}</span>
                                 </li>
                               ))}

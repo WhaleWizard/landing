@@ -9,13 +9,15 @@ import {
   LOCK_MESSAGE_MAX,
   LOCK_TITLE_MAX,
   mapLockRow,
-  normalizeCtaPath,
+  normalizeCtaPaths,
   normalizeEta,
   normalizePagePath,
   normalizePreset,
   PAGE_LOCK_PRESETS,
   PAGE_LOCK_ROUTES,
   PAGE_LOCKS_MIGRATION,
+  readSubscriberFields,
+  serializeCtaPaths,
   readPageLockSnapshot,
   sanitizeLockText,
   type PageLock,
@@ -38,6 +40,17 @@ const REASON = 'без неё нельзя закрывать страницы �
 const TRAFFIC_DAYS = 7;
 const MAX_SUBSCRIBERS = 200;
 const MAX_EVENTS = 40;
+
+interface SubscriberRow {
+  id: number;
+  path: string;
+  email: string;
+  phone?: string;
+  telegram?: string;
+  marketing_consent?: number;
+  created_at: string;
+  notified_at: string | null;
+}
 
 interface LockRow {
   path: string;
@@ -120,8 +133,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       env.DB.prepare('SELECT * FROM page_locks ORDER BY path ASC').all<LockRow>(),
       env.DB.prepare(`SELECT path, action, created_at FROM page_lock_events
         ORDER BY id DESC LIMIT ${MAX_EVENTS}`).all<{ path: string; action: string; created_at: string }>(),
-      env.DB.prepare(`SELECT id, path, email, created_at, notified_at FROM page_lock_subscribers
-        ORDER BY id DESC LIMIT ${MAX_SUBSCRIBERS}`).all<{ id: number; path: string; email: string; created_at: string; notified_at: string | null }>(),
+      env.DB.prepare(`SELECT * FROM page_lock_subscribers
+        ORDER BY id DESC LIMIT ${MAX_SUBSCRIBERS}`).all<SubscriberRow>(),
     ]);
 
     const traffic = await readTraffic(env.DB);
@@ -140,7 +153,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
         eta: state?.eta || '',
         hideInNav: state ? state.hideInNav : true,
         showSubscribe: state ? state.showSubscribe : true,
-        ctaPath: state?.ctaPath || '/',
+        ctaPaths: state?.ctaPaths || [],
         lockedAt: state?.lockedAt || '',
         updatedAt: state?.updatedAt || '',
         weeklyViews: traffic[route.path] || 0,
@@ -161,10 +174,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       subscribers: (subscribers.results || []).map((item) => ({
         id: item.id,
         path: item.path,
-        email: item.email,
+        email: item.email || '',
+        phone: item.phone || '',
+        telegram: item.telegram || '',
+        marketingConsent: Number(item.marketing_consent || 0) === 1,
         createdAt: item.created_at,
         notifiedAt: item.notified_at || '',
       })),
+      fields: await readSubscriberFields(env),
       trafficDays: TRAFFIC_DAYS,
       listSource: snapshot.source,
     }, { headers: noStore });
@@ -175,6 +192,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
 interface SavePayload {
   path?: string;
+  ctaPaths?: unknown;
   locked?: boolean;
   includeChildren?: boolean;
   preset?: string;
@@ -270,7 +288,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const title = sanitizeLockText(body.title, LOCK_TITLE_MAX);
     const message = sanitizeLockText(body.message, LOCK_MESSAGE_MAX);
     const eta = normalizeEta(body.eta);
-    const ctaPath = normalizeCtaPath(body.ctaPath);
+    const ctaPaths = normalizeCtaPaths(body.ctaPaths ?? body.ctaPath);
 
     // Правка текстов при неизменном доступе — это «update», а не «закрыл» или
     // «открыл»: журнал должен читаться как история доступа, а не как шум.
@@ -306,7 +324,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         eta || null,
         body.hideInNav === false ? 0 : 1,
         body.showSubscribe === false ? 0 : 1,
-        ctaPath,
+        serializeCtaPaths(ctaPaths),
         locked ? 1 : 0,
       )
       .run();

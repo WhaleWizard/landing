@@ -24,6 +24,15 @@ export interface PageLockRoute {
   hasChildren?: boolean;
   /** Предупреждение перед закрытием — для страниц с особой ценой ошибки. */
   warning?: string;
+  /**
+   * Куда звать вместо этой страницы, по убыванию осмысленности.
+   *
+   * Заглушка — это тупик, из которого человек уходит с сайта. Набор подобран
+   * под тему самой страницы: с закрытого Google Ads логично предложить другие
+   * каналы и кейсы, а не «Политику Cookie». Закрытые адреса и сама страница
+   * из списка убираются на лету.
+   */
+  suggest: string[];
 }
 
 /**
@@ -35,21 +44,33 @@ export interface PageLockRoute {
  * `npm run test:page-locks`.
  */
 export const PAGE_LOCK_ROUTES: readonly PageLockRoute[] = [
-  { path: '/', label: 'Главная', group: 'Главная', warning: 'Заглушку увидят все, кто зайдёт на сайт: реклама, поиск, прямые заходы.' },
-  { path: '/meta-ads', label: 'Meta Ads', group: 'Услуги' },
-  { path: '/meta-apps', label: 'Продвижение приложений', group: 'Услуги' },
-  { path: '/google-ads', label: 'Google Ads', group: 'Услуги' },
-  { path: '/consult', label: 'Консультация', group: 'Услуги' },
-  { path: '/blog', label: 'Блог', group: 'Контент', hasChildren: true },
-  { path: '/cases', label: 'Кейсы', group: 'Контент', hasChildren: true },
-  { path: '/faq', label: 'FAQ', group: 'Контент' },
-  { path: '/marketing-glossary', label: 'Словарь метрик', group: 'Контент' },
-  { path: '/calculator', label: 'Калькулятор бюджета', group: 'Инструменты' },
-  { path: '/roi-calculator', label: 'Калькулятор ROI', group: 'Инструменты' },
-  { path: '/thank-you', label: 'Заявка отправлена', group: 'Служебные', warning: 'На эту страницу попадают после отправки формы — человек увидит заглушку вместо благодарности.' },
-  { path: '/privacy-policy', label: 'Политика конфиденциальности', group: 'Юридические', warning: 'Ссылка на политику обязательна в формах и в рекламных кабинетах.' },
-  { path: '/offer', label: 'Публичная оферта', group: 'Юридические' },
-  { path: '/cookie-policy', label: 'Политика Cookie', group: 'Юридические' },
+  {
+    path: '/', label: 'Главная', group: 'Главная',
+    warning: 'Заглушку увидят все, кто зайдёт на сайт: реклама, поиск, прямые заходы.',
+    suggest: ['/cases', '/meta-ads', '/google-ads', '/consult'],
+  },
+  { path: '/meta-ads', label: 'Meta Ads', group: 'Услуги', suggest: ['/cases', '/meta-apps', '/google-ads', '/consult'] },
+  { path: '/meta-apps', label: 'Продвижение приложений', group: 'Услуги', suggest: ['/cases', '/meta-ads', '/consult'] },
+  { path: '/google-ads', label: 'Google Ads', group: 'Услуги', suggest: ['/cases', '/meta-ads', '/consult'] },
+  { path: '/consult', label: 'Консультация', group: 'Услуги', suggest: ['/cases', '/meta-ads', '/google-ads'] },
+  { path: '/blog', label: 'Блог', group: 'Контент', hasChildren: true, suggest: ['/cases', '/marketing-glossary', '/faq'] },
+  { path: '/cases', label: 'Кейсы', group: 'Контент', hasChildren: true, suggest: ['/meta-ads', '/google-ads', '/consult'] },
+  { path: '/faq', label: 'FAQ', group: 'Контент', suggest: ['/consult', '/marketing-glossary', '/cases'] },
+  { path: '/marketing-glossary', label: 'Словарь метрик', group: 'Контент', suggest: ['/blog', '/calculator', '/faq'] },
+  { path: '/calculator', label: 'Калькулятор бюджета', group: 'Инструменты', suggest: ['/roi-calculator', '/consult', '/cases'] },
+  { path: '/roi-calculator', label: 'Калькулятор ROI', group: 'Инструменты', suggest: ['/calculator', '/cases', '/consult'] },
+  {
+    path: '/thank-you', label: 'Заявка отправлена', group: 'Служебные',
+    warning: 'На эту страницу попадают после отправки формы — человек увидит заглушку вместо благодарности.',
+    suggest: ['/cases', '/blog'],
+  },
+  {
+    path: '/privacy-policy', label: 'Политика конфиденциальности', group: 'Юридические',
+    warning: 'Ссылка на политику обязательна в формах и в рекламных кабинетах.',
+    suggest: ['/offer', '/cookie-policy'],
+  },
+  { path: '/offer', label: 'Публичная оферта', group: 'Юридические', suggest: ['/privacy-policy', '/cookie-policy'] },
+  { path: '/cookie-policy', label: 'Политика Cookie', group: 'Юридические', suggest: ['/privacy-policy', '/offer'] },
 ];
 
 const LOCKABLE_PATHS = new Set(PAGE_LOCK_ROUTES.map((route) => route.path));
@@ -74,7 +95,8 @@ export interface PageLock {
   eta: string;
   hideInNav: boolean;
   showSubscribe: boolean;
-  ctaPath: string;
+  /** До трёх закреплённых кнопок. Пусто — подбираем сами по теме страницы. */
+  ctaPaths: string[];
   lockedAt: string;
   updatedAt: string;
 }
@@ -103,6 +125,50 @@ interface PageLockRow {
 }
 
 export const PAGE_LOCKS_MIGRATION = '0034_page_locks.sql';
+export const PAGE_LOCK_CONTACTS_MIGRATION = '0035_page_lock_contacts.sql';
+
+/**
+ * Какие поля контактов доступны на заглушке.
+ *
+ * Телефон, телеграм и согласие на маркетинг появляются миграцией 0035. До неё
+ * форма честно показывает только почту, а не падает и не теряет отправку.
+ */
+export interface SubscriberFields {
+  phone: boolean;
+  telegram: boolean;
+  marketing: boolean;
+}
+
+const NO_CONTACT_FIELDS: SubscriberFields = { phone: false, telegram: false, marketing: false };
+const FIELDS_TTL_MS = 5 * 60 * 1000;
+
+let fieldsCache: { fields: SubscriberFields; expiresAt: number } | null = null;
+
+export async function readSubscriberFields(env: Env): Promise<SubscriberFields> {
+  const now = Date.now();
+  if (fieldsCache && fieldsCache.expiresAt > now) return fieldsCache.fields;
+  if (!env.DB) return NO_CONTACT_FIELDS;
+
+  try {
+    const result = await env.DB.prepare('PRAGMA table_info(page_lock_subscribers)').all<{ name: string }>();
+    const columns = new Set((result.results || []).map((column) => String(column.name)));
+    const fields: SubscriberFields = {
+      phone: columns.has('phone'),
+      telegram: columns.has('telegram'),
+      marketing: columns.has('marketing_consent'),
+    };
+    fieldsCache = { fields, expiresAt: now + FIELDS_TTL_MS };
+    return fields;
+  } catch {
+    fieldsCache = { fields: NO_CONTACT_FIELDS, expiresAt: now + FIELDS_TTL_MS };
+    return NO_CONTACT_FIELDS;
+  }
+}
+
+/** Сброс после применения миграции: иначе поля появятся только через пять минут. */
+export function invalidateSubscriberFields(): void {
+  fieldsCache = null;
+}
 
 const MEMORY_TTL_MS = 30_000;
 const DEGRADED_TTL_MS = 10_000;
@@ -169,10 +235,30 @@ export function sanitizeLockText(value: unknown, maxLength: number): string {
 export const LOCK_TITLE_MAX = 80;
 export const LOCK_MESSAGE_MAX = 260;
 
-/** Вторая кнопка ведёт только на страницу сайта и только на открытую. */
-export function normalizeCtaPath(value: unknown): string {
-  const path = normalizePagePath(String(value || '/'));
-  return LOCKABLE_PATHS.has(path) ? path : '/';
+export const MAX_CTA_PATHS = 3;
+
+/**
+ * Закреплённые кнопки заглушки: только страницы сайта, только из белого списка.
+ *
+ * Принимается и список, и старая строка с одним адресом — колонка `cta_path`
+ * заполнялась одиночным значением до появления выбора из трёх кнопок.
+ */
+export function normalizeCtaPaths(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : String(value ?? '').split(',');
+  const result: string[] = [];
+  for (const item of raw) {
+    const path = normalizePagePath(String(item || ''));
+    // '/' означает «подбирай сам»: главная и так всегда последняя в подборе.
+    if (path === '/' || !LOCKABLE_PATHS.has(path) || result.includes(path)) continue;
+    result.push(path);
+    if (result.length >= MAX_CTA_PATHS) break;
+  }
+  return result;
+}
+
+/** Обратно в колонку: пустой список — пустая строка. */
+export function serializeCtaPaths(paths: readonly string[]): string {
+  return paths.join(',');
 }
 
 export const PAGE_LOCK_PRESETS: Readonly<Record<Exclude<PageLockPreset, 'custom'>, { title: string; message: string }>> = {
@@ -197,6 +283,48 @@ export function resolveLockCopy(lock: PageLock): { title: string; message: strin
     title: lock.title || preset?.title || PAGE_LOCK_PRESETS.development.title,
     message: lock.message || preset?.message || PAGE_LOCK_PRESETS.development.message,
   };
+}
+
+export interface LockSuggestion {
+  path: string;
+  label: string;
+}
+
+/**
+ * Куда звать человека с заглушки.
+ *
+ * Заглушка без выхода — это уход с сайта. Порядок такой: сначала ручной выбор
+ * владельца, если он его сделал, затем набор под тему самой страницы, в конце
+ * главная. Из списка выкидываются сама страница и всё, что тоже закрыто, —
+ * иначе кнопка вела бы на вторую заглушку подряд.
+ */
+export function resolveLockSuggestions(
+  lock: PageLock,
+  locks: readonly PageLock[],
+  limit = 3,
+): LockSuggestion[] {
+  const current = normalizePagePath(lock.path);
+  const route = pageLockRoute(current);
+  // Главной в списке кнопок нет намеренно: ссылка на неё стоит отдельной
+  // строкой внизу карточки и не занимает слот тематической подсказки.
+  const candidates = [
+    ...(lock.ctaPaths || []),
+    ...(route?.suggest || []),
+  ];
+
+  const seen = new Set<string>([current]);
+  const result: LockSuggestion[] = [];
+
+  for (const candidate of candidates) {
+    const path = normalizePagePath(candidate);
+    if (seen.has(path) || !LOCKABLE_PATHS.has(path)) continue;
+    if (findPageLock(locks, path)) continue;
+    seen.add(path);
+    result.push({ path, label: pageLockLabel(path) });
+    if (result.length >= limit) break;
+  }
+
+  return result;
 }
 
 const MONTHS_GENITIVE = [
@@ -224,7 +352,7 @@ export function emptyLock(path: string): PageLock {
     eta: '',
     hideInNav: true,
     showSubscribe: true,
-    ctaPath: '/',
+    ctaPaths: [],
     lockedAt: '',
     updatedAt: '',
   };
@@ -243,7 +371,7 @@ export function mapLockRow(row: PageLockRow): PageLock {
     eta: normalizeEta(row.eta),
     hideInNav: Number(row.hide_in_nav) === 1,
     showSubscribe: Number(row.show_subscribe) === 1,
-    ctaPath: normalizeCtaPath(row.cta_path),
+    ctaPaths: normalizeCtaPaths(row.cta_path),
     lockedAt: String(row.locked_at || ''),
     updatedAt: String(row.updated_at || ''),
   };

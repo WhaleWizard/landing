@@ -106,11 +106,42 @@ test('тексты заглушки остаются простым тексто
   assert.equal(server.sanitizeLockText('a'.repeat(500), server.LOCK_TITLE_MAX).length, server.LOCK_TITLE_MAX);
 });
 
-test('вторая кнопка ведёт только внутрь сайта', () => {
-  assert.equal(server.normalizeCtaPath('https://example.com/phish'), '/');
-  assert.equal(server.normalizeCtaPath('//example.com'), '/');
-  assert.equal(server.normalizeCtaPath('/nope'), '/');
-  assert.equal(server.normalizeCtaPath('/consult'), '/consult');
+test('кнопки ведут только внутрь сайта и не больше трёх', () => {
+  assert.deepEqual(server.normalizeCtaPaths('https://example.com/phish'), []);
+  assert.deepEqual(server.normalizeCtaPaths('//example.com'), []);
+  assert.deepEqual(server.normalizeCtaPaths('/nope'), []);
+  assert.deepEqual(server.normalizeCtaPaths(['/consult', '/consult', '/cases']), ['/consult', '/cases']);
+  assert.equal(server.normalizeCtaPaths(['/consult', '/cases', '/blog', '/faq']).length, server.MAX_CTA_PATHS);
+  // Старое одиночное значение из колонки читается по-прежнему.
+  assert.deepEqual(server.normalizeCtaPaths('/consult'), ['/consult']);
+});
+
+test('подсказки не ведут на закрытую страницу и на саму себя', () => {
+  const googleAds = { ...server.emptyLock('/google-ads') };
+  const cases = { ...server.emptyLock('/cases') };
+  const locks = [googleAds, cases];
+
+  const suggestions = server.resolveLockSuggestions(googleAds, locks).map((item) => item.path);
+  assert.ok(!suggestions.includes('/google-ads'), 'нельзя предлагать ту же самую страницу');
+  assert.ok(!suggestions.includes('/cases'), 'нельзя предлагать вторую закрытую страницу');
+  assert.ok(suggestions.length > 0 && suggestions.length <= 3);
+  assert.ok(!suggestions.includes('/'), 'главная живёт отдельной ссылкой внизу карточки');
+
+  // Закреплённая владельцем кнопка идёт первой.
+  const pinned = { ...googleAds, ctaPaths: ['/consult'] };
+  assert.equal(server.resolveLockSuggestions(pinned, locks)[0].path, '/consult');
+});
+
+test('у каждой страницы каталога есть куда увести человека', () => {
+  for (const route of server.PAGE_LOCK_ROUTES) {
+    const lock = server.emptyLock(route.path);
+    const suggestions = server.resolveLockSuggestions(lock, [lock]);
+    assert.ok(suggestions.length > 0, `для ${route.path} нет ни одной подсказки`);
+    for (const item of suggestions) {
+      assert.notEqual(item.path, route.path, `${route.path} предлагает сам себя`);
+      assert.ok(server.isLockablePath(item.path), `${item.path} — не страница сайта`);
+    }
+  }
 });
 
 test('заглушка отдаётся кодом 503 и не индексируется', async () => {
@@ -141,4 +172,27 @@ test('форма на заглушке появляется только ког�
     formStamp: '',
   });
   assert.ok(!withoutForm.includes('/api/page-lock-notify'));
+});
+
+test('телефон, телеграм и согласие на маркетинг появляются только с миграцией', () => {
+  const base = server.emptyLock('/blog');
+  const options = { lock: base, path: '/blog', formState: 'idle', formStamp: 'stamp' };
+
+  const withoutMigration = page.renderPageLockHtml(options);
+  assert.ok(!withoutMigration.includes('name="phone"'), 'до миграции телефона в форме быть не должно');
+  assert.ok(!withoutMigration.includes('name="telegram"'));
+  assert.ok(!withoutMigration.includes('name="marketing"'));
+
+  const withMigration = page.renderPageLockHtml({
+    ...options,
+    fields: { phone: true, telegram: true, marketing: true },
+  });
+  assert.ok(withMigration.includes('name="phone"'));
+  assert.ok(withMigration.includes('name="telegram"'));
+  assert.ok(withMigration.includes('name="marketing"'));
+  // Согласие на маркетинг обязано быть снятым по умолчанию.
+  assert.ok(!/name="marketing"[^>]*checked/.test(withMigration));
+  // Обязательна только галочка обработки данных, поля контактов — нет.
+  assert.ok(withMigration.includes('name="consent" value="1" required'));
+  assert.ok(!/name="email"[^>]*required/.test(withMigration));
 });

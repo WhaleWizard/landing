@@ -4,6 +4,7 @@ import {
   findPageLock,
   normalizePagePath,
   readPageLockSnapshot,
+  readSubscriberFields,
   serializeLockPaths,
   type PageLockSnapshot,
 } from './_lib/page-locks';
@@ -146,6 +147,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUn
       path: normalizePagePath(url.pathname),
       formState: normalizeFormState(url.searchParams.get(LOCK_STATE_QUERY)),
       formStamp: lock.showSubscribe ? await createFormStamp(env) : '',
+      fields: lock.showSubscribe ? await readSubscriberFields(env) : undefined,
+      // Подсказки «куда пойти» не должны вести на вторую заглушку подряд.
+      otherLocks: snapshot.locks,
     });
     return withSecurityHeaders(response, request);
   }
