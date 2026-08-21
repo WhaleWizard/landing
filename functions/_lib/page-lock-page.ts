@@ -327,6 +327,55 @@ h1 {
   font-size: 11.5px;
   color: var(--ink-faint);
 }
+/*
+ * Мелкий шрифт под формой. Это сноска, а не набор кнопок: подчёркивания
+ * появляются только при наведении, иначе четыре ссылки подряд выглядят как
+ * свалка и перетягивают внимание с самой формы.
+ */
+.fineprint {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: center;
+}
+.fineprint p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: rgba(245, 245, 247, 0.42);
+}
+.fineprint-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 10px;
+  margin-top: 4px;
+}
+.fineprint-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: rgba(245, 245, 247, 0.58);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.fineprint-links a:hover {
+  color: rgba(221, 214, 254, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fineprint-links span {
+  color: rgba(245, 245, 247, 0.22);
+}
+.consent a { color: rgba(196, 181, 253, 0.95); }
+.consent-optional { color: var(--ink-soft); }
+.consent-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
 .legal {
   display: flex;
   margin-top: 10px;
@@ -516,12 +565,6 @@ function renderNotifyForm(options: PageLockPageOptions): string {
         </label>
         ${marketing}
         <button class="submit" type="submit">Сообщить, когда откроется</button>
-        <p class="legal-note">На самой заглушке нет счётчиков, рекламных пикселей и cookie — отказываться здесь не от чего. <a href="/cookie-policy?cookies=settings">Настройки cookie для сайта</a></p>
-        <p class="legal">
-          <a href="/privacy-policy">Политика ПД</a>
-          <a href="/cookie-policy">Политика Cookie</a>
-          <a href="/offer">Оферта</a>
-        </p>
       </form>`;
 }
 
@@ -573,6 +616,15 @@ export function renderPageLockHtml(options: PageLockPageOptions): string {
     </div>
   </nav>` : ''}
   <p class="foot">${homeAvailable ? '<a class="foot-link" href="/">На главную</a> · ' : ''}Остальные разделы сайта работают как обычно.</p>
+  <div class="fineprint">
+    <p>На этой странице нет cookie, счётчиков и рекламных пикселей.</p>
+    <p class="fineprint-links">
+      <a href="/cookie-policy?cookies=settings">Настройки cookie</a><span aria-hidden="true">·</span>
+      <a href="/privacy-policy">Политика ПД</a><span aria-hidden="true">·</span>
+      <a href="/cookie-policy">Политика Cookie</a><span aria-hidden="true">·</span>
+      <a href="/offer">Оферта</a>
+    </p>
+  </div>
 </main>
 </body>
 </html>`;
