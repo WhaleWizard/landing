@@ -1,6 +1,7 @@
 import { CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
 import { fetchArticlesWithFallback, filterVisibleArticles } from './_lib/articles';
-import { renderFeedXml } from './_lib/seo';
+import { getArticlePath, renderFeedXml } from './_lib/seo';
+import { findPageLock, readPageLockSnapshot } from './_lib/page-locks';
 import { xml } from './_lib/http';
 import type { Env } from './_lib/types';
 
@@ -16,7 +17,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const siteUrl = getSiteUrl(env, request);
-    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil));
+    const { locks } = await readPageLockSnapshot(env, waitUntil);
+    // Материал закрытого раздела в ленте вёл бы подписчика на заглушку.
+    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil))
+      .filter((article) => !findPageLock(locks, getArticlePath(article)));
     const feed = renderFeedXml(siteUrl, articles);
 
     const response = xml(feed, {

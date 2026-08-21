@@ -14055,3 +14055,376 @@ body[data-admin-theme] .planner-weekpick {
 .admin-editor-fields:disabled {
   opacity: 0.72;
 }
+
+/* ==========================================================================
+   Доступ к страницам
+   Список страниц сайта с переключателем «открыта / закрыта», настройками
+   заглушки и её живым предпросмотром. Плотность строк подчиняется общей
+   настройке раздела, тумблер работает и мышью, и с клавиатуры.
+   ========================================================================== */
+
+.admin-root .plock-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .plock-summary.is-active {
+  border-color: color-mix(in srgb, var(--adm-warning) 42%, transparent);
+  background: color-mix(in srgb, var(--adm-warning) 9%, var(--adm-surface-elevated));
+}
+
+.admin-root .plock-summary__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--adm-radius-control);
+  color: var(--adm-text-secondary);
+  background: var(--adm-inset-bg);
+}
+
+.admin-root .plock-summary.is-active .plock-summary__icon {
+  color: var(--adm-warning);
+  background: color-mix(in srgb, var(--adm-warning) 16%, transparent);
+}
+
+.admin-root .plock-summary__body {
+  min-width: 0;
+}
+
+.admin-root .plock-summary__title {
+  margin: 0 0 3px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .plock-group {
+  padding: clamp(14px, 2.4vw, 20px);
+}
+
+.admin-root .plock-group__title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .plock-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .plock-row {
+  border: 1px solid transparent;
+  border-radius: var(--adm-radius-control);
+  transition: background-color var(--adm-dur-fast) var(--adm-ease), border-color var(--adm-dur-fast) var(--adm-ease);
+}
+
+.admin-root .plock-row.is-locked {
+  border-color: color-mix(in srgb, var(--adm-warning) 30%, transparent);
+  background: color-mix(in srgb, var(--adm-warning) 6%, transparent);
+}
+
+.admin-root .plock-row.is-open {
+  border-color: var(--adm-border);
+  background: var(--adm-inset-bg);
+}
+
+.admin-root .plock-row__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.admin-root[data-density="compact"] .plock-row__main {
+  padding: 8px 12px;
+}
+
+.admin-root .plock-row__info {
+  min-width: 0;
+}
+
+.admin-root .plock-row__label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .plock-row__meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-root .plock-row__meta code {
+  padding: 1px 5px;
+  border-radius: var(--adm-radius-xs);
+  background: var(--adm-inset-bg);
+  font-size: 11.5px;
+}
+
+.admin-root .plock-tag {
+  padding: 2px 8px;
+  border-radius: var(--adm-radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--adm-warning);
+  background: color-mix(in srgb, var(--adm-warning) 16%, transparent);
+}
+
+.admin-root .plock-tag--quiet {
+  color: var(--adm-text-tertiary);
+  background: var(--adm-inset-bg);
+}
+
+.admin-root .plock-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Тумблер: область нажатия расширена до 44 px, чтобы попадать пальцем. */
+.admin-root .plock-switch {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 27px;
+  padding: 0;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-pill);
+  background: var(--adm-inset-bg);
+  cursor: pointer;
+  transition: background-color var(--adm-dur-fast) var(--adm-ease), border-color var(--adm-dur-fast) var(--adm-ease);
+}
+
+.admin-root .plock-switch::after {
+  content: "";
+  position: absolute;
+  inset: -9px -2px;
+}
+
+.admin-root .plock-switch[aria-checked="true"] {
+  border-color: transparent;
+  background: var(--adm-warning);
+}
+
+.admin-root .plock-switch:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.admin-root .plock-switch__thumb {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--adm-text-secondary);
+  transform: translateY(-50%);
+  transition: transform var(--adm-dur-base) var(--adm-ease), background-color var(--adm-dur-fast) var(--adm-ease);
+}
+
+/*
+ * Кружок включённого тумблера красится фоном раздела, а не белым: в тёмной
+ * теме дорожка становится светло-янтарной, и белый кружок на ней пропадал.
+ */
+.admin-root .plock-switch[aria-checked="true"] .plock-switch__thumb {
+  background: var(--adm-bg);
+  transform: translate(19px, -50%);
+}
+
+.admin-root .plock-editor {
+  display: grid;
+  gap: 16px;
+  margin-top: 2px;
+  padding: 16px 14px;
+  border-top: 1px solid var(--adm-border-subtle);
+}
+
+.admin-root .plock-editor__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.admin-root .plock-editor__fields .admin-field--wide {
+  grid-column: 1 / -1;
+}
+
+.admin-root .plock-editor__switches {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-root .plock-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--adm-text-primary);
+  cursor: pointer;
+}
+
+.admin-root .plock-check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: var(--adm-primary-solid);
+  cursor: pointer;
+}
+
+.admin-root .plock-check span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-root .plock-editor__preview {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-root .plock-frame {
+  overflow: hidden;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-card);
+  background: #05060c;
+}
+
+.admin-root .plock-frame__view {
+  display: block;
+  width: 100%;
+  height: 460px;
+  border: 0;
+}
+
+.admin-root .plock-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-root .plock-waiting {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-elevated);
+}
+
+.admin-root .plock-waiting__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .plock-waiting__list {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .plock-waiting__list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--adm-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.admin-root .plock-journal__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--adm-text-secondary);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-root .plock-journal__toggle:hover {
+  color: var(--adm-text-primary);
+}
+
+.admin-root .plock-journal {
+  display: grid;
+  gap: 7px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-root .plock-journal li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .plock-journal__empty {
+  margin: 8px 0 0;
+}
+
+@media (max-width: 720px) {
+  .admin-root .plock-row__main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-root .plock-row__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-root .plock-frame__view {
+    height: 380px;
+  }
+
+  .admin-root .plock-waiting__list li,
+  .admin-root .plock-journal li {
+    flex-direction: column;
+    gap: 2px;
+  }
+}

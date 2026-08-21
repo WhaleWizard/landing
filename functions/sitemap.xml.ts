@@ -1,6 +1,7 @@
 import { CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
 import { fetchArticlesWithFallback, filterVisibleArticles } from './_lib/articles';
 import { getArticlePath, renderSitemapXml } from './_lib/seo';
+import { findPageLock, readPageLockSnapshot } from './_lib/page-locks';
 import { xml } from './_lib/http';
 import type { Env } from './_lib/types';
 
@@ -27,7 +28,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       ]),
     );
 
-    const sitemapXml = renderSitemapXml(siteUrl, [...STATIC_ROUTES, ...articleRoutes], articleDates);
+    // Закрытая страница отдаёт 503. Оставлять её в карте сайта нельзя:
+    // поиск ходил бы по ней и копил ошибки в Search Console.
+    const { locks } = await readPageLockSnapshot(env, waitUntil);
+    const routes = [...STATIC_ROUTES, ...articleRoutes]
+      .filter((route) => !findPageLock(locks, route));
+
+    const sitemapXml = renderSitemapXml(siteUrl, routes, articleDates);
 
     const response = xml(sitemapXml, {
       headers: {

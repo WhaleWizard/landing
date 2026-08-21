@@ -4,6 +4,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { hasLeadSoftDelete, isTelegramConfigured } from '../../_lib/leads';
 import { getTrackingSignatureMode, type TrackingSignatureMode } from '../../_lib/tracking-signature';
+import { pageLockLabel, readPageLockSnapshot } from '../../_lib/page-locks';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -404,6 +405,33 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
     }
   } else {
     checks.push(check('capi', 'Meta CAPI', 'warn', 'Токен задан; полная диагностика доступна при подключённой D1'));
+  }
+
+  // --- Доступ к страницам ---
+  // Забытая блокировка выглядит как «сайт сломался»: страница отдаёт 503 и
+  // выпадает из карты сайта. Поэтому она обязана быть видна в светофоре.
+  try {
+    const snapshot = await readPageLockSnapshot(env);
+    if (snapshot.source === 'stale' || snapshot.source === 'empty') {
+      checks.push(check(
+        'page-locks',
+        'Доступ к страницам',
+        'warn',
+        'Список закрытых страниц не читается из базы. Сайт продолжает работать по последней известной копии — это защита от того, чтобы сбой базы погасил страницы.',
+      ));
+    } else if (snapshot.locks.length === 0) {
+      checks.push(check('page-locks', 'Доступ к страницам', 'ok', 'Все страницы сайта открыты'));
+    } else {
+      const names = snapshot.locks.map((lock) => pageLockLabel(lock.path)).join(', ');
+      checks.push(check(
+        'page-locks',
+        'Доступ к страницам',
+        'warn',
+        `Закрыто заглушкой: ${names}. Такие страницы отдают 503, не индексируются и не годятся под рекламу — откройте их, когда закончите.`,
+      ));
+    }
+  } catch {
+    checks.push(check('page-locks', 'Доступ к страницам', 'warn', 'Не удалось прочитать состояние доступа к страницам'));
   }
 
   // --- Хранилище файлов ---

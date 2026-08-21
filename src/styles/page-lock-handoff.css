@@ -1,0 +1,69 @@
+/*
+ * Кадр между переходом внутри сайта и заглушкой закрытой страницы с сервера.
+ * Живёт доли секунды, поэтому здесь только фирменный фон и центр — никакой
+ * вёрстки самой заглушки: её единственный исходник на сервере.
+ */
+.ww-lock-handoff {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(20px, 6vw, 56px);
+  text-align: center;
+  color: #f5f5f7;
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(139, 92, 246, 0.22), transparent 60%),
+    radial-gradient(90% 70% at 8% 100%, rgba(59, 130, 246, 0.18), transparent 62%),
+    #05060c;
+}
+
+.ww-lock-handoff h1 {
+  margin: 0;
+  font-size: clamp(22px, 5vw, 32px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+
+.ww-lock-handoff p {
+  max-width: 40ch;
+  margin: 0;
+  font-size: clamp(14px, 3.4vw, 16px);
+  line-height: 1.6;
+  color: rgba(245, 245, 247, 0.72);
+}
+
+.ww-lock-handoff__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 6px;
+  padding: 0 22px;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  box-shadow: 0 12px 28px rgba(99, 102, 241, 0.36);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.ww-lock-handoff__link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(99, 102, 241, 0.44);
+}
+
+.ww-lock-handoff__link:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ww-lock-handoff__link {
+    transition: none;
+  }
+}

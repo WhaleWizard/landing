@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { isPathLocked } from './pageLocks';
 
 // Единая карта разделов сайта. Отсюда берутся подписи для хлебных крошек
 // и для кнопки «Назад в …», поэтому названия должны совпадать с тем, как
@@ -118,6 +119,9 @@ type RememberedRoute = {
 
 function isTrackablePublicPath(pathname: string): boolean {
   const path = normalizePath(pathname);
+  // Закрытая страница не может стать адресом кнопки «Назад в …»: человек
+  // вернулся бы на заглушку.
+  if (isPathLocked(path)) return false;
   return Boolean(ROUTE_LABELS[path])
     || /^\/(?:blog|cases)\/[^/]+$/.test(path);
 }

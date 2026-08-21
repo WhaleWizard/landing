@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useRef, useState, lazy, Suspense } from '
 import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
 import { withReturnTo } from '../utils/siteNavigation';
+import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import WhaleMark from './brand/WhaleMark';
 import '../../styles/footer.css';
 
@@ -19,6 +20,10 @@ const footerLegalLinkClass =
 function Footer() {
   const navigate = useNavigate();
   const location = useLocation();
+  // Ссылки на закрытые страницы из подвала убираются. Юридические ссылки —
+  // исключение: их требуют и закон, и модерация рекламных кабинетов, поэтому
+  // они остаются на месте, даже если страницу временно закрыли.
+  const isHiddenInNav = useIsPathHiddenInNav();
   const footerRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
@@ -110,29 +115,37 @@ function Footer() {
             </h4>
 
             <ul className={footerListClass}>
-              <li>
-                <Link to="/meta-ads" state={linkState} className={footerLinkClass}>
-                  Meta Ads — Facebook и Instagram
-                </Link>
-              </li>
+              {!isHiddenInNav('/meta-ads') && (
+                <li>
+                  <Link to="/meta-ads" state={linkState} className={footerLinkClass}>
+                    Meta Ads — Facebook и Instagram
+                  </Link>
+                </li>
+              )}
 
-              <li>
-                <Link to="/meta-apps" state={linkState} className={footerLinkClass}>
-                  Продвижение приложений
-                </Link>
-              </li>
+              {!isHiddenInNav('/meta-apps') && (
+                <li>
+                  <Link to="/meta-apps" state={linkState} className={footerLinkClass}>
+                    Продвижение приложений
+                  </Link>
+                </li>
+              )}
 
-              <li>
-                <Link to="/google-ads" state={linkState} className={footerLinkClass}>
-                  Google Ads
-                </Link>
-              </li>
+              {!isHiddenInNav('/google-ads') && (
+                <li>
+                  <Link to="/google-ads" state={linkState} className={footerLinkClass}>
+                    Google Ads
+                  </Link>
+                </li>
+              )}
 
-              <li>
-                <Link to="/consult" state={linkState} className={footerLinkClass}>
-                  Консультация
-                </Link>
-              </li>
+              {!isHiddenInNav('/consult') && (
+                <li>
+                  <Link to="/consult" state={linkState} className={footerLinkClass}>
+                    Консультация
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
 
@@ -162,34 +175,44 @@ function Footer() {
                 </button>
               </li>
 
-              <li>
-                <Link to="/blog" state={linkState} className={footerLinkClass}>
-                  Блог
-                </Link>
-              </li>
-              <li>
-                <Link to="/cases" state={linkState} className={footerLinkClass}>
-                  Все кейсы
-                </Link>
-              </li>
+              {!isHiddenInNav('/blog') && (
+                <li>
+                  <Link to="/blog" state={linkState} className={footerLinkClass}>
+                    Блог
+                  </Link>
+                </li>
+              )}
+              {!isHiddenInNav('/cases') && (
+                <li>
+                  <Link to="/cases" state={linkState} className={footerLinkClass}>
+                    Все кейсы
+                  </Link>
+                </li>
+              )}
 
-              <li>
-                <Link to="/faq" state={linkState} className={footerLinkClass}>
-                  FAQ
-                </Link>
-              </li>
+              {!isHiddenInNav('/faq') && (
+                <li>
+                  <Link to="/faq" state={linkState} className={footerLinkClass}>
+                    FAQ
+                  </Link>
+                </li>
+              )}
 
-              <li>
-                <Link to="/marketing-glossary" state={linkState} className={footerLinkClass}>
-                  Словарь метрик
-                </Link>
-              </li>
+              {!isHiddenInNav('/marketing-glossary') && (
+                <li>
+                  <Link to="/marketing-glossary" state={linkState} className={footerLinkClass}>
+                    Словарь метрик
+                  </Link>
+                </li>
+              )}
 
-              <li>
-                <Link to="/calculator" state={linkState} className={footerLinkClass}>
-                  Калькулятор бюджета
-                </Link>
-              </li>
+              {!isHiddenInNav('/calculator') && (
+                <li>
+                  <Link to="/calculator" state={linkState} className={footerLinkClass}>
+                    Калькулятор бюджета
+                  </Link>
+                </li>
+              )}
 
               <li>
                 <button
@@ -275,10 +298,12 @@ function Footer() {
                 <span>Политика Cookie</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </Link>
-              <Link to="/faq" state={linkState} className={footerLegalLinkClass}>
-                <span>FAQ</span>
-                <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
-              </Link>
+              {!isHiddenInNav('/faq') && (
+                <Link to="/faq" state={linkState} className={footerLegalLinkClass}>
+                  <span>FAQ</span>
+                  <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={openCookieSettings}

@@ -1,5 +1,6 @@
 import { memo, useEffect } from 'react';
 import { preloadPublicRoute } from '../utils/routePreload';
+import { isPathLocked } from '../utils/pageLocks';
 
 const SITE_CONTENT_KEY_BY_PATH: Record<string, string> = {
   '/': 'site:home',
@@ -27,6 +28,14 @@ function RouteIntentPreloader() {
     const handleIntent = (event: Event) => {
       const route = targetRoute(event);
       if (!route) return;
+      // Код закрытой страницы не скачивается вовсе — ни по наведению, ни при
+      // переходе: показывать её всё равно нельзя.
+      try {
+        const target = new URL(route, window.location.href);
+        if (target.origin === window.location.origin && isPathLocked(target.pathname)) return;
+      } catch {
+        return;
+      }
       preloadPublicRoute(route);
       try {
         const url = new URL(route, window.location.href);

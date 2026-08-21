@@ -3,6 +3,7 @@ import { Menu, X, Briefcase, Trophy, Newspaper, Star, HelpCircle, Phone, Calcula
 import { useLocation, useNavigate } from 'react-router';
 import { Button } from './ui/button';
 import BrandLogo from './brand/BrandLogo';
+import { useIsPathHiddenInNav } from '../utils/pageLocks';
 
 type NavbarVariant = 'home' | 'service' | 'content';
 
@@ -26,6 +27,8 @@ type NavItem = {
   label: string;
   action: () => void;
   preloadRoute?: string;
+  /** Куда ведёт пункт. Ссылка на закрытую страницу из меню убирается. */
+  routePath?: string;
 };
 
 /** Ключ страницы услуги для ?from= — по нему кейсы знают, куда вернуть. */
@@ -136,23 +139,24 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     setIsMobileMenuOpen(false);
   }, [location.pathname, navigate, variant]);
 
-  const navItems: NavItem[] = variant === 'service'
+  const isHiddenInNav = useIsPathHiddenInNav();
+  const allNavItems: NavItem[] = variant === 'service'
     ? [
       { label: 'Услуги', action: () => scrollToSection('services') },
       { label: 'Кейсы', action: () => scrollToSection('cases') },
       { label: 'Отзывы', action: () => scrollToSection('about') },
       // Со страниц услуг раньше не было выхода в контентные разделы:
       // все пункты вели на якоря внутри той же страницы.
-      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases' },
-      { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog' },
+      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+      { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
     ]
     : variant === 'content'
       ? [
         { label: 'Услуги', action: () => scrollToSection('services'), preloadRoute: '/' },
-        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases' },
-        { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog' },
+        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+        { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
         { label: 'О нас', action: () => scrollToSection('about'), preloadRoute: '/' },
-        { label: 'FAQ', action: () => { navigate('/faq'); setIsMobileMenuOpen(false); }, preloadRoute: '/faq' },
+        { label: 'FAQ', action: () => { navigate('/faq'); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social'), preloadRoute: '/' },
       ]
       : [
@@ -160,10 +164,13 @@ function Navbar({ variant = 'home' }: NavbarProps) {
         { label: 'Кейсы', action: () => scrollToSection('cases') },
         { label: 'Блог', action: () => scrollToSection('blog') },
         { label: 'Отзывы', action: () => scrollToSection('about') },
-        { label: 'FAQ', action: () => navigate('/faq'), preloadRoute: '/faq' },
+        { label: 'FAQ', action: () => navigate('/faq'), preloadRoute: '/faq', routePath: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social') },
         { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
       ];
+
+  // Вести из меню на закрытую страницу незачем: человек упрётся в заглушку.
+  const navItems = allNavItems.filter((item) => !item.routePath || !isHiddenInNav(item.routePath));
 
   return (
     <>

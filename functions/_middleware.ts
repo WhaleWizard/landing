@@ -1,9 +1,21 @@
+import { normalizeFormState, renderPageLockResponse } from './_lib/page-lock-page';
+import { createFormStamp, resolvePreviewAccess } from './_lib/page-lock-preview';
+import {
+  findPageLock,
+  normalizePagePath,
+  readPageLockSnapshot,
+  serializeLockPaths,
+  type PageLockSnapshot,
+} from './_lib/page-locks';
 import type { Env } from './_lib/types';
 
 const CANONICAL_HOST = 'www.whalewzrd.com';
 const LEGACY_HOSTS = new Set(['whalewzrd.com']);
 
 const IS_DEV = false;
+
+/** Как отработала форма на заглушке: ?ww=ok, ?ww=email и так далее. */
+const LOCK_STATE_QUERY = 'ww';
 
 function buildCsp(): string {
   const directives = [
@@ -27,7 +39,7 @@ function buildCsp(): string {
   return directives.join('; ');
 }
 
-function withSecurityHeaders(response: Response, request: Request): Response {
+function withSecurityHeaders(response: Response, request: Request, previewActive = false): Response {
   const headers = new Headers(response.headers);
 
   // JSON служебных эндпоинтов не должен попадать в поиск как отдельная
@@ -35,6 +47,13 @@ function withSecurityHeaders(response: Response, request: Request): Response {
   // прочитать /api/articles при рендеринге блога и увидит пустой список.
   if (new URL(request.url).pathname.startsWith('/api/')) {
     headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
+
+  // Страница, открытая по ссылке предпросмотра, для всех остальных закрыта.
+  // Её нельзя ни отдать из общего кэша, ни пустить в индекс.
+  if (previewActive) {
+    headers.set('X-Robots-Tag', 'noindex, nofollow');
+    headers.set('Cache-Control', 'private, no-store');
   }
 
   headers.set('X-Content-Type-Options', 'nosniff');
@@ -52,7 +71,53 @@ function withSecurityHeaders(response: Response, request: Request): Response {
   });
 }
 
-export const onRequest: PagesFunction<Env> = async ({ request, next }) => {
+/**
+ * Запрос за страницей сайта, а не за файлом, служебным адресом или админкой.
+ *
+ * Картинки, шрифты и скрипты проверку блокировок вообще не проходят — иначе
+ * каждая мелочь на странице стоила бы лишней работы. `/admin` и `/api/*`
+ * исключены жёстко: закрыть себе вход в админку или приём заявок нельзя.
+ */
+function isPageRequest(request: Request, url: URL): boolean {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false;
+
+  const path = url.pathname;
+  if (path.startsWith('/api/')) return false;
+  if (path === '/admin' || path.startsWith('/admin/')) return false;
+
+  const lastSegment = path.slice(path.lastIndexOf('/') + 1);
+  return !lastSegment.includes('.');
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Вписывает список закрытых страниц в HTML.
+ *
+ * Внутри сайта переходы обрабатывает React и на сервер за новой страницей не
+ * идёт. Список в разметке даёт ему знать о блокировках с нулевого байта: без
+ * лишнего запроса, без мигания закрытой страницы и без загрузки её кода.
+ */
+function injectLockState(response: Response, snapshot: PageLockSnapshot, previewActive: boolean): Response {
+  const contentType = response.headers.get('Content-Type') || '';
+  if (!response.body || !contentType.includes('text/html')) return response;
+
+  const locks = escapeAttribute(serializeLockPaths(snapshot.locks));
+  const markup = `<meta name="ww-page-locks" content="${locks}">`
+    + (previewActive ? '<meta name="ww-page-preview" content="1">' : '');
+
+  return new HTMLRewriter()
+    .on('head', {
+      element(element) {
+        element.append(markup, { html: true });
+      },
+    })
+    .transform(response);
+}
+
+export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUntil }) => {
   const url = new URL(request.url);
 
   if (LEGACY_HOSTS.has(url.hostname)) {
@@ -62,6 +127,29 @@ export const onRequest: PagesFunction<Env> = async ({ request, next }) => {
     return withSecurityHeaders(Response.redirect(redirectUrl.toString(), 301), request);
   }
 
+  if (!isPageRequest(request, url)) {
+    return withSecurityHeaders(await next(), request);
+  }
+
+  const preview = await resolvePreviewAccess(request, env, url);
+  if (preview.redirect) return withSecurityHeaders(preview.redirect, request);
+
+  const snapshot = await readPageLockSnapshot(env, waitUntil);
+  if (snapshot.locks.length === 0 && !preview.active) {
+    return withSecurityHeaders(await next(), request);
+  }
+
+  const lock = findPageLock(snapshot.locks, url.pathname);
+  if (lock && !preview.active) {
+    const response = renderPageLockResponse({
+      lock,
+      path: normalizePagePath(url.pathname),
+      formState: normalizeFormState(url.searchParams.get(LOCK_STATE_QUERY)),
+      formStamp: lock.showSubscribe ? await createFormStamp(env) : '',
+    });
+    return withSecurityHeaders(response, request);
+  }
+
   const response = await next();
-  return withSecurityHeaders(response, request);
+  return withSecurityHeaders(injectLockState(response, snapshot, preview.active), request, preview.active);
 };

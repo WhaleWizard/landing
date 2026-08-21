@@ -2,13 +2,14 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { pageLockLabel, readPageLockSnapshot } from '../../_lib/page-locks';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
 type AttentionLevel = 'critical' | 'attention' | 'info';
 
-type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution';
+type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution' | 'access';
 
 type TodayItem = {
   id: string;
@@ -525,6 +526,33 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         level: 'critical',
         destination: 'leads',
       });
+    }
+
+    // Закрытая заглушкой страница — это выключенный кусок сайта. Про него
+    // легко забыть: в админке всё выглядит рабочим, а посетитель видит 503.
+    try {
+      const snapshot = await readPageLockSnapshot(env);
+      if (snapshot.locks.length > 0) {
+        const oldestDays = snapshot.locks.reduce((max, lock) => {
+          if (!lock.lockedAt) return max;
+          const started = Date.parse(`${lock.lockedAt.replace(' ', 'T')}Z`);
+          if (!Number.isFinite(started)) return max;
+          return Math.max(max, Math.floor((Date.now() - started) / 86400000));
+        }, 0);
+        pushItem(items, {
+          id: 'page-locks',
+          title: 'Страницы закрыты заглушкой',
+          detail: `${snapshot.locks.map((lock) => pageLockLabel(lock.path)).join(', ')}. `
+            + (oldestDays >= 7 ? `Самая давняя закрыта ${oldestDays} дней назад. ` : '')
+            + 'Пока страница закрыта, она не индексируется и не годится под рекламу.',
+          count: snapshot.locks.length,
+          level: oldestDays >= 7 ? 'critical' : 'attention',
+          destination: 'access',
+        });
+      }
+    } catch {
+      // Раздел «Сегодня» собирается из независимых источников: доступ к
+      // страницам не должен ронять стартовый экран целиком.
     }
 
     // План на сегодня показывается отдельным списком с отметками, поэтому

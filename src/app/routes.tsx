@@ -5,6 +5,7 @@ import ScrollExperience from './components/ScrollExperience';
 import RouteIntentPreloader from './components/RouteIntentPreloader';
 import { ArticlesProvider } from './context/ArticlesContext';
 import { useRememberPublicRoute } from './utils/siteNavigation';
+import { isPathLocked, refreshPageLocks } from './utils/pageLocks';
 import {
   loadAdmin,
   loadBlogPage,
@@ -26,6 +27,7 @@ import {
   loadThankYou,
 } from './utils/routePreload';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
+const PageLockHandoff = lazy(() => import('./components/PageLockHandoff'));
 
 const Home = lazy(loadHome);
 const ThankYou = lazy(loadThankYou);
@@ -146,7 +148,10 @@ function RootLayout() {
   useRememberPublicRoute();
   const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
   const isContentPreview = location.pathname === '/admin/content-preview';
-  const needsArticles = !isContentPreview && (
+  // Закрытая страница не должна ни отрисоваться, ни подгрузить свой код.
+  // Проверка стоит выше React.lazy именно поэтому: до неё дело не доходит.
+  const isLocked = !isAdmin && isPathLocked(location.pathname);
+  const needsArticles = !isContentPreview && !isLocked && (
     location.pathname === '/'
     || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname)
   );
@@ -155,7 +160,17 @@ function RootLayout() {
     : location.pathname === '/'
       ? 'deferred'
       : 'immediate';
-  const routeContent = <Outlet />;
+  const routeContent = isLocked
+    ? <LazyWrapper><PageLockHandoff path={location.pathname} /></LazyWrapper>
+    : <Outlet />;
+
+  // Вкладка могла быть открыта до того, как страницу закрыли: сама она за
+  // новой разметкой на сервер уже не ходит. Список обновляется в фоне и не
+  // чаще раза в две минуты.
+  useEffect(() => {
+    if (isAdmin) return;
+    void refreshPageLocks();
+  }, [isAdmin, location.pathname]);
 
   return (
     <>

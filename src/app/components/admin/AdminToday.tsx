@@ -15,7 +15,7 @@ import {
   formatNumber, type SeriesPoint,
 } from './AttributionCharts';
 
-type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution' | 'performance' | 'media' | 'goals';
+type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution' | 'performance' | 'media' | 'goals' | 'access';
 type Level = 'critical' | 'attention' | 'info';
 type FocusKind = 'lead_overdue' | 'lead_new' | 'task_overdue' | 'task_today' | 'planner_task';
 

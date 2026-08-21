@@ -11,6 +11,7 @@ import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import SEO from '../components/SEO';
 import { useSiteSection } from '../hooks/useServiceContent';
+import { useIsPathHiddenInNav } from '../utils/pageLocks';
 
 const defaultHomeSeo = {
   title: 'Google Ads, Meta Ads и аналитика',
@@ -150,6 +151,9 @@ function DeferredSection({
 
 export default function Home() {
   const seo = useSiteSection('site:home', 'seo', defaultHomeSeo);
+  // Закрытый раздел не должен зазывать себя с главной: блок с карточками
+  // вёл бы на заглушку.
+  const isHiddenInNav = useIsPathHiddenInNav();
   return (
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden">
       <SEO
@@ -163,18 +167,22 @@ export default function Home() {
       <DeferredSection anchorId="services" heights={{ mobile: 1000, tablet: 1674, desktop: 1596 }}>
         <Services contentKey="site:home" />
       </DeferredSection>
-      <DeferredSection anchorId="cases" heights={{ mobile: 1062, tablet: 1720, desktop: 1569 }}>
-        <Cases contentKey="site:home" moreHref="/cases" />
-      </DeferredSection>
+      {!isHiddenInNav('/cases') && (
+        <DeferredSection anchorId="cases" heights={{ mobile: 1062, tablet: 1720, desktop: 1569 }}>
+          <Cases contentKey="site:home" moreHref="/cases" />
+        </DeferredSection>
+      )}
       <DeferredSection heights={{ mobile: 352, tablet: 351, desktop: 332 }}>
         <CallToAction contentKey="site:home" />
       </DeferredSection>
       <DeferredSection anchorId="about" heights={{ mobile: 1085, tablet: 1105, desktop: 1137 }}>
         <Testimonials contentKey="site:home" />
       </DeferredSection>
-      <DeferredSection anchorId="blog" heights={{ mobile: 943, tablet: 1150, desktop: 1166 }}>
-        <Blog />
-      </DeferredSection>
+      {!isHiddenInNav('/blog') && (
+        <DeferredSection anchorId="blog" heights={{ mobile: 943, tablet: 1150, desktop: 1166 }}>
+          <Blog />
+        </DeferredSection>
+      )}
 
       <section className="w-full flex justify-center py-12 md:py-16">
         <div className="relative w-full min-w-0">

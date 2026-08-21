@@ -21,7 +21,7 @@ import {
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3, Users, Wallet,
+  Rows2, Rows3, Users, Wallet, Lock,
   type LucideIcon
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -42,6 +42,7 @@ const AdminClients = lazy(() => import('../components/admin/AdminClients'));
 const AdminFinance = lazy(() => import('../components/admin/AdminFinance'));
 const AdminMedia = lazy(() => import('../components/admin/AdminMedia'));
 const AdminHealth = lazy(() => import('../components/admin/AdminHealth'));
+const AdminPageLocks = lazy(() => import('../components/admin/AdminPageLocks'));
 const AdminToday = lazy(() => import('../components/admin/AdminToday'));
 const AdminMetaCenter = lazy(() => import('../components/admin/AdminMetaCenter'));
 const AdminAttribution = lazy(() => import('../components/admin/AdminAttribution'));
@@ -54,7 +55,7 @@ const AdminPerformance = lazy(() => import('../components/admin/AdminPerformance
 const AdminPlanner = lazy(() => import('../components/admin/AdminPlanner'));
 const ArticleCalendar = lazy(() => import('../components/admin/ArticleCalendar'));
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
 type AdminNavKey = AdminView | 'cases';
 
 function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
@@ -72,6 +73,7 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
     case 'finance': return import('../components/admin/AdminFinance');
     case 'media': return import('../components/admin/AdminMedia');
     case 'health': return import('../components/admin/AdminHealth');
+    case 'access': return import('../components/admin/AdminPageLocks');
     case 'articles':
     case 'cases':
       return Promise.all([
@@ -530,6 +532,7 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   content: ['редактор сайта', 'страницы', 'тексты', 'лендинг', 'шрифты', 'faq'],
   media: ['файлы', 'картинки', 'изображения', 'загрузки'],
   health: ['здоровье', 'диагностика', 'health'],
+  access: ['блокировка', 'закрыть страницу', 'заглушка', 'разработка', 'доступ'],
 };
 
 function AdminDensitySwitch() {
@@ -1142,6 +1145,7 @@ export default function Admin() {
     {
       title: 'Система',
       items: [
+        { key: 'access', label: 'Доступ к страницам', icon: Lock },
         { key: 'health', label: 'Проверка', icon: Stethoscope },
       ],
     },
@@ -1409,6 +1413,7 @@ export default function Admin() {
               {adminView === 'clients' && <AdminClients password={password} onOpenLead={() => setAdminView('leads')} />}
               {adminView === 'finance' && <AdminFinance password={password} />}
               {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
+              {adminView === 'access' && <AdminPageLocks password={password} />}
               {adminView === 'health' && <AdminHealth password={password} />}
 
               {adminView === 'articles' && (

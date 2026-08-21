@@ -70,6 +70,10 @@ export interface Env {
   JSONBIN_BACKUP_MASTER_KEY?: string;
   JSONBIN_BACKUP_ACCESS_KEY?: string;
   ADMIN_PASSWORD: string;
+  // Ключ подписи ссылок предпросмотра закрытых страниц. Задавать не обязательно:
+  // без него ключ выводится из ADMIN_PASSWORD, и смена пароля убивает все
+  // ранее выданные ссылки.
+  PAGE_LOCK_PREVIEW_SECRET?: string;
   SITE_URL?: string;
   // Optional Google PageSpeed Insights API key for higher, predictable quota.
   // The admin performance checker also works without it under Google's shared quota.
