@@ -174,6 +174,30 @@ test('форма на заглушке появляется только ког�
   assert.ok(!withoutForm.includes('/api/page-lock-notify'));
 });
 
+test('на заглушке есть обе политики, а согласие называет Meta', () => {
+  const base = server.emptyLock('/blog');
+  const html = page.renderPageLockHtml({
+    lock: base,
+    path: '/blog',
+    formState: 'idle',
+    formStamp: 'stamp',
+    fields: { phone: true, telegram: true, marketing: true },
+  });
+
+  // Рядом с галочкой согласия обязаны быть документы, на которые она ссылается.
+  assert.ok(html.includes('href="/privacy-policy"'), 'нет политики конфиденциальности и ПД');
+  assert.ok(html.includes('href="/cookie-policy"'), 'нет политики Cookie');
+  assert.ok(html.includes('href="/offer"'), 'нет оферты');
+
+  // Meta требует, чтобы согласие называло передачу данных именно ей.
+  const marketingBlock = html.slice(html.indexOf('name="marketing"'));
+  assert.ok(/Meta/.test(marketingBlock.slice(0, 500)), 'галочка маркетинга обязана называть Meta');
+
+  // Никаких скриптов и никаких сторонних адресов на заглушке.
+  assert.ok(!/<script/i.test(html));
+  assert.ok(!/https?:\/\/(?!www\.w3\.org)/i.test(html), 'заглушка не должна ходить наружу');
+});
+
 test('телефон, телеграм и согласие на маркетинг появляются только с миграцией', () => {
   const base = server.emptyLock('/blog');
   const options = { lock: base, path: '/blog', formState: 'idle', formStamp: 'stamp' };

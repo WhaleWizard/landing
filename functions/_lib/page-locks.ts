@@ -66,11 +66,19 @@ export const PAGE_LOCK_ROUTES: readonly PageLockRoute[] = [
   },
   {
     path: '/privacy-policy', label: 'Политика конфиденциальности', group: 'Юридические',
-    warning: 'Ссылка на политику обязательна в формах и в рекламных кабинетах.',
+    warning: 'На неё ссылаются все формы сайта и заглушки закрытых страниц, а ещё её требуют рекламные кабинеты. Закрытая политика рядом с галочкой согласия — прямое нарушение.',
     suggest: ['/offer', '/cookie-policy'],
   },
-  { path: '/offer', label: 'Публичная оферта', group: 'Юридические', suggest: ['/privacy-policy', '/cookie-policy'] },
-  { path: '/cookie-policy', label: 'Политика Cookie', group: 'Юридические', suggest: ['/privacy-policy', '/offer'] },
+  {
+    path: '/offer', label: 'Публичная оферта', group: 'Юридические',
+    warning: 'На оферту ссылаются формы сайта.',
+    suggest: ['/privacy-policy', '/cookie-policy'],
+  },
+  {
+    path: '/cookie-policy', label: 'Политика Cookie', group: 'Юридические',
+    warning: 'На неё ссылаются баннер согласия на cookie и заглушки закрытых страниц.',
+    suggest: ['/privacy-policy', '/offer'],
+  },
 ];
 
 const LOCKABLE_PATHS = new Set(PAGE_LOCK_ROUTES.map((route) => route.path));

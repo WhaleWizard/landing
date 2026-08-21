@@ -338,6 +338,29 @@ export default function CookieConsentManager() {
     });
   }, []);
 
+  /*
+   * Открытие настроек по адресу `?cookies=settings`.
+   *
+   * Заглушка закрытой страницы намеренно живёт без JavaScript и своего баннера
+   * там нет — ставить его было бы обманом, потому что на заглушке не ставится
+   * ни одна cookie. Но человеку, который не хочет cookie, нужен работающий
+   * выход, и ссылка с заглушки ведёт сюда. Параметр сразу убирается из адреса,
+   * чтобы окно не открывалось заново при обновлении и не попало в закладки.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cookies') !== 'settings') return;
+
+    params.delete('cookies');
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
+    );
+    openCookieSettings();
+  }, []);
+
   useEffect(() => {
     let previousPathname = router.state.location.pathname;
     let lastTrackedTitle = document.title;

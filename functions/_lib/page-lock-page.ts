@@ -327,6 +327,45 @@ h1 {
   font-size: 11.5px;
   color: var(--ink-faint);
 }
+.legal {
+  display: flex;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+/* Высота ссылки доведена до 24 px: по ней должно быть удобно попадать пальцем. */
+.legal a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: rgba(196, 181, 253, 0.92);
+  text-decoration: none;
+  box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.28);
+}
+.legal a:hover { box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.8); }
+.legal-note {
+  margin: 14px 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+.legal-note a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: rgba(196, 181, 253, 0.92);
+  text-decoration: none;
+  box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.28);
+}
+.legal-note a:hover { box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.8); }
+.consent a {
+  color: rgba(196, 181, 253, 0.95);
+  text-decoration: none;
+  box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.3);
+}
+.consent a:hover { box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.85); }
 .trap,
 .sr-only {
   position: absolute;
@@ -449,10 +488,13 @@ function renderNotifyForm(options: PageLockPageOptions): string {
         </div>`
     : '';
 
+  // Meta требует, чтобы согласие называло передачу данных именно ей, а не
+  // «рекламным системам» вообще. Галочка снята по умолчанию: без неё в Meta
+  // не уходит ничего.
   const marketing = fields.marketing
     ? `<label class="consent consent-optional">
           <input type="checkbox" name="marketing" value="1">
-          <span>Можно присылать полезные материалы и предложения<span class="consent-note">Тогда отметим ваш интерес в рекламных системах. Без этой галочки туда не уходит ничего.</span></span>
+          <span>Согласен на маркетинговые сообщения и на передачу моих обезличенных данных в Meta (Facebook, Instagram) для рекламы<span class="consent-note">Почта и телефон уходят только в зашифрованном виде и только с этой галочкой. Снять согласие можно в любой момент, написав нам.</span></span>
         </label>`
     : '';
 
@@ -470,10 +512,16 @@ function renderNotifyForm(options: PageLockPageOptions): string {
         <p class="field-hint">${fields.phone || fields.telegram ? 'Достаточно чего-то одного — куда вам удобнее.' : 'Напишем один раз, когда страница откроется.'}</p>
         <label class="consent">
           <input type="checkbox" name="consent" value="1" required>
-          <span>Согласен на обработку контактов для сообщения об открытии страницы — <a href="/privacy-policy">политика конфиденциальности</a></span>
+          <span>Согласен на обработку персональных данных для сообщения об открытии страницы и принимаю <a href="/privacy-policy">Политику конфиденциальности и обработки ПД</a> и <a href="/cookie-policy">Политику Cookie</a></span>
         </label>
         ${marketing}
         <button class="submit" type="submit">Сообщить, когда откроется</button>
+        <p class="legal-note">На самой заглушке нет счётчиков, рекламных пикселей и cookie — отказываться здесь не от чего. <a href="/cookie-policy?cookies=settings">Настройки cookie для сайта</a></p>
+        <p class="legal">
+          <a href="/privacy-policy">Политика ПД</a>
+          <a href="/cookie-policy">Политика Cookie</a>
+          <a href="/offer">Оферта</a>
+        </p>
       </form>`;
 }
 
