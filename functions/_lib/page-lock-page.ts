@@ -120,17 +120,12 @@ body {
     radial-gradient(90% 70% at 8% 100%, rgba(59, 130, 246, 0.2), transparent 62%),
     linear-gradient(180deg, #080a14 0%, #05060c 55%, #04050a 100%);
 }
+/* Затемнение по краям собирает взгляд на карточке и добавляет глубины. */
 .sky::after {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.35;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
-  background-size: 88px 88px;
-  mask-image: radial-gradient(72% 60% at 50% 40%, #000 0%, transparent 78%);
-  -webkit-mask-image: radial-gradient(72% 60% at 50% 40%, #000 0%, transparent 78%);
+  background: radial-gradient(78% 68% at 50% 42%, transparent 0%, rgba(2, 3, 8, 0.55) 100%);
 }
 .orb {
   position: fixed;
