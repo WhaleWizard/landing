@@ -162,7 +162,7 @@ export default function Home() {
         url="/"
       />
       <Navbar />
-      <Hero contentKey="site:home" />
+      <Hero contentKey="site:home" visual="cosmic" />
 
       <DeferredSection anchorId="services" heights={{ mobile: 1000, tablet: 1674, desktop: 1596 }}>
         <Services contentKey="site:home" />

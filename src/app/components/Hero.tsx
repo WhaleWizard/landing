@@ -22,6 +22,7 @@ import HeroTitleEffect, {
 export type { HeroTitleLine } from './HeroTitleEffect';
 
 const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
+const CosmicHeroScene = lazy(() => import('./CosmicHeroScene'));
 
 // ─── Static particle data — computed once, never on re-render ──────────────
 const PARTICLE_DATA = Array.from({ length: 12 }, (_, i) => ({
@@ -766,7 +767,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
 });
 RightPanel.displayName = 'RightPanel';
 
-type HeroVisual = 'default' | 'meta-apps' | 'portrait';
+type HeroVisual = 'default' | 'meta-apps' | 'portrait' | 'cosmic';
 
 function Hero({
   content: contentProp = defaultHeroContent,
@@ -800,6 +801,7 @@ function Hero({
   }, [scrollToWhenReady]);
 
   const isMetaApps = visual === 'meta-apps';
+  const isCosmic = visual === 'cosmic';
   // Meta Apps на телефоне и предпросмотр редактора рисуются без фонового
   // движения: там оно ничего не добавляет, а кадры съедает.
   const freezeMotion = (isMetaApps && isMobile) || staticMotionProp;
@@ -808,6 +810,36 @@ function Hero({
   // выключенную анимацию. Пауза за пределами экрана и на время прокрутки —
   // через data-атрибут, чтобы React не перерисовывал хиро на каждый скролл.
   const resolvedInView = prefersReduced || freezeMotion ? false : inView;
+
+  // Космическая сцена живёт по своей разметке: она занимает весь блок, а текст
+  // ложится поверх неё. Вписывать её в общую сетку из двух колонок нельзя —
+  // сцена должна доходить до краёв экрана, а сетка ограничена контейнером.
+  if (isCosmic) {
+    return (
+      <section
+        id="hero"
+        ref={sectionRef}
+        data-hero-ambient={resolvedInView ? 'on' : 'off'}
+        className="cosmic-hero pt-16 md:pt-20"
+      >
+        <Suspense fallback={null}>
+          <CosmicHeroScene active={resolvedInView} />
+        </Suspense>
+
+        <div className="cosmic-copy">
+          <div className="cosmic-copy-inner">
+            <LeftContent
+              onScrollToContact={scrollToContact}
+              onScrollToCases={scrollToCases}
+              content={content}
+              staticMotion={freezeMotion}
+              statsVariant="default"
+            />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

@@ -1,0 +1,270 @@
+/* Космическая сцена хиро главной.
+   Слои разложены по глубине: фон почти неподвижен, передний план уходит
+   за курсором заметно — отсюда объём, которого нет у плоской картинки.
+   Импортируется из CosmicHeroScene.tsx, а не из страницы: иначе кадр
+   предпросмотра в админке получает голую вёрстку без сцены. */
+
+.cosmic-hero {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #06070c;
+  display: flex;
+  align-items: center;
+}
+
+.cosmic-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cosmic-plane {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.cosmic-sky {
+  position: absolute;
+  inset: -4%;
+  background-image: url('/images/cosmic/sky.webp');
+  background-size: cover;
+  background-position: center;
+  will-change: transform;
+  animation: cosmic-drift 46s ease-in-out infinite alternate;
+}
+
+@keyframes cosmic-drift {
+  from { transform: scale(1); }
+  to   { transform: scale(1.05); }
+}
+
+.cosmic-deep  { z-index: 1; }
+.cosmic-halo  { z-index: 2; }
+.cosmic-mid   { z-index: 3; }
+.cosmic-near  { z-index: 4; }
+.cosmic-front { z-index: 5; }
+.cosmic-dust  { z-index: 6; }
+
+.cosmic-halo {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 34% 40% at 68% 50%, rgba(139, 92, 246, 0.40), transparent 68%),
+    radial-gradient(ellipse 20% 24% at 64% 54%, rgba(0, 210, 255, 0.28), transparent 72%);
+  mix-blend-mode: screen;
+  animation: cosmic-breathe 8s ease-in-out infinite alternate;
+}
+
+@keyframes cosmic-breathe {
+  from { opacity: 0.45; }
+  to   { opacity: 1; }
+}
+
+.cosmic-obj {
+  position: absolute;
+  display: block;
+}
+
+/* ─── Кит ─────────────────────────────────────────────────────────────── */
+
+.cosmic-whale {
+  left: 46%;
+  top: 50%;
+  width: 52%;
+  transform: translateY(-50%);
+}
+
+.cosmic-whale img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Двойная тень: тёмная отделяет силуэт от туманности, светлая
+     возвращает киту собственное свечение. */
+  filter:
+    drop-shadow(0 18px 42px rgba(0, 0, 0, 0.72))
+    drop-shadow(0 0 70px rgba(120, 80, 230, 0.42));
+}
+
+.cosmic-swim {
+  display: block;
+  transform-origin: 50% 50%;
+  animation: cosmic-swim 14s ease-in-out infinite alternate;
+}
+
+@keyframes cosmic-swim {
+  from { transform: translate3d(0, -12px, 0) rotate(-0.7deg); }
+  to   { transform: translate3d(0, 12px, 0) rotate(0.7deg); }
+}
+
+/* ─── Сферы ───────────────────────────────────────────────────────────── */
+
+.cosmic-moon {
+  opacity: 0.95;
+  filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.6));
+}
+
+.cosmic-m1 { left: 74%; top: 10%; width: 11%;  animation: cosmic-bob-a 24s ease-in-out infinite alternate; }
+.cosmic-m2 { left: 17%; top: 58%; width: 8%;   opacity: 0.6;  animation: cosmic-bob-b 30s ease-in-out infinite alternate; }
+.cosmic-m3 { left: 55%; top: 68%; width: 5.5%; opacity: 0.8;  animation: cosmic-bob-b 19s ease-in-out infinite alternate; }
+.cosmic-m4 { left: 88%; top: 58%; width: 4.5%; opacity: 0.75; animation: cosmic-bob-a 27s ease-in-out infinite alternate; }
+.cosmic-m5 { left: 34%; top: 14%; width: 3.2%; opacity: 0.5;  animation: cosmic-bob-a 33s ease-in-out infinite alternate; }
+
+@keyframes cosmic-bob-a {
+  from { transform: translate3d(-10px, -14px, 0); }
+  to   { transform: translate3d(10px, 14px, 0); }
+}
+
+@keyframes cosmic-bob-b {
+  from { transform: translate3d(12px, 10px, 0); }
+  to   { transform: translate3d(-12px, -10px, 0); }
+}
+
+/* ─── Кристаллы ───────────────────────────────────────────────────────── */
+
+.cosmic-shard {
+  opacity: 0.82;
+  filter:
+    drop-shadow(0 8px 20px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 18px rgba(0, 190, 255, 0.32));
+}
+
+.cosmic-c1 { left: 83%; top: 62%; width: 7%;   animation: cosmic-spin-a 38s linear infinite; }
+.cosmic-c2 { left: 6%;  top: 66%; width: 5.5%; opacity: 0.55; animation: cosmic-spin-b 46s linear infinite; }
+.cosmic-c3 { left: 63%; top: 7%;  width: 4%;   opacity: 0.7;  animation: cosmic-spin-b 33s linear infinite; }
+.cosmic-c4 { left: 45%; top: 76%; width: 4.5%; opacity: 0.6;  animation: cosmic-spin-a 52s linear infinite; }
+.cosmic-c5 { left: 93%; top: 26%; width: 3.4%; opacity: 0.65; animation: cosmic-spin-b 41s linear infinite; }
+.cosmic-c6 { left: 27%; top: 38%; width: 2.6%; opacity: 0.35; animation: cosmic-spin-a 58s linear infinite; }
+.cosmic-c7 { left: 70%; top: 82%; width: 3%;   opacity: 0.45; animation: cosmic-spin-b 49s linear infinite; }
+
+@keyframes cosmic-spin-a {
+  from { transform: rotate(0deg)   translateY(-6px); }
+  to   { transform: rotate(360deg) translateY(-6px); }
+}
+
+@keyframes cosmic-spin-b {
+  from { transform: rotate(360deg) translateY(5px); }
+  to   { transform: rotate(0deg)   translateY(5px); }
+}
+
+.cosmic-dust {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+/* ─── Затемнение под текстом ──────────────────────────────────────────── */
+
+.cosmic-scrim,
+.cosmic-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.cosmic-scrim {
+  background: linear-gradient(98deg,
+    rgba(6, 7, 12, 0.96) 0%,
+    rgba(6, 7, 12, 0.88) 20%,
+    rgba(6, 7, 12, 0.52) 38%,
+    rgba(6, 7, 12, 0.10) 56%,
+    rgba(6, 7, 12, 0) 68%);
+}
+
+.cosmic-vignette {
+  background: radial-gradient(ellipse 92% 86% at 52% 46%, transparent 52%, rgba(6, 7, 12, 0.78) 100%);
+}
+
+/* ─── Колонка текста ──────────────────────────────────────────────────── */
+
+.cosmic-copy {
+  position: relative;
+  z-index: 9;
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: clamp(64px, 11vh, 124px) 1rem clamp(48px, 9vh, 100px);
+}
+
+@media (min-width: 640px) {
+  .cosmic-copy { padding-left: 1.5rem; padding-right: 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .cosmic-copy { padding-left: 2rem; padding-right: 2rem; }
+}
+
+/* Ширину задаём обёртке, а не «первому потомку»: у колонки текста свой
+   класс из Tailwind с той же силой, и правило по потомку с ним спорит. */
+.cosmic-copy-inner { max-width: 560px; }
+
+/* ─── Телефон: сцена сверху, текст под ней ────────────────────────────── */
+
+@media (max-width: 900px) {
+  .cosmic-hero {
+    display: block;
+    min-height: 0;
+    padding-bottom: 8px;
+  }
+
+  /* Сцена перестаёт быть подложкой и становится обычным блоком в потоке —
+     иначе текст лёг бы поверх кита, а на телефоне это нечитаемо. */
+  /* Высота подобрана так, чтобы под сценой на типовом экране помещались
+     заголовок и кнопка: кит красивый, но заявку приносит кнопка. */
+  .cosmic-stage {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: 34vh;
+    min-height: 230px;
+    max-height: 330px;
+  }
+
+  .cosmic-sky { inset: -2%; background-position: 62% 40%; }
+
+  .cosmic-whale { left: 3%; top: 50%; width: 94%; }
+
+  .cosmic-m1 { left: 66%; top: 6%;  width: 17%; }
+  .cosmic-m2 { left: 6%;  top: 10%; width: 13%; opacity: 0.7; }
+  .cosmic-m3, .cosmic-m4, .cosmic-m5 { display: none; }
+
+  .cosmic-c1 { left: 80%; top: 66%; width: 13%; }
+  .cosmic-c3 { left: 6%;  top: 62%; width: 10%; }
+  .cosmic-c2, .cosmic-c4, .cosmic-c5, .cosmic-c6, .cosmic-c7 { display: none; }
+
+  /* Низ сцены растворяем в фоне страницы, чтобы стыка не было видно */
+  .cosmic-scrim {
+    background: linear-gradient(180deg,
+      rgba(6, 7, 12, 0) 0%,
+      rgba(6, 7, 12, 0) 52%,
+      rgba(6, 7, 12, 0.55) 76%,
+      rgba(6, 7, 12, 0.95) 92%,
+      #06070c 100%);
+  }
+
+  .cosmic-vignette {
+    background: radial-gradient(ellipse 96% 92% at 50% 46%, transparent 58%, rgba(6, 7, 12, 0.6) 100%);
+  }
+
+  .cosmic-copy {
+    padding-top: 4px;
+    padding-bottom: 40px;
+  }
+
+  .cosmic-copy-inner { max-width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cosmic-sky,
+  .cosmic-halo,
+  .cosmic-swim,
+  .cosmic-moon,
+  .cosmic-shard {
+    animation: none !important;
+  }
+}
