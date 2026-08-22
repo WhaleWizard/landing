@@ -43,7 +43,14 @@ const DEPTH: Record<string, [number, number]> = {
 
 type Dot = { x: number; y: number; r: number; sp: number; ph: number; hue: string };
 
-function Layer({ items, lazy = true }: { items: Piece[]; lazy?: boolean }) {
+/**
+ * Все объекты сцены грузятся сразу. С loading="lazy" браузер не начинал
+ * загрузку вовсе — они лежат внутри контейнера с overflow: hidden и
+ * трансформированных слоёв, и наблюдатель считал их невидимыми. В бою это
+ * выглядело как сцена из одного кита без кристаллов и мелких сфер.
+ * Откладывать тут нечего: всё это и так содержимое первого экрана.
+ */
+function Layer({ items }: { items: Piece[] }) {
   return (
     <>
       {items.map((p) => (
@@ -54,7 +61,7 @@ function Layer({ items, lazy = true }: { items: Piece[]; lazy?: boolean }) {
           alt=""
           width={p.w}
           height={p.h}
-          loading={lazy ? 'lazy' : 'eager'}
+          loading="eager"
           decoding="async"
           aria-hidden="true"
         />
@@ -188,7 +195,7 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="cosmic-plane cosmic-near" data-plane="near">
-        <Layer items={MOONS} lazy={false} />
+        <Layer items={MOONS} />
       </div>
 
       <div className="cosmic-plane cosmic-front" data-plane="front">

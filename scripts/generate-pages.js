@@ -774,16 +774,21 @@ function renderJsonLdScripts(schemas = []) {
  * скачается и выполнится основной бандл, потом чанк роута, потом чанк самого
  * героя — четыре волны ожидания.
  *
- * Портрет (hero-portrait.jpg) рисует RightPanel в Hero.tsx, поэтому он нужен
- * для главной и Google Ads. У Meta Ads и консультации теперь свои LCP-кадры,
- * а у /meta-apps — подставка и корпус телефона.
+ * Портрет (hero-portrait.jpg) рисует RightPanel в Hero.tsx — он остался у
+ * Google Ads. На главной хиро теперь космическая сцена, её LCP-кадр это фон
+ * и кит; портрет там не рисуется вовсе, и preload на него только отбирал
+ * канал у настоящих картинок первого экрана. У Meta Ads и консультации свои
+ * LCP-кадры, а у /meta-apps — подставка и корпус телефона.
  *
  * priority: true ставит fetchpriority="high" только фактическому LCP-кадру
  * маршрута. Картинкам /meta-apps высокий приоритет не даём: они всё равно не
  * отрисуются раньше JS, а канал у бандла отберут.
  */
 const HERO_PRELOADS = {
-  '/': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/': [
+    { href: '/images/cosmic/sky.webp', priority: true },
+    { href: '/images/cosmic/whale.webp' },
+  ],
   '/meta-ads': [
     { href: '/images/meta-proof/paper-stack-768.webp', priority: true },
     {
