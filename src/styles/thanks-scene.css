@@ -1,0 +1,964 @@
+/* Сцена страницы благодарности: «заявка доплыла».
+   Кит — тот же, что на главной и на лендингах услуг, поэтому серия не
+   расползается. Новое здесь — тёплый свет: капсула прилетает снизу, кит её
+   принимает, и по созвездию на теле один раз прокатывается волна. Тёплое
+   золото на холодном фиолетовом — единственный тёплый акцент, он и означает
+   «вас услышали».
+   Раскладка в процентах: сцена растягивается по ширине экрана без брейкпоинтов
+   между телефоном и десктопом. */
+
+.ths {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #070510;
+  pointer-events: none;
+}
+
+.ths-plane {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+/* ─── Фон: небо, сияние ───────────────────────────────────────────────── */
+
+.ths-sky {
+  position: absolute;
+  inset: -4%;
+  background: url('/images/cosmic/sky.webp') center / cover no-repeat;
+  opacity: 0.85;
+  will-change: transform;
+}
+
+/* Тёплое сияние ложится «экраном»: картинка нарисована на чистом чёрном,
+   и режим наложения сам выбрасывает фон, не оставляя краёв. */
+.ths-aurora {
+  position: absolute;
+  left: -12%;
+  top: -18%;
+  width: 124%;
+  height: 108%;
+  background: url('/images/thanks/aurora.webp') center / cover no-repeat;
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation:
+    ths-aurora-in 2.4s 200ms ease-out forwards,
+    ths-aurora-drift 34s 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes ths-aurora-in {
+  from { opacity: 0; }
+  to   { opacity: 0.42; }
+}
+
+/* Дрейф начинается ровно там, где кончилось проявление: и по прозрачности, и
+   по положению. Иначе на стыке сияние прыгало на два десятка пикселей. */
+@keyframes ths-aurora-drift {
+  from { opacity: 0.42; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 0.54; transform: translate3d(2.6%, -2%, 0) scale(1.06); }
+}
+
+/* ─── Объекты: луны и кристаллы из общей космической серии ────────────── */
+
+.ths-obj {
+  position: absolute;
+  display: block;
+  opacity: 0;
+  animation: ths-appear 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes ths-appear {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ths-m3 { left: 6%;   top: 12%; width: 9%;   animation-delay: 320ms; }
+.ths-m4 { left: 82%;  top: 8%;  width: 7%;   animation-delay: 420ms; }
+.ths-m5 { left: 68%;  top: 74%; width: 5%;   animation-delay: 520ms; }
+
+.ths-c1 { left: 12%;  top: 68%; width: 7%;   animation-delay: 560ms; }
+.ths-c2 { left: 88%;  top: 52%; width: 8%;   animation-delay: 620ms; }
+.ths-c3 { left: 2%;   top: 40%; width: 5.5%; animation-delay: 680ms; }
+.ths-c4 { left: 74%;  top: 22%; width: 6%;   animation-delay: 740ms; }
+
+/* Кристаллы делают полный оборот — в невесомости обломок кувыркается, а не
+   качается из стороны в сторону. Обороты очень медленные и с разным периодом,
+   поэтому кристаллы не выстраиваются в такт друг с другом. */
+.ths-c1 { animation: ths-appear 900ms 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards, ths-spin 54s 1.4s linear infinite; }
+.ths-c2 { animation: ths-appear 900ms 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards, ths-spin-back 71s 1.4s linear infinite; }
+.ths-c3 { animation: ths-appear 900ms 680ms cubic-bezier(0.22, 1, 0.36, 1) forwards, ths-spin 63s 2s linear infinite; }
+.ths-c4 { animation: ths-appear 900ms 740ms cubic-bezier(0.22, 1, 0.36, 1) forwards, ths-spin-back 46s 2s linear infinite; }
+
+/* Обороты стартуют с нуля — с того самого положения, на котором заканчивается
+   появление. Начни они с наклона, каждый кристалл дёргался бы в момент
+   подхвата. `linear` здесь обязателен: с плавным входом-выходом полный круг
+   выглядит как рывок на стыке витков. */
+@keyframes ths-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes ths-spin-back {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+/* ─── Кит ─────────────────────────────────────────────────────────────── */
+
+/* Плавание и вступление разведены по разным элементам. Пока обе анимации
+   висели на одном, в момент старта плавания transform подменялся скачком со
+   смещением почти в семь пикселей и поворотом в градус. Сам кит крупный и
+   почти это скрывал, а капсула внутри него дёргалась заметно. */
+.ths-whale-wrap {
+  position: absolute;
+  left: 44%;
+  top: 12%;
+  width: 62%;
+  animation: ths-whale-swim 16s ease-in-out infinite alternate;
+}
+
+.ths-whale-enter {
+  position: relative;
+  opacity: 0;
+  animation: ths-whale-in 1500ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ths-whale-in {
+  from { opacity: 0; transform: translate3d(5%, 4%, 0) scale(1.05); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes ths-whale-swim {
+  from { transform: translate3d(-0.8%, 1.2%, 0) rotate(-1.1deg); }
+  to   { transform: translate3d(0.8%, -1.2%, 0) rotate(1.1deg); }
+}
+
+.ths-whale {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 22px 60px rgba(88, 40, 190, 0.5));
+}
+
+/* Волна света по созвездию: та же картинка кита поверх, осветлённая и
+   прикрытая узкой полосой маски. Полоса едет вдоль тела — получается импульс,
+   бегущий по светящимся линиям. Один раз в момент прилёта капсулы, дальше
+   изредка, чтобы сцена дышала, но не мигала. */
+.ths-whale-wave {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: screen;
+  filter: brightness(2.1) saturate(1.5);
+  opacity: 0;
+  -webkit-mask-image: linear-gradient(105deg, transparent 34%, #000 47%, #000 53%, transparent 66%);
+  mask-image: linear-gradient(105deg, transparent 34%, #000 47%, #000 53%, transparent 66%);
+  -webkit-mask-size: 300% 100%;
+  mask-size: 300% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /* Два прохода — встречный и фоновый — объявлены разными наборами кадров
+     намеренно: одно и то же имя в списке анимаций браузер схлопывает в одну
+     запись, и вспышка в момент прилёта просто не играла. */
+  animation:
+    ths-wave-once 2.6s 1500ms ease-in-out,
+    ths-wave-loop 2.6s 13s ease-in-out infinite;
+}
+
+@keyframes ths-wave-once {
+  0%   { opacity: 0;    -webkit-mask-position: 130% 0; mask-position: 130% 0; }
+  12%  { opacity: 0.9;  }
+  88%  { opacity: 0.9;  }
+  100% { opacity: 0;    -webkit-mask-position: -30% 0; mask-position: -30% 0; }
+}
+
+@keyframes ths-wave-loop {
+  0%   { opacity: 0;    -webkit-mask-position: 130% 0; mask-position: 130% 0; }
+  12%  { opacity: 0.6;  }
+  88%  { opacity: 0.6;  }
+  100% { opacity: 0;    -webkit-mask-position: -30% 0; mask-position: -30% 0; }
+}
+
+/* ─── Капсула: прилетает снизу, кит её принимает ──────────────────────── */
+
+/* Проценты считаются от кадра кита, а не от сцены: капсула висит под его
+   нижней челюстью на любом экране. На теле она читалась как наклейка, а от
+   сцены уезжала под карточку текста на узких телефонах. */
+.ths-capsule {
+  position: absolute;
+  left: 9%;
+  top: 74%;
+  width: 18%;
+  max-width: 190px;
+  display: block;
+  will-change: transform, filter;
+  /* Парение и свечение крутятся с самой первой секунды: в это время капсула
+     ещё летит и её не видно, зато потом нет ни одного кадра со стыком. */
+  animation:
+    ths-capsule-float 8s ease-in-out infinite alternate,
+    ths-capsule-glow 4.5s ease-in-out infinite alternate;
+}
+
+.ths-capsule-in {
+  position: relative;
+  display: block;
+  width: 100%;
+  will-change: transform, opacity;
+  /* Одна кривая от начала до конца, без промежуточных кадров: любой
+     дополнительный узел на этой траектории читается как рывок. Кривая
+     умышленно мягче фирменной: на резком замедлении капсула пролетала две
+     трети пути за первые триста миллисекунд и потом ползла — глаз читает это
+     как рывок в начале. */
+  animation: ths-capsule-rise 1600ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+@keyframes ths-capsule-rise {
+  from { opacity: 0; transform: translate3d(-14%, 300%, 0) rotate(-21deg) scale(0.5); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+}
+
+@keyframes ths-capsule-float {
+  from { transform: translate3d(0, 1.5%, 0) rotate(-2.4deg); }
+  to   { transform: translate3d(0, -7.5%, 0) rotate(2.4deg); }
+}
+
+@keyframes ths-capsule-glow {
+  from { filter: drop-shadow(0 0 14px rgba(255, 176, 74, 0.5)) drop-shadow(0 0 36px rgba(255, 138, 40, 0.28)); }
+  to   { filter: drop-shadow(0 0 26px rgba(255, 196, 110, 0.8)) drop-shadow(0 0 70px rgba(255, 150, 50, 0.45)); }
+}
+
+/* След под капсулой: путь, по которому она прилетела. Координаты — от самой
+   капсулы, поэтому он никуда от неё не отстаёт. Гаснет к моменту прилёта:
+   дальше он висел бы хвостом из ниоткуда. */
+.ths-capsule-img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ths-trail {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 108%;
+  height: auto;
+  transform-origin: 50% 0;
+  opacity: 0;
+  animation: ths-trail-run 1900ms cubic-bezier(0.4, 0, 0.5, 1) forwards;
+}
+
+@keyframes ths-trail-run {
+  0%   { opacity: 0;    transform: translate3d(-50%, 0, 0) scaleY(0.3); }
+  20%  { opacity: 0.9; }
+  64%  { opacity: 0.8;  transform: translate3d(-50%, 0, 0) scaleY(1); }
+  100% { opacity: 0;    transform: translate3d(-50%, 0, 0) scaleY(1.18); }
+}
+
+/* Кольцевая волна в момент, когда капсула долетела */
+.ths-ring {
+  position: absolute;
+  left: 9%;
+  top: 74%;
+  width: 18%;
+  max-width: 190px;
+  aspect-ratio: 1;
+  margin: -1% 0 0 1%;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 198, 120, 0.85);
+  opacity: 0;
+  animation: ths-ring-out 1700ms 1450ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes ths-ring-out {
+  0%   { opacity: 0.9; transform: scale(0.3); border-width: 2px; }
+  100% { opacity: 0;   transform: scale(3.4); border-width: 0.5px; }
+}
+
+/* ─── Пыль ────────────────────────────────────────────────────────────── */
+
+.ths-dust {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+}
+
+/* ─── Затемнение под колонку текста и виньетка ────────────────────────── */
+
+.ths-shade,
+.ths-vignette {
+  position: absolute;
+  inset: 0;
+}
+
+/* Слева, под карточкой, космос уходит в темноту — без единой видимой границы */
+.ths-shade {
+  background: linear-gradient(90deg,
+    rgba(7, 5, 16, 0.95) 0%,
+    rgba(7, 5, 16, 0.9) 12%,
+    rgba(7, 5, 16, 0.72) 26%,
+    rgba(7, 5, 16, 0.42) 38%,
+    rgba(7, 5, 16, 0.14) 48%,
+    transparent 58%);
+}
+
+.ths-vignette {
+  background: radial-gradient(ellipse 80% 86% at 62% 46%, transparent 42%, rgba(4, 3, 10, 0.72) 100%);
+}
+
+/* ─── Телефон: кит сверху, текст под ним ──────────────────────────────── */
+
+@media (max-width: 1023px) {
+  /* Отступ сверху здесь фиксированный, а не в процентах: кит должен стоять
+     под шапкой, а высота шапки от высоты экрана не зависит. На процентах его
+     спина заезжала под логотип на низких телефонах и проваливалась вниз на
+     высоких. */
+  .ths-whale-wrap {
+    left: 4%;
+    top: 5.75rem;
+    width: 96%;
+  }
+
+
+  /* Капсула, след и кольцо привязаны к киту — мобильных правок не требуют. */
+
+  .ths-m3 { left: 3%;  top: 3%;  width: 16%; }
+  .ths-m4 { left: 84%; top: 2%;  width: 13%; }
+  .ths-m5 { left: 72%; top: 40%; width: 9%; }
+
+  .ths-c1 { left: 6%;  top: 38%; width: 13%; }
+  .ths-c2 { left: 87%; top: 26%; width: 14%; }
+  .ths-c3 { display: none; }
+  .ths-c4 { left: 60%; top: 4%;  width: 11%; }
+
+  /* Снизу сцена уходит в фон страницы: текст лежит под ней, а не сбоку.
+     Сверху — лёгкая подложка под шапку, иначе логотип теряется в сиянии. */
+  .ths-shade {
+    background: linear-gradient(180deg,
+      rgba(7, 5, 16, 0.88) 0%,
+      rgba(7, 5, 16, 0.6) 9%,
+      rgba(7, 5, 16, 0.18) 18%,
+      transparent 30%,
+      transparent 44%,
+      rgba(7, 5, 16, 0.55) 68%,
+      rgba(7, 5, 16, 0.88) 84%,
+      #070510 100%);
+  }
+
+  .ths-vignette {
+    background: radial-gradient(ellipse 96% 74% at 50% 34%, transparent 52%, rgba(4, 3, 10, 0.6) 100%);
+  }
+}
+
+/* ─── Подложка: стеклянная карточка с бегущей каймой ──────────────────── */
+
+@property --ths-angle {
+  syntax: '<angle>';
+  initial-value: 0turn;
+  inherits: false;
+}
+
+.ths-card {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(139, 92, 246, 0.16), transparent 58%),
+    radial-gradient(90% 120% at 100% 100%, rgba(255, 168, 76, 0.1), transparent 60%),
+    rgba(10, 8, 20, 0.62);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  box-shadow:
+    0 24px 70px rgba(4, 3, 12, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Кайма нарисована как заливка, обрезанная маской в рамку толщиной в пиксель:
+   обычный border градиентом не заливается. По ней бежит одна светлая точка —
+   тёплая, как капсула. */
+.ths-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--ths-angle),
+    rgba(255, 255, 255, 0.07) 0deg,
+    rgba(255, 255, 255, 0.07) 240deg,
+    rgba(255, 196, 110, 0.85) 292deg,
+    rgba(139, 92, 246, 0.85) 320deg,
+    rgba(255, 255, 255, 0.07) 356deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: ths-border 11s linear infinite;
+}
+
+@keyframes ths-border {
+  to { --ths-angle: 1turn; }
+}
+
+.ths-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 196, 110, 0.28);
+  background: rgba(255, 176, 74, 0.1);
+  color: #ffcf9a;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.ths-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffb04a;
+  box-shadow: 0 0 0 0 rgba(255, 176, 74, 0.6);
+  animation: ths-chip-pulse 2.4s ease-out infinite;
+}
+
+@keyframes ths-chip-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 176, 74, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(255, 176, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 176, 74, 0); }
+}
+
+/* ─── Нижняя половина страницы ────────────────────────────────────────── */
+
+/* Космос не должен обрываться на первом экране: под остальными блоками лежит
+   тот же звёздный фон, только приглушённый. Иначе страница разваливается на
+   красивый верх и плоский чёрный низ. */
+.ths-below {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(180deg, #070510 0%, #0a0716 42%, #080613 100%);
+}
+
+/* Весь фоновый слой гасится к верхней и нижней кромке: без этого звёзды и
+   свечение включались бы ступенькой ровно на стыке с первым экраном — на
+   телефоне шов был виден как полоса поперёк страницы. */
+.ths-below-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 170px, #000 calc(100% - 120px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 170px, #000 calc(100% - 120px), transparent 100%);
+}
+
+/* Небо отражено по горизонтали — сверху уже стоит его прямой кадр, и
+   повторять его один в один было бы видно. Гаснет книзу маской. */
+.ths-below-sky {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -8%;
+  height: 130vh;
+  background: url('/images/cosmic/sky.webp') center / cover no-repeat;
+  transform: scaleX(-1);
+  opacity: 0.34;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 46%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 46%, transparent 100%);
+}
+
+/* Звёзды тайлом: там, где небо уже погасло, они не дают фону стать плоским */
+.ths-below-stars {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(1px 1px at 24% 18%, rgba(255, 255, 255, 0.75), transparent 100%),
+    radial-gradient(1px 1px at 72% 44%, rgba(200, 214, 255, 0.55), transparent 100%),
+    radial-gradient(1.5px 1.5px at 46% 78%, rgba(255, 235, 210, 0.45), transparent 100%),
+    radial-gradient(1px 1px at 88% 12%, rgba(255, 255, 255, 0.4), transparent 100%);
+  background-size: 320px 320px, 210px 210px, 470px 470px, 150px 150px;
+}
+
+.ths-below-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+}
+
+.ths-below-glow-a {
+  left: -12%;
+  top: 6%;
+  width: 46vw;
+  height: 46vw;
+  max-width: 620px;
+  max-height: 620px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.28), transparent 70%);
+}
+
+.ths-below-glow-b {
+  right: -14%;
+  bottom: 4%;
+  width: 42vw;
+  height: 42vw;
+  max-width: 560px;
+  max-height: 560px;
+  background: radial-gradient(circle, rgba(255, 158, 66, 0.16), transparent 70%);
+}
+
+.ths-section {
+  position: relative;
+  padding: 4.5rem 0;
+}
+
+@media (min-width: 640px) {
+  .ths-section { padding: 6rem 0; }
+}
+
+.ths-wrap {
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .ths-wrap { padding: 0 1.5rem; }
+}
+
+.ths-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 196, 130, 0.9);
+}
+
+.ths-kicker::after {
+  content: '';
+  width: 2.5rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 196, 130, 0.6), transparent);
+}
+
+.ths-kicker-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffb04a;
+  box-shadow: 0 0 8px rgba(255, 176, 74, 0.9);
+}
+
+.ths-h2 {
+  margin-top: 0.875rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+@media (min-width: 640px) {
+  .ths-h2 { font-size: 2rem; }
+}
+
+.ths-split-note {
+  margin-top: 0.875rem;
+  max-width: 26rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+
+@media (min-width: 1024px) {
+  .ths-split {
+    display: grid;
+    grid-template-columns: 18rem minmax(0, 1fr);
+    column-gap: 3.5rem;
+    align-items: start;
+  }
+
+  /* Панель уже отбита колонкой — собственный отступ сверху ей больше не нужен */
+  .ths-split .ths-panel { margin-top: 0; }
+}
+
+/* ─── Шаги: созвездие, а не три одинаковые коробки ────────────────────── */
+
+/* Узлы на светящейся нити — та же графика, что на теле кита. Три карточки в
+   ряд читались как таблица и никак не показывали, что это последовательность. */
+.ths-panel {
+  position: relative;
+  margin-top: 2.5rem;
+  border-radius: 1.5rem;
+  padding: 1.75rem 1.5rem 0.5rem;
+  border: 1px solid rgba(139, 92, 246, 0.16);
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(139, 92, 246, 0.12), transparent 60%),
+    radial-gradient(90% 90% at 100% 100%, rgba(255, 158, 66, 0.07), transparent 62%),
+    rgba(11, 9, 22, 0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+@media (min-width: 640px) {
+  .ths-panel { padding: 2.25rem 2rem 1rem; }
+}
+
+.ths-line {
+  --ths-node: 2.375rem;
+  --ths-gap: 1.375rem;
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Шаг — строка сетки: колонка узла и колонка текста. Раньше узел лежал
+   абсолютом поверх отступа, и любое изменение кегля рассинхронизировало его
+   с нитью. */
+.ths-line-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--ths-node) minmax(0, 1fr);
+  column-gap: var(--ths-gap);
+  padding-bottom: 2.25rem;
+}
+
+.ths-line-item:last-child { padding-bottom: 0.5rem; }
+
+/* Нить рисуется отрезками — по одному на промежуток между шагами. Отрезок
+   начинается ровно под узлом и кончается ровно на верхней кромке следующего:
+   `bottom: 0` — это нижняя граница блока шага, то есть начало следующего.
+   Раньше нить была одной длинной полосой с подобранным на глаз запасом, и её
+   концы не совпадали с узлами. */
+.ths-line-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--ths-node) / 2 - 0.5px);
+  top: var(--ths-node);
+  bottom: 0;
+  width: 1px;
+  background-image:
+    linear-gradient(180deg,
+      transparent calc(var(--ths-beam) - 20%),
+      rgba(255, 232, 190, 0.95) var(--ths-beam),
+      transparent calc(var(--ths-beam) + 20%)),
+    linear-gradient(180deg,
+      rgba(255, 196, 130, 0.7),
+      rgba(139, 92, 246, 0.45));
+  animation: ths-beam-run 6.5s 1.2s linear infinite;
+}
+
+/* Второй отрезок ниже первого: импульс должен добежать до него, а не мигать
+   на обоих сразу. */
+.ths-line-item:nth-child(2)::before {
+  animation-delay: 2.6s;
+  background-image:
+    linear-gradient(180deg,
+      transparent calc(var(--ths-beam) - 20%),
+      rgba(255, 232, 190, 0.8) var(--ths-beam),
+      transparent calc(var(--ths-beam) + 20%)),
+    linear-gradient(180deg,
+      rgba(139, 92, 246, 0.45),
+      rgba(139, 92, 246, 0.1));
+}
+
+/* Светлое пятно — стоп внутри градиента, а не отдельный элемент: за границы
+   отрезка ему выйти нечем. Прошлый вариант ездил поверх заголовка соседнего
+   блока, потому что двигался трансформом и ничем не обрезался. */
+@property --ths-beam {
+  syntax: '<percentage>';
+  initial-value: -30%;
+  inherits: false;
+}
+
+@keyframes ths-beam-run {
+  0%   { --ths-beam: -30%; }
+  22%  { --ths-beam: 130%; }
+  100% { --ths-beam: 130%; }
+}
+
+.ths-line-node {
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ths-node);
+  height: var(--ths-node);
+  border-radius: 50%;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: rgba(18, 14, 34, 0.9);
+  color: rgba(167, 139, 250, 0.95);
+}
+
+.ths-line-body {
+  grid-column: 2;
+  padding-top: 0.1875rem;
+}
+
+/* Первый узел — то, что происходит прямо сейчас: он тёплый и пульсирует */
+.ths-line-item:first-child .ths-line-node {
+  border-color: rgba(255, 196, 130, 0.6);
+  color: #ffca8a;
+  box-shadow: 0 0 0 0 rgba(255, 176, 74, 0.5), 0 0 22px rgba(255, 158, 66, 0.35);
+  animation: ths-node-pulse 3s ease-out infinite;
+}
+
+@keyframes ths-node-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 176, 74, 0.45), 0 0 22px rgba(255, 158, 66, 0.3); }
+  70%  { box-shadow: 0 0 0 12px rgba(255, 176, 74, 0), 0 0 26px rgba(255, 158, 66, 0.4); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 176, 74, 0), 0 0 22px rgba(255, 158, 66, 0.3); }
+}
+
+.ths-line-when {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.9);
+}
+
+.ths-line-item:first-child .ths-line-when { color: rgba(255, 196, 130, 0.95); }
+
+.ths-line-title {
+  margin-top: 0.375rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* Строка не тянется во всю панель: на широком экране это была бы строка в
+   девятьсот пикселей, которую глаз теряет на возврате. */
+.ths-line-note {
+  max-width: 42rem;
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+
+.ths-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin-top: 1.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(255, 196, 130, 0.2);
+  background: rgba(255, 176, 74, 0.06);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+/* ─── Плитки «пока ждёте» ─────────────────────────────────────────────── */
+
+.ths-tiles {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .ths-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  /* Одинаковая высота нужна только в ряду. На телефоне плитки идут в столбик,
+     и заданная высота оставляла бы под текстом пустую половину карточки. */
+  .ths-tile { min-height: 12rem; }
+}
+
+.ths-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.375rem;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(139, 92, 246, 0.16);
+  background:
+    radial-gradient(110% 90% at 0% 0%, rgba(139, 92, 246, 0.14), transparent 62%),
+    rgba(12, 10, 24, 0.62);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition:
+    border-color var(--motion-base) var(--motion-ease-premium),
+    box-shadow var(--motion-base) var(--motion-ease-premium),
+    transform var(--motion-base) var(--motion-ease-premium);
+}
+
+/* Космический объект в углу плитки: он и есть разница между «карточкой» и
+   «блоком текста в рамке». Обрезан краем — так плитка выглядит окном в сцену. */
+.ths-tile-orb {
+  position: absolute;
+  right: -1.75rem;
+  top: -1.5rem;
+  width: 7.5rem;
+  height: 7.5rem;
+  background: center / contain no-repeat;
+  opacity: 0.42;
+  filter: saturate(1.15);
+  transition:
+    transform 620ms var(--motion-ease-premium),
+    opacity 620ms var(--motion-ease-premium);
+  pointer-events: none;
+}
+
+/* Тонкая тёплая полоса сверху — загорается только под курсором */
+.ths-tile::before {
+  content: '';
+  position: absolute;
+  left: 1.25rem;
+  right: 1.25rem;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 196, 130, 0.85), transparent);
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--motion-ease-premium);
+}
+
+.ths-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 196, 130, 0.34);
+  box-shadow: 0 20px 46px rgba(60, 24, 130, 0.32);
+}
+
+.ths-tile:hover::before { opacity: 1; }
+
+.ths-tile:hover .ths-tile-orb {
+  transform: rotate(9deg) scale(1.08);
+  opacity: 0.62;
+}
+
+.ths-tile-title {
+  position: relative;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  transition: color var(--motion-base) var(--motion-ease-premium);
+}
+
+.ths-tile:hover .ths-tile-title { color: #ffca8a; }
+
+.ths-tile-note {
+  position: relative;
+  margin-top: 0.4375rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+.ths-tile-go {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 1.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(167, 139, 250, 0.95);
+}
+
+.ths-tile:hover .ths-tile-go { color: #ffca8a; }
+
+.ths-tile-go svg {
+  transition: transform var(--motion-base) var(--motion-ease-premium);
+}
+
+.ths-tile:hover .ths-tile-go svg { transform: translateX(4px); }
+
+/* ─── Соцсети: тихая строка внизу ─────────────────────────────────────── */
+
+.ths-social {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 3.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(139, 92, 246, 0.14);
+}
+
+@media (min-width: 640px) {
+  .ths-social {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ths-social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ths-social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(14, 11, 26, 0.6);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition:
+    border-color var(--motion-base) var(--motion-ease-premium),
+    color var(--motion-base) var(--motion-ease-premium),
+    box-shadow var(--motion-base) var(--motion-ease-premium);
+}
+
+.ths-social-link:hover {
+  border-color: rgba(255, 196, 130, 0.4);
+  color: #ffca8a;
+  box-shadow: 0 0 24px rgba(255, 158, 66, 0.14);
+}
+
+/* ─── Уважение к настройке «меньше движения» ──────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .ths-aurora,
+  .ths-obj,
+  .ths-whale-wrap,
+  .ths-capsule {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .ths-aurora { opacity: 0.42 !important; }
+
+  .ths-capsule-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .ths-whale-wave,
+  .ths-trail,
+  .ths-ring {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .ths-card::before,
+  .ths-chip-dot,
+  .ths-line-item::before {
+    animation: none !important;
+  }
+}

@@ -36,6 +36,7 @@ import {
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
+import { saveLeadContext } from '../utils/leadContext';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 
@@ -264,6 +265,17 @@ function LandingForm({
           form_id: 'service_landing_form',
           form_variant: 'service_landing_v1',
           website_domain: websiteDomain,
+        });
+
+        // Страница благодарности одна на весь сайт — без этого слепка она не
+        // знает ни имени, ни услуги, ни канала связи. В заявку и в трекинг
+        // эти данные уже ушли отдельно, здесь они только для текста страницы.
+        saveLeadContext({
+          name: formData.name,
+          serviceSlug: service,
+          serviceLabel: serviceLabels[service],
+          channel: contactPayload.contactMethod,
+          hasEmail: Boolean(email),
         });
 
         setTimeout(() => setIsSubmitted(false), 5000);

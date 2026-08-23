@@ -40,6 +40,7 @@ import {
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
+import { saveLeadContext } from '../utils/leadContext';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { useTurnstile } from './hooks/useTurnstile';
 import { useSiteSection } from '../hooks/useServiceContent';
@@ -267,6 +268,16 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           service_slug: 'home',
           form_id: 'home_contact_form',
           form_variant: 'home_contact_v1',
+        });
+
+        // Слепок для страницы благодарности: она одна на весь сайт и без него
+        // не знает ни имени, ни канала связи. См. utils/leadContext.
+        saveLeadContext({
+          name: formData.name,
+          serviceSlug: 'home',
+          serviceLabel: 'Заявка с главной',
+          channel: contactMethod,
+          hasEmail: Boolean(formData.email.trim()),
         });
 
         setTimeout(() => setIsSubmitted(false), 5000);

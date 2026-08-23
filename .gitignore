@@ -26,5 +26,8 @@ generated-images/
 design-qa-*.png
 implementation-*.png
 
+# Исходники картинок до обрезки и сжатия: в репозиторий едут только webp
+_incoming/
+
 # Промежуточная сборка scripts/content-entry.tsx для generate:pages
 scripts/.content-entry.build.*
