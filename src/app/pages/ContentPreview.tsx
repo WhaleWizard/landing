@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CheckCircle2, Sparkles } from 'lucide-react';
-import Hero, { defaultHeroContent, type HeroContent } from '../components/Hero';
+import Hero, { defaultHeroContent, type HeroContent, type HeroVisual } from '../components/Hero';
 import { heroTitleTotalDurationMs } from '../components/HeroTitleEffect';
 import Services, { defaultServicesContent, type ServicesContent } from '../components/Services';
 import Cases, { defaultCasesContent, type CasesContent } from '../components/Cases';
@@ -75,6 +75,22 @@ const SERVICE_THEMES: Record<ServiceType, {
 };
 
 const PREVIEW_PAGES = new Set(['home', 'meta-ads', 'meta-apps', 'google-ads', 'consult']);
+
+/**
+ * Какую картинку хиро рисует живая страница. Держать это списком, а не
+ * условием в разметке: когда главная получила космическую сцену, условие
+ * молча оставило предпросмотру старый макет. Меняешь `visual` на странице —
+ * меняешь и здесь.
+ *
+ * `pages/Home.tsx` → cosmic, `pages/ServiceLandingPage.tsx` → meta-apps для
+ * Meta Apps и default для Google Ads. Meta Ads и консультация рисуются
+ * отдельными компонентами и сюда не попадают.
+ */
+const PREVIEW_HERO_VISUALS: Record<string, HeroVisual> = {
+  home: 'cosmic',
+  'meta-apps': 'meta-apps',
+  'google-ads': 'default',
+};
 const PREVIEW_SECTIONS = new Set(['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact']);
 
 type PreviewFontRequest = {
@@ -358,24 +374,39 @@ function ContentPreviewSurface({
 
   // A preview renders one block at a time. Merging every large block on every
   // keystroke used to do work whose result could not possibly be displayed.
-  const hero = section === 'hero'
-    ? mergeContent<HeroContent>(source?.hero ?? defaultHeroContent, content.hero)
-    : null;
-  const services = section === 'services'
-    ? mergeContent<ServicesContent>(source?.services ?? defaultServicesContent, content.services)
-    : null;
-  const cases = section === 'cases'
-    ? mergeContent<CasesContent>(source?.cases ?? defaultCasesContent, content.cases)
-    : null;
-  const cta = section === 'cta'
-    ? mergeContent<CallToActionContent>(source?.cta ?? defaultCallToActionContent, content.cta)
-    : null;
-  const testimonials = section === 'testimonials'
-    ? mergeContent<TestimonialsContent & { stats?: TestimonialStat[] }>(
-      page === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : defaultTestimonialsContent,
-      content.testimonials,
-    )
-    : null;
+  //
+  // Результат слияния запоминается: цикл показа эффекта переключает состояние
+  // каждые несколько сотен миллисекунд, и без памяти каждый такой тик отдавал
+  // блоку новый объект. Блок перерисовывался целиком ровно в момент старта
+  // анимации — заголовок и дёргался.
+  const hero = useMemo(() => (
+    section === 'hero'
+      ? mergeContent<HeroContent>(source?.hero ?? defaultHeroContent, content.hero)
+      : null
+  ), [section, source, content.hero]);
+  const services = useMemo(() => (
+    section === 'services'
+      ? mergeContent<ServicesContent>(source?.services ?? defaultServicesContent, content.services)
+      : null
+  ), [section, source, content.services]);
+  const cases = useMemo(() => (
+    section === 'cases'
+      ? mergeContent<CasesContent>(source?.cases ?? defaultCasesContent, content.cases)
+      : null
+  ), [section, source, content.cases]);
+  const cta = useMemo(() => (
+    section === 'cta'
+      ? mergeContent<CallToActionContent>(source?.cta ?? defaultCallToActionContent, content.cta)
+      : null
+  ), [section, source, content.cta]);
+  const testimonials = useMemo(() => (
+    section === 'testimonials'
+      ? mergeContent<TestimonialsContent & { stats?: TestimonialStat[] }>(
+        page === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : defaultTestimonialsContent,
+        content.testimonials,
+      )
+      : null
+  ), [section, page, content.testimonials]);
 
   // Длительность считается из настроек самой анимации: раньше здесь стояло
   // фиксированное окно, и медленная «печатная машинка» не успевала доиграть.
@@ -405,10 +436,15 @@ function ContentPreviewSurface({
       data-hero-effects={heroPhase}
     >
       {section === 'seo' ? <SeoPreview content={content.seo} /> : null}
+      {/*
+        Вариант картинки обязан повторять живую страницу. Главная перешла на
+        космическую сцену, а кадр продолжал рисовать прежнюю правую панель —
+        владелец правил текст поверх макета, которого на сайте уже нет.
+      */}
       {section === 'hero' ? (
         hero && (page === 'meta-ads' ? <MetaAdsEditorialHero content={hero} />
           : page === 'consult' ? <ConsultStudioHero content={hero} />
-            : <Hero content={hero} visual={page === 'meta-apps' ? 'meta-apps' : 'default'} staticMotion />)
+            : <Hero content={hero} visual={PREVIEW_HERO_VISUALS[page] ?? 'default'} staticMotion />)
       ) : null}
       {section === 'services' && services ? <Services content={services} /> : null}
       {/* moreHref повторяет ссылку живой страницы: без неё в кадре не было

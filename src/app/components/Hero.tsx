@@ -767,7 +767,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
 });
 RightPanel.displayName = 'RightPanel';
 
-type HeroVisual = 'default' | 'meta-apps' | 'portrait' | 'cosmic';
+export type HeroVisual = 'default' | 'meta-apps' | 'portrait' | 'cosmic';
 
 function Hero({
   content: contentProp = defaultHeroContent,
@@ -802,9 +802,12 @@ function Hero({
 
   const isMetaApps = visual === 'meta-apps';
   const isCosmic = visual === 'cosmic';
-  // Meta Apps на телефоне и предпросмотр редактора рисуются без фонового
-  // движения: там оно ничего не добавляет, а кадры съедает.
-  const freezeMotion = (isMetaApps && isMobile) || staticMotionProp;
+  // Без фонового движения рисуется только предпросмотр редактора. Раньше сюда
+  // же попадал Meta Apps на телефоне, и первый экран на смартфоне выходил
+  // полностью неподвижным: ни блика, ни парения чеков, ни пульсации пятен.
+  // Петли здесь композитные, а тяжёлый параллакс от прокрутки на телефоне
+  // по-прежнему выключен внутри самого визуала.
+  const freezeMotion = staticMotionProp;
   // Телефон получает ровно то же движение, что и десктоп: петли считает
   // композитор, а не главный поток, поэтому «облегчение» больше не означает
   // выключенную анимацию. Пауза за пределами экрана и на время прокрутки —

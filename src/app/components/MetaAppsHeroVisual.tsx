@@ -454,9 +454,14 @@ const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
   const reduced = Boolean(useReducedMotion());
   const mobile = useMobileViewport();
   const subtleMotion = mobile && !reduced;
+  // Параллакс на телефоне остаётся выключенным: он считается от курсора и от
+  // положения прокрутки, то есть работает ровно в те кадры, которые нужны
+  // самой прокрутке. А постоянные петли — блик по экрану и парение чеков —
+  // идут и на телефоне: их ведёт композитор, и без них первый экран выглядел
+  // мёртвым именно на смартфоне.
   const parallaxEnabled = inView && !reduced && !mobile;
   const reveal = inView || mobile || reduced;
-  const loop = inView && !reduced && !mobile;
+  const loop = inView && !reduced;
 
   useLayoutEffect(() => {
     const anchor = phoneAnchorRef.current;

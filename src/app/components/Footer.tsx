@@ -82,9 +82,14 @@ function Footer() {
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
       {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
-      {inView ? (
+      {/*
+        После первого показа сеть остаётся в разметке, а видимость только
+        включает и выключает её кадры. Раньше выход из подвала размонтировал
+        холст целиком, и возврат прокруткой строил всю сеть заново.
+      */}
+      {hasEntered ? (
         <Suspense fallback={null}>
-          <PlexusBackdrop inView className="absolute inset-0 h-full w-full" />
+          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
         </Suspense>
       ) : null}
 

@@ -30,6 +30,11 @@ function parseHexColor(value: string, fallback: [number, number, number]): [numb
 const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const prefersReduced = useReducedMotion();
+  // Видимость живёт в ref, а не в зависимостях эффекта. Иначе каждый вход и
+  // выход секции пересоздавал весь эффект вместе с точками сети: возврат
+  // прокруткой наверх строил новый узор с нуля, и фон заметно прыгал.
+  const inViewRef = useRef(inView);
+  const controlRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -276,7 +281,7 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     // экране просто замирала — движение здесь и есть весь смысл фона.
     const SCROLL_FRAME_FACTOR = 3;
     const loop = (now: number) => {
-      if (document.hidden || !inView || prefersReduced) {
+      if (document.hidden || !inViewRef.current || prefersReduced) {
         rafId = 0;
         return;
       }
@@ -289,7 +294,7 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       rafId = requestAnimationFrame(loop);
     };
     const start = () => {
-      if (rafId || document.hidden || !inView || prefersReduced) return;
+      if (rafId || document.hidden || !inViewRef.current || prefersReduced) return;
       lastFrameAt = 0;
       rafId = requestAnimationFrame(loop);
     };
@@ -308,21 +313,33 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     });
     resizeObserver.observe(canvas);
 
-    if (prefersReduced || !inView) {
+    controlRef.current = { start, stop };
+
+    if (prefersReduced) {
       draw(false);
     } else {
       if (!coarsePointer) window.addEventListener('mousemove', handleMove, { passive: true });
       document.addEventListener('visibilitychange', handleVisibility);
+      // Первый кадр рисуем всегда: сеть должна стоять на своём месте ещё до
+      // того, как секция попала в зону видимости.
+      draw(false);
       start();
     }
 
     return () => {
       stop();
+      controlRef.current = null;
       resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMove);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [inView, prefersReduced]);
+  }, [prefersReduced]);
+
+  useEffect(() => {
+    inViewRef.current = inView;
+    if (inView) controlRef.current?.start();
+    else controlRef.current?.stop();
+  }, [inView]);
 
   return <canvas ref={canvasRef} aria-hidden="true" className={`pointer-events-none ${className}`} />;
 });

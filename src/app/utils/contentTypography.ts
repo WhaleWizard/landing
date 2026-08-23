@@ -424,6 +424,14 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     let cancelled = false;
     let animationFrame = 0;
     let applyingFit = false;
+    let measuredOnce = false;
+    let waitingForEffects = false;
+    let effectsTimer = 0;
+    // Размер, который заголовок принял после нашей же подгонки. Наблюдатель
+    // размеров срабатывает и на неё, и без этой отметки замер вызывал сам себя
+    // по кругу.
+    let lastFitWidth = -1;
+    let lastFitHeight = -1;
     let lastAppliedFontSize = '';
     let originalFontSize = element.style.getPropertyValue('font-size');
     let originalFontSizePriority = element.style.getPropertyPriority('font-size');
@@ -512,11 +520,58 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       restoreWhiteSpace();
     };
 
+    /**
+     * Незавершённые анимации появления внутри заголовка. Замер выключает их
+     * через `data-title-fit-measuring`, а выключенная CSS-анимация при
+     * возвращении начинается с нуля — то есть каждый лишний замер перезапускал
+     * эффект заголовка. Ждём, пока он доиграет.
+     */
+    const runningTitleEffects = (): Animation[] => {
+      if (typeof element.getAnimations !== 'function') return [];
+      try {
+        return element.getAnimations({ subtree: true }).filter((animation) => {
+          const name = (animation as Animation & { animationName?: string }).animationName;
+          if (typeof name === 'string' && !name.startsWith('hero-title-')) return false;
+          return animation.playState === 'running' || animation.playState === 'paused';
+        });
+      } catch {
+        return [];
+      }
+    };
+
+    const waitForTitleEffects = (running: Animation[]) => {
+      if (waitingForEffects) return;
+      waitingForEffects = true;
+      const release = () => {
+        if (!waitingForEffects) return;
+        waitingForEffects = false;
+        if (effectsTimer) window.clearTimeout(effectsTimer);
+        effectsTimer = 0;
+        if (!cancelled) scheduleFit();
+      };
+      // Страховка на случай анимации, которая не завершится сама: без неё
+      // отложенный замер не наступил бы никогда.
+      effectsTimer = window.setTimeout(release, 6000);
+      void Promise.allSettled(running.map((animation) => animation.finished)).then(release);
+    };
+
     const fit = () => {
       animationFrame = 0;
       if (cancelled || applyingFit || !element.isConnected || !enabled) {
         if (!enabled) restoreOriginalFontSize();
         return;
+      }
+
+      // Первый замер идёт сразу: эффект только начался, и его перезапуск
+      // укладывается в один кадр. Все следующие ждут конца анимации — иначе
+      // загрузка шрифта или собственная подгонка обрывали появление заголовка
+      // на середине и запускали его заново, и это выглядело как рывки.
+      if (measuredOnce) {
+        const running = runningTitleEffects();
+        if (running.length > 0) {
+          waitForTitleEffects(running);
+          return;
+        }
       }
 
       applyingFit = true;
@@ -529,6 +584,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       } finally {
         element.removeAttribute(TITLE_FIT_MEASURING_ATTRIBUTE);
         applyingFit = false;
+        measuredOnce = true;
+        lastFitWidth = element.offsetWidth;
+        lastFitHeight = element.offsetHeight;
       }
     };
 
@@ -538,7 +596,17 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     };
 
     const resizeObserver = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(scheduleFit)
+      ? new ResizeObserver(() => {
+        // Смена кегля меняет и размеры заголовка, поэтому наблюдатель отвечает
+        // на собственную же подгонку. Такой сигнал пропускаем: иначе замер
+        // ходит по кругу и на каждом круге сбрасывает эффект появления.
+        if (
+          measuredOnce
+          && element.offsetWidth === lastFitWidth
+          && element.offsetHeight === lastFitHeight
+        ) return;
+        scheduleFit();
+      })
       : null;
     resizeObserver?.observe(element);
 
@@ -558,6 +626,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     return () => {
       cancelled = true;
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      if (effectsTimer) window.clearTimeout(effectsTimer);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
       fontSet?.removeEventListener?.('loadingdone', onFontsLoaded);

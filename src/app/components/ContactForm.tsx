@@ -304,15 +304,20 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
       className="relative py-16 md:py-24 overflow-hidden"
       style={{ contain: 'layout style paint' }}
     >
-      {inView && (
-        <>
-          <div className="pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" />
-          <div
-            className="pointer-events-none absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse"
-            style={{ animationDelay: '1s' }}
-          />
-        </>
-      )}
+      {/*
+        Пятна всегда в разметке, а вне экрана только стоят на паузе. Раньше они
+        монтировались и размонтировались на каждом пересечении границы секции:
+        возврат прокруткой вверх заново вставлял два слоя с размытием в 128 px,
+        и первая их отрисовка съедала кадр ровно в момент движения страницы.
+      */}
+      <div
+        className="pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse"
+        style={{ animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+      />
+      <div
+        className="pointer-events-none absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse"
+        style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+      />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-start">

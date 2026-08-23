@@ -133,14 +133,51 @@ function ConsultDeskScene() {
       }
     };
 
+    // Сцена платит за кадры только пока она на экране и вкладка активна. Без
+    // этого цикл рисовал пыль и переписывал transform всем планам всю дорогу
+    // вниз по странице, отбирая кадры у самой прокрутки.
+    let onScreen = true;
+    const shouldRun = () => onScreen && !document.hidden;
+
+    let appliedX = Number.NaN;
+    let appliedY = Number.NaN;
+
     const loop = (t: number) => {
+      if (!shouldRun()) {
+        raf = 0;
+        return;
+      }
+
       current.x += (target.x - current.x) * 0.055;
       current.y += (target.y - current.y) * 0.055;
-      for (const [el, kx, ky] of planes) {
-        el.style.transform = `translate3d(${current.x * kx}px,${current.y * ky}px,0)`;
+      // Порог отсекает движение в тысячную пикселя: сближение с целью
+      // асимптотическое и само по себе никогда не заканчивается.
+      if (
+        !(Math.abs(current.x - appliedX) < 0.0004 && Math.abs(current.y - appliedY) < 0.0004)
+      ) {
+        appliedX = current.x;
+        appliedY = current.y;
+        for (const [el, kx, ky] of planes) {
+          el.style.transform = `translate3d(${current.x * kx}px,${current.y * ky}px,0)`;
+        }
       }
       paint(t);
       raf = requestAnimationFrame(loop);
+    };
+
+    const start = () => {
+      if (raf || !shouldRun()) return;
+      raf = requestAnimationFrame(loop);
+    };
+
+    const stop = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else start();
     };
 
     // Курсор почти всё время лежит на колонке текста — левее сцены, — поэтому
@@ -164,13 +201,26 @@ function ConsultDeskScene() {
     observer.observe(root);
 
     build();
-    raf = requestAnimationFrame(loop);
+
+    const visibility = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver(([entry]) => {
+        onScreen = Boolean(entry?.isIntersecting);
+        if (onScreen) start();
+        else stop();
+      }, { rootMargin: '120px 0px', threshold: 0 });
+    visibility?.observe(root);
+
+    start();
     window.addEventListener('mousemove', onMove, { passive: true });
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       observer.disconnect();
+      visibility?.disconnect();
       window.removeEventListener('mousemove', onMove);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 
