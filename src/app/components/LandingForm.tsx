@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select';
 import { getAnalyticsClientIds, getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import Modal from './Modal';
 import LegalConsentCopy from './LegalConsentCopy';
+import { useTurnstile } from './hooks/useTurnstile';
 // Тексты политики и оферты (~65 КБ кода) нужны только при открытии модалок —
 // грузим лениво, а не в общем чанке формы на каждом визите.
 const PrivacyPolicyContent = lazy(() => import('./legal/PrivacyPolicyContent'));
@@ -133,6 +134,8 @@ function LandingForm({
   const [agreed, setAgreed] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
+  const [verificationFailed, setVerificationFailed] = useState(false);
+  const { containerRef: turnstileRef, getToken: getTurnstileToken } = useTurnstile();
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
   const selectedPhoneOption = getCountryPhoneOption(phoneCountryCode)
@@ -190,6 +193,16 @@ function LandingForm({
       }
       setIsSubmitting(true);
 
+      // Проверка «человек или бот» — в момент отправки, а не при открытии
+      // страницы: токен живёт минуты и успел бы протухнуть.
+      const turnstileToken = await getTurnstileToken();
+      if (!turnstileToken) {
+        setIsSubmitting(false);
+        setVerificationFailed(true);
+        return;
+      }
+      setVerificationFailed(false);
+
       const eventId = crypto.randomUUID();
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const analyticsClientIds = await getAnalyticsClientIds();
@@ -219,6 +232,7 @@ function LandingForm({
         lead_source_page: window.location.pathname,
         event_id: eventId,
         hp_trap: hpTrap,
+        turnstile_token: turnstileToken,
         page_url: window.location.href,
         referrer: document.referrer || undefined,
       };
@@ -555,6 +569,32 @@ function LandingForm({
                   onOfferClick={() => setShowOfferModal(true)}
                 />
               </div>
+
+              {/*
+                Место для проверки Turnstile. У обычного посетителя контейнер
+                пустой и нулевой высоты — форма не «прыгает». Виджет появится
+                здесь, только если Cloudflare решил проверить человека.
+              */}
+              <div ref={turnstileRef} className="empty:hidden" />
+
+              {verificationFailed && (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
+                  <p className="mb-2">
+                    Не удалось подтвердить, что вы не робот. Обновите страницу и попробуйте ещё раз.
+                  </p>
+                  <p>
+                    Если не помогает — напишите напрямую:{' '}
+                    <a
+                      href="https://t.me/white_rsh"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline underline-offset-4 font-medium"
+                    >
+                      Telegram @white_rsh
+                    </a>
+                  </p>
+                </div>
+              )}
 
               {/* Submit */}
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>

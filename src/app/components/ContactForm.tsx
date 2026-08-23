@@ -41,6 +41,7 @@ import {
 } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
+import { useTurnstile } from './hooks/useTurnstile';
 import { useSiteSection } from '../hooks/useServiceContent';
 import {
   managedBodyClasses,
@@ -133,6 +134,8 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   const [agreed, setAgreed] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
+  const [verificationFailed, setVerificationFailed] = useState(false);
+  const { containerRef: turnstileRef, getToken: getTurnstileToken } = useTurnstile();
   const selectedPhoneOption = getCountryPhoneOption(phoneCountryCode)
     ?? getCountryPhoneOption(DEFAULT_COUNTRY_PHONE_CODE);
   const phoneCode = selectedPhoneOption?.dial ?? '+1';
@@ -200,6 +203,17 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
       }
       setIsSubmitting(true);
 
+      // Проверка «человек или бот» запускается здесь, а не при открытии
+      // страницы: токен живёт минуты, и полученный заранее успел бы протухнуть.
+      // Обычный посетитель ничего не видит и ничего не нажимает.
+      const turnstileToken = await getTurnstileToken();
+      if (!turnstileToken) {
+        setIsSubmitting(false);
+        setVerificationFailed(true);
+        return;
+      }
+      setVerificationFailed(false);
+
       const eventId = crypto.randomUUID();
       const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
       const analyticsClientIds = await getAnalyticsClientIds();
@@ -221,6 +235,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         lead_source_page: window.location.pathname,
         event_id: eventId,
         hp_trap: hpTrap,
+        turnstile_token: turnstileToken,
         page_url: window.location.href,
         referrer: document.referrer || undefined,
       };
@@ -690,6 +705,33 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                         onOfferClick={() => setShowOfferModal(true)}
                       />
                     </div>
+
+                    {/*
+                      Место для проверки Turnstile. У обычного посетителя
+                      контейнер пустой и нулевой высоты — форма не «прыгает» и
+                      ничего не резервирует. Виджет появляется здесь, только
+                      если Cloudflare решил проверить человека.
+                    */}
+                    <div ref={turnstileRef} className="empty:hidden" />
+
+                    {verificationFailed && (
+                      <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
+                        <p className="mb-2">
+                          Не удалось подтвердить, что вы не робот. Обновите страницу и попробуйте ещё раз.
+                        </p>
+                        <p>
+                          Если не помогает — напишите напрямую:{' '}
+                          <a
+                            href="https://t.me/white_rsh"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline underline-offset-4 font-medium"
+                          >
+                            Telegram @white_rsh
+                          </a>
+                        </p>
+                      </div>
+                    )}
 
                     {/* Кнопка отправки */}
                     <Button

@@ -100,6 +100,9 @@ export interface Env {
   TRACKING_HMAC_SECRET?: string;
   TRACKING_SIG_TTL_SEC?: string;
   TRACKING_SIGNATURE_MODE?: string;
+  // Секретный ключ Turnstile. Пока не задан, проверка формы не выполняется:
+  // защита включается самим фактом появления секрета, без правки кода.
+  TURNSTILE_SECRET_KEY?: string;
   META_OUTBOX_MAX_ATTEMPTS?: string;
   // Pixel IDs
   VITE_META_PIXEL_ID?: string;

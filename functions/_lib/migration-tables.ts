@@ -25,6 +25,7 @@ export const MIGRATION_BY_TABLE: Readonly<Record<string, string>> = {
   crm_templates: '0025_crm_speed.sql',
   finance_expenses: '0033_finance.sql',
   finance_settings: '0033_finance.sql',
+  form_guard_daily: '0037_form_guard_daily.sql',
   invoices: '0033_finance.sql',
   lead_activity: '0012_admin_control_center.sql',
   lead_ingestions: '0019_lead_ingestion_idempotency.sql',

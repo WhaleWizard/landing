@@ -8,6 +8,8 @@ import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutb
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 import { isTelegramConfigured, markLeadTelegramDelivered, sendLeadToTelegram, storeLead, type StoreLeadResult } from '../_lib/leads';
+import { isTurnstileConfigured, verifyTurnstileToken } from '../_lib/turnstile';
+import { recordFormRejection } from '../_lib/form-guard-stats';
 
 const MAX_LEAD_BODY_BYTES = 64 * 1024;
 
@@ -33,6 +35,7 @@ interface LeadPayload {
   lead_source_page?: string;
   event_id?: string;
   hp_trap?: string;   // honeypot – боты заполняют, люди нет
+  turnstile_token?: string;
   page_url?: string;
   page_location?: string;
   referrer?: string;
@@ -681,6 +684,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       { success: true, ignored: true, durable: false },
       { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
+  }
+
+  // --- Turnstile ---
+  // Проверка идёт до записи в базу и до любой отправки наружу: смысл защиты в
+  // том, чтобы поток ботов не стоил ни записи в D1, ни сообщения в Telegram,
+  // ни события в Meta. Пока секрет не задан, проверка пропускается — так
+  // защиту можно включить одной переменной окружения, не трогая код.
+  if (isTurnstileConfigured(env)) {
+    const verdict = await verifyTurnstileToken(env, String(parsedPayload.turnstile_token || ''), request);
+    // Сравнение с `false`, а не `!verdict.ok`: при `strict: false` в
+    // tsconfig сужение union работает только так — тот же приём уже
+    // используется выше для подписи и для чтения тела запроса.
+    if (verdict.ok === false) {
+      waitUntil(recordFormRejection(env, verdict.reason));
+      return json(
+        { success: false, error: 'verification_failed', reason: verdict.reason },
+        { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+      );
+    }
   }
 
   const hasContact = Boolean(normalized.email || normalized.phone || normalized.telegramUsername);
