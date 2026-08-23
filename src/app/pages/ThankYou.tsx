@@ -17,6 +17,7 @@ import { trackContact, trackThankYouConversion } from '../consent/consent';
 import Navbar from '../components/Navbar';
 import SEO from '../components/SEO';
 import ThanksCosmicScene from '../components/ThanksCosmicScene';
+import { useScrollTo } from '../components/hooks/useScrollTo';
 import { readLeadContext, type LeadContactChannel, type LeadServiceSlug } from '../utils/leadContext';
 
 const Footer = lazy(() => import('../components/Footer'));
@@ -83,6 +84,7 @@ export default function ThankYou() {
   // Контекст читается один раз при монтировании: он уже лежит в хранилище к
   // моменту перехода, а перечитывать его на каждый рендер незачем.
   const [context] = useState(() => readLeadContext());
+  const { scrollTo } = useScrollTo();
 
   useEffect(() => {
     trackThankYouConversion();
@@ -175,13 +177,17 @@ export default function ThankYou() {
                   <span className="relative">Написать в Telegram</span>
                 </a>
 
-                <a
-                  href="#thanks-next"
+                {/* Кнопка, а не якорь: `href="#…"` меняет адрес, роутер на это
+                    реагирует перерисовкой — отсюда моргание, — а сам переход
+                    браузер делает мгновенным прыжком. */}
+                <button
+                  type="button"
+                  onClick={() => scrollTo('thanks-next')}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-card/40 px-5 font-medium text-foreground backdrop-blur-xl transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   Что дальше
                   <ArrowDown className="h-4 w-4" />
-                </a>
+                </button>
               </div>
 
               <p className="mt-3 text-xs text-muted-foreground">
