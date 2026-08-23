@@ -11,6 +11,12 @@ import { recordPageStats } from '../_lib/leads';
 
 const MAX_PAGEVIEW_BODY_BYTES = 32 * 1024;
 
+// Досылка очереди Meta с каждого просмотра страницы означала обращение к D1 на
+// каждый визит. Реже, но большей пачкой — та же пропускная способность при
+// кратно меньшем числе обращений к базе.
+const OUTBOX_DRAIN_PROBABILITY = 0.1;
+const OUTBOX_DRAIN_BATCH = 10;
+
 interface PageViewPayload {
   event_id?: string;
   page_url?: string;
@@ -630,8 +636,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   // Отправляем асинхронно, не замедляя клиентскую навигацию.
   // Запись в outbox и отметки sent/retry делает сам sendMetaPageView.
   waitUntil(sendMetaPageView(payload, env, request));
-  // Заодно фоном дошлём события, не доставленные в Meta ранее.
-  waitUntil(processMetaOutbox(env, 3).catch(() => undefined));
+  // Заодно фоном дошлём события, не доставленные в Meta ранее. Очередь
+  // разбирается не на каждом просмотре, а примерно на каждом десятом: на
+  // бесплатном тарифе Cloudflare лишний запрос к D1 с каждого визита — это
+  // тысячи обращений в день ради очереди, которая почти всегда пуста.
+  // Пропускная способность сохранена за счёт большего размера пачки.
+  if (Math.random() < OUTBOX_DRAIN_PROBABILITY) {
+    waitUntil(processMetaOutbox(env, OUTBOX_DRAIN_BATCH).catch(() => undefined));
+  }
 
   return json(
     { success: true },

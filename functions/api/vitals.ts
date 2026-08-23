@@ -2,6 +2,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import { json } from '../_lib/http';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { readRequestText } from '../_lib/http';
+import { isTrustedTrackingRequest } from '../_lib/meta-capi';
 import type { Env } from '../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -56,6 +57,13 @@ function bucket(metric: string, value: number): 'good' | 'needs_improvement' | '
  * Тип устройства определяется на сервере, из тела запроса он не берётся.
  */
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  // Эндпоинт пишет в D1 до четырёх строк за запрос. Без проверки источника
+  // писать сюда мог кто угодно, а на бесплатном тарифе Cloudflare суточный
+  // лимит записей конечный: чужой поток выжигал бы его вместо метрик.
+  if (!isTrustedTrackingRequest(request, env)) {
+    return json({ success: false, error: 'untrusted_request_origin' }, { status: 403, headers: noStore });
+  }
+
   const rateLimited = await enforceRateLimit(request, 'pageview');
   if (rateLimited) return rateLimited;
 

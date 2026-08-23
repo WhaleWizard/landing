@@ -20,6 +20,17 @@ interface Sample {
 
 const ENDPOINT = '/api/vitals';
 
+/**
+ * Доля просмотров, с которых уходят метрики.
+ *
+ * Каждый отчёт — до четырёх строк в D1, а суточный лимит записей на бесплатном
+ * тарифе Cloudflare конечный: при тысячах посетителей полный сбор съедал бы его
+ * раньше, чем всё остальное вместе взятое. Средние значения от выборки не
+ * меняются, меняется только число замеров под ними. Вернуть на 1 после
+ * перехода на платный тариф.
+ */
+const SAMPLE_RATE = 0.25;
+
 function pagePath(): string {
   try {
     return window.location.pathname || '/';
@@ -54,6 +65,9 @@ function observe(type: string, handler: (entries: PerformanceEntryList) => void)
 
 export function startWebVitals(): void {
   if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return;
+  // Решение принимается один раз на загрузку страницы: наблюдатели у
+  // непопавшего в выборку просмотра даже не создаются.
+  if (Math.random() >= SAMPLE_RATE) return;
 
   const path = pagePath();
   let largestPaint = 0;

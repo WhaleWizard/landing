@@ -13,6 +13,33 @@ import type { Env } from './_lib/types';
 const CANONICAL_HOST = 'www.whalewzrd.com';
 const LEGACY_HOSTS = new Set(['whalewzrd.com']);
 
+/**
+ * Канал для сообщений о найденных уязвимостях (RFC 9116).
+ *
+ * Без этого файла адрес отдавал разметку главной страницы: исследователю
+ * некуда написать, а мониторинг считает несуществующий путь живым.
+ */
+const SECURITY_TXT_PATH = '/.well-known/security.txt';
+
+function renderSecurityTxt(): Response {
+  const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const body = [
+    'Contact: mailto:shoshinruslan97@gmail.com',
+    'Contact: https://t.me/white_rsh',
+    `Expires: ${expires}`,
+    'Preferred-Languages: ru, en',
+    'Canonical: https://www.whalewzrd.com/.well-known/security.txt',
+    '',
+  ].join('\n');
+
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400',
+    },
+  });
+}
+
 const IS_DEV = false;
 
 /** Как отработала форма на заглушке: ?ww=ok, ?ww=email и так далее. */
@@ -24,7 +51,10 @@ function buildCsp(): string {
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'self'",
-    "form-action 'self' https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com",
+    // Формы сайта уходят через fetch на собственный /api/lead и никуда больше.
+    // Раньше здесь были домены Facebook и GTM — они ничего не отправляют
+    // формой, но расширяли список разрешённых направлений для данных.
+    "form-action 'self'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
@@ -122,6 +152,27 @@ function injectLockState(response: Response, snapshot: PageLockSnapshot, preview
     .transform(response);
 }
 
+/**
+ * Служебный адрес не должен отвечать разметкой главной страницы.
+ *
+ * Несуществующий `/api/...` попадал в общий фолбэк SPA и возвращал `200` с
+ * HTML: клиент видел успех вместо ошибки, а мониторинг считал битый адрес
+ * живым. Если у адреса есть функция, но нет нужного метода, Cloudflare Pages
+ * сам отвечает `405` — сюда доходит только случай «такого адреса нет».
+ */
+async function ensureApiNotFound(url: URL, response: Response): Promise<Response> {
+  if (!url.pathname.startsWith('/api/')) return response;
+  if (!(response.headers.get('Content-Type') || '').includes('text/html')) return response;
+
+  return new Response(JSON.stringify({ success: false, error: 'not_found' }), {
+    status: 404,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
 export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUntil }) => {
   const url = new URL(request.url);
 
@@ -132,8 +183,12 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUn
     return withSecurityHeaders(Response.redirect(redirectUrl.toString(), 301), request);
   }
 
+  if (url.pathname === SECURITY_TXT_PATH) {
+    return withSecurityHeaders(renderSecurityTxt(), request);
+  }
+
   if (!isPageRequest(request, url)) {
-    return withSecurityHeaders(await next(), request);
+    return withSecurityHeaders(await ensureApiNotFound(url, await next()), request);
   }
 
   const preview = await resolvePreviewAccess(request, env, url);

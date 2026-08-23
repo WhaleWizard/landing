@@ -354,7 +354,12 @@ mustContain('PageView outbox stores final Graph API body', files.pageview, [
   'payload_json: body',
   'markOutboxRetry',
   'markOutboxSent(env, outboxId)',
-  'processMetaOutbox(env, 3)',
+  // Досылка очереди осталась привязана к pageview, но запускается не на каждом
+  // просмотре: на бесплатном тарифе Cloudflare обращение к D1 с каждого визита
+  // съедало суточный лимит ради очереди, которая почти всегда пуста. Проверяем,
+  // что механизм на месте и что пачка компенсирует более редкий запуск.
+  'processMetaOutbox(env, OUTBOX_DRAIN_BATCH)',
+  'OUTBOX_DRAIN_PROBABILITY',
 ]);
 mustContain('Meta-event outbox stores final Graph API body', files.metaEvent, [
   'payload_json: body',
