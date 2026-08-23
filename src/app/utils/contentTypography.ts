@@ -539,6 +539,31 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       }
     };
 
+    /**
+     * Перематывает эффект появления в конец.
+     *
+     * Снятие `data-title-fit-measuring` возвращает CSS-анимацию, и браузер
+     * запускает её заново — даже если она уже отыграла до замера. На экране это
+     * второй показ заголовка через секунду после первого. Ждать нам больше
+     * нечего: этот кадр и есть готовый заголовок.
+     */
+    const settleTitleEffects = () => {
+      if (typeof element.getAnimations !== 'function') return;
+      try {
+        for (const animation of element.getAnimations({ subtree: true })) {
+          const name = (animation as Animation & { animationName?: string }).animationName;
+          if (typeof name === 'string' && !name.startsWith('hero-title-')) continue;
+          try {
+            animation.finish();
+          } catch {
+            // Бесконечная анимация домотаться не может — она здесь и не нужна.
+          }
+        }
+      } catch {
+        // Старый браузер без getAnimations: там повтор эффекта и так невозможен.
+      }
+    };
+
     const waitForTitleEffects = (running: Animation[]) => {
       if (waitingForEffects) return;
       waitingForEffects = true;
@@ -574,6 +599,10 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         }
       }
 
+      // Замер после первого: эффект к этому моменту уже показан целиком, и
+      // повторять его не нужно.
+      const settleAfterMeasurement = measuredOnce;
+
       applyingFit = true;
       // Эффекты появления сдвигают, размывают и прячут части заголовка. Пока
       // они играют, любое измерение врёт, и подгонка ужимала заголовок почти
@@ -583,6 +612,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         measureAndApply();
       } finally {
         element.removeAttribute(TITLE_FIT_MEASURING_ATTRIBUTE);
+        if (settleAfterMeasurement) settleTitleEffects();
         applyingFit = false;
         measuredOnce = true;
         lastFitWidth = element.offsetWidth;
