@@ -257,6 +257,50 @@ function localArticlesApi() {
           return
         }
 
+        // Вход в админку. Настоящая сессия подписывается на сервере, а здесь
+        // достаточно простой метки в cookie: смысл локального мока в том,
+        // чтобы админка открывалась без Cloudflare, а не в том, чтобы
+        // повторять криптографию. Двухфакторная защита локально недоступна —
+        // её секрет живёт в D1.
+        if (url.pathname === '/api/admin/auth' && req.method === 'POST') {
+          const body = await readJsonBody(req)
+          const action = String(body?.action || 'login')
+          const hasLocalSession = String(req.headers.cookie || '').includes('ww_admin_session=local-dev')
+
+          if (action === 'status') {
+            sendJson(res, 200, {
+              success: true,
+              authenticated: hasLocalSession,
+              ...(hasLocalSession ? { twoFactor: { configured: false, enabled: false, backupCodesLeft: 0, migrationRequired: true } } : {}),
+            })
+            return
+          }
+
+          if (action === 'logout') {
+            res.setHeader('Set-Cookie', 'ww_admin_session=; Path=/; Max-Age=0; SameSite=Strict')
+            sendJson(res, 200, { success: true })
+            return
+          }
+
+          if (action === 'login') {
+            if (!verifyLocalPassword(body?.password)) {
+              sendJson(res, 401, { success: false, error: 'invalid_credentials' })
+              return
+            }
+            res.setHeader('Set-Cookie', 'ww_admin_session=local-dev; Path=/; Max-Age=43200; SameSite=Strict')
+            sendJson(res, 200, { success: true, authenticated: true, twoFactor: { enabled: false } })
+            return
+          }
+
+          sendJson(res, 503, {
+            success: false,
+            code: 'LOCAL_CLOUDFLARE_BINDINGS_UNAVAILABLE',
+            error: 'Двухфакторная защита требует D1 — настраивается в Preview или Production.',
+            localOnly: true,
+          })
+          return
+        }
+
         // The Vite dev server intentionally has no Cloudflare D1/R2 bindings.
         // Return an honest JSON state instead of letting API requests fall through
         // to the SPA index.html with a misleading HTTP 200 response.

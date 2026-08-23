@@ -9,6 +9,7 @@
 
 export const MIGRATION_BY_TABLE: Readonly<Record<string, string>> = {
   ad_spend: '0023_ad_spend.sql',
+  admin_2fa: '0036_admin_2fa.sql',
   admin_alerts: '0028_admin_alerts.sql',
   admin_goals: '0024_admin_goals.sql',
   article_versions: '0006_articles_status_and_versions.sql',

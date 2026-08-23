@@ -42,6 +42,7 @@ const AdminClients = lazy(() => import('../components/admin/AdminClients'));
 const AdminFinance = lazy(() => import('../components/admin/AdminFinance'));
 const AdminMedia = lazy(() => import('../components/admin/AdminMedia'));
 const AdminHealth = lazy(() => import('../components/admin/AdminHealth'));
+const AdminSecurity = lazy(() => import('../components/admin/AdminSecurity'));
 const AdminPageLocks = lazy(() => import('../components/admin/AdminPageLocks'));
 const AdminToday = lazy(() => import('../components/admin/AdminToday'));
 const AdminMetaCenter = lazy(() => import('../components/admin/AdminMetaCenter'));
@@ -98,16 +99,54 @@ function transliterate(text: string): string {
     .replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
 
-async function verifyAdminPassword(password: string): Promise<boolean> {
-  const res = await fetch(API_ROUTES.adminArticles, {
+interface AdminLoginResult {
+  ok: boolean;
+  /** Пароль верный, но нужен одноразовый код из приложения. */
+  codeRequired?: boolean;
+  error?: string;
+}
+
+const LOGIN_ERROR_TEXT: Record<string, string> = {
+  invalid_credentials: 'Неверный пароль',
+  invalid_code: 'Неверный код. Проверьте время на телефоне и введите свежий код',
+  code_already_used: 'Этим кодом уже входили. Дождитесь следующего',
+  admin_password_not_configured: 'На сервере не задан пароль администратора',
+};
+
+/**
+ * Вход отдаёт подписанную сессию в cookie. Пароль после этого в запросах не
+ * участвует, поэтому перезагрузка страницы больше не разлогинивает.
+ */
+async function adminLogin(password: string, code: string): Promise<AdminLoginResult> {
+  const res = await fetch('/api/admin/auth', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ action: 'login', password, code: code || undefined }),
   });
-  if (!res.ok) return false;
-  const payload = await res.json().catch(() => ({}));
-  return Boolean(payload?.success);
+  const payload = await res.json().catch(() => null) as { success?: boolean; codeRequired?: boolean; error?: string } | null;
+
+  if (res.ok && payload?.success) return { ok: true };
+  if (payload?.codeRequired) return { ok: false, codeRequired: true };
+  if (res.status === 429) return { ok: false, error: 'Слишком много попыток. Подождите и попробуйте снова' };
+  return { ok: false, error: LOGIN_ERROR_TEXT[String(payload?.error)] || 'Не удалось войти' };
+}
+
+/** Жива ли сессия с прошлого раза — проверяется один раз при открытии. */
+async function checkAdminSession(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ action: 'status' }),
+    });
+    if (!res.ok) return false;
+    const payload = await res.json().catch(() => null) as { authenticated?: boolean } | null;
+    return payload?.authenticated === true;
+  } catch {
+    return false;
+  }
 }
 
 const PROTECTED_ARTICLE_SLUG = 'kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh';
@@ -707,6 +746,11 @@ export default function Admin() {
   const confirmDialog = useConfirm();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [codeRequired, setCodeRequired] = useState(false);
+  // Пока идёт проверка живой сессии, форму входа показывать нельзя: иначе она
+  // мелькает на долю секунды у того, кто уже вошёл.
+  const [sessionChecking, setSessionChecking] = useState(true);
   const [error, setError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const { articles, loading, forceRefreshAdminArticles, updateArticles } = useArticles();
@@ -852,22 +896,47 @@ export default function Admin() {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [adminView, isAuthenticated]);
 
+  // Сессия с прошлого визита восстанавливается при открытии страницы.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const alive = await checkAdminSession();
+      if (cancelled) return;
+      if (alive) {
+        void preloadAdminSection('dashboard');
+        setIsAuthenticated(true);
+      }
+      setSessionChecking(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
       setError('Введите пароль');
       return;
     }
+    if (codeRequired && !twoFactorCode.trim()) {
+      setError('Введите код из приложения');
+      return;
+    }
     setAuthLoading(true);
     try {
-      const ok = await verifyAdminPassword(password);
-      if (ok) {
+      const result = await adminLogin(password, twoFactorCode.trim());
+      if (result.ok) {
         void preloadAdminSection('dashboard');
         await forceRefreshAdminArticles(password);
         setIsAuthenticated(true);
+        setTwoFactorCode('');
+        setError('');
+      } else if (result.codeRequired) {
+        // Пароль принят, остался второй шаг.
+        setCodeRequired(true);
         setError('');
       } else {
-        setError('Неверный пароль');
+        setTwoFactorCode('');
+        setError(result.error || 'Не удалось войти');
       }
     } catch {
       setError('Ошибка сети. Попробуйте еще раз.');
@@ -1235,6 +1304,22 @@ export default function Admin() {
     },
   ];
 
+  if (!isAuthenticated && sessionChecking) {
+    return (
+      <AdminThemeProvider>
+        <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
+        <main className="admin-login">
+          <div className="admin-login__card">
+            <div className="admin-login__head">
+              <WhaleMark size="var(--adm-login-whale-size)" className="admin-brand-whale" priority />
+            </div>
+            <p className="admin-login__note">Проверяю сессию…</p>
+          </div>
+        </main>
+      </AdminThemeProvider>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <AdminThemeProvider>
@@ -1267,6 +1352,26 @@ export default function Admin() {
                   autoFocus
                 />
               </div>
+              {codeRequired && (
+                <div className="admin-field">
+                  <label htmlFor="admin-2fa-code" className="admin-label">Код из приложения</label>
+                  <input
+                    id="admin-2fa-code"
+                    name="one-time-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    // Резервный код длиннее шести цифр, поэтому жёсткого
+                    // ограничения по длине здесь нет.
+                    placeholder="6 цифр или резервный код"
+                    value={twoFactorCode}
+                    onChange={(e) => setTwoFactorCode(e.target.value)}
+                    className="admin-input"
+                    autoFocus
+                  />
+                  <p className="admin-login__note">Google Authenticator на телефоне. Если телефона нет — введите один из резервных кодов.</p>
+                </div>
+              )}
               {error && <p className="admin-login__error" role="alert">{error}</p>}
               <button type="submit" disabled={authLoading} className="admin-button admin-button--primary admin-login__submit">
                 <LogIn aria-hidden="true" /> {authLoading ? 'Проверяю' : 'Войти'}
@@ -1414,7 +1519,15 @@ export default function Admin() {
               {adminView === 'finance' && <AdminFinance password={password} />}
               {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
               {adminView === 'access' && <AdminPageLocks password={password} />}
-              {adminView === 'health' && <AdminHealth password={password} />}
+              {adminView === 'health' && (
+                <div className="admin-stack admin-stack--lg">
+                  {/* Настройки входа живут рядом с остальными проверками
+                      здоровья: это тоже «всё ли в порядке», а не отдельный
+                      раздел меню. */}
+                  <AdminSecurity />
+                  <AdminHealth password={password} />
+                </div>
+              )}
 
               {adminView === 'articles' && (
           <DndProvider backend={HTML5Backend}>

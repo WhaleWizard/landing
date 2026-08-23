@@ -12,6 +12,11 @@ const RATE_LIMIT_PROFILES: Record<string, RateLimitProfile> = {
   lead: { windowSeconds: 600, maxRequests: 20 },
   meta_test_event: { windowSeconds: 60, maxRequests: 20 },
   admin: { windowSeconds: 60, maxRequests: 30 },
+  // Вход в админку. Человек ошибается паролем несколько раз, перебор пробует
+  // тысячи вариантов — окно намеренно длинное, а порог низкий. Профиль
+  // отдельный: иначе попытки входа делили бы лимит с обычной работой в
+  // админке и перебор выбивал бы владельца из уже открытых разделов.
+  admin_login: { windowSeconds: 900, maxRequests: 15 },
   // A cached full PageSpeed pass can legitimately request up to
   // MAX_SITEMAP_URLS * 2 results in one minute. Authentication is still
   // mandatory in the route; this profile only prevents the shared admin

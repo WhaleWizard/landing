@@ -347,6 +347,33 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   gap: 22px;
 }
 
+/*
+ * Ключ двухфакторной защиты и резервные коды.
+ *
+ * Их перепечатывают руками в приложение на телефоне, поэтому моноширинный
+ * шрифт и разрядка обязательны: в пропорциональном легко спутать ноль с «O»,
+ * а единицу с «l». Перенос по любому символу — иначе длинная строка вылезает
+ * за карточку на узком экране.
+ */
+.admin-root .admin-secret {
+  font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 15px;
+  line-height: 1.7;
+  letter-spacing: 0.06em;
+  word-break: break-all;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-card);
+  background: var(--adm-surface-subtle);
+  user-select: all;
+}
+
+.admin-root .admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .admin-root .admin-card {
   border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-card);
