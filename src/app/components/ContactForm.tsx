@@ -1,6 +1,6 @@
 import { useState, useCallback, memo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router';
-import { motion, AnimatePresence, useInView } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Send,
   CheckCircle2,
@@ -40,6 +40,7 @@ import {
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
 import { queueLeadForRetry } from '../utils/leadRetryQueue';
+import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { useSiteSection } from '../hooks/useServiceContent';
 import {
   managedBodyClasses,
@@ -142,7 +143,15 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
 
   const navigate = useNavigate();
   const sectionRef = useRef<HTMLElement>(null);
-  const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
+  // Просмотр формы отмечается один раз при первом появлении секции, а фоновые
+  // пятна ставит на паузу CSS по атрибуту. Прежний useInView возвращал значение
+  // в React и перерисовывал всю форму на каждом пересечении границы экрана.
+  const trackFormView = useCallback(() => {
+    if (formViewTrackedRef.current) return;
+    formViewTrackedRef.current = trackLeadFormView('home');
+    if (formViewTrackedRef.current) trackEngagedView('form_view');
+  }, []);
+  useAmbientVisibility(sectionRef, { onFirstVisible: trackFormView });
   const isTouch = useTouchDevice();
   const benefitIcons = [CheckCircle2, TrendingUp, Zap] as const;
   const benefits = content.benefits.map((item, index) => ({
@@ -165,14 +174,6 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!inView || formViewTrackedRef.current) return;
-    formViewTrackedRef.current = trackLeadFormView('home');
-    if (formViewTrackedRef.current) {
-      trackEngagedView('form_view');
-    }
-  }, [inView]);
 
   const trackFirstFormInteraction = useCallback((fieldName: string) => {
     if (formStartTrackedRef.current) return;
@@ -311,12 +312,12 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         и первая их отрисовка съедала кадр ровно в момент движения страницы.
       */}
       <div
-        className="pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse"
-        style={{ animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+        className="ww-ambient-motion pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse"
+        style={{ willChange: 'opacity' }}
       />
       <div
-        className="pointer-events-none absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse"
-        style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+        className="ww-ambient-motion pointer-events-none absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse"
+        style={{ animationDelay: '1s', willChange: 'opacity' }}
       />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

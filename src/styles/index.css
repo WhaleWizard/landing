@@ -200,9 +200,60 @@ html[data-ww-scrolling='true'] :is(.animate-pulse, .animate-ping, .ww-ambient-mo
 /*
  * Секция ушла с экрана — петли встают на паузу, а не обнуляются. Кадр остаётся
  * тем же, поэтому возврат в зону видимости не даёт рывка.
+ *
+ * `data-ambient` ставит наблюдатель прямо на секцию, минуя состояние React:
+ * «Услуги», «Кейсы», «Отзывы» и форма раньше перерисовывались целиком на
+ * каждом пересечении границы экрана, и это чувствовалось как зацеп прокрутки.
  */
-[data-hero-ambient='off'] .ww-ambient-motion {
+[data-hero-ambient='off'] .ww-ambient-motion,
+[data-ambient='off'] .ww-ambient-motion {
   animation-play-state: paused;
+}
+
+/*
+ * Кольцо в углу карточки услуги. Прежде тем же кадром управлял motion, а
+ * значения ниже повторяют его: подъём на 10 px, прозрачность 0.3 → 0.6 → 0.3,
+ * три секунды, плавный вход и выход, сдвиг по номеру карточки.
+ */
+.ww-card-ring-float {
+  transform: translate3d(0, 0, 0);
+  opacity: 0.3;
+  animation: ww-card-ring-float 3s ease-in-out infinite;
+  animation-delay: var(--ww-card-ring-delay, 0s);
+  will-change: transform, opacity;
+}
+
+@keyframes ww-card-ring-float {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.3; }
+  50% { transform: translate3d(0, -10px, 0); opacity: 0.6; }
+}
+
+/*
+ * Подсветка активной точки карусели. Анимируется отдельное свойство `scale`,
+ * а не `transform`: у элемента в разметке уже стоит центрирование через
+ * `-translate-x-1/2`, и запись в `transform` затёрла бы его — подсветка
+ * уехала бы вправо вниз от самой точки.
+ */
+.ww-dot-pulse {
+  scale: 1;
+  animation: ww-dot-pulse 2s ease-in-out infinite;
+  will-change: scale;
+}
+
+/* Пульсация рамки карточки кейса. Значения — те же, что вёл motion. */
+.ww-case-frame-pulse {
+  animation: ww-case-frame-pulse 2s ease-in-out infinite;
+  will-change: box-shadow;
+}
+
+@keyframes ww-case-frame-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(139, 92, 246, 0); }
+  50% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+}
+
+@keyframes ww-dot-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.5; }
 }
 
 @supports (animation-timeline: scroll()) {

@@ -1,4 +1,4 @@
-import { motion, useInView, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, lazy, Suspense, useMemo } from 'react';
 import { useSiteSection } from '../hooks/useServiceContent';
@@ -12,6 +12,7 @@ import {
   type ContentTypography,
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
+import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -253,7 +254,10 @@ function Testimonials({
   useDragScroll(desktopScrollerRef);
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const mobileScrollFrameRef = useRef<number | null>(null);
-  const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
+  // Видимость секции больше не живёт в состоянии React: фоновым петлям хватает
+  // атрибута на секции, а автолистанию — чтения ref в момент такта.
+  const visibleRef = useRef(false);
+  useAmbientVisibility(sectionRef, { visibilityRef: visibleRef });
   const isMobile = useIsMobile();
   const isTouch = useTouchDevice();
   const prefersReducedMotion = Boolean(useReducedMotion());
@@ -374,17 +378,19 @@ function Testimonials({
   }, [isMobile, syncMobileIndex]);
 
   useEffect(() => {
-    if (!isMobile || !inView || isMobileAutoplayDisabled || prefersReducedMotion) return;
+    if (!isMobile || isMobileAutoplayDisabled || prefersReducedMotion) return;
 
-    const timer = window.setTimeout(() => {
+    // Такт повторяется, а не ставится один раз: пока секция вне экрана, отзыв
+    // не листается, но и автолистание не умирает — оно продолжится с возвратом.
+    const timer = window.setInterval(() => {
+      if (!visibleRef.current) return;
       const nextIndex = (currentIndex + 1) % items.length;
       scrollMobileTestimonials(nextIndex, nextIndex === 0 ? 'auto' : undefined);
     }, 5000);
 
-    return () => window.clearTimeout(timer);
+    return () => window.clearInterval(timer);
   }, [
     currentIndex,
-    inView,
     isMobile,
     isMobileAutoplayDisabled,
     prefersReducedMotion,
@@ -407,7 +413,7 @@ function Testimonials({
 
       {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
       <Suspense fallback={null}>
-        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+        <PlexusBackdrop className="absolute inset-0 h-full w-full" />
       </Suspense>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
@@ -594,10 +600,11 @@ function Testimonials({
                     : 'bg-primary/30 w-2'
                 }`} />
                 {currentIndex === index && (
-                  <motion.div
-                    className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
-                    animate={inView && !prefersReducedMotion ? { scale: [1, 1.5, 1] } : {}}
-                    transition={{ duration: 2, repeat: inView && !prefersReducedMotion ? Infinity : 0 }}
+                  <div
+                    aria-hidden="true"
+                    className={`absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm${
+                      prefersReducedMotion ? '' : ' ww-ambient-motion ww-dot-pulse'
+                    }`}
                   />
                 )}
               </button>

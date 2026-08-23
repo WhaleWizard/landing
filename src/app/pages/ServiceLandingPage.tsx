@@ -9,6 +9,7 @@ import type { CasesContent } from '../components/Cases';
 import type { CallToActionContent } from '../components/CallToAction';
 import type { TestimonialsContent } from '../components/Testimonials';
 import useServiceContent from '../hooks/useServiceContent';
+import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import {
   managedBodyClasses,
   managedBodyStyle,
@@ -912,38 +913,22 @@ function DeferredSection({
 
 function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProps, 'service' | 'contact' | 'theme'>) {
   const sectionRef = useRef<HTMLElement>(null);
-  const [orbsInView, setOrbsInView] = useState(false);
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(contact.typography, { minFontSize: 16 });
   // Соседние секции монтируются только при приближении к viewport. Эта — нет,
-  // поэтому её пятна размытием в 128px пульсировали
-  // всё время, даже когда до формы ещё далеко. Ставим на паузу за пределами
-  // экрана: пока пятно видно, оно ведёт себя ровно как раньше.
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section || typeof IntersectionObserver === 'undefined') {
-      setOrbsInView(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setOrbsInView(entry?.isIntersecting === true),
-      { rootMargin: '200px' },
-    );
-    observer.observe(section);
-    return () => observer.disconnect();
-  }, []);
-
-  const orbPlayState = orbsInView ? 'running' : 'paused';
+  // поэтому её пятна размытием в 128px пульсировали всё время, даже когда до
+  // формы ещё далеко. Пауза за пределами экрана ставится атрибутом на секции:
+  // состояние React перерисовывало бы всю форму на каждом пересечении.
+  useAmbientVisibility(sectionRef, { rootMargin: '200px' });
 
   return (
     <section ref={sectionRef} id="contact" className="relative py-16 md:py-24 overflow-hidden">
       <div
-        className="absolute top-0 left-1/4 w-80 h-80 md:w-96 md:h-96 rounded-full blur-[128px] animate-pulse pointer-events-none"
-        style={{ backgroundColor: theme.orbFrom, animationPlayState: orbPlayState }}
+        className="ww-ambient-motion absolute top-0 left-1/4 w-80 h-80 md:w-96 md:h-96 rounded-full blur-[128px] animate-pulse pointer-events-none"
+        style={{ backgroundColor: theme.orbFrom }}
       />
       <div
-        className="absolute bottom-0 right-1/4 w-80 h-80 md:w-96 md:h-96 rounded-full blur-[128px] animate-pulse pointer-events-none"
-        style={{ backgroundColor: theme.orbTo, animationDelay: '1s', animationPlayState: orbPlayState }}
+        className="ww-ambient-motion absolute bottom-0 right-1/4 w-80 h-80 md:w-96 md:h-96 rounded-full blur-[128px] animate-pulse pointer-events-none"
+        style={{ backgroundColor: theme.orbTo, animationDelay: '1s' }}
       />
       <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-60`} />
 

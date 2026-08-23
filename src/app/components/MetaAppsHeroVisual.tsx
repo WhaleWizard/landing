@@ -30,7 +30,13 @@ import {
 import './meta-apps-hero.css';
 
 type MetaAppsHeroVisualProps = {
-  inView: boolean;
+  /**
+   * Разрешено ли движение вообще: предпросмотр редактора и `prefers-reduced-motion`
+   * его запрещают. Видимость визуал определяет сам — иначе значение пришлось бы
+   * держать в состоянии родителя, и весь хиро перерисовывался бы на каждом
+   * пересечении границы экрана.
+   */
+  motionAllowed: boolean;
 };
 
 type MetaAppsVisualStyle = CSSProperties & {
@@ -447,13 +453,32 @@ function useMobileViewport() {
   return mobile;
 }
 
-const MetaAppsHeroVisual = memo(({ inView }: MetaAppsHeroVisualProps) => {
+const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const phoneAnchorRef = useRef<HTMLDivElement>(null);
   const [phoneScale, setPhoneScale] = useState(0.48);
+  const [onScreen, setOnScreen] = useState(false);
   const reduced = Boolean(useReducedMotion());
   const mobile = useMobileViewport();
   const subtleMotion = mobile && !reduced;
+
+  // Наблюдение живёт здесь, а не в Hero: перерисовывается только сам визуал,
+  // а не весь первый экран вместе с заголовком и кнопками.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof IntersectionObserver === 'undefined') {
+      setOnScreen(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setOnScreen(Boolean(entry?.isIntersecting)),
+      { rootMargin: '0px 0px -10% 0px', threshold: 0 },
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  const inView = motionAllowed && onScreen;
   // Параллакс на телефоне остаётся выключенным: он считается от курсора и от
   // положения прокрутки, то есть работает ровно в те кадры, которые нужны
   // самой прокрутке. А постоянные петли — блик по экрану и парение чеков —

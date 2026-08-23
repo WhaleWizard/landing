@@ -1,5 +1,5 @@
 // src/app/pages/BlogPage.tsx
-import { AnimatePresence, motion, useInView, useScroll, useSpring } from 'motion/react';
+import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -29,6 +29,7 @@ import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
 import { useScrollTo } from '../components/hooks/useScrollTo';
+import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import DeferredImage from '../components/DeferredImage';
 import { optimizeArticleContentImages } from '../utils/articleContentImages';
 import ArticlesLoadError from '../components/ArticlesLoadError';
@@ -185,18 +186,15 @@ function articleReadMinutes(article: Article): number {
   return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
 }
 
-// useInView должен наблюдать элемент, который монтируется ВМЕСТЕ с хуком.
-// Раньше ref висел на секции, которая появлялась после скелетона загрузки —
-// observer привязывался к null, inView навсегда оставался false, и плексус
-// с орбами стояли замороженными. Обёртки ниже монтируют ref и хук синхронно.
+// Сеть следит за собой сама, поэтому обёртке нечего хранить в состоянии.
+// Прежний useInView возвращал значение в React, и страница блога
+// перерисовывалась на каждом пересечении границы экрана.
 function InViewPlexus({ viewportBound = false }: { viewportBound?: boolean }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: false, margin: '0px 0px -10% 0px' });
   return (
-    <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
       <div className={viewportBound ? 'sticky top-0 h-[100svh] w-full' : 'absolute inset-0'}>
         <Suspense fallback={null}>
-          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+          <PlexusBackdrop className="absolute inset-0 h-full w-full" />
         </Suspense>
       </div>
     </div>
@@ -204,14 +202,15 @@ function InViewPlexus({ viewportBound = false }: { viewportBound?: boolean }) {
 }
 
 function ArticleHeroBackdrop() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: false, margin: '0px 0px -10% 0px' });
+  const ref = useRef<HTMLDivElement>(null);
+  // Пятна ставит на паузу CSS по атрибуту на этой же обёртке.
+  useAmbientVisibility(ref);
   return (
     <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0">
-      <div className="absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity', animationPlayState: inView ? 'running' : 'paused' }} />
-      <div className="absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused' }} />
+      <div className="ww-ambient-motion absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity' }} />
+      <div className="ww-ambient-motion absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s' }} />
       <Suspense fallback={null}>
-        <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+        <PlexusBackdrop className="absolute inset-0 h-full w-full" />
       </Suspense>
     </div>
   );

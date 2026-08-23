@@ -25,7 +25,9 @@ function Footer() {
   // они остаются на месте, даже если страницу временно закрыли.
   const isHiddenInNav = useIsPathHiddenInNav();
   const footerRef = useRef<HTMLElement>(null);
-  const [inView, setInView] = useState(false);
+  // Состояние осталось одно и меняется один раз: «подвал уже показывали».
+  // Дальше сеть следит за своей видимостью сама, и прокрутка мимо подвала
+  // больше не перерисовывает его.
   const [hasEntered, setHasEntered] = useState(false);
   // Внутренние переходы запоминают страницу-источник: кнопка «Назад»
   // на юридических страницах вернёт именно туда, откуда их открыли.
@@ -34,15 +36,14 @@ function Footer() {
   useEffect(() => {
     const footer = footerRef.current;
     if (!footer || typeof IntersectionObserver === 'undefined') {
-      setInView(true);
       setHasEntered(true);
       return;
     }
 
     const observer = new IntersectionObserver(([entry]) => {
-      const visible = Boolean(entry?.isIntersecting);
-      setInView(visible);
-      if (visible) setHasEntered(true);
+      if (!entry?.isIntersecting) return;
+      setHasEntered(true);
+      observer.disconnect();
     }, { rootMargin: '160px 0px', threshold: 0 });
     observer.observe(footer);
     return () => observer.disconnect();
@@ -83,13 +84,13 @@ function Footer() {
 
       {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
       {/*
-        После первого показа сеть остаётся в разметке, а видимость только
-        включает и выключает её кадры. Раньше выход из подвала размонтировал
-        холст целиком, и возврат прокруткой строил всю сеть заново.
+        После первого показа сеть остаётся в разметке и сама решает, выдавать
+        ли кадры. Раньше выход из подвала размонтировал холст целиком, и
+        возврат прокруткой строил всю сеть заново.
       */}
       {hasEntered ? (
         <Suspense fallback={null}>
-          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+          <PlexusBackdrop className="absolute inset-0 h-full w-full" />
         </Suspense>
       ) : null}
 

@@ -1,4 +1,4 @@
-import { motion, useInView } from 'motion/react';
+import { motion } from 'motion/react';
 import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, memo, useCallback, useEffect } from 'react';
@@ -13,6 +13,7 @@ import {
   type ContentTypography,
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
+import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 
 export type CaseStat = { label: string; value: string };
 
@@ -126,7 +127,7 @@ function Cases({
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const mobileScrollFrameRef = useRef<number | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
+  useAmbientVisibility(sectionRef);
   const isTouch = useTouchDevice();
   const isMobile = useIsMobile();
 
@@ -196,8 +197,10 @@ function Cases({
   const desktopHover = !staticMotion && !isTouch ? { whileHover: { scale: 1.05 } } : {};
   const cardHover = !staticMotion && !isTouch ? { whileHover: { scale: 1.1 } } : {};
 
-  // Бесконечная пульсация рамки только на десктопе и если секция видна
-  const enablePulse = !staticMotion && !isMobile && inView;
+  // Бесконечная пульсация рамки только на десктопе. За «секция видна» отвечает
+  // CSS: класс ww-ambient-motion внутри секции с data-ambient="off" встаёт на
+  // паузу, и React больше не перерисовывает блок на каждом пересечении границы.
+  const enablePulse = !staticMotion && !isMobile;
 
   return (
     <section
@@ -281,13 +284,11 @@ function Cases({
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
-                <motion.div 
-                  className={`absolute inset-0 border-2 border-primary/0 ${staticMotion ? '' : 'transition-all duration-300 group-hover:border-primary/30'}`}
-                  animate={enablePulse ? {
-                    boxShadow: ['0 0 0 rgba(139,92,246,0)', '0 0 20px rgba(139,92,246,0.3)', '0 0 0 rgba(139,92,246,0)']
-                  } : {}}
-                  transition={enablePulse ? { duration: 2, repeat: Infinity } : undefined}
-                  style={enablePulse ? { willChange: 'box-shadow' } : undefined}
+                <div
+                  aria-hidden="true"
+                  className={`absolute inset-0 border-2 border-primary/0 ${staticMotion ? '' : 'transition-all duration-300 group-hover:border-primary/30'}${
+                    enablePulse ? ' ww-ambient-motion ww-case-frame-pulse' : ''
+                  }`}
                 />
                 <div className="absolute top-4 right-4 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center gap-2">
                   <Target className="w-3 h-3 md:w-4 md:h-4 shrink-0 text-primary" />
@@ -410,11 +411,9 @@ function Cases({
                   currentIndex === index ? 'bg-primary w-8' : 'bg-primary/30'
                 }`} />
                 {currentIndex === index && !isMobile && (
-                  <motion.div
+                  <div
                     aria-hidden="true"
-                    className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
-                    animate={inView ? { scale: [1, 1.5, 1] } : {}}
-                    transition={{ duration: 2, repeat: inView ? Infinity : 0 }}
+                    className="ww-ambient-motion ww-dot-pulse absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
                   />
                 )}
               </button>

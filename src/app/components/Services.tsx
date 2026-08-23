@@ -1,6 +1,6 @@
-import { motion, useInView } from 'motion/react';
+import { motion } from 'motion/react';
 import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info, type LucideIcon } from 'lucide-react';
-import { useState, useRef, memo, useCallback, lazy, Suspense, useEffect } from 'react';
+import { useState, useRef, memo, useCallback, lazy, Suspense, useEffect, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import Modal from './Modal';
 import { useSiteSection } from '../hooks/useServiceContent';
@@ -13,6 +13,7 @@ import {
   type ContentTypography,
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
+import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -122,7 +123,10 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const mobileScrollFrameRef = useRef<number | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  const inView = useInView(sectionRef, { once: false, margin: '0px 0px -10% 0px' });
+  // Видимость секции живёт атрибутом на самой секции: фоновым петлям хватает
+  // CSS, а React больше не перерисовывает весь блок при каждом пересечении
+  // границы экрана.
+  useAmbientVisibility(sectionRef);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
@@ -206,18 +210,18 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
         {/* Орбы без отрицательного z-index: с -z-10 они рисовались позади
             непрозрачного фона страницы и были не видны. Пауза вне вьюпорта. */}
         <div
-          className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
-          style={{ animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+          className="ww-ambient-motion absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
+          style={{ willChange: 'opacity' }}
         />
         <div
-          className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
-          style={{ animationDelay: '1s', animationPlayState: inView ? 'running' : 'paused', willChange: 'opacity' }}
+          className="ww-ambient-motion absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
+          style={{ animationDelay: '1s', willChange: 'opacity' }}
         />
         <div className="absolute inset-x-0 top-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent pointer-events-none md:hidden" />
 
         {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
         <Suspense fallback={null}>
-          <PlexusBackdrop inView={inView} className="absolute inset-0 h-full w-full" />
+          <PlexusBackdrop className="absolute inset-0 h-full w-full" />
         </Suspense>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -258,13 +262,10 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                 <div className="relative p-6 md:p-8 rounded-3xl bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-300 h-full flex flex-col overflow-hidden">
                   <div className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                   <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${service.gradient} opacity-0 group-hover:opacity-20 blur-2xl transition-opacity duration-500`} />
-                  <motion.div
-                    className="absolute top-4 right-4 w-8 h-8 rounded-full border border-primary/20"
-                    animate={inView ? { 
-                      y: [0, -10, 0],
-                      opacity: [0.3, 0.6, 0.3]
-                    } : {}}
-                    transition={{ duration: 3, repeat: inView ? Infinity : 0, delay: index * 0.2 }}
+                  <div
+                    aria-hidden="true"
+                    className="ww-ambient-motion ww-card-ring-float absolute top-4 right-4 w-8 h-8 rounded-full border border-primary/20"
+                    style={{ '--ww-card-ring-delay': `${index * 0.2}s` } as CSSProperties}
                   />
                   
                   <div className="relative z-10 min-w-0 flex-1">
@@ -420,11 +421,11 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                     currentIndex === index ? 'bg-primary w-8' : 'bg-primary/30'
                   }`} />
                   {currentIndex === index && (
-                    <motion.div
+                    <div
                       aria-hidden="true"
-                      className="absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm"
-                      animate={inView && !isMobile ? { scale: [1, 1.5, 1] } : {}}
-                      transition={{ duration: 2, repeat: inView && !isMobile ? Infinity : 0 }}
+                      className={`absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm${
+                        isMobile ? '' : ' ww-ambient-motion ww-dot-pulse'
+                      }`}
                     />
                   )}
                 </button>

@@ -1,8 +1,9 @@
 import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { motion, useInView, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Braces, Database } from 'lucide-react';
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
+import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { useIsMobile } from './ui/use-mobile';
 import { useSiteSection } from '../hooks/useServiceContent';
 import {
@@ -787,7 +788,6 @@ function Hero({
 }) {
   const content = useSiteSection(contentKey, 'hero', contentProp);
   const sectionRef     = useRef<HTMLElement>(null);
-  const inView         = useInView(sectionRef, { margin: '0px 0px -10% 0px', once: false });
   const prefersReduced = useReducedMotion();
   const isMobile       = useIsMobile();
   const { scrollToWhenReady } = useScrollTo();
@@ -812,7 +812,11 @@ function Hero({
   // композитор, а не главный поток, поэтому «облегчение» больше не означает
   // выключенную анимацию. Пауза за пределами экрана и на время прокрутки —
   // через data-атрибут, чтобы React не перерисовывал хиро на каждый скролл.
-  const resolvedInView = prefersReduced || freezeMotion ? false : inView;
+  const motionAllowed = !prefersReduced && !freezeMotion;
+  // Видимость пишется атрибутом прямо на секцию. Значение в состоянии React
+  // перерисовывало весь первый экран каждый раз, когда его край пересекал
+  // границу — ровно в кадре, где страница движется.
+  useAmbientVisibility(sectionRef);
 
   // Космическая сцена живёт по своей разметке: она занимает весь блок, а текст
   // ложится поверх неё. Вписывать её в общую сетку из двух колонок нельзя —
@@ -822,11 +826,11 @@ function Hero({
       <section
         id="hero"
         ref={sectionRef}
-        data-hero-ambient={resolvedInView ? 'on' : 'off'}
+        data-hero-ambient={motionAllowed ? undefined : 'off'}
         className="cosmic-hero pt-16 md:pt-20"
       >
         <Suspense fallback={null}>
-          <CosmicHeroScene active={resolvedInView} />
+          <CosmicHeroScene active={motionAllowed} />
         </Suspense>
 
         <div className="cosmic-copy">
@@ -848,7 +852,7 @@ function Hero({
     <section
       id="hero"
       ref={sectionRef}
-      data-hero-ambient={resolvedInView ? 'on' : 'off'}
+      data-hero-ambient={motionAllowed ? undefined : 'off'}
       className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
       style={{ contain: 'layout style paint' }}
     >
@@ -866,7 +870,7 @@ function Hero({
           />
           {isMetaApps ? (
             <Suspense fallback={<div className="order-2 h-[720px] md:h-[760px] lg:h-[690px]" />}>
-              <MetaAppsHeroVisual inView={resolvedInView} />
+              <MetaAppsHeroVisual motionAllowed={motionAllowed} />
             </Suspense>
           ) : (
             <RightPanel showCards={visual !== 'portrait'} />

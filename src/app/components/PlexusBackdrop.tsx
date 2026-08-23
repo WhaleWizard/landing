@@ -5,7 +5,12 @@ import { isScrollActivityActive } from '../utils/motionPerformance';
 // Интерактивный фон-сеть. Состояние живёт в refs/замыкании canvas, поэтому
 // кадры анимации не вызывают React-рендеры.
 type PlexusBackdropProps = {
-  inView: boolean;
+  /**
+   * Видимость снаружи. Без этого значения сеть следит за собой сама — так
+   * секции не приходится держать видимость в состоянии React и перерисовывать
+   * себя целиком на каждом пересечении границы экрана.
+   */
+  inView?: boolean;
   className?: string;
 };
 
@@ -33,7 +38,8 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
   // Видимость живёт в ref, а не в зависимостях эффекта. Иначе каждый вход и
   // выход секции пересоздавал весь эффект вместе с точками сети: возврат
   // прокруткой наверх строил новый узор с нуля, и фон заметно прыгал.
-  const inViewRef = useRef(inView);
+  const selfObserved = inView === undefined;
+  const inViewRef = useRef(inView ?? false);
   const controlRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   useEffect(() => {
@@ -336,10 +342,34 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
   }, [prefersReduced]);
 
   useEffect(() => {
-    inViewRef.current = inView;
+    if (selfObserved) return;
+    inViewRef.current = Boolean(inView);
     if (inView) controlRef.current?.start();
     else controlRef.current?.stop();
-  }, [inView]);
+  }, [inView, selfObserved]);
+
+  useEffect(() => {
+    if (!selfObserved) return undefined;
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    if (typeof IntersectionObserver === 'undefined') {
+      inViewRef.current = true;
+      controlRef.current?.start();
+      return undefined;
+    }
+
+    // Запас в четверть экрана: сеть успевает ожить до того, как секция
+    // въезжает в кадр, и не мигает на границе.
+    const observer = new IntersectionObserver(([entry]) => {
+      const visible = Boolean(entry?.isIntersecting);
+      inViewRef.current = visible;
+      if (visible) controlRef.current?.start();
+      else controlRef.current?.stop();
+    }, { rootMargin: '25% 0px', threshold: 0 });
+
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [selfObserved]);
 
   return <canvas ref={canvasRef} aria-hidden="true" className={`pointer-events-none ${className}`} />;
 });
