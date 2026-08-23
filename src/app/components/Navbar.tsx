@@ -21,6 +21,13 @@ const NAV_ICONS: Record<string, typeof Briefcase> = {
 
 interface NavbarProps {
   variant?: NavbarVariant;
+  /**
+   * Страница, которой принадлежат якорные пункты меню, и куда ведёт логотип.
+   * По умолчанию главная. Странице благодарности это нужно, чтобы вернуть
+   * человека на тот лендинг, с которого он отправил заявку, а не выбросить
+   * его на главную, которую он, может быть, вообще не видел.
+   */
+  sectionsPath?: string;
 }
 
 type NavItem = {
@@ -36,7 +43,7 @@ function serviceFromKey(pathname: string): string {
   return pathname.replace(/^\/+|\/+$/g, '') || 'home';
 }
 
-function Navbar({ variant = 'home' }: NavbarProps) {
+function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -127,17 +134,26 @@ function Navbar({ variant = 'home' }: NavbarProps) {
       return;
     }
 
-    if (location.pathname !== '/') {
-      navigate('/');
-      window.setTimeout(() => {
-        scrollWhenReady();
-      }, 40);
-    } else {
-      scrollWhenReady();
+    if (location.pathname !== sectionsPath) {
+      // Переход на другую страницу отдаём её собственному разбору хеша.
+      // Секции и на главной, и на лендингах монтируются лениво: нужная
+      // поднимается сразу, а кадр выравнивается по ней, пока достраиваются
+      // соседние блоки. Своя прокрутка отсюда цеплялась за пустую заготовку,
+      // после чего секция уезжала вниз и человек оказывался мимо неё.
+      navigate(`${sectionsPath}#${id}`);
+      setIsMobileMenuOpen(false);
+      return;
     }
 
+    scrollWhenReady();
     setIsMobileMenuOpen(false);
-  }, [location.pathname, navigate, variant]);
+  }, [location.pathname, navigate, sectionsPath, variant]);
+
+  // Логотип на контентных страницах ведёт не всегда на главную: со страницы
+  // благодарности — назад на лендинг, с которого пришла заявка.
+  const homeLabel = sectionsPath === '/'
+    ? 'Whale Wizard — на главную'
+    : 'Whale Wizard — вернуться на страницу, с которой вы пришли';
 
   const isHiddenInNav = useIsPathHiddenInNav();
   const allNavItems: NavItem[] = variant === 'service'
@@ -152,12 +168,15 @@ function Navbar({ variant = 'home' }: NavbarProps) {
     ]
     : variant === 'content'
       ? [
-        { label: 'Услуги', action: () => scrollToSection('services'), preloadRoute: '/' },
+        { label: 'Услуги', action: () => scrollToSection('services'), preloadRoute: sectionsPath },
         { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
         { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
-        { label: 'О нас', action: () => scrollToSection('about'), preloadRoute: '/' },
+        { label: 'О нас', action: () => scrollToSection('about'), preloadRoute: sectionsPath },
         { label: 'FAQ', action: () => { navigate('/faq'); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
-        { label: 'Контакты', action: () => scrollToSection('social'), preloadRoute: '/' },
+        // Блок соцсетей есть только на главной. На лендинге услуги якоря
+        // `social` нет вовсе, и пункт молча не срабатывал бы — там «Контакты»
+        // ведут к форме заявки.
+        { label: 'Контакты', action: () => scrollToSection(sectionsPath === '/' ? 'social' : 'contact'), preloadRoute: sectionsPath },
       ]
       : [
         { label: 'Услуги', action: () => scrollToSection('services') },
@@ -185,11 +204,11 @@ function Navbar({ variant = 'home' }: NavbarProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             {/* Логотип */}
-            <div className="flex-shrink-0" data-route-preload={variant === 'content' ? '/' : undefined}>
+            <div className="flex-shrink-0" data-route-preload={variant === 'content' ? sectionsPath : undefined}>
               <BrandLogo
-                onClick={() => variant === 'content' ? navigate('/') : scrollToSection('hero')}
+                onClick={() => variant === 'content' ? navigate(sectionsPath) : scrollToSection('hero')}
                 priority
-                ariaLabel={variant === 'content' ? 'Whale Wizard — на главную' : 'Whale Wizard — к началу страницы'}
+                ariaLabel={variant === 'content' ? homeLabel : 'Whale Wizard — к началу страницы'}
               />
             </div>
 
@@ -213,7 +232,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
               ))}
               <Button
                 onClick={() => scrollToSection('contact')}
-                data-route-preload={variant === 'content' ? '/' : undefined}
+                data-route-preload={variant === 'content' ? sectionsPath : undefined}
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
@@ -255,17 +274,17 @@ function Navbar({ variant = 'home' }: NavbarProps) {
 
               <div
                 className="flex items-center justify-between px-5 py-5 border-b border-border/60"
-                data-route-preload={variant === 'content' ? '/' : undefined}
+                data-route-preload={variant === 'content' ? sectionsPath : undefined}
               >
                 <BrandLogo
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    if (variant === 'content') navigate('/');
+                    if (variant === 'content') navigate(sectionsPath);
                     else scrollToSection('hero');
                   }}
                   markSize={40}
                   anchor={false}
-                  ariaLabel={variant === 'content' ? 'Whale Wizard — на главную' : 'Whale Wizard — к началу страницы'}
+                  ariaLabel={variant === 'content' ? homeLabel : 'Whale Wizard — к началу страницы'}
                 />
                 <button
                   type="button"
@@ -306,7 +325,7 @@ function Navbar({ variant = 'home' }: NavbarProps) {
                     scrollToSection('contact');
                     setIsMobileMenuOpen(false);
                   }}
-                  data-route-preload={variant === 'content' ? '/' : undefined}
+                  data-route-preload={variant === 'content' ? sectionsPath : undefined}
                   size="lg"
                   className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
                 >

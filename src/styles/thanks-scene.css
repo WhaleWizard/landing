@@ -884,6 +884,44 @@
 
 .ths-tile:hover .ths-tile-go svg { transform: translateX(4px); }
 
+/* ─── Возврат туда, откуда пришла заявка ──────────────────────────────── */
+
+.ths-return {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  margin-top: 2.5rem;
+  padding: 0 1.125rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  background: rgba(14, 11, 26, 0.6);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  transition:
+    border-color var(--motion-base) var(--motion-ease-premium),
+    color var(--motion-base) var(--motion-ease-premium),
+    box-shadow var(--motion-base) var(--motion-ease-premium);
+}
+
+.ths-return svg {
+  color: rgba(167, 139, 250, 0.95);
+  transition: transform var(--motion-base) var(--motion-ease-premium),
+              color var(--motion-base) var(--motion-ease-premium);
+}
+
+.ths-return:hover {
+  border-color: rgba(255, 196, 130, 0.4);
+  color: #ffca8a;
+  box-shadow: 0 0 24px rgba(255, 158, 66, 0.14);
+}
+
+.ths-return:hover svg {
+  transform: translateX(-3px);
+  color: #ffca8a;
+}
+
 /* ─── Соцсети: тихая строка внизу ─────────────────────────────────────── */
 
 .ths-social {
@@ -891,7 +929,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 1rem;
-  margin-top: 3.5rem;
+  margin-top: 2.5rem;
   padding-top: 2rem;
   border-top: 1px solid rgba(139, 92, 246, 0.14);
 }

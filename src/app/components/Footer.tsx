@@ -111,8 +111,12 @@ function Footer() {
           </div>
 
           {/* Services */}
+          {/* Не `services`: этот id занят секцией услуг на главной и на
+              лендингах. Подвал есть на каждой странице, поэтому пункт меню
+              «Услуги» находил колонку подвала и прокручивал к ней вместо
+              перехода на страницу с самими услугами. */}
           <div
-            id="services"
+            id="footer-services"
             className={`footer-reveal footer-reveal-delay-1 ${hasEntered ? 'is-visible' : ''}`}
           >
             <h4 className={footerHeadingClass}>

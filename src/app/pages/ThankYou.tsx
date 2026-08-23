@@ -6,6 +6,7 @@ import {
   Mail,
   Youtube,
   ArrowRight,
+  ArrowLeft,
   ArrowDown,
   Search,
   Send,
@@ -19,6 +20,7 @@ import SEO from '../components/SEO';
 import ThanksCosmicScene from '../components/ThanksCosmicScene';
 import { useScrollTo } from '../components/hooks/useScrollTo';
 import { readLeadContext, type LeadContactChannel, type LeadServiceSlug } from '../utils/leadContext';
+import { useIsPathHiddenInNav } from '../utils/pageLocks';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -73,6 +75,19 @@ const WAITING_CARDS: Record<LeadServiceSlug, WaitingCard[]> = {
 // гарантированно совпадают по стилю со сценой первого экрана.
 const TILE_ORBS = ['shard5', 'moon2', 'shard6'];
 
+/**
+ * Откуда человек пришёл — туда его и возвращает меню. Заявку с лендинга Meta
+ * Ads выбрасывать на главную неправильно: этой страницы он мог вообще не
+ * видеть, и разделы «Услуги» или «О нас» показали бы ему чужой контекст.
+ */
+const ORIGIN: Record<LeadServiceSlug, { path: string; label: string }> = {
+  home: { path: '/', label: 'На главную' },
+  'meta-ads': { path: '/meta-ads', label: 'Вернуться к Meta Ads' },
+  'google-ads': { path: '/google-ads', label: 'Вернуться к Google Ads' },
+  'meta-apps': { path: '/meta-apps', label: 'Вернуться к продвижению приложения' },
+  consult: { path: '/consult', label: 'Вернуться к консультации' },
+};
+
 const socialLinks = [
   { name: 'Telegram', icon: MessageCircle, link: TELEGRAM_LINK },
   { name: 'Instagram', icon: Instagram, link: 'https://instagram.com/whalewzrd' },
@@ -92,6 +107,12 @@ export default function ThankYou() {
 
   const channelLabel = context?.channel ? CHANNEL_LABEL[context.channel] : null;
   const waitingCards = WAITING_CARDS[context?.serviceSlug ?? 'home'];
+
+  // Закрытая через админку страница отдаёт заглушку — возвращать на неё нельзя,
+  // поэтому такой источник откатывается на главную.
+  const isHiddenInNav = useIsPathHiddenInNav();
+  const rawOrigin = ORIGIN[context?.serviceSlug ?? 'home'];
+  const origin = isHiddenInNav(rawOrigin.path) ? ORIGIN.home : rawOrigin;
 
   // Время показываем только тогда, когда заявка действительно была отправлена
   // из этой вкладки. При прямом заходе на адрес выдумывать «принято в 20:14»
@@ -131,7 +152,7 @@ export default function ThankYou() {
         url="/thank-you"
         noIndex
       />
-      <Navbar variant="content" />
+      <Navbar variant="content" sectionsPath={origin.path} />
 
       <main className="marketing-typography bg-background">
         {/* ─── Первый экран: сцена и карточка подтверждения ───────────── */}
@@ -307,6 +328,14 @@ export default function ThankYou() {
                   </motion.div>
                 ))}
               </div>
+
+              {/* Явный выход туда, откуда пришла заявка. Меню делает это же
+                  молча, но человек не обязан догадываться, куда его уведёт
+                  «Услуги» — путь возврата должен быть виден. */}
+              <Link to={origin.path} className="ths-return">
+                <ArrowLeft className="h-4 w-4" />
+                {origin.label}
+              </Link>
 
               {/* Соцсети — тихой строкой: главное действие уже наверху, и
                   конкурировать с ним этот блок не должен. */}
