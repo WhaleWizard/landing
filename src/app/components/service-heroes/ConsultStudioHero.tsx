@@ -1,4 +1,5 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
+import ConsultDeskScene from './ConsultDeskScene';
 import type { HeroContent } from '../Hero';
 import HeroTitleEffect, { resolveHeroTitleLine } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
@@ -33,23 +34,10 @@ function ConsultStudioHero({ content }: ConsultStudioHeroProps) {
     <section id="hero" className="consult-studio-hero" aria-labelledby="consult-studio-title">
       <div className="consult-studio-hero__grid">
         <div className="consult-studio-hero__photo-wrap">
-          <picture>
-            <source
-              media="(max-width: 1023px)"
-              srcSet="/images/consult-proof/workspace-mobile.webp"
-            />
-            <img
-              src="/images/consult-proof/workspace-portrait.webp"
-              width="1440"
-              height="1800"
-              alt="Рабочий разбор рекламного кабинета: ноутбук, блокнот и заметки"
-              loading="eager"
-              decoding="async"
-              fetchpriority="high"
-              className="consult-studio-hero__photo"
-            />
-          </picture>
-          <div className="consult-studio-hero__photo-shade" aria-hidden="true" />
+          {/* Сцена собрана из отдельных предметов, а не снята одним кадром:
+              лампа, ноутбук, блокнот и записки лежат разными слоями и
+              двигаются с разной скоростью — отсюда глубина. */}
+          <ConsultDeskScene />
           <div className="consult-studio-hero__photo-caption" aria-hidden="true">
             <span>01</span>
             <span>КАБИНЕТ</span>

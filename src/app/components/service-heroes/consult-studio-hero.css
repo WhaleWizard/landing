@@ -70,38 +70,57 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Оболочка блока уведена из холодного графита в тёплый: на фото дерево,
+   бумага и свет лампы, и синеватый фон рядом с ними выглядел чужим.
+   Тон подобран так, чтобы страница не выпадала из тёмного сайта. */
 .consult-studio-hero {
   --consult-cream: #f4efe8;
-  --consult-muted: #b9b4bd;
+  --consult-muted: #bdb2a6;
   --consult-violet: #8b5cf6;
   --consult-indigo: #6366f1;
   --consult-blue: #3b82f6;
+  --consult-ink: #0d0a08;
+  --consult-amber: #c98a3f;
   position: relative;
   min-height: 100svh;
   overflow-x: clip;
   color: var(--consult-cream);
-  background: #09090e;
+  background: var(--consult-ink);
   font-family: 'WW Commissioner', var(--ww-font-text);
 }
 
+/* На десктопе текст идёт первым, фото вторым. Порядок задан через order,
+   а не перестановкой в разметке: на телефоне сцена должна оставаться
+   сверху, а текст под ней — там порядок в разметке как раз нужный. */
 .consult-studio-hero__grid {
   display: grid;
-  grid-template-columns: minmax(0, 52%) minmax(0, 48%);
+  grid-template-columns: minmax(0, 48%) minmax(0, 52%);
   min-height: 100svh;
 }
 
+.consult-studio-hero__content { order: 1; }
+.consult-studio-hero__photo-wrap { order: 2; }
+
+/* Сцена расстилается на весь блок, а не сидит в колонке: иначе у неё
+   появляется край, и половина экрана читается как вставленный прямоугольник.
+   Текст ложится поверх, слева, где дерево уходит в тень. */
 .consult-studio-hero__photo-wrap {
-  position: relative;
-  min-height: 100svh;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   overflow: hidden;
-  background: #17110d;
+  background: #0d0a08;
   animation: consult-photo-enter 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Снимок кладём подложкой в абсолют: при обычном потоке его height: 100%
+   не к чему прижаться, картинка встаёт по своей пропорции и растягивает
+   весь блок под себя — вертикальный кадр раздувал хиро на две сотни
+   пикселей выше экрана. */
 .consult-studio-hero__photo-wrap picture {
+  position: absolute;
+  inset: 0;
   display: block;
-  width: 100%;
-  height: 100%;
 }
 
 .consult-studio-hero__photo {
@@ -114,33 +133,41 @@
   transform: scale(1.006);
 }
 
+/* Растворение развёрнуто: фото теперь справа, значит гаснуть оно должно
+   в левый край — туда, где начинается колонка текста. */
 .consult-studio-hero__photo-shade {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(7, 7, 11, 0.08) 0%, transparent 54%, rgba(9, 9, 14, 0.2) 69%, rgba(9, 9, 14, 0.88) 94%, #09090e 100%),
-    linear-gradient(180deg, rgba(7, 7, 10, 0.34), transparent 20%, transparent 76%, rgba(7, 7, 10, 0.52));
+    linear-gradient(270deg, rgba(9, 7, 5, 0.08) 0%, transparent 54%, rgba(11, 8, 6, 0.2) 69%, rgba(13, 10, 8, 0.88) 94%, var(--consult-ink) 100%),
+    linear-gradient(180deg, rgba(9, 7, 5, 0.34), transparent 20%, transparent 76%, rgba(9, 7, 5, 0.52));
 }
 
+/* Метка идёт по содержимому и прижата к правому нижнему углу сцены.
+   Раньше у неё стояли и left, и right — в узкой колонке это читалось как
+   подпись под фото, а на сцене во весь экран растянулось полосой через
+   весь блок. */
 .consult-studio-hero__photo-caption {
   position: absolute;
-  right: 9%;
-  bottom: 42px;
-  left: 7%;
-  display: flex;
+  right: 4.5%;
+  bottom: 6%;
+  left: auto;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 9px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  gap: 12px;
+  width: max-content;
+  max-width: 44%;
+  padding: 10px 18px;
+  border: 1px solid rgba(255, 236, 210, 0.14);
   border-radius: 999px;
-  background: rgba(9, 9, 14, 0.56);
-  color: rgba(246, 239, 232, 0.82);
+  background: rgba(16, 11, 8, 0.5);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+  color: rgba(246, 239, 232, 0.78);
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.13em;
-  backdrop-filter: blur(14px);
+  letter-spacing: 0.14em;
+  backdrop-filter: blur(16px);
 }
 
 .consult-studio-hero__photo-caption span:first-child {
@@ -163,12 +190,11 @@
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  margin-left: -1px;
-  padding: 120px clamp(38px, 5vw, 76px) 54px clamp(44px, 4.7vw, 72px);
-  background:
-    radial-gradient(circle at 72% 18%, rgba(139, 92, 246, 0.14), transparent 27rem),
-    radial-gradient(circle at 20% 82%, rgba(59, 130, 246, 0.09), transparent 24rem),
-    #09090e;
+  /* Своего фона у колонки больше нет: тень под текст даёт сама сцена, и
+     любая заливка здесь снова прочертила бы границу посреди блока. */
+  z-index: 2;
+  padding: 120px clamp(40px, 4vw, 64px) 54px clamp(44px, 5vw, 80px);
+  background: none;
   animation: consult-copy-enter 720ms 80ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -176,10 +202,31 @@
   content: '';
   position: absolute;
   top: 9%;
-  right: 8%;
+  left: 8%;
   width: 78px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.8));
+  background: linear-gradient(270deg, transparent, rgba(139, 92, 246, 0.8));
+}
+
+/* Свет лампы, снятой в кадре. Накладывается «экраном»: чёрный фон картинки
+   исчезает сам, остаётся только свечение. Держится там же, где стоит лампа
+   на фотографии, и дышит медленно — как живой свет, а не как эффект. */
+.consult-studio-hero__lamp {
+  position: absolute;
+  top: -14%;
+  left: -20%;
+  width: 78%;
+  aspect-ratio: 1;
+  background: url('/images/consult-proof/lamp-glow.webp') center / contain no-repeat;
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  pointer-events: none;
+  animation: consult-lamp-breathe 9s ease-in-out infinite alternate;
+}
+
+@keyframes consult-lamp-breathe {
+  from { opacity: 0.34; }
+  to   { opacity: 0.62; }
 }
 
 .consult-studio-hero__badge {
@@ -394,10 +441,18 @@
     min-height: auto;
   }
 
+  /* На телефоне сцена возвращается в поток и встаёт полосой сверху: текст
+     идёт под ней, а не поверх. На десктопе она растянута абсолютом на весь
+     блок, и без этого сброса накрывала бы собой всю колонку с текстом. */
+  /* Сцене на телефоне отдана большая часть первого экрана: она и есть то,
+     ради чего страницу открывают. Текст начинается ниже и вытягивает
+     остальное скроллом. */
   .consult-studio-hero__photo-wrap {
+    position: relative;
+    inset: auto;
     order: 1;
     min-height: 0;
-    height: clamp(250px, 66vw, 430px);
+    height: clamp(400px, 62vh, 560px);
   }
 
   .consult-studio-hero__photo {
@@ -414,12 +469,29 @@
     display: none;
   }
 
+  /* Текст выходит из сцены, а не лежит на карточке поверх неё: скруглённый
+     прямоугольник прочерчивал поперёк экрана видимую границу и отрезал
+     кадр. Теперь подложка проявляется градиентом — стыка не видно. */
   .consult-studio-hero__content {
     order: 2;
     justify-content: flex-start;
-    margin: -46px 0 0;
-    padding: 36px 28px 42px;
-    border-radius: 28px 28px 0 0;
+    margin: -96px 0 0;
+    padding: 104px 24px 44px;
+    border-radius: 0;
+    /* Свечение начинается заведомо ниже стыка: его верхняя кромка (82% − 62%
+       = 20% высоты блока) лежит под нижним краем сцены. Слой, включённый
+       прямо на кромке блока, давал видимую поперечную линию — цвет там
+       прыгал с нуля на полную силу. Плотность же набирается одним
+       градиентом от прозрачного, поэтому переход читается сплошным. */
+    background:
+      radial-gradient(ellipse 130% 62% at 18% 82%, rgba(139, 92, 246, 0.32), transparent 68%),
+      radial-gradient(ellipse 90% 46% at 92% 96%, rgba(99, 102, 241, 0.18), transparent 70%),
+      linear-gradient(180deg,
+        transparent 0,
+        rgba(21, 16, 34, 0.5) 78px,
+        rgba(19, 14, 30, 0.9) 142px,
+        #17111f 200px,
+        var(--consult-ink) 320px);
   }
 
   .consult-studio-hero__content::before {
@@ -428,14 +500,12 @@
 }
 
 @media (max-width: 640px) {
-  .consult-studio-hero__photo-wrap {
-    height: 270px;
-  }
-
+  /* Высоту и стык не переопределяем: значения заданы выше, для всех
+     телефонов сразу. Прежние 270 px и скруглённая карточка обрезали сцену
+     ровно на самых узких экранах, где места и так меньше всего. */
   .consult-studio-hero__content {
-    margin-top: -42px;
-    padding: 32px 20px 36px;
-    border-radius: 24px 24px 0 0;
+    padding-left: 20px;
+    padding-right: 20px;
   }
 
   .consult-studio-hero__content::before {

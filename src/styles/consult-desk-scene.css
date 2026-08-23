@@ -1,0 +1,231 @@
+/* Сцена рабочего стола для хиро консультации.
+   Стол расстилается на весь блок, предметы лежат на нём отдельными слоями и
+   смещаются за курсором с разной силой. Слева дерево плавно уходит в тень —
+   там колонка текста, и никакой границы между «картинкой» и «фоном» нет.
+   Раскладка выверена по собранному кадру, а не подобрана на глаз. */
+
+.cds {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0d0a08;
+}
+
+.cds-desk {
+  position: absolute;
+  inset: -3%;
+  background: url('/images/consult-proof/desk-h.webp') center / cover no-repeat;
+  will-change: transform;
+}
+
+.cds-plane {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.cds-obj {
+  position: absolute;
+  display: block;
+  opacity: 0;
+  animation: cds-place 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Вещи выкладываются на стол по очереди, а не проявляются пачкой */
+@keyframes cds-place {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.99); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* ─── Раскладка ───────────────────────────────────────────────────────── */
+
+.cds-laptop   { left: 57.5%; top: 14.5%; width: 30%;   animation-delay: 200ms; }
+.cds-books    { left: 85.5%; top: 23.5%; width: 10.5%; animation-delay: 320ms; }
+.cds-notebook { left: 42.5%; top: 49.5%; width: 26.5%; animation-delay: 420ms; }
+.cds-cup      { left: 88.5%; top: 66%;   width: 8.5%;  animation-delay: 520ms; }
+.cds-note-a   { left: 45%;   top: 78%;   width: 8.2%;  animation-delay: 620ms; }
+.cds-note-b   { left: 90.5%; top: 41.5%; width: 6.6%;  animation-delay: 680ms; }
+.cds-torn     { left: 64%;   top: 80%;   width: 10.2%; animation-delay: 740ms; }
+.cds-card     { left: 76%;   top: 84.5%; width: 9%;    animation-delay: 800ms; }
+
+/* Бумаги шевелятся, будто от движения воздуха. Габарит фигуры в наклоне
+   шире самой картинки, поэтому у краёв сцены им оставлен запас. */
+.cds-note-a,
+.cds-note-b,
+.cds-torn {
+  transform-origin: 50% 100%;
+}
+
+.cds-note-a { animation: cds-place 760ms 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards, cds-sway-a 11s 2s ease-in-out infinite alternate; }
+.cds-note-b { animation: cds-place 760ms 740ms cubic-bezier(0.22, 1, 0.36, 1) forwards, cds-sway-b 13s 2s ease-in-out infinite alternate; }
+.cds-torn   { animation: cds-place 760ms 780ms cubic-bezier(0.22, 1, 0.36, 1) forwards, cds-sway-a 15s 3s ease-in-out infinite alternate; }
+
+@keyframes cds-sway-a {
+  from { transform: rotate(-0.7deg) translateY(0); }
+  to   { transform: rotate(0.8deg) translateY(-2px); }
+}
+
+@keyframes cds-sway-b {
+  from { transform: rotate(0.9deg) translateY(-1px); }
+  to   { transform: rotate(-0.6deg) translateY(1px); }
+}
+
+/* ─── Свет лампы ──────────────────────────────────────────────────────── */
+
+.cds-glow {
+  position: absolute;
+  left: 40%;
+  top: -16%;
+  width: 46%;
+  aspect-ratio: 1;
+  background: url('/images/consult-proof/lamp-glow.webp') center / contain no-repeat;
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  animation: cds-glow-in 1.2s 200ms ease-out forwards, cds-breathe 9s 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes cds-glow-in {
+  from { opacity: 0; }
+  to   { opacity: 0.5; }
+}
+
+@keyframes cds-breathe {
+  from { opacity: 0.38; }
+  to   { opacity: 0.64; }
+}
+
+/* ─── Пар над чашкой ──────────────────────────────────────────────────── */
+
+.cds-steam {
+  position: absolute;
+  left: 76.5%;
+  top: 47%;
+  width: 6%;
+  height: 8%;
+  pointer-events: none;
+}
+
+.cds-steam i {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  margin-left: -1.5px;
+  border-radius: 50%;
+  background: rgba(255, 236, 210, 0.5);
+  filter: blur(2.5px);
+  opacity: 0;
+  animation: cds-steam-rise 5.5s ease-out infinite;
+}
+
+.cds-steam i:nth-child(2) { animation-delay: 1.8s; margin-left: -7px; }
+.cds-steam i:nth-child(3) { animation-delay: 3.4s; margin-left: 4px; }
+
+@keyframes cds-steam-rise {
+  0%   { opacity: 0; transform: translateY(0) scale(0.7); }
+  18%  { opacity: 0.5; }
+  100% { opacity: 0; transform: translateY(-180%) scale(2.4); }
+}
+
+/* Экран ноутбука еле заметно пульсирует — живой интерфейс, а не скриншот */
+.cds-laptop {
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.5));
+  animation: cds-place 760ms 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards, cds-screen 6s 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes cds-screen {
+  from { filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.5)) brightness(0.97); }
+  to   { filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.5)) brightness(1.05); }
+}
+
+.cds-dust {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* ─── Тень под колонку текста и общая виньетка ────────────────────────── */
+
+.cds-shade,
+.cds-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Дерево уходит в тень плавно, без единой видимой границы */
+.cds-shade {
+  background: linear-gradient(90deg,
+    rgba(10, 8, 6, 0.97) 0%,
+    rgba(10, 8, 6, 0.94) 10%,
+    rgba(10, 8, 6, 0.82) 22%,
+    rgba(10, 8, 6, 0.58) 33%,
+    rgba(10, 8, 6, 0.3) 41%,
+    rgba(10, 8, 6, 0.1) 47%,
+    transparent 54%);
+}
+
+.cds-vignette {
+  background: radial-gradient(ellipse 76% 82% at 66% 48%, transparent 46%, rgba(9, 7, 5, 0.66) 100%);
+}
+
+/* ─── Телефон: сцена сверху широкой полосой ───────────────────────────── */
+
+@media (max-width: 1023px) {
+  /* Полоса на телефоне вытянута по вертикали, поэтому подложкой идёт
+     вертикальный кадр стола: горизонтальный обрезался бы до центральной
+     трети, и половина дерева пропадала бы зря. */
+  .cds-desk {
+    inset: -2%;
+    background-image: url('/images/consult-proof/desk-v.webp');
+    background-position: center 42%;
+  }
+
+  .cds-laptop   { left: 44%;  top: 6%;    width: 47%; }
+  .cds-books    { left: 4.5%; top: 10.5%; width: 18.5%; }
+  .cds-notebook { left: 15%;  top: 36%;   width: 49%; }
+  .cds-cup      { left: 77.5%; top: 39.5%; width: 14.5%; }
+  .cds-note-a   { left: 3.5%; top: 47%;   width: 15%; }
+  .cds-note-b   { left: 31%;  top: 11.5%; width: 11.5%; }
+  .cds-torn     { left: 62.5%; top: 61.5%; width: 19%; }
+  .cds-card     { left: 25.5%; top: 68%;  width: 16.5%; }
+
+  .cds-steam { left: 79%; top: 33%; width: 11%; height: 9%; }
+
+  /* Сверху — подложка под шапку: логотип попадает на светлое дерево и без
+     затемнения теряется в нём. Гасится к 30%, чтобы читалась как тень от
+     края кадра, а не как полоса. Снизу тень уходит вниз: текст лежит под
+     сценой, а не сбоку. */
+  .cds-shade {
+    background: linear-gradient(180deg,
+      rgba(8, 6, 4, 0.92) 0%,
+      rgba(8, 6, 4, 0.86) 10%,
+      rgba(8, 6, 4, 0.6) 17%,
+      rgba(8, 6, 4, 0.24) 26%,
+      transparent 38%,
+      transparent 50%,
+      rgba(10, 8, 6, 0.68) 78%,
+      rgba(13, 10, 8, 0.95) 92%,
+      #0d0a08 100%);
+  }
+
+  .cds-vignette {
+    background: radial-gradient(ellipse 92% 88% at 52% 44%, transparent 54%, rgba(9, 7, 5, 0.55) 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cds-obj,
+  .cds-glow,
+  .cds-laptop,
+  .cds-note-a,
+  .cds-note-b,
+  .cds-torn { animation: none !important; opacity: 1 !important; }
+
+  .cds-steam i { animation: none !important; opacity: 0 !important; }
+}
