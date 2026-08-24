@@ -92,6 +92,21 @@ export function getCountryPhoneOption(countryCode: string): CountryPhoneOption |
   return COUNTRY_PHONE_OPTIONS_BY_CODE.get(countryCode.trim().toUpperCase());
 }
 
+// `label` исторически начинается с emoji-флага. Для интерфейса используем
+// отдельный локальный SVG, поэтому текст возвращаем без первого токена.
+export function getCountryPhoneDisplayLabel(option: CountryPhoneOption): string {
+  const separator = option.label.indexOf(' ');
+  return separator >= 0 ? option.label.slice(separator + 1) : option.label;
+}
+
+export function getCountryPhoneName(option: CountryPhoneOption): string {
+  const displayLabel = getCountryPhoneDisplayLabel(option);
+  const dialSuffix = ` (${option.dial})`;
+  return displayLabel.endsWith(dialSuffix)
+    ? displayLabel.slice(0, -dialSuffix.length)
+    : displayLabel;
+}
+
 export const COUNTRY_DIAL_CODES: Record<string, string> = COUNTRY_PHONE_OPTIONS.reduce((acc, item) => {
   acc[item.code] = item.dial;
   return acc;

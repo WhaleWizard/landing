@@ -31,6 +31,7 @@ import { confirmAsk, notify } from './AdminFeedback';
 import { findDuplicateGroups } from './leadDuplicates';
 import CrmQuickActions, { type QuickActionPlan } from './CrmQuickActions';
 import { AdminSectionSkeleton } from './AdminFeedback';
+import LeadCountryBadge from './LeadCountryBadge';
 
 type PipelineStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
 type Priority = 'low' | 'normal' | 'high' | 'urgent';
@@ -69,6 +70,7 @@ interface LeadRow {
   message: string;
   service: string;
   page_path: string;
+  country?: string;
   created_at: string;
   last_submitted_at?: string | null;
   submissions_count?: number;
@@ -741,6 +743,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
         {lead.email ? <a href={`mailto:${lead.email}`}>{lead.email}</a> : null}
         {lead.phone ? <a href={`tel:${lead.phone}`}>{lead.phone}</a> : null}
         {lead.telegram_username ? <a href={`https://t.me/${lead.telegram_username.replace(/^@/, '')}`} target="_blank" rel="noreferrer">@{lead.telegram_username.replace(/^@/, '')}</a> : null}
+        <LeadCountryBadge country={lead.country} showCode />
         {lead.budget ? <span>Бюджет: {lead.budget}</span> : null}
         {lead.utm_source ? <span>{lead.utm_source}{lead.utm_medium ? ` / ${lead.utm_medium}` : ''}{lead.utm_campaign ? ` · ${lead.utm_campaign}` : ''}</span> : null}
       </div>
@@ -1598,7 +1601,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                       : current.filter((id) => id !== lead.id))}
                   />
                 </label>
-                <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} onClick={() => setSelectedId(lead.id)}><div className="admin-crm-lead__top"><span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} /><strong>{lead.name || 'Без имени'}</strong><span className="admin-score">{lead.lead_score || 0}</span><ChevronRight aria-hidden="true" /></div><p>{lead.service || lead.email || lead.phone || 'Без контакта'}</p><div className="admin-crm-lead__states"><span>{stageLabel(lead.pipeline_stage)}</span>{overdue ? <span className="is-overdue">Просрочено</span> : lead.next_action_at ? <span>{formatDate(lead.next_action_at)}</span> : <span>Нет следующего шага</span>}{Number(lead.open_tasks_count || 0) ? <span>{lead.open_tasks_count} задач</span> : null}</div>{lead.crm_tags?.length ? <div className="admin-tag-list">{lead.crm_tags.slice(0, 3).map((item) => <span key={item.slug || item.name} style={{ '--tag-color': item.color || '#8b5cf6' } as CSSProperties}>{item.name}</span>)}</div> : null}</button>
+                <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} onClick={() => setSelectedId(lead.id)}><div className="admin-crm-lead__top"><span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} /><strong>{lead.name || 'Без имени'}</strong><span className="admin-score">{lead.lead_score || 0}</span><ChevronRight aria-hidden="true" /></div><p>{lead.service || lead.email || lead.phone || 'Без контакта'}</p><div className="admin-crm-lead__states"><span>{stageLabel(lead.pipeline_stage)}</span><LeadCountryBadge country={lead.country} />{overdue ? <span className="is-overdue">Просрочено</span> : lead.next_action_at ? <span>{formatDate(lead.next_action_at)}</span> : <span>Нет следующего шага</span>}{Number(lead.open_tasks_count || 0) ? <span>{lead.open_tasks_count} задач</span> : null}</div>{lead.crm_tags?.length ? <div className="admin-tag-list">{lead.crm_tags.slice(0, 3).map((item) => <span key={item.slug || item.name} style={{ '--tag-color': item.color || '#8b5cf6' } as CSSProperties}>{item.name}</span>)}</div> : null}</button>
               </div>;
             }) : <div className="admin-empty"><div><strong>Ничего не найдено</strong><p>Измените поиск или фильтры.</p></div></div>}
           </div>

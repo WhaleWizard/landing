@@ -3412,6 +3412,44 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   border-color: color-mix(in srgb, var(--adm-primary) 28%, var(--adm-border-subtle));
 }
 
+.admin-root .admin-country-badge {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.admin-root .admin-country-badge .country-flag {
+  width: 18px;
+  height: 13px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 2px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--adm-fg) 12%, transparent);
+}
+
+.admin-root .admin-country-badge .country-flag--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-root .admin-country-badge__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-root .admin-country-badge small {
+  opacity: .55;
+  font-size: .9em;
+  font-weight: 700;
+}
+
 .admin-root .admin-crm-message {
   margin: 0;
   padding: 13px 14px;

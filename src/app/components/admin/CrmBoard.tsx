@@ -3,6 +3,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { motion, useReducedMotion } from 'motion/react';
 import { AlertTriangle, ChevronLeft, ChevronRight, Clock3, RefreshCw } from 'lucide-react';
+import LeadCountryBadge from './LeadCountryBadge';
 
 export type PipelineStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
 export type Priority = 'low' | 'normal' | 'high' | 'urgent';
@@ -14,6 +15,7 @@ export interface BoardLead {
   phone: string;
   telegram_username: string;
   service: string;
+  country?: string;
   pipeline_stage: PipelineStage;
   priority: Priority;
   lead_score: number;
@@ -105,6 +107,7 @@ function BoardCard<T extends BoardLead>({
         </span>
         <span className="crm-card__sub">{lead.service || lead.email || lead.phone || 'Без контакта'}</span>
         <span className="crm-card__states">
+          <LeadCountryBadge country={lead.country} />
           {overdue ? (
             <span className="is-overdue"><AlertTriangle aria-hidden="true" /> просрочено</span>
           ) : lead.next_action_at ? (
