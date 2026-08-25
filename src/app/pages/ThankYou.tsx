@@ -156,7 +156,10 @@ export default function ThankYou() {
 
       <main className="marketing-typography bg-background">
         {/* ─── Первый экран: сцена и карточка подтверждения ───────────── */}
-        <section className="relative flex min-h-[100svh] items-end overflow-hidden pb-14 pt-24 lg:items-center lg:pb-20 lg:pt-28">
+        {/* Выравнивание и отступ сверху заданы в `.ths-hero`: они считаются от
+            ширины экрана заодно с геометрией кита и должны меняться вместе
+            с ней. */}
+        <section className="ths-hero relative flex min-h-[100svh] overflow-hidden pb-14 lg:pb-20">
           <ThanksCosmicScene />
 
           <div className="relative mx-auto w-full max-w-7xl px-5 sm:px-6">
