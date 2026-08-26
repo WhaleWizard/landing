@@ -8,13 +8,37 @@ const DIST = join(ROOT, 'dist');
 const SITE_URL = String(process.env.SITE_URL || 'https://www.whalewzrd.com').replace(/\/$/, '');
 const NO_INDEX_ROUTES = new Set(['/admin', '/admin/content-preview', '/thank-you']);
 
+/**
+ * CSP живёт в двух местах: `functions/_middleware.ts` отдаёт её документам,
+ * `public/_headers` — статике, которая проходит мимо Pages Functions.
+ *
+ * Раньше здесь лежала третья копия строки, и тест сравнивал `_headers`
+ * сам с собой: правку во `frame-src` внесли только в middleware, а тест
+ * остался зелёным. Теперь ожидание собирается из самого middleware, поэтому
+ * разойтись молча они больше не могут.
+ */
+function readMiddlewareCsp() {
+  const source = readFileSync(join(ROOT, 'functions', '_middleware.ts'), 'utf8');
+  const start = source.indexOf('function buildCsp()');
+  assert.ok(start >= 0, 'в functions/_middleware.ts нет buildCsp()');
+  const arrayStart = source.indexOf('const directives = [', start);
+  assert.ok(arrayStart >= 0, 'в buildCsp() нет массива directives');
+  const arrayEnd = source.indexOf('\n  ];', arrayStart);
+  assert.ok(arrayEnd > arrayStart, 'массив directives в buildCsp() не закрыт');
+
+  const body = source.slice(arrayStart, arrayEnd);
+  const directives = [...body.matchAll(/^\s*(['"])(.*?)\1,\s*$/gm)].map((match) => match[2]);
+  assert.ok(directives.length >= 10, 'из buildCsp() вычитано подозрительно мало директив');
+  return directives.join('; ');
+}
+
 const STATIC_SECURITY_HEADERS = new Map([
   ['x-content-type-options', 'nosniff'],
   ['x-frame-options', 'SAMEORIGIN'],
   ['referrer-policy', 'strict-origin-when-cross-origin'],
   ['permissions-policy', 'camera=(), microphone=(), geolocation=()'],
   ['cross-origin-opener-policy', 'same-origin-allow-popups'],
-  ['content-security-policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://analytics.tiktok.com; connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://api.jsonbin.io https://script.google.com https://ipwho.is; frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; manifest-src 'self'; upgrade-insecure-requests"],
+  ['content-security-policy', readMiddlewareCsp()],
   ['strict-transport-security', 'max-age=31536000; includeSubDomains; preload'],
 ]);
 
