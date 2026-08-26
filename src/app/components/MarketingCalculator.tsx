@@ -12,7 +12,6 @@ import {
   Globe2,
   Layers3,
   Receipt,
-  Target,
   TrendingUp,
   Wallet,
 } from 'lucide-react';

@@ -401,11 +401,6 @@ function handleError(error: unknown, fallback: string): Response {
   return json({ success: false, error: fallback }, { status: 500, headers: noStore });
 }
 
-function resultLastRowId(result: { meta?: { last_row_id?: number } }): number | null {
-  const id = Number((result.meta as { last_row_id?: number } | undefined)?.last_row_id);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
 function resultChanges(result: { meta?: { changes?: number } } | undefined): number {
   return Number(result?.meta?.changes || 0);
 }

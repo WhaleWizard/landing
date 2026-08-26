@@ -28,7 +28,6 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useArticles } from '../context/ArticlesContext';
 import type { Article } from '../components/hooks/useArticlesApi';
-import { API_ROUTES } from '../config';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
 import AdminCommandPalette, { type AdminCommandGroup } from '../components/admin/AdminCommandPalette';
@@ -1222,7 +1221,6 @@ export default function Admin() {
   const topbarRef = useTopbarHeight();
 
   const adminNavigation = adminNavGroups.flatMap((group) => group.items);
-  const currentSection = adminNavigation.find((item) => item.key === currentNavKey);
   const navigateToAdminSection = (destination: AdminNavKey) => {
     void preloadAdminSection(destination);
     if (destination === 'articles' || destination === 'cases') {
