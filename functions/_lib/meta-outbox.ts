@@ -20,6 +20,60 @@ export const META_OUTBOX_CLAIM_GRACE_SECONDS = 180;
 // Записи, зависшие в 'sending' (isolate умер посреди отправки), возвращаем в оборот.
 const STUCK_SENDING_SECONDS = 600;
 
+/**
+ * Как часто разбор очереди заодно убирает просроченные записи.
+ *
+ * Раньше уборка выполнялась при КАЖДОМ разборе, а разбор запускается с каждого
+ * десятого просмотра страницы. При этом подтверждённые события лежат в таблице
+ * ещё неделю, то есть уборка каждый раз перебирала десятки тысяч строк, чтобы
+ * найти среди них несколько просроченных. На бесплатном тарифе Cloudflare
+ * лимит — 5 млн прочитанных строк в сутки, и съедала его именно эта уборка.
+ *
+ * Просроченные записи никуда не торопятся: их удаление — гигиена, а не работа
+ * очереди. Тот же приём уже применён для чистки хешей посетителей в
+ * `_lib/leads.ts`.
+ */
+const OUTBOX_CLEANUP_PROBABILITY = 0.02;
+
+/** Подтверждённые события качества лида: их историю показывает карточка заявки. */
+const QUALITY_EVENT_NAMES = "('QualifiedLead','UnqualifiedLead')";
+
+const SENT_QUALITY_RETENTION_SECONDS = 180 * 24 * 60 * 60;
+const SENT_DEFAULT_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+const DEAD_LETTER_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * Уборка просроченных записей очереди.
+ *
+ * Три отдельных запроса вместо одного с `OR`: каждый опирается на индекс
+ * `(status, updated_at)` и читает только те строки, которые действительно
+ * удалит. Прежний вариант с `OR` и `NOT IN` заставлял SQLite перебирать все
+ * записи со статусом `sent` — а это почти вся таблица.
+ */
+async function cleanupOutbox(env: Env, now: number): Promise<void> {
+  const statements = [
+    env.DB.prepare(
+      `DELETE FROM meta_outbox
+       WHERE status='sent' AND updated_at < ? AND event_name NOT IN ${QUALITY_EVENT_NAMES}`,
+    ).bind(now - SENT_DEFAULT_RETENTION_SECONDS),
+    env.DB.prepare(
+      `DELETE FROM meta_outbox
+       WHERE status='sent' AND updated_at < ? AND event_name IN ${QUALITY_EVENT_NAMES}`,
+    ).bind(now - SENT_QUALITY_RETENTION_SECONDS),
+    env.DB.prepare(
+      `DELETE FROM meta_outbox WHERE status='dead_letter' AND updated_at < ?`,
+    ).bind(now - DEAD_LETTER_RETENTION_SECONDS),
+  ];
+
+  try {
+    await env.DB.batch(statements);
+  } catch (error) {
+    // Уборка не имеет права уронить разбор очереди: доставка событий важнее
+    // порядка в таблице.
+    console.error('[Meta CAPI] Outbox cleanup failed:', error);
+  }
+}
+
 type OutboxRow = {
   id: string;
   event_name: string;
@@ -337,12 +391,10 @@ export async function processMetaOutbox(env: Env, limit = 10): Promise<OutboxPro
 
   // Историю событий качества держим дольше: она нужна для постоянного статуса
   // доставки в карточке заявки. Остальные подтверждённые события — 7 дней.
-  await env.DB.prepare(
-    `DELETE FROM meta_outbox
-     WHERE (status='sent' AND event_name IN ('QualifiedLead','UnqualifiedLead') AND updated_at < ?)
-        OR (status='sent' AND event_name NOT IN ('QualifiedLead','UnqualifiedLead') AND updated_at < ?)
-        OR (status='dead_letter' AND updated_at < ?)`
-  ).bind(now - 180 * 24 * 60 * 60, now - 7 * 24 * 60 * 60, now - 30 * 24 * 60 * 60).run();
+  // Сама уборка запускается редко — см. OUTBOX_CLEANUP_PROBABILITY.
+  if (Math.random() < OUTBOX_CLEANUP_PROBABILITY) {
+    await cleanupOutbox(env, now);
+  }
 
   return summary;
 }
