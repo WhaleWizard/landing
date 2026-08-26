@@ -86,13 +86,6 @@ function stripHtml(html = ''): string {
     .trim();
 }
 
-function normalizeIsoDate(raw: string | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return fallback;
-  return parsed.toISOString();
-}
-
 function normalizeOptionalIsoDate(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   const parsed = new Date(raw);
@@ -226,7 +219,20 @@ export function applyFreshnessMetadata(normalized: Article[], previousArticles: 
 
   return normalized.map((article) => {
     const previous = previousBySlug.get(article.slug);
-    const publishedAt = previous?.publishedAt || previous?.updatedAt || article.publishedAt || nowIso;
+    // Введённая в админке дата публикации главнее сохранённой.
+    //
+    // Раньше порядок был обратным (старая дата → время последней правки →
+    // введённая), и поскольку `updatedAt` проставляется при каждом сохранении,
+    // введённое значение не могло примениться никогда. Владелец ставил дату,
+    // получал «сохранено» и видел прежнюю — вместе с этим не работала и
+    // отложенная публикация, хотя поле и подпись «запланирована на …» в
+    // редакторе есть.
+    //
+    // Пустое поле остаётся falsy, поэтому у статьи, где дату не трогали,
+    // сохраняется прежняя. `updatedAt` оставлен последним запасным вариантом:
+    // у старых статей без даты публикации она по-прежнему выводится из него,
+    // а не прыгает на сегодня.
+    const publishedAt = article.publishedAt || previous?.publishedAt || previous?.updatedAt || nowIso;
 
     if (!previous) {
       return {

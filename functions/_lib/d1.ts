@@ -190,7 +190,6 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
 
   const normalized = applyFreshnessMetadata(normalizeArticles(rawArticles), existingArticles);
   const nowIso = new Date().toISOString();
-  const existingBySlug = new Map(existingArticles.map((article) => [article.slug, article]));
   const hasCaseColumn = (await getArticlesColumns(env.DB)).has('case_data_json');
 
   const baseColumns = [
@@ -203,8 +202,12 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
   const updateSet = columns
     .filter((column) => column !== 'id' && column !== 'slug')
     .map((column) => (
+      // Дату публикации разрешает applyFreshnessMetadata: там уже учтено и
+      // введённое значение, и прежнее. Здесь прежнее значение больше не
+      // выигрывает — иначе правка даты не доезжала бы до базы. COALESCE
+      // оставлен как страховка от NULL: обнулять сохранённую дату нельзя.
       column === 'published_at'
-        ? 'published_at = COALESCE(articles.published_at, excluded.published_at)'
+        ? 'published_at = COALESCE(excluded.published_at, articles.published_at)'
         : `${column} = excluded.${column}`
     ));
   updateSet.unshift('id = excluded.id');
@@ -217,8 +220,10 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
 
   for (const article of normalized) {
     seen.add(article.slug);
-    const previous = existingBySlug.get(article.slug);
-    const publishedAt = previous?.publishedAt || article.publishedAt || nowIso;
+    // `normalized` уже прошёл applyFreshnessMetadata, где дата публикации
+    // разрешена по правилу «введённое важнее прежнего». Повторно сверяться с
+    // прежним значением здесь нельзя: именно это и отменяло правку даты.
+    const publishedAt = article.publishedAt || nowIso;
     const updatedAt = article.updatedAt || nowIso;
 
     const values: Array<string | number | null> = [
