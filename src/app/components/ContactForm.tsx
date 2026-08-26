@@ -11,7 +11,6 @@ import {
   Zap,
   MessageCircle,
   Phone,
-  ChevronDown,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';

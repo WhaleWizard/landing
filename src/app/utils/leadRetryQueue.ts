@@ -49,17 +49,44 @@ export async function flushLeadQueue(): Promise<void> {
 
   flushing = true;
   try {
-    const batch = readQueue().filter((item) => Date.now() - item.queuedAt < MAX_AGE_MS);
-    if (!batch.length) return;
+    const stored = readQueue();
+    const batch = stored.filter((item) => Date.now() - item.queuedAt < MAX_AGE_MS);
+    if (!batch.length) {
+      // Просроченные записи раньше оставались в localStorage навсегда: выход
+      // стоял до уборки. Отправлять их уже нельзя, но и хранить незачем.
+      if (stored.length) writeQueue([]);
+      return;
+    }
+
+    // Токен Turnstile одноразовый и живёт минуты. В очереди лежит тот, что был
+    // получен в момент неудачной отправки, — к этой минуте Cloudflare его уже
+    // погасил, и сервер отвечал бы 403 всегда. Значит на каждую отложенную
+    // заявку нужен свежий токен.
+    //
+    // Модуль подгружается динамически и только здесь: у обычного посетителя
+    // очередь пуста, выполнение сюда не доходит, и первая загрузка страницы
+    // ничего лишнего не тянет.
+    let mintToken: (() => Promise<string | null>) | null = null;
+    try {
+      ({ mintDetachedTurnstileToken: mintToken } = await import('../components/hooks/useTurnstile'));
+    } catch {
+      // Скрипт проверки не поднялся — отправим как есть, вдруг проверка
+      // на сервере вообще не включена.
+    }
 
     const delivered = new Set<string>();
     for (const item of batch) {
       try {
         const payload = applyConsentDowngrade(item.payload, loadConsent());
+        const freshToken = mintToken ? await mintToken() : null;
+        const body = freshToken
+          ? { ...(payload as Record<string, unknown>), turnstile_token: freshToken }
+          : payload;
+
         const res = await fetch(item.endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(body),
         });
         if (res.ok) delivered.add(item.id);
       } catch {

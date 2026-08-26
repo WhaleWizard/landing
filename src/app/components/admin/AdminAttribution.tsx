@@ -163,7 +163,7 @@ function toCsv(dimension: DimensionResult, rows: DimensionRow[], currency: strin
   const columns = COLUMNS.filter((column) => column.visible(dimension));
   const escape = (value: string) => (/[";\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
   const header = columns.map((column) => escape(column.label)).join(';');
-  const body = rows.map((row) => columns.map((column) => escape(column.format(row, currency).replace(/ /g, ' '))).join(';'));
+  const body = rows.map((row) => columns.map((column) => escape(column.format(row, currency).replace(/\u00A0/g, ' '))).join(';'));
   return [header, ...body].join('\n');
 }
 
@@ -274,7 +274,7 @@ export default function AdminAttribution({ password }: { password: string }) {
   const exportCsv = () => {
     if (!active) return;
     const csv = toCsv(active, visibleRows, currency);
-    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

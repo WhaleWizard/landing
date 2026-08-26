@@ -606,7 +606,10 @@ async function loadMarketingRuntimes(): Promise<void> {
   // A consent change while Meta is loading must stop the TikTok request.
   if (tiktokId && !ttLoaded && hasCurrentTrackingConsent('marketing')) {
     const win = window as Window & { ttq?: any };
-    win.ttq.load?.(tiktokId);
+    // Защита стоит на самом `ttq`, а не только на `load`: если очередь по любой
+    // причине не создалась, TypeError вылетел бы из loadMarketingRuntimes() уже
+    // после загрузки пикселя Meta и отравил бы общий marketingLoadPromise.
+    win.ttq?.load?.(tiktokId);
     ttLoaded = true;
   }
 }

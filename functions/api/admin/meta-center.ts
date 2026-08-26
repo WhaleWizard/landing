@@ -216,10 +216,28 @@ function formatAggregate(row: DiagnosticsAggregateRow) {
   };
 }
 
+/**
+ * Граница окна считается в JS и сравнивается с колонкой напрямую.
+ *
+ * Раньше здесь стояло `WHERE datetime(created_at) >= datetime('now', ?)`.
+ * Обёртка `datetime()` вокруг колонки отключает индекс
+ * `idx_meta_capi_diagnostics_created_at`, и запрос читал таблицу диагностики
+ * целиком вместо нужного окна — на бесплатном тарифе Cloudflare это самый
+ * дорогой запрос всей админки.
+ *
+ * `created_at` пишется как `new Date().toISOString()`, поэтому граница
+ * строится тем же способом: форматы совпадают посимвольно, и сравнение строк
+ * здесь равносильно сравнению дат — в отличие от `datetime('now', ?)`,
+ * который отдаёт другой формат (пробел вместо `T`, без миллисекунд и `Z`).
+ */
+function isoSince(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 async function diagnosticsPeriod(
   db: D1Database,
   columns: Set<string>,
-  modifier: string,
+  days: number,
 ) {
   const result = await db.prepare(`
     WITH event_rows AS (
@@ -239,7 +257,7 @@ async function diagnosticsPeriod(
         ${columns.has('score_context') ? 'score_context' : 'NULL'} AS score_context,
         created_at
       FROM meta_capi_diagnostics
-      WHERE datetime(created_at) >= datetime('now', ?)
+      WHERE created_at >= ?
         AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')
     ),
     event_states AS (
@@ -278,7 +296,7 @@ async function diagnosticsPeriod(
     FROM event_states
     GROUP BY event_name
     ORDER BY total DESC, event_name ASC
-  `).bind(modifier).all<DiagnosticsAggregateRow>();
+  `).bind(isoSince(days)).all<DiagnosticsAggregateRow>();
 
   const events = (result.results || []).map(formatAggregate);
   const total = events.reduce((sum, row) => sum + row.total, 0);
@@ -473,8 +491,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const diagnosticsColumns = columnsByTable.get('meta_capi_diagnostics') || new Set<string>();
     const periods: Partial<Record<PeriodKey, Awaited<ReturnType<typeof diagnosticsPeriod>>>> = {};
     if (diagnosticsReady) {
-      periods['24h'] = await diagnosticsPeriod(db, diagnosticsColumns, '-1 day');
-      periods['7d'] = await diagnosticsPeriod(db, diagnosticsColumns, '-7 day');
+      periods['24h'] = await diagnosticsPeriod(db, diagnosticsColumns, 1);
+      periods['7d'] = await diagnosticsPeriod(db, diagnosticsColumns, 7);
     }
 
     const qualityTrend = diagnosticsReady ? await readQualityTrend(db, diagnosticsColumns, 14) : [];

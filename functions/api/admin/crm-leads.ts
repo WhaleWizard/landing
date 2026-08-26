@@ -6,7 +6,6 @@ import {
   AdminCrmMigrationRequiredError,
   adminCrmMigrationResponse,
   assertAdminCrmSchema,
-  type AdminCrmCapabilities,
 } from '../../_lib/admin-crm';
 import { attachAdminQualityDelivery } from '../../_lib/admin-lead-quality-status';
 import { json } from '../../_lib/http';

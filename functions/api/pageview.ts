@@ -3,7 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
+import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent, processMetaOutbox } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
@@ -259,8 +259,10 @@ function extractRequestContext(request: Request, pageUrl?: string) {
   const timezone = request.headers.get('CF-Timezone') || undefined;
   const language = request.headers.get('Accept-Language')?.split(',')[0]?.trim() || undefined;
   const platform = request.headers.get('Sec-CH-UA-Platform')?.replaceAll('"', '') || undefined;
-  const uaMobile = request.headers.get('Sec-CH-UA-Mobile');
-  const isMobile = uaMobile === '?1' ? 'mobile' : uaMobile === '?0' ? 'desktop' : undefined;
+  // Заголовок Sec-CH-UA-Mobile присылает только Chromium; для Safari и Firefox
+  // тип устройства берётся из user-agent, иначе параметр уходил бы в Meta
+  // пустым как раз на мобильном трафике.
+  const isMobile = resolveDeviceType(request);
 
   let utmSource: string | undefined;
   let utmMedium: string | undefined;

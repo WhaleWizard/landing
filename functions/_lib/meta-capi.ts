@@ -26,6 +26,30 @@ export function getMetaPixelId(env: Env): string {
   return env.VITE_META_PIXEL_ID || DEFAULT_META_PIXEL_ID;
 }
 
+/**
+ * Тип устройства для событий Meta.
+ *
+ * Заголовок `Sec-CH-UA-Mobile` присылает только Chromium. Safari на iPhone и
+ * Firefox не присылают его вовсе, и без запасного варианта параметр уходил в
+ * Meta пустым ровно на мобильном трафике. User-agent есть у всех, поэтому он
+ * используется как запасной источник — но только там, где заголовка нет:
+ * значение из заголовка остаётся главным и не переписывается.
+ */
+export function detectDeviceFromUserAgent(userAgent: string | null | undefined): 'mobile' | 'tablet' | 'desktop' | undefined {
+  const value = String(userAgent || '').toLowerCase();
+  if (!value) return undefined;
+  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(value)) return 'tablet';
+  if (/mobi|iphone|ipod|android|blackberry|windows phone/.test(value)) return 'mobile';
+  return 'desktop';
+}
+
+export function resolveDeviceType(request: Request): 'mobile' | 'tablet' | 'desktop' | undefined {
+  const uaMobile = request.headers.get('Sec-CH-UA-Mobile');
+  if (uaMobile === '?1') return 'mobile';
+  if (uaMobile === '?0') return 'desktop';
+  return detectDeviceFromUserAgent(request.headers.get('User-Agent'));
+}
+
 export function getMetaApiVersion(env: Env): string {
   return env.META_CAPI_API_VERSION || 'v25.0';
 }

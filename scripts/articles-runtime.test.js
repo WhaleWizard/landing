@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID, webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { parseHTML } from 'linkedom';
@@ -674,5 +675,70 @@ test('article canonical redirects preserve the original query string', { concurr
   assert.equal(
     prefix.headers.get('location'),
     'https://www.whalewzrd.com/blog/short-full-slug?utm_campaign=launch&fbclid=abc',
+  );
+});
+
+test('дата публикации из админки применяется, а нетронутая сохраняется', async () => {
+  const { applyFreshnessMetadata } = await bundleTypeScript('functions/_lib/jsonbin.ts');
+
+  const previous = [{
+    slug: 'post',
+    title: 'Статья',
+    publishedAt: '2026-01-10T00:00:00.000Z',
+    updatedAt: '2026-05-01T00:00:00.000Z',
+  }];
+
+  // 1. Владелец задал новую дату — она обязана победить.
+  // Раньше выигрывала сохранённая, и отложенная публикация не работала:
+  // поле в редакторе есть, подпись «запланирована на …» есть, а дата
+  // молча откатывалась на прежнюю.
+  const [rescheduled] = applyFreshnessMetadata(
+    [{ slug: 'post', title: 'Статья', publishedAt: '2026-09-01T09:00:00.000Z' }],
+    previous,
+  );
+  assert.equal(
+    rescheduled.publishedAt,
+    '2026-09-01T09:00:00.000Z',
+    'введённая дата публикации должна сохраняться',
+  );
+
+  // 2. Дату не трогали — остаётся прежняя, а не сегодняшняя.
+  const [untouched] = applyFreshnessMetadata(
+    [{ slug: 'post', title: 'Статья', publishedAt: undefined }],
+    previous,
+  );
+  assert.equal(
+    untouched.publishedAt,
+    '2026-01-10T00:00:00.000Z',
+    'без новой даты должна остаться прежняя',
+  );
+
+  // 3. Пустая строка из редактора — это тоже «не трогали».
+  const [cleared] = applyFreshnessMetadata(
+    [{ slug: 'post', title: 'Статья', publishedAt: '' }],
+    previous,
+  );
+  assert.equal(cleared.publishedAt, '2026-01-10T00:00:00.000Z');
+
+  // 4. У старой статьи без даты публикации она по-прежнему выводится
+  //    из времени правки, а не прыгает на сегодня.
+  const [legacy] = applyFreshnessMetadata(
+    [{ slug: 'post', title: 'Статья' }],
+    [{ slug: 'post', title: 'Статья', updatedAt: '2026-05-01T00:00:00.000Z' }],
+  );
+  assert.equal(legacy.publishedAt, '2026-05-01T00:00:00.000Z');
+});
+
+test('SQL сохранения статей не блокирует новую дату публикации', async () => {
+  const source = readFileSync('functions/_lib/d1.ts', 'utf8');
+  assert.match(
+    source,
+    /published_at = COALESCE\(excluded\.published_at, articles\.published_at\)/,
+    'входящая дата должна побеждать сохранённую, а NULL — не обнулять её',
+  );
+  assert.doesNotMatch(
+    source,
+    /COALESCE\(articles\.published_at, excluded\.published_at\)/,
+    'прежний порядок COALESCE отменял правку даты публикации',
   );
 });

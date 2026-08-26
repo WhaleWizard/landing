@@ -73,6 +73,80 @@ function loadTurnstileScript(): Promise<TurnstileApi | null> {
   return scriptPromise;
 }
 
+/**
+ * Одна проверка в готовом контейнере. Вынесено из хука, потому что токен нужен
+ * не только формам: отложенная заявка из офлайн-очереди тоже обязана прийти со
+ * свежим токеном — старый Cloudflare уже погасил, и сервер её не примет.
+ *
+ * `remove` вызывается всегда: иначе на странице копились бы виджеты.
+ */
+async function renderAndExecute(api: TurnstileApi, container: HTMLElement): Promise<string | null> {
+  let widgetId: string | null = null;
+
+  const token = await new Promise<string | null>((resolve) => {
+    let settled = false;
+    const finish = (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(value);
+    };
+
+    const timer = window.setTimeout(() => finish(null), TOKEN_TIMEOUT_MS);
+
+    try {
+      widgetId = api.render(container, {
+        sitekey: getSiteKey(),
+        appearance: 'interaction-only',
+        execution: 'execute',
+        size: 'flexible',
+        // Тема берётся из оформления страницы, чтобы галочка не оказалась
+        // белым пятном на тёмном фоне в редком случае показа.
+        theme: 'auto',
+        callback: (token: string) => finish(token || null),
+        'error-callback': () => finish(null),
+        'timeout-callback': () => finish(null),
+        'expired-callback': () => finish(null),
+      });
+      api.execute(widgetId);
+    } catch {
+      finish(null);
+    }
+  });
+
+  if (widgetId) {
+    try { api.remove(widgetId); } catch { /* уже удалён */ }
+  }
+
+  return token;
+}
+
+/**
+ * Токен без React и без видимой формы — для повторной отправки заявки,
+ * которая ждала в очереди. Контейнер убирается за собой в любом случае.
+ *
+ * Если Cloudflare решит показать галочку, человек её здесь не увидит и не
+ * поставит: тогда вернётся `null`, заявка останется в очереди и попробует
+ * снова в следующий раз. Это не хуже прежнего поведения, при котором
+ * отложенная заявка не могла быть принята вообще никогда.
+ */
+export async function mintDetachedTurnstileToken(): Promise<string | null> {
+  if (typeof document === 'undefined') return null;
+  const api = await loadTurnstileScript();
+  if (!api) return null;
+
+  const container = document.createElement('div');
+  container.setAttribute('aria-hidden', 'true');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:300px;height:65px;pointer-events:none;';
+  document.body.appendChild(container);
+
+  try {
+    return await renderAndExecute(api, container);
+  } finally {
+    container.remove();
+  }
+}
+
 export function useTurnstile() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);

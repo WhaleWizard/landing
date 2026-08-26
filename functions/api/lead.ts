@@ -3,7 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
+import { detectDeviceFromUserAgent, fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
@@ -101,13 +101,13 @@ function sanitizeText(value: string, max: number): string {
   return String(value || '').trim().slice(0, max);
 }
 
-/** Грубый тип устройства из user-agent: телефон, планшет или компьютер. */
+/**
+ * Грубый тип устройства из user-agent: телефон, планшет или компьютер.
+ * В базе поле хранится строкой, поэтому «неизвестно» здесь — пустая строка,
+ * а не undefined. Само определение общее с событиями Meta.
+ */
 function detectDevice(userAgent: string): string {
-  const value = String(userAgent || '').toLowerCase();
-  if (!value) return '';
-  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(value)) return 'tablet';
-  if (/mobi|iphone|ipod|android|blackberry|windows phone/.test(value)) return 'mobile';
-  return 'desktop';
+  return detectDeviceFromUserAgent(userAgent) || '';
 }
 
 /** Двухбуквенный код страны от Cloudflare; XX и T1 (Tor) не сохраняем. */
@@ -312,8 +312,10 @@ function extractRequestContext(request: Request, pageUrl?: string) {
   const timezone = request.headers.get('CF-Timezone') || undefined;
   const language = request.headers.get('Accept-Language')?.split(',')[0]?.trim() || undefined;
   const platform = request.headers.get('Sec-CH-UA-Platform')?.replaceAll('"', '') || undefined;
-  const uaMobile = request.headers.get('Sec-CH-UA-Mobile');
-  const isMobile = uaMobile === '?1' ? 'mobile' : uaMobile === '?0' ? 'desktop' : undefined;
+  // Заголовок Sec-CH-UA-Mobile присылает только Chromium; для Safari и Firefox
+  // тип устройства берётся из user-agent, иначе параметр уходил бы в Meta
+  // пустым как раз на мобильном трафике.
+  const isMobile = resolveDeviceType(request);
 
   let utmSource: string | undefined;
   let utmMedium: string | undefined;
@@ -357,26 +359,6 @@ function getLeadDiagnosticsContext(payload: LeadPayload) {
   };
 }
 
-function classifyProblemCategory(problem: string | undefined): string | undefined {
-  const value = (problem || '').toLowerCase();
-  if (!value) return undefined;
-  if (/лид|заяв|конверс|продаж|клиент/.test(value)) return 'lead_generation';
-  if (/кабинет|бан|модерац|аккаунт|доступ/.test(value)) return 'account_or_moderation';
-  if (/креатив|объяв|баннер|видео|контент/.test(value)) return 'creative';
-  if (/аналит|пиксел|метрик|capi|отслеж/.test(value)) return 'analytics_tracking';
-  if (/стратег|воронк|оффер|позицион/.test(value)) return 'strategy_funnel';
-  if (/бюджет|ставк|стоим|cpl|cpa|цена/.test(value)) return 'budget_efficiency';
-  return 'other';
-}
-
-function isAllowedLeadBudget(value: string | undefined): string | undefined {
-  const normalized = (value || '').trim();
-  if (!normalized) return undefined;
-  const allowed = new Set(['до $1000', '$1к-10к', '$10к-100к', '$100к+']);
-  return allowed.has(normalized) ? normalized : undefined;
-}
-
-
 function normalizePagePath(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const path = value.split('?')[0].split('#')[0] || '/';
@@ -391,14 +373,6 @@ function sanitizeUrlForMeta(value: string | undefined): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-
-function estimateLeadValue(payload: LeadPayload): number | undefined {
-  const budget = Number((payload.budget || '').replace(/[^0-9.]/g, ''));
-  if (Number.isFinite(budget) && budget > 0) return Math.min(Math.max(budget, 100), 100000);
-  const serviceBoost = payload.service_slug ? 750 : 500;
-  return serviceBoost;
 }
 
 
@@ -527,7 +501,7 @@ async function sendMetaConversionEvent(
       // Do not send budget-like financial details in Lead custom_data.
       budget_bucket: undefined,
       contact_method: payload.contactMethod,
-      service: payload.service, ...getLeadDiagnosticsContext(payload),
+      service: payload.service,
       service_slug: payload.service_slug,
       form_id: payload.form_id,
       form_variant: payload.form_variant,
@@ -698,6 +672,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     // используется выше для подписи и для чтения тела запроса.
     if (verdict.ok === false) {
       waitUntil(recordFormRejection(env, verdict.reason));
+
+      // `verification_unavailable` — это не бот, а недоступный siteverify или
+      // таймаут до Cloudflare. Сама `_lib/turnstile.ts` отделяет эту причину
+      // от `invalid_token` именно поэтому. Отдаём её как временный сбой:
+      // браузер положит заявку в очередь и дошлёт, а не покажет человеку
+      // ошибку и не потеряет обращение. Отказ боту остаётся 403.
+      if (verdict.reason === 'verification_unavailable') {
+        return json(
+          {
+            success: false,
+            error: 'verification_unavailable',
+            reason: verdict.reason,
+            retryable: true,
+            durable: false,
+            event_id: normalized.event_id,
+          },
+          {
+            status: 503,
+            headers: {
+              'Cache-Control': CACHE_CONTROL.noStore,
+              'Retry-After': '5',
+            },
+          },
+        );
+      }
+
       return json(
         { success: false, error: 'verification_failed', reason: verdict.reason },
         { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
