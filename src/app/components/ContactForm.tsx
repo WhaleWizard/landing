@@ -143,6 +143,14 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   const phoneCode = selectedPhoneOption?.dial ?? '+1';
   const selectedPhoneName = selectedPhoneOption ? getCountryPhoneName(selectedPhoneOption) : '';
   const formStartTrackedRef = useRef(false);
+  /** Отложенные действия после успешной отправки: сброс формы и переход. */
+  const resetTimerRef = useRef<number | undefined>(undefined);
+  const redirectTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => {
+    window.clearTimeout(resetTimerRef.current);
+    window.clearTimeout(redirectTimerRef.current);
+  }, []);
   const formViewTrackedRef = useRef(false);
   /** Человек выбрал страну сам — геолокация больше не вмешивается. */
   const phoneCountryTouchedRef = useRef(false);
