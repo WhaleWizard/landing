@@ -1,6 +1,20 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 export function useScrollTo() {
+  /**
+   * Отложенная попытка доскроллить до ещё не смонтированной секции.
+   *
+   * Ожидание длится до секунды, и его нужно отменять: при следующем вызове —
+   * чтобы две цели не спорили друг с другом, при уходе со страницы — чтобы
+   * забытая попытка не искала элемент уже на другой странице. Идентификаторы
+   * секций на сайте повторяются (`contact` есть и на главной, и на лендингах),
+   * поэтому такая попытка не промахивалась мимо, а прокручивала новую страницу
+   * к чужому якорю.
+   */
+  const pendingRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(pendingRef.current), []);
+
   const scrollTo = useCallback((elementId: string, offset: number = 80) => {
     const element = document.getElementById(elementId);
     if (!element) return;
@@ -17,6 +31,8 @@ export function useScrollTo() {
     const attempts = options?.attempts ?? 12;
     const intervalMs = options?.intervalMs ?? 80;
 
+    window.clearTimeout(pendingRef.current);
+
     const tryScroll = (attempt: number) => {
       const element = document.getElementById(elementId);
       if (element) {
@@ -26,7 +42,7 @@ export function useScrollTo() {
       }
 
       if (attempt >= attempts) return;
-      window.setTimeout(() => tryScroll(attempt + 1), intervalMs);
+      pendingRef.current = window.setTimeout(() => tryScroll(attempt + 1), intervalMs);
     };
 
     tryScroll(0);
