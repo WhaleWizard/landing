@@ -144,6 +144,8 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   const selectedPhoneName = selectedPhoneOption ? getCountryPhoneName(selectedPhoneOption) : '';
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
+  /** Человек выбрал страну сам — геолокация больше не вмешивается. */
+  const phoneCountryTouchedRef = useRef(false);
 
   const navigate = useNavigate();
   const sectionRef = useRef<HTMLElement>(null);
@@ -164,12 +166,17 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
     delay: index * 0.1,
   }));
 
+  // Код страны подставляется по адресу посетителя, но только пока он не выбрал
+  // его сам. Ответ /api/geo приходит через несколько сотен миллисекунд после
+  // открытия страницы, и раньше он молча перебивал уже сделанный выбор: человек
+  // ставил «Россия», а к моменту отправки в поле снова стояла страна из геолокации
+  // — и в CRM, в Telegram и хешем `ph` в Meta уходил номер с чужим кодом.
   useEffect(() => {
     let active = true;
     void fetch('/api/geo')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!active || !data?.countryCode) return;
+        if (!active || phoneCountryTouchedRef.current || !data?.countryCode) return;
         const countryCode = String(data.countryCode).toUpperCase();
         if (getCountryPhoneOption(countryCode)) setPhoneCountryCode(countryCode);
       })
@@ -177,6 +184,11 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
     return () => {
       active = false;
     };
+  }, []);
+
+  const handleSetPhoneCountry = useCallback((code: string) => {
+    phoneCountryTouchedRef.current = true;
+    setPhoneCountryCode(code);
   }, []);
 
   const trackFirstFormInteraction = useCallback((fieldName: string) => {
@@ -506,7 +518,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                       <label htmlFor="contact-phone" className="block text-sm mb-2 font-medium">Телефон *</label>
                       <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
                         <div className="w-[116px] shrink-0 sm:w-[220px]">
-                        <Select value={phoneCountryCode} onValueChange={setPhoneCountryCode}>
+                        <Select value={phoneCountryCode} onValueChange={handleSetPhoneCountry}>
                           <SelectTrigger
                             aria-label="Код страны"
                             className="h-10 gap-1.5 rounded-lg border-border/40 bg-background/70 px-2 text-xs font-medium backdrop-blur-sm hover:border-primary/40 focus-visible:ring-primary/25 sm:gap-2 sm:px-3 sm:text-sm"

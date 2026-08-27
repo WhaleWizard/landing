@@ -140,6 +140,8 @@ function LandingForm({
   const { containerRef: turnstileRef, getToken: getTurnstileToken } = useTurnstile();
   const formStartTrackedRef = useRef(false);
   const formViewTrackedRef = useRef(false);
+  /** Человек выбрал страну сам — геолокация больше не вмешивается. */
+  const phoneCountryTouchedRef = useRef(false);
   const selectedPhoneOption = getCountryPhoneOption(phoneCountryCode)
     ?? getCountryPhoneOption(DEFAULT_COUNTRY_PHONE_CODE);
   const phoneCode = selectedPhoneOption?.dial ?? '+1';
@@ -149,12 +151,17 @@ function LandingForm({
   const formRef = useRef<HTMLDivElement>(null);
   const inView = useInView(formRef, { once: true, margin: '-100px' });
 
+  // Код страны подставляется по адресу посетителя, но только пока он не выбрал
+  // его сам. Ответ /api/geo приходит через несколько сотен миллисекунд после
+  // открытия страницы, и раньше он молча перебивал уже сделанный выбор: человек
+  // ставил «Россия», а к моменту отправки в поле снова стояла страна из геолокации
+  // — и в CRM, в Telegram и хешем `ph` в Meta уходил номер с чужим кодом.
   useEffect(() => {
     let active = true;
     void fetch('/api/geo')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!active || !data?.countryCode) return;
+        if (!active || phoneCountryTouchedRef.current || !data?.countryCode) return;
         const countryCode = String(data.countryCode).toUpperCase();
         if (getCountryPhoneOption(countryCode)) setPhoneCountryCode(countryCode);
       })
@@ -162,6 +169,11 @@ function LandingForm({
     return () => {
       active = false;
     };
+  }, []);
+
+  const handleSetPhoneCountry = useCallback((code: string) => {
+    phoneCountryTouchedRef.current = true;
+    setPhoneCountryCode(code);
   }, []);
 
   useEffect(() => {
@@ -417,7 +429,7 @@ function LandingForm({
                 </label>
                 <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
                   <div className="w-[116px] shrink-0 sm:w-[220px]">
-                    <Select value={phoneCountryCode} onValueChange={setPhoneCountryCode}>
+                    <Select value={phoneCountryCode} onValueChange={handleSetPhoneCountry}>
                       <SelectTrigger
                         aria-label="Страна и код телефона"
                         style={{ height: '2.75rem' }}
