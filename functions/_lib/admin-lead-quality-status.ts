@@ -82,7 +82,13 @@ function safeReason(value: unknown): string | null {
     .replace(/([?&](?:access_token|token|secret|key)=)[^\s&]+/gi, '$1[скрыто]')
     .replace(/(["']?(?:access_token|token|secret|key)["']?\s*[:=]\s*["']?)[^"',\s}]+/gi, '$1[скрыто]')
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[email скрыт]')
-    .replace(/(?:\+?\d[\s().-]*){8,}/g, '[телефон скрыт]');
+    // Телефон, а не любое длинное число. Прежний вариант `{8,}` без границ
+    // цеплял метки времени и числовые коды ошибок Meta: `1724680000`
+    // превращалось в «[телефон скрыт]» — то есть из сообщения об ошибке
+    // пропадала как раз та часть, ради которой владелец в него смотрит.
+    // Теперь нужен телефонный признак: ведущий плюс либо разделители внутри.
+    .replace(/\+\d[\d\s().-]{7,}\d/g, '[телефон скрыт]')
+    .replace(/\b\d{1,4}[\s().-]+\d[\d\s().-]{5,}\d\b/g, '[телефон скрыт]');
   return reason.slice(0, 400);
 }
 
@@ -222,7 +228,7 @@ async function readDiagnostics(db: D1Database, eventIds: string[]): Promise<Diag
          FROM meta_capi_diagnostics
          WHERE event_name IN ('QualifiedLead', 'UnqualifiedLead')
            AND event_id IN (${placeholders})
-         ORDER BY datetime(created_at) DESC, id DESC`,
+         ORDER BY created_at DESC, id DESC`,
       ).bind(...part).all<DiagnosticRow>();
       rows.push(...(result.results || []));
     } catch (error) {

@@ -86,11 +86,22 @@ export class LeadStorageError extends Error {
   }
 }
 
-// Ключи для поиска повторной заявки от того же человека
+// Ключи для поиска повторной заявки от того же человека.
+//
+// Телефон сравнивается по последним десяти цифрам — так же, как в поиске
+// дублей внутри CRM (`src/app/utils/leadDuplicates.ts`). Раньше здесь брались
+// все цифры подряд, и `+7 999 123-45-67` не склеивался с `8 999 123-45-67`:
+// один и тот же человек считался двумя разными, потому что две части системы
+// понимали «тот же контакт» по-разному.
+function normalizePhoneKey(phone?: string): string {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
 function contactKeys(email?: string, phone?: string, telegram?: string) {
   return {
     email: String(email || '').trim().toLowerCase(),
-    phone: String(phone || '').replace(/\D/g, ''),
+    phone: normalizePhoneKey(phone),
     telegram: String(telegram || '').trim().toLowerCase().replace(/^@/, ''),
   };
 }
@@ -596,6 +607,9 @@ export function buildLeadTelegramText(lead: LeadRecord, stored?: StoreLeadResult
   return lines.map(escapeTelegramHtml).join('\n');
 }
 
+/** Столько ждём Telegram. Дольше держать фоновую задачу незачем. */
+const TELEGRAM_TIMEOUT_MS = 8_000;
+
 export function isTelegramConfigured(env: Env): boolean {
   return Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
 }
@@ -609,6 +623,9 @@ export async function sendLeadToTelegram(env: Env, lead: LeadRecord, stored?: St
     return { ok: false, error: 'telegram_not_configured' };
   }
   try {
+    // Таймаут обязателен: без него зависший запрос к Telegram держит фоновую
+    // задачу до лимита воркера. Заявка к этому моменту уже сохранена в базе,
+    // и уведомление не должно её задерживать.
     const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -617,6 +634,7 @@ export async function sendLeadToTelegram(env: Env, lead: LeadRecord, stored?: St
         text: buildLeadTelegramText(lead, stored),
         parse_mode: 'HTML',
       }),
+      signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
     });
     if (!response.ok) {
       const body = await response.text().catch(() => '');
@@ -658,19 +676,29 @@ export async function recordPageStats(env: Env, pagePath: string | undefined, re
   const path = normalizeStatsPath(pagePath);
   const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
   const userAgent = request.headers.get('User-Agent') || '';
-  const salt = env.TRACKING_HMAC_SECRET || env.ADMIN_PASSWORD || 'ww-stats';
-  const visitorHash = await sha256Hex(`${ip}|${userAgent}|${day}|${salt}`);
+  // Соль обязательна. Без неё отпечаток не обезличен: адресов IPv4 всего 2³²,
+  // строк user-agent — считанные тысячи популярных, а запасная строка лежала
+  // бы в открытом исходнике, то есть хеш подбирался бы перебором. Прежний
+  // запасной вариант `'ww-stats'` давал именно это.
+  //
+  // Просмотры страниц при этом считаются всегда: в них нет ничего личного.
+  // Пропускается только строка уникального посетителя.
+  const salt = env.TRACKING_HMAC_SECRET || env.ADMIN_PASSWORD;
+  const visitorHash = salt ? await sha256Hex(`${ip}|${userAgent}|${day}|${salt}`) : '';
 
   try {
-    await env.DB.batch([
+    const statements = [
       env.DB.prepare(
         `INSERT INTO page_stats_daily (day, page_path, views) VALUES (?, ?, 1)
          ON CONFLICT(day, page_path) DO UPDATE SET views = views + 1`
       ).bind(day, path),
-      env.DB.prepare(
+    ];
+    if (visitorHash) {
+      statements.push(env.DB.prepare(
         'INSERT OR IGNORE INTO visitor_hashes_daily (day, visitor_hash) VALUES (?, ?)'
-      ).bind(day, visitorHash),
-    ]);
+      ).bind(day, visitorHash));
+    }
+    await env.DB.batch(statements);
     // Редкая фоновая чистка старых хешей (~1% запросов), чтобы таблица не росла бесконечно.
     if (Math.random() < 0.01) {
       await env.DB.prepare("DELETE FROM visitor_hashes_daily WHERE day < date('now', '-90 day')").run();

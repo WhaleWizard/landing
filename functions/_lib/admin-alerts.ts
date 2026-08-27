@@ -313,6 +313,8 @@ export async function notifyAlerts(env: Env): Promise<{ sent: number; error?: st
         parse_mode: 'HTML',
         disable_web_page_preview: true,
       }),
+      // Без таймаута зависший Telegram держал бы запрос до лимита воркера.
+      signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) {
       const body = await response.text().catch(() => '');

@@ -103,6 +103,7 @@ async function notifyTelegram(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text: lines.join('\n'), disable_web_page_preview: true }),
+      signal: AbortSignal.timeout(8_000),
     });
   } catch {
     // Уведомление — удобство. Запись в базе уже есть, и она главная.

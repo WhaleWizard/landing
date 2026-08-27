@@ -3,7 +3,7 @@ import {
   ArrowLeft, CalendarClock, CircleDollarSign, ExternalLink, FileText, KeyRound,
   NotebookPen, Plus, RefreshCw, Save, Trash2, Upload, UserPlus, Users, X,
 } from 'lucide-react';
-import { AdminSelect } from './AdminUI';
+import { AdminDecimalInput, AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
 import { CountUpValue } from './AttributionCharts';
 
@@ -435,7 +435,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
           </header>
           <div className="admin-crm-form-grid">
             <label className="admin-field"><span className="admin-label">Чек в месяц</span>
-              <input className="admin-input" inputMode="decimal" value={draft.retainer_amount || ''} onChange={(e) => setDraft({ ...draft, retainer_amount: Number(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0 })} />
+              <AdminDecimalInput className="admin-input" value={draft.retainer_amount} onValueChange={(amount) => setDraft({ ...draft, retainer_amount: amount ?? 0 })} />
             </label>
             <label className="admin-field"><span className="admin-label">Валюта</span>
               <input className="admin-input" maxLength={3} value={draft.retainer_currency} onChange={(e) => setDraft({ ...draft, retainer_currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
@@ -543,7 +543,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                       <input className="admin-input" maxLength={600} value={monthDraft.report_url} onChange={(e) => setMonthDraft({ ...monthDraft, report_url: e.target.value })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Расход</span>
-                      <input className="admin-input" inputMode="decimal" value={monthDraft.spend ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, spend: e.target.value === '' ? null : Number(e.target.value.replace(',', '.')) })} />
+                      <AdminDecimalInput className="admin-input" value={monthDraft.spend} onValueChange={(spend) => setMonthDraft({ ...monthDraft, spend })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Валюта расхода</span>
                       <input className="admin-input" maxLength={3} value={monthDraft.spend_currency} onChange={(e) => setMonthDraft({ ...monthDraft, spend_currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
@@ -555,7 +555,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                       <input className="admin-input" type="number" min={0} value={monthDraft.sales ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, sales: e.target.value === '' ? null : Number(e.target.value) })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Выручка клиента</span>
-                      <input className="admin-input" inputMode="decimal" value={monthDraft.revenue ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, revenue: e.target.value === '' ? null : Number(e.target.value.replace(',', '.')) })} />
+                      <AdminDecimalInput className="admin-input" value={monthDraft.revenue} onValueChange={(revenue) => setMonthDraft({ ...monthDraft, revenue })} />
                     </label>
                   </div>
                   <div className="clients__month-actions">

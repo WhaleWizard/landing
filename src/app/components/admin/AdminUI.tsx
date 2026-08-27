@@ -1,4 +1,13 @@
-import { useId, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+} from 'react';
 import {
   Select,
   SelectContent,
@@ -135,5 +144,71 @@ export function AdminSelect({
       {control}
       {hint ? <span className="admin-hint">{hint}</span> : null}
     </div>
+  );
+}
+
+/**
+ * Разбор денежной строки: «1234.56», «1 234,56», «$1,234.56» — одно и то же.
+ *
+ * Правило то же, что на сервере в `functions/api/admin/ad-spend.ts`:
+ * последний разделитель считается десятичным, остальные — разрядными.
+ * Пустая строка — это «не заполнено», а не ноль.
+ */
+export function parseDecimalInput(raw: string): number | null {
+  const cleaned = String(raw ?? '').replace(/[^\d.,-]/g, '').trim();
+  if (!cleaned || cleaned === '-') return null;
+
+  const lastComma = cleaned.lastIndexOf(',');
+  const lastDot = cleaned.lastIndexOf('.');
+  const normalized = lastComma > lastDot
+    ? cleaned.replace(/\./g, '').replace(',', '.')
+    : cleaned.replace(/,/g, '');
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+type DecimalInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
+  value: number | null | undefined;
+  onValueChange: (value: number | null) => void;
+};
+
+/**
+ * Поле для дробного числа.
+ *
+ * Обычное поле с `value={число}` и преобразованием в `onChange` не позволяет
+ * ввести дробь вообще: после нажатия точки `Number("1500.")` даёт `1500`,
+ * состояние не меняется, и React возвращает в поле прежний текст — точка
+ * стирается на лету. Ввод «1500.50» превращался в «150050».
+ *
+ * Поэтому набранный текст живёт здесь, а наверх уходит только разобранное
+ * число. Значение извне (переключили карточку, сбросили черновик) поле
+ * подхватывает, а собственный ввод — нет: иначе точка снова стиралась бы.
+ */
+export function AdminDecimalInput({ value, onValueChange, ...props }: DecimalInputProps) {
+  const [text, setText] = useState(() => (value === null || value === undefined ? '' : String(value)));
+  const reported = useRef<number | null>(value ?? null);
+
+  useEffect(() => {
+    const next = value ?? null;
+    if (next !== reported.current) {
+      setText(next === null ? '' : String(next));
+      reported.current = next;
+    }
+  }, [value]);
+
+  return (
+    <input
+      {...props}
+      inputMode="decimal"
+      value={text}
+      onChange={(event) => {
+        const raw = event.target.value.replace(/[^\d.,-]/g, '');
+        setText(raw);
+        const parsed = parseDecimalInput(raw);
+        reported.current = parsed;
+        onValueChange(parsed);
+      }}
+    />
   );
 }

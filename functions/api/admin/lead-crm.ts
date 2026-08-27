@@ -1,5 +1,6 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
+import { getLeadsColumns } from '../../_lib/leads';
 import {
   ADMIN_CRM_PRIORITIES,
   ADMIN_CRM_STAGES,
@@ -762,11 +763,6 @@ function normalizeTags(value: unknown): NormalizedTag[] {
   return Array.from(new Map(tags.map((tag) => [tag.slug, tag])).values());
 }
 
-async function leadHasColumn(db: D1Database, column: string): Promise<boolean> {
-  const rows = await db.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
-  return (rows.results || []).some((row) => row.name === column);
-}
-
 /**
  * Слияние дублей: две карточки одного человека сводятся в одну.
  *
@@ -782,13 +778,16 @@ async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): 
   if (!duplicateId) throw validationError('A valid duplicate_id is required');
   if (duplicateId === leadId) throw validationError('Нельзя объединить заявку саму с собой');
 
-  const hasSoftDelete = await leadHasColumn(db, 'deleted_at');
-  if (!hasSoftDelete) throw validationError('Нужна миграция 0020: без корзины слияние необратимо');
+  // Состав колонок спрашивается один раз. Раньше `leadHasColumn` вызывался
+  // в цикле и выполнял `PRAGMA table_info(leads)` шесть раз подряд, получая
+  // шесть одинаковых ответов.
+  const leadColumns = await getLeadsColumns(db);
+  if (!leadColumns.has('deleted_at')) throw validationError('Нужна миграция 0020: без корзины слияние необратимо');
 
   const columns = ['id', 'name', 'email', 'phone', 'telegram_username', 'contact_method', 'budget', 'message', 'service', 'page_path'];
   const optional = ['submissions_count', 'last_submitted_at', 'utm_source', 'utm_medium', 'utm_campaign'];
   for (const column of optional) {
-    if (await leadHasColumn(db, column)) columns.push(column);
+    if (leadColumns.has(column)) columns.push(column);
   }
   const select = columns.join(', ');
 
@@ -838,6 +837,17 @@ async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): 
   const statements = [
     db.prepare('UPDATE crm_notes SET lead_id = ? WHERE lead_id = ?').bind(leadId, duplicateId),
     db.prepare('UPDATE crm_tasks SET lead_id = ? WHERE lead_id = ?').bind(leadId, duplicateId),
+    // Теги переезжают вместе с заметками и задачами. Раньше их не переносили,
+    // и после слияния тег оставался на карточке, ушедшей в корзину: в фильтрах
+    // и фасетах объединённая заявка по нему не находилась.
+    //
+    // `INSERT OR IGNORE` из-за случая, когда один и тот же тег стоит и на
+    // основной карточке, и на дубле: пара (lead_id, tag_id) уникальна.
+    db.prepare(
+      `INSERT OR IGNORE INTO crm_lead_tags (lead_id, tag_id)
+       SELECT ?, tag_id FROM crm_lead_tags WHERE lead_id = ?`,
+    ).bind(leadId, duplicateId),
+    db.prepare('DELETE FROM crm_lead_tags WHERE lead_id = ?').bind(duplicateId),
     db.prepare(
       `UPDATE leads SET deleted_at = datetime('now'), deleted_reason = ?, updated_at = datetime('now')
        WHERE id = ? AND deleted_at IS NULL`,

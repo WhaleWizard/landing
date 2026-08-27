@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Clock3, CircleDollarSign, Plus, Receipt, RefreshCw, Save, Trash2, Wallet,
 } from 'lucide-react';
-import { AdminSelect } from './AdminUI';
+import { AdminDecimalInput, AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
 
 /**
@@ -391,7 +391,7 @@ export default function AdminFinance({ password }: { password: string }) {
                   <input className="admin-input" type="month" value={invoiceDraft.period} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, period: e.target.value })} />
                 </label>
                 <label className="admin-field"><span className="admin-label">Сумма</span>
-                  <input className="admin-input" inputMode="decimal" value={invoiceDraft.amount || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, amount: Number(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0 })} />
+                  <AdminDecimalInput className="admin-input" value={invoiceDraft.amount} onValueChange={(amount) => setInvoiceDraft({ ...invoiceDraft, amount: amount ?? 0 })} />
                 </label>
                 <label className="admin-field"><span className="admin-label">Валюта</span>
                   <input className="admin-input" maxLength={3} value={invoiceDraft.currency} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
@@ -482,10 +482,10 @@ export default function AdminFinance({ password }: { password: string }) {
             </header>
             <div className="admin-crm-form-grid">
               <label className="admin-field"><span className="admin-label">Ставка налога, %</span>
-                <input className="admin-input" inputMode="decimal" value={settings.tax_rate || ''} onChange={(e) => setSettings({ ...settings, tax_rate: Number(e.target.value.replace(',', '.')) || 0 })} />
+                <AdminDecimalInput className="admin-input" value={settings.tax_rate} onValueChange={(rate) => setSettings({ ...settings, tax_rate: rate ?? 0 })} />
               </label>
               <label className="admin-field"><span className="admin-label">Целевая ставка в час</span>
-                <input className="admin-input" inputMode="decimal" value={settings.target_hourly_rate || ''} onChange={(e) => setSettings({ ...settings, target_hourly_rate: Number(e.target.value.replace(',', '.')) || 0 })} />
+                <AdminDecimalInput className="admin-input" value={settings.target_hourly_rate} onValueChange={(rate) => setSettings({ ...settings, target_hourly_rate: rate ?? 0 })} />
               </label>
               <label className="admin-field"><span className="admin-label">Основная валюта</span>
                 <input className="admin-input" maxLength={3} value={settings.main_currency} onChange={(e) => setSettings({ ...settings, main_currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
@@ -520,7 +520,7 @@ export default function AdminFinance({ password }: { password: string }) {
                     <input className="admin-input" maxLength={80} placeholder="сервисы, реклама, налоги" value={expenseDraft.category} onChange={(e) => setExpenseDraft({ ...expenseDraft, category: e.target.value })} />
                   </label>
                   <label className="admin-field"><span className="admin-label">Сумма</span>
-                    <input className="admin-input" inputMode="decimal" value={expenseDraft.amount || ''} onChange={(e) => setExpenseDraft({ ...expenseDraft, amount: Number(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0 })} />
+                    <AdminDecimalInput className="admin-input" value={expenseDraft.amount} onValueChange={(amount) => setExpenseDraft({ ...expenseDraft, amount: amount ?? 0 })} />
                   </label>
                   <label className="admin-field"><span className="admin-label">Валюта</span>
                     <input className="admin-input" maxLength={3} value={expenseDraft.currency} onChange={(e) => setExpenseDraft({ ...expenseDraft, currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
@@ -635,7 +635,7 @@ export default function AdminFinance({ password }: { password: string }) {
                     <input className="admin-input" type="date" value={timeDraft.day} onChange={(e) => setTimeDraft({ ...timeDraft, day: e.target.value })} />
                   </label>
                   <label className="admin-field"><span className="admin-label">Часов</span>
-                    <input className="admin-input" inputMode="decimal" value={timeDraft.hours || ''} onChange={(e) => setTimeDraft({ ...timeDraft, hours: Number(e.target.value.replace(',', '.')) || 0 })} />
+                    <AdminDecimalInput className="admin-input" value={timeDraft.hours} onValueChange={(hours) => setTimeDraft({ ...timeDraft, hours: hours ?? 0 })} />
                   </label>
                   <label className="admin-field admin-field--wide"><span className="admin-label">Что делали</span>
                     <input className="admin-input" maxLength={300} value={timeDraft.note} onChange={(e) => setTimeDraft({ ...timeDraft, note: e.target.value })} />

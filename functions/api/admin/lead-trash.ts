@@ -182,10 +182,23 @@ async function purgeLeads(db: D1Database, ids: number[]): Promise<number> {
     const placeholders = part.map(() => '?').join(', ');
     // Связанные записи чистим явно: полагаться на каскад внешних ключей нельзя,
     // он включается настройкой соединения, а не схемой.
+    //
+    // Условие «заявка лежит в корзине» стоит в каждом запросе — и в дочерних
+    // тоже. Это единственная необратимая операция во всей системе, и оба
+    // вызывающих места уже отбирают только удалённые заявки; проверка здесь —
+    // последний рубеж на случай вызова с ошибочным списком id. Без неё в
+    // дочерних запросах активная заявка потеряла бы заметки, задачи и теги,
+    // даже если сама уцелела бы.
     const statements = childTables.map((table) => db
-      .prepare(`DELETE FROM ${table} WHERE lead_id IN (${placeholders})`)
+      .prepare(
+        `DELETE FROM ${table} WHERE lead_id IN (
+           SELECT id FROM leads WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL
+         )`,
+      )
       .bind(...part));
-    statements.push(db.prepare(`DELETE FROM leads WHERE id IN (${placeholders})`).bind(...part));
+    statements.push(db
+      .prepare(`DELETE FROM leads WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL`)
+      .bind(...part));
     const results = await db.batch(statements);
     purged += Number((results[results.length - 1] as { meta?: { changes?: number } })?.meta?.changes || 0);
   }

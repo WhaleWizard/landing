@@ -54,8 +54,28 @@ function cleanMonth(value: unknown): string {
   return /^\d{4}-\d{2}$/.test(text) ? text : '';
 }
 
+/**
+ * Денежная строка в число. «1234.56», «1 234,56», «$1,234.56» — одно и то же.
+ *
+ * Раньше заменялась только **первая** запятая, поэтому «1,234.56» превращалось
+ * в «1.234.56», давало NaN и молча сохранялось как **ноль**. Правило здесь то
+ * же, что в `ad-spend.ts` и в поле ввода админки: последний разделитель —
+ * десятичный, остальные разрядные.
+ */
 function cleanAmount(value: unknown): number {
-  const parsed = Number(String(value ?? '').replace(',', '.'));
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= 0 ? Math.min(1_000_000_000, value) : 0;
+  }
+  const cleaned = String(value ?? '').replace(/[^\d.,-]/g, '').trim();
+  if (!cleaned) return 0;
+
+  const lastComma = cleaned.lastIndexOf(',');
+  const lastDot = cleaned.lastIndexOf('.');
+  const normalized = lastComma > lastDot
+    ? cleaned.replace(/\./g, '').replace(',', '.')
+    : cleaned.replace(/,/g, '');
+
+  const parsed = Number(normalized);
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
   return Math.min(1_000_000_000, parsed);
 }
