@@ -138,7 +138,11 @@ type FilterOption = {
 };
 
 function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source] || source.charAt(0).toUpperCase() + source.slice(1);
+  // Источник берётся из данных кейса, то есть из админки. Поиск только по
+  // своему ключу: иначе значение вроде `constructor` вернуло бы функцию, и
+  // React упал бы на попытке отрисовать её как текст.
+  if (Object.prototype.hasOwnProperty.call(SOURCE_LABELS, source)) return SOURCE_LABELS[source];
+  return source.charAt(0).toUpperCase() + source.slice(1);
 }
 
 function caseViewFromArticle(article: CatalogArticle, fallback = false): CaseView {
