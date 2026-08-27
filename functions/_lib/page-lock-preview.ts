@@ -205,9 +205,17 @@ export async function verifyFormStamp(env: Env, stamp: string): Promise<boolean>
   return safeEqual(expected, signature);
 }
 
-/** Хеш «кто сделал» для журнала: сырые IP и user-agent не хранятся. */
-export async function actorHash(request: Request): Promise<string> {
+/**
+ * Хеш «кто сделал» для журнала: сырые IP и user-agent не хранятся.
+ *
+ * Соль обязательна. Без неё хеш только выглядит обезличенным: адресов IPv4
+ * всего 2³², строк user-agent — считанные тысячи популярных, а префикс лежал
+ * бы в открытом исходнике. Ключ выводится из пароля админки — тем же способом,
+ * что и подпись ссылок предпросмотра.
+ */
+export async function actorHash(request: Request, env: Env): Promise<string> {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const agent = request.headers.get('User-Agent') || 'unknown';
-  return (await sha256Hex(`page-lock-actor|${ip}|${agent}`)).slice(0, 32);
+  const salt = await signingKey(env);
+  return (await sha256Hex(`page-lock-actor|${salt || 'no-salt'}|${ip}|${agent}`)).slice(0, 32);
 }

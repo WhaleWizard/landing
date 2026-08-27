@@ -224,7 +224,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return noDatabase();
 
   const action = String(body.action || 'save');
-  const hash = await actorHash(request);
+  const hash = await actorHash(request, env);
 
   try {
     if (action === 'preview_token') {

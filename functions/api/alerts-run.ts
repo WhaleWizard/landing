@@ -1,4 +1,5 @@
 import { CACHE_CONTROL } from '../_lib/cache';
+import { verifyDebugSecret } from '../_lib/auth';
 import { collectAlerts, isMissingAlertsTable, notifyAlerts, syncAlerts } from '../_lib/admin-alerts';
 import { json } from '../_lib/http';
 import { enforceRateLimit } from '../_lib/rate-limit';
@@ -18,9 +19,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const secret = env.META_CAPI_DEBUG_SECRET;
   const provided = request.headers.get('x-meta-debug-secret') || undefined;
-  if (!secret || provided !== secret) {
+  if (!verifyDebugSecret(provided, env)) {
     return json(
       { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' },
       { status: 403, headers: noStore },

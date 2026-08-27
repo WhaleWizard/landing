@@ -17,7 +17,11 @@ export function sanitizeUrlQueryParams(rawUrl: string | undefined): string | und
   try {
     url = new URL(rawUrl);
   } catch {
-    return rawUrl;
+    // Непарсимый адрес нельзя вернуть как есть: смысл функции — не пустить
+    // почту, телефон или токен из адресной строки в CRM и в логи, а на кривом
+    // входе она этого сделать не может. Отбрасываем целиком — потеря адреса
+    // безопаснее сохранённых персональных данных.
+    return undefined;
   }
 
   for (const key of [...url.searchParams.keys()]) {

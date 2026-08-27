@@ -158,15 +158,23 @@ export async function claimTotpStep(env: Env, step: number): Promise<boolean> {
   return Number(result.meta?.changes || 0) > 0;
 }
 
-/** Сжигает резервный код: повторно им уже не войти. */
+/**
+ * Сжигает резервный код: повторно им уже не войти.
+ *
+ * Запись идёт с условием на прежнее значение — так же, как отметка интервала
+ * TOTP выше. Без условия два одновременных входа с **одним и тем же** кодом
+ * оба прочитали бы состояние, оба нашли бы код в списке и оба вернули бы
+ * `true`: обещанная одноразовость не выполнялась бы.
+ */
 export async function consumeBackupCode(env: Env, state: Admin2faState, code: string): Promise<boolean> {
   if (!env.DB) throw new Error('db_not_configured');
   const hash = await hashBackupCode(code);
   if (!state.backupCodeHashes.includes(hash)) return false;
 
+  const previous = JSON.stringify(state.backupCodeHashes);
   const remaining = state.backupCodeHashes.filter((item) => item !== hash);
-  await env.DB.prepare(
-    'UPDATE admin_2fa SET backup_codes = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = 1',
-  ).bind(JSON.stringify(remaining)).run();
-  return true;
+  const result = await env.DB.prepare(
+    'UPDATE admin_2fa SET backup_codes = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = 1 AND backup_codes = ?',
+  ).bind(JSON.stringify(remaining), previous).run() as { meta?: { changes?: number } };
+  return Number(result.meta?.changes || 0) > 0;
 }

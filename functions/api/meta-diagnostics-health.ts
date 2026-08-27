@@ -1,5 +1,6 @@
 import { CACHE_CONTROL } from '../_lib/cache';
 import { json } from '../_lib/http';
+import { verifyDebugSecret } from '../_lib/auth';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
 import type { Env } from '../_lib/types';
 
@@ -153,7 +154,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   const debugSecret = env.META_CAPI_DEBUG_SECRET;
   const providedSecret = getProvidedSecret(request);
 
-  if (!debugSecret || providedSecret !== debugSecret) {
+  if (!verifyDebugSecret(providedSecret, env)) {
     return json(
       { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' },
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },

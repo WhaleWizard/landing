@@ -71,10 +71,24 @@ async function notifyOwner(env: Env, text: string): Promise<void> {
         parse_mode: 'HTML',
         disable_web_page_preview: true,
       }),
+      // Уведомление не должно задерживать вход: зависший Telegram без таймаута
+      // держал бы фоновую задачу до лимита воркера.
+      signal: AbortSignal.timeout(8_000),
     });
   } catch (error) {
     console.error('[Admin auth] Не удалось отправить уведомление:', error);
   }
+}
+
+/** IPv4 — первые два октета, IPv6 — первые два блока. Остальное скрыто. */
+function maskAddress(ip: string): string {
+  if (!ip) return 'неизвестно';
+  if (ip.includes(':')) {
+    const blocks = ip.split(':').filter(Boolean).slice(0, 2);
+    return blocks.length ? `${blocks.join(':')}:…` : 'неизвестно';
+  }
+  const octets = ip.split('.');
+  return octets.length === 4 ? `${octets.slice(0, 2).join('.')}.x.x` : 'неизвестно';
 }
 
 function describeRequest(request: Request): string {
@@ -82,7 +96,11 @@ function describeRequest(request: Request): string {
   const ip = request.headers.get('CF-Connecting-IP') || '';
   // В уведомлении полезен не сам адрес, а его узнаваемость: «это снова я» или
   // «это кто-то другой». Поэтому адрес показывается частично.
-  const maskedIp = ip ? `${ip.split('.').slice(0, 2).join('.')}.x.x` : 'неизвестно';
+  //
+  // IPv6 обрабатывается отдельно: точек в нём нет, и прежний вариант с
+  // `split('.')` возвращал адрес целиком — то есть маскировка не работала
+  // ровно там, где адрес длиннее и приметнее.
+  const maskedIp = maskAddress(ip);
   return `${maskedIp}${country ? `, ${country}` : ''}`;
 }
 
