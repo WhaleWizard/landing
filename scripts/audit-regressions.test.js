@@ -110,6 +110,35 @@ test('ключ из адреса не достаёт унаследованны�
   }
 });
 
+test('автооценка лида читает те значения качества, которые есть в базе', async () => {
+  const scoring = await loadModule('src/app/components/admin/leadScore.ts');
+  const rich = {
+    budget: '$100к+',
+    phone: '+79261234567',
+    email: 'a@b.c',
+    telegram_username: '@x',
+    submissions_count: 2,
+    message: 'x'.repeat(120),
+    service: 'Meta Ads',
+    utm_source: 'facebook',
+    marketing_consent: 1,
+  };
+
+  // В базе значения ровно такие: '' | target | nontarget (миграция 0009).
+  // Раньше код сравнивал с 'qualified'/'unqualified', и обе ветки молчали.
+  const target = scoring.suggestLeadScore({ ...rich, quality: 'target' });
+  assert.ok(target.reasons.some((reason) => reason.includes('целевым')), 'целевой лид должен получать надбавку');
+
+  // Главное: лид, помеченный нецелевым, не должен выглядеть перспективным
+  // из-за бюджета и каналов связи. До правки он получал 90 из 100.
+  const nontarget = scoring.suggestLeadScore({ ...rich, quality: 'nontarget' });
+  assert.ok(nontarget.score <= 15, `нецелевой лид ограничен пятнадцатью, получено ${nontarget.score}`);
+  assert.ok(nontarget.reasons.some((reason) => reason.includes('ограничена')), 'ограничение должно объясняться словами');
+
+  // Оценка всегда объясняет себя — это заявленное правило раздела.
+  assert.ok(target.reasons.length > 0);
+});
+
 test('временный отказ приёма заявки отличается от окончательного', async () => {
   const source = await readFile(new URL('../src/app/utils/leadRetryQueue.ts', import.meta.url), 'utf8');
   const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'node20' });

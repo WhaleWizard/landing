@@ -73,7 +73,11 @@ export function suggestLeadScore(lead: ScorableLead): LeadScoreSuggestion {
   const repeats = Number(lead.submissions_count || 0);
   if (repeats > 1) {
     score += 10;
-    reasons.push(`обращался ${repeats} раза — уже тёплый (+10)`);
+    // «обращался 5 раза» — счёт по-русски требует согласования.
+    const mod10 = repeats % 10;
+    const mod100 = repeats % 100;
+    const times = mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'раза' : 'раз';
+    reasons.push(`обращался ${repeats} ${times} — уже тёплый (+10)`);
   }
 
   const message = String(lead.message || '').trim();
@@ -100,11 +104,17 @@ export function suggestLeadScore(lead: ScorableLead): LeadScoreSuggestion {
     reasons.push('дал согласие на маркетинг — можно догревать (+6)');
   }
 
+  // Значения ровно такие, как в базе: '' | target | nontarget (миграция 0009).
+  // Раньше здесь сравнивалось с 'qualified' и 'unqualified' — таких значений в
+  // системе нет вовсе, поэтому обе ветки не срабатывали никогда. Хуже второй:
+  // лид, помеченный владельцем как нецелевой, получал оценку 90 из 100 за счёт
+  // бюджета и каналов связи и выглядел одним из лучших в списке — при том, что
+  // комментарий рядом прямо запрещал такое.
   const quality = String(lead.quality || '').toLowerCase();
-  if (quality === 'qualified') {
+  if (quality === 'target') {
     score += 10;
     reasons.push('отмечен целевым (+10)');
-  } else if (quality === 'unqualified') {
+  } else if (quality === 'nontarget') {
     // Нецелевой лид не должен выглядеть перспективным из-за бюджета и каналов.
     score = Math.min(score, 15);
     reasons.push('отмечен нецелевым — оценка ограничена');
