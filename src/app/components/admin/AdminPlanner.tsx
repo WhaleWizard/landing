@@ -1096,6 +1096,11 @@ export default function AdminPlanner({ password }: { password: string }) {
 
   // Закрытие вкладки не отменяет последнюю правку: обычный fetch на выгрузке
   // страницы браузер может оборвать, поэтому недосохранённое уходит sendBeacon.
+  //
+  // Одного `beforeunload` мало. На телефоне вкладку почти всегда закрывают не
+  // явно, а переключением приложения, и Safari на iOS в этом случае события не
+  // присылает вовсе — доезжают только `pagehide` и переход в скрытое состояние.
+  // Повторный вызов безвреден: после удачной отправки очередь очищается.
   useEffect(() => {
     const handler = () => {
       const pending = pendingRef.current;
@@ -1113,9 +1118,16 @@ export default function AdminPlanner({ password }: { password: string }) {
         pendingRef.current = null;
       }
     };
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') handler();
+    };
     window.addEventListener('beforeunload', handler);
+    window.addEventListener('pagehide', handler);
+    document.addEventListener('visibilitychange', onHidden);
     return () => {
       window.removeEventListener('beforeunload', handler);
+      window.removeEventListener('pagehide', handler);
+      document.removeEventListener('visibilitychange', onHidden);
       void flush();
     };
   }, [flush]);

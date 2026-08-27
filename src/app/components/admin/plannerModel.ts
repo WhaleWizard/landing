@@ -294,18 +294,30 @@ export function isWeekUntouched(data: PlannerWeekData): boolean {
   return data.goals.every((goal) => !goal.text.trim()) && data.days.every((day) => !isDayFilled(day));
 }
 
-/** Шаблон не затирает уже написанное: заполняются только пустые дни и цели. */
+/**
+ * Шаблон не затирает уже написанное: заполняются только пустые дни и цели.
+ *
+ * «Пусто» здесь означает то же, что и в `isWeekUntouched` — ни одной строки с
+ * текстом. Раньше проверялась просто длина списка, и одного нажатия «+» хватало,
+ * чтобы шаблон молча не подставился: пустая заготовка под ввод считалась
+ * содержимым. Заготовки заменяются, всё написанное остаётся нетронутым.
+ */
 export function applyTemplate(data: PlannerWeekData, template: PlannerTemplate): PlannerWeekData {
+  const hasText = (items: PlannerCheckItem[]): boolean => items.some((item) => item.text.trim().length > 0);
+  // Если в шаблоне на этот день ничего нет, заготовку под ввод не трогаем:
+  // убирать строку, в которой человек как раз собирается печатать, нельзя.
+  const fill = (items: PlannerCheckItem[], texts: string[], prefix: string): PlannerCheckItem[] => (
+    hasText(items) || texts.length === 0
+      ? items
+      : texts.map((text) => ({ id: createId(prefix), text, done: false }))
+  );
   return {
     ...data,
-    goals: data.goals.length
-      ? data.goals
-      : template.goals.map((text) => ({ id: createId('goal'), text, done: false })),
-    days: data.days.map((day, index) => (
-      day.tasks.length
-        ? day
-        : { ...day, tasks: (template.days[index] || []).map((text) => ({ id: createId('task'), text, done: false })) }
-    )),
+    goals: fill(data.goals, template.goals, 'goal'),
+    days: data.days.map((day, index) => {
+      const tasks = fill(day.tasks, template.days[index] || [], 'task');
+      return tasks === day.tasks ? day : { ...day, tasks };
+    }),
   };
 }
 
