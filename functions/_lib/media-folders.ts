@@ -45,6 +45,21 @@ export function folderFromKey(key: string): string {
   return normalizeFolderName(first);
 }
 
+/**
+ * Публичная ссылка на объект R2.
+ *
+ * Имя файла приводится к латинице при загрузке, а имя папки может быть
+ * кириллическим — `normalizeFolderName` это разрешает. Раньше ссылка
+ * собиралась простой склейкой, и в неё попадали неэкранированные символы.
+ * Браузер такую ссылку обычно вытягивает, но она же уходит в очистку кэша
+ * Cloudflare, где несовпадение кодировки означает, что кэш не почистится, —
+ * и сохраняется в HTML статьи на годы.
+ */
+export function publicUploadUrl(host: string, key: string): string {
+  const path = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  return `${host.replace(/\/$/, '')}/${path}`;
+}
+
 export function isSafeUploadKey(key: string): boolean {
   return key.startsWith(UPLOADS_PREFIX)
     && !key.includes('..')

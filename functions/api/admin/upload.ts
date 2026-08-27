@@ -2,7 +2,7 @@ import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { UPLOADS_PREFIX, normalizeFolderName } from '../../_lib/media-folders';
+import { UPLOADS_PREFIX, normalizeFolderName, publicUploadUrl } from '../../_lib/media-folders';
 import type { Env } from '../../_lib/types';
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -132,7 +132,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       },
     });
 
-    const publicUrl = `${getPublicHost(env)}/${key}`;
+    const publicUrl = publicUploadUrl(getPublicHost(env), key);
     return json({ success: true, url: publicUrl, key, contentType, size: file.size }, { headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   } catch (error) {
     // Внутренняя причина уходит в лог, а не в ответ: текст исключения парсера

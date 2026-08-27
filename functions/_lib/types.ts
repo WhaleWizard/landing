@@ -51,10 +51,6 @@ export interface Article {
   }>;
   status?: 'draft' | 'published';
   caseData?: CaseData;
-  downloads?: Array<{
-    url: string;
-    label: string;
-  }>;
 }
 
 export interface Env {

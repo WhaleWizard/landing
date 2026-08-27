@@ -582,15 +582,6 @@ export function sanitizeSiteContent(key: SiteContentKey, value: unknown): Unknow
   return sanitizeServiceContent(value);
 }
 
-export function safeJsonObject(raw: string | null | undefined): UnknownRecord {
-  if (!raw) return {};
-  try {
-    return sanitizeServiceContent(JSON.parse(raw));
-  } catch {
-    return {};
-  }
-}
-
 export function safeSiteJsonObject(key: SiteContentKey, raw: string | null | undefined): UnknownRecord {
   if (!raw) return {};
   try {

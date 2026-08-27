@@ -384,8 +384,13 @@ export async function writeArticlesToJsonBin(env: Env, articles: Article[], prev
     }
   }
 
-  if (!primaryOk && (!backupConfig || writeErrors.length > 1)) {
-    throw new Error(writeErrors.join(' | '));
+  // Успех — только когда записан ОСНОВНОЙ бин. Раньше запись считалась
+  // удачной, если сохранился хотя бы резервный. Но чтение
+  // (`fetchArticlesFromJsonBin`) сначала идёт в основной и берёт резервный
+  // только при ошибке чтения — а основной читался, он просто оставался
+  // старым. Владелец видел «сохранено», перезагружал и получал прежний текст.
+  if (!primaryOk) {
+    throw new Error(writeErrors.join(' | ') || 'JSONBin primary write failed');
   }
 
   return freshnessSafeArticles;

@@ -101,15 +101,6 @@ function isSnapshotArticle(value: unknown): value is Article {
   }
 
   if (value.caseData !== undefined && !isRecord(value.caseData)) return false;
-  if (
-    value.downloads !== undefined
-    && (!Array.isArray(value.downloads) || !value.downloads.every((item) => (
-      isRecord(item) && typeof item.url === 'string' && typeof item.label === 'string'
-    )))
-  ) {
-    return false;
-  }
-
   return true;
 }
 

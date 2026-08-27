@@ -10,6 +10,7 @@ import {
   isFolderMarker,
   isSafeUploadKey,
   normalizeFolderName,
+  publicUploadUrl,
   reKeyToFolder,
 } from '../../_lib/media-folders';
 import type { Env } from '../../_lib/types';
@@ -75,7 +76,7 @@ async function listUploads(env: Env): Promise<{ files: MediaFile[]; markedFolder
       }
       files.push({
         key: object.key,
-        url: `${publicHost}/${object.key}`,
+        url: publicUploadUrl(publicHost, object.key),
         size: object.size,
         uploaded: object.uploaded instanceof Date ? object.uploaded.toISOString() : String(object.uploaded || ''),
         contentType: object.httpMetadata?.contentType || '',

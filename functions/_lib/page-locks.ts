@@ -524,8 +524,3 @@ export function serializeLockPaths(locks: readonly PageLock[]): string {
     .join(' ');
 }
 
-/** Адреса, которые не должны попадать в меню, sitemap и RSS. */
-export function isPathHiddenByLock(locks: readonly PageLock[], pathname: string): boolean {
-  const lock = findPageLock(locks, pathname);
-  return Boolean(lock);
-}

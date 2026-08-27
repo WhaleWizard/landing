@@ -368,47 +368,9 @@ h1 {
 .fineprint-links span {
   color: rgba(245, 245, 247, 0.22);
 }
-.consent a { color: rgba(196, 181, 253, 0.95); }
-.consent-optional { color: var(--ink-soft); }
-.consent-note {
-  display: block;
-  margin-top: 2px;
-  font-size: 11.5px;
-  color: var(--ink-faint);
-}
-.legal {
-  display: flex;
-  margin-top: 10px;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 10px 0 0;
-  font-size: 12px;
-}
-/* Высота ссылки доведена до 24 px: по ней должно быть удобно попадать пальцем. */
-.legal a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  color: rgba(196, 181, 253, 0.92);
-  text-decoration: none;
-  box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.28);
-}
-.legal a:hover { box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.8); }
-.legal-note {
-  margin: 14px 0 0;
-  font-size: 11.5px;
-  line-height: 1.6;
-  color: var(--ink-faint);
-}
-.legal-note a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  color: rgba(196, 181, 253, 0.92);
-  text-decoration: none;
-  box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.28);
-}
-.legal-note a:hover { box-shadow: inset 0 -1px 0 rgba(196, 181, 253, 0.8); }
+/* Правила .legal, .legal-note и повторные .consent-* удалены: элементов с
+   этими классами в разметке нет, а .consent-* трижды объявляли одно и то же.
+   Внешний вид не меняется — эти объявления ни на что не влияли. */
 .consent a {
   color: rgba(196, 181, 253, 0.95);
   text-decoration: none;
