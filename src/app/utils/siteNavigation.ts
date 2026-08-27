@@ -75,6 +75,24 @@ export const FROM_ALIASES: Record<string, string> = {
   roi: '/roi-calculator',
 };
 
+/**
+ * Псевдоним из `?from=` — только свой ключ карты.
+ *
+ * Значение приходит прямо из адресной строки, а обычный поиск по объекту
+ * находит и унаследованные свойства: `FROM_ALIASES['constructor']` возвращает
+ * функцию `Object`, `FROM_ALIASES['__proto__']` — прототип. Дальше по коду у
+ * такого «адреса» вызывается `.split`, которого у них нет, и страница падала
+ * прямо во время отрисовки — от одной ссылки вида `/cases?from=constructor`.
+ *
+ * Остальные карты этого файла ищутся по пути с ведущей косой чертой
+ * (`/__proto__`), поэтому им такая подмена не грозит.
+ */
+function resolveFromAlias(value: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(FROM_ALIASES, value)
+    ? FROM_ALIASES[value]
+    : undefined;
+}
+
 export function normalizePath(pathname: string): string {
   if (!pathname || pathname === '/') return '/';
   return pathname.replace(/\/+$/, '') || '/';
@@ -251,7 +269,7 @@ export function useReturnTo(fallback?: string): ReturnTo {
     }
 
     const rawFrom = new URLSearchParams(location.search).get('from');
-    const queryFrom = rawFrom ? (FROM_ALIASES[rawFrom] ?? asInternalPath(rawFrom)) : null;
+    const queryFrom = rawFrom ? (resolveFromAlias(rawFrom) ?? asInternalPath(rawFrom)) : null;
     if (queryFrom && normalizePath(queryFrom.split('?')[0]) !== currentPath) {
       return { path: queryFrom, explicit: true, viaHistory: false };
     }

@@ -121,12 +121,38 @@ function sanitizeAdminArticles(source: Article[]): Article[] {
   return unique.filter((article) => hasValidSlug(article?.slug));
 }
 
-export const fetchArticles = async (options?: { bypassCache?: boolean }): Promise<Article[]> => {
-  try {
-    const params = new URLSearchParams({ view: 'summary' });
-    if (options?.bypassCache) params.set('_', String(Date.now()));
-    const endpoint = `${API_ROUTES.articles}?${params.toString()}`;
+/**
+ * Запросы списка, которые сейчас в полёте.
+ *
+ * Список публикаций первого экрана запрашивают несколько мест сразу, и в
+ * замерах браузера на главной видно два одинаковых обращения к `/api/articles`
+ * с разницей в три миллисекунды. Пока запрос не завершился, повторный вызов
+ * получает тот же промис вместо второго обращения к сети — ровно так же это
+ * уже сделано для текстов страницы в `useServiceContent`.
+ *
+ * Ключ — готовый адрес: обход кэша добавляет к нему метку времени, поэтому
+ * принудительное обновление никогда не склеится с обычной загрузкой.
+ */
+const pendingArticleRequests = new Map<string, Promise<Article[]>>();
 
+export const fetchArticles = (options?: { bypassCache?: boolean }): Promise<Article[]> => {
+  const params = new URLSearchParams({ view: 'summary' });
+  if (options?.bypassCache) params.set('_', String(Date.now()));
+  const endpoint = `${API_ROUTES.articles}?${params.toString()}`;
+
+  const inFlight = pendingArticleRequests.get(endpoint);
+  if (inFlight) return inFlight;
+
+  const request = requestArticles(endpoint, options).finally(() => {
+    // Неудачу не кэшируем: следующая попытка должна сходить в сеть заново.
+    pendingArticleRequests.delete(endpoint);
+  });
+  pendingArticleRequests.set(endpoint, request);
+  return request;
+};
+
+const requestArticles = async (endpoint: string, options?: { bypassCache?: boolean }): Promise<Article[]> => {
+  try {
     const res = await fetch(endpoint, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
