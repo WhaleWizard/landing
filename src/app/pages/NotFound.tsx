@@ -3,6 +3,7 @@ import { ArrowLeft, Home, MapPin } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import SEO from '../components/SEO';
 import { useReturnTo } from '../utils/siteNavigation';
+import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import './NotFound.css';
 
 const destinations = [
@@ -16,6 +17,12 @@ export default function NotFound() {
   const location = useLocation();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const returnTo = useReturnTo('/');
+
+  // Страница ошибки — последнее место, где стоит предлагать закрытый раздел:
+  // человек уже никуда не попал, а по ссылке получил бы заглушку. Навбар,
+  // подвал и блоки главной такие ссылки прячут — здесь этого не хватало.
+  const isHiddenInNav = useIsPathHiddenInNav();
+  const visibleDestinations = destinations.filter((item) => !isHiddenInNav(item.to.split('#')[0] || '/'));
 
   // Вторая кнопка появляется только когда возврат ведёт НЕ на главную.
   // Иначе рядом стояли бы два одинаковых действия «На главную».
@@ -127,13 +134,15 @@ export default function NotFound() {
                 ) : null}
               </div>
 
-              <ul className="nf-links">
-                {destinations.map((item) => (
-                  <li key={item.to}>
-                    <Link to={item.to}>{item.label}</Link>
-                  </li>
-                ))}
-              </ul>
+              {visibleDestinations.length ? (
+                <ul className="nf-links">
+                  {visibleDestinations.map((item) => (
+                    <li key={item.to}>
+                      <Link to={item.to}>{item.label}</Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
 
               <p className="nf-note">Ссылка потерялась. Маршрут сохранился.</p>
             </div>

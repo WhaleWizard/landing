@@ -261,37 +261,50 @@ export function useReturnTo(fallback?: string): ReturnTo {
   const currentPath = normalizePath(location.pathname);
 
   const resolved = useMemo(() => {
+    // Закрытая страница не может стать адресом кнопки «Назад в …»: человек
+    // вернулся бы на заглушку. Запомненный маршрут это уже проверяет при
+    // записи, а `state.from`, `?from=` и реферер — нет: адрес в ссылке мог
+    // пережить закрытие страницы, а `?from=` вообще приходит извне.
+    type Resolved = { path: string; label?: string; explicit: boolean; viaHistory: boolean };
+    const guard = (value: Resolved): Resolved => {
+      if (!isPathLocked(value.path.split('?')[0])) return value;
+      const safe = fallback && !isPathLocked(fallback.split('?')[0]) ? fallback : '/';
+      // Подпись закрытой страницы вместе с ней и уходит: кнопка «Назад в блог»
+      // над адресом главной сбивала бы с толку.
+      return { path: safe, explicit: false, viaHistory: false };
+    };
+
     const state = location.state as { from?: string; fromLabel?: string } | null;
     const stateFrom = asInternalPath(state?.from);
     if (stateFrom && normalizePath(stateFrom.split('?')[0]) !== currentPath) {
       const stateLabel = typeof state?.fromLabel === 'string' ? state.fromLabel.trim() : '';
-      return { path: stateFrom, label: stateLabel || undefined, explicit: true, viaHistory: false };
+      return guard({ path: stateFrom, label: stateLabel || undefined, explicit: true, viaHistory: false });
     }
 
     const rawFrom = new URLSearchParams(location.search).get('from');
     const queryFrom = rawFrom ? (resolveFromAlias(rawFrom) ?? asInternalPath(rawFrom)) : null;
     if (queryFrom && normalizePath(queryFrom.split('?')[0]) !== currentPath) {
-      return { path: queryFrom, explicit: true, viaHistory: false };
+      return guard({ path: queryFrom, explicit: true, viaHistory: false });
     }
 
     const remembered = readRememberedRoute(currentPath);
     if (remembered) {
-      return {
+      return guard({
         path: remembered.path,
         label: remembered.label,
         explicit: true,
         viaHistory: false,
-      };
+      });
     }
 
     const referrer = sameOriginReferrer(currentPath);
-    if (referrer) return { path: referrer, explicit: false, viaHistory: true };
+    if (referrer) return guard({ path: referrer, explicit: false, viaHistory: true });
 
-    return {
+    return guard({
       path: fallback ?? parentRouteOf(currentPath),
       explicit: false,
       viaHistory: false,
-    };
+    });
   }, [currentPath, fallback, location.search, location.state]);
 
   const label = resolved.label ?? routeLabel(resolved.path, true);

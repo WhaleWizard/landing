@@ -32,6 +32,15 @@ const shouldShowAbbreviation = (item: MarketingGlossaryItem): boolean => (
 );
 const termAnchor = (id: string): string => `term-${id}`;
 
+/**
+ * Термин по идентификатору из адресной строки. Простой `glossaryTermById[id]`
+ * на якоре `#term-constructor` вернул бы унаследованное свойство объекта, и
+ * дальше по коду вместо термина поехала бы функция.
+ */
+function glossaryTerm(id: string): MarketingGlossaryItem | undefined {
+  return Object.prototype.hasOwnProperty.call(glossaryTermById, id) ? glossaryTermById[id] : undefined;
+}
+
 function glossarySearchScore(item: MarketingGlossaryItem, query: string): number {
   const normalizedQuery = normalizeLabel(query);
   const aliases = (item.aliases || []).map((alias) => alias.value);
@@ -133,7 +142,7 @@ export default function MarketingGlossaryPage() {
           label: group.label,
           terms: group.termIds
             .filter((id) => filteredIds.has(id))
-            .map((id) => glossaryTermById[id])
+            .map((id) => glossaryTerm(id))
             .filter(Boolean),
         }))
         .filter((group) => group.terms.length > 0);
@@ -156,7 +165,7 @@ export default function MarketingGlossaryPage() {
     const rawHash = window.location.hash.slice(1);
     if (!rawHash.startsWith('term-')) return;
     const termId = rawHash.slice('term-'.length);
-    if (!glossaryTermById[termId]) return;
+    if (!glossaryTerm(termId)) return;
 
     setSelectedCollection('all');
     setSelectedSection('all');
@@ -460,7 +469,7 @@ export default function MarketingGlossaryPage() {
                             <div className="flex flex-wrap items-center gap-2 text-xs">
                               <span className="text-muted-foreground">Связанные:</span>
                               {item.relatedIds.map((relatedId) => {
-                                const related = glossaryTermById[relatedId];
+                                const related = glossaryTerm(relatedId);
                                 if (!related) return null;
                                 return (
                                   <a
