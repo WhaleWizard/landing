@@ -64,17 +64,23 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       GROUP BY metric, device
     `).bind(`-${days - 1} day`).all<{ metric: string; device: string; samples: number; good: number }>();
 
+    // HAVING SUM(samples), а не HAVING samples: `samples` — это и колонка
+    // таблицы, и псевдоним результата, и SQLite в HAVING берёт **колонку**.
+    // Проверено: страница с двумя выборками в день за много дней (в сумме
+    // десятки) отсеивалась как «меньше трёх», и список самых медленных
+    // страниц оставался пустым на небольшом трафике — то есть ровно там,
+    // где он и нужен.
     const worstPages = await env.DB.prepare(`
-      SELECT page_path, metric, SUM(samples) AS samples,
+      SELECT page_path, SUM(samples) AS samples,
         SUM(value_sum) / NULLIF(SUM(samples), 0) AS average,
         SUM(poor) AS poor
       FROM web_vitals_daily
       WHERE day >= date('now', ?) AND metric = 'LCP' AND page_path != ''
       GROUP BY page_path
-      HAVING samples >= 3
+      HAVING SUM(samples) >= 3
       ORDER BY average DESC
       LIMIT 8
-    `).bind(`-${days - 1} day`).all<{ page_path: string; metric: string; samples: number; average: number; poor: number }>();
+    `).bind(`-${days - 1} day`).all<{ page_path: string; samples: number; average: number; poor: number }>();
 
     const metrics = (totals.results || []).map((row) => {
       const samples = number(row.samples);

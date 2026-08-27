@@ -31,11 +31,6 @@ function check(id: string, title: string, status: CheckStatus, detail: string): 
   return { id, title, status, detail };
 }
 
-async function tableExists(db: D1Database, name: string): Promise<boolean> {
-  const row = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").bind(name).first<{ name: string }>();
-  return Boolean(row?.name);
-}
-
 async function triggerExists(db: D1Database, name: string): Promise<boolean> {
   const row = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = ?").bind(name).first<{ name: string }>();
   return Boolean(row?.name);
@@ -103,10 +98,15 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
         'tracking_signature_daily',
         'lead_ingestions',
       ];
-      const missing: string[] = [];
-      for (const table of tables) {
-        if (!(await tableExists(env.DB, table))) missing.push(table);
-      }
+      // Один запрос вместо шестнадцати последовательных. Раньше наличие каждой
+      // таблицы выяснялось отдельным обращением к базе, и они шли по очереди,
+      // а не параллельно: раздел «Проверка» стоил шестнадцати круговых
+      // задержек ещё до того, как начинал проверять что-то по существу.
+      const foundTables = await env.DB.prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${tables.map(() => '?').join(', ')})`,
+      ).bind(...tables).all<{ name: string }>();
+      const presentTables = new Set((foundTables.results || []).map((row) => String(row.name || '')));
+      const missing = tables.filter((table) => !presentTables.has(table));
       if (missing.length === 0) {
         const articles = await env.DB.prepare('SELECT COUNT(*) AS c FROM articles').first<{ c: number }>();
         checks.push(check('d1', 'База данных D1', 'ok', `Все таблицы на месте, статей в базе: ${articles?.c ?? 0}`));
@@ -134,9 +134,14 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
         ? check('lead-ingestion-schema', 'Надёжный приём заявок', 'ok', 'Миграция 0019 применена: повторы заявок распознаются по event_id без повторной записи и уведомления')
         : check('lead-ingestion-schema', 'Надёжный приём заявок', 'fail', 'Примените миграцию 0019_lead_ingestion_idempotency.sql — до этого /api/lead намеренно отвечает retryable 503, чтобы не потерять заявку'));
 
+      // Состав колонок `leads` нужен двум проверкам подряд — спрашиваем один раз.
+      const leadsColumns = missing.includes('leads')
+        ? new Set<string>()
+        : new Set(((await env.DB.prepare('PRAGMA table_info(leads)').all<{ name: string }>()).results || [])
+          .map((column) => String(column.name || '')));
+
       if (!missing.includes('leads')) {
-        const columns = await env.DB.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
-        const present = new Set((columns.results || []).map((column) => column.name));
+        const present = leadsColumns;
         const required = [
           'event_id', 'quality', 'last_submitted_at', 'fbp', 'fbc', 'event_source_url', 'external_id',
           'marketing_consent', 'consent_version', 'consent_source', 'consent_region', 'consent_timestamp', 'consent_recorded_at',
@@ -148,9 +153,8 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
       }
 
       if (!missing.includes('leads') && !missing.includes('lead_activity')) {
-        const leadColumns = await env.DB.prepare('PRAGMA table_info(leads)').all<{ name: string }>();
         const activityColumns = await env.DB.prepare('PRAGMA table_info(lead_activity)').all<{ name: string }>();
-        const leadPresent = new Set((leadColumns.results || []).map((column) => column.name));
+        const leadPresent = leadsColumns;
         const activityPresent = new Set((activityColumns.results || []).map((column) => column.name));
         const requiredLeadColumns = ['status', 'pipeline_stage', 'next_action_at', 'loss_reason', 'notes', 'deal_value', 'deal_currency'];
         const requiredActivityColumns = ['lead_id', 'type', 'from', 'to', 'note', 'created_at'];

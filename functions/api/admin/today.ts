@@ -180,18 +180,18 @@ async function plannerStreak(db: D1Database, weekStart: string, todayIndex: numb
  * вручную и в одной валюте: курсов в системе нет, складывать разные валюты
  * нельзя, а выдумывать расход — тем более.
  */
-async function topSources(db: D1Database): Promise<Array<{
+async function topSources(db: D1Database, schema: SchemaCache): Promise<Array<{
   source: string;
   leads: number;
   spend: number | null;
   currency: string;
   costPerLead: number | null;
 }>> {
-  if (!(await tableExists(db, 'leads'))) return [];
+  if (!(await schema.tableExists('leads'))) return [];
   const [hasUtm, hasCreatedAt, hasSoftDelete] = await Promise.all([
-    columnExists(db, 'leads', 'utm_source'),
-    columnExists(db, 'leads', 'created_at'),
-    columnExists(db, 'leads', 'deleted_at'),
+    schema.columnExists('leads', 'utm_source'),
+    schema.columnExists('leads', 'created_at'),
+    schema.columnExists('leads', 'deleted_at'),
   ]);
   if (!hasUtm || !hasCreatedAt) return [];
 
@@ -206,7 +206,7 @@ async function topSources(db: D1Database): Promise<Array<{
   if (!sources.length) return [];
 
   const spendBySource = new Map<string, { amount: number; currencies: Set<string> }>();
-  if (await tableExists(db, 'ad_spend')) {
+  if (await schema.tableExists('ad_spend')) {
     const spend = await db.prepare(
       `SELECT source, currency, SUM(amount) AS amount FROM ad_spend
        WHERE day >= date('now', '-29 day') GROUP BY source, currency`,
@@ -233,17 +233,43 @@ async function topSources(db: D1Database): Promise<Array<{
   });
 }
 
-async function tableExists(db: D1Database, table: string): Promise<boolean> {
-  const row = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
-    .bind(table)
-    .first<{ name: string }>();
-  return Boolean(row?.name);
+/**
+ * Схема спрашивается один раз за запрос.
+ *
+ * Экран «Сегодня» собирается из десятка независимых источников, и каждый
+ * проверяет свои таблицы и колонки. Без памяти это давало 24 служебных запроса
+ * на одно открытие стартового экрана админки — причём двенадцать `PRAGMA
+ * table_info(leads)` подряд, то есть один и тот же ответ двенадцать раз.
+ *
+ * Кэш живёт ровно на время запроса: схема внутри одного ответа измениться
+ * не может, а между запросами по-прежнему перечитывается — миграцию будет
+ * видно сразу.
+ */
+function createSchemaCache(db: D1Database) {
+  const tables = new Map<string, Promise<boolean>>();
+  const columns = new Map<string, Promise<Set<string>>>();
+
+  return {
+    tableExists(table: string): Promise<boolean> {
+      if (!tables.has(table)) {
+        tables.set(table, db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+          .bind(table)
+          .first<{ name: string }>()
+          .then((row) => Boolean(row?.name)));
+      }
+      return tables.get(table)!;
+    },
+    async columnExists(table: string, column: string): Promise<boolean> {
+      if (!columns.has(table)) {
+        columns.set(table, db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>()
+          .then((rows) => new Set((rows.results || []).map((row) => String(row.name || '')))));
+      }
+      return (await columns.get(table)!).has(column);
+    },
+  };
 }
 
-async function columnExists(db: D1Database, table: string, column: string): Promise<boolean> {
-  const rows = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
-  return (rows.results || []).some((row) => row.name === column);
-}
+type SchemaCache = ReturnType<typeof createSchemaCache>;
 
 function pushItem(items: TodayItem[], item: TodayItem): void {
   if (item.count > 0) items.push(item);
@@ -266,14 +292,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const db = env.DB;
+    const schema = createSchemaCache(db);
     const items: TodayItem[] = [];
     const focus: FocusItem[] = [];
-    const hasLeads = await tableExists(db, 'leads');
-    const hasArticles = await tableExists(db, 'articles');
-    const hasOutbox = await tableExists(db, 'meta_outbox');
-    const hasSections = await tableExists(db, 'site_sections');
-    const hasTasks = await tableExists(db, 'crm_tasks');
-    const hasPlanner = await tableExists(db, 'planner_weeks');
+    const hasLeads = await schema.tableExists('leads');
+    const hasArticles = await schema.tableExists('articles');
+    const hasOutbox = await schema.tableExists('meta_outbox');
+    const hasSections = await schema.tableExists('site_sections');
+    const hasTasks = await schema.tableExists('crm_tasks');
+    const hasPlanner = await schema.tableExists('planner_weeks');
 
     let newLeads = 0;
     let overdueActions = 0;
@@ -287,14 +314,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     if (hasLeads) {
       const [hasPipelineStage, hasNextAction, hasLastSubmittedAt, hasStatus, hasTelegramDelivered, hasCreatedAt, hasSoftDelete, hasNextActionText] = await Promise.all([
-        columnExists(db, 'leads', 'pipeline_stage'),
-        columnExists(db, 'leads', 'next_action_at'),
-        columnExists(db, 'leads', 'last_submitted_at'),
-        columnExists(db, 'leads', 'status'),
-        columnExists(db, 'leads', 'telegram_delivered'),
-        columnExists(db, 'leads', 'created_at'),
-        columnExists(db, 'leads', 'deleted_at'),
-        columnExists(db, 'leads', 'next_action_text'),
+        schema.columnExists('leads', 'pipeline_stage'),
+        schema.columnExists('leads', 'next_action_at'),
+        schema.columnExists('leads', 'last_submitted_at'),
+        schema.columnExists('leads', 'status'),
+        schema.columnExists('leads', 'telegram_delivered'),
+        schema.columnExists('leads', 'created_at'),
+        schema.columnExists('leads', 'deleted_at'),
+        schema.columnExists('leads', 'next_action_text'),
       ]);
       // Заявки в корзине (миграция 0020) не попадают в сводку дня.
       const activeCond = hasSoftDelete ? 'deleted_at IS NULL' : '1=1';
@@ -407,8 +434,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (hasArticles) {
-      const hasStatus = await columnExists(db, 'articles', 'status');
-      const hasPublishedAt = await columnExists(db, 'articles', 'published_at');
+      const hasStatus = await schema.columnExists('articles', 'status');
+      const hasPublishedAt = await schema.columnExists('articles', 'published_at');
       if (hasStatus) {
         const row = await db.prepare("SELECT COUNT(*) AS count FROM articles WHERE status='draft'")
           .first<{ count: number }>();
@@ -438,7 +465,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
 
-    if (hasOutbox && await columnExists(db, 'meta_outbox', 'status')) {
+    if (hasOutbox && await schema.columnExists('meta_outbox', 'status')) {
       const outbox = await db.prepare(
         `SELECT
            SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending,
@@ -468,7 +495,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
 
-    if (hasSections && await columnExists(db, 'site_sections', 'status')) {
+    if (hasSections && await schema.columnExists('site_sections', 'status')) {
       const row = await db.prepare("SELECT COUNT(*) AS count FROM site_sections WHERE status='draft'")
         .first<{ count: number }>();
       contentDrafts = Number(row?.count || 0);
@@ -486,7 +513,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     let tasksOverdue = 0;
     let tasksToday = 0;
     if (hasTasks && hasLeads) {
-      const activeCond = (await columnExists(db, 'leads', 'deleted_at')) ? 'l.deleted_at IS NULL' : '1=1';
+      const activeCond = (await schema.columnExists('leads', 'deleted_at')) ? 'l.deleted_at IS NULL' : '1=1';
       const counters = await db.prepare(
         `SELECT
            SUM(CASE WHEN t.status = 'open' THEN 1 ELSE 0 END) AS open,
@@ -558,7 +585,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     // План на сегодня показывается отдельным списком с отметками, поэтому
     // в «Фокус дня» он больше не дублируется.
     const planner = hasPlanner ? await plannerToday(db) : null;
-    const sources = await topSources(db);
+    const sources = await topSources(db, schema);
 
     const priority = { critical: 0, attention: 1, info: 2 } as const;
     items.sort((a, b) => priority[a.level] - priority[b.level] || b.count - a.count);

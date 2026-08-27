@@ -144,7 +144,28 @@ function containsAll(values: Set<string>, required: readonly string[]): boolean 
   return required.every((value) => values.has(value));
 }
 
+/**
+ * Состав схемы CRM меняется раз в несколько месяцев — при накатывании миграции,
+ * а спрашивают о нём при **каждом** действии в разделе «Заявки»: список, доска,
+ * смена этапа, заметки, задачи. Пять запросов к базе на каждое действие.
+ *
+ * Тот же кэш на пять минут, что и у `getLeadsColumns` в `_lib/leads.ts`,
+ * `getArticlesColumns` в `_lib/d1.ts` и `getDiagnosticsColumns` в
+ * `_lib/meta-diagnostics.ts`.
+ */
+let capabilitiesCache: { value: AdminCrmCapabilities; expiresAt: number } | null = null;
+const CAPABILITIES_TTL_MS = 5 * 60 * 1000;
+
 export async function getAdminCrmCapabilities(db: D1Database): Promise<AdminCrmCapabilities> {
+  const now = Date.now();
+  if (capabilitiesCache && capabilitiesCache.expiresAt > now) return capabilitiesCache.value;
+
+  const capabilities = await readAdminCrmCapabilities(db);
+  capabilitiesCache = { value: capabilities, expiresAt: now + CAPABILITIES_TTL_MS };
+  return capabilities;
+}
+
+async function readAdminCrmCapabilities(db: D1Database): Promise<AdminCrmCapabilities> {
   try {
     const [leadColumnsResult, activityColumnsResult, tablesResult, noteColumnsResult, taskColumnsResult] = await Promise.all([
       db.prepare('PRAGMA table_info(leads)').all<{ name: string }>(),

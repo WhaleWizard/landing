@@ -372,7 +372,7 @@ async function sendMetaPageView(
 
   if (!payload.marketing_consent) {
     await recordMetaDiagnostics(env, {
-      event_name: 'PageView',
+      event_name: 'PageView', service: payload.service,
       event_id: payload.event_id,
       event_time: payload.event_time,
       status: 'skipped',
@@ -393,7 +393,7 @@ async function sendMetaPageView(
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing token or pixel ID, skipping PageView');
     await recordMetaDiagnostics(env, {
-      event_name: 'PageView',
+      event_name: 'PageView', service: payload.service,
       event_id: payload.event_id,
       event_time: payload.event_time,
       status: 'skipped',
@@ -413,7 +413,7 @@ async function sendMetaPageView(
 
   const eventTime = resolveEventTime(payload.event_time);
   if (await wasMetaEventAlreadySent(env, 'PageView', payload.event_id)) {
-    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), marketing_consent: payload.marketing_consent });
+    await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), marketing_consent: payload.marketing_consent });
     return;
   }
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
@@ -540,20 +540,20 @@ async function sendMetaPageView(
     if (!response.ok) {
       const errorText = await response.text();
       await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), `HTTP ${response.status}: ${errorText.slice(0, 300)}`);
-      await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+      await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as MetaApiReceipt | null;
       if (!isConfirmedMetaReceipt(result)) {
         const message = `Meta 2xx without events_received confirmation: ${JSON.stringify(result).slice(0, 300)}`;
         await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
-        await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
         console.error('[Meta CAPI] PageView returned no delivery confirmation', result);
       } else {
         await markMetaEventSent(env, 'PageView', eventId);
         await markOutboxSent(env, outboxId);
         await recordMetaDiagnostics(env, {
-          event_name: 'PageView',
+          event_name: 'PageView', service: payload.service,
           event_id: eventId,
           event_time: eventTime,
           status: 'sent',
@@ -583,7 +583,7 @@ async function sendMetaPageView(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
-    await recordMetaDiagnostics(env, { event_name: 'PageView', event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending PageView event:', error);
   }
 }

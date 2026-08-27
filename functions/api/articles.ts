@@ -6,6 +6,7 @@ import {
   filterVisibleArticles,
 } from '../_lib/articles';
 import { json } from '../_lib/http';
+import { verifyAdminPassword } from '../_lib/auth';
 import type { Article, Env } from '../_lib/types';
 
 export type PublicArticleSummary = Article & { _summary: true };
@@ -27,7 +28,20 @@ function isValidSlug(value: string): boolean {
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const url = new URL(request.url);
-  const bypassCache = url.searchParams.has('_') || url.searchParams.get('cache') === 'no-store';
+  // Два разных обхода кэша, и права у них разные.
+  //
+  // `?_=<произвольное>` — сбрасыватель кэша админки. Он принимает **любое**
+  // значение, поэтому запросы `?_=1`, `?_=2`, `?_=3` и так далее заставляли
+  // базу читать все статьи заново на каждый запрос и плодили ключи кэша.
+  // Теперь он требует пароль администратора.
+  //
+  // `?cache=no-store` — фиксированная строка, её использует production-сборка
+  // (`scripts/config.js`, `PUBLIC_ARTICLES_URL`), и она ходит без заголовков
+  // авторизации. Закрыть её паролем нельзя, не сломав получение свежих статей
+  // при сборке, — оставлена открытой осознанно.
+  const adminBypass = url.searchParams.has('_')
+    && verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env);
+  const bypassCache = adminBypass || url.searchParams.get('cache') === 'no-store';
   const requestedSlug = String(url.searchParams.get('slug') || '').trim();
   const summaryView = url.searchParams.get('view') === 'summary';
 
@@ -102,10 +116,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     }
     return response;
   } catch (error) {
+    // Причина уходит в лог, а не в публичный ответ: наружу утекали внутренние
+    // сообщения вроде «no last-known-good D1 snapshot» и сырые ошибки SQLite.
+    console.error('[articles] Public read failed:', error);
     return json(
       {
         error: 'Failed to load articles',
-        details: error instanceof Error ? error.message : 'Unknown error',
       },
       {
         status: 503,
