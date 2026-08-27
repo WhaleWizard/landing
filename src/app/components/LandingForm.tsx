@@ -36,7 +36,7 @@ import {
   getCountryPhoneName,
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
-import { queueLeadForRetry } from '../utils/leadRetryQueue';
+import { isRetryableLeadStatus, queueLeadForRetry } from '../utils/leadRetryQueue';
 import { saveLeadContext } from '../utils/leadContext';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
@@ -247,7 +247,7 @@ function LandingForm({
         if (!res.ok) {
           const payload = await res.json().catch(() => null) as { error?: string; retryable?: boolean } | null;
           throw Object.assign(new Error(payload?.error || `HTTP ${res.status}`), {
-            retryable: payload?.retryable === true,
+            retryable: payload?.retryable === true || isRetryableLeadStatus(res.status),
           });
         }
 

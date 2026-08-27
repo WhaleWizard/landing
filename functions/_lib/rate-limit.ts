@@ -41,7 +41,14 @@ function makeRateLimitCacheKey(scope: string, ip: string, windowIndex: number): 
 
 export function getRateLimitProfile(scope?: string): RateLimitProfile {
   if (!scope) return RATE_LIMIT_PROFILES.default;
-  return RATE_LIMIT_PROFILES[scope] || RATE_LIMIT_PROFILES.default;
+  // Только свой ключ: обычный поиск по объекту нашёл бы и унаследованные
+  // свойства, и `getRateLimitProfile('constructor')` вернул бы функцию вместо
+  // профиля. Тогда порог стал бы `undefined`, сравнение с ним — всегда ложным,
+  // и ограничитель молча выключился бы. Сейчас область вызова всегда своя,
+  // но цена проверки — одна строка, а цена ошибки — снятая защита.
+  return Object.prototype.hasOwnProperty.call(RATE_LIMIT_PROFILES, scope)
+    ? RATE_LIMIT_PROFILES[scope]
+    : RATE_LIMIT_PROFILES.default;
 }
 
 export async function enforceRateLimit(request: Request, scope = 'default'): Promise<Response | null> {
@@ -58,7 +65,19 @@ export async function enforceRateLimit(request: Request, scope = 'default'): Pro
   const nextCount = currentCount + 1;
 
   if (nextCount > profile.maxRequests) {
-    return new Response(JSON.stringify({ error: 'Too many requests', scope }), {
+    // `retryable` здесь не украшение, а условие приёма заявки. Формы считают
+    // отказ окончательным, если сервер не сказал обратного: 429 без этого поля
+    // означал «покажите человеку английский текст Too many requests и выбросьте
+    // заявку». А 429 по определению временный — рядом уже стоит `Retry-After`.
+    // Лимит на заявки — двадцать за десять минут с одного адреса, и упереться
+    // в него может не только бот: за одним адресом сидят все абоненты
+    // мобильного оператора.
+    return new Response(JSON.stringify({
+      error: 'Too many requests',
+      scope,
+      retryable: true,
+      retry_after: secondsUntilWindowEnd,
+    }), {
       status: 429,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',

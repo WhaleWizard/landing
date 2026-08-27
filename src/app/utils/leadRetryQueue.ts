@@ -56,8 +56,21 @@ export function queueLeadForRetry(endpoint: string, payload: unknown): void {
  * поводом для повтора.
  */
 function isPermanentRejection(status: number): boolean {
-  if (status === 408 || status === 429) return false;
-  return status >= 400 && status < 500;
+  return !isRetryableLeadStatus(status) && status >= 400 && status < 500;
+}
+
+/**
+ * Ответ, после которого заявку имеет смысл отложить и повторить.
+ *
+ * Форма и очередь смотрят на одно и то же, поэтому правило одно на двоих.
+ * 429 сюда входит намеренно: лимит на заявки — двадцать за десять минут с
+ * одного адреса, и упереться в него может не только бот, но и обычный человек
+ * за общим адресом мобильного оператора. Раньше форма считала такой отказ
+ * окончательным, показывала английское «Too many requests» и **выбрасывала
+ * заявку**.
+ */
+export function isRetryableLeadStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
 }
 
 let flushing = false;

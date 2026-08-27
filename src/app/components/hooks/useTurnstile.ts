@@ -29,6 +29,18 @@ const DEFAULT_SITE_KEY = '0x4AAAAAAEZQ_DqE3BMc30PD';
 /** Столько ждём ответа. С запасом на то, что человек ставит галочку руками. */
 const TOKEN_TIMEOUT_MS = 90_000;
 
+/**
+ * Столько ждём саму загрузку скрипта проверки.
+ *
+ * Отдельный и куда более короткий срок, чем у токена: там мы ждём человека,
+ * здесь — только сеть. Без него оставалась дыра: если тег скрипта на странице
+ * уже есть и его событие `load` давно прошло, а `window.turnstile` при этом не
+ * появился, обещание не разрешалось бы никогда. Отправка формы вставала бы на
+ * полторы минуты вместо честного «проверка недоступна», который форма умеет
+ * показать вместе с запасным способом связи.
+ */
+const SCRIPT_TIMEOUT_MS = 10_000;
+
 interface TurnstileApi {
   render: (container: HTMLElement, options: Record<string, unknown>) => string;
   execute: (widgetId: string) => void;
@@ -56,9 +68,19 @@ function loadTurnstileScript(): Promise<TurnstileApi | null> {
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
     const script = existing || document.createElement('script');
 
-    const done = () => resolve((window as TurnstileWindow).turnstile || null);
+    let settled = false;
+    const finish = (api: TurnstileApi | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(api);
+    };
+
+    const timer = window.setTimeout(() => finish((window as TurnstileWindow).turnstile || null), SCRIPT_TIMEOUT_MS);
+
+    const done = () => finish((window as TurnstileWindow).turnstile || null);
     script.addEventListener('load', done, { once: true });
-    script.addEventListener('error', () => resolve(null), { once: true });
+    script.addEventListener('error', () => finish(null), { once: true });
 
     if (!existing) {
       script.src = SCRIPT_SRC;
@@ -164,6 +186,16 @@ export function useTurnstile() {
 
   const removeWidget = useCallback((api: TurnstileApi) => {
     if (!widgetIdRef.current) return;
+    try { api.remove(widgetIdRef.current); } catch { /* уже удалён */ }
+    widgetIdRef.current = null;
+  }, []);
+
+  // Уход со страницы посреди проверки не должен оставлять виджет висеть.
+  // Контейнер React уже размонтировал, а Turnstile о нём ещё помнит: следующая
+  // отправка создавала бы новый виджет поверх забытого.
+  useEffect(() => () => {
+    const api = (window as TurnstileWindow).turnstile;
+    if (!api || !widgetIdRef.current) return;
     try { api.remove(widgetIdRef.current); } catch { /* уже удалён */ }
     widgetIdRef.current = null;
   }, []);
