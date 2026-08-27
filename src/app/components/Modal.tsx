@@ -3,6 +3,23 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
+/**
+ * Что считается элементом, на который можно перевести фокус.
+ *
+ * Выключенные поля и кнопки исключены намеренно: удержание фокуса внутри окна
+ * работает так, что с последнего элемента Tab возвращает на первый. Если
+ * «последним» оказывалась выключенная кнопка, вызов `.focus()` на ней не делал
+ * ничего — фокус оставался на месте, и с клавиатуры окно превращалось в тупик.
+ */
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  '[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -63,9 +80,7 @@ export default function Modal({
     }
 
     const modalNode = modalRef.current;
-    const focusableElements = modalNode?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
+    const focusableElements = modalNode?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
     focusableElements?.[0]?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -76,9 +91,7 @@ export default function Modal({
 
       if (event.key !== 'Tab' || !modalNode) return;
 
-      const nodes = modalNode.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
+      const nodes = modalNode.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
       if (!nodes.length) return;
 
       const first = nodes[0];
@@ -103,7 +116,11 @@ export default function Modal({
       document.body.style.top = previousTop;
       document.body.style.width = previousWidth;
       window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
-      lastActiveElementRef.current?.focus();
+      // preventScroll обязателен: возврат фокуса сам по себе прокручивает
+      // страницу к элементу, и она уезжала с того места, где человек открыл
+      // окно, — сразу после того, как позицию только что восстановили строкой
+      // выше.
+      lastActiveElementRef.current?.focus({ preventScroll: true });
     };
   }, [isOpen, onClose]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { Menu, X, Briefcase, Trophy, Newspaper, Star, HelpCircle, Phone, Calculator, ChevronRight } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
 import { Button } from './ui/button';
@@ -48,6 +48,10 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  /** Отложенная попытка доскроллить до ещё не смонтированной секции. */
+  const pendingScrollRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(pendingScrollRef.current), []);
 
   const isContentItemActive = useCallback((label: string) => variant === 'content' && (
     (label === 'Кейсы' && location.pathname.startsWith('/cases'))
@@ -115,10 +119,17 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       return true;
     };
 
+    // Секция монтируется лениво, поэтому её ждут до секунды. Ожидание нужно
+    // отменять при следующем нажатии и при уходе со страницы: иначе оставшаяся
+    // попытка искала элемент уже на другой странице. Со страницы услуги в меню
+    // есть пункт «Услуги», и такая же секция есть на главной — забытая попытка
+    // прокручивала главную к чужому якорю через секунду после перехода.
+    window.clearTimeout(pendingScrollRef.current);
+
     const scrollWhenReady = (attempt = 0) => {
       if (scrollNow()) return;
       if (attempt >= 12) return;
-      window.setTimeout(() => {
+      pendingScrollRef.current = window.setTimeout(() => {
         scrollWhenReady(attempt + 1);
       }, 80);
     };
