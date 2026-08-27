@@ -263,11 +263,21 @@ export async function wasMetaEventAlreadySent(env: Env & { META_CAPI_IDEMPOTENCY
   }
 }
 
+/**
+ * Метка «событие уже подтверждено Meta» живёт дольше, чем офлайн-очередь заявок.
+ *
+ * Очередь в браузере (`src/app/utils/leadRetryQueue.ts`) хранит заявку до трёх
+ * суток. При прежних 48 часах заявка, пролежавшая дольше двух дней, приходила
+ * с тем же `event_id`, но метки уже не было — и событие уходило в Meta второй
+ * раз. Четверо суток перекрывают окно очереди с запасом.
+ */
+const META_SENT_MARKER_TTL_SECONDS = 4 * 24 * 60 * 60;
+
 export async function markMetaEventSent(env: Env & { META_CAPI_IDEMPOTENCY?: KVNamespace }, eventName: string, eventId?: string): Promise<void> {
   if (!eventId || !env.META_CAPI_IDEMPOTENCY) return;
   try {
     const key = `meta_capi_sent:${eventName}:${eventId}`;
-    await env.META_CAPI_IDEMPOTENCY.put(key, '1', { expirationTtl: 60 * 60 * 48 });
+    await env.META_CAPI_IDEMPOTENCY.put(key, '1', { expirationTtl: META_SENT_MARKER_TTL_SECONDS });
   } catch (error) {
     console.warn('[Meta CAPI] Idempotency write failed', error);
   }

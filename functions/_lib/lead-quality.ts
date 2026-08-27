@@ -1,5 +1,5 @@
 import type { Env } from './types';
-import { normalizeEmail, normalizeName, normalizePhone, sha256Hex } from './meta-pii';
+import { normalizeEmail, normalizeLocation, normalizeName, normalizePhone, sha256Hex } from './meta-pii';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from './meta-diagnostics';
 import {
   fetchMetaWithRetry,
@@ -32,6 +32,8 @@ export interface LeadQualityRow {
   consent_recorded_at?: string | null;
   service?: string;
   page_path?: string;
+  /** Двухбуквенный код страны из CF-IPCountry, сохраняется миграцией 0026. */
+  country?: string;
   created_at?: string;
   last_submitted_at?: string;
   quality_action_id?: string;
@@ -183,12 +185,16 @@ export async function sendLeadQualityEvent(env: Env, lead: LeadQualityRow, quali
   }
 
   const { firstName, lastName } = splitName(lead.name);
-  const [hashedEmail, hashedPhone, hashedExternalId, hashedFirstName, hashedLastName] = await Promise.all([
+  // Страна сохраняется вместе с заявкой (миграция 0026) и уходит в обычном
+  // событии Lead. Раньше события качества её не передавали, то есть у Meta
+  // было меньше ключей сопоставления для того же самого человека.
+  const [hashedEmail, hashedPhone, hashedExternalId, hashedFirstName, hashedLastName, hashedCountry] = await Promise.all([
     lead.email ? sha256Hex(normalizeEmail(lead.email)) : undefined,
     lead.phone ? sha256Hex(normalizePhone(lead.phone)) : undefined,
     lead.external_id ? sha256Hex(String(lead.external_id).trim().toLowerCase()) : undefined,
     firstName ? sha256Hex(normalizeName(firstName)) : undefined,
     lastName ? sha256Hex(normalizeName(lastName)) : undefined,
+    lead.country ? sha256Hex(normalizeLocation(lead.country)) : undefined,
   ]);
   const fbp = lead.fbp || undefined;
   const fbc = lead.fbc || undefined;
@@ -212,6 +218,7 @@ export async function sendLeadQualityEvent(env: Env, lead: LeadQualityRow, quali
       ln: hashedLastName ? [hashedLastName] : undefined,
       fbp,
       fbc,
+      country: hashedCountry ? [hashedCountry] : undefined,
       external_id: hashedExternalId ? [hashedExternalId] : undefined,
     },
     custom_data: {

@@ -2,7 +2,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import { json } from '../_lib/http';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { readRequestText } from '../_lib/http';
-import { isTrustedTrackingRequest } from '../_lib/meta-capi';
+import { detectDeviceFromUserAgent, isTrustedTrackingRequest } from '../_lib/meta-capi';
 import type { Env } from '../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -29,12 +29,9 @@ interface VitalInput {
   path?: unknown;
 }
 
+/** Тип устройства общий с событиями Meta: одна логика, одно место. */
 function detectDevice(userAgent: string): string {
-  const value = String(userAgent || '').toLowerCase();
-  if (!value) return '';
-  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(value)) return 'tablet';
-  if (/mobi|iphone|ipod|android|blackberry|windows phone/.test(value)) return 'mobile';
-  return 'desktop';
+  return detectDeviceFromUserAgent(userAgent) || '';
 }
 
 function normalizePath(raw: unknown): string {

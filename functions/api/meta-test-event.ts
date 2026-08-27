@@ -2,9 +2,9 @@ import { json } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
-import { verifyAdminPassword } from '../_lib/auth';
+import { verifyAdminPassword, verifyDebugSecret } from '../_lib/auth';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
-import { getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
+import { fetchMetaWithRetry, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
 import { normalizeEmail, normalizeLocation, normalizeName, normalizePhone, sha256Hex } from '../_lib/meta-pii';
 
 const TEST_EVENTS = ['PageView', 'ViewContent', 'FormStart', 'LeadFormView', 'EngagedView', 'Contact', 'Lead', 'QualifiedLead', 'UnqualifiedLead'] as const;
@@ -239,9 +239,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const testCode = env.META_CAPI_TEST_CODE;
   const apiVersion = getMetaApiVersion(env);
 
-  const debugSecret = env.META_CAPI_DEBUG_SECRET;
-  const providedSecret = request.headers.get('x-meta-debug-secret') || undefined;
-  const bySecret = Boolean(debugSecret) && providedSecret === debugSecret;
+  const bySecret = verifyDebugSecret(request.headers.get('x-meta-debug-secret'), env);
 
   // Второй допуск — пароль админки: кнопка «Отправить тестовое событие» в
   // разделе Meta CAPI не должна требовать отдельного секрета. Права те же:
@@ -274,11 +272,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     (name) => buildTestEvent(name, request, eventSourceUrl, originalLead, env, leadUserData),
   );
 
-  const response = await fetch(`https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data: events, test_event_code: testCode }),
-  });
+  // Через общий отправитель, как и все остальные события: он даёт таймаут и
+  // повторы. Голый fetch здесь означал, что зависший запрос к Meta держал бы
+  // ответ админке до лимита воркера.
+  const response = await fetchMetaWithRetry(
+    `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: events, test_event_code: testCode }),
+    },
+    env,
+  );
 
   const resultText = await response.text();
   const parsed = (() => {

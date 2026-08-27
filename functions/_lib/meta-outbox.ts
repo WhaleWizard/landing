@@ -298,8 +298,12 @@ export async function processMetaOutbox(env: Env, limit = 10): Promise<OutboxPro
 
   let rows: OutboxRow[];
   try {
+    // `attempts` увеличивается **в момент захвата**. Раньше счётчик жил только
+    // в памяти обработчика, и если isolate умирал посреди отправки, запись
+    // через десять минут возвращалась в оборот с прежним значением — то есть
+    // повторяющийся сбой крутил её бесконечно, не приближая к `dead_letter`.
     const claimed = await env.DB.prepare(
-      `UPDATE meta_outbox SET status='sending', updated_at=strftime('%s','now')
+      `UPDATE meta_outbox SET status='sending', attempts=attempts+1, updated_at=strftime('%s','now')
        WHERE id IN (
          SELECT id FROM meta_outbox
          WHERE (status IN ('pending','retry') AND next_retry_at <= ?1)
@@ -319,7 +323,9 @@ export async function processMetaOutbox(env: Env, limit = 10): Promise<OutboxPro
 
   for (const row of rows) {
     summary.processed += 1;
-    const attempts = Number(row.attempts || 0) + 1;
+    // `RETURNING` в SQLite отдаёт значения ПОСЛЕ обновления, а захват уже
+    // увеличил счётчик — прибавлять единицу второй раз нельзя.
+    const attempts = Number(row.attempts || 1);
 
     if (now - Number(row.created_at || now) > MAX_OUTBOX_AGE_SECONDS) {
       const message = 'expired: event older than 6 days';
