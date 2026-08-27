@@ -77,6 +77,13 @@ async function readQualityTrend(db: D1Database, columns: Set<string>, days: numb
  * Готовность к дедупликации с пикселем. Со стороны сервера видно только
  * половину картины: есть ли у события event_id и не ушло ли одно и то же
  * событие дважды. Совпадение с пикселем этим не проверяется — так и пишем.
+ *
+ * Дублем считается только **подтверждённая** повторная доставка: строка со
+ * статусом `sent`, но без подтверждения от Meta — это неудачная попытка,
+ * и считать её вторым событием нельзя. Служебные строки (тестовое событие,
+ * проверка диагностики) исключены по той же причине, по которой их исключает
+ * сводка рядом: иначе раздел показывал бы дубли, которых нет, и владелец шёл
+ * бы искать несуществующую проблему.
  */
 async function readDedupeState(db: D1Database, days: number): Promise<DedupeState> {
   const row = await db.prepare(`
@@ -92,6 +99,8 @@ async function readDedupeState(db: D1Database, days: number): Promise<DedupeStat
       WHERE created_at >= ?
         AND TRIM(COALESCE(event_id, '')) != ''
         AND status = 'sent'
+        AND COALESCE(events_received, 0) > 0
+        AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')
       GROUP BY event_id HAVING COUNT(*) > 1
     )
   `).bind(isoSince(days)).first<{ total: number }>();
