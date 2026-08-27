@@ -79,10 +79,7 @@ export function getPageLocks(): readonly PageLockEntry[] {
 export function isPathLocked(pathname: string): boolean {
   if (previewActive || locks.length === 0) return false;
   const path = normalizePublicPath(pathname);
-  return locks.some((lock) => (
-    lock.path === path
-    || (lock.includeChildren && lock.path !== '/' && path.startsWith(`${lock.path}/`))
-  ));
+  return locks.some((lock) => matches(lock, path));
 }
 
 /** Публичный список закрытых страниц для меню и подвала. */

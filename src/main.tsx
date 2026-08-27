@@ -40,7 +40,15 @@ async function prepareCurrentSiteContent(): Promise<unknown> {
   }
 }
 
+let appRendered = false;
+
 function renderApp() {
+  // Защёлка от второго createRoot на том же узле. Путей к renderApp два:
+  // через startViewTransition и в обход него, и если переход успеет вызвать
+  // колбэк, а потом бросит исключение, сработают оба — React смонтирует второе
+  // приложение поверх первого. Случай редкий, но диагностируется он тяжело.
+  if (appRendered) return;
+  appRendered = true;
   flushSync(() => {
     createRoot(rootElement).render(
       <AppErrorBoundary>
@@ -56,12 +64,26 @@ function handOffToApp() {
     return;
   }
 
+  type ViewTransitionHandle = {
+    finished?: Promise<unknown>;
+    ready?: Promise<unknown>;
+    updateCallbackDone?: Promise<unknown>;
+  };
   const transitionDocument = document as Document & {
-    startViewTransition?: (update: () => void) => unknown;
+    startViewTransition?: (update: () => void) => ViewTransitionHandle | undefined;
   };
   if (transitionDocument.startViewTransition) {
     try {
-      transitionDocument.startViewTransition(renderApp);
+      const transition = transitionDocument.startViewTransition(renderApp);
+      // Переход возвращает промисы, и браузер отклоняет их, когда прерывает
+      // анимацию: вкладка скрыта, начался другой переход, изменился размер
+      // окна. Приложение к этому моменту уже отрисовано, но отказ никто не
+      // ловил — и в консоли каждого посетителя оставалась ошибка
+      // «Transition was aborted because of invalid state». Ни на вид, ни на
+      // саму анимацию перехвата не влияет: он только убирает шум.
+      transition?.finished?.catch(() => undefined);
+      transition?.ready?.catch(() => undefined);
+      transition?.updateCallbackDone?.catch(() => undefined);
       return;
     } catch {
       // Fall through to the light CSS hand-off on unsupported edge cases.
