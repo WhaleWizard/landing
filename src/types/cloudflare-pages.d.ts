@@ -20,16 +20,40 @@ declare interface KVNamespace {
   delete(key: string): Promise<void>;
 }
 
+/**
+ * Что D1 возвращает после записи.
+ *
+ * Раньше `run()` был типизирован как `unknown`, и каждое место, которому нужно
+ * число изменённых строк, приводило результат к типу вручную — таких приведений
+ * набралось больше десятка. Это не только шум: приведение отключает проверку,
+ * поэтому опечатка вроде `meta.change` прошла бы молча, а от `meta.changes`
+ * зависят условные записи («обновилось ровно ноль строк — значит резервный код
+ * уже использовали») и `last_row_id` при создании карточки клиента.
+ */
+declare interface D1Meta {
+  changes?: number;
+  last_row_id?: number;
+  duration?: number;
+  rows_read?: number;
+  rows_written?: number;
+}
+
+declare interface D1Result<T = unknown> {
+  results?: T[];
+  success?: boolean;
+  meta?: D1Meta;
+}
+
 declare interface D1PreparedStatement {
   bind(...values: unknown[]): D1PreparedStatement;
   first<T = unknown>(colName?: string): Promise<T | null>;
-  run(): Promise<unknown>;
-  all<T = unknown>(): Promise<{ results?: T[] }>;
+  run<T = unknown>(): Promise<D1Result<T>>;
+  all<T = unknown>(): Promise<D1Result<T>>;
 }
 
 declare interface D1Database {
   prepare(query: string): D1PreparedStatement;
-  batch<T = unknown>(statements: D1PreparedStatement[]): Promise<T[]>;
+  batch<T = unknown>(statements: D1PreparedStatement[]): Promise<Array<D1Result<T>>>;
 }
 
 declare interface R2PutOptions {
