@@ -122,6 +122,24 @@ async function readTraffic(db: D1Database): Promise<Record<string, number>> {
   }
 }
 
+/**
+ * Сколько человек ждут открытия каждой страницы.
+ *
+ * Считается отдельным запросом, а не фильтром по уже загруженному списку:
+ * список подписчиков ограничен последними двумя сотнями, и на 201-м контакте
+ * счётчик у карточки начал бы занижать реальное число.
+ */
+async function readWaitingCounts(db: D1Database): Promise<Record<string, number>> {
+  const result = await db
+    .prepare('SELECT path, COUNT(*) AS waiting FROM page_lock_subscribers WHERE notified_at IS NULL GROUP BY path')
+    .all<{ path: string; waiting: number }>();
+  const counts: Record<string, number> = {};
+  for (const row of result.results || []) {
+    counts[normalizePagePath(row.path)] = Number(row.waiting) || 0;
+  }
+  return counts;
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
@@ -129,12 +147,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   if (!env.DB) return noDatabase();
 
   try {
-    const [rows, events, subscribers] = await Promise.all([
+    const [rows, events, subscribers, waitingCounts] = await Promise.all([
       env.DB.prepare('SELECT * FROM page_locks ORDER BY path ASC').all<LockRow>(),
       env.DB.prepare(`SELECT path, action, created_at FROM page_lock_events
         ORDER BY id DESC LIMIT ${MAX_EVENTS}`).all<{ path: string; action: string; created_at: string }>(),
       env.DB.prepare(`SELECT * FROM page_lock_subscribers
         ORDER BY id DESC LIMIT ${MAX_SUBSCRIBERS}`).all<SubscriberRow>(),
+      readWaitingCounts(env.DB),
     ]);
 
     const traffic = await readTraffic(env.DB);
@@ -157,7 +176,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
         lockedAt: state?.lockedAt || '',
         updatedAt: state?.updatedAt || '',
         weeklyViews: traffic[route.path] || 0,
-        waiting: (subscribers.results || []).filter((item) => normalizePagePath(item.path) === route.path && !item.notified_at).length,
+        waiting: waitingCounts[route.path] || 0,
       };
     });
 

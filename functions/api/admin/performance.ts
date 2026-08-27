@@ -200,10 +200,16 @@ function compactPsiResponse(payload: PsiResponse, requestedUrl: string, strategy
     .sort((a, b) => (b.savingsMs - a.savingsMs) || (b.savingsBytes - a.savingsBytes))
     .slice(0, 5);
 
+  // Подпись под цифрами обязана говорить правду о том, откуда они взяты.
+  // Раньше источник определялся сравнением ссылок: когда у страницы не было
+  // данных Chrome UX и у сайта тоже, оба поля равнялись undefined, сравнение
+  // совпадало, и раздел подписывал пустой блок как «данные этой страницы».
   const pageField = payload.loadingExperience;
   const originField = payload.originLoadingExperience;
-  const fieldSource = Object.keys(pageField?.metrics || {}).length > 0 ? pageField : originField;
-  const fieldScope = fieldSource === pageField ? 'page' : fieldSource === originField ? 'origin' : 'none';
+  const hasPageField = Object.keys(pageField?.metrics || {}).length > 0;
+  const hasOriginField = Object.keys(originField?.metrics || {}).length > 0;
+  const fieldSource = hasPageField ? pageField : hasOriginField ? originField : undefined;
+  const fieldScope = hasPageField ? 'page' : hasOriginField ? 'origin' : 'none';
   const categoryScore = (id: 'performance' | 'accessibility' | 'best-practices' | 'seo') => {
     const score = lighthouse.categories?.[id]?.score;
     return typeof score === 'number' ? Math.round(score * 100) : null;
