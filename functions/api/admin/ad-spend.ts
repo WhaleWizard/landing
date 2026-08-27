@@ -2,6 +2,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { parseMoney } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -55,22 +56,7 @@ function normalizeCurrency(value: unknown): string | null {
 
 // «1 234,56», «1234.56» и «$1,234.56» — всё это один и тот же расход.
 function normalizeAmount(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value >= 0 && value <= MAX_AMOUNT ? Math.round(value * 100) / 100 : null;
-  }
-  const raw = String(value ?? '').replace(/[^\d.,-]/g, '').trim();
-  if (!raw) return null;
-  const lastComma = raw.lastIndexOf(',');
-  const lastDot = raw.lastIndexOf('.');
-  let normalized = raw;
-  if (lastComma >= 0 && lastComma > lastDot) {
-    normalized = raw.replace(/\./g, '').replace(',', '.');
-  } else {
-    normalized = raw.replace(/,/g, '');
-  }
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_AMOUNT) return null;
-  return Math.round(parsed * 100) / 100;
+  return parseMoney(value, MAX_AMOUNT);
 }
 
 function normalizeEntry(raw: unknown): SpendEntry | { error: string } {
@@ -93,13 +79,53 @@ function normalizeEntry(raw: unknown): SpendEntry | { error: string } {
   };
 }
 
+/**
+ * Разбор CSV с учётом кавычек.
+ *
+ * Названия кампаний в выгрузках Meta и Google Ads регулярно содержат запятую
+ * («Retargeting, RU»), а раньше строка резалась простым `split`: запятая внутри
+ * кавычек сдвигала все колонки после себя. Название кампании обрезалось по
+ * первой запятой, и повторный импорт того же файла создавал вторую строку
+ * расхода вместо обновления существующей — расход за день удваивался.
+ * Кавычки заодно разрешают перенос строки внутри поля, поэтому текст режется
+ * на строки здесь же, а не заранее.
+ */
+function parseCsvRows(text: string, delimiter: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (quoted) {
+      if (char !== '"') { cell += char; continue; }
+      // Две кавычки подряд внутри поля — это одна кавычка в тексте.
+      if (text[index + 1] === '"') { cell += '"'; index += 1; continue; }
+      quoted = false;
+      continue;
+    }
+    if (char === '"') { quoted = true; continue; }
+    if (char === delimiter) { row.push(cell.trim()); cell = ''; continue; }
+    if (char === '\r') continue;
+    if (char === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; continue; }
+    cell += char;
+  }
+  row.push(cell.trim());
+  rows.push(row);
+
+  return rows.filter((item) => item.some((value) => value !== ''));
+}
+
 // CSV из рекламных кабинетов: заголовок обязателен, порядок колонок любой.
 function parseCsv(csv: string): { entries: unknown[]; skipped: number } {
-  const lines = String(csv || '').split(/\r?\n/).filter((line) => line.trim());
-  if (!lines.length) return { entries: [], skipped: 0 };
-  const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
-  const splitLine = (line: string) => line.split(delimiter).map((cell) => cell.trim().replace(/^"|"$/g, ''));
-  const header = splitLine(lines[0]).map((cell) => cell.toLowerCase());
+  const text = String(csv || '');
+  const firstLine = text.split(/\r?\n/, 1)[0] || '';
+  if (!firstLine.trim()) return { entries: [], skipped: 0 };
+  const delimiter = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';
+  const rows = parseCsvRows(text, delimiter);
+  if (!rows.length) return { entries: [], skipped: 0 };
+  const header = rows[0].map((cell) => cell.toLowerCase());
   const columnIndex = (...names: string[]) => {
     for (const name of names) {
       const index = header.indexOf(name);
@@ -115,12 +141,15 @@ function parseCsv(csv: string): { entries: unknown[]; skipped: number } {
     currency: columnIndex('currency', 'валюта'),
     note: columnIndex('note', 'comment', 'заметка', 'комментарий'),
   };
-  if (indexes.day < 0 || indexes.amount < 0) return { entries: [], skipped: lines.length - 1 };
+  const dataRows = rows.slice(1);
+  if (indexes.day < 0 || indexes.amount < 0) return { entries: [], skipped: dataRows.length };
 
   const entries: unknown[] = [];
   let skipped = 0;
-  for (const line of lines.slice(1, MAX_ENTRIES_PER_REQUEST + 1)) {
-    const cells = splitLine(line);
+  for (const cells of dataRows) {
+    // Строки сверх лимита попадают в «пропущено», а не исчезают молча:
+    // иначе владелец видел бы «сохранено 500» и не знал про остаток файла.
+    if (entries.length >= MAX_ENTRIES_PER_REQUEST) { skipped += 1; continue; }
     const cell = (index: number) => (index >= 0 ? cells[index] || '' : '');
     const day = cell(indexes.day);
     if (!day) { skipped += 1; continue; }

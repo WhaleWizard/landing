@@ -2,6 +2,7 @@ import { json, readRequestText } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { normalizeCurrencyCode, parseMoneyOrZero } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 
 /**
@@ -62,28 +63,8 @@ function cleanMonth(value: unknown): string {
  * же, что в `ad-spend.ts` и в поле ввода админки: последний разделитель —
  * десятичный, остальные разрядные.
  */
-function cleanAmount(value: unknown): number {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value >= 0 ? Math.min(1_000_000_000, value) : 0;
-  }
-  const cleaned = String(value ?? '').replace(/[^\d.,-]/g, '').trim();
-  if (!cleaned) return 0;
-
-  const lastComma = cleaned.lastIndexOf(',');
-  const lastDot = cleaned.lastIndexOf('.');
-  const normalized = lastComma > lastDot
-    ? cleaned.replace(/\./g, '').replace(',', '.')
-    : cleaned.replace(/,/g, '');
-
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed < 0) return 0;
-  return Math.min(1_000_000_000, parsed);
-}
-
-function cleanCurrency(value: unknown, fallback = 'USD'): string {
-  const text = String(value ?? '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
-  return text.length === 3 ? text : fallback;
-}
+const cleanAmount = parseMoneyOrZero;
+const cleanCurrency = normalizeCurrencyCode;
 
 function cleanInvoiceStatus(value: unknown): string {
   const text = String(value ?? '');

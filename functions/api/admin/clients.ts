@@ -2,6 +2,7 @@ import { json, readRequestText } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { normalizeCurrencyCode, parseMoney, parseMoneyOrZero } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 
 /**
@@ -104,22 +105,9 @@ function cleanMonth(value: unknown): string | null {
   return /^\d{4}-\d{2}$/.test(text) ? text : null;
 }
 
-function cleanAmount(value: unknown): number {
-  const parsed = Number(String(value ?? '').replace(',', '.'));
-  if (!Number.isFinite(parsed) || parsed < 0) return 0;
-  return Math.min(1_000_000_000, parsed);
-}
-
-function cleanOptionalNumber(value: unknown): number | null {
-  if (value === null || value === undefined || String(value).trim() === '') return null;
-  const parsed = Number(String(value).replace(',', '.'));
-  return Number.isFinite(parsed) && parsed >= 0 ? Math.min(1_000_000_000, parsed) : null;
-}
-
-function cleanCurrency(value: unknown, fallback = 'USD'): string {
-  const text = String(value ?? '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
-  return text.length === 3 ? text : fallback;
-}
+const cleanAmount = parseMoneyOrZero;
+const cleanOptionalNumber = parseMoney;
+const cleanCurrency = normalizeCurrencyCode;
 
 function cleanStatus(value: unknown): ClientStatus {
   const text = String(value ?? '');
@@ -221,16 +209,21 @@ async function listClients(env: Env): Promise<Response> {
   const [clientRows, monthRows] = await Promise.all([
     db.prepare('SELECT * FROM clients ORDER BY (status = \'finished\'), name COLLATE NOCASE').all<ClientRow>(),
     db.prepare(
-      `SELECT client_id, month, report_sent_at, spend, leads
+      `SELECT client_id, month, report_sent_at, spend, spend_currency, leads
        FROM client_months ORDER BY month DESC`,
-    ).all<{ client_id: number; month: string; report_sent_at: string | null; spend: number | null; leads: number | null }>(),
+    ).all<{ client_id: number; month: string; report_sent_at: string | null; spend: number | null; spend_currency: string | null; leads: number | null }>(),
   ]);
 
-  const monthsByClient = new Map<number, Array<{ month: string; reported: boolean; cpl: number | null }>>();
+  const monthsByClient = new Map<number, Array<{ month: string; reported: boolean; cpl: number | null; currency: string }>>();
   for (const row of monthRows.results || []) {
     const list = monthsByClient.get(row.client_id) || [];
     const cpl = row.spend !== null && row.leads ? row.spend / row.leads : null;
-    list.push({ month: row.month, reported: Boolean(row.report_sent_at), cpl });
+    list.push({
+      month: row.month,
+      reported: Boolean(row.report_sent_at),
+      cpl,
+      currency: String(row.spend_currency || ''),
+    });
     monthsByClient.set(row.client_id, list);
   }
 
@@ -238,9 +231,13 @@ async function listClients(env: Env): Promise<Response> {
     const months = monthsByClient.get(client.id) || [];
     const lastReportMonth = months.find((item) => item.reported)?.month || null;
     const withCpl = months.filter((item) => item.cpl !== null);
+    // Два месяца сравниваются только внутри одной валюты. Иначе смена валюты
+    // в таблице месяцев рисовала бы «цена лида выросла на 12 000%» — число,
+    // за которым нет ничего, кроме разных единиц измерения.
+    const comparable = withCpl[1] && withCpl[0] && withCpl[1].currency === withCpl[0].currency;
     const { health, reasons } = computeHealth(client, lastReportMonth, {
       current: withCpl[0]?.cpl ?? null,
-      previous: withCpl[1]?.cpl ?? null,
+      previous: comparable ? withCpl[1].cpl : null,
     });
     return {
       ...client,
