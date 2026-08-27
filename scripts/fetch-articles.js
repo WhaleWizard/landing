@@ -151,53 +151,76 @@ function writeBuildArticles(articles, source) {
   );
 }
 
-async function fetchArticlesFromPublicApi() {
-  const response = await fetchWithTimeout(
-    PUBLIC_ARTICLES_URL,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'WhaleWizard-SEO-Build/1.0',
-      },
-      method: 'GET',
-    },
-    TIMEOUT_MS,
-  );
-
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const payload = await response.json();
-  return Array.isArray(payload?.articles) ? payload.articles : [];
-}
-
-async function fetchArticlesFromJsonBin() {
-  const headers = buildJsonBinHeaders();
+/**
+ * Повторы при сетевом сбое, общие для обоих источников.
+ *
+ * Повторяется только неудача самого запроса — обрыв связи или код ошибки.
+ * Пустой или негодный список повторами не лечится: его проверяет
+ * `isUsableArticleList` уже после возврата, и правило «пустой список — это
+ * ответ, а не сбой» остаётся нетронутым.
+ *
+ * Раньше повторы были только у JSONBin. Публичный API опрашивается со сборки на
+ * Cloudflare и обращается к тому же сайту, поэтому единичный сбой там вполне
+ * обычен — холодный старт, гонка с предыдущим деплоем. Без повторов такой сбой
+ * сразу уводил сборку на запасной источник, а при включённом
+ * REQUIRE_FRESH_ARTICLES просто ронял её.
+ */
+async function withRetries(label, run) {
   let lastError = null;
 
   for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
     try {
-      const response = await fetchWithTimeout(
-        JSONBIN_URL,
-        {
-          headers,
-          method: 'GET',
-        },
-        TIMEOUT_MS,
-      );
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const payload = await response.json();
-      if (Array.isArray(payload?.record)) return payload.record;
-      if (Array.isArray(payload?.record?.articles)) return payload.record.articles;
-      return [];
+      return await run();
     } catch (error) {
       lastError = error;
-      console.warn(`⚠️ JSONBin fetch attempt ${attempt}/${RETRIES} failed.`);
+      console.warn(`⚠️ ${label} fetch attempt ${attempt}/${RETRIES} failed.`);
       if (attempt < RETRIES) await sleep(300 * attempt);
     }
   }
 
-  throw lastError || new Error('JSONBin fetch failed');
+  throw lastError || new Error(`${label} fetch failed`);
+}
+
+async function fetchArticlesFromPublicApi() {
+  return withRetries('Public articles API', async () => {
+    const response = await fetchWithTimeout(
+      PUBLIC_ARTICLES_URL,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'WhaleWizard-SEO-Build/1.0',
+        },
+        method: 'GET',
+      },
+      TIMEOUT_MS,
+    );
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    return Array.isArray(payload?.articles) ? payload.articles : [];
+  });
+}
+
+async function fetchArticlesFromJsonBin() {
+  const headers = buildJsonBinHeaders();
+
+  return withRetries('JSONBin', async () => {
+    const response = await fetchWithTimeout(
+      JSONBIN_URL,
+      {
+        headers,
+        method: 'GET',
+      },
+      TIMEOUT_MS,
+    );
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const payload = await response.json();
+    if (Array.isArray(payload?.record)) return payload.record;
+    if (Array.isArray(payload?.record?.articles)) return payload.record.articles;
+    return [];
+  });
 }
 
 /**
