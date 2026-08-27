@@ -213,16 +213,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const period = cleanMonth(body.period);
       if (!period) return json({ success: false, error: 'Нужен месяц в виде 2026-08' }, { status: 400, headers: noStore });
 
+      // Берём всех активных, а не только тех, у кого заполнен чек: клиента без
+      // чека надо не молча пропустить, а назвать. Иначе кнопка отвечает «у всех
+      // уже есть счёт» там, где счёт просто некому было выставить.
       const clients = await db.prepare(
         `SELECT id, retainer_amount, retainer_currency, billing_day FROM clients
-         WHERE status = 'active' AND retainer_amount > 0`,
+         WHERE status = 'active'`,
       ).all<{ id: number; retainer_amount: number; retainer_currency: string; billing_day: number | null }>();
 
       const existing = await db.prepare('SELECT client_id FROM invoices WHERE period = ?').bind(period).all<{ client_id: number }>();
       const already = new Set((existing.results || []).map((row) => row.client_id));
 
+      const active = clients.results || [];
+      const billable = active.filter((client) => Number(client.retainer_amount) > 0);
+      const withoutRetainer = active.length - billable.length;
+      const alreadyBilled = billable.filter((client) => already.has(client.id)).length;
+
       const [year, month] = period.split('-').map(Number);
-      const statements = (clients.results || [])
+      const statements = billable
         .filter((client) => !already.has(client.id))
         .map((client) => {
           const day = client.billing_day || 1;
@@ -235,7 +243,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         });
 
       if (statements.length) await db.batch(statements);
-      return json({ success: true, created: statements.length, skipped: already.size }, { headers: noStore });
+      return json({
+        success: true,
+        created: statements.length,
+        skipped: alreadyBilled,
+        without_retainer: withoutRetainer,
+        active_clients: active.length,
+      }, { headers: noStore });
     }
 
     if (action === 'save_expense') {

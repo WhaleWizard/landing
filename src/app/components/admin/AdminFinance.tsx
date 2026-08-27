@@ -376,7 +376,22 @@ export default function AdminFinance({ password }: { password: string }) {
                 const result = await request({ action: 'issue_month', period: issueMonth });
                 if (result) {
                   const created = Number(result.created || 0);
-                  notify.success(created ? `Выставлено счетов: ${created}` : 'Новых счетов не появилось', created ? undefined : 'У всех активных клиентов счёт за этот месяц уже есть.');
+                  if (created) {
+                    notify.success(`Выставлено счетов: ${created}`);
+                    return;
+                  }
+                  // Раз счетов не появилось, надо сказать почему именно. «У всех
+                  // уже есть счёт» — только одна из причин: клиента без чека
+                  // кнопка пропускает, и молчать об этом нельзя, иначе владелец
+                  // решит, что счёт выставлен.
+                  const active = Number(result.active_clients || 0);
+                  const billed = Number(result.skipped || 0);
+                  const noRetainer = Number(result.without_retainer || 0);
+                  const reasons: string[] = [];
+                  if (billed) reasons.push(`у ${billed} счёт за этот месяц уже есть`);
+                  if (noRetainer) reasons.push(`у ${noRetainer} не заполнен чек — впишите его в карточке клиента`);
+                  if (!active) reasons.push('активных клиентов нет');
+                  notify.info('Новых счетов не появилось', reasons.join('; ') || undefined);
                 }
               }}>
                 Выставить за месяц

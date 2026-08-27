@@ -142,7 +142,7 @@ function daysUntil(iso: string | null): number | null {
  */
 function computeHealth(
   client: ClientRow,
-  lastReportMonth: string | null,
+  previousMonthReported: boolean,
   trend: { current: number | null; previous: number | null },
 ): { health: Health; reasons: string[] } {
   if (client.status === 'finished') return { health: 'ok', reasons: [] };
@@ -157,7 +157,11 @@ function computeHealth(
   const previousMonth = monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
   // До десятого числа отчёт за прошлый месяц ещё не просрочен — это нормальный
   // срок на сбор цифр, а не повод краснеть.
-  if (client.status === 'active' && now.getUTCDate() > 10 && lastReportMonth !== previousMonth) {
+  //
+  // Спрашиваем именно про прошлый месяц, а не «совпадает ли он с самым свежим
+  // отправленным». Отчёт за текущий месяц, отправленный вперёд, делал самый
+  // свежий месяц текущим — и раздел требовал отчёт, который давно отправлен.
+  if (client.status === 'active' && now.getUTCDate() > 10 && !previousMonthReported) {
     reasons.push(`Отчёт за ${previousMonth} не отправлен`);
     raise('critical');
   }
@@ -227,6 +231,9 @@ async function listClients(env: Env): Promise<Response> {
     monthsByClient.set(row.client_id, list);
   }
 
+  const nowUtc = new Date();
+  const previousMonthKey = monthKey(new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth() - 1, 1)));
+
   const clients = (clientRows.results || []).map((client) => {
     const months = monthsByClient.get(client.id) || [];
     const lastReportMonth = months.find((item) => item.reported)?.month || null;
@@ -235,7 +242,8 @@ async function listClients(env: Env): Promise<Response> {
     // в таблице месяцев рисовала бы «цена лида выросла на 12 000%» — число,
     // за которым нет ничего, кроме разных единиц измерения.
     const comparable = withCpl[1] && withCpl[0] && withCpl[1].currency === withCpl[0].currency;
-    const { health, reasons } = computeHealth(client, lastReportMonth, {
+    const previousMonthReported = months.some((item) => item.month === previousMonthKey && item.reported);
+    const { health, reasons } = computeHealth(client, previousMonthReported, {
       current: withCpl[0]?.cpl ?? null,
       previous: comparable ? withCpl[1].cpl : null,
     });
