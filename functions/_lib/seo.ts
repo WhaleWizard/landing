@@ -78,11 +78,18 @@ function toIsoDate(value?: string): string | null {
   return null;
 }
 
+/**
+ * Дата публикации для RSS.
+ *
+ * Именно публикации, а не правки: `pubDate` в RSS означает «когда материал
+ * вышел». Раньше первым стоял `updatedAt`, и отредактированная старая статья
+ * всплывала у подписчиков как новая.
+ */
 function resolveArticleDate(article: Article): string | null {
   return (
-    toIsoDate(article.updatedAt) ||
     toIsoDate(article.publishedAt) ||
-    toIsoDate(article.date)
+    toIsoDate(article.date) ||
+    toIsoDate(article.updatedAt)
   );
 }
 
@@ -321,7 +328,6 @@ export function findArticleBySlugPrefix(articles: Article[], slug: string, secti
 }
 
 export function renderSitemapXml(siteUrl: string, routes: string[], articleDates: Record<string, string>): string {
-  const defaultLastmod = new Date().toISOString().slice(0, 10);
   const uniqueRoutes = [...new Set(routes)];
 
   const canonicalRoute = (route: string): string => {
@@ -334,11 +340,16 @@ export function renderSitemapXml(siteUrl: string, routes: string[], articleDates
   const urls = uniqueRoutes
     .map((route) => {
       const loc = xmlEscape(`${siteUrl}${canonicalRoute(route)}`);
-      const lastmod = toIsoDate(articleDates[route]) || defaultLastmod;
       const isArticle = /^\/(blog|cases)\/[^/]+$/.test(route);
+      // `lastmod` ставится только там, где дата действительно известна, — то
+      // есть у статей. Раньше остальным страницам подставлялась сегодняшняя
+      // дата, и карта сайта каждый день заявляла, что изменились все страницы
+      // сразу. Поисковик такому полю перестаёт доверять целиком, и оно
+      // перестаёт работать даже там, где дата настоящая.
+      const lastmod = toIsoDate(articleDates[route]);
       const priority = isArticle ? '0.8' : route === '/' ? '1.0' : '0.7';
       const changefreq = isArticle ? 'weekly' : route === '/' ? 'daily' : 'monthly';
-      return `  <url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+      return `  <url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
     })
     .join('\n');
 

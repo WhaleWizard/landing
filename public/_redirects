@@ -4,6 +4,9 @@
 # Canonical host redirect (avoid duplicate www/non-www indexing)
 https://whalewzrd.com/* https://www.whalewzrd.com/:splat 301!
 
-# Legacy article API alias. All public SPA routes are pre-rendered into their
-# own directories, so an all-path index fallback would create soft-404 pages.
-/api/article /api/articles 302
+# Старый адрес /api/article переадресуется функцией functions/api/article.ts
+# кодом 308. Здесь правила нет намеренно: для /api/* запрос обрабатывает
+# функция, а вторая запись с другим кодом (302) только противоречила бы ей.
+#
+# Все публичные роуты SPA пре-рендерятся в собственные каталоги, поэтому
+# общего фолбэка на index здесь тоже нет — он создавал бы soft-404.

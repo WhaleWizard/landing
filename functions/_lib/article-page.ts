@@ -18,12 +18,21 @@ function getSiteUrl(env: Env, request: Request): string {
   return new URL(request.url).origin.replace(/\/$/, '');
 }
 
+/**
+ * `Vary: User-Agent` обязателен: этот обработчик отдаёт боту голую SEO-разметку,
+ * а человеку — оболочку SPA, то есть содержимое зависит от заголовка запроса.
+ * Ответ для бота при этом кэшируемый (`public, s-maxage=300`), и без `Vary`
+ * любой общий кэш — CDN, корпоративный прокси — вправе отдать сохранённую
+ * версию следующему запросу того же адреса независимо от User-Agent. Человек
+ * получил бы страницу без стилей и без React.
+ */
 function htmlResponse(html: string, status: number, cacheControl: string): Response {
   return new Response(html, {
     status,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': cacheControl,
+      Vary: 'User-Agent',
     },
   });
 }
@@ -75,7 +84,17 @@ async function getArticleShell(
     /(<body\b[^>]*>)[\s\S]*?<\/body>/i,
     '$1<div id="root"></div></body>',
   );
-  return new Response(neutral, { status: 200, headers: sectionShell.headers });
+  // Заголовки собираются заново, а не копируются с исходного ответа. Тело уже
+  // прочитано `.text()` и переписано, поэтому старые `Content-Length` и —
+  // что опаснее — `Content-Encoding: gzip` описывали бы совсем другое
+  // содержимое: браузер попытался бы распаковать обычный текст.
+  return new Response(neutral, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': CACHE_CONTROL.noStore,
+    },
+  });
 }
 
 /**
