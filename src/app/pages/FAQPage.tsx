@@ -730,10 +730,10 @@ export default function FAQPage() {
               </p>
               <button
                 onClick={() => {
-                  navigate('/');
-                  setTimeout(() => {
-                    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
-                  }, 80);
+                  // Переход с хешем вместо «перейти на главную и через 80 мс
+                  // поискать форму»: чанк главной за это время может не
+                  // успеть загрузиться, и человек оставался наверху главной.
+                  navigate('/#contact');
                 }}
                 className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-6 py-3 text-white font-semibold hover:opacity-95 transition-opacity"
               >

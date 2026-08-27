@@ -439,10 +439,11 @@ export default function MarketingCalculator({
 
   const goToContact = () => {
     onClose?.();
-    navigate('/');
-    window.setTimeout(() => {
-      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
-    }, 120);
+    // Переход с хешем вместо «перейти на главную и через 120 мс поискать
+    // форму»: секции главной монтируются лениво и за это время не появляются,
+    // поэтому человек с посчитанным бюджетом попадал наверх главной вместо
+    // формы заявки. Home поднимает адресуемую секцию сразу.
+    navigate('/#contact');
   };
 
   const togglePlatform = (platform: 'google' | 'meta') => {

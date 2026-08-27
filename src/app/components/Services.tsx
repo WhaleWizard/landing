@@ -194,13 +194,13 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
       const contactElement = document.getElementById('contact');
       if (contactElement) {
         contactElement.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        navigate('/');
-        setTimeout(() => {
-          const el = document.getElementById('contact');
-          if (el) el.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        return;
       }
+      // Раньше здесь был переход на «/» и одна попытка прокрутить через 100 мс.
+      // Секции главной монтируются лениво и за это время не появляются, поэтому
+      // человек, нажавший «обсудить проект», оказывался наверху главной вместо
+      // формы. Хеш решает это надёжно: Home поднимает адресуемую секцию сразу.
+      navigate('/#contact');
     }, 150);
   };
 
