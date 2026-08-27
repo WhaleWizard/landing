@@ -253,7 +253,13 @@ test('discovery files are present and robots points to the canonical sitemap', (
   assert.doesNotMatch(dynamicSitemap, /['"]\/llms\.txt['"]/, 'dynamic sitemap must not index llms.txt');
   const robots = readFileSync(join(DIST, 'robots.txt'), 'utf8');
   assert.match(robots, new RegExp(`Sitemap: ${SITE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/sitemap\\.xml`));
-  assert.match(robots, /^Disallow: \/admin$/m);
+  // Служебные страницы закрыты заголовком `noindex`, а не запретом обхода:
+  // запрещённую в robots.txt страницу робот не скачивает и потому `noindex` не
+  // видит. Тот же довод уже применён к `/api/*`. Проверяем обе половины
+  // правила: запрета здесь нет, а `noindex` в разметке админки есть.
+  assert.doesNotMatch(robots, /^Disallow: \/admin$/m);
+  const adminHtml = readFileSync(join(DIST, 'admin', 'index.html'), 'utf8');
+  assert.match(adminHtml, /content="noindex, nofollow, noarchive"/);
 });
 
 test('article routes are served with their own meta, not the home page shell', () => {

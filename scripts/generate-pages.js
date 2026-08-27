@@ -1806,9 +1806,14 @@ ${uniqueRoutes.map((route) => `  <url><loc>${xmlEscape(`${SITE_URL}${withTrailin
 }
 
 function writeRobots() {
+  // `/admin` закрыт от индексации заголовком `noindex` в самой разметке, а не
+  // запретом обхода. Причина та же, по которой так же поступили с `/api/*`:
+  // запрещённую в robots.txt страницу робот не скачивает и потому не видит
+  // `noindex` — и адрес может попасть в выдачу пустым, если на него откуда-то
+  // сошлётся ссылка. Разрешённый обход служебной страницы безвреден: там
+  // статическая оболочка, а `noindex` робот прочитает и выполнит.
   const robots = `User-agent: *
 Allow: /
-Disallow: /admin
 Sitemap: ${SITE_URL}/sitemap.xml
 
 # AI assistants: machine-readable site context and content index

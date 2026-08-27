@@ -1,4 +1,7 @@
+# /admin закрыт от индексации заголовком noindex в самой разметке, а не
+# запретом обхода: запрещённую здесь страницу робот не скачивает и потому не
+# видит noindex. Тот же довод, по которому /api/* закрыт заголовком.
+# Рабочий файл собирается scripts/generate-pages.js — правки нужны в обоих.
 User-agent: *
 Allow: /
-Disallow: /admin
 Sitemap: https://www.whalewzrd.com/sitemap.xml
