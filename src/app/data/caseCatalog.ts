@@ -149,8 +149,24 @@ export const FALLBACK_CASE_ARTICLES: Array<Pick<Article, 'id' | 'slug' | 'title'
   },
 ];
 
+/**
+ * Только свой ключ карты.
+ *
+ * Адрес статьи приходит из ссылки, поэтому обычный поиск по объекту находил бы
+ * и унаследованные свойства: для `/cases/constructor` вернулась бы функция
+ * `Object` вместо `undefined`. Сегодня все вызывающие места читают у результата
+ * поле через `?.` и падают на запасной вариант, но тип функции при этом врёт,
+ * а следующее место, которое обратится к результату иначе, обвалится.
+ */
 export function getCaseCatalogMeta(slug?: string): CaseCatalogMeta | undefined {
-  return slug ? CASE_CATALOG_META[slug] : undefined;
+  if (!slug || !Object.prototype.hasOwnProperty.call(CASE_CATALOG_META, slug)) return undefined;
+  return CASE_CATALOG_META[slug];
+}
+
+/** Раздел, из которого пришли на кейсы: значение `?from=` — тоже из адреса. */
+export function getCaseBackTarget(from?: string | null): { path: string; label: string } | undefined {
+  if (!from || !Object.prototype.hasOwnProperty.call(CASE_BACK_TARGETS, from)) return undefined;
+  return CASE_BACK_TARGETS[from];
 }
 
 export function getCaseDisplayTitle(title = ''): string {

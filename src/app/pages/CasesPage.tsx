@@ -50,7 +50,7 @@ import DeferredImage from '../components/DeferredImage';
 import ArticlesLoadError from '../components/ArticlesLoadError';
 import { useManagedTitleFit } from '../utils/contentTypography';
 import {
-  CASE_BACK_TARGETS,
+  getCaseBackTarget,
   getCaseCover,
   getCaseCoverAlt,
   getCaseDisplayTitle,
@@ -101,6 +101,12 @@ const ENTRY_PRESETS: Record<string, { sources: string[]; nicheHints: string[]; t
     text: 'Показаны кейсы, в которых Google Ads была частью рекламной системы.',
   },
 };
+
+/** Предустановка фильтров по `?from=` — только свой ключ, значение из адреса. */
+function entryPreset(from?: string | null): { sources: string[]; nicheHints: string[]; text: string } | undefined {
+  if (!from || !Object.prototype.hasOwnProperty.call(ENTRY_PRESETS, from)) return undefined;
+  return ENTRY_PRESETS[from];
+}
 
 type SortValue = 'fresh' | 'roi' | 'budget';
 type CaseFilterKind = 'niche' | 'source' | 'result';
@@ -429,10 +435,14 @@ export default function CasesPage() {
     const presetDisabled = params.get('all') === '1';
     const hasExplicitFilters = presetDisabled || ['niche', 'src', 'result'].some((key) => params.has(key));
 
-    setOrigin(from && CASE_BACK_TARGETS[from] ? from : null);
-    setEntry(from && ENTRY_PRESETS[from] && !hasExplicitFilters ? from : null);
-    if (from && ENTRY_PRESETS[from] && !hasExplicitFilters) {
-      const preset = ENTRY_PRESETS[from];
+    // `from` приходит прямо из адреса, поэтому обе карты ищутся только по своему
+    // ключу. Обычный поиск по объекту находил и унаследованные свойства: для
+    // `?from=constructor` возвращалась функция `Object`, дальше у неё читалось
+    // `preset.sources.filter(...)`, и страница падала прямо во время отрисовки.
+    const preset = entryPreset(from);
+    setOrigin(getCaseBackTarget(from) ? from : null);
+    setEntry(preset && !hasExplicitFilters ? from : null);
+    if (preset && !hasExplicitFilters) {
       setSources(new Set(preset.sources.filter((source) => allSources.includes(source))));
       setNiches(new Set(allNiches.filter((niche) => preset.nicheHints.some((hint) => niche.toLowerCase().includes(hint)))));
       setGoals(new Set());
@@ -663,9 +673,9 @@ export default function CasesPage() {
 
         <section className="cases-finder-catalog">
           <div className="cases-finder-container">
-            {entry && ENTRY_PRESETS[entry] ? (
+            {entryPreset(entry) ? (
               <div className="cases-entry-note">
-                <span>{ENTRY_PRESETS[entry].text}</span>
+                <span>{entryPreset(entry)?.text}</span>
                 <button type="button" onClick={clearAll}>Показать все</button>
               </div>
             ) : null}
