@@ -4,6 +4,7 @@ import {
   Target, TrendingUp, Trophy, UserCheck, Wallet,
 } from 'lucide-react';
 import { AdminBlank, AdminSectionSkeleton, notify } from './AdminFeedback';
+import { AdminDecimalInput } from './AdminUI';
 import { formatMoney, formatNumber, formatPercent } from './AttributionCharts';
 
 interface Goal {
@@ -403,18 +404,26 @@ export default function AdminGoals({ password }: { password: string }) {
                   onChange={(event) => setDraft((current) => current && { ...current, qualified_target: Number(event.target.value.replace(/\D/g, '')) || 0 })}
                 />
               </label>
+              {/*
+                Денежные поля — через AdminDecimalInput. Прежний разбор вырезал
+                всё, кроме цифр и точки, поэтому запятая просто исчезала:
+                «1 500,50» превращалось в 150050 — ошибка в сто раз ровно в том
+                числе, от которого считаются кольца и прогноз всего раздела.
+              */}
               <label className="admin-field">
                 <span className="admin-label">Выручка</span>
-                <input
-                  type="text" inputMode="decimal" value={draft?.revenue_target ?? 0}
-                  onChange={(event) => setDraft((current) => current && { ...current, revenue_target: Number(event.target.value.replace(/[^\d.]/g, '')) || 0 })}
+                <AdminDecimalInput
+                  inputMode="decimal"
+                  value={draft?.revenue_target ?? 0}
+                  onValueChange={(value) => setDraft((current) => current && { ...current, revenue_target: value ?? 0 })}
                 />
               </label>
               <label className="admin-field">
                 <span className="admin-label">Потолок расхода</span>
-                <input
-                  type="text" inputMode="decimal" value={draft?.spend_cap ?? 0}
-                  onChange={(event) => setDraft((current) => current && { ...current, spend_cap: Number(event.target.value.replace(/[^\d.]/g, '')) || 0 })}
+                <AdminDecimalInput
+                  inputMode="decimal"
+                  value={draft?.spend_cap ?? 0}
+                  onValueChange={(value) => setDraft((current) => current && { ...current, spend_cap: value ?? 0 })}
                 />
               </label>
               <label className="admin-field">
