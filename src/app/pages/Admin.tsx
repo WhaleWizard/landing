@@ -109,8 +109,19 @@ const LOGIN_ERROR_TEXT: Record<string, string> = {
   invalid_credentials: 'Неверный пароль',
   invalid_code: 'Неверный код. Проверьте время на телефоне и введите свежий код',
   code_already_used: 'Этим кодом уже входили. Дождитесь следующего',
+  password_required: 'Введите пароль',
   admin_password_not_configured: 'На сервере не задан пароль администратора',
 };
+
+/**
+ * Поиск по карте значением из ответа: без проверки собственного ключа код
+ * ответа `toString` вернул бы функцию, и на экран входа попал бы не текст.
+ */
+function loginErrorText(code: unknown): string {
+  const key = String(code ?? '');
+  if (Object.prototype.hasOwnProperty.call(LOGIN_ERROR_TEXT, key)) return LOGIN_ERROR_TEXT[key];
+  return 'Не удалось войти';
+}
 
 /**
  * Вход отдаёт подписанную сессию в cookie. Пароль после этого в запросах не
@@ -128,7 +139,7 @@ async function adminLogin(password: string, code: string): Promise<AdminLoginRes
   if (res.ok && payload?.success) return { ok: true };
   if (payload?.codeRequired) return { ok: false, codeRequired: true };
   if (res.status === 429) return { ok: false, error: 'Слишком много попыток. Подождите и попробуйте снова' };
-  return { ok: false, error: LOGIN_ERROR_TEXT[String(payload?.error)] || 'Не удалось войти' };
+  return { ok: false, error: loginErrorText(payload?.error) };
 }
 
 /** Жива ли сессия с прошлого раза — проверяется один раз при открытии. */

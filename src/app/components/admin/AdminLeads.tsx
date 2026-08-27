@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   AlertTriangle,
   CalendarClock,
@@ -121,6 +121,12 @@ interface CrmLeadPatch {
   notes: string;
   crm_revision: number;
 }
+
+/** Поля карточки, которые владелец правит руками. Ревизия сюда не входит. */
+const DRAFT_FIELDS = [
+  'pipeline_stage', 'priority', 'lead_score', 'next_action_at', 'next_action_text',
+  'deal_value', 'deal_currency', 'loss_reason', 'notes',
+] as const satisfies ReadonlyArray<keyof CrmLeadPatch>;
 
 interface CrmNote {
   id: number;
@@ -405,6 +411,9 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState<CrmLeadPatch | null>(null);
+  // Последняя карточка, пришедшая с сервера: по ней видно, правил ли владелец
+  // поля руками с прошлой загрузки.
+  const savedDraftRef = useRef<CrmLeadPatch | null>(null);
   const [notes, setNotes] = useState<CrmNote[]>([]);
   const [tasks, setTasks] = useState<CrmTask[]>([]);
   const [tags, setTags] = useState<CrmTag[]>([]);
@@ -432,7 +441,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
       const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; lead?: Record<string, unknown>; notes?: CrmNote[]; tasks?: CrmTask[]; tags?: CrmTag[]; activities?: CrmActivity[] } | null;
       if (!response.ok || !payload?.success || !payload.lead) throw new Error(payload?.error || `HTTP ${response.status}`);
       const row = payload.lead;
-      setDraft({
+      const fresh: CrmLeadPatch = {
         pipeline_stage: String(row.pipeline_stage || 'new') as PipelineStage,
         priority: String(row.priority || 'normal') as Priority,
         lead_score: Number(row.lead_score || 0),
@@ -443,6 +452,23 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
         loss_reason: String(row.loss_reason || ''),
         notes: String(row.notes || ''),
         crm_revision: Number(row.crm_revision || 0),
+      };
+      const previousSaved = savedDraftRef.current;
+      savedDraftRef.current = fresh;
+      setDraft((current) => {
+        // Заметка, задача и теги сохраняются отдельными запросами, и каждый из
+        // них тихо перечитывает карточку. Без этой проверки набранный, но ещё
+        // не сохранённый следующий шаг или сумма сделки молча заменялись бы
+        // серверными значениями — владелец терял текст, ничего об этом не узнав.
+        if (!quiet || !current || !previousSaved) return fresh;
+        // Сливаем по полям: тронутое владельцем остаётся, остальное обновляется
+        // с сервера. Ревизия всегда берётся свежая, иначе следующее сохранение
+        // упрётся в «карточку изменили в другой вкладке».
+        const merged: CrmLeadPatch = { ...fresh };
+        for (const field of DRAFT_FIELDS) {
+          if (current[field] !== previousSaved[field]) Object.assign(merged, { [field]: current[field] });
+        }
+        return merged;
       });
       setNotes(payload.notes || []);
       setTasks(payload.tasks || []);
@@ -1504,6 +1530,13 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
             refreshToken={trashVersion}
             onOpenLead={(lead) => setBoardLead(lead)}
             onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
+            onLeadsRefreshed={(rows) => {
+              // Карточка с доски — это снимок строки на момент клика. Без этой
+              // пересборки после смены качества лида в ней остаются старая метка
+              // Meta и старая ревизия, и второе изменение подряд сервер отклоняет
+              // как «сделку изменили в другой вкладке».
+              setBoardLead((current) => (current ? rows.find((row) => row.id === current.id) || current : current));
+            }}
           />
           {boardLead ? (
             <div className="crm-board-detail">

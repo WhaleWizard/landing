@@ -222,6 +222,7 @@ export default function CrmBoard<T extends BoardLead>({
   selectedId,
   onOpenLead,
   onChanged,
+  onLeadsRefreshed,
   refreshToken,
 }: {
   password: string;
@@ -229,9 +230,15 @@ export default function CrmBoard<T extends BoardLead>({
   selectedId: number | null;
   onOpenLead: (lead: T) => void;
   onChanged: () => void;
+  /** Свежие строки доски — по ним родитель обновляет открытую карточку сделки. */
+  onLeadsRefreshed?: (leads: T[]) => void;
   refreshToken: number;
 }) {
   const [leads, setLeads] = useState<T[]>([]);
+  // Через ссылку, а не через зависимости `load`: иначе новая функция на каждый
+  // рендер родителя перезапускала бы загрузку доски по кругу.
+  const refreshedRef = useRef(onLeadsRefreshed);
+  refreshedRef.current = onLeadsRefreshed;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -247,7 +254,9 @@ export default function CrmBoard<T extends BoardLead>({
       });
       const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; leads?: T[] } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-      setLeads(payload.leads || []);
+      const rows = payload.leads || [];
+      setLeads(rows);
+      refreshedRef.current?.(rows);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить доску');
     } finally {
