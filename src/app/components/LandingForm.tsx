@@ -61,25 +61,35 @@ const formCopy: Record<ServiceType, { title: string; button: string }> = {
   consult: { title: 'Записаться на разбор', button: 'Отправить запрос' },
 };
 
+/**
+ * Что человек написал в поле «Telegram, если удобнее».
+ *
+ * Поле необязательное и подписано однозначно, поэтому всё, что в него попало,
+ * считается телеграм-контактом. Исключение одно — почта: её могли вписать по
+ * ошибке, и лучше отдать её как почту, чем как ник.
+ *
+ * Раньше здесь стояла проверка «похоже на телефон» (восемь и более цифр), и
+ * номер, вписанный в это поле, **отбрасывался целиком**: телефон тут же
+ * перезаписывался значением из обязательного поля телефона, а `contactMethod`
+ * молча переключался с телеграма на WhatsApp. Между тем аккаунт Telegram
+ * заводится как раз на номер, и написать его сюда — обычное дело: владелец
+ * терял и второй контакт, и понимание, куда человек ждёт ответ.
+ *
+ * Почта и телефон из обязательных полей формы всё равно идут отдельно, поэтому
+ * возвращать их отсюда незачем.
+ */
 function normalizeContactForLead(contact: string): {
   email?: string;
-  phone?: string;
   telegramUsername?: string;
   contactMethod: 'telegram' | 'whatsapp';
 } {
   const value = contact.trim();
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const digits = value.replace(/\D/g, '');
-  const looksLikeTelegram = value.startsWith('@') || /^https?:\/\/(t\.me|telegram\.me)\//i.test(value);
   const looksLikeEmail = emailPattern.test(value);
-  const looksLikePhone = digits.length >= 8;
-  const hasTelegramContact = Boolean(value) && (
-    looksLikeTelegram || (!looksLikeEmail && !looksLikePhone)
-  );
+  const hasTelegramContact = Boolean(value) && !looksLikeEmail;
 
   return {
     email: looksLikeEmail ? value : undefined,
-    phone: looksLikePhone ? value : undefined,
     telegramUsername: hasTelegramContact ? value : undefined,
     contactMethod: hasTelegramContact ? 'telegram' : 'whatsapp',
   };
