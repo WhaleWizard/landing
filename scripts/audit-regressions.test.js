@@ -139,6 +139,27 @@ test('автооценка лида читает те значения каче�
   assert.ok(target.reasons.length > 0);
 });
 
+test('разные валюты нигде не складываются в одно число', async () => {
+  // Сквозное правило проекта: курсов в системе нет, поэтому сумма рублей и
+  // долларов — выдуманное число. Аудит нашёл два нарушения: шапка колонки на
+  // доске сделок показывала такую сумму, а список «кто сколько принёс» по ней
+  // сортировался.
+  const board = await readFile(new URL('../src/app/components/admin/CrmBoard.tsx', import.meta.url), 'utf8');
+  const finance = await readFile(new URL('../src/app/components/admin/AdminFinance.tsx', import.meta.url), 'utf8');
+
+  assert.ok(
+    !/leads\.reduce\(\(sum, lead\) => sum \+ \(Number\(lead\.deal_value\)/.test(board),
+    'шапка колонки не должна складывать deal_value всех валют подряд',
+  );
+  assert.ok(board.includes('columnTotals'), 'сумма колонки считается по каждой валюте отдельно');
+
+  assert.ok(
+    !/total: \[\.\.\.money\.values\(\)\]\.reduce/.test(finance),
+    'порядок клиентов не должен считаться суммой всех валют',
+  );
+  assert.ok(finance.includes('primaryTotal'), 'клиенты сортируются по основной валюте');
+});
+
 test('временный отказ приёма заявки отличается от окончательного', async () => {
   const source = await readFile(new URL('../src/app/utils/leadRetryQueue.ts', import.meta.url), 'utf8');
   const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'node20' });

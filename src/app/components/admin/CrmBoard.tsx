@@ -58,6 +58,32 @@ function money(value: number | null | undefined, currency: string | undefined): 
   return `${Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ${currency || ''}`.trim();
 }
 
+/**
+ * Сумма сделок в шапке колонки — по каждой валюте отдельно.
+ *
+ * Раньше здесь складывались все `deal_value` подряд, а подписывалась сумма
+ * самой частой валютой доски. Колонка из двух сделок по 3000 $ и одной на
+ * 250 000 ₽ показывала «256 000 $» — числа, которого не существует. Курсов в
+ * системе нет, поэтому валюты не складываются нигде, и здесь тоже.
+ *
+ * `primary` — самая частая валюта доски: она идёт первой, чтобы привычная
+ * цифра стояла на привычном месте.
+ */
+function columnTotals<T extends BoardLead>(leads: T[], primary: string): string {
+  const totals = new Map<string, number>();
+  for (const lead of leads) {
+    const value = Number(lead.deal_value) || 0;
+    if (value <= 0) continue;
+    const code = lead.deal_currency || primary;
+    totals.set(code, (totals.get(code) || 0) + value);
+  }
+  return [...totals.entries()]
+    .sort((a, b) => (a[0] === primary ? -1 : b[0] === primary ? 1 : b[1] - a[1]))
+    .map(([code, value]) => money(value, code))
+    .filter(Boolean)
+    .join(' · ');
+}
+
 function stageIndex(stage: PipelineStage): number {
   return BOARD_STAGES.findIndex((item) => item.value === stage);
 }
@@ -177,7 +203,7 @@ function BoardColumn<T extends BoardLead>({
   }), [disabled, onMove, stage.value]);
   drop(ref);
 
-  const total = leads.reduce((sum, lead) => sum + (Number(lead.deal_value) || 0), 0);
+  const total = columnTotals(leads, currency);
 
   return (
     <section
@@ -191,7 +217,7 @@ function BoardColumn<T extends BoardLead>({
           <h3>{stage.label}</h3>
           <span className="crm-column__count">{leads.length}</span>
         </div>
-        {total > 0 ? <span className="crm-column__value">{money(total, currency)}</span> : null}
+        {total ? <span className="crm-column__value">{total}</span> : null}
       </header>
       <div className="crm-column__body">
         {leads.length === 0 ? (

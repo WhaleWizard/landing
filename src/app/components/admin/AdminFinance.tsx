@@ -266,10 +266,18 @@ export default function AdminFinance({ password }: { password: string }) {
       addMoney(money, invoice.currency, invoice.amount);
       map.set(invoice.client_id, money);
     });
+    // Порядок в списке «кто сколько принёс» — по основной валюте, а не по
+    // сумме всех валют разом. Складывать рубли с долларами нельзя нигде, в том
+    // числе для сортировки: 100 000 ₽ обгоняли 5000 $, и список показывал
+    // неверную картину того, кто на самом деле приносит больше.
+    //
+    // Кто в основной валюте не платил, идёт следом по алфавиту: придумывать им
+    // курс, чтобы поставить в общий ряд, нельзя.
+    const primary = settings.main_currency || 'USD';
     return [...map.entries()]
-      .map(([id, money]) => ({ id, name: clientName(id), money, total: [...money.values()].reduce((sum, value) => sum + value, 0) }))
-      .sort((a, b) => b.total - a.total);
-  }, [clientName, invoices]);
+      .map(([id, money]) => ({ id, name: clientName(id), money, primaryTotal: money.get(primary) || 0 }))
+      .sort((a, b) => b.primaryTotal - a.primaryTotal || a.name.localeCompare(b.name, 'ru'));
+  }, [clientName, invoices, settings.main_currency]);
 
   const hoursByClient = useMemo(() => {
     const month = currentMonth();
