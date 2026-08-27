@@ -39,7 +39,6 @@ function emptyEvent(): CoverageEvent {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const debugSecret = env.META_CAPI_DEBUG_SECRET;
   const providedSecret = getProvidedSecret(request);
 
   if (!verifyDebugSecret(providedSecret, env)) {

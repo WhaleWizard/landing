@@ -3,7 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { detectDeviceFromUserAgent, fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
+import { detectCountryCode, detectDeviceFromUserAgent, fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
@@ -112,8 +112,7 @@ function detectDevice(userAgent: string): string {
 
 /** Двухбуквенный код страны от Cloudflare; XX и T1 (Tor) не сохраняем. */
 function detectCountry(request: Request): string {
-  const raw = String(request.headers.get('CF-IPCountry') || '').trim().toUpperCase();
-  return /^[A-Z]{2}$/.test(raw) && raw !== 'XX' && raw !== 'T1' ? raw : '';
+  return detectCountryCode(request) || '';
 }
 
 function sanitizeNumber(value: unknown): number | undefined {
@@ -305,7 +304,7 @@ function resolveEventTime(payloadEventTime: number | undefined): number {
 }
 
 function extractRequestContext(request: Request, pageUrl?: string) {
-  const country = request.headers.get('CF-IPCountry') || undefined;
+  const country = detectCountryCode(request);
   const city = request.headers.get('CF-IPCity') || request.headers.get('X-City') || undefined;
   const region = request.headers.get('CF-Region') || request.headers.get('X-Region') || undefined;
   const regionCode = request.headers.get('CF-Region-Code') || request.headers.get('X-Region-Code') || undefined;
@@ -427,7 +426,13 @@ async function sendMetaConversionEvent(
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
   const apiVersion = env.META_CAPI_API_VERSION || 'v25.0';
-  const eventSourceUrl = payload.page_url || payload.page_location || request.headers.get('Referer') || request.url;
+  // Referer единственный в цепочке приходил напрямую от браузера, минуя
+  // `sanitizeUrlQueryParams`: чужой адрес с почтой или токеном в query попадал
+  // в диагностику как есть. Параметры атрибуции очистка сохраняет.
+  const eventSourceUrl = payload.page_url
+    || payload.page_location
+    || sanitizeUrlQueryParams(request.headers.get('Referer') || undefined)
+    || request.url;
   const sanitizedEventSourceUrl = sanitizeUrlForMeta(eventSourceUrl) || request.url;
 
   if (!token || !pixelId) {

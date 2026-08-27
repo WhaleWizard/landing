@@ -12,7 +12,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const debugSecret = env.META_CAPI_DEBUG_SECRET;
   const providedSecret = request.headers.get('x-meta-debug-secret') || undefined;
 
   if (!verifyDebugSecret(providedSecret, env)) {

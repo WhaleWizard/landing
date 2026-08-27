@@ -3,6 +3,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { json } from '../../_lib/http';
 import { processMetaOutbox } from '../../_lib/meta-outbox';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { redactSensitiveText } from '../../_lib/redact';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -57,9 +58,9 @@ async function readQualityTrend(db: D1Database, columns: Set<string>, days: numb
       SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed
     FROM meta_capi_diagnostics
-    WHERE created_at >= datetime('now', ?)
+    WHERE created_at >= ?
     GROUP BY day ORDER BY day ASC
-  `).bind(`-${days} day`).all<{ day: string; events: number; average_score: number | null; sent: number; failed: number }>();
+  `).bind(isoSince(days)).all<{ day: string; events: number; average_score: number | null; sent: number; failed: number }>();
 
   return (rows.results || []).map((row) => ({
     day: String(row.day),
@@ -82,18 +83,18 @@ async function readDedupeState(db: D1Database, days: number): Promise<DedupeStat
     SELECT COUNT(*) AS events,
       SUM(CASE WHEN TRIM(COALESCE(event_id, '')) != '' THEN 1 ELSE 0 END) AS with_event_id
     FROM meta_capi_diagnostics
-    WHERE created_at >= datetime('now', ?)
-  `).bind(`-${days} day`).first<{ events: number; with_event_id: number }>();
+    WHERE created_at >= ?
+  `).bind(isoSince(days)).first<{ events: number; with_event_id: number }>();
 
   const duplicates = await db.prepare(`
     SELECT COUNT(*) AS total FROM (
       SELECT event_id FROM meta_capi_diagnostics
-      WHERE created_at >= datetime('now', ?)
+      WHERE created_at >= ?
         AND TRIM(COALESCE(event_id, '')) != ''
         AND status = 'sent'
       GROUP BY event_id HAVING COUNT(*) > 1
     )
-  `).bind(`-${days} day`).first<{ total: number }>();
+  `).bind(isoSince(days)).first<{ total: number }>();
 
   const events = number(row?.events);
   const withEventId = number(row?.with_event_id);
@@ -156,23 +157,7 @@ function percentage(part: number, total: number): number | null {
 }
 
 function safeErrorMessage(value: unknown): string {
-  let message = String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
-  message = message
-    .replace(/([?&](?:access_token|token|secret|key)=)[^\s&]+/gi, '$1[скрыто]')
-    .replace(/(["']?(?:access_token|token|secret|key)["']?\s*[:=]\s*["']?)[^"',\s}]+/gi, '$1[скрыто]')
-    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[email скрыт]')
-    .replace(/(?:\+?\d[\s().-]*){8,}/g, '[телефон скрыт]')
-    .replace(/\b[a-f0-9]{64}\b/gi, '[идентификатор скрыт]')
-    .replace(/\bfb\.1\.\d+\.\d+\b/gi, '[Meta browser id скрыт]')
-    .replace(/https?:\/\/[^\s]+/gi, (url) => {
-      try {
-        const parsed = new URL(url);
-        return `${parsed.origin}${parsed.pathname}`;
-      } catch {
-        return '[URL скрыт]';
-      }
-    });
-  return message.slice(0, 280) || 'Причина не записана';
+  return redactSensitiveText(value, { maxLength: 280, stripUrlQuery: true }) || 'Причина не записана';
 }
 
 async function getTables(db: D1Database): Promise<Set<string>> {

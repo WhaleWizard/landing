@@ -151,7 +151,6 @@ async function maybeWriteProbe(request: Request, env: Env): Promise<DiagnosticsC
 }
 
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
-  const debugSecret = env.META_CAPI_DEBUG_SECRET;
   const providedSecret = getProvidedSecret(request);
 
   if (!verifyDebugSecret(providedSecret, env)) {

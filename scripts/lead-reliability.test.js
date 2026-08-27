@@ -344,7 +344,9 @@ test('CRM correctness schema rejects duplicate actions and stale revisions', () 
 });
 
 test('quality action ids make reclassification signals unique and retries stable', async () => {
-  const { qualityEventId, qualityEventIds } = await importTypeScript('functions/_lib/admin-lead-quality-status.ts');
+  // Через bundleTypeScript, а не importTypeScript: модуль импортирует соседний
+  // `_lib/redact.ts`, а относительные пути из data:-URL не резолвятся.
+  const { qualityEventId, qualityEventIds } = await bundleTypeScript('functions/_lib/admin-lead-quality-status.ts');
   const first = { id: 7, event_id: 'lead-event', quality_action_id: 'quality-action-1' };
   const retry = { ...first };
   const later = { ...first, quality_action_id: 'quality-action-2' };

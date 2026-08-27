@@ -67,7 +67,10 @@ mustContain('PageView CAPI payload', files.pageview, [
   "action_source: 'website'",
   'event_source_url: eventSourceUrl',
   'referrer_url: sanitizeUrlForMeta(payload.referrer)',
-  'const eventSourceUrl = payload.page_url || payload.page_location',
+  // Цепочка та же, но Referer теперь проходит очистку query: чужой адрес с
+  // почтой или токеном не должен попадать ни в Meta, ни в диагностику.
+  'const eventSourceUrl = payload.page_url',
+  "sanitizeUrlQueryParams(request.headers.get('Referer') || undefined)",
   'marketing_consent: payload.marketing_consent === true',
   "error_message: 'marketing_consent_not_granted'",
   '...getMetaDataProcessingOptions(env)',
@@ -93,7 +96,10 @@ mustContain('Lead request normalization regression', files.lead, [
   'const normalized = normalizeLeadPayload',
   'event_source_url: eventSourceUrl',
   'referrer_url: sanitizeUrlForMeta(payload.referrer)',
-  'const eventSourceUrl = payload.page_url || payload.page_location',
+  // Цепочка та же, но Referer теперь проходит очистку query: чужой адрес с
+  // почтой или токеном не должен попадать ни в Meta, ни в диагностику.
+  'const eventSourceUrl = payload.page_url',
+  "sanitizeUrlQueryParams(request.headers.get('Referer') || undefined)",
   '...getMetaDataProcessingOptions(env)',
 ]);
 assert.ok(!files.lead.includes('const payload = (await request.json().catch(() => ({}))) as LeadPayload'), 'Lead handler must normalize payload before using normalized fields');
@@ -126,7 +132,10 @@ mustContain('ViewContent/FormStart/Contact payloads', files.metaEvent, [
   'content_ids: payload.content_ids',
   'recordMetaDiagnostics',
   'wasMetaEventAlreadySent',
-  'const eventSourceUrl = payload.page_url || payload.page_location',
+  // Цепочка та же, но Referer теперь проходит очистку query: чужой адрес с
+  // почтой или токеном не должен попадать ни в Meta, ни в диагностику.
+  'const eventSourceUrl = payload.page_url',
+  "sanitizeUrlQueryParams(request.headers.get('Referer') || undefined)",
   'referrer_url: sanitizeUrlForMeta(payload.referrer)',
   '...getMetaDataProcessingOptions(env)',
 ]);

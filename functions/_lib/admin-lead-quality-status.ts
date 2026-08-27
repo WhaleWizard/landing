@@ -1,4 +1,5 @@
 import type { MetaOutboxEventState, OutboxStatus } from './meta-outbox';
+import { redactSensitiveText } from './redact';
 
 export type AdminLeadQuality = 'target' | 'nontarget';
 export type AdminQualityDeliveryStatus = 'queued' | 'sent' | 'skipped' | 'failed' | 'unknown';
@@ -76,20 +77,7 @@ export function qualityEventIds(
 }
 
 function safeReason(value: unknown): string | null {
-  let reason = String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
-  if (!reason) return null;
-  reason = reason
-    .replace(/([?&](?:access_token|token|secret|key)=)[^\s&]+/gi, '$1[скрыто]')
-    .replace(/(["']?(?:access_token|token|secret|key)["']?\s*[:=]\s*["']?)[^"',\s}]+/gi, '$1[скрыто]')
-    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[email скрыт]')
-    // Телефон, а не любое длинное число. Прежний вариант `{8,}` без границ
-    // цеплял метки времени и числовые коды ошибок Meta: `1724680000`
-    // превращалось в «[телефон скрыт]» — то есть из сообщения об ошибке
-    // пропадала как раз та часть, ради которой владелец в него смотрит.
-    // Теперь нужен телефонный признак: ведущий плюс либо разделители внутри.
-    .replace(/\+\d[\d\s().-]{7,}\d/g, '[телефон скрыт]')
-    .replace(/\b\d{1,4}[\s().-]+\d[\d\s().-]{5,}\d\b/g, '[телефон скрыт]');
-  return reason.slice(0, 400);
+  return redactSensitiveText(value, { maxLength: 400 }) || null;
 }
 
 function diagnosticTime(row: DiagnosticRow | undefined): number {

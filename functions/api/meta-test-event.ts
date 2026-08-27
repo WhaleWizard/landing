@@ -4,7 +4,7 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { verifyAdminPassword, verifyDebugSecret } from '../_lib/auth';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
-import { fetchMetaWithRetry, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
+import { detectCountryCode, fetchMetaWithRetry, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
 import { normalizeEmail, normalizeLocation, normalizeName, normalizePhone, sha256Hex } from '../_lib/meta-pii';
 
 const TEST_EVENTS = ['PageView', 'ViewContent', 'FormStart', 'LeadFormView', 'EngagedView', 'Contact', 'Lead', 'QualifiedLead', 'UnqualifiedLead'] as const;
@@ -33,7 +33,7 @@ function getClientIp(request: Request): string {
 function getRequestGeo(request: Request): { country?: string; city?: string; region?: string } {
   const cf = (request as Request & { cf?: Record<string, unknown> }).cf || {};
   return {
-    country: request.headers.get('CF-IPCountry') || (cf.country as string) || undefined,
+    country: detectCountryCode(request) || (cf.country as string) || undefined,
     city: (cf.city as string) || undefined,
     region: (cf.regionCode as string) || (cf.region as string) || undefined,
   };

@@ -50,6 +50,21 @@ export function resolveDeviceType(request: Request): 'mobile' | 'tablet' | 'desk
   return detectDeviceFromUserAgent(request.headers.get('User-Agent'));
 }
 
+/**
+ * Код страны для событий Meta.
+ *
+ * Cloudflare отдаёт `XX`, когда страну определить не удалось, и `T1` для
+ * запросов через Tor. Раньше эти два значения хешировались и уходили в Meta
+ * наравне с настоящей страной: в качестве ключа сопоставления они бесполезны,
+ * а долю событий «со страной» завышали — то есть портили как матчинг, так и
+ * оценку полноты сигналов в диагностике. Для базы такая же проверка уже
+ * стояла в `api/lead.ts`; теперь она одна на всех.
+ */
+export function detectCountryCode(request: Request): string | undefined {
+  const raw = String(request.headers.get('CF-IPCountry') || '').trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(raw) && raw !== 'XX' && raw !== 'T1' ? raw : undefined;
+}
+
 export function getMetaApiVersion(env: Env): string {
   return env.META_CAPI_API_VERSION || 'v25.0';
 }

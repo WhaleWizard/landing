@@ -3,7 +3,7 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
+import { detectCountryCode, fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent, processMetaOutbox } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
@@ -252,7 +252,7 @@ function resolveEventTime(payloadEventTime: number | undefined): number {
 }
 
 function extractRequestContext(request: Request, pageUrl?: string) {
-  const country = request.headers.get('CF-IPCountry') || undefined;
+  const country = detectCountryCode(request);
   const city = request.headers.get('CF-IPCity') || request.headers.get('X-City') || undefined;
   const region = request.headers.get('CF-Region') || request.headers.get('X-Region') || undefined;
   const regionCode = request.headers.get('CF-Region-Code') || request.headers.get('X-Region-Code') || undefined;
@@ -368,7 +368,15 @@ async function sendMetaPageView(
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
   const apiVersion = env.META_CAPI_API_VERSION || 'v25.0';
-  const eventSourceUrl = payload.page_url || payload.page_location || request.headers.get('Referer') || request.url;
+  // `page_url` и `page_location` уже прошли очистку при разборе тела, а
+  // `Referer` приходит прямо от браузера и раньше не проверялся вовсе: если
+  // человек пришёл по ссылке с чужого сайта, где в адресе оказались почта или
+  // токен, они уходили в Meta и оседали в диагностике. Теперь очистку проходит
+  // вся цепочка — параметры атрибуции (utm, gclid, fbclid) она сохраняет.
+  const eventSourceUrl = payload.page_url
+    || payload.page_location
+    || sanitizeUrlQueryParams(request.headers.get('Referer') || undefined)
+    || request.url;
 
   if (!payload.marketing_consent) {
     await recordMetaDiagnostics(env, {
