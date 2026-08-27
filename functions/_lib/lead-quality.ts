@@ -70,10 +70,13 @@ function sanitizeSourceUrl(value: string | undefined): string | undefined {
 }
 
 function splitName(value: string | undefined): { firstName?: string; lastName?: string } {
+  // Фамилия — последнее слово: «Иван Петрович Сидоров» давал «петровичсидоров»,
+  // и такой хеш не совпадал с настоящей фамилией никогда. Разбивка одинакова во
+  // всех четырёх местах, иначе хеши пикселя и сервера разойдутся.
   const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
   return {
     firstName: parts[0],
-    lastName: parts.length > 1 ? parts.slice(1).join(' ') : undefined,
+    lastName: parts.length > 1 ? parts[parts.length - 1] : undefined,
   };
 }
 

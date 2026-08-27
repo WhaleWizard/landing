@@ -5,6 +5,7 @@ import { enforceRateLimit } from '../../_lib/rate-limit';
 import { hasLeadSoftDelete, isTelegramConfigured } from '../../_lib/leads';
 import { getTrackingSignatureMode, type TrackingSignatureMode } from '../../_lib/tracking-signature';
 import { pageLockLabel, readPageLockSnapshot } from '../../_lib/page-locks';
+import { readFormGuardToday } from '../../_lib/form-guard-stats';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -465,6 +466,45 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
     } catch (error) {
       checks.push(check(id, title, 'fail', error instanceof Error ? error.message : 'Не отвечает'));
     }
+  }
+
+  // Отказы формы за сегодня. Счётчик пишется при каждом отказе Turnstile с
+  // миграции 0037, но до сих пор его никто не читал: данные копились в базе,
+  // а вопрос «не отсекает ли защита живых людей» так и оставался без ответа.
+  //
+  // `missing_token` — виджет не отработал у посетителя, это повод посмотреть
+  // сайт. `invalid_token` — обычная работа защиты против ботов.
+  // `verification_unavailable` — не удалось спросить Cloudflare; такие заявки
+  // сервер отдаёт как временный сбой, и браузер их дошлёт.
+  try {
+    const rejections = await readFormGuardToday(env);
+    if (rejections.length === 0) {
+      checks.push(check('form-guard', 'Отказы на форме заявки', 'ok', 'Сегодня отказов не было'));
+    } else {
+      const byReason = new Map(rejections.map((row) => [row.reason, row]));
+      const broken = Number(byReason.get('missing_token')?.count || 0);
+      const unavailable = Number(byReason.get('verification_unavailable')?.count || 0);
+      const bots = Number(byReason.get('invalid_token')?.count || 0);
+      // «Не меньше N»: в день со всплеском бюджет записей мог кончиться, и
+      // настоящее число больше сохранённого. Так помечено в самой миграции.
+      const approx = rejections.some((row) => row.throttled) ? 'не меньше ' : '';
+      const detail = `${approx}${bots} бот, ${broken} у посетителя не отработал виджет, ${unavailable} не удалось проверить`;
+      checks.push(check(
+        'form-guard',
+        'Отказы на форме заявки',
+        broken > 0 || unavailable > 0 ? 'warn' : 'ok',
+        detail,
+      ));
+    }
+  } catch (error) {
+    checks.push(check(
+      'form-guard',
+      'Отказы на форме заявки',
+      'warn',
+      /no such table/i.test(error instanceof Error ? error.message : String(error))
+        ? 'Примените миграцию 0037_form_guard_daily.sql — до неё счётчик отказов негде хранить.'
+        : 'Не удалось прочитать счётчик отказов',
+    ));
   }
 
   return checks;

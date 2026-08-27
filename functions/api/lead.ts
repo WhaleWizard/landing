@@ -433,7 +433,21 @@ async function sendMetaConversionEvent(
     || payload.page_location
     || sanitizeUrlQueryParams(request.headers.get('Referer') || undefined)
     || request.url;
-  const sanitizedEventSourceUrl = sanitizeUrlForMeta(eventSourceUrl) || request.url;
+  /**
+   * Адрес события для Meta.
+   *
+   * Раньше здесь оставались только домен и путь, то есть из самого ценного
+   * события — заявки — вырезались все метки атрибуции. У просмотра страницы и
+   * у остальных событий они сохраняются, так что заявка была единственной, по
+   * которой Meta не видела, из какой кампании пришёл человек.
+   *
+   * `sanitizeUrlQueryParams` оставляет utm, gclid и fbclid и вырезает только
+   * чувствительное — почту, телефон, токены. Ровно это и описано в самом
+   * `_lib/url-sanitize.ts` как задуманное поведение.
+   */
+  const sanitizedEventSourceUrl = sanitizeUrlQueryParams(eventSourceUrl)
+    || sanitizeUrlForMeta(eventSourceUrl)
+    || request.url;
 
   if (!token || !pixelId) {
     console.warn('[Meta CAPI] Missing ACCESS_TOKEN or PIXEL_ID. Skipping server event.');
@@ -453,9 +467,13 @@ async function sendMetaConversionEvent(
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
 
-  const nameParts = (payload.name || '').trim().split(/\s+/);
+  // Фамилия — последнее слово имени, а не всё после первого. «Иван Петрович
+  // Сидоров» давал ln «петровичсидоров», и такой хеш не совпадал с настоящей
+  // фамилией никогда. Разбивка одинакова во всех четырёх местах, где считаются
+  // ключи сопоставления Meta, иначе хеши браузера и сервера разойдутся.
+  const nameParts = (payload.name || '').trim().split(/\s+/).filter(Boolean);
   const firstName = nameParts[0] || '';
-  const lastName = nameParts.slice(1).join(' ') || '';
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
 
   const externalIdSeed = buildExternalIdSeed(payload, fbp);
   const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion, hashedExternalId, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([

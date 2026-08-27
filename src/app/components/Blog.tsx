@@ -68,8 +68,28 @@ function Blog() {
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div ref={scrollContainerRef} className="blog-carousel-scroll scrollbar-brand flex gap-5 md:gap-7 overflow-x-auto px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}>
+          {/*
+            Карточка — настоящая ссылка, а не кликабельный div. Это было
+            единственное место на сайте, где статью нельзя было открыть с
+            клавиатуры: у div нет ни фокуса, ни реакции на Enter. Заодно
+            вернулись средняя кнопка мыши и «открыть в новой вкладке», а адрес
+            виден в строке состояния. Классы и анимации прежние — внешне
+            карточка не изменилась. Тот же приём уже применён в витрине кейсов.
+          */}
           {blogArticles.map((article) => (
-            <motion.div key={article.slug} className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer" whileHover={{ y: -8 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.3 }} onClick={() => openArticle(article.slug)}>
+            <motion.a
+              key={article.slug}
+              href={`/blog/${article.slug}`}
+              onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                openArticle(article.slug);
+              }}
+              className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] group cursor-pointer no-underline text-inherit"
+              whileHover={{ y: -8 }}
+              whileTap={{ scale: 0.985 }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/50 transition-all duration-300 h-full shadow-lg shadow-primary/5">
                 <div className="relative h-44 sm:h-48 md:h-56 overflow-hidden bg-gradient-to-br from-[#181430] via-[#121220] to-[#0d1726]">
                   {/* Статьи без своей обложки получают градиентную подложку вместо повторяющегося брендового изображения */}
@@ -98,7 +118,7 @@ function Blog() {
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
               </div>
-            </motion.div>
+            </motion.a>
           ))}
         </div>
       </div>

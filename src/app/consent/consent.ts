@@ -715,11 +715,23 @@ function normalizeTextForMeta(value: string): string {
   return value.trim().toLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, '');
 }
 
+/**
+ * Имя и фамилия для ключей сопоставления Meta.
+ *
+ * Фамилия — **последнее** слово, а не всё после первого. «Иван Петрович
+ * Сидоров» давал `ln` = «петровичсидоров»: Meta хеширует это целиком, и с
+ * настоящей фамилией такой хеш не совпадает никогда. Отчество в ключах
+ * сопоставления не участвует, поэтому его место — не в фамилии.
+ *
+ * Разбивка обязана совпадать во всех четырёх местах: пиксель здесь,
+ * `/api/lead`, события качества и тестовое событие. Иначе хеши `fn`/`ln` одного
+ * человека разойдутся между браузером и сервером и перестанут дедуплицироваться.
+ */
 function splitNameForMeta(name: string): { firstName?: string; lastName?: string } {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return {
     firstName: parts[0],
-    lastName: parts.length > 1 ? parts.slice(1).join(' ') : undefined,
+    lastName: parts.length > 1 ? parts[parts.length - 1] : undefined,
   };
 }
 

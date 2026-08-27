@@ -1998,9 +1998,15 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   white-space: nowrap;
 }
 
+/*
+  Переменной --adm-accent в палитре нет: акцент называется --adm-primary.
+  Неопределённая переменная делала color-mix недействительным, оба объявления
+  отбрасывались, и состояние «идёт синхронизация» выглядело как обычное —
+  подсветка не появлялась никогда.
+*/
 .admin-root .admin-site-preview__sync.is-pending {
-  border-color: color-mix(in srgb, var(--adm-accent) 40%, transparent);
-  color: var(--adm-accent);
+  border-color: color-mix(in srgb, var(--adm-primary) 40%, transparent);
+  color: var(--adm-primary);
 }
 
 .admin-root .admin-site-preview__stage {
