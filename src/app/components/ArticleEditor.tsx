@@ -266,6 +266,30 @@ function moveArrayItem<T>(array: T[], fromIndex: number, toIndex: number): T[] {
   return copy;
 }
 
+/**
+ * Один блок в markdown.
+ *
+ * Markdown умеет выразить заголовок, цитату, код, отступ и обычный текст.
+ * Всё остальное — картинки, видео, галерея, кнопка скачивания, списки,
+ * карточки, свой HTML — он выразить не может, и раньше такие блоки
+ * превращались в пустую строку: переключение в markdown и обратно **стирало
+ * из статьи все картинки**. Проверено на всех четырнадцати типах блоков.
+ *
+ * Теперь невыразимый блок уезжает в markdown своим HTML одной строкой, а
+ * `markdownToBlocks` узнаёт его по ведущему `<` и собирает обратно тем же
+ * разбором, что читает содержимое статьи. Переход стал обратимым.
+ */
+function blockToMarkdown(block: ContentBlock): string {
+  if (block.type === 'heading') return `${'#'.repeat(block.level || 2)} ${block.text || ''}`;
+  if (block.type === 'quote') return `> ${block.text || ''}`;
+  if (block.type === 'code') return '```\n' + (block.text || '') + '\n```';
+  if (block.type === 'spacer') return '---';
+  if (block.type === 'paragraph') return block.text || '';
+  // Переносы внутри схлопываются: HTML к ним безразличен, а markdown должен
+  // получить ровно одну строку, чтобы разбор узнал её целиком.
+  return blockToHtml(block).replace(/\s*\n\s*/g, ' ').trim();
+}
+
 function markdownToBlocks(md: string): ContentBlock[] {
   const blocks: ContentBlock[] = [];
   const lines = md.split('\n');
@@ -295,6 +319,15 @@ function markdownToBlocks(md: string): ContentBlock[] {
     } else if (line.trim() === '---') {
       if (buffer.trim()) { blocks.push({ id: uid(), type: 'paragraph', text: buffer.trim() }); buffer = ''; }
       blocks.push({ id: uid(), type: 'spacer', space: 24 });
+    } else if (/^\s*<[a-zA-Z]/.test(line) && /\/?>\s*$/.test(line)) {
+      // Строка целиком HTML — это блок, который markdown выразить не умеет
+      // (картинка, видео, галерея, кнопка, список, карточка). Восстанавливаем
+      // его тем же разбором, что читает содержимое статьи.
+      if (buffer.trim()) { blocks.push({ id: uid(), type: 'paragraph', text: buffer.trim() }); buffer = ''; }
+      for (const restored of parseHtmlToBlocks(line.trim())) {
+        if (restored.type === 'paragraph' && !restored.text) continue;
+        blocks.push(restored);
+      }
     } else {
       buffer += line + '\n';
     }
@@ -631,13 +664,7 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
       setBlocks(newBlocks);
       setMarkdownMode(false);
     } else {
-      const md = blocks.map(block => {
-        if (block.type === 'heading') return `${'#'.repeat(block.level || 2)} ${block.text}`;
-        if (block.type === 'quote') return `> ${block.text}`;
-        if (block.type === 'code') return '```\n' + (block.text || '') + '\n```';
-        if (block.type === 'spacer') return '---';
-        return block.text || '';
-      }).join('\n\n');
+      const md = blocks.map(blockToMarkdown).join('\n\n');
       setMdText(md);
       setMarkdownMode(true);
     }
