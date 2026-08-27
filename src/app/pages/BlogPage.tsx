@@ -28,7 +28,6 @@ import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
-import { useScrollTo } from '../components/hooks/useScrollTo';
 import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import DeferredImage from '../components/DeferredImage';
 import { optimizeArticleContentImages } from '../utils/articleContentImages';
@@ -450,9 +449,7 @@ function BlogPageComponent() {
     articleTitleRef.current = node;
     articleTitleFit(node);
   }, [articleTitleFit]);
-  const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
-  const { scrollToWhenReady } = useScrollTo();
-
+  const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
   // Прогресс чтения статьи — тонкая полоса под шапкой
   const { scrollYProgress } = useScroll();
   const readingProgress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.4 });
@@ -536,31 +533,37 @@ function BlogPageComponent() {
   }, [selectedArticle, routeBase]);
 
   useEffect(() => {
-    if (!contentRef.current || !selectedArticle) return;
-    const handler = (e) => {
-      const link = e.target.closest('a');
+    // Узел запоминается сразу: к моменту уборки ссылка в ref может быть уже
+    // пустой, и слушатель снимался бы не с того элемента.
+    const content = contentRef.current;
+    if (!content || !selectedArticle) return;
+
+    const handler = (event: MouseEvent) => {
+      const target = event.target;
+      const link = target instanceof Element ? target.closest('a') : null;
       const href = link?.getAttribute('href') || '';
       if (href === '/#contact') {
-        e.preventDefault();
-        navigate('/');
-        setTimeout(() => scrollToWhenReady('contact'), 40);
+        event.preventDefault();
+        // Хеш сохраняется, а не отбрасывается ради последующего поиска секции:
+        // главная поднимает адресуемый блок сразу, и переход не зависит от
+        // того, успел ли загрузиться её чанк.
+        navigate('/#contact');
         return;
       }
 
       if (isZipDownloadLink(href)) {
-        e.preventDefault();
+        event.preventDefault();
         setPendingZipDownload({
-          href: link.href || href,
-          target: link.getAttribute('target') || '_blank',
+          href: (link as HTMLAnchorElement | null)?.href || href,
+          target: link?.getAttribute('target') || '_blank',
           fileName: getDownloadFileName(href),
         });
       }
     };
-    contentRef.current.addEventListener('click', handler);
-    return () => {
-      contentRef.current?.removeEventListener('click', handler);
-    };
-  }, [selectedArticle, navigate, scrollToWhenReady]);
+
+    content.addEventListener('click', handler);
+    return () => content.removeEventListener('click', handler);
+  }, [selectedArticle, navigate]);
 
   const goToBlogList = useCallback(() => navigate(listUrl), [navigate, listUrl]);
 
@@ -570,9 +573,8 @@ function BlogPageComponent() {
   }, [navigate, preservedCaseSearch, routeBase]);
 
   const goToContact = useCallback(() => {
-    navigate('/');
-    setTimeout(() => scrollToWhenReady('contact'), 40);
-  }, [navigate, scrollToWhenReady]);
+    navigate('/#contact');
+  }, [navigate]);
 
   const closeZipWarning = useCallback(() => {
     setPendingZipDownload(null);

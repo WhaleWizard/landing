@@ -46,7 +46,6 @@ import {
 import { useArticles } from '../context/ArticlesContext';
 import { isMetaSafeCaseFilterValue, trackCaseFilter } from '../consent/consent';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
-import { useScrollTo } from '../components/hooks/useScrollTo';
 import DeferredImage from '../components/DeferredImage';
 import ArticlesLoadError from '../components/ArticlesLoadError';
 import { useManagedTitleFit } from '../utils/contentTypography';
@@ -388,9 +387,7 @@ export default function CasesPage() {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
   // Шапка витрины: две строки — потолок, третья ломает ритм экрана.
-  const introTitleFit = useManagedTitleFit<HTMLHeadingElement>(INTRO_TITLE_LINES, { minFontSize: 22 });
-  const { scrollToWhenReady } = useScrollTo();
-  const internalSearchRef = useRef<string | null>(null);
+  const introTitleFit = useManagedTitleFit<HTMLHeadingElement>(INTRO_TITLE_LINES, { minFontSize: 22 });  const internalSearchRef = useRef<string | null>(null);
   const hydratedSearchRef = useRef<string | null>(null);
   const skipUrlWriteRef = useRef(false);
   const [urlReady, setUrlReady] = useState(false);
@@ -574,9 +571,11 @@ export default function CasesPage() {
   }, []);
 
   const goToContact = useCallback(() => {
-    navigate('/');
-    window.setTimeout(() => scrollToWhenReady('contact'), 40);
-  }, [navigate, scrollToWhenReady]);
+    // Хеш вместо перехода на «/» с последующим поиском секции: главная
+    // поднимает адресуемый блок сразу, и переход не зависит от того, успел ли
+    // загрузиться её чанк.
+    navigate('/#contact');
+  }, [navigate]);
 
   const openCase = useCallback((item: CaseView) => {
     if (item.fallback) {
