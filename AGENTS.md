@@ -26,20 +26,27 @@ npm run typecheck:functions              # типы functions/ (tsconfig.functio
 `npm run check` — это цепочка, а не один тест:
 
 ```
-typecheck:app           типы src/
-typecheck:functions     типы functions/
-test:meta-capi          смоук-тесты Meta CAPI (проверяют строки в исходниках, не поведение)
-test:lead-reliability   надёжность приёма заявок
-test:tracking-security  подпись и защита tracking-запросов
-test:seo-content        синхронизация текстов сайта и статики
-test:calculator         движок калькуляторов
-test:glossary           целостность глоссария
-test:admin-imports      каждый компонент в разметке админки действительно импортирован
-test:fonts              библиотека шрифтов: каталог, CSS, файлы и белый список сервера сходятся
-test:migration-map      карта «таблица → миграция» и контракт «нужна миграция»
-test:page-locks         доступ к страницам: белый и чёрный списки, формат заглушки
-build                   production-сборка
-test:seo-output         SEO-контракт сгенерированных страниц
+typecheck:app                    типы src/
+typecheck:functions              типы functions/
+test:meta-capi                   смоук-тесты Meta CAPI (проверяют строки в исходниках, не поведение)
+test:lead-reliability            надёжность приёма заявок
+test:tracking-security           подпись и защита tracking-запросов
+test:admin-performance           раздел «Скорость»: квоты, ключ и разбор ответа PageSpeed
+test:article-fetch               выбор источника статей на сборке и запрет воскрешать удалённые
+test:article-runtime             цепочка хранилищ статей и дата публикации
+test:article-api                 контракт публичной выдачи статей
+test:production-sync             перенос контента с production
+test:site-content-compatibility  совместимость сохранённых текстов со старыми блоками
+test:site-content-cache          снимок текстов для сборки
+test:seo-content                 синхронизация текстов сайта и статики
+test:calculator                  движок калькуляторов
+test:glossary                    целостность глоссария
+test:admin-imports               каждый компонент в разметке админки действительно импортирован
+test:fonts                       библиотека шрифтов: каталог, CSS, файлы и белый список сервера сходятся
+test:migration-map               карта «таблица → миграция» и контракт «нужна миграция»
+test:page-locks                  доступ к страницам: белый и чёрный списки, формат заглушки
+build                            production-сборка
+test:seo-output                  SEO-контракт сгенерированных страниц
 ```
 
 `test:admin-imports` существует не просто так: `typecheck:app` ловит не всё, что ломает разметку админки, и забытый импорт когда-то собирался зелёным и падал уже в бою.
