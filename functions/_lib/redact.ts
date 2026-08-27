@@ -19,13 +19,23 @@ const LOOKS_LIKE_DATE = /^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/;
 
 const PHONE_SHAPED = /\+?\d[\d\s().-]{6,}\d/g;
 
+/** Пробел, скобка, дефис или точка внутри — признак записанного номера. */
+const HAS_SEPARATOR = /[\s().-]/;
+
 /**
  * Номер телефона заменяется целиком, а числовые коды и метки времени
  * остаются: именно ради них владелец и открывает сообщение об ошибке.
+ *
+ * Признак телефона — ведущий плюс **или** разделители внутри. Голая
+ * последовательность цифр им не считается: `1724680000` — это метка времени
+ * или код ошибки Meta, и прятать её значит выбрасывать из сообщения самое
+ * полезное. Наши собственные номера этой проверки не боятся: `buildFullPhone`
+ * всегда отдаёт запись с ведущим плюсом.
  */
 function hidePhones(text: string): string {
   return text.replace(PHONE_SHAPED, (match) => {
     if (LOOKS_LIKE_DATE.test(match)) return match;
+    if (!match.startsWith('+') && !HAS_SEPARATOR.test(match)) return match;
     const digits = match.replace(/\D/g, '').length;
     if (digits < PHONE_MIN_DIGITS || digits > PHONE_MAX_DIGITS) return match;
     return '[телефон скрыт]';

@@ -10,7 +10,7 @@
     "fetch:articles": "node scripts/fetch-articles.js",
     "sync:production": "node scripts/sync-production-content.js",
     "test": "npm run build",
-    "check": "npm run typecheck:app && npm run typecheck:functions && npm run test:meta-capi && npm run test:lead-reliability && npm run test:tracking-security && npm run test:admin-performance && npm run test:article-fetch && npm run test:article-runtime && npm run test:article-api && npm run test:production-sync && npm run test:site-content-compatibility && npm run test:site-content-cache && npm run test:seo-content && npm run test:calculator && npm run test:glossary && npm run test:admin-imports && npm run test:fonts && npm run test:migration-map && npm run test:page-locks && npm run build && npm run test:seo-output",
+    "check": "npm run typecheck:app && npm run typecheck:functions && npm run test:meta-capi && npm run test:lead-reliability && npm run test:tracking-security && npm run test:admin-performance && npm run test:article-fetch && npm run test:article-runtime && npm run test:article-api && npm run test:production-sync && npm run test:site-content-compatibility && npm run test:site-content-cache && npm run test:seo-content && npm run test:calculator && npm run test:glossary && npm run test:admin-imports && npm run test:fonts && npm run test:migration-map && npm run test:page-locks && npm run test:audit-regressions && npm run build && npm run test:seo-output",
     "generate:media": "node scripts/generateMedia.js",
     "test:meta-capi": "node scripts/meta-capi-smoke-tests.js",
     "test:lead-reliability": "node --test scripts/lead-reliability.test.js",
@@ -33,7 +33,8 @@
     "test:fonts": "node --test scripts/content-fonts.test.js",
     "build:migration-map": "node scripts/build-migration-map.js",
     "test:migration-map": "node --test scripts/migration-guard.test.js",
-    "test:page-locks": "node --test scripts/page-locks.test.js"
+    "test:page-locks": "node --test scripts/page-locks.test.js",
+    "test:audit-regressions": "node --test scripts/audit-regressions.test.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

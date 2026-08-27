@@ -1,0 +1,140 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { transform } from 'esbuild';
+
+/**
+ * Закрепляет ошибки, найденные построчным аудитом в августе 2026.
+ *
+ * Все они одного рода: код не падал и не жаловался, а молча портил данные или
+ * ронял страницу от значения в адресе. Такое не ловится ни типами, ни глазами
+ * при code review — только проверкой на конкретных значениях. Журнал находок:
+ * `audit-reports/08_аудит_кода_2026-08-26/`.
+ */
+
+async function loadModule(relativePath) {
+  const source = await readFile(new URL(`../${relativePath}`, import.meta.url), 'utf8');
+  const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'node20' });
+  const module = { exports: {} };
+  new Function('module', 'exports', 'require', compiled.code)(module, module.exports, () => ({}));
+  return module.exports;
+}
+
+const money = await loadModule('functions/_lib/money.ts');
+const redact = await loadModule('functions/_lib/redact.ts');
+const phone = await loadModule('src/app/utils/phoneCountry.ts');
+
+test('денежная сумма читается во всех форматах, которыми её пишут люди', () => {
+  // «Цель по выручке» ошибалась в сто раз: запятая вырезалась вместе с прочим,
+  // и «1 500,50» превращалось в 150050.
+  assert.equal(money.parseMoney('1 500,50'), 1500.5);
+  assert.equal(money.parseMoney('1500.50'), 1500.5);
+
+  // Эти три формата прежний серверный разбор превращал в ноль.
+  assert.equal(money.parseMoney('1,234.56'), 1234.56);
+  assert.equal(money.parseMoney('1.234,56'), 1234.56);
+  assert.equal(money.parseMoney('$1,234.56'), 1234.56);
+
+  // Пустое поле — это «не заполнено», а не ноль: разница важна для правила
+  // «не выдумывать числа».
+  assert.equal(money.parseMoney(''), null);
+  assert.equal(money.parseMoneyOrZero(''), 0);
+
+  // Отрицательных сумм не бывает, за верхнюю границу выходить нельзя.
+  assert.equal(money.parseMoney('-5'), null);
+  assert.equal(money.parseMoney(2_000_000_000), null);
+});
+
+test('маскировка скрывает телефон, но не съедает даты и коды ошибок Meta', () => {
+  assert.equal(
+    redact.redactSensitiveText('звонил +7 926 123-45-67 вчера'),
+    'звонил [телефон скрыт] вчера',
+  );
+
+  // Из-за прежней регулярки «восемь цифр подряд» из сообщения об ошибке
+  // пропадало ровно то, ради чего в него смотрят: метки времени, числовые коды
+  // Meta и даты.
+  assert.match(redact.redactSensitiveText('error_code 1724680000'), /1724680000/);
+  assert.match(redact.redactSensitiveText('произошло 2026-08-27'), /2026-08-27/);
+  assert.match(redact.redactSensitiveText('fbtrace 987654321012345'), /987654321012345/);
+
+  // Наши номера всегда приходят с ведущим плюсом, поэтому они по-прежнему
+  // скрываются, даже когда записаны без разделителей.
+  assert.equal(redact.redactSensitiveText('номер +79261234567'), 'номер [телефон скрыт]');
+
+  assert.match(redact.redactSensitiveText('писал c ivan@example.com'), /\[email скрыт\]/);
+  assert.match(redact.redactSensitiveText('?access_token=secret123 упал'), /\[скрыто\]/);
+});
+
+test('номер с восьмёркой не превращается в несуществующий', () => {
+  // «8 926 123-45-67» и «+7 926 123-45-67» — один и тот же номер. Прежде к
+  // первому приклеивался код страны: +789261234567, двенадцать цифр.
+  assert.equal(phone.buildFullPhone('+7', '8 926 123 45 67'), '+79261234567');
+  assert.equal(phone.buildFullPhone('+7', '7 926 123 45 67'), '+79261234567');
+  assert.equal(phone.buildFullPhone('+7', '926 123 45 67'), '+79261234567');
+
+  // Введённый плюс всегда главнее выбора в списке.
+  assert.equal(phone.buildFullPhone('+1', '+7 926 123 45 67'), '+79261234567');
+
+  // Правило узкое: чужие нумерации не трогаем.
+  assert.equal(phone.buildFullPhone('+1', '8005551234'), '+18005551234');
+  assert.equal(phone.buildFullPhone('+7', ''), '');
+});
+
+test('ключ из адреса не достаёт унаследованные свойства карт', async () => {
+  // Три случая в проекте: псевдонимы навигации, профили ограничителя частоты и
+  // карты витрины кейсов. В последнем /cases?from=constructor роняла страницу.
+  const rateLimit = await readFile(new URL('../functions/_lib/rate-limit.ts', import.meta.url), 'utf8');
+  const navigation = await readFile(new URL('../src/app/utils/siteNavigation.ts', import.meta.url), 'utf8');
+  const catalog = await readFile(new URL('../src/app/data/caseCatalog.ts', import.meta.url), 'utf8');
+  const cases = await readFile(new URL('../src/app/pages/CasesPage.tsx', import.meta.url), 'utf8');
+
+  for (const [name, source] of [
+    ['rate-limit', rateLimit],
+    ['siteNavigation', navigation],
+    ['caseCatalog', catalog],
+    ['CasesPage', cases],
+  ]) {
+    assert.ok(
+      source.includes('hasOwnProperty.call'),
+      `${name} ищет по карте значением из запроса и обязан проверять собственный ключ`,
+    );
+  }
+
+  // Поведение, ради которого всё это: ключ-прототип не должен возвращать функцию.
+  const catalogModule = await loadModule('src/app/data/caseCatalog.ts').catch(() => null);
+  if (catalogModule?.getCaseCatalogMeta) {
+    for (const key of ['constructor', '__proto__', 'toString', 'valueOf']) {
+      assert.equal(catalogModule.getCaseCatalogMeta(key), undefined, `ключ ${key} не должен ничего находить`);
+    }
+  }
+});
+
+test('временный отказ приёма заявки отличается от окончательного', async () => {
+  const source = await readFile(new URL('../src/app/utils/leadRetryQueue.ts', import.meta.url), 'utf8');
+  const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'node20' });
+  const module = { exports: {} };
+  // Модуль тянет за собой согласие и очередь браузера — для чистой функции
+  // достаточно заглушек: проверяется только правило «что считать временным».
+  new Function('module', 'exports', 'require', compiled.code)(
+    module,
+    module.exports,
+    () => ({ loadConsent: () => null, applyConsentDowngrade: (value) => value }),
+  );
+
+  const { isRetryableLeadStatus } = module.exports;
+
+  // 429 сюда входит намеренно: лимит — двадцать заявок за десять минут с
+  // адреса, и упереться в него может человек за общим адресом оператора.
+  // Раньше форма считала такой отказ окончательным и выбрасывала заявку.
+  assert.equal(isRetryableLeadStatus(429), true);
+  assert.equal(isRetryableLeadStatus(408), true);
+  assert.equal(isRetryableLeadStatus(503), true);
+  assert.equal(isRetryableLeadStatus(500), true);
+
+  // Испорченный токен и заявка без контакта — окончательные отказы:
+  // повторять их трое суток бессмысленно и вредно.
+  assert.equal(isRetryableLeadStatus(403), false);
+  assert.equal(isRetryableLeadStatus(400), false);
+  assert.equal(isRetryableLeadStatus(404), false);
+});
