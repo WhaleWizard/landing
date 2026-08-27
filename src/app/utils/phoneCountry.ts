@@ -112,11 +112,38 @@ export const COUNTRY_DIAL_CODES: Record<string, string> = COUNTRY_PHONE_OPTIONS.
   return acc;
 }, {} as Record<string, string>);
 
-// Пользователь мог ввести номер сразу с кодом страны («+7 926…») —
-// тогда код из селектора не добавляем, иначе он задвоится.
+/**
+ * Полный номер из кода страны в селекторе и того, что человек набрал руками.
+ *
+ * Пользователь мог ввести номер сразу с кодом страны («+7 926…») — тогда код
+ * из селектора не добавляем, иначе он задвоится.
+ *
+ * Отдельный случай — внутренний формат с восьмёркой. В России и Казахстане
+ * «8 926 123-45-67» и «+7 926 123-45-67» — один и тот же номер, и писать его с
+ * восьмёрки привычнее. Раньше к такому вводу просто приклеивался код страны, и
+ * получалось «+789261234567»: двенадцать цифр, номера с которыми не существует.
+ * Он уходил в CRM, в Telegram и — хешем `ph` — в Meta как ключ сопоставления,
+ * который никогда ни с кем не совпадёт.
+ *
+ * Правило намеренно узкое: только код +7 и только полные одиннадцать цифр.
+ * В других странах восьмёрка в начале означает не то же самое, а угадывать
+ * чужие форматы хуже, чем не трогать их вовсе.
+ */
+const RUSSIAN_NUMBERING_DIAL = '+7';
+const RUSSIAN_NUMBERING_LENGTH = 11;
+
 export function buildFullPhone(code: string, rawPhone: string): string {
   const trimmed = rawPhone.trim();
   const digits = trimmed.replace(/\D/g, '');
   if (!digits) return '';
-  return trimmed.startsWith('+') ? `+${digits}` : `${code}${digits}`;
+  if (trimmed.startsWith('+')) return `+${digits}`;
+
+  if (code === RUSSIAN_NUMBERING_DIAL && digits.length === RUSSIAN_NUMBERING_LENGTH) {
+    // «8…» — та же нумерация, что и «7…»: меняем ведущую цифру, а не добавляем.
+    if (digits.startsWith('8') || digits.startsWith('7')) {
+      return `+7${digits.slice(1)}`;
+    }
+  }
+
+  return `${code}${digits}`;
 }

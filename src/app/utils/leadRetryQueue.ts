@@ -41,6 +41,25 @@ export function queueLeadForRetry(endpoint: string, payload: unknown): void {
   writeQueue(queue);
 }
 
+/**
+ * Ответ, после которого повторять бессмысленно.
+ *
+ * Сервер уже различает временный отказ и окончательный: недоступную проверку
+ * Turnstile и недоступную базу он отдаёт как 503 с `retryable`, а испорченный
+ * токен — как 403, заявку без имени или контакта — как 400. Очередь этой
+ * разницы не видела и держала окончательно отклонённую запись все трое суток,
+ * пробуя её на каждой загрузке страницы. Каждая попытка тратила свежий токен
+ * Turnstile и место в ограничителе частоты `/api/lead` — то есть испорченная
+ * запись могла вытеснить настоящую заявку того же человека.
+ *
+ * 408 и 429 — не отказ по существу, а «попробуйте позже», поэтому они остаются
+ * поводом для повтора.
+ */
+function isPermanentRejection(status: number): boolean {
+  if (status === 408 || status === 429) return false;
+  return status >= 400 && status < 500;
+}
+
 let flushing = false;
 
 export async function flushLeadQueue(): Promise<void> {
@@ -74,7 +93,7 @@ export async function flushLeadQueue(): Promise<void> {
       // на сервере вообще не включена.
     }
 
-    const delivered = new Set<string>();
+    const settled = new Set<string>();
     for (const item of batch) {
       try {
         const payload = applyConsentDowngrade(item.payload, loadConsent());
@@ -88,16 +107,16 @@ export async function flushLeadQueue(): Promise<void> {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
-        if (res.ok) delivered.add(item.id);
+        if (res.ok || isPermanentRejection(res.status)) settled.add(item.id);
       } catch {
-        // остаётся в очереди до следующей попытки
+        // Сеть не ответила — остаётся в очереди до следующей попытки.
       }
     }
 
     // Перечитываем очередь перед записью: пока шла отправка, могла добавиться
     // новая заявка — старый вариант перезаписывал её результатом этой пачки.
     const current = readQueue();
-    writeQueue(current.filter((item) => !delivered.has(item.id) && Date.now() - item.queuedAt < MAX_AGE_MS));
+    writeQueue(current.filter((item) => !settled.has(item.id) && Date.now() - item.queuedAt < MAX_AGE_MS));
   } finally {
     flushing = false;
   }
