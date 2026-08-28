@@ -220,6 +220,38 @@ test('выгрузка воронки не превращает UTM-метку �
   assert.equal(defuse('facebook'), 'facebook');
 });
 
+test('три санитайзера HTML статей разрешают одно и то же', async () => {
+  // Списки живут в трёх файлах: браузер, сервер и генератор статических
+  // страниц. CLAUDE.md требует держать их одинаковыми, но проверял это только
+  // человек. Разойдись они — и статья выглядела бы по-разному в SPA и в
+  // SEO-версии, а в худшем случае тег, вырезанный на сервере, доехал бы до
+  // страницы через пре-рендер.
+  const files = [
+    'src/app/utils/sanitizeHtml.ts',
+    'functions/_lib/sanitize.ts',
+    'scripts/generate-pages.js',
+  ];
+  const sources = await Promise.all(
+    files.map((file) => readFile(new URL(`../${file}`, import.meta.url), 'utf8')),
+  );
+
+  const listAfter = (source, key) => {
+    const at = source.indexOf(key);
+    assert.ok(at !== -1, `${key} не найден — список переименовали?`);
+    const open = source.indexOf('[', at);
+    const close = source.indexOf(']', open);
+    return [...source.slice(open, close).matchAll(/'([^']+)'/g)].map((match) => match[1]).sort();
+  };
+
+  for (const key of ['ALLOWED_TAGS', 'ALLOWED_ATTR']) {
+    const [base, ...rest] = sources.map((source) => listAfter(source, key));
+    assert.ok(base.length > 0, `${key}: список пуст`);
+    rest.forEach((list, index) => {
+      assert.deepEqual(list, base, `${key} в ${files[index + 1]} разошёлся с ${files[0]}`);
+    });
+  }
+});
+
 test('временный отказ приёма заявки отличается от окончательного', async () => {
   const source = await readFile(new URL('../src/app/utils/leadRetryQueue.ts', import.meta.url), 'utf8');
   const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'node20' });
