@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Send } from 'lucide-react';
 import { loadConsent } from '../../consent/consent';
 import { AdminSectionSkeleton } from './AdminFeedback';
+import { plural } from '../../utils/plural';
 
 interface HealthCheck {
   id: string;
@@ -52,15 +53,22 @@ function runBrowserChecks(): HealthCheck[] {
   ];
 }
 
-/** «7 в норме · 1 внимание · 1 ошибка» — состояние группы одной строкой. */
+/**
+ * «7 в норме · 1 требует внимания · 2 ошибки» — состояние группы одной строкой.
+ *
+ * Подписи склоняются: раньше строка читалась как «2 ошибка» и «3 внимание».
+ */
 function groupScore(list: HealthCheck[]): Array<{ status: HealthCheck['status']; count: number; label: string }> {
-  const counters: Array<{ status: HealthCheck['status']; label: string }> = [
-    { status: 'ok', label: 'в норме' },
-    { status: 'warn', label: 'внимание' },
-    { status: 'fail', label: 'ошибка' },
+  const counters: Array<{ status: HealthCheck['status']; forms: [string, string, string] }> = [
+    { status: 'ok', forms: ['в норме', 'в норме', 'в норме'] },
+    { status: 'warn', forms: ['требует внимания', 'требуют внимания', 'требуют внимания'] },
+    { status: 'fail', forms: ['ошибка', 'ошибки', 'ошибок'] },
   ];
   return counters
-    .map((item) => ({ ...item, count: list.filter((check) => check.status === item.status).length }))
+    .map(({ status, forms }) => {
+      const count = list.filter((check) => check.status === status).length;
+      return { status, count, label: plural(count, forms) };
+    })
     .filter((item) => item.count > 0);
 }
 

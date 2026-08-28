@@ -569,7 +569,16 @@ export default function AdminMetaCenter({ password }: { password: string }) {
               icon={<Server className="h-4 w-4" />}
               title="Доставка за 24 часа"
               value={formatPercent(delivery?.deliveryRate)}
-              detail={delivery ? `${delivery.sent} подтверждено · ${withPlural(delivery.failed, ['ошибка', 'ошибки', 'ошибок'])} · ${delivery.skipped} пропущено.` : 'Пока нет доступной диагностики.'}
+              detail={
+                !delivery
+                  ? 'Пока нет доступной диагностики.'
+                  // Ноль событий — это «не было трафика», а не поломка. Раньше
+                  // здесь стояло «0 подтверждено · 0 ошибок · 0 пропущено» под
+                  // жёлтым значком, и понять, что именно проверять, было нельзя.
+                  : delivery.attempted === 0
+                    ? 'За сутки событий не было — значит, и посетителей не было. Само по себе это не поломка.'
+                    : `${delivery.sent} подтверждено · ${withPlural(delivery.failed, ['ошибка', 'ошибки', 'ошибок'])} · ${delivery.skipped} пропущено.`
+              }
               tone={deliveryTone}
             />
           </div>
