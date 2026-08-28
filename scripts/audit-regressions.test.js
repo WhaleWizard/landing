@@ -297,3 +297,24 @@ test('временный отказ приёма заявки отличаетс
   assert.equal(isRetryableLeadStatus(400), false);
   assert.equal(isRetryableLeadStatus(404), false);
 });
+
+test('восстановленная сессия админки грузит публикации, а не только вход по паролю', async () => {
+  // До этого список статей приходил только из `handleLogin`. Пока перезагрузка
+  // разлогинивала, вход всегда шёл через форму, и это работало. С появлением
+  // сессии на 12 часов перезагрузка стала оставлять «Статьи» и «Кейсы»
+  // пустыми при полной базе — раздел уверенно показывал ноль вместо
+  // тринадцати. Молчаливый ноль вместо данных — худший вид ошибки в этом
+  // проекте: он выглядит как правда.
+  const source = await readFile('src/app/pages/Admin.tsx', 'utf8');
+
+  const restore = source.slice(
+    source.indexOf('const alive = await checkAdminSession();'),
+    source.indexOf('setSessionChecking(false);'),
+  );
+  assert.ok(restore.length > 0, 'не найдена ветка восстановления сессии — проверьте разбор');
+  assert.match(
+    restore,
+    /forceRefreshAdminArticles\(/,
+    'восстановление сессии снова не грузит публикации: после перезагрузки разделы покажут ноль',
+  );
+});

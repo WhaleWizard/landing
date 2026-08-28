@@ -340,10 +340,21 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
   // --- Заявки и Telegram ---
   if (env.DB) {
     try {
-      const activeOnly = (await hasLeadSoftDelete(env.DB)) ? ' WHERE deleted_at IS NULL' : '';
+      const softDelete = await hasLeadSoftDelete(env.DB);
+      const activeOnly = softDelete ? ' WHERE deleted_at IS NULL' : '';
       const lastLead = await env.DB.prepare(`SELECT created_at, telegram_delivered FROM leads${activeOnly} ORDER BY id DESC LIMIT 1`).first<{ created_at: string; telegram_delivered: number }>();
       if (!lastLead) {
-        checks.push(check('leads', 'Приём заявок', 'warn', 'В базе пока нет ни одной заявки — оставьте тестовую с сайта'));
+        // «Ни одной заявки» и «все заявки в корзине» — разные вещи. Первое
+        // значит, что приём не проверен ни разу; второе — что он работал, и
+        // заявки просто убраны. Одинаковый текст на оба случая заставлял бы
+        // владельца искать поломку там, где её нет.
+        const trashed = softDelete
+          ? await env.DB.prepare('SELECT COUNT(*) AS count FROM leads WHERE deleted_at IS NOT NULL').first<{ count: number }>()
+          : null;
+        const inTrash = Number(trashed?.count || 0);
+        checks.push(inTrash > 0
+          ? check('leads', 'Приём заявок', 'ok', `Заявок в работе нет: все ${inTrash} лежат в корзине. Приём при этом рабочий — заявки доходили до базы`)
+          : check('leads', 'Приём заявок', 'warn', 'В базе пока нет ни одной заявки — оставьте тестовую с сайта'));
       } else {
         checks.push(check('leads', 'Приём заявок', 'ok', `Последняя заявка: ${lastLead.created_at} UTC${lastLead.telegram_delivered === 1 ? ', Telegram-уведомление доставлено' : ', Telegram-уведомление не подтверждено'}`));
       }
