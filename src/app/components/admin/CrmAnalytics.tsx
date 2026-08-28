@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { StatTile, formatMoney, formatNumber, formatPercent } from './AttributionCharts';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
+import { withPlural } from '../../utils/plural';
 
 interface StageRow {
   stage: string;
@@ -190,6 +191,8 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
   }
   const health = data.health;
   const activeStages = (data.stages || []).filter((stage) => !['archived'].includes(stage.stage));
+  // Сколько сделок выпало из денежных сумм из-за другой валюты.
+  const otherCurrencyDeals = activeStages.reduce((sum, stage) => sum + Number(stage.otherCurrencyDeals || 0), 0);
 
   return (
     <div className="admin-stack admin-stack--lg crm-analytics">
@@ -272,6 +275,19 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
           <header className="adm-card__head">
             <h3 className="admin-card-title">Сделки по этапам</h3>
             <p className="admin-hint">Текущее состояние, а не число переходов за период.</p>
+            {/*
+              Суммы считаются только по сделкам в {currency}: курсов в системе
+              нет. Сервер давно присылал число выпавших сделок, но раздел его
+              не показывал — сумма молча оказывалась неполной. Сейчас учёт
+              ведётся только в долларах, поэтому строка не появится; она нужна
+              на случай записи, заведённой в базе руками.
+            */}
+            {otherCurrencyDeals > 0 ? (
+              <p className="admin-hint admin-state--warning">
+                {withPlural(otherCurrencyDeals, ['сделка', 'сделки', 'сделок'])} в другой валюте — в суммы ниже
+                {otherCurrencyDeals === 1 ? ' она не входит' : ' они не входят'}. Курсов в системе нет, приводить их не к чему.
+              </p>
+            ) : null}
           </header>
           <RankedBars
             slot={1}
