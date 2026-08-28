@@ -1618,7 +1618,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       title: 'Политика конфиденциальности | Whale Wizard',
       description: 'Правила обработки персональных данных.',
       h1: 'Политика конфиденциальности',
-      lead: 'Условия обработки персональных данных.',
+      lead: `Условия обработки персональных данных. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.PrivacyPolicyContent),
     },
     {
@@ -1626,7 +1626,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       title: 'Публичная оферта | Whale Wizard',
       description: 'Условия предоставления услуг и порядок взаимодействия.',
       h1: 'Публичная оферта',
-      lead: 'Официальные условия оказания услуг.',
+      lead: `Официальные условия оказания услуг. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.OfferContent),
     },
     {
@@ -1634,7 +1634,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       title: 'Политика cookie | Whale Wizard',
       description: 'Информация о cookie и управлении согласиями.',
       h1: 'Политика cookie',
-      lead: 'Правила использования cookie и аналитических технологий.',
+      lead: `Правила использования cookie и аналитических технологий. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.CookiePolicyContent),
     },
     {

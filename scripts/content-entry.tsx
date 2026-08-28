@@ -20,3 +20,4 @@ export {
 export { default as PrivacyPolicyContent } from '../src/app/components/legal/PrivacyPolicyContent';
 export { default as OfferContent } from '../src/app/components/legal/OfferContent';
 export { default as CookiePolicyContent } from '../src/app/components/legal/CookiePolicyContent';
+export { LEGAL_UPDATED_AT } from '../src/app/components/legal/legalMeta';
