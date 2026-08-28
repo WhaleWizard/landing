@@ -81,9 +81,15 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!state) return undefined;
     confirmButtonRef.current?.focus();
+    // Только Escape. Enter здесь ловить нельзя: обработчик висит на документе
+    // и срабатывал независимо от того, где фокус. Владелец переходил табом на
+    // «Отмена», нажимал Enter — и действие всё равно выполнялось. Через этот
+    // диалог удаляются карточки клиентов и чистится корзина заявок.
+    //
+    // Быстрый путь при этом сохраняется: фокус сразу на кнопке подтверждения,
+    // и Enter нажимает именно её — уже средствами браузера.
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close(false);
-      if (event.key === 'Enter') close(true);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
