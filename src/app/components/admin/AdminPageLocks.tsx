@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
 import { AdminButton, AdminSectionHeading, AdminSelect } from './AdminUI';
+import { plural } from '../../utils/plural';
 
 /**
  * Раздел «Доступ к страницам».
@@ -129,14 +130,6 @@ function lockedForDays(lockedAt: string): number {
   return Math.max(0, Math.floor((Date.now() - started) / 86_400_000));
 }
 
-function plural(count: number, one: string, few: string, many: string): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-}
-
 function formatDateTime(value: string): string {
   if (!value) return '';
   const parsed = new Date(value.replace(' ', 'T') + (value.includes('Z') ? '' : 'Z'));
@@ -246,7 +239,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
       const warnings: string[] = [];
       if (route.warning) warnings.push(route.warning);
       if (route.weeklyViews > 0) {
-        warnings.push(`За ${data?.trafficDays || 7} дней на страницу зашли ${route.weeklyViews} ${plural(route.weeklyViews, 'раз', 'раза', 'раз')} — если на неё идёт реклама, объявления отклонят.`);
+        warnings.push(`За ${data?.trafficDays || 7} дней на страницу зашли ${route.weeklyViews} ${plural(route.weeklyViews, ['раз', 'раза', 'раз'])} — если на неё идёт реклама, объявления отклонят.`);
       }
       const confirmed = await confirmAsk({
         title: `Закрыть «${route.label}»?`,
@@ -291,7 +284,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
   const unlockAll = useCallback(async () => {
     const confirmed = await confirmAsk({
       title: 'Открыть все страницы?',
-      description: `Сейчас закрыто ${locked.length} ${plural(locked.length, 'страница', 'страницы', 'страниц')}. Все они снова станут видны посетителям.`,
+      description: `Сейчас закрыто ${locked.length} ${plural(locked.length, ['страница', 'страницы', 'страниц'])}. Все они снова станут видны посетителям.`,
       confirmLabel: 'Открыть все',
     });
     if (!confirmed) return;
@@ -398,14 +391,14 @@ export default function AdminPageLocks({ password }: { password: string }) {
         <div className="plock-summary__body">
           <p className="plock-summary__title">
             {locked.length
-              ? `Закрыто ${locked.length} ${plural(locked.length, 'страница', 'страницы', 'страниц')}`
+              ? `Закрыто ${locked.length} ${plural(locked.length, ['страница', 'страницы', 'страниц'])}`
               : 'Все страницы сайта открыты'}
           </p>
           <p className="admin-hint">
             {locked.length
               ? locked.map((route) => {
                 const days = lockedForDays(route.lockedAt);
-                return days > 0 ? `${route.label} — ${days} ${plural(days, 'день', 'дня', 'дней')}` : route.label;
+                return days > 0 ? `${route.label} — ${days} ${plural(days, ['день', 'дня', 'дней'])}` : route.label;
               }).join(' · ')
               : 'Заглушку никто не видит. Изменения применяются в течение минуты после нажатия.'}
           </p>
@@ -430,8 +423,8 @@ export default function AdminPageLocks({ password }: { password: string }) {
                       </p>
                       <p className="admin-hint plock-row__meta">
                         <code>{route.path}</code>
-                        {route.locked && days > 0 ? ` · ${days} ${plural(days, 'день', 'дня', 'дней')}` : ''}
-                        {!route.locked && route.weeklyViews > 0 ? ` · ${route.weeklyViews} ${plural(route.weeklyViews, 'визит', 'визита', 'визитов')} за ${data?.trafficDays || 7} дней` : ''}
+                        {route.locked && days > 0 ? ` · ${days} ${plural(days, ['день', 'дня', 'дней'])}` : ''}
+                        {!route.locked && route.weeklyViews > 0 ? ` · ${route.weeklyViews} ${plural(route.weeklyViews, ['визит', 'визита', 'визитов'])} за ${data?.trafficDays || 7} дней` : ''}
                         {route.waiting > 0 ? ` · ждут открытия: ${route.waiting}` : ''}
                       </p>
                     </div>

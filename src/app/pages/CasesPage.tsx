@@ -57,6 +57,7 @@ import {
   getCaseGoals,
   getMergedCaseData,
 } from '../data/caseCatalog';
+import { plural } from '../utils/plural';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -180,14 +181,6 @@ function parseCaseDate(item: CaseView): number {
   const match = item.date.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   if (!match) return 0;
   return Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
-}
-
-function pluralCases(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'кейс';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'кейса';
-  return 'кейсов';
 }
 
 function filterUrlToken(kind: CaseFilterKind, value: string): string {
@@ -667,7 +660,7 @@ export default function CasesPage() {
             </div>
 
             <div className="cases-stats" aria-label="Показатели опубликованных кейсов">
-              <StatCard icon={BriefcaseBusiness} value={stats.count} label={pluralCases(filtered.length)} />
+              <StatCard icon={BriefcaseBusiness} value={stats.count} label={plural(filtered.length, ['кейс', 'кейса', 'кейсов'])} />
               <StatCard icon={Users} value={stats.leads} label="лидов / покупок" />
               <StatCard icon={WalletCards} value={stats.budget} label="макс. бюджет" />
               <StatCard icon={Trophy} value={stats.roi} label="макс. ROI" />
@@ -701,7 +694,7 @@ export default function CasesPage() {
                   <SheetFooter className="cases-filter-sheet-footer border-t border-white/[.08] px-5 pt-4">
                     {hasFilters ? <button type="button" className="cases-filter-sheet-reset" onClick={clearAll}>Сбросить</button> : null}
                     <SheetClose asChild>
-                      <button type="button" className="cases-filter-apply">Показать {filtered.length} {pluralCases(filtered.length)}</button>
+                      <button type="button" className="cases-filter-apply">Показать {filtered.length} {plural(filtered.length, ['кейс', 'кейса', 'кейсов'])}</button>
                     </SheetClose>
                   </SheetFooter>
                 </SheetContent>

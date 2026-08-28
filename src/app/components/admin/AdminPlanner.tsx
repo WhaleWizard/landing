@@ -78,6 +78,7 @@ import {
   type PlannerTemplate,
   type PlannerWeekData,
 } from './plannerModel';
+import { withPlural } from '../../utils/plural';
 
 type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
@@ -1294,14 +1295,14 @@ export default function AdminPlanner({ password }: { password: string }) {
               <ProgressRing
                 value={stats.progress}
                 size="lg"
-                label={`Прогресс недели: выполнено ${stats.done} из ${stats.total} задач`}
+                label={`Прогресс недели: выполнено ${stats.done} из ${withPlural(stats.total, ['задачи', 'задач', 'задач'])}`}
               >
                 <span className="planner-ring__hero">{formatPercent(stats.progress)}</span>
                 <span className="planner-ring__caption">выполнено</span>
               </ProgressRing>
               <p className="planner-total__caption">
                 {stats.total > 0
-                  ? `${stats.done} из ${stats.total} задач недели`
+                  ? `${stats.done} из ${withPlural(stats.total, ['задачи', 'задач', 'задач'])} недели`
                   : 'Задач пока нет — добавьте первую в любой день'}
               </p>
             </section>

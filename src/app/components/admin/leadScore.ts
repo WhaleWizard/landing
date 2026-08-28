@@ -1,3 +1,5 @@
+import { withPlural } from '../../utils/plural';
+
 /**
  * Автооценка лида: 0–100 по тем сигналам, которые реально пришли с заявкой.
  *
@@ -74,10 +76,7 @@ export function suggestLeadScore(lead: ScorableLead): LeadScoreSuggestion {
   if (repeats > 1) {
     score += 10;
     // «обращался 5 раза» — счёт по-русски требует согласования.
-    const mod10 = repeats % 10;
-    const mod100 = repeats % 100;
-    const times = mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'раза' : 'раз';
-    reasons.push(`обращался ${repeats} ${times} — уже тёплый (+10)`);
+    reasons.push(`обращался ${withPlural(repeats, ['раз', 'раза', 'раз'])} — уже тёплый (+10)`);
   }
 
   const message = String(lead.message || '').trim();

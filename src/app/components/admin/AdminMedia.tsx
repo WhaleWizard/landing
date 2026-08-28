@@ -8,6 +8,7 @@ import type { Article } from '../hooks/useArticlesApi';
 import { confirmAsk, notify } from './AdminFeedback';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import { compressImage, formatBytes } from '../../utils/compressImage';
+import { withPlural } from '../../utils/plural';
 
 interface MediaFile {
   key: string;
@@ -211,7 +212,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
       return;
     }
     if (!targets.length) return;
-    const label = targets.length === 1 ? `«${targets[0].name}»` : `${targets.length} файлов`;
+    const label = targets.length === 1 ? `«${targets[0].name}»` : withPlural(targets.length, ['файл', 'файла', 'файлов']);
     const confirmed = await confirmAsk({
       title: `Удалить ${label}?`,
       description: 'Файлы исчезнут из хранилища без возможности восстановления.',
@@ -331,7 +332,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
     <div className="admin-stack media-library">
       <AdminSectionHeading
         title="Медиатека"
-        description={`${files.length} файлов · ${folders.length} папок`}
+        description={`${withPlural(files.length, ['файл', 'файла', 'файлов'])} · ${withPlural(folders.length, ['папка', 'папки', 'папок'])}`}
         action={(
           <div className="admin-media-actions flex flex-wrap gap-2">
             <label className={`admin-button admin-button--primary cursor-pointer ${uploading ? 'pointer-events-none opacity-50' : ''}`}>

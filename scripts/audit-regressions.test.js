@@ -12,12 +12,26 @@ import { transform } from 'esbuild';
  * `audit-reports/08_аудит_кода_2026-08-26/`.
  */
 
-async function loadModule(relativePath) {
+/**
+ * Компилирует один модуль проекта в память.
+ *
+ * Импорты по умолчанию подменяются пустышкой: проверяемые функции чистые, и
+ * тащить за ними React с браузерным окружением незачем. Но некоторые из них
+ * опираются на общие утилиты — например на согласование числительных, — и
+ * такие модули нужно подставить по-настоящему, иначе тест падает не на
+ * проверяемом правиле, а на заглушке.
+ */
+async function compile(relativePath, resolve = () => ({})) {
   const source = await readFile(new URL(`../${relativePath}`, import.meta.url), 'utf8');
   const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'node20' });
   const module = { exports: {} };
-  new Function('module', 'exports', 'require', compiled.code)(module, module.exports, () => ({}));
+  new Function('module', 'exports', 'require', compiled.code)(module, module.exports, resolve);
   return module.exports;
+}
+
+async function loadModule(relativePath) {
+  const plural = await compile('src/app/utils/plural.ts');
+  return compile(relativePath, (request) => (request.endsWith('/plural') ? plural : {}));
 }
 
 const money = await loadModule('functions/_lib/money.ts');
@@ -158,6 +172,26 @@ test('разные валюты нигде не складываются в од
     'порядок клиентов не должен считаться суммой всех валют',
   );
   assert.ok(finance.includes('primaryTotal'), 'клиенты сортируются по основной валюте');
+});
+
+test('числительные согласуются по-русски, включая 11, 21 и 111', async () => {
+  const { plural, withPlural } = await compile('src/app/utils/plural.ts');
+  const forms = ['заявка', 'заявки', 'заявок'];
+
+  // Правило жило в четырёх копиях и в двух разных записях; в шести надписях
+  // его не было вовсе — оттуда «1 заявок», «2 файлов», «1 ошибок».
+  const expected = {
+    0: 'заявок', 1: 'заявка', 2: 'заявки', 4: 'заявки', 5: 'заявок',
+    11: 'заявок', 12: 'заявок', 14: 'заявок', 15: 'заявок',
+    21: 'заявка', 22: 'заявки', 25: 'заявок',
+    101: 'заявка', 111: 'заявок', 112: 'заявок', 121: 'заявка',
+  };
+  for (const [count, form] of Object.entries(expected)) {
+    assert.equal(plural(Number(count), forms), form, `${count}: ожидалось «${form}»`);
+  }
+
+  assert.equal(withPlural(1, forms), '1 заявка');
+  assert.equal(withPlural(5, forms), '5 заявок');
 });
 
 test('временный отказ приёма заявки отличается от окончательного', async () => {

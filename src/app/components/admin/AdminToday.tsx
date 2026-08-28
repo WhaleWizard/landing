@@ -14,6 +14,7 @@ import {
   CountUpValue, DeltaBadge, StatTile, TrendGroup,
   formatNumber, type SeriesPoint,
 } from './AttributionCharts';
+import { plural } from '../../utils/plural';
 
 type Destination = 'leads' | 'articles' | 'health' | 'meta' | 'content' | 'planner' | 'attribution' | 'performance' | 'media' | 'goals' | 'access';
 type Level = 'critical' | 'attention' | 'info';
@@ -128,15 +129,6 @@ function greeting(): string {
 function todayLabel(): string {
   const formatted = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
-}
-
-function plural(count: number, forms: [string, string, string]): string {
-  const abs = Math.abs(count) % 100;
-  const tail = abs % 10;
-  if (abs > 10 && abs < 20) return forms[2];
-  if (tail > 1 && tail < 5) return forms[1];
-  if (tail === 1) return forms[0];
-  return forms[2];
 }
 
 /**

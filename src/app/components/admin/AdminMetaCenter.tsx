@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
+import { withPlural } from '../../utils/plural';
 
 type Tone = 'ok' | 'warn' | 'fail' | 'neutral';
 
@@ -568,7 +569,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
               icon={<Server className="h-4 w-4" />}
               title="Доставка за 24 часа"
               value={formatPercent(delivery?.deliveryRate)}
-              detail={delivery ? `${delivery.sent} подтверждено · ${delivery.failed} ошибок · ${delivery.skipped} пропущено.` : 'Пока нет доступной диагностики.'}
+              detail={delivery ? `${delivery.sent} подтверждено · ${withPlural(delivery.failed, ['ошибка', 'ошибки', 'ошибок'])} · ${delivery.skipped} пропущено.` : 'Пока нет доступной диагностики.'}
               tone={deliveryTone}
             />
           </div>
