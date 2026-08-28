@@ -931,7 +931,13 @@ export default function Admin() {
         // Пароль здесь пуст: он живёт в памяти вкладки и перезагрузку не
         // переживает. Запрос всё равно проходит — действующую сессию
         // проверяет `api/admin/_middleware.ts` и сам подставляет пароль.
-        void forceRefreshAdminArticles(password);
+        //
+        // Отказ обязан быть слышен: молча оставить список пустым — это ровно
+        // тот «уверенный ноль вместо тринадцати», который здесь и чинится.
+        forceRefreshAdminArticles(password).catch((requestError) => {
+          const message = requestError instanceof Error ? requestError.message : 'неизвестная причина';
+          notify.error('Не удалось загрузить публикации', message);
+        });
       }
       setSessionChecking(false);
     })();
