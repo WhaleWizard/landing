@@ -77,13 +77,27 @@ const LEVEL_UI: Record<Level, { icon: typeof AlertTriangle; label: string }> = {
   info: { icon: CircleDot, label: 'К сведению' },
 };
 
-const FOCUS_UI: Record<FocusKind, { icon: typeof AlertTriangle; label: string; tone: 'danger' | 'warning' | 'primary' | 'muted' }> = {
+type FocusUi = { icon: typeof AlertTriangle; label: string; tone: 'danger' | 'warning' | 'primary' | 'muted' };
+
+const FOCUS_UI: Record<FocusKind, FocusUi> = {
   lead_overdue: { icon: AlertTriangle, label: 'Просрочен шаг', tone: 'danger' },
   task_overdue: { icon: AlertTriangle, label: 'Просрочена задача', tone: 'danger' },
   task_today: { icon: Clock3, label: 'Задача на сегодня', tone: 'warning' },
   lead_new: { icon: Inbox, label: 'Новая заявка', tone: 'primary' },
   planner_task: { icon: ListChecks, label: 'Планер', tone: 'muted' },
 };
+
+/**
+ * Оформление дела по его виду. Сейчас сервер шлёт ровно эти пять, но список
+ * живёт в двух файлах: стоит добавить шестой на сервере и забыть здесь — и
+ * стартовый экран падал бы целиком на `undefined.icon`. Неизвестный вид лучше
+ * показать нейтрально, чем не показать ничего.
+ */
+function focusUi(kind: FocusKind): FocusUi {
+  return Object.prototype.hasOwnProperty.call(FOCUS_UI, kind)
+    ? FOCUS_UI[kind]
+    : { icon: CircleDot, label: 'Дело', tone: 'muted' };
+}
 
 const QUICK_ACTIONS: Array<{ destination: Destination; label: string; icon: typeof AlertTriangle }> = [
   { destination: 'leads', label: 'Сделки', icon: Inbox },
@@ -252,7 +266,9 @@ export default function AdminToday({
     const critical = items.filter((item) => item.level === 'critical').length;
     const urgent = focus.filter((item) => item.kind === 'lead_overdue' || item.kind === 'task_overdue').length;
     if (urgent > 0) {
-      return `Горит ${urgent} ${plural(urgent, ['дело', 'дела', 'дел'])} — начни с ${urgent === 1 ? 'него' : 'них'}.`;
+      // Местоимение согласуется по тому же правилу, что и глагол: у «21 дело»
+      // оно единственного числа, а не «начни с них».
+      return `${plural(urgent, ['Горит', 'Горят', 'Горят'])} ${urgent} ${plural(urgent, ['дело', 'дела', 'дел'])} — начни с ${plural(urgent, ['него', 'них', 'них'])}.`;
     }
     if (critical > 0) {
       return `${critical} ${plural(critical, ['блок требует', 'блока требуют', 'блоков требуют'])} решения.`;
@@ -351,7 +367,7 @@ export default function AdminToday({
             icon={<Inbox aria-hidden="true" />}
             title="Заявки за 7 дней"
             value={<CountUpValue value={totals.leads7} />}
-            detail={totals.leadsNew > 0 ? `${totals.leadsNew} ждут ответа.` : 'Все заявки обработаны.'}
+            detail={totals.leadsNew > 0 ? `${totals.leadsNew} ${plural(totals.leadsNew, ['ждёт', 'ждут', 'ждут'])} ответа.` : 'Все заявки обработаны.'}
             spark={series.map((point) => point.leads)}
             sparkSlot={1}
           />
@@ -398,7 +414,7 @@ export default function AdminToday({
             ) : (
               <ul className="today-focus__list">
                 {shownFocus.map((item) => {
-                  const ui = FOCUS_UI[item.kind];
+                  const ui = focusUi(item.kind);
                   const Icon = ui.icon;
                   const when = timeLabel(item.kind, item.when);
                   return (
@@ -460,7 +476,7 @@ export default function AdminToday({
                     <span className="today-delta__label">{row.label}</span>
                     <strong className="today-delta__value">{formatNumber(row.now)}</strong>
                     <span className="today-delta__diff">
-                      {diff === 0 ? 'как позавчера' : `${diff > 0 ? '+' : '−'}${formatNumber(Math.abs(diff))} к позавчера`}
+                      {diff === 0 ? 'как позавчера' : `${diff > 0 ? '+' : '−'}${formatNumber(Math.abs(diff))} против позавчера`}
                     </span>
                   </li>
                 );
@@ -479,7 +495,7 @@ export default function AdminToday({
               {(data?.sources || []).map((row) => (
                 <li key={row.source}>
                   <span className="today-sources__name">{row.source}</span>
-                  <span className="today-sources__leads">{formatNumber(row.leads)} заявок</span>
+                  <span className="today-sources__leads">{formatNumber(row.leads)} {plural(row.leads, ['заявка', 'заявки', 'заявок'])}</span>
                   <span className="today-sources__price">
                     {row.costPerLead != null
                       ? `${Math.round(row.costPerLead).toLocaleString('ru-RU')} ${row.currency} за заявку`
@@ -550,19 +566,32 @@ export default function AdminToday({
                 <Activity aria-hidden="true" />
                 <span>Meta CAPI за сутки</span>
                 <strong>{capiOk ? 'в порядке' : 'нужна проверка'}</strong>
-                <em>{formatNumber(capi?.sent24h ?? null)} отправлено · {formatNumber(capi?.failed24h ?? null)} ошибок</em>
+                <em>{formatNumber(capi?.sent24h ?? null)} отправлено · {formatNumber(capi?.failed24h ?? null)} {plural(Number(capi?.failed24h || 0), ['ошибка', 'ошибки', 'ошибок'])}</em>
               </div>
-              <div className={Number(health?.outboxPending || 0) + Number(health?.outboxRetry || 0) > 0 ? 'is-warn' : 'is-ok'}>
+              {/*
+                Жёлтым — только когда событие уже не ушло с первого раза
+                (status='retry'). Просто ожидающая очередь — штатная работа
+                досылки, и это ровно то правило, по которому сервер ставит
+                уровень своей карточке. Раньше плитка желтела от любого
+                непустого списка, то есть почти всегда, и владелец привыкал
+                не замечать предупреждений.
+              */}
+              <div className={Number(health?.outboxRetry || 0) > 0 ? 'is-warn' : 'is-ok'}>
                 <Clock3 aria-hidden="true" />
                 <span>Очередь досылки</span>
                 <strong>{formatNumber((health?.outboxPending || 0) + (health?.outboxRetry || 0))}</strong>
-                <em>событий ждут повторной отправки</em>
+                <em>
+                  {Number(health?.outboxRetry || 0) > 0
+                    ? `${formatNumber(health?.outboxRetry ?? 0)} с повторной попыткой`
+                    : 'в очереди на отправку — это нормально'}
+                </em>
               </div>
               <div className={Number(health?.outboxDead || 0) > 0 ? 'is-alarm' : 'is-ok'}>
                 <AlertTriangle aria-hidden="true" />
                 <span>Остановленные события</span>
                 <strong>{formatNumber(health?.outboxDead ?? 0)}</strong>
-                <em>исчерпаны попытки — нужна диагностика</em>
+                {/* При нуле подпись про диагностику читалась как тревога. */}
+                <em>{Number(health?.outboxDead || 0) > 0 ? 'исчерпаны попытки — нужна диагностика' : 'ни одно событие не потеряно'}</em>
               </div>
               <div className={Number(health?.telegramMissing || 0) > 0 ? 'is-warn' : 'is-ok'}>
                 <Send aria-hidden="true" />
