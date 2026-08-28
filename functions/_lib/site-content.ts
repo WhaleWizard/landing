@@ -109,8 +109,9 @@ function isExactLegacyMetaAdsCases(value: unknown): boolean {
     return false;
   }
 
+  const sourceItems = Array.isArray(source.items) ? source.items : [];
   return LEGACY_META_ADS_CASES.items.every((expected, index) => {
-    const item = object(source.items[index]);
+    const item = object(sourceItems[index]);
     if (
       item.title !== expected.title
       || item.category !== expected.category
@@ -122,7 +123,8 @@ function isExactLegacyMetaAdsCases(value: unknown): boolean {
       return false;
     }
     return expected.stats.every((expectedStat, statIndex) => {
-      const stat = object(item.stats[statIndex]);
+      const stats = Array.isArray(item.stats) ? item.stats : [];
+      const stat = object(stats[statIndex]);
       return stat.label === expectedStat.label && stat.value === expectedStat.value;
     });
   });

@@ -23,7 +23,12 @@ interface D1Row {
   case_data_json?: string | null;
 }
 
-function hasD1(env: Env): boolean {
+/**
+ * Есть ли подключённая база. Это не просто проверка, а сужение типа: после
+ * неё TypeScript знает, что `env.DB` уже не может быть пустым, и перестаёт
+ * требовать восклицательные знаки в каждом обращении.
+ */
+function hasD1(env: Env): env is Env & { DB: D1Database } {
   return Boolean(env.DB);
 }
 
@@ -215,7 +220,7 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
   const insertSql = `INSERT INTO articles (${columns.join(', ')}) VALUES (${placeholders})
     ON CONFLICT(slug) DO UPDATE SET ${updateSet.join(', ')}`;
 
-  const statements = [];
+  const statements: D1PreparedStatement[] = [];
   const seen = new Set<string>();
 
   for (const article of normalized) {

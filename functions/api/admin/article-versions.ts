@@ -7,7 +7,12 @@ import type { Env } from '../../_lib/types';
 const MAX_VERSION_PAYLOAD_LENGTH = 160_000;
 const MAX_SLUG_LENGTH = 140;
 
-function hasD1(env: Env): boolean {
+/**
+ * Есть ли подключённая база. Это не просто проверка, а сужение типа: после
+ * неё TypeScript знает, что `env.DB` уже не может быть пустым, и перестаёт
+ * требовать восклицательные знаки в каждом обращении.
+ */
+function hasD1(env: Env): env is Env & { DB: D1Database } {
   return Boolean(env.DB);
 }
 

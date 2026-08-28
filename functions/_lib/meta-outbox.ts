@@ -51,22 +51,25 @@ const DEAD_LETTER_RETENTION_SECONDS = 30 * 24 * 60 * 60;
  * записи со статусом `sent` — а это почти вся таблица.
  */
 async function cleanupOutbox(env: Env, now: number): Promise<void> {
+  // Без базы чистить нечего.
+  if (!env.DB) return;
+  const db = env.DB;
   const statements = [
-    env.DB.prepare(
+    db.prepare(
       `DELETE FROM meta_outbox
        WHERE status='sent' AND updated_at < ? AND event_name NOT IN ${QUALITY_EVENT_NAMES}`,
     ).bind(now - SENT_DEFAULT_RETENTION_SECONDS),
-    env.DB.prepare(
+    db.prepare(
       `DELETE FROM meta_outbox
        WHERE status='sent' AND updated_at < ? AND event_name IN ${QUALITY_EVENT_NAMES}`,
     ).bind(now - SENT_QUALITY_RETENTION_SECONDS),
-    env.DB.prepare(
+    db.prepare(
       `DELETE FROM meta_outbox WHERE status='dead_letter' AND updated_at < ?`,
     ).bind(now - DEAD_LETTER_RETENTION_SECONDS),
   ];
 
   try {
-    await env.DB.batch(statements);
+    await db.batch(statements);
   } catch (error) {
     // Уборка не имеет права уронить разбор очереди: доставка событий важнее
     // порядка в таблице.

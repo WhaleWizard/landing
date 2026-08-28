@@ -326,8 +326,8 @@ export async function sendLeadQualityEvent(env: Env, lead: LeadQualityRow, quali
 
     await markMetaEventSent(env, eventName, eventId);
     if (outboxAvailable) await markOutboxSent(env, eventId);
-    await recordMetaDiagnostics(env, { ...diagnosticsBase, status: 'sent', events_received: receipt.events_received, fbtrace_id: receipt.fbtrace_id });
-    return { status: 'sent', event_id: eventId, events_received: receipt.events_received, fbtrace_id: receipt.fbtrace_id };
+    await recordMetaDiagnostics(env, { ...diagnosticsBase, status: 'sent', events_received: receipt?.events_received, fbtrace_id: receipt?.fbtrace_id });
+    return { status: 'sent', event_id: eventId, events_received: receipt?.events_received, fbtrace_id: receipt?.fbtrace_id };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (outboxAvailable) {

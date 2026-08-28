@@ -259,8 +259,8 @@ export async function sendPageInterestEvent(env: Env, input: PageInterestInput):
     await recordMetaDiagnostics(env, {
       ...diagnosticsBase,
       status: 'sent',
-      events_received: receipt.events_received,
-      fbtrace_id: receipt.fbtrace_id,
+      events_received: receipt?.events_received,
+      fbtrace_id: receipt?.fbtrace_id,
     });
     return { status: 'sent', eventId };
   } catch (error) {

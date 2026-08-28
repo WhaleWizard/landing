@@ -405,7 +405,19 @@ function hasAnyUtm(payload: MetaEventPayload, ctx: ReturnType<typeof extractRequ
   );
 }
 
-async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Request): Promise<void> {
+/**
+ * Событие, прошедшее проверку: имя и идентификатор точно есть.
+ *
+ * Обработчик отвечает 400, если их нет, но через границу функции TypeScript
+ * этого не видит — отсюда отдельный тип и предикат ниже.
+ */
+type SendableMetaEvent = MetaEventPayload & { event_name: MetaEventName; event_id: string };
+
+function isSendableMetaEvent(payload: MetaEventPayload): payload is SendableMetaEvent {
+  return Boolean(payload.event_name && payload.event_id);
+}
+
+async function sendMetaEvent(payload: SendableMetaEvent, env: Env, request: Request): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
   const apiVersion = env.META_CAPI_API_VERSION || 'v25.0';
@@ -581,10 +593,10 @@ async function sendMetaEvent(payload: MetaEventPayload, env: Env, request: Reque
       } else {
         await markMetaEventSent(env, payload.event_name, payload.event_id);
         await markOutboxSent(env, outboxId);
-        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result.events_received, fbtrace_id: result.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
         console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
-          fbtrace_id: result.fbtrace_id,
-          events_received: result.events_received,
+          fbtrace_id: result?.fbtrace_id,
+          events_received: result?.events_received,
         });
       }
     }
@@ -632,7 +644,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
   const payload = normalizeMetaEventPayload(parsedBody);
 
-  if (!payload.event_name || !payload.event_id) {
+  if (!isSendableMetaEvent(payload)) {
     return json(
       { success: false, error: 'event_name and event_id are required' },
       { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },

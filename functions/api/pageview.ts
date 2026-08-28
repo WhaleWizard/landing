@@ -565,8 +565,8 @@ async function sendMetaPageView(
           event_id: eventId,
           event_time: eventTime,
           status: 'sent',
-          events_received: result.events_received,
-          fbtrace_id: result.fbtrace_id,
+          events_received: result?.events_received,
+          fbtrace_id: result?.fbtrace_id,
           page_path: payload.page_path,
           page_url: eventSourceUrl,
           has_fbp: Boolean(fbp),
@@ -583,8 +583,8 @@ async function sendMetaPageView(
           consent_timestamp: payload.consent_timestamp,
         });
         console.log('[Meta CAPI] PageView server event sent successfully', {
-          fbtrace_id: result.fbtrace_id,
-          events_received: result.events_received,
+          fbtrace_id: result?.fbtrace_id,
+          events_received: result?.events_received,
         });
       }
     }
