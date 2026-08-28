@@ -25,7 +25,6 @@ interface SpendResponse {
   skipped?: number;
 }
 
-const CURRENCIES = ['USD', 'EUR', 'RUB', 'KZT', 'AED', 'TRY'];
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -213,7 +212,7 @@ export default function AdminAdSpend({
               />
             </label>
             <label className="admin-field adm-spend__amount">
-              <span className="admin-label">Сумма</span>
+              <span className="admin-label">Сумма, $</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -222,12 +221,6 @@ export default function AdminAdSpend({
                 required
                 onChange={(event) => setDraft({ ...draft, amount: event.target.value })}
               />
-            </label>
-            <label className="admin-field">
-              <span className="admin-label">Валюта</span>
-              <select value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })}>
-                {CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-              </select>
             </label>
             <div className="adm-spend__form-actions">
               <button type="submit" className="admin-button admin-button--primary" disabled={saving}>
@@ -247,7 +240,7 @@ export default function AdminAdSpend({
             <div className="adm-spend__csv">
               <p className="admin-hint">
                 Нужны колонки с датой и суммой: <code>date</code>/<code>день</code> и <code>amount</code>/<code>сумма</code>.
-                Необязательные: <code>source</code>, <code>campaign</code>, <code>currency</code>.
+                Необязательные: <code>source</code>, <code>campaign</code>. Суммы читаются как доллары.
               </p>
               <input
                 ref={fileRef}

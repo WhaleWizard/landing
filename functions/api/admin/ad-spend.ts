@@ -2,7 +2,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { parseMoney } from '../../_lib/money';
+import { ACCOUNTING_CURRENCY, parseMoney } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -49,11 +49,6 @@ function normalizeKeyPart(value: unknown): string {
   return sanitizeText(String(value || ''), 120).trim().toLowerCase();
 }
 
-function normalizeCurrency(value: unknown): string | null {
-  const raw = String(value || 'USD').trim().toUpperCase();
-  return /^[A-Z]{3}$/.test(raw) ? raw : null;
-}
-
 // «1 234,56», «1234.56» и «$1,234.56» — всё это один и тот же расход.
 function normalizeAmount(value: unknown): number | null {
   return parseMoney(value, MAX_AMOUNT);
@@ -65,8 +60,8 @@ function normalizeEntry(raw: unknown): SpendEntry | { error: string } {
   if (!day) return { error: 'Дата должна быть в формате ГГГГ-ММ-ДД' };
   const amount = normalizeAmount(input.amount);
   if (amount === null) return { error: 'Сумма должна быть числом от 0' };
-  const currency = normalizeCurrency(input.currency);
-  if (!currency) return { error: 'Валюта — три латинские буквы, например USD' };
+  // Учёт только в долларах: валюта из запроса и из CSV игнорируется.
+  const currency = ACCOUNTING_CURRENCY;
   const source = normalizeKeyPart(input.source);
   if (!source) return { error: 'Укажите источник — он должен совпадать с utm_source' };
   return {

@@ -838,8 +838,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
         </label>
         <label className="admin-field"><span className="admin-label">Следующее действие · дата</span><input className="admin-input" type="datetime-local" value={draft.next_action_at} onChange={(event) => setDraft({ ...draft, next_action_at: event.target.value })} /></label>
         <label className="admin-field admin-field--wide"><span className="admin-label">Что сделать следующим</span><input className="admin-input" maxLength={240} value={draft.next_action_text} onChange={(event) => setDraft({ ...draft, next_action_text: event.target.value })} placeholder="Например: отправить медиаплан и согласовать созвон" /></label>
-        <label className="admin-field"><span className="admin-label">Сумма сделки</span><input className="admin-input" inputMode="decimal" value={draft.deal_value} onChange={(event) => setDraft({ ...draft, deal_value: event.target.value.replace(/[^\d.,]/g, '').replace(',', '.') })} placeholder="0" /></label>
-        <label className="admin-field"><span className="admin-label">Валюта</span><input className="admin-input" maxLength={3} value={draft.deal_currency} onChange={(event) => setDraft({ ...draft, deal_currency: event.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} /></label>
+        <label className="admin-field"><span className="admin-label">Сумма сделки, $</span><input className="admin-input" inputMode="decimal" value={draft.deal_value} onChange={(event) => setDraft({ ...draft, deal_value: event.target.value.replace(/[^\d.,]/g, '').replace(',', '.') })} placeholder="0" /></label>
         {(draft.pipeline_stage === 'lost' || draft.loss_reason) ? (
           <div className="admin-field admin-field--wide">
             <span className="admin-label">Причина проигрыша</span>

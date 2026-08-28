@@ -2,7 +2,7 @@ import { json, readRequestText } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { normalizeCurrencyCode, parseMoneyOrZero } from '../../_lib/money';
+import { ACCOUNTING_CURRENCY, parseMoneyOrZero } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 
 /**
@@ -64,7 +64,6 @@ function cleanMonth(value: unknown): string {
  * десятичный, остальные разрядные.
  */
 const cleanAmount = parseMoneyOrZero;
-const cleanCurrency = normalizeCurrencyCode;
 
 function cleanInvoiceStatus(value: unknown): string {
   const text = String(value ?? '');
@@ -167,7 +166,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         cleanText(body.number, 60),
         cleanMonth(body.period),
         cleanAmount(body.amount),
-        cleanCurrency(body.currency),
+        ACCOUNTING_CURRENCY,
         cleanDate(body.issued_at),
         cleanDate(body.due_at),
         cleanDate(body.paid_at),
@@ -257,7 +256,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         cleanDate(body.day) || new Date().toISOString().slice(0, 10),
         cleanText(body.category, 80),
         cleanAmount(body.amount),
-        cleanCurrency(body.currency),
+        ACCOUNTING_CURRENCY,
         cleanText(body.note, 300),
       ];
       if (id) {
@@ -315,7 +314,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
            main_currency = excluded.main_currency,
            requisites = excluded.requisites,
            updated_at = datetime('now')`,
-      ).bind(taxRate, hourly, cleanCurrency(body.main_currency), cleanText(body.requisites, 2000)).run();
+      ).bind(taxRate, hourly, ACCOUNTING_CURRENCY, cleanText(body.requisites, 2000)).run();
       return json({ success: true }, { headers: noStore });
     }
 

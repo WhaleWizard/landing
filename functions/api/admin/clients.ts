@@ -2,7 +2,7 @@ import { json, readRequestText } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { normalizeCurrencyCode, parseMoney, parseMoneyOrZero } from '../../_lib/money';
+import { ACCOUNTING_CURRENCY, parseMoney, parseMoneyOrZero } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 
 /**
@@ -107,7 +107,6 @@ function cleanMonth(value: unknown): string | null {
 
 const cleanAmount = parseMoneyOrZero;
 const cleanOptionalNumber = parseMoney;
-const cleanCurrency = normalizeCurrencyCode;
 
 function cleanStatus(value: unknown): ClientStatus {
   const text = String(value ?? '');
@@ -340,7 +339,7 @@ function clientFields(body: Record<string, unknown>): { columns: string[]; value
     })()],
     ['services', cleanServices(body.services)],
     ['retainer_amount', cleanAmount(body.retainer_amount)],
-    ['retainer_currency', cleanCurrency(body.retainer_currency)],
+    ['retainer_currency', ACCOUNTING_CURRENCY],
     ['billing_day', (() => {
       const parsed = Number(body.billing_day);
       return Number.isInteger(parsed) && parsed >= 1 && parsed <= 28 ? parsed : null;
@@ -470,7 +469,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         cleanDate(body.report_sent_at),
         cleanLine(body.report_url, LIMITS.url),
         cleanOptionalNumber(body.spend),
-        cleanCurrency(body.spend_currency, ''),
+        ACCOUNTING_CURRENCY,
         cleanOptionalNumber(body.leads),
         cleanOptionalNumber(body.sales),
         cleanOptionalNumber(body.revenue),

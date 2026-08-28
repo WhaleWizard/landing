@@ -3,7 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { parseMoney } from '../../_lib/money';
+import { ACCOUNTING_CURRENCY, parseMoney } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -248,10 +248,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // первую запятую на точку и вырезал остальное, поэтому «1,234.56» давал
   // «1.234.56» и превращался в ноль — цель по выручке молча обнулялась.
   const bounded = (value: unknown, max: number): number => parseMoney(value, max) ?? 0;
-  const currency = String(body.currency || 'USD').trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(currency)) {
-    return json({ success: false, error: 'Валюта — три латинские буквы, например USD' }, { status: 400, headers: noStore });
-  }
+  // Учёт ведётся только в долларах — выбора валюты в интерфейсе нет.
+  const currency = ACCOUNTING_CURRENCY;
 
   try {
     await env.DB.prepare(`

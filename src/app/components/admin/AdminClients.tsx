@@ -434,11 +434,8 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
             <h3 className="admin-card-title"><CircleDollarSign aria-hidden="true" /> Деньги и договор</h3>
           </header>
           <div className="admin-crm-form-grid">
-            <label className="admin-field"><span className="admin-label">Чек в месяц</span>
+            <label className="admin-field"><span className="admin-label">Чек в месяц, $</span>
               <AdminDecimalInput className="admin-input" value={draft.retainer_amount} onValueChange={(amount) => setDraft({ ...draft, retainer_amount: amount ?? 0 })} />
-            </label>
-            <label className="admin-field"><span className="admin-label">Валюта</span>
-              <input className="admin-input" maxLength={3} value={draft.retainer_currency} onChange={(e) => setDraft({ ...draft, retainer_currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
             </label>
             <label className="admin-field"><span className="admin-label">День выставления счёта</span>
               <input className="admin-input" type="number" min={1} max={28} value={draft.billing_day || ''} onChange={(e) => setDraft({ ...draft, billing_day: e.target.value ? Number(e.target.value) : null })} />
@@ -542,11 +539,8 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                     <label className="admin-field"><span className="admin-label">Ссылка на отчёт</span>
                       <input className="admin-input" maxLength={600} value={monthDraft.report_url} onChange={(e) => setMonthDraft({ ...monthDraft, report_url: e.target.value })} />
                     </label>
-                    <label className="admin-field"><span className="admin-label">Расход</span>
+                    <label className="admin-field"><span className="admin-label">Расход, $</span>
                       <AdminDecimalInput className="admin-input" value={monthDraft.spend} onValueChange={(spend) => setMonthDraft({ ...monthDraft, spend })} />
-                    </label>
-                    <label className="admin-field"><span className="admin-label">Валюта расхода</span>
-                      <input className="admin-input" maxLength={3} value={monthDraft.spend_currency} onChange={(e) => setMonthDraft({ ...monthDraft, spend_currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Заявок</span>
                       <input className="admin-input" type="number" min={0} value={monthDraft.leads ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, leads: e.target.value === '' ? null : Number(e.target.value) })} />
@@ -554,7 +548,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                     <label className="admin-field"><span className="admin-label">Продаж</span>
                       <input className="admin-input" type="number" min={0} value={monthDraft.sales ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, sales: e.target.value === '' ? null : Number(e.target.value) })} />
                     </label>
-                    <label className="admin-field"><span className="admin-label">Выручка клиента</span>
+                    <label className="admin-field"><span className="admin-label">Выручка клиента, $</span>
                       <AdminDecimalInput className="admin-input" value={monthDraft.revenue} onValueChange={(revenue) => setMonthDraft({ ...monthDraft, revenue })} />
                     </label>
                   </div>

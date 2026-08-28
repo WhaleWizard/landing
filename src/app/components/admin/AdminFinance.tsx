@@ -413,11 +413,8 @@ export default function AdminFinance({ password }: { password: string }) {
                 <label className="admin-field"><span className="admin-label">За месяц</span>
                   <input className="admin-input" type="month" value={invoiceDraft.period} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, period: e.target.value })} />
                 </label>
-                <label className="admin-field"><span className="admin-label">Сумма</span>
+                <label className="admin-field"><span className="admin-label">Сумма, $</span>
                   <AdminDecimalInput className="admin-input" value={invoiceDraft.amount} onValueChange={(amount) => setInvoiceDraft({ ...invoiceDraft, amount: amount ?? 0 })} />
-                </label>
-                <label className="admin-field"><span className="admin-label">Валюта</span>
-                  <input className="admin-input" maxLength={3} value={invoiceDraft.currency} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
                 </label>
                 <label className="admin-field"><span className="admin-label">Выставлен</span>
                   <input className="admin-input" type="date" value={invoiceDraft.issued_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, issued_at: e.target.value || null })} />
@@ -507,11 +504,8 @@ export default function AdminFinance({ password }: { password: string }) {
               <label className="admin-field"><span className="admin-label">Ставка налога, %</span>
                 <AdminDecimalInput className="admin-input" value={settings.tax_rate} onValueChange={(rate) => setSettings({ ...settings, tax_rate: rate ?? 0 })} />
               </label>
-              <label className="admin-field"><span className="admin-label">Целевая ставка в час</span>
+              <label className="admin-field"><span className="admin-label">Целевая ставка в час, $</span>
                 <AdminDecimalInput className="admin-input" value={settings.target_hourly_rate} onValueChange={(rate) => setSettings({ ...settings, target_hourly_rate: rate ?? 0 })} />
-              </label>
-              <label className="admin-field"><span className="admin-label">Основная валюта</span>
-                <input className="admin-input" maxLength={3} value={settings.main_currency} onChange={(e) => setSettings({ ...settings, main_currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
               </label>
             </div>
             <button type="button" className="admin-button admin-button--primary" disabled={busy}
@@ -542,11 +536,8 @@ export default function AdminFinance({ password }: { password: string }) {
                   <label className="admin-field"><span className="admin-label">Категория</span>
                     <input className="admin-input" maxLength={80} placeholder="сервисы, реклама, налоги" value={expenseDraft.category} onChange={(e) => setExpenseDraft({ ...expenseDraft, category: e.target.value })} />
                   </label>
-                  <label className="admin-field"><span className="admin-label">Сумма</span>
+                  <label className="admin-field"><span className="admin-label">Сумма, $</span>
                     <AdminDecimalInput className="admin-input" value={expenseDraft.amount} onValueChange={(amount) => setExpenseDraft({ ...expenseDraft, amount: amount ?? 0 })} />
-                  </label>
-                  <label className="admin-field"><span className="admin-label">Валюта</span>
-                    <input className="admin-input" maxLength={3} value={expenseDraft.currency} onChange={(e) => setExpenseDraft({ ...expenseDraft, currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
                   </label>
                   <label className="admin-field admin-field--wide"><span className="admin-label">Комментарий</span>
                     <input className="admin-input" maxLength={300} value={expenseDraft.note} onChange={(e) => setExpenseDraft({ ...expenseDraft, note: e.target.value })} />

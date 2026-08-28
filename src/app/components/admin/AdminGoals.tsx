@@ -411,7 +411,7 @@ export default function AdminGoals({ password }: { password: string }) {
                 числе, от которого считаются кольца и прогноз всего раздела.
               */}
               <label className="admin-field">
-                <span className="admin-label">Выручка</span>
+                <span className="admin-label">Выручка, $</span>
                 <AdminDecimalInput
                   inputMode="decimal"
                   value={draft?.revenue_target ?? 0}
@@ -419,18 +419,11 @@ export default function AdminGoals({ password }: { password: string }) {
                 />
               </label>
               <label className="admin-field">
-                <span className="admin-label">Потолок расхода</span>
+                <span className="admin-label">Потолок расхода, $</span>
                 <AdminDecimalInput
                   inputMode="decimal"
                   value={draft?.spend_cap ?? 0}
                   onValueChange={(value) => setDraft((current) => current && { ...current, spend_cap: value ?? 0 })}
-                />
-              </label>
-              <label className="admin-field">
-                <span className="admin-label">Валюта</span>
-                <input
-                  type="text" maxLength={3} value={draft?.currency ?? 'USD'}
-                  onChange={(event) => setDraft((current) => current && { ...current, currency: event.target.value.toUpperCase().slice(0, 3) })}
                 />
               </label>
               <div className="goals__form-actions">
