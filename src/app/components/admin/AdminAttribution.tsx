@@ -159,9 +159,31 @@ function compareRows(a: DimensionRow, b: DimensionRow, key: SortKey, direction: 
   return (Number(left) - Number(right)) * factor;
 }
 
+/**
+ * \u041E\u0431\u0435\u0437\u0432\u0440\u0435\u0436\u0438\u0432\u0430\u0435\u0442 \u044F\u0447\u0435\u0439\u043A\u0443, \u043A\u043E\u0442\u043E\u0440\u0443\u044E Excel \u043F\u0440\u0438\u043D\u044F\u043B \u0431\u044B \u0437\u0430 \u0444\u043E\u0440\u043C\u0443\u043B\u0443.
+ *
+ * \u0412 \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0443 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 UTM-\u043C\u0435\u0442\u043A\u0438, \u0430 \u0438\u0445 \u0437\u0430\u0434\u0430\u0451\u0442 \u043A\u0442\u043E \u0443\u0433\u043E\u0434\u043D\u043E \u0441\u0441\u044B\u043B\u043A\u043E\u0439: \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435
+ * \u0432\u0440\u043E\u0434\u0435 `=cmd|'/c calc'!A0` \u0434\u043E\u0435\u0437\u0436\u0430\u0435\u0442 \u0434\u043E \u0431\u0430\u0437\u044B \u043A\u0430\u043A \u0435\u0441\u0442\u044C \u2014 \u0441\u0435\u0440\u0432\u0435\u0440 \u043C\u0435\u0442\u043A\u0438 \u0442\u043E\u043B\u044C\u043A\u043E
+ * \u043F\u043E\u0434\u0440\u0435\u0437\u0430\u0435\u0442 \u043F\u043E \u0434\u043B\u0438\u043D\u0435. \u041E\u0442\u043A\u0440\u044B\u0432 \u0442\u0430\u043A\u043E\u0439 \u0444\u0430\u0439\u043B \u0432 Excel, \u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u043B \u0431\u044B \u0444\u043E\u0440\u043C\u0443\u043B\u0443
+ * \u0443 \u0441\u0435\u0431\u044F \u043D\u0430 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0435.
+ *
+ * \u041F\u0440\u0438\u0451\u043C \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u0439: \u043F\u0435\u0440\u0435\u0434 \u043E\u043F\u0430\u0441\u043D\u044B\u043C \u043F\u0435\u0440\u0432\u044B\u043C \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u043C \u0441\u0442\u0430\u0432\u0438\u043C \u0430\u043F\u043E\u0441\u0442\u0440\u043E\u0444, \u0438 \u044F\u0447\u0435\u0439\u043A\u0430
+ * \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u0442\u0435\u043A\u0441\u0442. \u041E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0447\u0438\u0441\u043B\u0430 \u043D\u0435 \u0442\u0440\u043E\u0433\u0430\u0435\u043C \u2014 \u0438\u043D\u0430\u0447\u0435 \u00AB\u221212,5%\u00BB
+ * \u043F\u0435\u0440\u0435\u0441\u0442\u0430\u043B\u043E \u0431\u044B \u0431\u044B\u0442\u044C \u0447\u0438\u0441\u043B\u043E\u043C \u0438 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430 \u0432 Excel \u0441\u043B\u043E\u043C\u0430\u043B\u0430\u0441\u044C \u0431\u044B.
+ */
+function defuseFormula(value: string): string {
+  if (!value) return value;
+  const first = value[0];
+  if (first === '-' && /^-?[\d\s.,]+%?$/.test(value)) return value;
+  return '=+-@\t\r'.includes(first) ? `'${value}` : value;
+}
+
 function toCsv(dimension: DimensionResult, rows: DimensionRow[], currency: string | null): string {
   const columns = COLUMNS.filter((column) => column.visible(dimension));
-  const escape = (value: string) => (/[";\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  const escape = (value: string) => {
+    const safe = defuseFormula(value);
+    return /[";\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  };
   const header = columns.map((column) => escape(column.label)).join(';');
   const body = rows.map((row) => columns.map((column) => escape(column.format(row, currency).replace(/\u00A0/g, ' '))).join(';'));
   return [header, ...body].join('\n');
@@ -280,7 +302,9 @@ export default function AdminAttribution({ password }: { password: string }) {
     link.href = url;
     link.download = `voronka-${active.key}-${days}d.csv`;
     link.click();
-    URL.revokeObjectURL(url);
+    // Ссылку освобождаем следующим кадром: браузер начинает скачивание не
+    // мгновенно, и отзыв в той же строке иногда обрывал файл на нуле байт.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const toggleSort = (key: SortKey) => {

@@ -194,6 +194,32 @@ test('числительные согласуются по-русски, вкл�
   assert.equal(withPlural(5, forms), '5 заявок');
 });
 
+test('выгрузка воронки не превращает UTM-метку в формулу Excel', async () => {
+  const source = await readFile(new URL('../src/app/components/admin/AdminAttribution.tsx', import.meta.url), 'utf8');
+  assert.ok(source.includes('defuseFormula'), 'ячейки CSV должны обезвреживаться перед выгрузкой');
+
+  // Правило повторено здесь дословно: файл тянет за собой React и графики,
+  // а проверять нужно именно поведение на конкретных значениях.
+  const defuse = (value) => {
+    if (!value) return value;
+    const first = value[0];
+    if (first === '-' && /^-?[\d\s.,]+%?$/.test(value)) return value;
+    return '=+-@\t\r'.includes(first) ? `'${value}` : value;
+  };
+
+  // UTM-метку задаёт кто угодно ссылкой, а сервер её только подрезает по
+  // длине. Открыв выгрузку в Excel, владелец запустил бы формулу у себя.
+  assert.equal(defuse("=cmd|'/c calc'!A0"), "'=cmd|'/c calc'!A0");
+  assert.equal(defuse('@SUM(1+9)*cmd'), "'@SUM(1+9)*cmd");
+  assert.equal(defuse('+1234'), "'+1234");
+  assert.equal(defuse('-скидка'), "'-скидка");
+
+  // Отрицательные числа остаются числами: иначе сортировка в Excel сломается.
+  assert.equal(defuse('-12,5%'), '-12,5%');
+  assert.equal(defuse('-5'), '-5');
+  assert.equal(defuse('facebook'), 'facebook');
+});
+
 test('временный отказ приёма заявки отличается от окончательного', async () => {
   const source = await readFile(new URL('../src/app/utils/leadRetryQueue.ts', import.meta.url), 'utf8');
   const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'node20' });
