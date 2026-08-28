@@ -3,7 +3,14 @@ import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { collectMigrationTables, renderMigrationTables } from './build-migration-map.js';
+import {
+  collectMigrationSignatures,
+  collectMigrationTables,
+  listMigrationFiles,
+  renderMigrationSignatures,
+  renderMigrationSql,
+  renderMigrationTables,
+} from './build-migration-map.js';
 
 /**
  * Раннера миграций в проекте нет: владелец применяет их вручную по порядку.
@@ -14,6 +21,8 @@ import { collectMigrationTables, renderMigrationTables } from './build-migration
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MAP_PATH = join(ROOT, 'functions/_lib/migration-tables.ts');
+const SIGNATURES_PATH = join(ROOT, 'functions/_lib/migration-signatures.ts');
+const SQL_PATH = join(ROOT, 'functions/_lib/migration-sql.ts');
 
 /** Собирает TypeScript-модуль в ESM, чтобы протестировать реальный код. */
 async function importFunctionModule(relativePath) {
@@ -56,6 +65,67 @@ test('таблицы ключевых разделов есть в карте', 
   for (const table of ['leads', 'site_sections', 'page_stats_daily', 'visitor_hashes_daily', 'meta_outbox']) {
     assert.ok(guard.MIGRATION_BY_TABLE[table], `таблица ${table} потерялась в карте миграций`);
   }
+});
+
+test('подписи миграций не отстали от файлов', () => {
+  assert.ok(existsSync(SIGNATURES_PATH), 'нет migration-signatures.ts — запустите build:migration-map');
+  const expected = renderMigrationSignatures(collectMigrationSignatures());
+  assert.equal(readFileSync(SIGNATURES_PATH, 'utf8'), expected,
+    'подписи миграций устарели — запустите npm run build:migration-map');
+});
+
+test('тексты миграций не отстали от файлов', () => {
+  assert.ok(existsSync(SQL_PATH), 'нет migration-sql.ts — запустите build:migration-map');
+  const expected = renderMigrationSql(listMigrationFiles());
+  assert.equal(readFileSync(SQL_PATH, 'utf8'), expected,
+    'тексты миграций устарели — запустите npm run build:migration-map');
+});
+
+test('у каждой миграции есть след в схеме, по которому её видно', () => {
+  // Миграция без единого следа неотличима от неприменённой, и раздел
+  // «Миграции» показывал бы её как вечно ожидающую.
+  for (const item of collectMigrationSignatures()) {
+    const traces = item.tables.length
+      + Object.values(item.columns).reduce((sum, cols) => sum + cols.length, 0)
+      + item.indexes.length
+      + item.triggers.length;
+    assert.ok(traces > 0, `${item.file} не оставляет следов в схеме — определить её состояние нельзя`);
+  }
+});
+
+test('то, что удалила поздняя миграция, из подписи ранней убрано', () => {
+  // 0034 создаёт idx_page_lock_subscribers_unique, 0035 его удаляет. На
+  // правильно мигрированной базе индекса нет — и требовать его от 0034 значит
+  // вечно показывать её применённой лишь частично.
+  const signatures = collectMigrationSignatures();
+  const locks = signatures.find((item) => item.file.startsWith('0034'));
+  assert.ok(locks, 'миграция 0034 потерялась');
+  assert.ok(
+    !locks.indexes.includes('idx_page_lock_subscribers_unique'),
+    'в подписи 0034 остался индекс, удалённый миграцией 0035',
+  );
+});
+
+test('комментарий в миграции не принимается за инструкцию', () => {
+  // В 0012 и 0014 в комментариях написано «ALTER TABLE statements are
+  // intentionally one-time». Без очистки разбор находил там таблицы
+  // `statements` и `migrations`, которых не существует.
+  const names = new Set(collectMigrationSignatures().flatMap((item) => Object.keys(item.columns)));
+  assert.ok(!names.has('statements'), 'в подписи попала таблица из текста комментария');
+  assert.ok(!names.has('migrations'), 'в подписи попала таблица из текста комментария');
+});
+
+test('каждая миграция объяснена владельцу, и лишних объяснений нет', async () => {
+  const unlocks = await importFunctionModule('functions/_lib/migration-unlocks.ts');
+  const files = listMigrationFiles();
+
+  const undescribed = files.filter((file) => !unlocks.MIGRATION_UNLOCKS[file]);
+  assert.deepEqual(undescribed, [],
+    `эти миграции не описаны в migration-unlocks.ts: ${undescribed.join(', ')}`);
+
+  const extra = Object.keys(unlocks.MIGRATION_UNLOCKS).filter((file) => !files.includes(file));
+  assert.deepEqual(extra, [],
+    `описаны несуществующие миграции: ${extra.join(', ')}`);
 });
 
 test('имя таблицы извлекается из обоих форматов ошибки D1', () => {

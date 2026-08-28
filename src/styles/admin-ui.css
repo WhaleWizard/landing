@@ -14812,3 +14812,253 @@ body[data-admin-theme] .planner-weekpick {
     word-break: break-all;
   }
 }
+
+/* ==========================================================================
+   Раздел «Миграции» — что применено в базе, а что ждёт.
+   ========================================================================== */
+
+.admin-root .admin-mig {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-density-gap, 16px);
+}
+
+.admin-root :is(.admin-mig-stat, .admin-mig-banner, .admin-mig-filter, .admin-mig-card) {
+  padding: 16px 18px;
+}
+
+.admin-root .admin-mig-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--adm-density-gap, 16px);
+}
+
+.admin-root .admin-mig-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.admin-root .admin-mig-stat__value {
+  flex: none;
+  font-family: var(--ww-font-display, "Segoe UI Variable Display", "Segoe UI", sans-serif);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .admin-mig-stat__label {
+  color: var(--adm-text-secondary);
+  font-size: var(--adm-text-sm, 13px);
+  line-height: 1.35;
+}
+
+.admin-root .admin-mig-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-left: 3px solid var(--adm-border);
+}
+
+.admin-root .admin-mig-banner svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+
+.admin-root .admin-mig-banner strong {
+  display: block;
+  color: var(--adm-text-primary);
+  font-size: var(--adm-text-md, 14px);
+}
+
+.admin-root .admin-mig-banner p {
+  margin-top: 3px;
+  color: var(--adm-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.admin-root .admin-mig-banner--ok {
+  border-left-color: color-mix(in srgb, var(--adm-success) 60%, transparent);
+}
+
+.admin-root .admin-mig-banner--ok svg {
+  color: var(--adm-success);
+}
+
+.admin-root .admin-mig-banner--todo {
+  border-left-color: color-mix(in srgb, var(--adm-warning) 60%, transparent);
+}
+
+.admin-root .admin-mig-banner--todo svg {
+  color: var(--adm-warning);
+}
+
+.admin-root .admin-mig-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--adm-text-secondary);
+  font-size: var(--adm-text-sm, 13px);
+  cursor: pointer;
+}
+
+.admin-root .admin-mig-filter input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--adm-primary-solid, var(--adm-primary));
+}
+
+.admin-root .admin-mig-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--adm-density-gap, 16px);
+  align-items: stretch;
+}
+
+/* Карточки в строке одной высоты, кнопка прижата к низу — иначе у соседей с
+   разным числом недостающих строк она болталась бы на разной высоте. */
+.admin-root .admin-mig-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+
+.admin-root .admin-mig-card--next {
+  border-color: color-mix(in srgb, var(--adm-primary) 45%, var(--adm-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--adm-primary) 22%, transparent);
+}
+
+.admin-root .admin-mig-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-root .admin-mig-card__number {
+  font-family: var(--ww-font-display, "Segoe UI Variable Display", "Segoe UI", sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .admin-mig-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--adm-radius-pill, 999px);
+  white-space: nowrap;
+}
+
+.admin-root .admin-mig-state svg {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-root .admin-mig-state--applied {
+  border-color: color-mix(in srgb, var(--adm-success) 34%, transparent);
+  background: color-mix(in srgb, var(--adm-success) 12%, transparent);
+  color: var(--adm-success);
+}
+
+.admin-root .admin-mig-state--pending {
+  border-color: color-mix(in srgb, var(--adm-warning) 36%, transparent);
+  background: color-mix(in srgb, var(--adm-warning) 13%, transparent);
+  color: var(--adm-warning);
+}
+
+.admin-root .admin-mig-state--partial {
+  border-color: color-mix(in srgb, var(--adm-danger) 34%, transparent);
+  background: color-mix(in srgb, var(--adm-danger) 12%, transparent);
+  color: var(--adm-danger);
+}
+
+.admin-root .admin-mig-card__unlocks {
+  color: var(--adm-text-secondary);
+  font-size: var(--adm-text-sm, 13px);
+  line-height: 1.5;
+  /* Две строки под объяснение: описания разной длины, а «Скопировать SQL» у
+     соседних карточек должно стоять на одной высоте. */
+  min-height: 2.9em;
+}
+
+.admin-root .admin-mig-card__file code {
+  padding: 1px 6px;
+  border-radius: var(--adm-radius-tag, 7px);
+  background: var(--adm-inset-bg, var(--adm-surface-subtle));
+  color: var(--adm-text-tertiary);
+  font-size: 11.5px;
+  word-break: break-all;
+}
+
+.admin-root .admin-mig-card__note {
+  color: var(--adm-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.admin-root .admin-mig-card__note--quiet {
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .admin-mig-card__missing ul {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-root .admin-mig-card__missing li {
+  padding-left: 12px;
+  position: relative;
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.admin-root .admin-mig-card__missing li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.admin-root .admin-mig-more {
+  font-style: italic;
+}
+
+.admin-root .admin-mig-card__actions {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--adm-border-subtle, var(--adm-border));
+}
+
+@media (max-width: 760px) {
+  .admin-root .admin-mig-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-root .admin-mig-list {
+    grid-template-columns: 1fr;
+  }
+
+  /* В одну колонку выравнивать не с чем. */
+  .admin-root .admin-mig-card__unlocks {
+    min-height: 0;
+  }
+}
