@@ -63,9 +63,20 @@ function shiftPeriod(period: string, months: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-function currentPeriod(): string {
+/**
+ * Текущий месяц. Считается по UTC — так же, как его считает сервер
+ * (`date('now')` в SQLite) и остальные разделы админки.
+ *
+ * Раньше здесь был местный календарь браузера. В часовом поясе, сдвинутом от
+ * UTC, в первые часы первого числа месяцы расходились: стрелка «вперёд»
+ * открывала месяц, который сервер ещё считает будущим, и раздел показывал
+ * пустоту вместо цифр. Сервер присылает свою дату в ответе — если она есть,
+ * берём её.
+ */
+function currentPeriod(serverToday?: string): string {
+  if (serverToday && /^\d{4}-\d{2}-\d{2}$/.test(serverToday)) return serverToday.slice(0, 7);
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 /**
@@ -145,10 +156,11 @@ function useGoalCelebration(
   period: string,
   goal: Goal | undefined,
   fact: PeriodFact | undefined,
+  serverToday: string | undefined,
 ) {
   useEffect(() => {
     if (!goal || !fact) return;
-    if (period !== currentPeriod()) return;
+    if (period !== currentPeriod(serverToday)) return;
     if (goal.leads_target <= 0 || fact.leads < goal.leads_target) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
@@ -174,7 +186,7 @@ function useGoalCelebration(
     });
 
     return () => { cancelled = true; };
-  }, [fact, goal, period]);
+  }, [fact, goal, period, serverToday]);
 }
 
 /** Раздел «Цели»: план на месяц, факт, прогноз и траектория по месяцам. */
@@ -257,7 +269,7 @@ export default function AdminGoals({ password }: { password: string }) {
     item.goal || item.fact.leads > 0 || (item.fact.spend || 0) > 0
   )), [data]);
 
-  useGoalCelebration(period, goal, fact);
+  useGoalCelebration(period, goal, fact, data?.today);
 
   const profit = fact && fact.revenue !== null && fact.spend !== null ? fact.revenue - fact.spend : null;
   const romi = fact && fact.revenue !== null && fact.spend !== null && fact.spend > 0
@@ -286,7 +298,7 @@ export default function AdminGoals({ password }: { password: string }) {
             type="button"
             className="admin-button admin-button--icon"
             aria-label="Следующий месяц"
-            disabled={period >= currentPeriod()}
+            disabled={period >= currentPeriod(data?.today)}
             onClick={() => setPeriod((value) => shiftPeriod(value, 1))}
           >
             <ChevronRight aria-hidden="true" />

@@ -42,9 +42,15 @@ function shiftPeriod(period: string, months: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+/**
+ * Текущий месяц по UTC — так же, как его считает сервер (`date('now')` в
+ * SQLite). С местным календарём браузера в сдвинутом часовом поясе в первые
+ * часы первого числа месяцы расходились, и стрелка «вперёд» пускала в месяц,
+ * который сервер ещё считает будущим.
+ */
 function currentPeriod(): string {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 /** Изменение к прошлому месяцу словами, а не только стрелкой. */
