@@ -96,7 +96,7 @@ export default function ContentPerformance({
           <h3 className="admin-card-title"><TrendingUp aria-hidden="true" /> Что приносит заявки</h3>
           <p className="admin-hint">Публикации за последние {data?.days || 90} дней: просмотры, заявки и конверсия.</p>
         </div>
-        <button type="button" className="admin-button admin-button--quiet admin-button--compact" onClick={() => void load()} disabled={loading}>
+        <button type="button" className="admin-button admin-button--quiet admin-button--compact" aria-label="Обновить статистику публикаций" title="Обновить статистику публикаций" onClick={() => void load()} disabled={loading}>
           <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
         </button>
       </header>

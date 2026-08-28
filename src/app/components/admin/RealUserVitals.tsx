@@ -90,7 +90,7 @@ export default function RealUserVitals({ password }: { password: string }) {
             Данные настоящих визитов за {data.days || 28} дней — именно по ним Google оценивает страницы, а не по лабораторному замеру.
           </p>
         </div>
-        <button type="button" className="admin-button admin-button--quiet admin-button--compact" onClick={() => void load()} disabled={loading}>
+        <button type="button" className="admin-button admin-button--quiet admin-button--compact" aria-label="Обновить метрики посетителей" title="Обновить метрики посетителей" onClick={() => void load()} disabled={loading}>
           <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
         </button>
       </header>

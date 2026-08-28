@@ -148,7 +148,7 @@ export default function AdminReport({ password }: { password: string }) {
           >
             <ChevronRight aria-hidden="true" />
           </button>
-          <button type="button" className="admin-button admin-button--quiet" onClick={() => void load()} disabled={loading}>
+          <button type="button" className="admin-button admin-button--quiet" aria-label="Обновить отчёт" title="Обновить отчёт" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
           </button>
         </div>
