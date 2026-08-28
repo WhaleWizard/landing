@@ -21,7 +21,7 @@ import {
   ShieldCheck, ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3, Users, Wallet, Lock,
+  Rows2, Rows3, Users, Wallet, Lock, Radio,
   type LucideIcon
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -44,6 +44,7 @@ const AdminMedia = lazy(() => import('../components/admin/AdminMedia'));
 const AdminHealth = lazy(() => import('../components/admin/AdminHealth'));
 const AdminSecurity = lazy(() => import('../components/admin/AdminSecurity'));
 const AdminPageLocks = lazy(() => import('../components/admin/AdminPageLocks'));
+const AdminDataLayer = lazy(() => import('../components/admin/AdminDataLayer'));
 const AdminToday = lazy(() => import('../components/admin/AdminToday'));
 const AdminMetaCenter = lazy(() => import('../components/admin/AdminMetaCenter'));
 const AdminAttribution = lazy(() => import('../components/admin/AdminAttribution'));
@@ -56,7 +57,7 @@ const AdminPerformance = lazy(() => import('../components/admin/AdminPerformance
 const AdminPlanner = lazy(() => import('../components/admin/AdminPlanner'));
 const ArticleCalendar = lazy(() => import('../components/admin/ArticleCalendar'));
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events';
 type AdminNavKey = AdminView | 'cases';
 
 function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
@@ -75,6 +76,7 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
     case 'media': return import('../components/admin/AdminMedia');
     case 'health': return import('../components/admin/AdminHealth');
     case 'access': return import('../components/admin/AdminPageLocks');
+    case 'events': return import('../components/admin/AdminDataLayer');
     case 'articles':
     case 'cases':
       return Promise.all([
@@ -575,6 +577,7 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   finance: ['счета', 'оплаты', 'налог', 'прибыль', 'часы', 'расходы'],
   attribution: ['атрибуция', 'конверсия', 'источники', 'utm', 'расходы'],
   meta: ['пиксель', 'события', 'facebook', 'фейсбук'],
+  events: ['datalayer', 'gtm', 'tag manager', 'триггер', 'аналитика', 'ga4'],
   performance: ['pagespeed', 'vitals', 'производительность', 'lcp'],
   report: ['итоги', 'report'],
   articles: ['блог', 'публикации'],
@@ -1209,6 +1212,7 @@ export default function Admin() {
         { key: 'goals', label: 'Цели и деньги', icon: Target },
         { key: 'attribution', label: 'Воронка', icon: BarChart3 },
         { key: 'meta', label: 'Meta CAPI', icon: Activity },
+        { key: 'events', label: 'События', icon: Radio },
         { key: 'performance', label: 'Скорость', icon: Gauge },
         { key: 'report', label: 'Отчёт за месяц', icon: FileText },
       ],
@@ -1529,6 +1533,7 @@ export default function Admin() {
               {adminView === 'finance' && <AdminFinance password={password} />}
               {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
               {adminView === 'access' && <AdminPageLocks password={password} />}
+              {adminView === 'events' && <AdminDataLayer />}
               {adminView === 'health' && (
                 <div className="admin-stack admin-stack--lg">
                   {/* Настройки входа живут рядом с остальными проверками
