@@ -23,6 +23,7 @@ import {
 const PdConsentContent = lazy(() => import('../legal/PdConsentContent'));
 const PrivacyPolicyContent = lazy(() => import('../legal/PrivacyPolicyContent'));
 const CookiePolicyContent = lazy(() => import('../legal/CookiePolicyContent'));
+import { LegalUpdatedAt } from '../legal/legalMeta';
 const Modal = lazy(() => import('../Modal'));
 
 type BannerMode = 'hidden' | 'banner' | 'modal';
@@ -447,6 +448,7 @@ export default function CookieConsentManager() {
           dialogClassName="max-w-4xl"
           bodyClassName="prose prose-invert prose-sm max-w-none"
         >
+          <LegalUpdatedAt className="mb-4" />
           <Suspense fallback={null}>
             {docModal === 'pd' && <PdConsentContent />}
             {docModal === 'privacy' && <PrivacyPolicyContent />}

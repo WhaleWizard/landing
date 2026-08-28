@@ -28,6 +28,7 @@ import { useTurnstile } from './hooks/useTurnstile';
 // грузим лениво, а не в общем чанке формы на каждом визите.
 const PrivacyPolicyContent = lazy(() => import('./legal/PrivacyPolicyContent'));
 const OfferContent = lazy(() => import('./legal/OfferContent'));
+import { LegalUpdatedAt } from './legal/legalMeta';
 import { API_ROUTES } from '../config';
 import {
   buildFullPhone,
@@ -680,6 +681,7 @@ function LandingForm({
         dialogClassName="max-w-4xl"
         bodyClassName="prose prose-invert prose-sm max-w-none"
       >
+        <LegalUpdatedAt className="mb-4" />
         <Suspense fallback={null}>
           <PrivacyPolicyContent />
         </Suspense>
@@ -692,6 +694,7 @@ function LandingForm({
         dialogClassName="max-w-4xl"
         bodyClassName="prose prose-invert prose-sm max-w-none"
       >
+        <LegalUpdatedAt className="mb-4" />
         <Suspense fallback={null}>
           <OfferContent />
         </Suspense>

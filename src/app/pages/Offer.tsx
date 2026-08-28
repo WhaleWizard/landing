@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
+import { LEGAL_UPDATED_AT } from '../components/legal/legalMeta';
 import OfferContent from '../components/legal/OfferContent';
 import '../../styles/route-reveal.css';
 
@@ -32,7 +33,7 @@ export default function Offer() {
               <h1 className="text-balance break-words text-2xl font-bold sm:text-4xl md:text-5xl">
                 Публичная<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> оферта</span>
               </h1>
-              <p className="text-muted-foreground mt-4">Дата последнего обновления: 29 мая 2026 г.</p>
+              <p className="text-muted-foreground mt-4">Дата последнего обновления: {LEGAL_UPDATED_AT}</p>
             </div>
 
             <div className="prose prose-invert prose-lg prose-headings:text-foreground prose-a:text-primary max-w-none space-y-6">
