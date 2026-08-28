@@ -721,7 +721,20 @@ function FontPicker({
   return (
     <div className="admin-field">
       <span className="admin-label">{label}</span>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          // Поиск и категория живут только внутри открытого диалога. Иначе
+          // набранное в прошлый раз «рукоп» оставалось в поле, и при следующем
+          // открытии владелец видел три шрифта из сорока семи — выглядит так,
+          // будто библиотека сломалась.
+          if (next) {
+            setSearchValue('');
+            setCategory('all');
+          }
+          setOpen(next);
+        }}
+      >
         <DialogTrigger asChild>
           <button type="button" className="admin-font-trigger">
             <span style={{ fontFamily: fontFamilyForContent(selected.id, role) }}>
