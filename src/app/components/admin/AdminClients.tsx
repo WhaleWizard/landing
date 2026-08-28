@@ -254,20 +254,25 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
 
   useEffect(() => { void load(); }, [load]);
 
+  const fetchDetails = useCallback(async (id: number) => {
+    const response = await fetch(`/api/admin/clients?id=${id}`, {
+      headers: { 'X-Admin-Password': password },
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => null) as {
+      success?: boolean; error?: string; client?: Client; months?: ClientMonth[]; access?: AccessItem[]; notes?: ClientNote[];
+    } | null;
+    if (!response.ok || !payload?.success || !payload.client) throw new Error(payload?.error || `HTTP ${response.status}`);
+    return payload;
+  }, [password]);
+
   const openClient = useCallback(async (id: number) => {
     setSelectedId(id);
     setDetailLoading(true);
     try {
-      const response = await fetch(`/api/admin/clients?id=${id}`, {
-        headers: { 'X-Admin-Password': password },
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => null) as {
-        success?: boolean; error?: string; client?: Client; months?: ClientMonth[]; access?: AccessItem[]; notes?: ClientNote[];
-      } | null;
-      if (!response.ok || !payload?.success || !payload.client) throw new Error(payload?.error || `HTTP ${response.status}`);
-      setDraft(payload.client);
+      const payload = await fetchDetails(id);
+      setDraft(payload.client as Client);
       setMonths(payload.months || []);
       setAccess(payload.access || []);
       setNotes(payload.notes || []);
@@ -277,7 +282,32 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
     } finally {
       setDetailLoading(false);
     }
-  }, [password]);
+  }, [fetchDetails]);
+
+  /**
+   * Перечитать списки карточки, не трогая заполняемую форму.
+   *
+   * Доступы, памятки и месяцы сохраняются отдельными запросами и к самой
+   * карточке клиента отношения не имеют. Раньше после каждого такого действия
+   * вызывался `openClient`, а он заменяет черновик целиком — набранный, но не
+   * сохранённый договор, чек, границы работ и следующее касание пропадали
+   * молча. Обновляем только то, что действительно изменилось, и вдобавок
+   * светофор: отправленный отчёт за месяц гасит красный прямо сейчас.
+   */
+  const refreshDetails = useCallback(async (id: number) => {
+    try {
+      const payload = await fetchDetails(id);
+      setMonths(payload.months || []);
+      setAccess(payload.access || []);
+      setNotes(payload.notes || []);
+      const fresh = payload.client as Client;
+      setDraft((current) => (current && current.id === id
+        ? { ...current, health: fresh.health, healthReasons: fresh.healthReasons, lastReportMonth: fresh.lastReportMonth }
+        : current));
+    } catch (refreshError) {
+      notify.error('Не удалось обновить карточку', refreshError instanceof Error ? refreshError.message : undefined);
+    }
+  }, [fetchDetails]);
 
   const saveClient = async () => {
     if (!draft) return;
@@ -329,7 +359,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
     try {
       await request({ ...month, action: 'set_month', id: draft.id });
       setMonthDraft(null);
-      await openClient(draft.id);
+      await refreshDetails(draft.id);
       await load();
       notify.success(`Месяц ${formatMonth(month.month)} сохранён`);
     } catch (monthError) {
@@ -615,7 +645,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                   <button type="button" className="admin-button admin-button--compact" onClick={async () => {
                     try {
                       for (const name of ACCESS_PRESET) await request({ action: 'set_access', id: draft.id, name, status: 'waiting' });
-                      await openClient(draft.id);
+                      await refreshDetails(draft.id);
                     } catch (presetError) {
                       notify.error('Не удалось добавить', presetError instanceof Error ? presetError.message : undefined);
                     }
@@ -634,13 +664,13 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                       options={ACCESS_OPTIONS}
                       onValueChange={(value) => {
                         void request({ action: 'set_access', id: draft.id, access_id: item.id, name: item.name, status: value, note: item.note })
-                          .then(() => openClient(draft.id))
+                          .then(() => refreshDetails(draft.id))
                           .catch((accessError) => notify.error('Не сохранилось', accessError instanceof Error ? accessError.message : undefined));
                       }}
                     />
                     <button type="button" className="admin-icon-button" aria-label={`Убрать ${item.name}`} onClick={() => {
                       void request({ action: 'delete_access', id: draft.id, access_id: item.id })
-                        .then(() => openClient(draft.id))
+                        .then(() => refreshDetails(draft.id))
                         .catch(() => notify.error('Не удалось убрать'));
                     }}>
                       <X aria-hidden="true" />
@@ -655,7 +685,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                 if (!name) return;
                 setAccessDraft('');
                 void request({ action: 'set_access', id: draft.id, name, status: 'waiting' })
-                  .then(() => openClient(draft.id))
+                  .then(() => refreshDetails(draft.id))
                   .catch((addError) => notify.error('Не добавилось', addError instanceof Error ? addError.message : undefined));
               }}>
                 <input className="admin-input" maxLength={120} placeholder="Какой ещё доступ нужен" value={accessDraft} onChange={(e) => setAccessDraft(e.target.value)} />
@@ -675,7 +705,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                     <span>{note.body}</span>
                     <button type="button" className="admin-icon-button" aria-label="Убрать памятку" onClick={() => {
                       void request({ action: 'delete_note', id: draft.id, note_id: note.id })
-                        .then(() => openClient(draft.id))
+                        .then(() => refreshDetails(draft.id))
                         .catch(() => notify.error('Не удалось убрать'));
                     }}>
                       <X aria-hidden="true" />
@@ -690,7 +720,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                 if (!value) return;
                 setNoteDraft('');
                 void request({ action: 'add_note', id: draft.id, body: value })
-                  .then(() => openClient(draft.id))
+                  .then(() => refreshDetails(draft.id))
                   .catch((noteError) => notify.error('Не сохранилось', noteError instanceof Error ? noteError.message : undefined));
               }}>
                 <input className="admin-input" maxLength={4000} placeholder="Записать памятку" value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} />

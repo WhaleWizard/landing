@@ -207,6 +207,45 @@ function computeHealth(
   return { health, reasons };
 }
 
+/** Месяц в том виде, в каком его читает светофор: отчёт, цена лида, валюта. */
+type HealthMonth = { month: string; reported: boolean; cpl: number | null; currency: string };
+
+function toHealthMonth(row: {
+  month: string; report_sent_at: string | null; spend: number | null; leads: number | null; spend_currency: string | null;
+}): HealthMonth {
+  return {
+    month: row.month,
+    reported: Boolean(row.report_sent_at),
+    cpl: row.spend !== null && row.leads ? row.spend / row.leads : null,
+    currency: String(row.spend_currency || ''),
+  };
+}
+
+/**
+ * Светофор по одному клиенту. Ожидает месяцы новыми вперёд.
+ *
+ * Вынесено из `listClients`, потому что карточка одного клиента считала его
+ * не так — точнее, не считала вовсе: `getClient` возвращал строку из таблицы
+ * без `health` и `healthReasons`, и блок с причинами в карточке не появлялся
+ * никогда. Владелец видел светофор только точкой в списке, а зачем она горит,
+ * узнать было негде.
+ */
+function healthOf(client: ClientRow, months: HealthMonth[]): { health: Health; reasons: string[]; lastReportMonth: string | null } {
+  const now = new Date();
+  const previousMonthKey = monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+  const withCpl = months.filter((item) => item.cpl !== null);
+  // Два месяца сравниваются только внутри одной валюты. Иначе смена валюты
+  // в таблице месяцев рисовала бы «цена лида выросла на 12 000%» — число,
+  // за которым нет ничего, кроме разных единиц измерения.
+  const comparable = withCpl[1] && withCpl[0] && withCpl[1].currency === withCpl[0].currency;
+  const { health, reasons } = computeHealth(
+    client,
+    months.some((item) => item.month === previousMonthKey && item.reported),
+    { current: withCpl[0]?.cpl ?? null, previous: comparable ? withCpl[1].cpl : null },
+  );
+  return { health, reasons, lastReportMonth: months.find((item) => item.reported)?.month || null };
+}
+
 async function listClients(env: Env): Promise<Response> {
   const db = env.DB as D1Database;
   const [clientRows, monthRows] = await Promise.all([
@@ -217,35 +256,16 @@ async function listClients(env: Env): Promise<Response> {
     ).all<{ client_id: number; month: string; report_sent_at: string | null; spend: number | null; spend_currency: string | null; leads: number | null }>(),
   ]);
 
-  const monthsByClient = new Map<number, Array<{ month: string; reported: boolean; cpl: number | null; currency: string }>>();
+  const monthsByClient = new Map<number, HealthMonth[]>();
   for (const row of monthRows.results || []) {
     const list = monthsByClient.get(row.client_id) || [];
-    const cpl = row.spend !== null && row.leads ? row.spend / row.leads : null;
-    list.push({
-      month: row.month,
-      reported: Boolean(row.report_sent_at),
-      cpl,
-      currency: String(row.spend_currency || ''),
-    });
+    list.push(toHealthMonth(row));
     monthsByClient.set(row.client_id, list);
   }
 
-  const nowUtc = new Date();
-  const previousMonthKey = monthKey(new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth() - 1, 1)));
-
   const clients = (clientRows.results || []).map((client) => {
     const months = monthsByClient.get(client.id) || [];
-    const lastReportMonth = months.find((item) => item.reported)?.month || null;
-    const withCpl = months.filter((item) => item.cpl !== null);
-    // Два месяца сравниваются только внутри одной валюты. Иначе смена валюты
-    // в таблице месяцев рисовала бы «цена лида выросла на 12 000%» — число,
-    // за которым нет ничего, кроме разных единиц измерения.
-    const comparable = withCpl[1] && withCpl[0] && withCpl[1].currency === withCpl[0].currency;
-    const previousMonthReported = months.some((item) => item.month === previousMonthKey && item.reported);
-    const { health, reasons } = computeHealth(client, previousMonthReported, {
-      current: withCpl[0]?.cpl ?? null,
-      previous: comparable ? withCpl[1].cpl : null,
-    });
+    const { health, reasons, lastReportMonth } = healthOf(client, months);
     return {
       ...client,
       services: (() => { try { return JSON.parse(client.services); } catch { return []; } })(),
@@ -309,11 +329,21 @@ async function getClient(env: Env, id: number): Promise<Response> {
     db.prepare('SELECT * FROM client_notes WHERE client_id = ? ORDER BY pinned DESC, created_at DESC').bind(id).all(),
   ]);
 
+  // Светофор считается тем же кодом, что и в списке: карточка обязана
+  // объяснять причину, а не просто повторять цвет точки из списка.
+  const monthRows = (months.results || []) as Array<{
+    month: string; report_sent_at: string | null; spend: number | null; leads: number | null; spend_currency: string | null;
+  }>;
+  const { health, reasons, lastReportMonth } = healthOf(client, monthRows.map(toHealthMonth));
+
   return json({
     success: true,
     client: {
       ...client,
       services: (() => { try { return JSON.parse(client.services); } catch { return []; } })(),
+      health,
+      healthReasons: reasons,
+      lastReportMonth,
     },
     months: months.results || [],
     access: access.results || [],
