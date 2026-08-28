@@ -48,8 +48,12 @@ async function callAuth(body: Record<string, unknown>): Promise<{ ok: boolean; s
 }
 
 function describeError(payload: Record<string, unknown> | null): string {
+  // Собственный ключ карты, а не любой: код ответа `toString` вернул бы
+  // функцию вместо текста. То же сделано на экране входа.
   const code = String(payload?.error || '');
-  return ERROR_TEXT[code] || 'Не получилось. Попробуйте ещё раз';
+  return Object.prototype.hasOwnProperty.call(ERROR_TEXT, code)
+    ? ERROR_TEXT[code]
+    : 'Не получилось. Попробуйте ещё раз';
 }
 
 export default function AdminSecurity() {

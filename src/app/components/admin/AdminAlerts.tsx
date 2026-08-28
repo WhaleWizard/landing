@@ -133,7 +133,16 @@ export default function AdminAlerts({
           </p>
         </div>
         <div className="alerts__actions">
-          <button type="button" className="admin-button admin-button--quiet admin-button--compact" onClick={() => void load()} disabled={loading || busy}>
+          {/* Кнопка только со значком — подпись нужна, иначе экранный диктор
+              читает просто «кнопка». */}
+          <button
+            type="button"
+            className="admin-button admin-button--quiet admin-button--compact"
+            aria-label="Обновить список поводов"
+            title="Обновить список"
+            onClick={() => void load()}
+            disabled={loading || busy}
+          >
             <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
           </button>
           {telegram && (
