@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft, CalendarClock, CircleDollarSign, ExternalLink, FileText, KeyRound,
-  NotebookPen, Plus, RefreshCw, Save, Trash2, Upload, UserPlus, Users, X,
+  NotebookPen, Plus, RefreshCw, Save, Trash2, Upload, UserPlus, Users, X, Briefcase,
 } from 'lucide-react';
 import { AdminDecimalInput, AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
 import { CountUpValue } from './AttributionCharts';
+import CaseBuilderDialog from './CaseBuilderDialog';
+import type { CaseDataDraft } from './caseFromClient';
 
 /**
  * Клиенты — то, что начинается после выигранной сделки.
@@ -163,7 +165,11 @@ function emptyClient(): Client {
   };
 }
 
-export default function AdminClients({ password, onOpenLead }: { password: string; onOpenLead?: (leadId: number) => void }) {
+export default function AdminClients({ password, onOpenLead, onCreateCase }: {
+  password: string;
+  onOpenLead?: (leadId: number) => void;
+  onCreateCase?: (payload: { caseData: CaseDataDraft; outline: string; title: string }) => void;
+}) {
   const [clients, setClients] = useState<Client[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -171,6 +177,7 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
   const [migration, setMigration] = useState('');
   const [filter, setFilter] = useState<'all' | ClientStatus | 'attention'>('all');
 
+  const [caseBuilderOpen, setCaseBuilderOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Client | null>(null);
   const [months, setMonths] = useState<ClientMonth[]>([]);
@@ -400,6 +407,11 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
                 Открыть сделку
               </button>
             )}
+            {draft.id > 0 && onCreateCase && (
+              <button type="button" className="admin-button admin-button--quiet" onClick={() => setCaseBuilderOpen(true)}>
+                <Briefcase aria-hidden="true" /> Собрать кейс
+              </button>
+            )}
             {draft.id > 0 && (
               <button type="button" className="admin-button admin-button--quiet" onClick={() => void removeClient()}>
                 <Trash2 aria-hidden="true" /> Удалить
@@ -412,6 +424,16 @@ export default function AdminClients({ password, onOpenLead }: { password: strin
         </div>
 
         {detailLoading && <div className="admin-hint">Загружаю карточку…</div>}
+
+        {/* Ниши у клиента в базе нет — владелец вписывает её в самом окне. */}
+        {caseBuilderOpen && onCreateCase && (
+          <CaseBuilderDialog
+            clientNiche=""
+            months={months}
+            onClose={() => setCaseBuilderOpen(false)}
+            onCreate={(payload) => { setCaseBuilderOpen(false); onCreateCase(payload); }}
+          />
+        )}
 
         {draft.healthReasons && draft.healthReasons.length > 0 && (
           <section className={`clients__health is-${draft.health}`} role="status">

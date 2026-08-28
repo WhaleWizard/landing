@@ -27,7 +27,7 @@ import {
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useArticles } from '../context/ArticlesContext';
-import type { Article } from '../components/hooks/useArticlesApi';
+import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
 import { AdminPromptProvider } from '../components/admin/AdminPrompt';
@@ -1270,6 +1270,38 @@ export default function Admin() {
     status: 'published',
   }, { dirty: true });
 
+  /**
+   * Черновик кейса, собранный из помесячных результатов клиента.
+   *
+   * Раздел «Клиенты» считает числа, а редактор статей умеет их показывать —
+   * здесь эти два места встречаются. Публикация не происходит: создаётся
+   * черновик, который владелец дописывает своими словами и публикует сам.
+   */
+  const createCaseFromClient = (payload: { caseData: CaseData; outline: string; title: string }) => {
+    setAdminSectionFilter('cases');
+    setAdminView('articles');
+    openArticleEditor({
+      id: 0,
+      slug: '',
+      title: payload.title,
+      category: CASES_CATEGORY,
+      readTime: '5 мин',
+      date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
+      description: '',
+      summary: '',
+      keyTakeaways: [],
+      faq: [],
+      tags: [],
+      content: payload.outline,
+      image: '',
+      // Черновик, а не публикация: цифры посчитаны, но история кейса ещё не
+      // написана, и выкладывать такое на сайт нельзя.
+      status: 'draft',
+      caseData: payload.caseData,
+    }, { dirty: true });
+    notify.success('Черновик кейса собран', 'Цифры подставлены — допишите историю и опубликуйте');
+  };
+
   const openArticleFromPalette = (article: Article) => {
     setAdminSectionFilter('all');
     setAdminView('articles');
@@ -1545,7 +1577,13 @@ export default function Admin() {
               {adminView === 'performance' && <AdminPerformance password={password} />}
               {adminView === 'content' && <AdminContentControl password={password} />}
               {adminView === 'leads' && <AdminLeads password={password} onOpenClients={() => setAdminView('clients')} />}
-              {adminView === 'clients' && <AdminClients password={password} onOpenLead={() => setAdminView('leads')} />}
+              {adminView === 'clients' && (
+                <AdminClients
+                  password={password}
+                  onOpenLead={() => setAdminView('leads')}
+                  onCreateCase={createCaseFromClient}
+                />
+              )}
               {adminView === 'finance' && <AdminFinance password={password} />}
               {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
               {adminView === 'access' && <AdminPageLocks password={password} />}

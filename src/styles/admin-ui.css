@@ -15062,3 +15062,401 @@ body[data-admin-theme] .planner-weekpick {
     min-height: 0;
   }
 }
+
+/* ==========================================================================
+   Сборка кейса из помесячных результатов клиента.
+   Прочерк вместо нуля — сквозная идея этого окна: показатель, который не
+   посчитался, обязан выглядеть иначе, чем посчитанный ноль.
+   ========================================================================== */
+
+.admin-root .case-builder__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--adm-surface-deep, #05070f) 72%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.admin-root .case-builder {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 100%);
+  max-height: min(88vh, 900px);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-card, 16px);
+  background: var(--adm-surface-elevated, var(--adm-bg));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.admin-root .case-builder__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--adm-border-subtle, var(--adm-border));
+}
+
+.admin-root .case-builder__title {
+  font-family: var(--ww-font-display, "Segoe UI Variable Display", "Segoe UI", sans-serif);
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .case-builder__sub {
+  margin-top: 3px;
+  color: var(--adm-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.admin-root .case-builder__close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control, 10px);
+  background: transparent;
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+}
+
+.admin-root .case-builder__close:hover {
+  background: var(--adm-surface-hover);
+  color: var(--adm-text-primary);
+}
+
+.admin-root .case-builder__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-root .case-builder__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+
+/* Колоночный флекс с прокруткой сжимает детей по высоте: таблица на 218 px
+   схлопывалась в полоску в 1 px и выглядела как исчезнувшая. Прокручивается
+   тело окна целиком, поэтому сжимать содержимое не нужно вовсе. */
+.admin-root .case-builder__body > * {
+  flex: none;
+}
+
+.admin-root .case-builder__problem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--adm-warning) 34%, transparent);
+  border-radius: var(--adm-radius-md, 10px);
+  background: color-mix(in srgb, var(--adm-warning) 10%, transparent);
+}
+
+.admin-root .case-builder__problem svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--adm-warning);
+}
+
+.admin-root .case-builder__problem strong {
+  display: block;
+  color: var(--adm-text-primary);
+  font-size: var(--adm-text-md, 14px);
+}
+
+.admin-root .case-builder__problem p {
+  margin-top: 3px;
+  color: var(--adm-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.admin-root .case-builder__period {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-root .case-builder__period-label {
+  color: var(--adm-text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-root .case-builder__period strong {
+  color: var(--adm-text-primary);
+  font-size: var(--adm-text-md, 14px);
+}
+
+.admin-root .case-builder__period-count {
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+}
+
+.admin-root .case-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-root .case-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-md, 10px);
+  background: var(--adm-inset-bg, var(--adm-surface-subtle));
+}
+
+.admin-root .case-tile__value {
+  font-family: var(--ww-font-display, "Segoe UI Variable Display", "Segoe UI", sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .case-tile__label {
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+}
+
+/* Непосчитанный показатель приглушён и подписан причиной: так его нельзя
+   спутать с настоящим нулём. */
+.admin-root .case-tile--unknown {
+  border-style: dashed;
+  background: transparent;
+}
+
+.admin-root .case-tile--unknown .case-tile__value {
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .case-tile__hint {
+  margin-top: 2px;
+  color: var(--adm-text-tertiary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.admin-root .case-tile--good .case-tile__value {
+  color: var(--adm-success);
+}
+
+.admin-root .case-tile--bad .case-tile__value {
+  color: var(--adm-danger);
+}
+
+.admin-root .case-trend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--adm-border);
+  border-radius: 0 var(--adm-radius-md, 10px) var(--adm-radius-md, 10px) 0;
+  background: var(--adm-inset-bg, var(--adm-surface-subtle));
+}
+
+.admin-root .case-trend--good {
+  border-left-color: var(--adm-success);
+}
+
+.admin-root .case-trend--bad {
+  border-left-color: var(--adm-warning);
+}
+
+.admin-root .case-trend__label {
+  color: var(--adm-text-secondary);
+  font-size: 12.5px;
+}
+
+.admin-root .case-trend__flow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--adm-text-primary);
+  font-size: var(--adm-text-md, 14px);
+}
+
+.admin-root .case-trend__flow svg {
+  width: 15px;
+  height: 15px;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .case-trend__flow em {
+  font-style: normal;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.admin-root .case-trend--good .case-trend__flow em {
+  color: var(--adm-success);
+}
+
+.admin-root .case-trend--bad .case-trend__flow em {
+  color: var(--adm-warning);
+}
+
+/* Таблица шире окна на телефоне — прокручивается внутри себя, а не тянет
+   горизонтальную полосу на всю страницу. */
+.admin-root .case-builder__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-md, 10px);
+}
+
+.admin-root .case-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .case-table th,
+.admin-root .case-table td {
+  padding: 9px 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-root .case-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--adm-surface-raised, var(--adm-inset-bg));
+  color: var(--adm-text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-root .case-table thead th:first-child,
+.admin-root .case-table tbody th,
+.admin-root .case-table tfoot th {
+  text-align: left;
+}
+
+.admin-root .case-table tbody th {
+  color: var(--adm-text-primary);
+  font-weight: 500;
+}
+
+.admin-root .case-table tbody td {
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .case-table tbody tr + tr th,
+.admin-root .case-table tbody tr + tr td {
+  border-top: 1px solid var(--adm-border-subtle, var(--adm-border));
+}
+
+.admin-root .case-table tfoot th,
+.admin-root .case-table tfoot td {
+  border-top: 1px solid var(--adm-border);
+  background: var(--adm-inset-bg, var(--adm-surface-subtle));
+  color: var(--adm-text-primary);
+  font-weight: 650;
+}
+
+.admin-root :is(.case-builder__skipped, .case-builder__privacy) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-root :is(.case-builder__skipped, .case-builder__privacy) svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+}
+
+.admin-root .case-builder__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-root .case-builder__fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-root .case-builder__fields span {
+  color: var(--adm-text-secondary);
+  font-size: 12px;
+}
+
+.admin-root .case-builder__fields input {
+  height: var(--adm-control-height, 38px);
+  padding: 0 11px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-control, 10px);
+  background: var(--adm-input-bg);
+  color: var(--adm-text-primary);
+  font-size: var(--adm-text-sm, 13px);
+}
+
+.admin-root .case-builder__fields input:focus-visible {
+  outline: 2px solid var(--adm-primary);
+  outline-offset: 1px;
+}
+
+.admin-root .case-builder__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--adm-border-subtle, var(--adm-border));
+  background: var(--adm-surface-raised, transparent);
+}
+
+@media (max-width: 760px) {
+  .admin-root .case-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-root .case-builder__fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 460px) {
+  .admin-root .case-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-root .case-builder__foot {
+    flex-direction: column-reverse;
+  }
+
+  .admin-root .case-builder__foot .admin-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
