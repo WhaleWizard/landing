@@ -439,8 +439,8 @@ function BlogPageComponent() {
   });
   const [showAllTopics, setShowAllTopics] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [pendingZipDownload, setPendingZipDownload] = useState(null);
-  const contentRef = useRef(null);
+  const [pendingZipDownload, setPendingZipDownload] = useState<{ href: string; target: string; fileName: string } | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const articleTitleRef = useRef<HTMLHeadingElement | null>(null);
   const articleTitleFit = useManagedTitleFit<HTMLHeadingElement>(ARTICLE_TITLE_LINES, { minFontSize: 19 });
   // Тот же элемент нужен и для подгонки кегля, и для переноса фокуса на

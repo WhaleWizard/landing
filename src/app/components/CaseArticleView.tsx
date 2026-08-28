@@ -16,7 +16,7 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react';
-import { lazy, Suspense, useCallback, type MouseEvent, type MutableRefObject, type RefObject } from 'react';
+import { lazy, Suspense, useCallback, type MouseEvent, type MutableRefObject, type Ref } from 'react';
 import type { Article } from './hooks/useArticlesApi';
 import Navbar from './Navbar';
 import PageNav from './PageNav';
@@ -47,7 +47,8 @@ interface CaseArticleViewProps {
   relatedArticles: Article[];
   listHref: string;
   relatedSearch: string;
-  contentRef: RefObject<HTMLDivElement | null>;
+  // Ref, а не RefObject: так подходит и объект из useRef, и функция-ссылка.
+  contentRef: Ref<HTMLDivElement>;
   articleTitleRef: MutableRefObject<HTMLHeadingElement | null>;
   onBackToCases: () => void;
   onContact: () => void;

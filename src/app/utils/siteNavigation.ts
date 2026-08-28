@@ -213,7 +213,7 @@ export function useRememberPublicRoute(): void {
     // чанка. Наблюдатель забирает точный заголовок независимо от скорости сети.
     const titleElement = document.querySelector('title');
     const titleObserver = titleElement ? new MutationObserver(save) : null;
-    titleObserver?.observe(titleElement, { childList: true, subtree: true, characterData: true });
+    if (titleElement) titleObserver?.observe(titleElement, { childList: true, subtree: true, characterData: true });
 
     const timer = window.setTimeout(save, 500);
     return () => {

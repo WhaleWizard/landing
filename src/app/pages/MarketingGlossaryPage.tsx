@@ -143,7 +143,9 @@ export default function MarketingGlossaryPage() {
           terms: group.termIds
             .filter((id) => filteredIds.has(id))
             .map((id) => glossaryTerm(id))
-            .filter(Boolean),
+            // filter(Boolean) отсеивает пустые, но типам об этом не говорит —
+            // отсюда явная проверка вместо неё.
+            .filter((term): term is MarketingGlossaryItem => Boolean(term)),
         }))
         .filter((group) => group.terms.length > 0);
     }
