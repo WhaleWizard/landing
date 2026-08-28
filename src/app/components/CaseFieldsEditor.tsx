@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { AdminDecimalInput } from './admin/AdminUI';
 import type { CaseData, CaseMetric } from './hooks/useArticlesApi';
 
 // Редактор структурированных полей кейса в админке.
@@ -23,12 +24,6 @@ const SOURCE_OPTIONS: Array<{ key: string; label: string }> = [
 
 const inputCls = 'admin-control w-full px-3 py-2 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] text-sm placeholder:text-[var(--adm-fg)]/40 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all';
 const labelCls = 'block text-xs font-semibold mb-1 text-[var(--adm-fg)]/70';
-
-function parseOptionalNumber(raw: string): number | undefined {
-  if (!raw.trim()) return undefined;
-  const n = Number(raw.replace(/[^\d.-]/g, ''));
-  return Number.isFinite(n) ? n : undefined;
-}
 
 export default function CaseFieldsEditor({ value, niches, onChange }: Props) {
   const data = value || {};
@@ -102,17 +97,17 @@ export default function CaseFieldsEditor({ value, niches, onChange }: Props) {
         </div>
         <div>
           <label className={labelCls}>Бюджет числом, $</label>
-          <input aria-label="Бюджет числом в долларах" type="text" inputMode="numeric" value={data.budgetValue ?? ''} onChange={(e) => set({ budgetValue: parseOptionalNumber(e.target.value) })} placeholder="1000000" className={inputCls} />
+          <AdminDecimalInput aria-label="Бюджет числом в долларах" value={data.budgetValue ?? null} onValueChange={(value) => set({ budgetValue: value ?? undefined })} placeholder="1000000" className={inputCls} />
           <p className="admin-meta mt-1">Сортировка «Сначала крупный бюджет».</p>
         </div>
         <div>
           <label className={labelCls}>ROI числом, %</label>
-          <input aria-label="ROI числом в процентах" type="text" inputMode="numeric" value={data.roiValue ?? ''} onChange={(e) => set({ roiValue: parseOptionalNumber(e.target.value) })} placeholder="210" className={inputCls} />
+          <AdminDecimalInput aria-label="ROI числом в процентах" value={data.roiValue ?? null} onValueChange={(value) => set({ roiValue: value ?? undefined })} placeholder="210" className={inputCls} />
           <p className="admin-meta mt-1">Сортировка «Сначала высокий ROI».</p>
         </div>
         <div>
           <label className={labelCls}>Лиды/покупки числом</label>
-          <input aria-label="Количество лидов или покупок" type="text" inputMode="numeric" value={data.leadsValue ?? ''} onChange={(e) => set({ leadsValue: parseOptionalNumber(e.target.value) })} placeholder="65000" className={inputCls} />
+          <AdminDecimalInput aria-label="Количество лидов или покупок" value={data.leadsValue ?? null} onValueChange={(value) => set({ leadsValue: value ?? undefined })} placeholder="65000" className={inputCls} />
           <p className="admin-meta mt-1">Показатель «лидов / покупок» в шапке витрины.</p>
         </div>
       </div>
