@@ -51,7 +51,7 @@ interface PlannerTask {
  * а не только невыполненные: экран «Сегодня» показывает их списком с
  * отметками, а не просто счётчиком.
  */
-async function plannerToday(db: D1Database): Promise<{
+async function plannerToday(db: D1Database, timezoneOffsetMinutes = 0): Promise<{
   tasks: PlannerTask[];
   notes: Array<{ id: string; text: string }>;
   done: number;
@@ -60,7 +60,14 @@ async function plannerToday(db: D1Database): Promise<{
   dayIndex: number;
   streak: number;
 } | null> {
-  const now = new Date();
+  // День берётся по календарю владельца, а не по UTC.
+  //
+  // Планер — про собственные дни человека, и в браузере он считает их местным
+  // календарём. Сервер считал по UTC, и в сдвинутом часовом поясе ночью день
+  // расходился: стартовый экран показывал план вчерашнего дня, а отметка
+  // задачи с него уходила не в тот день недели. `getTimezoneOffset()` в JS
+  // равен «UTC минус местное», поэтому знак здесь обратный.
+  const now = new Date(Date.now() - timezoneOffsetMinutes * 60_000);
   // В планере неделя начинается с понедельника, а getUTCDay() — с воскресенья.
   const weekdayIndex = (now.getUTCDay() + 6) % 7;
   const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - weekdayIndex));
@@ -289,6 +296,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       localOnly: true,
     }, { status: 503, headers: noStore });
   }
+
+  // Часовой пояс владельца — как в crm-leads: день планера на стартовом экране
+  // должен совпадать с тем, который показывает сам планер в браузере.
+  const rawOffset = Number(new URL(request.url).searchParams.get('timezone_offset'));
+  const timezoneOffset = Number.isFinite(rawOffset) && Math.abs(rawOffset) <= 840 ? Math.trunc(rawOffset) : 0;
 
   try {
     const db = env.DB;
@@ -584,7 +596,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     // План на сегодня показывается отдельным списком с отметками, поэтому
     // в «Фокус дня» он больше не дублируется.
-    const planner = hasPlanner ? await plannerToday(db) : null;
+    const planner = hasPlanner ? await plannerToday(db, timezoneOffset) : null;
     const sources = await topSources(db, schema);
 
     const priority = { critical: 0, attention: 1, info: 2 } as const;

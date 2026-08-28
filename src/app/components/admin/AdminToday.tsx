@@ -193,7 +193,9 @@ export default function AdminToday({
     const options = { headers, credentials: 'same-origin' as const, cache: 'no-store' as const };
     try {
       const [todayResponse, statsResponse] = await Promise.all([
-        fetch('/api/admin/today', options),
+        // Часовой пояс нужен, чтобы «план на сегодня» совпадал с тем днём,
+        // который показывает планер: он считает дни местным календарём.
+        fetch(`/api/admin/today?timezone_offset=${new Date().getTimezoneOffset()}`, options),
         fetch('/api/admin/stats', options),
       ]);
       const todayPayload = await todayResponse.json().catch(() => null) as TodayResponse | null;
