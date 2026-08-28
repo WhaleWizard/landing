@@ -62,7 +62,7 @@ export default function PdConsentContent() {
       intro={(
         <>
           <p>
-            Продолжая использовать сайт <a href="https://whalewzrd.com">https://whalewzrd.com</a> и нажимая «Принять всё»
+            Продолжая использовать сайт <a href="https://www.whalewzrd.com">https://www.whalewzrd.com</a> и нажимая «Принять всё»
             (или сохраняя выбранные категории) в окне настроек cookie, вы даёте согласие на обработку данных, которые
             собираются автоматически при посещении сайта.
           </p>

@@ -158,7 +158,7 @@ export default function CookiePolicyContent() {
       intro={(
         <>
           <p>
-        Сайт <a href="https://whalewzrd.com">https://whalewzrd.com</a> использует cookie, localStorage, пиксели и
+        Сайт <a href="https://www.whalewzrd.com">https://www.whalewzrd.com</a> использует cookie, localStorage, пиксели и
         аналогичные технологии для корректной работы сайта, сохранения настроек, защиты от злоупотреблений, аналитики посещаемости
         и оценки эффективности рекламных кампаний.
       </p>
