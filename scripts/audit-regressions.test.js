@@ -250,6 +250,23 @@ test('три санитайзера HTML статей разрешают одн�
       assert.deepEqual(list, base, `${key} в ${files[index + 1]} разошёлся с ${files[0]}`);
     });
   }
+
+  // Своя адресная регулярка проверяет ВСЕ атрибуты, а не только ссылочные:
+  // DOMPurify выбрасывает атрибут, чьё значение ей не подошло. Из-за этого
+  // width="640", colspan="2", loading="lazy", viewBox и d молча вырезались —
+  // 34 из 49 разрешённых атрибутов не работали вовсе. Лечится списком
+  // «неадресных» атрибутов, и он обязан выводиться из ALLOWED_ATTR, а не
+  // писаться руками.
+  sources.forEach((source, index) => {
+    assert.ok(
+      source.includes('ADD_URI_SAFE_ATTR'),
+      `${files[index]}: без ADD_URI_SAFE_ATTR адресная регулярка снова съест width, colspan и viewBox`,
+    );
+    assert.ok(
+      /ADD_URI_SAFE_ATTR\s*=\s*[A-Za-z_$][\w$]*\.ALLOWED_ATTR\.filter/.test(source),
+      `${files[index]}: список неадресных атрибутов должен выводиться из ALLOWED_ATTR, иначе новый атрибут снова окажется мёртвым`,
+    );
+  });
 });
 
 test('временный отказ приёма заявки отличается от окончательного', async () => {

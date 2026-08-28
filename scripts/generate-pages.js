@@ -107,7 +107,7 @@ const ARTICLE_HTML_SANITIZE_CONFIG = {
     'svg', 'defs', 'linearGradient', 'stop', 'path',
   ],
   ALLOWED_ATTR: [
-    'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading',
+    'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading', 'decoding', 'fetchpriority',
     'width', 'height', 'data-ww-block', 'data-ww-tone',
     'id', 'role', 'aria-label',
     'colspan', 'rowspan', 'scope',
@@ -118,7 +118,26 @@ const ARTICLE_HTML_SANITIZE_CONFIG = {
     'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
   ],
   ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|data:image\/(?:png|jpe?g|webp|gif|avif);base64,|\/)/i,
+  /**
+   * Все остальные разрешённые атрибуты — не ссылки, и проверять их адресной
+   * регуляркой нельзя.
+   *
+   * DOMPurify отбрасывает атрибут, если его значение не прошло
+   * ALLOWED_URI_REGEXP и сам атрибут не числится «неадресным». Своя строгая
+   * регулярка выше требует https://, data:image или ведущую косую черту —
+   * поэтому width="640", colspan="2", loading="lazy", d="M0 0" и ещё три
+   * десятка атрибутов молча вырезались, хотя стоят в списке разрешённых.
+   *
+   * Список выводится из ALLOWED_ATTR, а не пишется руками: иначе новый атрибут
+   * добавили бы в один список и забыли про второй — и он снова оказался бы
+   * мёртвым без единой ошибки.
+   */
+  ADD_URI_SAFE_ATTR: [],
 };
+
+// Ссылочные атрибуты остаются под проверкой адреса, остальные — нет.
+const URL_BEARING_ATTR = new Set(['href', 'src', 'srcset', 'poster']);
+ARTICLE_HTML_SANITIZE_CONFIG.ADD_URI_SAFE_ATTR = ARTICLE_HTML_SANITIZE_CONFIG.ALLOWED_ATTR.filter((attr) => !URL_BEARING_ATTR.has(attr));
 
 function sanitizeArticleHtml(html = '') {
   return domPurify.sanitize(String(html || ''), ARTICLE_HTML_SANITIZE_CONFIG);

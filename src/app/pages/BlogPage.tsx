@@ -449,7 +449,7 @@ function BlogPageComponent() {
     articleTitleRef.current = node;
     articleTitleFit(node);
   }, [articleTitleFit]);
-  const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
+  const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
   // Прогресс чтения статьи — тонкая полоса под шапкой
   const { scrollYProgress } = useScroll();
   const readingProgress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.4 });
@@ -468,7 +468,15 @@ function BlogPageComponent() {
         return { id, text };
       });
       optimizeArticleContentImages(doc);
-      return { articleHtml: doc.body.innerHTML, toc: items };
+      // Второй проход санитайзера — не перестраховка, а закрытие разрыва.
+      // Между первой очисткой и вставкой в страницу разметка разбирается и
+      // собирается заново, а DOMPurify прямо предупреждает: часть конструкций
+      // переживает очистку и меняет смысл при повторном разборе. Здесь
+      // санитайзер — последнее, что трогает строку перед вставкой.
+      //
+      // Подсказки загрузки картинок при этом не теряются: `decoding` и
+      // `fetchpriority` внесены во все три списка разрешённых атрибутов.
+      return { articleHtml: sanitizeHtml(doc.body.innerHTML), toc: items };
     } catch {
       return { articleHtml: safe, toc: [] };
     }
