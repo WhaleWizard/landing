@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
 import { AlertTriangle, Check, CircleAlert, Sparkles } from 'lucide-react';
+import { plural, withPlural } from '../../utils/plural';
+
+/** Формы для счётных подписей: «1 символ / 2 символа / 5 символов». */
+const SYMBOLS: [string, string, string] = ['символ', 'символа', 'символов'];
+const WORDS: [string, string, string] = ['слово', 'слова', 'слов'];
 
 interface CheckResult {
   id: string;
@@ -42,13 +47,14 @@ function rangeCheck(
   value: number,
   min: number,
   max: number,
-  unit: string,
+  unit: [string, string, string],
   emptyText: string,
 ): CheckResult {
   if (value === 0) return { id, label, detail: emptyText, level: 'fail' };
-  if (value < min) return { id, label, detail: `${value} ${unit} — коротко, лучше от ${min}`, level: 'warn' };
-  if (value > max) return { id, label, detail: `${value} ${unit} — длинно, обрежется до ${max}`, level: 'warn' };
-  return { id, label, detail: `${value} ${unit} — в норме`, level: 'ok' };
+  const measured = `${value} ${plural(value, unit)}`;
+  if (value < min) return { id, label, detail: `${measured} — коротко, лучше от ${min}`, level: 'warn' };
+  if (value > max) return { id, label, detail: `${measured} — длинно, обрежется до ${max}`, level: 'warn' };
+  return { id, label, detail: `${measured} — в норме`, level: 'ok' };
 }
 
 /**
@@ -65,8 +71,8 @@ function runChecks(article: ArticleLike): CheckResult[] {
   const headings = (String(article.content || '').match(/<h2/gi) || []).length;
 
   const checks: CheckResult[] = [
-    rangeCheck('title', 'Заголовок для поиска', title.length, 30, 65, 'символов', 'Не заполнен — в выдаче будет обрезанный слаг'),
-    rangeCheck('description', 'Описание для поиска', description.length, 80, 160, 'символов', 'Не заполнено — Google соберёт сниппет сам, и обычно неудачно'),
+    rangeCheck('title', 'Заголовок для поиска', title.length, 30, 65, SYMBOLS, 'Не заполнен — в выдаче будет обрезанный слаг'),
+    rangeCheck('description', 'Описание для поиска', description.length, 80, 160, SYMBOLS, 'Не заполнено — Google соберёт сниппет сам, и обычно неудачно'),
     {
       id: 'image',
       label: 'Обложка',
@@ -79,8 +85,8 @@ function runChecks(article: ArticleLike): CheckResult[] {
       detail: words === 0
         ? 'Пусто'
         : words < 300
-          ? `${words} слов — для поиска мало, нужно от 300`
-          : `${words} слов`,
+          ? `${withPlural(words, WORDS)} — для поиска мало, нужно от 300`
+          : withPlural(words, WORDS),
       level: words === 0 ? 'fail' : words < 300 ? 'warn' : 'ok',
     },
     {
@@ -105,7 +111,7 @@ function runChecks(article: ArticleLike): CheckResult[] {
       detail: !article.slug?.trim()
         ? 'Пустой'
         : /^[a-z0-9-]+$/.test(article.slug)
-          ? article.slug.length > 70 ? `${article.slug.length} символов — длинновато` : 'В норме'
+          ? article.slug.length > 70 ? `${withPlural(article.slug.length, SYMBOLS)} — длинновато` : 'В норме'
           : 'Есть недопустимые символы',
       level: !article.slug?.trim()
         ? 'fail'
@@ -115,7 +121,7 @@ function runChecks(article: ArticleLike): CheckResult[] {
       id: 'faq',
       label: 'Блок вопросов и ответов',
       detail: (article.faq || []).length > 0
-        ? `${(article.faq || []).length} вопросов — попадут в разметку`
+        ? `${withPlural((article.faq || []).length, ['вопрос', 'вопроса', 'вопросов'])} — ${plural((article.faq || []).length, ['попадёт', 'попадут', 'попадут'])} в разметку`
         : 'Нет — теряется шанс на расширенный сниппет',
       level: (article.faq || []).length > 0 ? 'ok' : 'warn',
     },

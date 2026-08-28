@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, Target } from 'lucide-react';
 import { formatMoney, formatNumber } from './AttributionCharts';
+import { plural } from '../../utils/plural';
 
 interface GoalsResponse {
   success?: boolean;
@@ -93,7 +94,8 @@ export default function TodayGoal({ password, onNavigate }: { password: string; 
 
       {behind && (
         <p className="today-goal__warn">
-          При текущем темпе выйдет {formatNumber(forecast?.leads ?? null)} заявок — плана не хватит.
+          При текущем темпе {plural(Math.round(forecast?.leads ?? 0), ['выйдет', 'выйдут', 'выйдет'])}{' '}
+          {formatNumber(forecast?.leads ?? null)} {plural(Math.round(forecast?.leads ?? 0), ['заявка', 'заявки', 'заявок'])} — плана не хватит.
         </p>
       )}
     </section>

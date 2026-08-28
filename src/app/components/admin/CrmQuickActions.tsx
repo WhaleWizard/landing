@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Check, Copy, FileText, MessageSquare, PhoneCall, Plus, Send, Trash2, Zap,
 } from 'lucide-react';
-import { notify } from './AdminFeedback';
+import { confirmAsk, notify } from './AdminFeedback';
 
 export type QuickStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
 
@@ -234,7 +234,18 @@ export default function CrmQuickActions({
                     type="button"
                     className="admin-icon-button admin-icon-button--danger"
                     aria-label={`Удалить шаблон «${template.title}»`}
-                    onClick={() => void post({ action: 'delete', id: template.id })}
+                    onClick={async () => {
+                      // Шаблон удаляется из базы насовсем — корзины для них нет,
+                      // а текст написан руками. Остальная админка спрашивает
+                      // перед таким же действием, здесь спросить забыли.
+                      const confirmed = await confirmAsk({
+                        title: `Удалить шаблон «${template.title}»?`,
+                        description: 'Текст пропадёт совсем — вернуть его будет неоткуда.',
+                        confirmLabel: 'Удалить',
+                        tone: 'danger',
+                      });
+                      if (confirmed) void post({ action: 'delete', id: template.id });
+                    }}
                   >
                     <Trash2 aria-hidden="true" />
                   </button>
