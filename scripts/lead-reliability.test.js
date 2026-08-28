@@ -1,17 +1,17 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { build, transform } from 'esbuild';
 
-// РћР±СЂР°Р±РѕС‚С‡РёРєРё Р°РґРјРёРЅРєРё РїСЂРѕС…РѕРґСЏС‚ С‡РµСЂРµР· РѕРіСЂР°РЅРёС‡РёС‚РµР»СЊ С‡Р°СЃС‚РѕС‚С‹, РєРѕС‚РѕСЂС‹Р№ РІ Cloudflare
-// Р¶РёРІС‘С‚ РЅР° РіР»РѕР±Р°Р»СЊРЅРѕРј `caches`. Р’ Node РµРіРѕ РЅРµС‚ вЂ” РїРѕРґСЃС‚Р°РІР»СЏРµРј РїСѓСЃС‚РѕР№ РєРµС€.
+// Обработчики админки проходят через ограничитель частоты, который в Cloudflare
+// живёт на глобальном `caches`. В Node его нет — подставляем пустой кеш.
 globalThis.caches ??= { default: { match: async () => undefined, put: async () => {} } };
 
-// `fresh` РґР°С‘С‚ РјРѕРґСѓР»СЋ СѓРЅРёРєР°Р»СЊРЅС‹Р№ С‚РµРєСЃС‚, РїРѕСЌС‚РѕРјСѓ import() РѕС‚РґР°С‘С‚ РЅРѕРІС‹Р№ СЌРєР·РµРјРїР»СЏСЂ,
-// Р° РЅРµ Р·Р°РєРµС€РёСЂРѕРІР°РЅРЅС‹Р№. РќСѓР¶РЅРѕ С‚Р°Рј, РіРґРµ РјРѕРґСѓР»СЊ РґРµСЂР¶РёС‚ СЃРѕР±СЃС‚РІРµРЅРЅС‹Р№ РєРµС€ СЃРѕСЃС‚РѕСЏРЅРёСЏ
-// СЃС…РµРјС‹: РёРЅР°С‡Рµ РєРѕР»РѕРЅРєРё РїРµСЂРІРѕР№ С‚РµСЃС‚РѕРІРѕР№ Р±Р°Р·С‹ СѓС‚РµРєР»Рё Р±С‹ РІ СЃР»РµРґСѓСЋС‰СѓСЋ.
+// `fresh` даёт модулю уникальный текст, поэтому import() отдаёт новый экземпляр,
+// а не закешированный. Нужно там, где модуль держит собственный кеш состояния
+// схемы: иначе колонки первой тестовой базы утекли бы в следующую.
 async function importTypeScript(path, { fresh = false } = {}) {
   const source = readFileSync(path, 'utf8');
   const compiled = await transform(source, { loader: 'ts', format: 'esm', target: 'es2022' });
@@ -108,8 +108,8 @@ function createProductionLeadDatabase() {
   return { sqlite, d1: new D1DatabaseAdapter(sqlite) };
 }
 
-// РћР±СЂР°Р±РѕС‚С‡РёРєРё Pages Functions РёРјРїРѕСЂС‚РёСЂСѓСЋС‚ СЃРѕСЃРµРґРЅРёРµ РјРѕРґСѓР»Рё РїРѕ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Рј
-// РїСѓС‚СЏРј, РєРѕС‚РѕСЂС‹Рµ РёР· data:-URL РЅРµ СЂРµР·РѕР»РІСЏС‚СЃСЏ. РџРѕСЌС‚РѕРјСѓ РёС… СЃРѕР±РёСЂР°РµРј С†РµР»РёРєРѕРј.
+// Обработчики Pages Functions импортируют соседние модули по относительным
+// путям, которые из data:-URL не резолвятся. Поэтому их собираем целиком.
 async function bundleTypeScript(path) {
   const result = await build({
     entryPoints: [path],
@@ -392,8 +392,8 @@ test('a trashed lead never absorbs a new submission from the same contact', asyn
 
   sqlite.exec("UPDATE leads SET deleted_at = datetime('now') WHERE id = " + first.leadId);
 
-  // РўРѕС‚ Р¶Рµ РєРѕРЅС‚Р°РєС‚ РѕР±СЂР°С‰Р°РµС‚СЃСЏ СЃРЅРѕРІР°. Р—Р°СЏРІРєР° РѕР±СЏР·Р°РЅР° РїРѕСЏРІРёС‚СЊСЃСЏ РєР°Рє РЅРѕРІР°СЏ:
-  // РёРЅР°С‡Рµ РѕРЅР° РїРѕРґРєР»РµРёР»Р°СЃСЊ Р±С‹ Рє СЃРєСЂС‹С‚РѕР№ Р·Р°РїРёСЃРё Рё РЅРµ РїРѕРїР°Р»Р° Р±С‹ РІ СЃРїРёСЃРѕРє.
+  // Тот же контакт обращается снова. Заявка обязана появиться как новая:
+  // иначе она подклеилась бы к скрытой записи и не попала бы в список.
   const afterTrash = await storeLead({ DB: d1 }, {
     event_id: 'trash-dedupe-2',
     name: 'Real Client',
@@ -416,11 +416,11 @@ test('trash hides a lead from active lists and a restore brings it back intact',
   );
   sqlite.prepare("INSERT INTO crm_notes (lead_id, body, action_id) VALUES (?, 'Important note', 'note-keep')").run(leadId);
 
-  const moved = await callTrash(trash, d1, { action: 'delete', ids: [leadId], reason: 'СЃРїР°Рј' });
+  const moved = await callTrash(trash, d1, { action: 'delete', ids: [leadId], reason: 'спам' });
   assert.equal(moved.status, 200);
   assert.equal(moved.payload.moved, 1);
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads WHERE deleted_at IS NULL').get().count, 0);
-  assert.equal(sqlite.prepare('SELECT deleted_reason FROM leads WHERE id = ?').get(leadId).deleted_reason, 'СЃРїР°Рј');
+  assert.equal(sqlite.prepare('SELECT deleted_reason FROM leads WHERE id = ?').get(leadId).deleted_reason, 'спам');
   assert.equal(
     sqlite.prepare('SELECT COUNT(*) AS count FROM crm_notes WHERE lead_id = ?').get(leadId).count,
     1,
@@ -449,7 +449,7 @@ test('purging clears the lead with every related record and only from the trash'
   sqlite.prepare("INSERT INTO lead_activity (lead_id, type, \"from\", \"to\", note) VALUES (?, 'x', '', '', '')").run(leadId);
   sqlite.prepare("INSERT INTO lead_ingestions (event_id, claim_token, lead_id, submission_kind) VALUES ('p-1', 'claim-1', ?, 'new')").run(leadId);
 
-  // РђРєС‚РёРІРЅСѓСЋ Р·Р°СЏРІРєСѓ РѕРєРѕРЅС‡Р°С‚РµР»СЊРЅРѕ СѓРґР°Р»РёС‚СЊ РЅРµР»СЊР·СЏ вЂ” СЃРЅР°С‡Р°Р»Р° РєРѕСЂР·РёРЅР°.
+  // Активную заявку окончательно удалить нельзя — сначала корзина.
   const refused = await callTrash(trash, d1, { action: 'purge', ids: [activeId] });
   assert.equal(refused.payload.purged, 0);
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads WHERE id = ?').get(activeId).count, 1);
@@ -500,7 +500,7 @@ test('without migration 0020 the trash reports it clearly and lead intake keeps 
   assert.equal(refused.payload.code, 'LEAD_TRASH_MIGRATION_REQUIRED');
   assert.match(refused.payload.migration, /0020/);
 
-  // РџСЂРёС‘Рј Р·Р°СЏРІРѕРє РЅРµ РґРѕР»Р¶РµРЅ Р·Р°РІРёСЃРµС‚СЊ РѕС‚ РєРѕСЂР·РёРЅС‹: РєРѕРґ РјРѕР¶РµС‚ СѓРµС…Р°С‚СЊ СЂР°РЅСЊС€Рµ РјРёРіСЂР°С†РёРё.
+  // Приём заявок не должен зависеть от корзины: код может уехать раньше миграции.
   const stored = await storeLead({ DB: d1 }, { event_id: 'no-0020', name: 'Lead', email: 'a@example.com' });
   assert.equal(stored.durable, true);
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads').get().count, 1);
