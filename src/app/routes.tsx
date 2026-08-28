@@ -18,6 +18,7 @@ import {
   loadHero,
   loadHome,
   loadMarketingGlossaryPage,
+  loadMetaAdsEditorialHero,
   loadMetaAppsHeroVisual,
   loadNotFound,
   loadOffer,
@@ -64,7 +65,9 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
   });
 }
 
-const MetaAdsPage = lazyServiceLanding('meta-ads');
+const MetaAdsPage = lazyServiceLanding('meta-ads', [
+  loadMetaAdsEditorialHero,
+]);
 const GoogleAdsPage = lazyServiceLanding('google-ads', [
   loadHero,
 ]);

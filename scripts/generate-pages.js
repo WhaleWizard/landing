@@ -272,7 +272,10 @@ const ROUTE_ENTRY_MODULES = {
   '/marketing-glossary': ['src/app/pages/MarketingGlossaryPage.tsx'],
   '/calculator': ['src/app/pages/Calculator.tsx'],
   '/roi-calculator': ['src/app/pages/RoiPage.tsx'],
-  '/meta-ads': ['src/app/pages/ServiceLandingPage.tsx'],
+  '/meta-ads': [
+    'src/app/pages/ServiceLandingPage.tsx',
+    'src/app/components/service-heroes/MetaAdsEditorialHero.tsx',
+  ],
   '/meta-apps': [
     'src/app/pages/ServiceLandingPage.tsx',
     'src/app/components/Hero.tsx',

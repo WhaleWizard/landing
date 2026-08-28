@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type R
 import { BarChart3, Briefcase, CheckCircle2, Search, ShoppingCart, Sparkles, Target, TrendingUp, Users, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import type { HeroContent } from '../components/Hero';
-import MetaAdsEditorialHero from '../components/service-heroes/MetaAdsEditorialHero';
 import SEO from '../components/SEO';
 import type { ServicesContent } from '../components/Services';
 import type { CasesContent } from '../components/Cases';
@@ -27,6 +26,10 @@ const LandingForm = lazy(() => import('../components/LandingForm'));
 const Footer = lazy(() => import('../components/Footer'));
 const Hero = lazy(() => import('../components/Hero'));
 const ConsultStudioHero = lazy(() => import('../components/service-heroes/ConsultStudioHero'));
+// Отдельным чанком, как и остальные хиро услуг: статический импорт клал его в
+// общий модуль лендингов, и Google Ads, консультация и Meta Apps скачивали код
+// чужого первого экрана. Для Meta Ads он подгружается параллельно страницей.
+const MetaAdsEditorialHero = lazy(() => import('../components/service-heroes/MetaAdsEditorialHero'));
 
 export type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 

@@ -18,6 +18,7 @@ export const loadServiceLandingPage = () => import('../pages/ServiceLandingPage'
 export const loadHero = () => import('../components/Hero');
 export const loadMetaAppsHeroVisual = () => import('../components/MetaAppsHeroVisual');
 export const loadConsultStudioHero = () => import('../components/service-heroes/ConsultStudioHero');
+export const loadMetaAdsEditorialHero = () => import('../components/service-heroes/MetaAdsEditorialHero');
 
 const routePromises = new Map<string, Promise<unknown>>();
 
