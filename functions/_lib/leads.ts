@@ -182,6 +182,9 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     const hasSoftDelete = cols.has('deleted_at'); // 0020
     const hasFormSource = cols.has('form_id') && cols.has('form_variant'); // 0022
     const hasGeoDevice = cols.has('country') && cols.has('device'); // 0026
+    // Приведённые ключи контакта с индексами (миграция 0039). Без них поиск
+    // дублей остаётся перебором последних 500 заявок — см. ниже.
+    const hasDedupeKeys = cols.has('dedupe_email') && cols.has('dedupe_phone') && cols.has('dedupe_telegram');
     const consentVersion = normalizeConsentVersion(lead.consent_version);
     const consentSource = normalizeConsentSource(lead.consent_source);
     const consentRegion = normalizeConsentRegion(lead.consent_region);
@@ -203,29 +206,60 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       // Заявка из корзины в дедупликации не участвует: иначе повторное
       // обращение того же человека молча подклеилось бы к скрытой записи и
       // не появилось бы в списке заявок.
-      const recent = await db.prepare(
-        `SELECT id, email, phone, telegram_username, submissions_count${hasPipelineStage ? ', pipeline_stage' : ''}
-         FROM leads${hasSoftDelete ? ' WHERE deleted_at IS NULL' : ''} ORDER BY id DESC LIMIT 500`,
-      ).all<{
-        id: number;
-        email: string;
-        phone: string;
-        telegram_username: string;
-        submissions_count: number;
-        pipeline_stage?: string;
-      }>();
-      for (const row of recent.results || []) {
-        const rowKeys = contactKeys(row.email, row.phone, row.telegram_username);
-        const sameEmail = Boolean(keys.email && rowKeys.email === keys.email);
-        const samePhone = Boolean(keys.phone && rowKeys.phone === keys.phone);
-        const sameTelegram = Boolean(keys.telegram && rowKeys.telegram === keys.telegram);
-        if (sameEmail || samePhone || sameTelegram) {
+      const activeOnly = hasSoftDelete ? 'deleted_at IS NULL AND ' : '';
+      const stageColumn = hasPipelineStage ? ', pipeline_stage' : '';
+
+      if (hasDedupeKeys) {
+        // Поиск по индексу: находит контакт любой давности и читает ровно те
+        // строки, которые подходят. Перебор ниже читал только пятьсот свежих —
+        // человек, писавший год назад, создавал дубль.
+        //
+        // Пустой ключ не участвует в сравнении: иначе все заявки без телефона
+        // совпали бы между собой.
+        const match = await db.prepare(
+          `SELECT id, submissions_count${stageColumn}
+           FROM leads
+           WHERE ${activeOnly}(
+             (?1 IS NOT NULL AND dedupe_email = ?1)
+             OR (?2 IS NOT NULL AND dedupe_phone = ?2)
+             OR (?3 IS NOT NULL AND dedupe_telegram = ?3)
+           )
+           ORDER BY id DESC LIMIT 1`,
+        ).bind(keys.email || null, keys.phone || null, keys.telegram || null)
+          .first<{ id: number; submissions_count: number; pipeline_stage?: string }>();
+        if (match) {
           existing = {
-            id: row.id,
-            submissions_count: Number(row.submissions_count || 1),
-            pipeline_stage: row.pipeline_stage,
+            id: match.id,
+            submissions_count: Number(match.submissions_count || 1),
+            pipeline_stage: match.pipeline_stage,
           };
-          break;
+        }
+      } else {
+        // Запасной путь до миграции 0039: перебор последних пятисот заявок.
+        const recent = await db.prepare(
+          `SELECT id, email, phone, telegram_username, submissions_count${stageColumn}
+           FROM leads${hasSoftDelete ? ' WHERE deleted_at IS NULL' : ''} ORDER BY id DESC LIMIT 500`,
+        ).all<{
+          id: number;
+          email: string;
+          phone: string;
+          telegram_username: string;
+          submissions_count: number;
+          pipeline_stage?: string;
+        }>();
+        for (const row of recent.results || []) {
+          const rowKeys = contactKeys(row.email, row.phone, row.telegram_username);
+          const sameEmail = Boolean(keys.email && rowKeys.email === keys.email);
+          const samePhone = Boolean(keys.phone && rowKeys.phone === keys.phone);
+          const sameTelegram = Boolean(keys.telegram && rowKeys.telegram === keys.telegram);
+          if (sameEmail || samePhone || sameTelegram) {
+            existing = {
+              id: row.id,
+              submissions_count: Number(row.submissions_count || 1),
+              pipeline_stage: row.pipeline_stage,
+            };
+            break;
+          }
         }
       }
     }
@@ -298,6 +332,23 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
         values.push(consentTimestamp);
       }
       if (cols.has('consent_recorded_at')) set.push("consent_recorded_at = datetime('now')");
+      if (hasDedupeKeys) {
+        // Человек мог добавить контакт, которого раньше не было: оставлял
+        // почту, теперь написал телефон. Ключ поиска обновляем ровно там, где
+        // обновилось само поле, и не затираем пустым.
+        set.push(
+          'dedupe_email = CASE WHEN ? IS NOT NULL THEN ? ELSE dedupe_email END',
+          'dedupe_phone = CASE WHEN ? IS NOT NULL THEN ? ELSE dedupe_phone END',
+          'dedupe_telegram = CASE WHEN ? IS NOT NULL THEN ? ELSE dedupe_telegram END',
+        );
+        // Значение дважды: остальной запрос собран на обычных '?', и смешивать
+        // их с нумерованными параметрами в одном операторе нельзя.
+        values.push(
+          keys.email || null, keys.email || null,
+          keys.phone || null, keys.phone || null,
+          keys.telegram || null, keys.telegram || null,
+        );
+      }
       if (hasQuality) set.push("quality = ''");
       if (hasPipelineStage) set.push("pipeline_stage = 'new'");
       if (cols.has('next_action_at')) set.push('next_action_at = NULL');
@@ -504,6 +555,13 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       insertCols.push('country', 'device');
       placeholders.push('?', '?');
       insertVals.push(lead.country || '', lead.device || '');
+    }
+    if (hasDedupeKeys) {
+      // Пусто пишется как NULL: пустая строка склеила бы все заявки без
+      // телефона в одного человека.
+      insertCols.push('dedupe_email', 'dedupe_phone', 'dedupe_telegram');
+      placeholders.push('?', '?', '?');
+      insertVals.push(keys.email || null, keys.phone || null, keys.telegram || null);
     }
     if (hasUtm) {
       insertCols.push('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term');
