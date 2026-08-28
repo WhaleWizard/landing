@@ -613,7 +613,12 @@ function buildOrganizationJsonLd() {
     image: `${SITE_URL}/og-image-v2.jpg`,
     description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи.',
     email: 'whalewzrd@gmail.com',
-    areaServed: ['RU', 'US', 'AE', 'TR', 'EU'],
+    // Услуга удалённая и на русском — это единственное, что здесь правда.
+    // Прежний список RU/US/AE/TR/EU заявлял охват, которого нечем подтвердить:
+    // география не упоминается ни в одном тексте сайта, локализованных версий
+    // нет, а Узбекистан, откуда работает владелец, в список даже не входил.
+    areaServed: 'Worldwide',
+    availableLanguage: 'ru',
     serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],
     sameAs: ['https://t.me/white_rsh'],
   };

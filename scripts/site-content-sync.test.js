@@ -188,3 +188,50 @@ test('an authoritative static response removes a stale published snapshot', asyn
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+/**
+ * Схема организации живёт в двух местах: React рисует её в браузере
+ * (`SEO.tsx`), а генератор — в статическом HTML для роботов
+ * (`generate-pages.js`). Разойтись они могут молча, и тогда Google увидит на
+ * одной и той же странице разные сведения о компании в зависимости от того,
+ * выполнил он скрипты или нет.
+ *
+ * Это ровно та ловушка, что уже была с тремя санитайзерами статей.
+ */
+test('сведения об организации совпадают в React и в статическом HTML', () => {
+  const seo = readFileSync('src/app/components/SEO.tsx', 'utf8');
+  const generator = readFileSync('scripts/generate-pages.js', 'utf8');
+
+  // Без регулярных выражений: ищем строку по началу. Так виднее, что именно
+  // сравнивается, и не приходится экранировать шаблон.
+  const field = (source, name) => {
+    const line = source.split('\n')
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(`${name}:`));
+    return line ? line.slice(name.length + 1).replace(/,$/, '').trim() : null;
+  };
+
+  for (const name of ['areaServed', 'availableLanguage', 'serviceType', 'email', 'sameAs']) {
+    const left = field(seo, name);
+    const right = field(generator, name);
+    assert.ok(left, `${name} пропало из SEO.tsx`);
+    assert.equal(left, right, `${name} разошлось: в SEO.tsx ${left}, в generate-pages.js ${right}`);
+  }
+});
+
+test('охват не заявляет стран, под которыми нет языковых версий', () => {
+  // Прежде здесь стоял список RU/US/AE/TR/EU: сайт обещал поиску пять
+  // регионов, не имея ни одной локализованной версии и ни одного упоминания
+  // географии в текстах. Заявленный охват должен подкрепляться языком.
+  for (const path of ['src/app/components/SEO.tsx', 'scripts/generate-pages.js']) {
+    const source = readFileSync(path, 'utf8');
+    const areaServed = source.match(/^\s*areaServed:\s*(.+?),\s*$/m);
+    assert.ok(areaServed, `${path}: areaServed пропало`);
+    assert.ok(
+      !areaServed[1].includes('['),
+      `${path}: вернулся список стран — под него нужны hreflang и локализованный контент`,
+    );
+    assert.match(source, /^\s*availableLanguage:\s*'ru',\s*$/m,
+      `${path}: охват без указания языка снова заявляет больше, чем есть`);
+  }
+});
