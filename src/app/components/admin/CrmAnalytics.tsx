@@ -146,7 +146,9 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/crm-analytics', {
+      // Часовой пояс: «на сегодня» здесь должно означать тот же день, что в
+      // списке заявок и на стартовом экране.
+      const response = await fetch(`/api/admin/crm-analytics?timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',

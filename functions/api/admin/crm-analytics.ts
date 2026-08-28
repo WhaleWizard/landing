@@ -52,6 +52,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const db = env.DB;
+  // Часовой пояс владельца — как в crm-leads: «сегодня» на всех экранах
+  // админки должно означать один и тот же день. getTimezoneOffset() в JS
+  // равен «UTC минус местное», поэтому знак у модификатора обратный.
+  const rawOffset = Number(new URL(request.url).searchParams.get('timezone_offset'));
+  const timezoneOffset = Number.isFinite(rawOffset) && Math.abs(rawOffset) <= 840 ? Math.trunc(rawOffset) : 0;
+  const localTimeModifier = `${-timezoneOffset >= 0 ? '+' : ''}${-timezoneOffset} minutes`;
+
   try {
     await assertAdminCrmSchema(db, 'workspace');
     const columns = await getLeadsColumns(db);
@@ -74,14 +81,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       db.prepare(`
         SELECT
           SUM(CASE WHEN next_action_at IS NOT NULL AND datetime(next_action_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
-          SUM(CASE WHEN next_action_at IS NOT NULL AND date(next_action_at) = date('now') THEN 1 ELSE 0 END) AS today,
+          SUM(CASE WHEN next_action_at IS NOT NULL AND date(next_action_at, ?) = date('now', ?) THEN 1 ELSE 0 END) AS today,
           SUM(CASE WHEN next_action_at IS NULL AND pipeline_stage IN ${OPEN_STAGES} THEN 1 ELSE 0 END) AS without_next_action,
           ${hasPipelineChangedAt
             ? `SUM(CASE WHEN pipeline_stage IN ${OPEN_STAGES} AND pipeline_changed_at IS NOT NULL AND datetime(pipeline_changed_at) < datetime('now', '-${STALE_DAYS} day') THEN 1 ELSE 0 END)`
             : 'NULL'} AS stale,
           SUM(CASE WHEN pipeline_stage IN ${OPEN_STAGES} THEN 1 ELSE 0 END) AS open_deals
         FROM leads WHERE ${activeCond}
-      `).first<{ overdue: number; today: number; without_next_action: number; stale: number | null; open_deals: number }>(),
+      `).bind(localTimeModifier, localTimeModifier).first<{ overdue: number; today: number; without_next_action: number; stale: number | null; open_deals: number }>(),
 
       db.prepare(`
         SELECT

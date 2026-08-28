@@ -339,11 +339,17 @@ export default function AdminToday({
 
       {totals && (
         <div className="adm-tiles">
+          {/*
+            Отпечаток посетителя содержит дату — это плата за обезличивание, и
+            убрать её нельзя. Значит постоянный читатель за неделю считается
+            несколько раз, а заголовок «Уникальные за 7 дней» обещал число
+            людей. Раздел «Воронка» говорит об этом прямо, здесь — не говорил.
+          */}
           <StatTile
             icon={<Users aria-hidden="true" />}
-            title="Уникальные за 7 дней"
+            title="Уникальные по дням, сумма за 7 дней"
             value={<CountUpValue value={totals.uniques7} />}
-            detail="Обезличенный отпечаток дня, без cookies."
+            detail="Обезличенный отпечаток дня, без cookies. Один и тот же человек за разные дни считается заново."
             delta={<DeltaBadge current={totals.uniques7} previous={totals.uniques7Prev} label="Уникальные" />}
             spark={series.map((point) => point.visitors)}
             sparkSlot={5}
