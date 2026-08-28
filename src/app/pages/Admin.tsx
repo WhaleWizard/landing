@@ -30,6 +30,7 @@ import { useArticles } from '../context/ArticlesContext';
 import type { Article } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
+import { AdminPromptProvider } from '../components/admin/AdminPrompt';
 import AdminCommandPalette, { type AdminCommandGroup } from '../components/admin/AdminCommandPalette';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
@@ -500,7 +501,7 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
     <AdminThemeContext.Provider value={{ mode, toggleMode, density, setDensity }}>
       <div style={{ minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode} data-density={density}>
         <div className="admin-shell bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
-          <AdminConfirmProvider>{children}</AdminConfirmProvider>
+          <AdminConfirmProvider><AdminPromptProvider>{children}</AdminPromptProvider></AdminConfirmProvider>
           <AdminToaster theme={mode} />
         </div>
       </div>

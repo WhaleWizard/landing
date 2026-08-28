@@ -6,6 +6,7 @@ import {
 import { AdminButton, AdminMeta, AdminPanel, AdminSectionHeading, AdminSelect } from './AdminUI';
 import type { Article } from '../hooks/useArticlesApi';
 import { confirmAsk, notify } from './AdminFeedback';
+import { promptAsk } from './AdminPrompt';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import { compressImage, formatBytes } from '../../utils/compressImage';
 import { withPlural } from '../../utils/plural';
@@ -201,7 +202,16 @@ export default function AdminMedia({ password, articles }: { password: string; a
       setCopiedKey(file.key);
       window.setTimeout(() => setCopiedKey(''), 1500);
     } catch {
-      prompt('Скопируйте ссылку вручную:', file.url);
+      // Буфер обмена недоступен (нет разрешения или небезопасный контекст) —
+      // показываем ссылку в своём окне, откуда её можно выделить и скопировать.
+      void promptAsk({
+        title: 'Скопируйте ссылку вручную',
+        description: 'Браузер не дал доступ к буферу обмена. Выделите адрес и скопируйте его.',
+        label: 'Ссылка на файл',
+        initialValue: file.url,
+        confirmLabel: 'Готово',
+        cancelLabel: 'Закрыть',
+      });
     }
   };
 
@@ -239,7 +249,15 @@ export default function AdminMedia({ password, articles }: { password: string; a
   };
 
   const createFolder = async () => {
-    const name = prompt('Название новой папки (например: banners, кейсы, иконки):', '');
+    const name = await promptAsk({
+      title: 'Новая папка',
+      description: 'Папка появится внутри uploads. Файлы можно будет переносить в неё после создания.',
+      label: 'Название',
+      placeholder: 'banners, кейсы, иконки',
+      confirmLabel: 'Создать',
+      maxLength: 60,
+      validate: (value) => (value ? '' : 'Введите название папки'),
+    });
     if (name === null) return;
     if (await post({ action: 'create_folder', name })) {
       notify.success('Папка создана');

@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select';
 import CountryFlag from './CountryFlag';
 import { getAnalyticsClientIds, getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import Modal from './Modal';
+import FormNotice, { type FormNoticeData } from './FormNotice';
 import LegalConsentCopy from './LegalConsentCopy';
 import { useTurnstile } from './hooks/useTurnstile';
 // Тексты политики и оферты (~65 КБ кода) нужны только при открытии модалок —
@@ -145,6 +146,8 @@ function LandingForm({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  // Сообщение формы вместо системного окна браузера.
+  const [notice, setNotice] = useState<FormNoticeData | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [verificationFailed, setVerificationFailed] = useState(false);
@@ -219,8 +222,17 @@ function LandingForm({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      // Прошлое сообщение убираем: человек уже что-то исправил и пробует снова.
+      setNotice(null);
       if (!agreed) {
-        alert('Пожалуйста, подтвердите согласие с условиями');
+        // Не окно, а подсказка у самой галочки: человек сразу видит, куда
+        // нажать. Системное окно закрывало собой ту самую форму.
+        setNotice({
+          tone: 'error',
+          title: 'Нужно согласие на обработку данных',
+          text: 'Поставьте галочку под формой — без неё заявку отправить нельзя.',
+        });
+        document.getElementById('landing-form-consent')?.focus();
         return;
       }
       setIsSubmitting(true);
@@ -320,10 +332,17 @@ function LandingForm({
           setFormData({ name: '', email: '', phone: '', contact: '', website: '', budget: '', experience: '', problem: '' });
           setHpTrap('');
           setAgreed(false);
-          alert('Сейчас нет связи. Заявка сохранена в этом браузере; после восстановления интернета сайт попробует отправить её автоматически.');
+          setNotice({
+            tone: 'info',
+            title: 'Сейчас нет связи — заявка не потеряна',
+            text: 'Она сохранена в этом браузере. Как только интернет вернётся, сайт отправит её сам.',
+          });
         } else {
-          const message = error instanceof Error ? error.message : 'Ошибка отправки формы';
-          alert(message);
+          setNotice({
+            tone: 'error',
+            title: 'Заявка не отправилась',
+            text: error instanceof Error ? error.message : 'Попробуйте ещё раз или напишите в Telegram.',
+          });
         }
       } finally {
         setIsSubmitting(false);
@@ -598,7 +617,7 @@ function LandingForm({
                     name="consent"
                     type="checkbox"
                     checked={agreed}
-                    onChange={(event) => setAgreed(event.target.checked)}
+                    onChange={(event) => { setAgreed(event.target.checked); if (event.target.checked) setNotice(null); }}
                     aria-label="Согласие на обработку персональных данных"
                     aria-describedby="landing-form-consent-copy"
                     className="peer sr-only"
@@ -627,6 +646,9 @@ function LandingForm({
                 здесь, только если Cloudflare решил проверить человека.
               */}
               <div ref={turnstileRef} className="empty:hidden" />
+
+              {/* Сообщение формы вместо системного окна браузера. */}
+              <FormNotice notice={notice} />
 
               {verificationFailed && (
                 <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
