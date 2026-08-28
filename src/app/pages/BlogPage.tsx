@@ -236,12 +236,12 @@ function russianCountLabel(count: number, forms: [string, string, string]) {
   return `${count} ${form}`;
 }
 
-function buildArticleSeoTitle(article) {
+function buildArticleSeoTitle(article: Article | null | undefined) {
   if (article?.seoTitle?.trim()) return article.seoTitle.trim();
   return `${article?.title || 'Статья'} — ${article?.category || 'Маркетинг'}`;
 }
 
-function buildArticleSeoDescription(article) {
+function buildArticleSeoDescription(article: Article | null | undefined) {
   if (article?.seoDescription?.trim()) return article.seoDescription.trim();
   if (article?.summary?.trim()) return article.summary.trim();
   return article?.description || 'Практическая статья о рекламе и маркетинге.';
@@ -269,7 +269,7 @@ function getDownloadFileName(href = '') {
   }
 }
 
-function extractRelatedArticles(allArticles, currentArticle) {
+function extractRelatedArticles(allArticles: Article[], currentArticle: Article | null | undefined) {
   if (!currentArticle) return [];
   const currentTags = new Set((currentArticle.tags || []).map((tag) => String(tag).toLowerCase()));
   const currentTokens = new Set(normalizeTokens(`${currentArticle.title} ${currentArticle.description}`));
@@ -277,7 +277,7 @@ function extractRelatedArticles(allArticles, currentArticle) {
   return allArticles
     .filter((article) => article.slug !== currentArticle.slug)
     .sort((a, b) => {
-      const score = (article) => {
+      const score = (article: Article) => {
         const sameCategory = Number(article.category === currentArticle.category) * 3;
         const tagsScore = (article.tags || []).reduce((acc, tag) => acc + Number(currentTags.has(String(tag).toLowerCase())), 0);
         const articleTokens = normalizeTokens(`${article.title} ${article.description}`);
@@ -352,7 +352,17 @@ function buildArticleStructuredData(article: Article, routeBase: '/blog' | '/cas
   return { articleSchema, breadcrumbSchema, faqSchema };
 }
 
-function CaseZipWarning({ download, onClose, onConfirm }) {
+interface ZipDownload {
+  href: string;
+  target: string;
+  fileName: string;
+}
+
+function CaseZipWarning({ download, onClose, onConfirm }: {
+  download: ZipDownload | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
   return (
     <AnimatePresence>
       {download && (

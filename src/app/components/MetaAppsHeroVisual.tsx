@@ -26,6 +26,7 @@ import {
   useReducedMotion,
   useSpring,
   useTransform,
+  type MotionValue,
 } from 'motion/react';
 import './meta-apps-hero.css';
 
@@ -65,7 +66,11 @@ type ReceiptProps = {
   reduced: boolean;
   subtle: boolean;
   parallax: boolean;
-  scrollY: ReturnType<typeof useTransform>;
+  // Именно MotionValue<number>, а не ReturnType<typeof useTransform>: у
+  // перегруженного useTransform последняя подпись даёт MotionValue<unknown>,
+  // а MotionValue инвариантен — со строгой проверкой числовое значение в него
+  // не подставляется. Правка только в типе, анимация не меняется.
+  scrollY: MotionValue<number>;
 };
 
 const FLOAT_PATHS = [
