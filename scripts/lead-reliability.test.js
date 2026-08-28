@@ -1,6 +1,6 @@
 ﻿import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { build, transform } from 'esbuild';
@@ -92,6 +92,19 @@ function createLeadDatabase({ softDelete = true } = {}) {
   for (const migration of migrations) {
     sqlite.exec(readFileSync(migration, 'utf8'));
   }
+  return { sqlite, d1: new D1DatabaseAdapter(sqlite) };
+}
+
+// Полная схема, как в production: все миграции по порядку, ничего не пропущено.
+// Отдельно от createLeadDatabase, который намеренно останавливается на 0020 и
+// проверяет работу до поздних миграций. Нужна потому, что приём заявки ведёт
+// себя по-разному в зависимости от набора колонок, и путь «все миграции
+// применены» — это ровно тот, что работает у посетителей.
+function createProductionLeadDatabase() {
+  const sqlite = new DatabaseSync(':memory:');
+  sqlite.exec('PRAGMA foreign_keys = ON');
+  const files = readdirSync('migrations').filter((name) => name.endsWith('.sql')).sort();
+  for (const file of files) sqlite.exec(readFileSync(`migrations/${file}`, 'utf8'));
   return { sqlite, d1: new D1DatabaseAdapter(sqlite) };
 }
 
@@ -491,4 +504,79 @@ test('without migration 0020 the trash reports it clearly and lead intake keeps 
   const stored = await storeLead({ DB: d1 }, { event_id: 'no-0020', name: 'Lead', email: 'a@example.com' });
   assert.equal(stored.durable, true);
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads').get().count, 1);
+});
+
+test('на полной production-схеме заявка принимается и ключи поиска заполняются', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createProductionLeadDatabase();
+
+  const stored = await storeLead({ DB: d1 }, {
+    event_id: 'prod-schema-1',
+    name: 'Пётр',
+    email: 'Petr@Mail.RU',
+    phone: '+998 90 123 45 67',
+    telegramUsername: '@Petr',
+    service: 'Meta Ads',
+    page_path: '/meta-ads',
+    marketing_consent: true,
+    consent_version: 1,
+    consent_source: 'user',
+    consent_region: 'UZ',
+    consent_timestamp: Date.now(),
+  });
+
+  assert.equal(stored.durable, true, 'заявка должна записаться');
+  assert.equal(stored.duplicate, false);
+  assert.equal(stored.repeat, false);
+
+  const row = sqlite.prepare('SELECT dedupe_email, dedupe_phone, dedupe_telegram FROM leads').get();
+  // +998 90 123 45 67 -> 998901234567 -> последние десять цифр.
+  assert.equal(row.dedupe_email, 'petr@mail.ru', 'почта приводится к нижнему регистру');
+  assert.equal(row.dedupe_phone, '8901234567', 'телефон приводится к последним десяти цифрам');
+  assert.equal(row.dedupe_telegram, 'petr', 'у телеграма снимается собака и регистр');
+});
+
+test('заявка полугодовой давности поднимается, а не создаёт дубль', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createProductionLeadDatabase();
+
+  await storeLead({ DB: d1 }, {
+    event_id: 'old-lead',
+    name: 'Старый контакт',
+    email: 'old@example.com',
+    phone: '+998 90 000 00 01',
+  });
+
+  // Шестьсот чужих заявок сверху: старая уходит далеко за окно в пятьсот строк,
+  // которым ограничивался прежний перебор. Ради этого случая делалась миграция.
+  for (let i = 0; i < 600; i += 1) {
+    await storeLead({ DB: d1 }, {
+      event_id: `noise-${i}`,
+      name: `Гость ${i}`,
+      email: `guest-${i}@example.com`,
+    });
+  }
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM leads').get().count, 601);
+
+  // Тот же человек, другое написание телефона и другой регистр почты.
+  const repeat = await storeLead({ DB: d1 }, {
+    event_id: 'old-lead-returns',
+    name: 'Старый контакт',
+    email: 'OLD@EXAMPLE.COM',
+    phone: '8 (90) 000-00-01',
+  });
+
+  assert.equal(repeat.durable, true);
+  assert.equal(repeat.repeat, true, 'повторное обращение должно распознаться');
+  assert.equal(repeat.submissionsCount, 2, 'счётчик обращений растёт');
+  assert.equal(
+    sqlite.prepare('SELECT COUNT(*) AS count FROM leads').get().count,
+    601,
+    'новой карточки появиться не должно',
+  );
+  assert.equal(
+    sqlite.prepare("SELECT submissions_count FROM leads WHERE dedupe_email = 'old@example.com'").get().submissions_count,
+    2,
+    'поднялась именно исходная заявка',
+  );
 });
