@@ -203,7 +203,11 @@ export function AdminDecimalInput({ value, onValueChange, ...props }: DecimalInp
       inputMode="decimal"
       value={text}
       onChange={(event) => {
-        const raw = event.target.value.replace(/[^\d.,-]/g, '');
+        // Минус здесь не принимается. Все поля на этом компоненте — чек,
+        // расход, выручка, сумма счёта, ставка, часы: отрицательных значений
+        // у них не бывает. Сервер такое всё равно отвергает и сохраняет ноль,
+        // то есть набранное «−500» молча превращалось в 0 без единого слова.
+        const raw = event.target.value.replace(/[^\d.,]/g, '');
         setText(raw);
         const parsed = parseDecimalInput(raw);
         reported.current = parsed;
