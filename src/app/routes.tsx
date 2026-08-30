@@ -1,5 +1,5 @@
 import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useNavigationType, useRouteError } from 'react-router';
-import { lazy, Suspense, useEffect, useInsertionEffect, useLayoutEffect, useRef } from 'react';
+import { createElement, lazy, Suspense, useEffect, useInsertionEffect, useLayoutEffect, useRef, type ComponentType } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
 import ScrollExperience from './components/ScrollExperience';
 import RouteIntentPreloader from './components/RouteIntentPreloader';
@@ -26,24 +26,53 @@ import {
   loadRoiPage,
   loadServiceLandingPage,
   loadThankYou,
+  type MemoizedLoader,
 } from './utils/routePreload';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 const PageLockHandoff = lazy(() => import('./components/PageLockHandoff'));
 
-const Home = lazy(loadHome);
-const ThankYou = lazy(loadThankYou);
-const BlogPage = lazy(loadBlogPage);
-const CasesPage = lazy(loadCasesPage);
-const Calculator = lazy(loadCalculator);
-const RoiPage = lazy(loadRoiPage);
+/**
+ * React.lazy attaches its promise handler only on the first render. If
+ * bootstrap has already awaited that same import, React can still commit one
+ * Suspense fallback frame before the handler's microtask marks it resolved.
+ * Read the memoized loader's resolved module synchronously to make the first
+ * production frame the actual route, while preserving Suspense for navigations
+ * whose chunk is genuinely still in flight.
+ */
+function preloadable(loader: MemoizedLoader<any>): ComponentType<any> {
+  let Loaded = loader.resolved?.default as ComponentType<any> | undefined;
+  let pending: Promise<unknown> | undefined;
+
+  return function PreloadedRoute(props: any) {
+    if (!Loaded) Loaded = loader.resolved?.default as ComponentType<any> | undefined;
+    if (Loaded) return createElement(Loaded, props);
+
+    if (!pending) {
+      pending = loader().then((module) => {
+        Loaded = module.default as ComponentType<any>;
+      }).catch((error) => {
+        pending = undefined;
+        throw error;
+      });
+    }
+    throw pending;
+  };
+}
+
+const Home = preloadable(loadHome);
+const ThankYou = preloadable(loadThankYou);
+const BlogPage = preloadable(loadBlogPage);
+const CasesPage = preloadable(loadCasesPage);
+const Calculator = preloadable(loadCalculator);
+const RoiPage = preloadable(loadRoiPage);
 const Admin = lazy(loadAdmin);
-const ContentPreview = lazy(loadContentPreview);
-const PrivacyPolicy = lazy(loadPrivacyPolicy);
-const Offer = lazy(loadOffer);
-const CookiePolicy = lazy(loadCookiePolicy);
-const FAQPage = lazy(loadFaqPage);
-const MarketingGlossaryPage = lazy(loadMarketingGlossaryPage);
-const NotFound = lazy(loadNotFound);
+const ContentPreview = preloadable(loadContentPreview);
+const PrivacyPolicy = preloadable(loadPrivacyPolicy);
+const Offer = preloadable(loadOffer);
+const CookiePolicy = preloadable(loadCookiePolicy);
+const FAQPage = preloadable(loadFaqPage);
+const MarketingGlossaryPage = preloadable(loadMarketingGlossaryPage);
+const NotFound = preloadable(loadNotFound);
 
 type ServiceType = import('./pages/ServiceLandingPage').ServiceType;
 type ServicePreload = () => Promise<unknown>;

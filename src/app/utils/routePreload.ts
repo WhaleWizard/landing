@@ -1,5 +1,11 @@
 type RouteLoader = () => Promise<unknown>;
 
+export type MemoizedLoader<T> = (() => Promise<T>) & {
+  /** The module is exposed once its promise has fulfilled so a route wrapper
+   * can render synchronously instead of showing a one-frame Suspense fallback. */
+  resolved?: T;
+};
+
 /**
  * Route preloading and React.lazy must share the same promise. Calling
  * `import()` twice returns two promises even when the module is already in the
@@ -7,16 +13,23 @@ type RouteLoader = () => Promise<unknown>;
  * bootstrap has awaited the first promise. Cache each route import and reset
  * it after a failed request so a transient/chunk-version error can retry.
  */
-function memoizedImport<T>(loader: () => Promise<T>): () => Promise<T> {
+function memoizedImport<T>(loader: () => Promise<T>): MemoizedLoader<T> {
   let pending: Promise<T> | undefined;
-  return () => {
+  const load = (() => {
     if (pending) return pending;
-    pending = loader().catch((error) => {
-      pending = undefined;
-      throw error;
-    });
+    pending = loader().then(
+      (value) => {
+        load.resolved = value;
+        return value;
+      },
+      (error) => {
+        pending = undefined;
+        throw error;
+      },
+    );
     return pending;
-  };
+  }) as MemoizedLoader<T>;
+  return load;
 }
 
 export const loadHome = memoizedImport(() => import('../pages/Home'));

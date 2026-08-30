@@ -893,15 +893,45 @@ function DeferredSection({
 
     let frame = 0;
     let attempts = 0;
+    let stableFrames = 0;
+    let previousHeight = -1;
     const alignToHashTarget = () => {
       const target = document.getElementById(anchorId);
       if (target) {
-        target.scrollIntoView({ behavior: 'auto', block: 'start' });
+        // The section sits below a fixed navbar. `scrollIntoView({ block:
+        // start })` puts its heading behind that navbar on a direct cold hash
+        // load, while the same navigation from the menu already reserves the
+        // header gutter. Keep both paths visually aligned.
+        const navHeight = document.querySelector('nav')?.getBoundingClientRect().height || 80;
+        const y = target.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+        const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        const nextY = Math.min(Math.max(0, y), maxScroll);
+        if (Math.abs(target.getBoundingClientRect().top - (navHeight + 8)) > 1) {
+          window.scrollTo({ top: nextY, left: 0, behavior: 'auto' });
+        }
+
+        // Moving to a later anchor wakes the preceding deferred sections. A
+        // single alignment pass would be undone when one of those sections
+        // replaces its shorter skeleton with real content. Re-check the
+        // document for a few stable frames so the target survives that handoff.
+        const height = document.documentElement.scrollHeight;
+        if (height === previousHeight) stableFrames += 1;
+        else {
+          previousHeight = height;
+          stableFrames = 0;
+        }
+        attempts += 1;
+        // Give the first lazy section above the target time to wake after the
+        // scroll itself. Four stable frames can otherwise finish before its
+        // chunk response arrives, leaving a later anchor displaced by the
+        // section's real height.
+        if ((stableFrames >= 4 && attempts >= 45) || attempts >= 90) return;
+        frame = window.requestAnimationFrame(alignToHashTarget);
         return;
       }
 
       attempts += 1;
-      if (attempts < 60) frame = window.requestAnimationFrame(alignToHashTarget);
+      if (attempts < 90) frame = window.requestAnimationFrame(alignToHashTarget);
     };
 
     frame = window.requestAnimationFrame(alignToHashTarget);

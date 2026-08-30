@@ -124,3 +124,14 @@
   `src/app/utils/routePreload.ts` переведены на общий memoized promise с
   безопасным сбросом при сетевой ошибке; это убирает waterfall для всех
   страниц, не меняя их разметку.
+- На последующем cold-load FAQ был подтверждён тот же микрокадр уже
+  разрешённого route-promise: `React.lazy` подписывался на fulfilled promise
+  только во время первого render. В `src/app/routes.tsx` public route pages
+  используют синхронно разрешаемый `preloadable`-wrapper, а loader публикует
+  resolved-модуль; настоящий Suspense сохраняется для действительно ещё не
+  загруженного SPA-перехода, но первый production frame больше не заменяется
+  generic skeleton.
+- Для hash-переходов на сервисных страницах (`src/app/pages/ServiceLandingPage.tsx`)
+  добавлено выравнивание относительно фактической высоты fixed-navbar и
+  повторная проверка после deferred-секций. Это сохраняет целевой блок видимым
+  после догрузки контента на 320/390 px и не меняет дизайн секций.
