@@ -92,3 +92,24 @@
   являются намеренными внутренними scroller-ами, page-level overflow не найден.
 - После прохода `tab.dev.logs({levels:["error","warn"]})` вернул пустой список;
   битых загруженных изображений нет. Вкладка production возвращена на Home сверху.
+
+## Cold-load production pass 2026-08-30
+
+- Свежая production-вкладка была снята по таймкодам 100/300/600/1000 мс и
+  после стабилизации; принятые кадры сохранены в `audit-reports/` как
+  `live-load-*.png` и просмотрены вручную. На первом проходе был виден
+  тройной hand-off: сгенерированный SEO-shell, затем общий `RouteSkeleton`,
+  затем настоящий Home с cosmic hero. Это и было причиной рывка, а не сам
+  scroll-loop.
+- Корень проблемы в связке `src/main.tsx` + `src/app/utils/routePreload.ts`:
+  bootstrap ждал сетевую revalidation CMS до hand-off, а Home загружал
+  `CosmicHeroScene` через вложенный `React.lazy`, не включая его в preload.
+  На production это оставляло generic skeleton между shell и первым экраном.
+- Исправление: CMS revalidation перенесена после hand-off (статический seed
+  остаётся первым валидным содержимым), Home и `CosmicHeroScene` готовятся
+  параллельно, а generator добавляет JS/CSS cosmic-сцены в критические
+  `modulepreload` для `/`. Дизайн, motion-эффекты и контент не удалялись.
+- `npm run check` после патча прошёл полностью; `test:seo-output` подтвердил
+  наличие критического preload. Локальный `vite dev` отдельно не считается
+  production-доказательством: его `index.html` не содержит сгенерированный
+  SEO-shell, поэтому cold-load проверяется после выкладки собранного output.

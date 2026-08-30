@@ -108,14 +108,17 @@ async function bootstrap() {
   // the current route module is being prepared, so a cold visit performs one
   // visual hand-off instead of shell -> generic skeleton -> real page.
   if (hadGeneratedShell) {
-    const pending = [
-      prepareRoute(window.location.href),
-      prepareCurrentSiteContent(),
-    ].filter((task): task is Promise<unknown> => Boolean(task));
-    if (pending.length > 0) {
+    // Only JavaScript needed to render the first screen belongs on this
+    // critical path. CMS content is already available from the generated
+    // inline seed and every mounted section revalidates it after paint. A
+    // network request here used to keep the stale SEO shell on screen while
+    // production waited for `/api/site-content`, making the hand-off feel
+    // like a jump even when the route chunk was ready.
+    const routeTask = prepareRoute(window.location.href);
+    if (routeTask) {
       let timeout = 0;
       await Promise.race([
-        Promise.all(pending),
+        routeTask,
         new Promise<void>((resolve) => {
           timeout = window.setTimeout(resolve, ROUTE_PREPARE_TIMEOUT_MS);
         }),
@@ -124,6 +127,13 @@ async function bootstrap() {
     }
   }
   handOffToApp();
+
+  // Revalidate editable copy only after the first interactive frame has been
+  // handed off. This keeps the CMS request useful without competing with the
+  // route/hero chunks or delaying the visual transition.
+  if (hadGeneratedShell) {
+    window.setTimeout(() => { void prepareCurrentSiteContent(); }, 0);
+  }
 }
 
 void bootstrap();

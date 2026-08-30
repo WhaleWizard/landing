@@ -284,7 +284,14 @@ function insertBeforeHeadClose(html, tag) {
 // браузер узнаёт о файле только после разбора index.js — загрузка выстраивается
 // лесенкой и на мобильной сети стоит несколько сотен миллисекунд.
 const ROUTE_ENTRY_MODULES = {
-  '/': ['src/app/pages/Home.tsx'],
+  // The Home hero mounts CosmicHeroScene through a nested React.lazy. Include
+  // that chunk in the generated shell's critical preload set so the browser
+  // can fetch the actual first-screen scene while the entry module evaluates,
+  // instead of waiting for a second Suspense pass after hand-off.
+  '/': [
+    'src/app/pages/Home.tsx',
+    'src/app/components/CosmicHeroScene.tsx',
+  ],
   '/blog': ['src/app/pages/BlogPage.tsx'],
   '/cases': ['src/app/pages/CasesPage.tsx'],
   '/faq': ['src/app/pages/FAQPage.tsx'],

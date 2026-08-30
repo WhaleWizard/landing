@@ -16,6 +16,11 @@ export const loadMarketingGlossaryPage = () => import('../pages/MarketingGlossar
 export const loadNotFound = () => import('../pages/NotFound');
 export const loadServiceLandingPage = () => import('../pages/ServiceLandingPage');
 export const loadHero = () => import('../components/Hero');
+// Home renders the cosmic scene inside Hero's own Suspense boundary. Preload
+// that nested chunk together with the route so a cold production visit does
+// not hand off from the generated shell to the generic RouteSkeleton before
+// the actual first screen is ready.
+export const loadCosmicHeroScene = () => import('../components/CosmicHeroScene');
 export const loadMetaAppsHeroVisual = () => import('../components/MetaAppsHeroVisual');
 export const loadConsultStudioHero = () => import('../components/service-heroes/ConsultStudioHero');
 export const loadMetaAdsEditorialHero = () => import('../components/service-heroes/MetaAdsEditorialHero');
@@ -23,7 +28,12 @@ export const loadMetaAdsEditorialHero = () => import('../components/service-hero
 const routePromises = new Map<string, Promise<unknown>>();
 
 function routeLoader(pathname: string): { key: string; loader: RouteLoader } | null {
-  if (pathname === '/') return { key: 'home', loader: loadHome };
+  if (pathname === '/') {
+    return {
+      key: 'home',
+      loader: () => Promise.all([loadHome(), loadCosmicHeroScene()]),
+    };
+  }
   if (/^\/blog(?:\/|$)/.test(pathname)) return { key: 'blog', loader: loadBlogPage };
   if (/^\/cases\/[^/]+\/?$/.test(pathname)) return { key: 'case-article', loader: loadBlogPage };
   if (pathname === '/cases' || pathname === '/cases/') return { key: 'cases', loader: loadCasesPage };
