@@ -3,27 +3,28 @@ import { motion } from 'motion/react';
 import { ArrowRight, Clock, BookOpen, MoveHorizontal } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useRef, memo, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
 import { formatReadTime } from '../utils/articleMeta';
 import { isCaseArticle } from '../utils/articleCategory';
 import { useDragScroll } from '../hooks/useDragScroll';
 import ArticlesLoadError from './ArticlesLoadError';
+import { withReturnTo } from '../utils/siteNavigation';
 
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   useDragScroll(scrollContainerRef);
   const navigate = useNavigate();
+  const location = useLocation();
   const { articles, loading, error: articlesError, refreshArticles } = useArticles();
   const blogArticles = articles.filter((article) => !isCaseArticle(article));
 
   const openArticle = useCallback((slug: string) => {
-    navigate(`/blog/${slug}`);
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    navigate(`/blog/${slug}`, {
+      state: withReturnTo(location),
     });
-  }, [navigate]);
+  }, [location, navigate]);
 
   if (loading) return <div className="py-16 text-center text-muted-foreground">Загружаю материалы...</div>;
   if (articlesError && articles.length === 0) {
@@ -129,7 +130,7 @@ function Blog() {
       <div className="relative mt-14 md:mt-20 flex justify-center">
           <button
             type="button"
-            onClick={() => navigate('/blog')}
+            onClick={() => navigate('/blog', { state: withReturnTo(location) })}
             data-route-preload="/blog"
             className="group relative inline-flex items-center justify-center gap-3 px-10 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >

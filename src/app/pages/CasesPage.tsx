@@ -58,6 +58,7 @@ import {
   getMergedCaseData,
 } from '../data/caseCatalog';
 import { plural } from '../utils/plural';
+import { withReturnTo } from '../utils/siteNavigation';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -589,9 +590,10 @@ export default function CasesPage() {
       goToContact();
       return;
     }
-    navigate(`/cases/${item.slug}${window.location.search}`);
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [goToContact, navigate]);
+    navigate(`/cases/${item.slug}${window.location.search}`, {
+      state: withReturnTo(location),
+    });
+  }, [goToContact, location, navigate]);
 
   const hasFilters = niches.size > 0 || sources.size > 0 || goals.size > 0 || Boolean(query.trim());
   const filterCount = niches.size + sources.size + goals.size;
@@ -797,7 +799,7 @@ export default function CasesPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate('/blog')}
+                  onClick={() => navigate('/blog', { state: withReturnTo(location) })}
                   className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95"
                 >
                   <span className="text-sm md:text-base">Читать блог</span>

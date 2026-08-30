@@ -983,7 +983,13 @@
 }
 
 @media (max-width: 560px) {
+  .meta-apps-hero-copy {
+    position: relative;
+    z-index: 2;
+  }
+
   .meta-apps-visual {
+    z-index: 1;
     height: 410px;
     margin-top: -18px;
   }
@@ -1109,6 +1115,8 @@
   }
 
   .meta-apps-hero-actions {
+    position: relative;
+    z-index: 40;
     width: 58%;
     min-width: 226px;
   }
@@ -1195,7 +1203,7 @@
   }
 
   .meta-apps-hero-actions {
-    width: 64%;
+    width: min(226px, 100%);
     min-width: 0;
   }
 

@@ -14,6 +14,7 @@ import {
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
+import { preferredScrollBehavior } from '../utils/motionPreference';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -122,6 +123,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
   const [isModalOpen, setIsModalOpen] = useState(false);
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const mobileScrollFrameRef = useRef<number | null>(null);
+  const contactScrollTimerRef = useRef<number | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   // Видимость секции живёт атрибутом на самой секции: фоновым петлям хватает
   // CSS, а React больше не перерисовывает весь блок при каждом пересечении
@@ -183,6 +185,9 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
     if (mobileScrollFrameRef.current !== null) {
       window.cancelAnimationFrame(mobileScrollFrameRef.current);
     }
+    if (contactScrollTimerRef.current !== null) {
+      window.clearTimeout(contactScrollTimerRef.current);
+    }
   }, []);
 
   const openModal = () => setIsModalOpen(true);
@@ -190,10 +195,19 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
 
   const scrollToContact = () => {
     closeModal();
-    setTimeout(() => {
+    if (contactScrollTimerRef.current !== null) {
+      window.clearTimeout(contactScrollTimerRef.current);
+    }
+    contactScrollTimerRef.current = window.setTimeout(() => {
       const contactElement = document.getElementById('contact');
       if (contactElement) {
-        contactElement.scrollIntoView({ behavior: 'smooth' });
+        // Fixed navbar occupies the first 80–88px. `scrollIntoView` aligned
+        // the deferred contact placeholder to the very top, so the heading
+        // appeared underneath the navbar after the modal closed. Keep the
+        // same smooth motion but reserve the navbar's visual gutter.
+        const y = contactElement.getBoundingClientRect().top + window.scrollY - 88;
+        window.scrollTo({ top: Math.max(0, y), behavior: preferredScrollBehavior() });
+        contactScrollTimerRef.current = null;
         return;
       }
       // Раньше здесь был переход на «/» и одна попытка прокрутить через 100 мс.
@@ -201,6 +215,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
       // человек, нажавший «обсудить проект», оказывался наверху главной вместо
       // формы. Хеш решает это надёжно: Home поднимает адресуемую секцию сразу.
       navigate('/#contact');
+      contactScrollTimerRef.current = null;
     }, 150);
   };
 
@@ -344,6 +359,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                   <div
                     key={index}
                     data-service-slide={index}
+                    aria-hidden={isMobile && index !== currentIndex}
                     className="w-full flex-none snap-center px-2"
                     style={{ scrollSnapStop: 'always' }}
                   >
@@ -391,6 +407,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                           <div className="mt-6 pt-4 border-t border-border/50">
                             <button
                               onClick={openModal}
+                              tabIndex={isMobile && index !== currentIndex ? -1 : 0}
                               className="inline-flex min-h-11 w-full justify-center items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary/[0.1] hover:border-primary/40 transition-all duration-200"
                             >
                               <Info className="w-4 h-4" />

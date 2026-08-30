@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
 import { withReturnTo } from '../utils/siteNavigation';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { preferredScrollBehavior } from '../utils/motionPreference';
 import WhaleMark from './brand/WhaleMark';
 import '../../styles/footer.css';
 
@@ -59,7 +60,7 @@ function Footer() {
 
       window.scrollTo({
         top: y,
-        behavior: 'smooth',
+        behavior: preferredScrollBehavior(),
       });
       return true;
     };
@@ -98,10 +99,10 @@ function Footer() {
       ) : null}
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 gap-8 mb-8 sm:grid-cols-2 lg:grid-cols-4">
           
           {/* Brand */}
-          <div className={`footer-reveal space-y-4 ${hasEntered ? 'is-visible' : ''}`}>
+          <div className={`footer-reveal min-w-0 space-y-4 ${hasEntered ? 'is-visible' : ''}`}>
             <div className="flex items-center gap-1">
               <WhaleMark size={52} animated />
               <h3 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
@@ -120,7 +121,7 @@ function Footer() {
               перехода на страницу с самими услугами. */}
           <div
             id="footer-services"
-            className={`footer-reveal footer-reveal-delay-1 ${hasEntered ? 'is-visible' : ''}`}
+            className={`footer-reveal min-w-0 footer-reveal-delay-1 ${hasEntered ? 'is-visible' : ''}`}
           >
             <h4 className={footerHeadingClass}>
               Услуги
@@ -163,7 +164,7 @@ function Footer() {
           </div>
 
           {/* Company */}
-          <div className={`footer-reveal footer-reveal-delay-2 ${hasEntered ? 'is-visible' : ''}`}>
+          <div className={`footer-reveal min-w-0 footer-reveal-delay-2 ${hasEntered ? 'is-visible' : ''}`}>
             <h4 className={footerHeadingClass}>
               Разделы
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
@@ -239,7 +240,7 @@ function Footer() {
           </div>
 
           {/* Contact */}
-          <div className={`footer-reveal footer-reveal-delay-3 ${hasEntered ? 'is-visible' : ''}`}>
+          <div className={`footer-reveal min-w-0 footer-reveal-delay-3 ${hasEntered ? 'is-visible' : ''}`}>
             <h4 className={footerHeadingClass}>
               Контакты
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
@@ -250,12 +251,12 @@ function Footer() {
                 <a
                   href="mailto:whalewzrd@gmail.com"
                   onClick={() => trackContact('email', 'footer')}
-                  className={footerContactLinkClass}
+                  className={`${footerContactLinkClass} min-w-0`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Mail className="w-4 h-4" />
                   </div>
-                  whalewzrd@gmail.com
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">whalewzrd@gmail.com</span>
                 </a>
               </li>
 

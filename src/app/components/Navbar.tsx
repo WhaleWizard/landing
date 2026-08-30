@@ -4,6 +4,9 @@ import { useLocation, useNavigate } from 'react-router';
 import { Button } from './ui/button';
 import BrandLogo from './brand/BrandLogo';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { withReturnTo } from '../utils/siteNavigation';
+import { preferredScrollBehavior } from '../utils/motionPreference';
+import { useDialogFocus } from './hooks/useDialogFocus';
 
 type NavbarVariant = 'home' | 'service' | 'content';
 
@@ -46,6 +49,7 @@ function serviceFromKey(pathname: string): string {
 function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useDialogFocus<HTMLDivElement>(isMobileMenuOpen, () => setIsMobileMenuOpen(false));
   const navigate = useNavigate();
   const location = useLocation();
   /** Отложенная попытка доскроллить до ещё не смонтированной секции. */
@@ -86,11 +90,18 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
     if (!isMobileMenuOpen) return;
 
     const previousOverflow = document.body.style.overflow;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsMobileMenuOpen(false);
-      }
-    };
+    const previousPaddingRight = document.body.style.paddingRight;
+    const previousPosition = document.body.style.position;
+    const previousTop = document.body.style.top;
+    const previousWidth = document.body.style.width;
+    const scrollY = window.scrollY;
+    const historyKeyWhenOpened = window.history.state?.key;
+    const hrefWhenOpened = window.location.href;
+    const hasStableScrollbarGutter = getComputedStyle(document.documentElement)
+      .scrollbarGutter.includes('stable');
+    const scrollbarCompensation = hasStableScrollbarGutter
+      ? 0
+      : window.innerWidth - document.documentElement.clientWidth;
     const desktopBreakpoint = window.matchMedia('(min-width: 1024px)');
     const handleBreakpointChange = (event: MediaQueryListEvent) => {
       if (event.matches) {
@@ -98,13 +109,34 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       }
     };
 
+    // На мобильных Safari/Chromium одного overflow у body недостаточно: фон
+    // продолжает прокручиваться под панелью. Фиксируем документ на сохранённой
+    // позиции; якорные действия ниже сначала закрывают меню и только затем
+    // запускают прокрутку.
     document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    if (scrollbarCompensation > 0) {
+      document.body.style.paddingRight = `${scrollbarCompensation}px`;
+    }
     desktopBreakpoint.addEventListener('change', handleBreakpointChange);
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.paddingRight = previousPaddingRight;
+      document.body.style.position = previousPosition;
+      document.body.style.top = previousTop;
+      document.body.style.width = previousWidth;
+      // На переходе к другой странице позицию отдаём ScrollRestoration. Для
+      // обычного закрытия меню возвращаем ровно тот кадр, на котором оно было
+      // открыто.
+      const sameHistoryEntry = historyKeyWhenOpened
+        ? window.history.state?.key === historyKeyWhenOpened
+        : window.location.href === hrefWhenOpened;
+      if (sameHistoryEntry) {
+        window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
+      }
       desktopBreakpoint.removeEventListener('change', handleBreakpointChange);
     };
   }, [isMobileMenuOpen]);
@@ -115,7 +147,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       if (!element) return false;
       const yOffset = -80;
       const y = element.getBoundingClientRect().top + window.scrollY + yOffset;
-      window.scrollTo({ top: y, behavior: 'smooth' });
+      window.scrollTo({ top: y, behavior: preferredScrollBehavior() });
       return true;
     };
 
@@ -134,31 +166,38 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       }, 80);
     };
 
-    if (scrollNow()) {
-      setIsMobileMenuOpen(false);
-      return;
-    }
+    const performNavigation = () => {
+      if (scrollNow()) return;
 
-    if (variant === 'service') {
+      if (variant === 'service') {
+        scrollWhenReady();
+        return;
+      }
+
+      if (location.pathname !== sectionsPath) {
+        // Переход на другую страницу отдаём её собственному разбору хеша.
+        // Секции и на главной, и на лендингах монтируются лениво: нужная
+        // поднимается сразу, а кадр выравнивается по ней, пока достраиваются
+        // соседние блоки. Своя прокрутка отсюда цеплялась за пустую заготовку,
+        // после чего секция уезжала вниз и человек оказывался мимо неё.
+        navigate(`${sectionsPath}#${id}`);
+        return;
+      }
+
       scrollWhenReady();
+    };
+
+    if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
+      // Эффект блокировки должен сначала вернуть body и прежний scrollY;
+      // иначе window.scrollTo внутри scrollNow вызывается на fixed-документе
+      // и визуально ничего не делает.
+      pendingScrollRef.current = window.setTimeout(performNavigation, 0);
       return;
     }
 
-    if (location.pathname !== sectionsPath) {
-      // Переход на другую страницу отдаём её собственному разбору хеша.
-      // Секции и на главной, и на лендингах монтируются лениво: нужная
-      // поднимается сразу, а кадр выравнивается по ней, пока достраиваются
-      // соседние блоки. Своя прокрутка отсюда цеплялась за пустую заготовку,
-      // после чего секция уезжала вниз и человек оказывался мимо неё.
-      navigate(`${sectionsPath}#${id}`);
-      setIsMobileMenuOpen(false);
-      return;
-    }
-
-    scrollWhenReady();
-    setIsMobileMenuOpen(false);
-  }, [location.pathname, navigate, sectionsPath, variant]);
+    performNavigation();
+  }, [isMobileMenuOpen, location.key, location.pathname, navigate, sectionsPath, variant]);
 
   // Логотип на контентных страницах ведёт не всегда на главную: со страницы
   // благодарности — назад на лендинг, с которого пришла заявка.
@@ -174,16 +213,16 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       { label: 'Отзывы', action: () => scrollToSection('about') },
       // Со страниц услуг раньше не было выхода в контентные разделы:
       // все пункты вели на якоря внутри той же страницы.
-      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
-      { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
+      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+      { label: 'Блог', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
     ]
     : variant === 'content'
       ? [
         { label: 'Услуги', action: () => scrollToSection('services'), preloadRoute: sectionsPath },
-        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
-        { label: 'Блог', action: () => { navigate('/blog'); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
+        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+        { label: 'Блог', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
         { label: 'О нас', action: () => scrollToSection('about'), preloadRoute: sectionsPath },
-        { label: 'FAQ', action: () => { navigate('/faq'); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
+        { label: 'FAQ', action: () => { navigate('/faq', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
         // Блок соцсетей есть только на главной. На лендинге услуги якоря
         // `social` нет вовсе, и пункт молча не срабатывал бы — там «Контакты»
         // ведут к форме заявки.
@@ -194,7 +233,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
         { label: 'Кейсы', action: () => scrollToSection('cases') },
         { label: 'Блог', action: () => scrollToSection('blog') },
         { label: 'Отзывы', action: () => scrollToSection('about') },
-        { label: 'FAQ', action: () => navigate('/faq'), preloadRoute: '/faq', routePath: '/faq' },
+        { label: 'FAQ', action: () => navigate('/faq', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social') },
         { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
       ];
@@ -217,7 +256,9 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
             {/* Логотип */}
             <div className="flex-shrink-0" data-route-preload={variant === 'content' ? sectionsPath : undefined}>
               <BrandLogo
-                onClick={() => variant === 'content' ? navigate(sectionsPath) : scrollToSection('hero')}
+                onClick={() => variant === 'content'
+                  ? navigate(sectionsPath, { state: withReturnTo(location) })
+                  : scrollToSection('hero')}
                 priority
                 ariaLabel={variant === 'content' ? homeLabel : 'Whale Wizard — к началу страницы'}
               />
@@ -275,9 +316,11 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
             <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
             <div
               id="mobile-navigation"
+              ref={mobileMenuRef}
               role="dialog"
               aria-modal="true"
               aria-label="Основная навигация"
+              tabIndex={-1}
               className="absolute right-0 top-0 flex h-full w-[85%] max-w-sm flex-col border-l border-border bg-card/95 shadow-2xl backdrop-blur-2xl"
               onClick={(e) => e.stopPropagation()}
             >
@@ -290,7 +333,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
                 <BrandLogo
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    if (variant === 'content') navigate(sectionsPath);
+                    if (variant === 'content') navigate(sectionsPath, { state: withReturnTo(location) });
                     else scrollToSection('hero');
                   }}
                   markSize={40}
@@ -333,8 +376,11 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
               <div className="border-t border-border/60 p-4">
                 <Button
                   onClick={() => {
+                    // scrollToSection сам сначала отпускает mobile-lock и
+                    // только следующим тактом ищет секцию. Прокрутка прямо из
+                    // зафиксированного меню терялась на iOS и возвращалась к
+                    // старой позиции после закрытия панели.
                     scrollToSection('contact');
-                    setIsMobileMenuOpen(false);
                   }}
                   data-route-preload={variant === 'content' ? sectionsPath : undefined}
                   size="lg"

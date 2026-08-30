@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, ChevronDown, Search, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
@@ -8,6 +8,7 @@ import SEO from '../components/SEO';
 import { trackFaqOpen } from '../consent/consent';
 import { glossaryTermById } from '../data/marketingGlossary';
 import useFaqContent from '../hooks/useFaqContent';
+import { preferredScrollBehavior } from '../utils/motionPreference';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -448,6 +449,8 @@ export const faqs: FaqItem[] = faqSeeds.map((item) => ({
 }));
 
 export default function FAQPage() {
+  const location = useLocation();
+  const navigationType = useNavigationType();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | FaqCategory>('all');
@@ -514,20 +517,24 @@ export default function FAQPage() {
   }, [faqSchema]);
 
   useEffect(() => {
-    const rawHash = window.location.hash.slice(1);
+    const rawHash = location.hash.slice(1);
     if (!rawHash.startsWith('faq-')) return;
     const faqId = rawHash.slice('faq-'.length);
     if (!liveFaqs.some((item) => item.id === faqId)) return;
 
     setSelectedCategory('all');
     setQuery('');
-    window.setTimeout(() => {
+    const shouldAlignHash = navigationType !== 'POP' || location.key === 'default';
+    const timer = window.setTimeout(() => {
       const disclosure = document.getElementById(`faq-${faqId}`) as HTMLDetailsElement | null;
       if (!disclosure) return;
       disclosure.open = true;
-      disclosure.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (shouldAlignHash) {
+        disclosure.scrollIntoView({ block: 'start', behavior: preferredScrollBehavior() });
+      }
     }, 80);
-  }, [liveFaqs]);
+    return () => window.clearTimeout(timer);
+  }, [liveFaqs, location.hash, location.key, navigationType]);
 
   const replaceFaqHash = (faqId?: string) => {
     const nextUrl = `${window.location.pathname}${window.location.search}${faqId ? `#faq-${faqId}` : ''}`;

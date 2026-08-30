@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { PenLine } from 'lucide-react';
+import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 
 /**
  * Окно с полем ввода — замена системному `prompt()`.
@@ -49,6 +50,8 @@ export function AdminPromptProvider({ children }: { children: ReactNode }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useDialogFocus<HTMLFormElement>(Boolean(state), () => close(null));
+  useDialogScrollLock(Boolean(state));
 
   useEffect(() => {
     openPrompt = (request) => {
@@ -68,16 +71,11 @@ export function AdminPromptProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!state) return undefined;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-    // Только Escape. Enter обрабатывает сама форма — так кнопка «Отмена»
-    // остаётся кнопкой отмены, даже когда на ней фокус.
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close(null);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [close, state]);
+    // Keep the useful prompt behaviour (select the old value) after the shared
+    // focus hook has placed focus inside the dialog.
+    const frame = window.requestAnimationFrame(() => inputRef.current?.select());
+    return () => window.cancelAnimationFrame(frame);
+  }, [state]);
 
   if (!state) return <>{children}</>;
 
@@ -94,6 +92,8 @@ export function AdminPromptProvider({ children }: { children: ReactNode }) {
         onClick={(event) => { if (event.target === event.currentTarget) close(null); }}
       >
         <form
+          ref={dialogRef}
+          tabIndex={-1}
           className="admin-confirm__card"
           onSubmit={(event) => {
             event.preventDefault();

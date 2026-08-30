@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { useLocation, useNavigationType } from 'react-router';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import SEO from '../components/SEO';
@@ -78,6 +79,8 @@ function DeferredSection({
   heights: DeferredSectionHeights;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
+  const location = useLocation();
+  const navigationType = useNavigationType();
   const [shouldRender, setShouldRender] = useState(() => (
     typeof window === 'undefined'
     || typeof window.IntersectionObserver === 'undefined'
@@ -120,7 +123,8 @@ function DeferredSection({
   }, [anchorId, shouldRender]);
 
   useEffect(() => {
-    if (!shouldRender || !anchorId || !hashTargetsSection(anchorId)) return;
+    const shouldAlignHash = navigationType !== 'POP' || location.key === 'default';
+    if (!shouldAlignHash || !shouldRender || !anchorId || !hashTargetsSection(anchorId)) return;
 
     let frame = 0;
     let attempts = 0;
@@ -136,7 +140,7 @@ function DeferredSection({
 
     frame = window.requestAnimationFrame(alignToTarget);
     return () => window.cancelAnimationFrame(frame);
-  }, [anchorId, shouldRender]);
+  }, [anchorId, location.key, navigationType, shouldRender]);
 
   return (
     <section ref={sectionRef} id={shouldRender ? undefined : anchorId}>

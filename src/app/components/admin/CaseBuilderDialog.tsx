@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Briefcase, Info, X } from 'lucide-react';
 import { AdminButton } from './AdminUI';
+import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 import {
   buildCaseFromMonths,
   toCaseData,
@@ -61,16 +62,10 @@ function Tile({ label, value, hint, tone }: { label: string; value: string; hint
 export default function CaseBuilderDialog({ clientNiche, months, onClose, onCreate }: Props) {
   const [niche, setNiche] = useState(clientNiche);
   const [title, setTitle] = useState('');
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>(true, onClose);
+  useDialogScrollLock(true);
 
   const result: CaseBuildResult = useMemo(() => buildCaseFromMonths(months), [months]);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const { totals, currency } = result;
 
@@ -84,7 +79,7 @@ export default function CaseBuilderDialog({ clientNiche, months, onClose, onCrea
 
   return (
     <div className="case-builder__overlay" role="dialog" aria-modal="true" aria-label="Сборка кейса из результатов клиента">
-      <div className="case-builder">
+      <div ref={dialogRef} tabIndex={-1} className="case-builder">
         <header className="case-builder__head">
           <div className="min-w-0">
             <h2 className="case-builder__title">Кейс из результатов по месяцам</h2>
@@ -92,7 +87,7 @@ export default function CaseBuilderDialog({ clientNiche, months, onClose, onCrea
               Считается только то, что вы вводили. Прочерк означает «нет данных», а не ноль.
             </p>
           </div>
-          <button ref={closeRef} type="button" className="case-builder__close" onClick={onClose} aria-label="Закрыть">
+          <button type="button" className="case-builder__close" onClick={onClose} aria-label="Закрыть">
             <X aria-hidden="true" />
           </button>
         </header>

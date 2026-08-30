@@ -278,6 +278,10 @@
 .cases-desktop-filters {
   position: sticky;
   top: 96px;
+  max-height: calc(100vh - 128px);
+  max-height: calc(100dvh - 128px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .cases-filter-panel {

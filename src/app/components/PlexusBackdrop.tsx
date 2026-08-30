@@ -313,11 +313,15 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       else start();
     };
     rebuild();
-    const resizeObserver = new ResizeObserver(() => {
+    const handleResize = () => {
       rebuild();
       if (!rafId) draw(false);
-    });
-    resizeObserver.observe(canvas);
+    };
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(handleResize);
+    resizeObserver?.observe(canvas);
+    if (!resizeObserver) window.addEventListener('resize', handleResize, { passive: true });
 
     controlRef.current = { start, stop };
 
@@ -335,7 +339,8 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     return () => {
       stop();
       controlRef.current = null;
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
+      if (!resizeObserver) window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMove);
       document.removeEventListener('visibilitychange', handleVisibility);
     };

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { preferredScrollBehavior } from '../../utils/motionPreference';
 
 // Каркас юридического документа: оглавление, разделы-аккордеоны, прогресс
 // чтения. Разделы — нативные <details>, поэтому весь текст остаётся в HTML
@@ -74,7 +75,7 @@ export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
     const el = rootRef.current?.querySelector<HTMLDetailsElement>(`#${sectionId(index)}`);
     if (!el) return;
     el.open = true;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' });
   };
 
   const setAll = (open: boolean) => {

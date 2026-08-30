@@ -913,6 +913,43 @@
   .not-found-page .nf-nav { margin-top: 5cqw; }
 }
 
+/* Короткий landscape на телефоне: десктопная композиция не должна
+ * обрезаться адресной строкой и нижними системными панелями. Даем сцене
+ * безопасную минимальную высоту и обычный вертикальный скролл, сохраняя
+ * исходное масштабирование портала и типографики. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .not-found-page {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .not-found-page .nf-frame {
+    width: min(100vw, 1004px);
+    height: max(100svh, 620px);
+    min-height: 620px;
+  }
+
+  body:has(.not-found-page) button[aria-label*='cookie' i] {
+    bottom: 0;
+    left: 0;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    justify-content: center;
+    gap: 0;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    backdrop-filter: none;
+  }
+
+  body:has(.not-found-page) button[aria-label*='cookie' i] span:last-child {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .not-found-page .nf-intro,
   .not-found-page .nf-preview,

@@ -60,6 +60,8 @@
  */
 .admin-root .admin-shell {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   background: var(--adm-surface-canvas);
 }
 
@@ -661,6 +663,8 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   display: grid;
   place-items: center;
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   padding: var(--adm-space-5) var(--adm-space-4);
 }
 
@@ -1610,6 +1614,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 body[data-admin-theme] .admin-font-dialog {
   width: min(1120px, calc(100vw - 32px));
   max-width: 1120px;
+  max-height: calc(100vh - 32px);
   max-height: min(860px, calc(100dvh - 32px));
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
@@ -1852,9 +1857,13 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     inset: 0 !important;
     width: 100vw;
     max-width: none;
+    height: 100svh;
     height: 100dvh;
     max-height: none;
-    padding: 16px;
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
     transform: none !important;
     border: 0;
     border-radius: 0;
@@ -2051,6 +2060,7 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   width: calc(100vw - 28px) !important;
   max-width: 1600px !important;
   height: calc(100vh - 28px);
+  height: calc(100dvh - 28px);
   max-height: none !important;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px !important;
@@ -2121,7 +2131,12 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     inset: 0 !important;
     width: 100vw !important;
     max-width: none !important;
+    height: 100svh;
     height: 100dvh;
+    padding-top: max(14px, env(safe-area-inset-top)) !important;
+    padding-right: max(14px, env(safe-area-inset-right)) !important;
+    padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
+    padding-left: max(14px, env(safe-area-inset-left)) !important;
     transform: none !important;
     border: 0 !important;
     border-radius: 0 !important;
@@ -2717,6 +2732,7 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - var(--adm-topbar-height) - 28px);
+  max-height: calc(100dvh - var(--adm-topbar-height) - 28px);
   overflow: hidden;
 }
 
@@ -2745,6 +2761,7 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   min-height: 0;
   flex: 1 1 auto;
   max-height: calc(100vh - 77px);
+  max-height: calc(100dvh - 77px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -8738,7 +8755,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  overflow-y: auto;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   background: color-mix(in srgb, #05070c 74%, transparent);
   backdrop-filter: blur(4px);
 }
@@ -8749,12 +8767,15 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: 10px;
   width: min(760px, 100%);
   max-height: 92vh;
+  max-height: 92dvh;
+  max-height: min(92dvh, calc(100dvh - 32px));
   padding: 14px;
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-card);
   background: var(--adm-surface-elevated);
   box-shadow: var(--adm-shadow-lg);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .admin-root .media-lightbox__head {
@@ -8773,7 +8794,9 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .media-lightbox img {
   width: 100%;
+  max-width: 100%;
   max-height: 62vh;
+  max-height: 62dvh;
   object-fit: contain;
   border-radius: var(--adm-radius-control);
   background: color-mix(in srgb, var(--adm-surface-subtle) 55%, transparent);
@@ -9564,6 +9587,9 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .admin-sidebar {
   position: sticky;
   top: calc(var(--adm-topbar-height) + 16px);
+  max-height: calc(100dvh - var(--adm-topbar-height) - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -10497,7 +10523,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   z-index: 80;
   display: grid;
   place-items: center;
-  padding: var(--adm-space-4);
+  overflow-y: auto;
+  padding: max(var(--adm-space-4), env(safe-area-inset-top)) max(var(--adm-space-4), env(safe-area-inset-right)) max(var(--adm-space-4), env(safe-area-inset-bottom)) max(var(--adm-space-4), env(safe-area-inset-left));
   background: color-mix(in srgb, #05070c 70%, transparent);
   backdrop-filter: blur(5px);
   animation: admin-fade-in 160ms ease both;
@@ -10505,6 +10532,10 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .admin-confirm__card {
   width: min(440px, 100%);
+  max-height: min(720px, calc(100dvh - 32px));
+  max-height: min(720px, calc(100svh - 32px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: var(--adm-space-3);
@@ -10559,6 +10590,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .admin-confirm__actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--adm-space-2);
 }
@@ -15076,7 +15108,8 @@ body[data-admin-theme] .planner-weekpick {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  overflow-y: auto;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   background: color-mix(in srgb, var(--adm-surface-deep, #05070f) 72%, transparent);
   backdrop-filter: blur(3px);
 }
@@ -15086,6 +15119,8 @@ body[data-admin-theme] .planner-weekpick {
   flex-direction: column;
   width: min(920px, 100%);
   max-height: min(88vh, 900px);
+  max-height: min(88dvh, 900px);
+  max-height: min(88dvh, calc(100dvh - 24px), 900px);
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-card, 16px);
   background: var(--adm-surface-elevated, var(--adm-bg));
@@ -15098,6 +15133,7 @@ body[data-admin-theme] .planner-weekpick {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
   padding: 18px 20px 14px;
   border-bottom: 1px solid var(--adm-border-subtle, var(--adm-border));
 }
@@ -15146,6 +15182,7 @@ body[data-admin-theme] .planner-weekpick {
   gap: 16px;
   padding: 18px 20px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Колоночный флекс с прокруткой сжимает детей по высоте: таблица на 218 px
@@ -15430,6 +15467,7 @@ body[data-admin-theme] .planner-weekpick {
 .admin-root .case-builder__foot {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 14px 20px;
   border-top: 1px solid var(--adm-border-subtle, var(--adm-border));

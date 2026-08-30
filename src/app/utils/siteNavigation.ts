@@ -278,7 +278,10 @@ export function useReturnTo(fallback?: string): ReturnTo {
     const stateFrom = asInternalPath(state?.from);
     if (stateFrom && normalizePath(stateFrom.split('?')[0]) !== currentPath) {
       const stateLabel = typeof state?.fromLabel === 'string' ? state.fromLabel.trim() : '';
-      return guard({ path: stateFrom, label: stateLabel || undefined, explicit: true, viaHistory: false });
+      // state.from ставят только внутренние Link/navigate-переходы. Возврат по
+      // истории сохраняет не только фильтры, но и точную позицию прокрутки;
+      // повторный navigate(path) создавал новую запись и бросал список вверх.
+      return guard({ path: stateFrom, label: stateLabel || undefined, explicit: true, viaHistory: true });
     }
 
     const rawFrom = new URLSearchParams(location.search).get('from');
@@ -316,7 +319,6 @@ export function useReturnTo(fallback?: string): ReturnTo {
       return;
     }
     navigate(resolved.path);
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' });
   }, [navigate, resolved]);
 
   return {

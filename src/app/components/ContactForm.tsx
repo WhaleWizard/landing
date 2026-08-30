@@ -313,8 +313,14 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           hasEmail: Boolean(formData.email.trim()),
         });
 
-        setTimeout(() => setIsSubmitted(false), 5000);
-        setTimeout(() => navigate('/thank-you'), 800);
+        resetTimerRef.current = window.setTimeout(() => {
+          setIsSubmitted(false);
+          resetTimerRef.current = undefined;
+        }, 5000);
+        redirectTimerRef.current = window.setTimeout(() => {
+          redirectTimerRef.current = undefined;
+          navigate('/thank-you');
+        }, 800);
       } catch (error) {
         console.error(error);
         const retryable = error instanceof TypeError

@@ -13,6 +13,7 @@ import {
 import { useRef, memo, useCallback } from 'react';
 import { trackContact } from '../consent/consent';
 import { useDragScroll } from '../hooks/useDragScroll';
+import { preferredScrollBehavior } from '../utils/motionPreference';
 
 const socials = [
   { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
@@ -45,7 +46,7 @@ function SocialDock() {
     const cardWidth = card?.offsetWidth ?? 96;
     scroller.scrollBy({
       left: direction === 'next' ? (cardWidth + gap) * 2 : -(cardWidth + gap) * 2,
-      behavior: 'smooth',
+      behavior: preferredScrollBehavior(),
     });
   }, []);
 

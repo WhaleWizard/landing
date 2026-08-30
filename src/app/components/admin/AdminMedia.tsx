@@ -10,6 +10,7 @@ import { promptAsk } from './AdminPrompt';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import { compressImage, formatBytes } from '../../utils/compressImage';
 import { withPlural } from '../../utils/plural';
+import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 
 interface MediaFile {
   key: string;
@@ -77,6 +78,8 @@ export default function AdminMedia({ password, articles }: { password: string; a
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<MediaFile | null>(null);
+  const previewDialogRef = useDialogFocus<HTMLDivElement>(Boolean(preview), () => setPreview(null));
+  useDialogScrollLock(Boolean(preview));
   const [dropActive, setDropActive] = useState(false);
   const dropDepth = useRef(0);
   const [altMigration, setAltMigration] = useState('');
@@ -595,10 +598,10 @@ export default function AdminMedia({ password, articles }: { password: string; a
           onClick={() => setPreview(null)}
           onKeyDown={(event) => { if (event.key === 'Escape') setPreview(null); }}
         >
-          <div className="media-lightbox__inner" onClick={(event) => event.stopPropagation()}>
+          <div ref={previewDialogRef} tabIndex={-1} className="media-lightbox__inner" onClick={(event) => event.stopPropagation()}>
             <div className="media-lightbox__head">
               <strong>{preview.name}</strong>
-              <button type="button" className="admin-icon-button" aria-label="Закрыть просмотр" autoFocus onClick={() => setPreview(null)}>
+              <button type="button" className="admin-icon-button" aria-label="Закрыть просмотр" onClick={() => setPreview(null)}>
                 <X aria-hidden="true" />
               </button>
             </div>

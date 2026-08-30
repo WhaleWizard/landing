@@ -355,9 +355,9 @@ function Testimonials({
     const cardWidth = card?.offsetWidth ?? 380;
     scroller.scrollBy({
       left: direction === 'next' ? cardWidth + gap : -(cardWidth + gap),
-      behavior: 'smooth',
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
     });
-  }, [revealDesktopScrollbar]);
+  }, [prefersReducedMotion, revealDesktopScrollbar]);
 
   useEffect(() => {
     return () => {
@@ -585,30 +585,40 @@ function Testimonials({
           </div>
 
           {/* Индикаторы (точки) */}
-          <div className="flex justify-center gap-2 mt-6">
-            {items.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => selectMobileSlide(index)}
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label={`Перейти к отзыву ${index + 1}`}
-                aria-current={currentIndex === index ? 'true' : undefined}
-              >
-                <div className={`h-2 rounded-full transition-all duration-300 ${
-                  currentIndex === index
-                    ? 'bg-primary w-8'
-                    : 'bg-primary/30 w-2'
-                }`} />
-                {currentIndex === index && (
-                  <div
-                    aria-hidden="true"
-                    className={`absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm${
-                      prefersReducedMotion ? '' : ' ww-ambient-motion ww-dot-pulse'
-                    }`}
-                  />
-                )}
-              </button>
-            ))}
+          {/*
+            На телефоне отзывов может быть больше десятка. Раньше все 15
+            кнопок стояли в одной строке и выталкивали страницу на 700+ px
+            по горизонтали: крайние индикаторы оказывались за viewport, а
+            браузер мог показать горизонтальный скролл всей страницы. Внешний
+            контейнер теперь принимает лишнюю ширину внутрь себя, сохраняя
+            полноценные 44px touch-target для каждого индикатора.
+          */}
+          <div className="mx-auto mt-6 flex max-w-full min-w-0 justify-start overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mx-auto flex min-w-full w-max shrink-0 justify-center gap-2">
+              {items.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => selectMobileSlide(index)}
+                  className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  aria-label={`Перейти к отзыву ${index + 1}`}
+                  aria-current={currentIndex === index ? 'true' : undefined}
+                >
+                  <div className={`h-2 rounded-full transition-all duration-300 ${
+                    currentIndex === index
+                      ? 'bg-primary w-8'
+                      : 'bg-primary/30 w-2'
+                  }`} />
+                  {currentIndex === index && (
+                    <div
+                      aria-hidden="true"
+                      className={`absolute left-1/2 top-1/2 h-2 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50 blur-sm${
+                        prefersReducedMotion ? '' : ' ww-ambient-motion ww-dot-pulse'
+                      }`}
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Кнопки навигации */}

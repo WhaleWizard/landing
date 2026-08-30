@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useLocation, useNavigationType } from 'react-router';
 import { BarChart3, Briefcase, CheckCircle2, Search, ShoppingCart, Sparkles, Target, TrendingUp, Users, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import type { HeroContent } from '../components/Hero';
@@ -781,12 +782,15 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
 
 type DeferredSectionHeights = {
   mobile: number;
+  /** Extra reservation for the narrowest phones where long copy wraps again. */
+  mobileNarrow?: number;
   tablet: number;
   desktop: number;
 };
 
 type DeferredSectionStyle = CSSProperties & {
   '--deferred-height-mobile': string;
+  '--deferred-height-mobile-narrow': string;
   '--deferred-height-tablet': string;
   '--deferred-height-desktop': string;
 };
@@ -794,13 +798,14 @@ type DeferredSectionStyle = CSSProperties & {
 function SectionSkeleton({ heights }: { heights: DeferredSectionHeights }) {
   const style: DeferredSectionStyle = {
     '--deferred-height-mobile': `${heights.mobile}px`,
+    '--deferred-height-mobile-narrow': `${heights.mobileNarrow ?? heights.mobile}px`,
     '--deferred-height-tablet': `${heights.tablet}px`,
     '--deferred-height-desktop': `${heights.desktop}px`,
   };
 
   return (
     <div
-      className="w-full min-h-[var(--deferred-height-mobile)] md:min-h-[var(--deferred-height-tablet)] lg:min-h-[var(--deferred-height-desktop)]"
+      className="w-full min-h-[var(--deferred-height-mobile)] max-[359px]:min-h-[var(--deferred-height-mobile-narrow)] md:min-h-[var(--deferred-height-tablet)] lg:min-h-[var(--deferred-height-desktop)]"
       style={style}
       aria-hidden="true"
     />
@@ -835,6 +840,8 @@ function DeferredSection({
   heights: DeferredSectionHeights;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
+  const location = useLocation();
+  const navigationType = useNavigationType();
   const [shouldRender, setShouldRender] = useState(() => (
     typeof window === 'undefined'
     || typeof window.IntersectionObserver === 'undefined'
@@ -881,7 +888,8 @@ function DeferredSection({
   }, [anchorId, shouldRender]);
 
   useEffect(() => {
-    if (!shouldRender || !anchorId || !hashTargetsSection(anchorId)) return;
+    const shouldAlignHash = navigationType !== 'POP' || location.key === 'default';
+    if (!shouldAlignHash || !shouldRender || !anchorId || !hashTargetsSection(anchorId)) return;
 
     let frame = 0;
     let attempts = 0;
@@ -898,7 +906,7 @@ function DeferredSection({
 
     frame = window.requestAnimationFrame(alignToHashTarget);
     return () => window.cancelAnimationFrame(frame);
-  }, [anchorId, shouldRender]);
+  }, [anchorId, location.key, navigationType, shouldRender]);
 
   return (
     <section
@@ -1073,7 +1081,10 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
       </DeferredSection>
       <DeferredSection
         anchorId="contact"
-        heights={{ mobile: 1555, tablet: 1450, desktop: 1030 }}
+        // На 320px форма Meta Apps фактически занимает ~1870px из-за
+        // переносов полей/согласия. Общая мобильная заглушка 1555px была
+        // достаточна для 390px, но давала скачок страницы на узких телефонах.
+        heights={{ mobile: 1555, mobileNarrow: 1900, tablet: 1450, desktop: 1030 }}
       >
         <ContactSection service={service} contact={config.contact} theme={theme} />
       </DeferredSection>

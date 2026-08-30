@@ -1,4 +1,9 @@
 import { memo, useEffect, useRef } from 'react';
+import {
+  SCROLL_ACTIVITY_END_EVENT,
+  SCROLL_ACTIVITY_START_EVENT,
+  isScrollActivityActive,
+} from '../utils/motionPerformance';
 // CSS импортируется здесь, а не на странице: кадр предпросмотра в админке
 // рисует компонент напрямую и без этого получил бы голую вёрстку.
 import '../../styles/cosmic-hero.css';
@@ -74,9 +79,12 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const dustRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef(active);
+  const controlRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   useEffect(() => {
     activeRef.current = active;
+    if (active) controlRef.current?.start();
+    else controlRef.current?.stop();
   }, [active]);
 
   useEffect(() => {
@@ -87,6 +95,7 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     const planes: [HTMLElement, number, number][] = [];
     (Object.keys(DEPTH) as (keyof typeof DEPTH)[]).forEach((key) => {
@@ -134,7 +143,7 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
             d.x = (0.22 + Math.random() * 0.8) * canvas.width;
           }
         }
-        const a = 0.26 + 0.44 * (0.5 + 0.5 * Math.sin(t * 0.0012 + d.ph));
+        const a = reduced ? 0.42 : 0.26 + 0.44 * (0.5 + 0.5 * Math.sin(t * 0.0012 + d.ph));
         ctx.beginPath();
         ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${d.hue},${a.toFixed(3)})`;
@@ -147,7 +156,11 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
     // посетитель продолжал платить за перерисовку холста во весь экран и шесть
     // записей transform в каждом кадре — эти кадры отбирались у самой прокрутки.
     let onScreen = true;
-    const shouldRun = () => onScreen && !document.hidden;
+    const shouldRun = () => onScreen
+      && activeRef.current
+      && !document.hidden
+      && !reduced
+      && !isScrollActivityActive();
 
     let appliedX = Number.NaN;
     let appliedY = Number.NaN;
@@ -192,6 +205,8 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       if (document.hidden) stop();
       else start();
     };
+    const onScrollStart = () => stop();
+    const onScrollEnd = () => start();
 
     const onMove = (e: MouseEvent) => {
       if (coarse || reduced || !activeRef.current) return;
@@ -212,23 +227,36 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       }, { rootMargin: '120px 0px', threshold: 0 });
     observer?.observe(stage);
 
-    start();
+    if (reduced) paint(0);
+    else start();
+    controlRef.current = { start, stop };
     window.addEventListener('mousemove', onMove, { passive: true });
     window.addEventListener('resize', build, { passive: true });
     document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener(SCROLL_ACTIVITY_START_EVENT, onScrollStart);
+    document.addEventListener(SCROLL_ACTIVITY_END_EVENT, onScrollEnd);
 
     return () => {
       stop();
+      controlRef.current = null;
       observer?.disconnect();
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('resize', build);
       document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener(SCROLL_ACTIVITY_START_EVENT, onScrollStart);
+      document.removeEventListener(SCROLL_ACTIVITY_END_EVENT, onScrollEnd);
     };
   }, []);
 
   return (
     <div className="cosmic-stage" ref={stageRef} aria-hidden="true">
-      <div className="cosmic-sky" data-plane="sky" />
+      {/* Keep the slow sky drift on its own element. The wrapper receives the
+          pointer parallax; putting both transforms on one node makes the CSS
+          animation win over the inline transform and silently disables this
+          depth layer's parallax. */}
+      <div className="cosmic-plane cosmic-sky-plane" data-plane="sky">
+        <div className="cosmic-sky" />
+      </div>
 
       <div className="cosmic-plane cosmic-deep" data-plane="deep">
         <Layer items={DEEP_MOONS} />

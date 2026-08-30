@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Toaster, toast } from 'sonner';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 import WhaleMark from '../brand/WhaleMark';
+import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 
 /**
  * Общий слой обратной связи админки: тосты вместо системных `alert`,
@@ -65,6 +66,8 @@ export function useConfirm(): ConfirmFn {
 export function AdminConfirmProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ConfirmRequest | null>(null);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>(Boolean(state), () => close(false), confirmButtonRef);
+  useDialogScrollLock(Boolean(state));
 
   useEffect(() => {
     openConfirm = (request) => setState(request);
@@ -78,23 +81,6 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (!state) return undefined;
-    confirmButtonRef.current?.focus();
-    // Только Escape. Enter здесь ловить нельзя: обработчик висит на документе
-    // и срабатывал независимо от того, где фокус. Владелец переходил табом на
-    // «Отмена», нажимал Enter — и действие всё равно выполнялось. Через этот
-    // диалог удаляются карточки клиентов и чистится корзина заявок.
-    //
-    // Быстрый путь при этом сохраняется: фокус сразу на кнопке подтверждения,
-    // и Enter нажимает именно её — уже средствами браузера.
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [close, state]);
-
   return (
     <>
       {children}
@@ -106,7 +92,7 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
           aria-label={state.options.title}
           onClick={(event) => { if (event.target === event.currentTarget) close(false); }}
         >
-          <div className="admin-confirm__card">
+          <div ref={dialogRef} tabIndex={-1} className="admin-confirm__card">
             <div className="admin-confirm__head">
               <span className="admin-confirm__icon" aria-hidden="true">
                 {state.options.tone === 'danger' ? <AlertTriangle /> : <HelpCircle />}
@@ -121,8 +107,8 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
                 {state.options.cancelLabel || 'Отмена'}
               </button>
               <button
-                type="button"
                 ref={confirmButtonRef}
+                type="button"
                 className={`admin-button ${state.options.tone === 'danger' ? 'admin-button--danger-solid' : 'admin-button--primary'}`}
                 onClick={() => close(true)}
               >

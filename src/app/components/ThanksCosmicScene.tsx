@@ -1,4 +1,10 @@
 import { memo, useEffect, useRef } from 'react';
+import { useAmbientVisibility } from './hooks/useAmbientVisibility';
+import {
+  SCROLL_ACTIVITY_END_EVENT,
+  SCROLL_ACTIVITY_START_EVENT,
+  isScrollActivityActive,
+} from '../utils/motionPerformance';
 // Стили рядом с компонентом — по образцу остальных сцен проекта: сцену могут
 // смонтировать вне своей страницы, и без этого она приедет без раскладки.
 import '../../styles/thanks-scene.css';
@@ -68,6 +74,7 @@ function Layer({ items }: { items: Piece[] }) {
 function ThanksCosmicScene() {
   const rootRef = useRef<HTMLDivElement>(null);
   const dustRef = useRef<HTMLCanvasElement>(null);
+  useAmbientVisibility(rootRef, { rootMargin: '120px 0px' });
 
   useEffect(() => {
     const root = rootRef.current;
@@ -77,6 +84,7 @@ function ThanksCosmicScene() {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     const planes: [HTMLElement, number, number][] = [];
     (Object.keys(DEPTH) as (keyof typeof DEPTH)[]).forEach((key) => {
@@ -125,7 +133,7 @@ function ThanksCosmicScene() {
             m.x = Math.random() * canvas.width;
           }
         }
-        const a = 0.12 + 0.4 * (0.5 + 0.5 * Math.sin(t * 0.001 + m.ph));
+        const a = reduced ? 0.32 : 0.12 + 0.4 * (0.5 + 0.5 * Math.sin(t * 0.001 + m.ph));
         ctx.beginPath();
         ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 206, 150, ${a.toFixed(3)})`;
@@ -135,7 +143,7 @@ function ThanksCosmicScene() {
 
     // Сцена платит за кадры только пока она на экране и вкладка активна.
     let onScreen = true;
-    const shouldRun = () => onScreen && !document.hidden;
+    const shouldRun = () => onScreen && !document.hidden && !reduced && !isScrollActivityActive();
 
     let appliedX = Number.NaN;
     let appliedY = Number.NaN;
@@ -175,6 +183,8 @@ function ThanksCosmicScene() {
       if (document.hidden) stop();
       else start();
     };
+    const onScrollStart = () => stop();
+    const onScrollEnd = () => start();
 
     const clamp = (v: number) => (v < -1 ? -1 : v > 1 ? 1 : v);
 
@@ -188,8 +198,12 @@ function ThanksCosmicScene() {
 
     // Наблюдаем за сценой, а не за холстом: холст мы меняем внутри build, и
     // наблюдение за ним замкнуло бы цикл на себя.
-    const observer = new ResizeObserver(build);
-    observer.observe(root);
+    const handleResize = () => build();
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(handleResize);
+    observer?.observe(root);
+    if (!observer) window.addEventListener('resize', handleResize, { passive: true });
 
     build();
 
@@ -202,23 +216,34 @@ function ThanksCosmicScene() {
       }, { rootMargin: '120px 0px', threshold: 0 });
     visibility?.observe(root);
 
-    start();
+    if (reduced) paint(0);
+    else start();
     window.addEventListener('mousemove', onMove, { passive: true });
     document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener(SCROLL_ACTIVITY_START_EVENT, onScrollStart);
+    document.addEventListener(SCROLL_ACTIVITY_END_EVENT, onScrollEnd);
 
     return () => {
       stop();
-      observer.disconnect();
+      observer?.disconnect();
+      if (!observer) window.removeEventListener('resize', handleResize);
       visibility?.disconnect();
       window.removeEventListener('mousemove', onMove);
       document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener(SCROLL_ACTIVITY_START_EVENT, onScrollStart);
+      document.removeEventListener(SCROLL_ACTIVITY_END_EVENT, onScrollEnd);
     };
   }, []);
 
   return (
     <div className="ths" ref={rootRef} aria-hidden="true">
-      <div className="ths-sky" data-plane="sky" />
-      <div className="ths-aurora" data-plane="sky" />
+      {/* Parallax is applied to the wrapper so the aurora can keep its own
+          transform animation. Two transform writers on one element make the
+          CSS animation override the pointer transform in the compositor. */}
+      <div className="ths-plane ths-sky-plane" data-plane="sky">
+        <div className="ths-sky" />
+        <div className="ths-aurora" />
+      </div>
 
       <div className="ths-plane" data-plane="deep">
         <Layer items={DEEP} />
@@ -228,7 +253,7 @@ function ThanksCosmicScene() {
         <Layer items={MID} />
       </div>
 
-      <div className="ths-plane" data-plane="whale">
+      <div className="ths-plane ths-whale-plane" data-plane="whale">
         <div className="ths-whale-wrap">
           <div className="ths-whale-enter">
           <img

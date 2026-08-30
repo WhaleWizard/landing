@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, BookOpenText, Filter, Layers3, Link2, Search, Smartphone } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
@@ -20,6 +20,7 @@ import {
   type GlossarySectionId,
   type MarketingGlossaryItem,
 } from '../data/marketingGlossary';
+import { preferredScrollBehavior } from '../utils/motionPreference';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -77,6 +78,8 @@ function replaceHash(anchor?: string) {
 }
 
 export default function MarketingGlossaryPage() {
+  const location = useLocation();
+  const navigationType = useNavigationType();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [selectedSection, setSelectedSection] = useState<SectionFilter>('all');
@@ -164,7 +167,7 @@ export default function MarketingGlossaryPage() {
   ), []);
 
   useEffect(() => {
-    const rawHash = window.location.hash.slice(1);
+    const rawHash = location.hash.slice(1);
     if (!rawHash.startsWith('term-')) return;
     const termId = rawHash.slice('term-'.length);
     if (!glossaryTerm(termId)) return;
@@ -172,10 +175,14 @@ export default function MarketingGlossaryPage() {
     setSelectedCollection('all');
     setSelectedSection('all');
     setOpenTermId(termId);
-    window.setTimeout(() => {
-      document.getElementById(termAnchor(termId))?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    const shouldAlignHash = navigationType !== 'POP' || location.key === 'default';
+    const timer = window.setTimeout(() => {
+      if (shouldAlignHash) {
+        document.getElementById(termAnchor(termId))?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      }
     }, 80);
-  }, []);
+    return () => window.clearTimeout(timer);
+  }, [location.hash, location.key, navigationType]);
 
   useEffect(() => {
     const scriptId = 'ld-marketing-glossary';
@@ -215,7 +222,7 @@ export default function MarketingGlossaryPage() {
     replaceHash(termAnchor(termId));
     if (scroll) {
       window.setTimeout(() => {
-        document.getElementById(termAnchor(termId))?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        document.getElementById(termAnchor(termId))?.scrollIntoView({ block: 'start', behavior: preferredScrollBehavior() });
       }, 50);
     }
   };

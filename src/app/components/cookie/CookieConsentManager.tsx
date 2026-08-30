@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router';
 import { router } from '../../routes';
 import {
   ensureAnalyticsLoaded,
@@ -24,6 +25,7 @@ const PdConsentContent = lazy(() => import('../legal/PdConsentContent'));
 const PrivacyPolicyContent = lazy(() => import('../legal/PrivacyPolicyContent'));
 const CookiePolicyContent = lazy(() => import('../legal/CookiePolicyContent'));
 import { LegalUpdatedAt } from '../legal/legalMeta';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 const Modal = lazy(() => import('../Modal'));
 
 type BannerMode = 'hidden' | 'banner' | 'modal';
@@ -257,6 +259,7 @@ function DocLinks({ onOpen, className = '' }: { onOpen: (doc: DocKey) => void; c
 }
 
 export default function CookieConsentManager() {
+  const location = useLocation();
   const [mode, setMode] = useState<BannerMode>('hidden');
   const [loadingGeo, setLoadingGeo] = useState(true);
   const [analytics, setAnalytics] = useState(false);
@@ -265,6 +268,12 @@ export default function CookieConsentManager() {
   const [docModal, setDocModal] = useState<DocKey | null>(null);
 
   const consentRef = useRef<ConsentRecord | null>(null);
+  const closeCookieDialog = useCallback(() => {
+    setMode((current) => current === 'modal'
+      ? (consentRef.current ? 'hidden' : 'banner')
+      : current);
+  }, []);
+  const dialogRef = useDialogFocus<HTMLDivElement>(mode !== 'hidden' && docModal === null, closeCookieDialog);
 
   useEffect(() => () => cancelPendingTrackingRuntimeLoad(), []);
 
@@ -429,6 +438,44 @@ export default function CookieConsentManager() {
   const blocked = loadingGeo || isVisible || docModal !== null;
 
   useEffect(() => {
+    if (!isVisible) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const previousPosition = document.body.style.position;
+    const previousTop = document.body.style.top;
+    const previousWidth = document.body.style.width;
+    const historyKeyWhenOpened = window.history.state?.key;
+    const hrefWhenOpened = window.location.href;
+    const scrollY = window.scrollY;
+    const hasStableScrollbarGutter = getComputedStyle(document.documentElement)
+      .scrollbarGutter.includes('stable');
+    const scrollbarCompensation = hasStableScrollbarGutter
+      ? 0
+      : window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    if (scrollbarCompensation > 0) {
+      document.body.style.paddingRight = `${scrollbarCompensation}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+      document.body.style.position = previousPosition;
+      document.body.style.top = previousTop;
+      document.body.style.width = previousWidth;
+      const sameHistoryEntry = historyKeyWhenOpened
+        ? window.history.state?.key === historyKeyWhenOpened
+        : window.location.href === hrefWhenOpened;
+      if (sameHistoryEntry) window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
+    };
+  }, [isVisible, location.key]);
+
+  useEffect(() => {
     document.documentElement.dataset.wwCookieUi = blocked ? 'blocked' : 'ready';
     window.dispatchEvent(new CustomEvent('ww:cookie-ui-change', { detail: { blocked } }));
 
@@ -464,11 +511,11 @@ export default function CookieConsentManager() {
         <button
           type="button"
           onClick={openCookieSettings}
-          className="fixed bottom-2 left-2 md:bottom-4 md:left-4 z-[55] inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/85 px-3 py-2 text-[11px] md:text-xs font-semibold text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 hover:text-primary"
+          className="fixed bottom-2 left-2 z-[55] inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-card/85 p-0 text-[11px] font-semibold text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 hover:text-primary sm:h-auto sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2 sm:text-xs md:bottom-4 md:left-4"
           aria-label="Открыть настройки cookie"
         >
           <span aria-hidden="true">🍪</span>
-          <span>Cookie</span>
+          <span className="sr-only sm:not-sr-only">Cookie</span>
         </button>
         {docDialog}
       </>
@@ -488,7 +535,9 @@ export default function CookieConsentManager() {
         role="dialog"
         aria-modal="true"
         aria-label="Настройки cookie"
-        className="ww-banner-enter pointer-events-auto absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] md:bottom-5 mx-auto w-[min(94vw,440px)]"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="ww-banner-enter pointer-events-auto absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto max-h-[calc(100dvh-24px)] w-[min(94vw,440px)] overflow-y-auto overscroll-contain md:bottom-5"
       >
         <div className="ww-cookie-frame shadow-2xl">
           <div className="relative rounded-[19px] bg-[#0b0c1a]/95 px-4 py-4 backdrop-blur-xl sm:px-5">

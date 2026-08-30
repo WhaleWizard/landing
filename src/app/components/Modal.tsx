@@ -1,24 +1,8 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-
-/**
- * Что считается элементом, на который можно перевести фокус.
- *
- * Выключенные поля и кнопки исключены намеренно: удержание фокуса внутри окна
- * работает так, что с последнего элемента Tab возвращает на первый. Если
- * «последним» оказывалась выключенная кнопка, вызов `.focus()` на ней не делал
- * ничего — фокус оставался на месте, и с клавиатуры окно превращалось в тупик.
- */
-const FOCUSABLE_SELECTOR = [
-  'button:not([disabled])',
-  '[href]',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(', ');
+import { useDialogFocus } from './hooks/useDialogFocus';
 
 interface ModalProps {
   isOpen: boolean;
@@ -45,8 +29,7 @@ export default function Modal({
   mobileFullscreen = false,
   flushBody = false,
 }: ModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const modalRef = useDialogFocus<HTMLDivElement>(isOpen, onClose);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -61,14 +44,18 @@ export default function Modal({
     const previousPosition = document.body.style.position;
     const previousTop = document.body.style.top;
     const previousWidth = document.body.style.width;
+    // Документы cookie открываются поверх баннера, который уже зафиксировал
+    // body. Вложенная блокировка сняла бы внешний top и вернула окно в (0, 0)
+    // при закрытии документа.
+    if (previousPosition === 'fixed' && previousOverflow === 'hidden') return undefined;
     const scrollY = window.scrollY;
+    const historyKeyWhenOpened = window.history.state?.key;
+    const hrefWhenOpened = window.location.href;
     const hasStableScrollbarGutter = getComputedStyle(document.documentElement)
       .scrollbarGutter.includes('stable');
     const scrollbarCompensation = hasStableScrollbarGutter
       ? 0
       : window.innerWidth - document.documentElement.clientWidth;
-
-    lastActiveElementRef.current = document.activeElement as HTMLElement;
 
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
@@ -79,50 +66,20 @@ export default function Modal({
       document.body.style.paddingRight = `${scrollbarCompensation}px`;
     }
 
-    const modalNode = modalRef.current;
-    const focusableElements = modalNode?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-    focusableElements?.[0]?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (event.key !== 'Tab' || !modalNode) return;
-
-      const nodes = modalNode.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-      if (!nodes.length) return;
-
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-
     return () => {
-      document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPaddingRight;
       document.body.style.position = previousPosition;
       document.body.style.top = previousTop;
       document.body.style.width = previousWidth;
-      window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
-      // preventScroll обязателен: возврат фокуса сам по себе прокручивает
-      // страницу к элементу, и она уезжала с того места, где человек открыл
-      // окно, — сразу после того, как позицию только что восстановили строкой
-      // выше.
-      lastActiveElementRef.current?.focus({ preventScroll: true });
+      const sameHistoryEntry = historyKeyWhenOpened
+        ? window.history.state?.key === historyKeyWhenOpened
+        : window.location.href === hrefWhenOpened;
+      if (sameHistoryEntry) {
+        window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
+      }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isMounted) return null;
 
@@ -144,6 +101,7 @@ export default function Modal({
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28, mass: 0.8 }}
             ref={modalRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-label={title}
@@ -170,7 +128,7 @@ export default function Modal({
                 <X className="w-5 h-5 text-muted-foreground" />
               </motion.button>
             </div>
-            <div className={`${flushBody ? '' : 'p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'} overflow-y-auto modal-scroll ${bodyClassName ?? ''}`}>
+            <div className={`${flushBody ? '' : 'p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'} overflow-y-auto overscroll-contain modal-scroll ${bodyClassName ?? ''}`}>
               {children}
             </div>
             {!hideFooter && (

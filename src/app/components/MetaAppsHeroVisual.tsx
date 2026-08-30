@@ -401,6 +401,9 @@ function Receipt({
                 className="meta-receipt__check-image"
                 src="/images/meta-verification-stamp.webp"
                 alt=""
+                width={200}
+                height={201}
+                decoding="async"
                 draggable={false}
                 initial={reduced ? false : { opacity: 0, scale: 0.55, rotate: -18 }}
                 animate={{ opacity: reveal ? 0.72 : 0, scale: reveal ? 1 : 0.55, rotate: -7 }}
@@ -418,6 +421,9 @@ function Receipt({
                 className="meta-receipt__stamp-image"
                 src="/images/meta-transfer-stamp.webp"
                 alt=""
+                width={320}
+                height={136}
+                decoding="async"
                 draggable={false}
                 initial={reduced ? false : { opacity: 0, scale: 1.35, rotate: -10 }}
                 animate={{
@@ -461,11 +467,17 @@ function useMobileViewport() {
 const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const phoneAnchorRef = useRef<HTMLDivElement>(null);
+  const pointerFrameRef = useRef(0);
+  const pointerPointRef = useRef<{ x: number; y: number } | null>(null);
   const [phoneScale, setPhoneScale] = useState(0.48);
   const [onScreen, setOnScreen] = useState(false);
   const reduced = Boolean(useReducedMotion());
   const mobile = useMobileViewport();
-  const subtleMotion = mobile && !reduced;
+  // `motionAllowed` is also used by the admin preview. Do not let the
+  // touch-sized variant reintroduce entrance motion into an explicitly static
+  // frame.
+  const motionOff = reduced || !motionAllowed;
+  const subtleMotion = mobile && !motionOff;
 
   // Наблюдение живёт здесь, а не в Hero: перерисовывается только сам визуал,
   // а не весь первый экран вместе с заголовком и кнопками.
@@ -489,9 +501,11 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
   // самой прокрутке. А постоянные петли — блик по экрану и парение чеков —
   // идут и на телефоне: их ведёт композитор, и без них первый экран выглядел
   // мёртвым именно на смартфоне.
-  const parallaxEnabled = inView && !reduced && !mobile;
-  const reveal = inView || mobile || reduced;
-  const loop = inView && !reduced;
+  const parallaxEnabled = inView && !motionOff && !mobile;
+  // A frozen preview must still show the visual rather than leaving all
+  // nested layers at their hidden entrance state.
+  const reveal = motionOff || inView || mobile;
+  const loop = inView && !motionOff;
 
   useLayoutEffect(() => {
     const anchor = phoneAnchorRef.current;
@@ -502,6 +516,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
     };
 
     updateScale();
+    if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(updateScale);
     observer.observe(anchor);
     return () => observer.disconnect();
@@ -549,22 +564,46 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
 
   useEffect(() => {
     if (parallaxEnabled) return;
+    if (pointerFrameRef.current) {
+      window.cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = 0;
+    }
+    pointerPointRef.current = null;
     mouseX.set(0);
     mouseY.set(0);
   }, [mouseX, mouseY, parallaxEnabled]);
 
+  useEffect(() => () => {
+    if (pointerFrameRef.current) window.cancelAnimationFrame(pointerFrameRef.current);
+  }, []);
+
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!parallaxEnabled || event.pointerType === 'touch') return;
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      mouseX.set(event.clientX - rect.left - rect.width / 2);
-      mouseY.set(event.clientY - rect.top - rect.height / 2);
+      pointerPointRef.current = { x: event.clientX, y: event.clientY };
+      if (pointerFrameRef.current) return;
+
+      // A pen or high-refresh mouse can deliver 120–240 events per second.
+      // Read layout and update MotionValues once per paint to avoid a forced
+      // layout on every event while retaining the spring's feel.
+      pointerFrameRef.current = window.requestAnimationFrame(() => {
+        pointerFrameRef.current = 0;
+        const point = pointerPointRef.current;
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!point || !rect) return;
+        mouseX.set(point.x - rect.left - rect.width / 2);
+        mouseY.set(point.y - rect.top - rect.height / 2);
+      });
     },
     [mouseX, mouseY, parallaxEnabled],
   );
 
   const handlePointerLeave = useCallback(() => {
+    if (pointerFrameRef.current) {
+      window.cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = 0;
+    }
+    pointerPointRef.current = null;
     mouseX.set(0);
     mouseY.set(0);
   }, [mouseX, mouseY]);
@@ -582,7 +621,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           ? 'url("/images/meta-receipt-paper-texture-mobile.webp")'
           : 'url("/images/meta-receipt-paper-texture.webp")',
       } as MetaAppsVisualStyle}
-      initial={reduced ? false : { opacity: 0, x: subtleMotion ? 12 : 34 }}
+      initial={motionOff ? false : { opacity: 0, x: subtleMotion ? 12 : 34 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{
         duration: subtleMotion ? 0.52 : 0.75,
@@ -606,7 +645,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           decoding="async"
           fetchpriority="high"
           draggable={false}
-          initial={reduced ? false : {
+          initial={motionOff ? false : {
             opacity: 0,
             y: subtleMotion ? 10 : 26,
             scale: subtleMotion ? 0.99 : 0.97,
@@ -626,7 +665,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
         >
           <motion.div
             className="meta-phone-enter"
-            initial={reduced ? false : {
+            initial={motionOff ? false : {
               opacity: 0,
               y: subtleMotion ? 12 : 32,
               rotate: subtleMotion ? 0.6 : 2,
@@ -664,7 +703,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
                         <PhoneScreen
                           reveal={reveal}
                           loop={loop}
-                          reduced={reduced}
+                          reduced={motionOff}
                           subtle={subtleMotion}
                         />
                       </div>
@@ -696,7 +735,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           status="получено"
           reveal={reveal}
           loop={loop}
-          reduced={reduced}
+          reduced={motionOff}
           subtle={subtleMotion}
           parallax={parallaxEnabled}
           scrollY={receiptOneScrollY}
@@ -709,7 +748,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           mark="check"
           reveal={reveal}
           loop={loop}
-          reduced={reduced}
+          reduced={motionOff}
           subtle={subtleMotion}
           parallax={parallaxEnabled}
           scrollY={receiptTwoScrollY}
@@ -722,7 +761,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           mark="stamp"
           reveal={reveal}
           loop={loop}
-          reduced={reduced}
+          reduced={motionOff}
           subtle={subtleMotion}
           parallax={parallaxEnabled}
           scrollY={receiptThreeScrollY}

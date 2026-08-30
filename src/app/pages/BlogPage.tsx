@@ -1,5 +1,5 @@
 // src/app/pages/BlogPage.tsx
-import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -16,8 +16,8 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
-import { useParams, useNavigate, useLocation } from 'react-router';
-import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense } from 'react';
+import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router';
+import { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense, type Ref } from 'react';
 import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
@@ -34,6 +34,8 @@ import { optimizeArticleContentImages } from '../utils/articleContentImages';
 import ArticlesLoadError from '../components/ArticlesLoadError';
 import { useManagedTitleFit } from '../utils/contentTypography';
 import { smartTitleBreaks } from '../utils/smartTitle';
+import { useReturnTo, withReturnTo } from '../utils/siteNavigation';
+import { useDialogFocus } from '../components/hooks/useDialogFocus';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 const Footer = lazy(() => import('../components/Footer'));
@@ -358,10 +360,45 @@ interface ZipDownload {
   fileName: string;
 }
 
-function CaseZipWarning({ download, onClose, onConfirm }: {
+function useZipDialogLock(isOpen: boolean): void {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const previousPosition = document.body.style.position;
+    const previousTop = document.body.style.top;
+    const previousWidth = document.body.style.width;
+    const historyKeyWhenOpened = window.history.state?.key;
+    const hrefWhenOpened = window.location.href;
+    const scrollY = window.scrollY;
+    const scrollbarCompensation = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    if (scrollbarCompensation > 0) document.body.style.paddingRight = `${scrollbarCompensation}px`;
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+      document.body.style.position = previousPosition;
+      document.body.style.top = previousTop;
+      document.body.style.width = previousWidth;
+      const sameHistoryEntry = historyKeyWhenOpened
+        ? window.history.state?.key === historyKeyWhenOpened
+        : window.location.href === hrefWhenOpened;
+      if (sameHistoryEntry) window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
+    };
+  }, [isOpen]);
+}
+
+function CaseZipWarning({ download, onClose, onConfirm, dialogRef }: {
   download: ZipDownload | null;
   onClose: () => void;
   onConfirm: () => void;
+  dialogRef: Ref<HTMLDivElement>;
 }) {
   return (
     <AnimatePresence>
@@ -375,9 +412,11 @@ function CaseZipWarning({ download, onClose, onConfirm }: {
             onClick={onClose}
           />
           <motion.div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="case-zip-download-warning-title"
+            tabIndex={-1}
             className="fixed left-1/2 top-1/2 z-[1001] max-h-[calc(100dvh-24px)] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-amber-400/40 bg-card shadow-2xl shadow-amber-500/10"
             initial={{ opacity: 0, scale: 0.92, y: 18 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -423,8 +462,10 @@ function BlogPageComponent() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationType = useNavigationType();
   const isCasesRoute = location.pathname === '/cases' || location.pathname.startsWith('/cases/');
   const routeBase = isCasesRoute ? '/cases' : '/blog';
+  const returnTo = useReturnTo(routeBase);
   const preservedCaseSearch = isCasesRoute ? location.search : '';
   const listUrl = `${routeBase}${preservedCaseSearch}`;
   const {
@@ -462,7 +503,9 @@ function BlogPageComponent() {
   const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
   // Прогресс чтения статьи — тонкая полоса под шапкой
   const { scrollYProgress } = useScroll();
-  const readingProgress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.4 });
+  const reducedMotion = useReducedMotion();
+  const springReadingProgress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.4 });
+  const readingProgress = reducedMotion ? scrollYProgress : springReadingProgress;
 
   // Санитизация + оглавление: проставляем id всем h2, чтобы работали якоря
   const { articleHtml, toc } = useMemo(() => {
@@ -492,9 +535,13 @@ function BlogPageComponent() {
     }
   }, [selectedArticle]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // PUSH/REPLACE открывают новый материал с начала до первого кадра. При POP
+    // позицию восстанавливает ScrollRestoration: без этой проверки возврат из
+    // статьи всегда перебрасывал список наверх уже после восстановления.
+    if (navigationType === 'POP') return;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [slug]);
+  }, [navigationType, slug]);
 
   useEffect(() => {
     document.body.dataset.blogRoute = slug ? 'article' : 'list';
@@ -583,12 +630,13 @@ function BlogPageComponent() {
     return () => content.removeEventListener('click', handler);
   }, [selectedArticle, navigate]);
 
-  const goToBlogList = useCallback(() => navigate(listUrl), [navigate, listUrl]);
+  const goToBlogList = useCallback(() => returnTo.goBack(), [returnTo.goBack]);
 
   const openRelatedArticle = useCallback((nextSlug: string) => {
-    navigate(`${routeBase}/${nextSlug}${preservedCaseSearch}`);
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [navigate, preservedCaseSearch, routeBase]);
+    navigate(`${routeBase}/${nextSlug}${preservedCaseSearch}`, {
+      state: withReturnTo(location),
+    });
+  }, [location, navigate, preservedCaseSearch, routeBase]);
 
   const goToContact = useCallback(() => {
     navigate('/#contact');
@@ -609,6 +657,9 @@ function BlogPageComponent() {
     }
     window.location.href = href;
   }, [pendingZipDownload]);
+
+  const zipDialogRef = useDialogFocus<HTMLDivElement>(Boolean(pendingZipDownload), closeZipWarning);
+  useZipDialogLock(Boolean(pendingZipDownload));
 
   // Сначала раздел (блог/кейсы), затем тема, затем поиск — раньше поиск
   // игнорировал раздел и на /cases находил статьи блога.
@@ -713,7 +764,12 @@ function BlogPageComponent() {
               onRelated={openRelatedArticle}
             />
           </Suspense>
-          <CaseZipWarning download={pendingZipDownload} onClose={closeZipWarning} onConfirm={confirmZipDownload} />
+          <CaseZipWarning
+            download={pendingZipDownload}
+            onClose={closeZipWarning}
+            onConfirm={confirmZipDownload}
+            dialogRef={zipDialogRef}
+          />
         </>
       );
     }
@@ -875,7 +931,7 @@ function BlogPageComponent() {
                       <motion.button
                         whileHover={{ x: 4 }}
                         transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                        onClick={() => navigate(`${routeBase}/${article.slug}`)}
+                        onClick={() => openRelatedArticle(article.slug)}
                         className="text-left bg-transparent border-none p-0 text-primary hover:underline cursor-pointer"
                       >
                         {article.title}
@@ -950,9 +1006,11 @@ function BlogPageComponent() {
                 onClick={closeZipWarning}
               />
               <motion.div
+                ref={zipDialogRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="zip-download-warning-title"
+                tabIndex={-1}
                 className="fixed left-1/2 top-1/2 z-[1001] max-h-[calc(100dvh-24px)] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-amber-400/40 bg-card shadow-2xl shadow-amber-500/10"
                 initial={{ opacity: 0, scale: 0.92, y: 18 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1212,7 +1270,7 @@ function BlogPageComponent() {
                   <article className="group overflow-hidden rounded-3xl border border-primary/25 bg-card/65 shadow-2xl shadow-primary/[0.06]">
                     <button
                       type="button"
-                      onClick={() => navigate(`/blog/${featuredArticle.slug}`)}
+                      onClick={() => navigate(`/blog/${featuredArticle.slug}`, { state: withReturnTo(location) })}
                       className="grid w-full text-left md:grid-cols-[minmax(0,1.02fr)_minmax(320px,0.98fr)]"
                     >
                       <div className="relative min-h-[230px] overflow-hidden bg-background/50 sm:min-h-[300px]">
@@ -1272,7 +1330,7 @@ function BlogPageComponent() {
                           >
                             <button
                               type="button"
-                              onClick={() => navigate(`/blog/${article.slug}`)}
+                              onClick={() => navigate(`/blog/${article.slug}`, { state: withReturnTo(location) })}
                               className="grid w-full grid-cols-[88px_minmax(0,1fr)] items-center gap-3 p-3 text-left transition hover:bg-primary/[0.05] sm:grid-cols-[136px_minmax(0,1fr)_auto] sm:gap-5 sm:p-4"
                             >
                               <div className="aspect-[4/3] overflow-hidden rounded-xl bg-background/60 sm:aspect-[16/10]">
@@ -1323,7 +1381,7 @@ function BlogPageComponent() {
               </div>
               <button
                 type="button"
-                onClick={() => navigate('/cases?from=blog')}
+                onClick={() => navigate('/cases?from=blog', { state: withReturnTo(location) })}
                 className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95"
               >
                 <span className="text-sm md:text-base">Смотреть кейсы</span>

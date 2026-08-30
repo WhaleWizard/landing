@@ -319,6 +319,7 @@ body[data-admin-theme] .planner-weekpick {
    две строки он раньше вылезал за экран ровно на высоту второй строки. */
 .admin-root .admin-crm-list {
   max-height: calc(100vh - var(--adm-topbar-offset) - 28px);
+  max-height: calc(100dvh - var(--adm-topbar-offset) - 28px);
 }
 
 .admin-root {
@@ -704,9 +705,22 @@ body[data-admin-theme] .planner-weekpick,
   position: relative;
   display: grid;
   place-items: center;
+  min-width: 0;
+  max-width: 100%;
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  /* Keep the centered card clear of notches/home indicators on mobile while
+     retaining the 24px rhythm on ordinary screens. */
   padding: 24px;
-  overflow: hidden;
+  padding: max(24px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+  /* The aurora intentionally bleeds outside the card. Keep that visual bleed
+     clipped horizontally, otherwise a 390px login gets a 437px scrollWidth. */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .admin-root .admin-login::before {
@@ -795,6 +809,13 @@ body[data-admin-theme],
   --adm-dur-fast: 140ms;
   --adm-dur-base: 240ms;
   --adm-dur-slow: 420ms;
+}
+
+/* Keep the page width stable when a dialog freezes body scrolling. Without a
+   reserved gutter the whole admin canvas shifts a few pixels each time a
+   confirm, prompt, or lightbox opens. */
+body[data-admin-theme] {
+  scrollbar-gutter: stable;
 }
 
 /*
@@ -1733,7 +1754,10 @@ body[data-admin-theme],
   .admin-root .admin-topbar__inner {
     flex-wrap: wrap;
     row-gap: 8px;
-    padding-block: 10px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: 10px;
+    padding-left: max(var(--adm-gutter), env(safe-area-inset-left));
+    padding-right: max(var(--adm-gutter), env(safe-area-inset-right));
   }
 
   /* Собственная рамка, подложка и отступы у выбора раздела достались от

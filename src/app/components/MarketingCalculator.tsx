@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import {
   AlertTriangle,
   ArrowRight,
@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react';
+import { withReturnTo } from '../utils/siteNavigation';
 import {
   calculateFinancials,
   calculateForecast,
@@ -272,6 +273,7 @@ export default function MarketingCalculator({
   onClose,
 }: MarketingCalculatorProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState<CalculatorMode>(initialMode);
   const [businessModel, setBusinessModel] = useState<BusinessModel>('leadgen');
   const [scenarioId, setScenarioId] = useState<ScenarioId>('base');
@@ -1085,7 +1087,9 @@ export default function MarketingCalculator({
                   type="button"
                   onClick={() => {
                     onClose?.();
-                    navigate(mode === 'actual' ? '/roi-calculator' : '/calculator');
+                    navigate(mode === 'actual' ? '/roi-calculator' : '/calculator', {
+                      state: withReturnTo(location),
+                    });
                   }}
                   className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/25 px-4 text-xs font-semibold text-primary hover:bg-primary/10"
                 >

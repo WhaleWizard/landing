@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, memo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { useSiteSection } from '../hooks/useServiceContent';
 import {
   managedBodyClasses,
@@ -14,6 +14,7 @@ import {
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
+import { withReturnTo } from '../utils/siteNavigation';
 
 export type CaseStat = { label: string; value: string };
 
@@ -123,6 +124,7 @@ function Cases({
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(sectionContent.typography, { minFontSize: 16 });
   const caseItems = sectionContent.items;
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const mobileScrollFrameRef = useRef<number | null>(null);
@@ -451,7 +453,7 @@ function Cases({
           <div className="relative mt-12 md:mt-16 flex justify-center">
             <button
               type="button"
-              onClick={() => navigate(moreHref)}
+              onClick={() => navigate(moreHref, { state: withReturnTo(location) })}
               data-route-preload={moreHref}
               className={`group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 px-8 md:px-14 py-4 md:py-5 rounded-2xl font-semibold text-white bg-gradient-to-r from-primary to-accent shadow-xl shadow-primary/30 overflow-hidden cursor-pointer ${staticMotion ? '' : 'transition-all hover:scale-105 active:scale-95'}`}
             >

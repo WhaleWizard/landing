@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { preferredScrollBehavior } from '../../utils/motionPreference';
 
 export function useScrollTo() {
   /**
@@ -19,11 +20,11 @@ export function useScrollTo() {
     const element = document.getElementById(elementId);
     if (!element) return;
     const y = element.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top: y, behavior: 'smooth' });
+    window.scrollTo({ top: y, behavior: preferredScrollBehavior() });
   }, []);
 
   const scrollToHome = useCallback(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: preferredScrollBehavior() });
   }, []);
 
   const scrollToWhenReady = useCallback((elementId: string, options?: { offset?: number; attempts?: number; intervalMs?: number }) => {
@@ -37,7 +38,7 @@ export function useScrollTo() {
       const element = document.getElementById(elementId);
       if (element) {
         const y = element.getBoundingClientRect().top + window.scrollY - offset;
-        window.scrollTo({ top: y, behavior: 'smooth' });
+        window.scrollTo({ top: y, behavior: preferredScrollBehavior() });
         return;
       }
 

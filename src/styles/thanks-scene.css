@@ -850,17 +850,41 @@
    «блоком текста в рамке». Обрезан краем — так плитка выглядит окном в сцену. */
 .ths-tile-orb {
   position: absolute;
-  right: -1.75rem;
+  right: 0;
   top: -1.5rem;
   width: 7.5rem;
   height: 7.5rem;
-  background: center / contain no-repeat;
+  /* Сам слой остаётся внутри плитки, а изображение смещается и обрезается его
+     границей. Так сохраняется прежняя композиция без ложной внутренней ширины
+     у всей кликабельной карточки. */
+  background-position: calc(50% + 1.75rem) center;
+  background-size: contain;
+  background-repeat: no-repeat;
   opacity: 0.42;
   filter: saturate(1.15);
   transition:
     transform 620ms var(--motion-ease-premium),
     opacity 620ms var(--motion-ease-premium);
   pointer-events: none;
+}
+
+@media (max-width: 639px) {
+  /* На узком экране объект из угла заходил прямо на заголовок и подпись, а
+     отрицательный right ещё и делал внутреннюю ширину ссылки больше карточки.
+     Оставляем тот же мотив, но резервируем ему честное место в композиции. */
+  .ths-tile > div {
+    position: relative;
+    padding-right: 4.25rem;
+  }
+
+  .ths-tile-orb {
+    top: -0.75rem;
+    right: 0;
+    width: 6.25rem;
+    height: 6.25rem;
+    background-position: center;
+    opacity: 0.36;
+  }
 }
 
 /* Тонкая тёплая полоса сверху — загорается только под курсором */

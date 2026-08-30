@@ -1,5 +1,5 @@
-import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useRouteError } from 'react-router';
-import { lazy, Suspense, useEffect, useInsertionEffect } from 'react';
+import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useNavigationType, useRouteError } from 'react-router';
+import { lazy, Suspense, useEffect, useInsertionEffect, useLayoutEffect, useRef } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
 import ScrollExperience from './components/ScrollExperience';
 import RouteIntentPreloader from './components/RouteIntentPreloader';
@@ -110,9 +110,9 @@ function RouteErrorBoundary() {
   );
 }
 
-function LazyWrapper({ children }: { children: React.ReactNode }) {
+function LazyWrapper({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   return (
-    <Suspense fallback={<RouteSkeleton />}>
+    <Suspense fallback={fallback ?? <RouteSkeleton />}>
       {children}
     </Suspense>
   );
@@ -143,6 +143,227 @@ function InstantScrollRestoration() {
   }, [location.key]);
 
   return <ScrollRestoration />;
+}
+
+/**
+ * React Router restores a POP position in a layout effect. On a lazy route the
+ * first layout can still be the short skeleton, so the browser clamps the
+ * requested Y and never revisits it when articles/images expand the document.
+ * Keep a small in-memory mirror for SPA entries and a namespaced persistent
+ * fallback for browser reloads. Apply the saved value after the page height
+ * has settled so lazy content cannot clamp it to an early skeleton height.
+ */
+function StableScrollPositionRestoration() {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const currentPath = `${location.pathname}${location.search}`;
+  const positionsRef = useRef(new Map<string, number>());
+  const previousPathRef = useRef('');
+  const observedPathRef = useRef('');
+  const ignoreScrollUntilRef = useRef(0);
+
+  const storageKey = 'ww_scroll_positions_v2';
+
+  useLayoutEffect(() => {
+    if (observedPathRef.current === currentPath) return;
+    observedPathRef.current = currentPath;
+    // React Router may emit a synthetic scroll event while it restores the
+    // destination. Do not let that transient clamped value overwrite the
+    // outgoing page's real position before our settled restore runs.
+    ignoreScrollUntilRef.current = Date.now() + 1800;
+  }, [currentPath]);
+
+  useEffect(() => {
+    const path = currentPath;
+    const key = location.key;
+    let active = true;
+    let persistTimer: number | null = null;
+    let pendingPersistY: number | null = null;
+
+    const persist = (y: number) => {
+      try {
+        const raw = window.sessionStorage.getItem(storageKey);
+        const persisted = raw ? JSON.parse(raw) as Record<string, number> : {};
+        persisted[path] = y;
+        const keys = Object.keys(persisted);
+        for (const staleKey of keys.slice(0, Math.max(0, keys.length - 32))) delete persisted[staleKey];
+        window.sessionStorage.setItem(storageKey, JSON.stringify(persisted));
+      } catch {
+        // Storage can be unavailable in private browsing; the memory mirror
+        // still covers all SPA transitions.
+      }
+    };
+
+    const flushPersist = () => {
+      if (persistTimer != null) {
+        window.clearTimeout(persistTimer);
+        persistTimer = null;
+      }
+      if (pendingPersistY != null) {
+        persist(pendingPersistY);
+        pendingPersistY = null;
+      }
+    };
+
+    const remember = () => {
+      if (!active || Date.now() < ignoreScrollUntilRef.current) return;
+      const y = window.scrollY;
+      positionsRef.current.set(key, y);
+      positionsRef.current.set(path, y);
+      pendingPersistY = y;
+      if (persistTimer == null) {
+        // Scroll events can arrive every frame. Throttle JSON/localStorage
+        // work so persistence never competes with the visual motion loop.
+        persistTimer = window.setTimeout(() => {
+          persistTimer = null;
+          if (pendingPersistY != null) {
+            persist(pendingPersistY);
+            pendingPersistY = null;
+          }
+        }, 240);
+      }
+    };
+
+    const preserveBeforeNavigation = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('a,button,[role="link"]')) return;
+      if (!active || Date.now() < ignoreScrollUntilRef.current) return;
+      // A router navigation can trigger its clamped scroll before the next
+      // location has rendered. Capture the outgoing value at click time so
+      // that synthetic movement cannot replace it in the map.
+      const y = window.scrollY;
+      positionsRef.current.set(key, y);
+      positionsRef.current.set(path, y);
+      ignoreScrollUntilRef.current = Date.now() + 1800;
+      try {
+        const raw = window.sessionStorage.getItem(storageKey);
+        const persisted = raw ? JSON.parse(raw) as Record<string, number> : {};
+        persisted[path] = y;
+        const keys = Object.keys(persisted);
+        for (const staleKey of keys.slice(0, Math.max(0, keys.length - 32))) delete persisted[staleKey];
+        window.sessionStorage.setItem(storageKey, JSON.stringify(persisted));
+      } catch {
+        // Ignore unavailable storage.
+      }
+    };
+
+    window.addEventListener('scroll', remember, { passive: true });
+    document.addEventListener('pointerdown', preserveBeforeNavigation, true);
+    document.addEventListener('click', preserveBeforeNavigation, true);
+    const rememberBeforeUnload = () => {
+      // pagehide can happen while the scroll listener is throttled. Persist
+      // the latest outgoing position synchronously as a final safeguard.
+      const y = window.scrollY;
+      positionsRef.current.set(key, y);
+      positionsRef.current.set(path, y);
+      persist(y);
+    };
+    window.addEventListener('pagehide', rememberBeforeUnload);
+    return () => {
+      flushPersist();
+      active = false;
+      window.removeEventListener('scroll', remember);
+      document.removeEventListener('pointerdown', preserveBeforeNavigation, true);
+      document.removeEventListener('click', preserveBeforeNavigation, true);
+      window.removeEventListener('pagehide', rememberBeforeUnload);
+    };
+  }, [currentPath, location.key]);
+
+  useLayoutEffect(() => {
+    const path = `${location.pathname}${location.search}`;
+    const previousPath = previousPathRef.current;
+    previousPathRef.current = path;
+
+    if (location.hash) return undefined;
+
+    let saved = navigationType === 'POP'
+      ? positionsRef.current.get(location.key) ?? positionsRef.current.get(path)
+      : undefined;
+
+    if (saved == null && navigationType === 'POP') {
+      try {
+        const raw = window.sessionStorage.getItem(storageKey);
+        const persisted = raw ? JSON.parse(raw) as Record<string, number> : {};
+        if (typeof persisted[path] === 'number') saved = persisted[path];
+      } catch {
+        // Ignore malformed or unavailable storage and let native restoration
+        // handle the entry.
+      }
+    }
+
+    // A PUSH/REPLACE always starts at the top. POP entries use our mirror when
+    // available, then the persistent fallback; otherwise React Router's native
+    // restoration path remains untouched.
+    if (navigationType !== 'POP' && previousPath && previousPath !== path) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      return undefined;
+    }
+    if (saved == null) return undefined;
+
+    let frame = 0;
+    let attempts = 0;
+    let previousHeight = -1;
+    let stableFrames = 0;
+    const restore = () => {
+      attempts += 1;
+      const height = document.documentElement.scrollHeight;
+      if (height === previousHeight) stableFrames += 1;
+      else {
+        previousHeight = height;
+        stableFrames = 0;
+      }
+
+      const maxScroll = Math.max(0, height - window.innerHeight);
+      const settled = stableFrames >= 3 || attempts >= 120;
+      if (settled) {
+        window.scrollTo({
+          top: Math.min(saved, maxScroll),
+          left: 0,
+          behavior: 'auto',
+        });
+        return;
+      }
+      frame = window.requestAnimationFrame(restore);
+    };
+
+    frame = window.requestAnimationFrame(restore);
+    const timer = window.setTimeout(() => {
+      window.scrollTo({
+        top: Math.min(saved ?? 0, Math.max(0, document.documentElement.scrollHeight - window.innerHeight)),
+        left: 0,
+        behavior: 'auto',
+      });
+    }, 1200);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [location.hash, location.key, location.pathname, location.search, navigationType]);
+
+  return null;
+}
+
+function RouteFocusManager() {
+  const location = useLocation();
+  useEffect(() => {
+    // Якорные переходы сами выставляют скролл к нужному блоку. Перенос фокуса
+    // на h1 в этот момент мог бы незаметно изменить виртуальный viewport у
+    // screen reader и вернуть страницу наверх.
+    if (location.hash || /^\/admin(?:\/|$)/.test(location.pathname)) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      const heading = document.querySelector('main h1');
+      if (!(heading instanceof HTMLElement)) return;
+      if (heading.contains(document.activeElement)) return;
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, location.key, location.pathname]);
+
+  return null;
 }
 
 
@@ -180,6 +401,8 @@ function RootLayout() {
       {!isContentPreview ? (
         <>
           <InstantScrollRestoration />
+          <StableScrollPositionRestoration />
+          <RouteFocusManager />
           <ScrollExperience showTrail={!isAdmin} routeKey={location.key} />
           {!isAdmin ? <RouteIntentPreloader /> : null}
         </>
@@ -226,7 +449,7 @@ export const router = createBrowserRouter([
       { path: 'blog/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
       { path: 'cases', element: <LazyWrapper><CasesPage /></LazyWrapper> },
       { path: 'cases/:slug', element: <LazyWrapper><BlogPage /></LazyWrapper> },
-      { path: 'admin', element: <LazyWrapper><Admin /></LazyWrapper> },
+      { path: 'admin', element: <LazyWrapper fallback={<RouteSkeleton variant="gate" />}><Admin /></LazyWrapper> },
       { path: 'admin/content-preview', element: <LazyWrapper><ContentPreview /></LazyWrapper> },
       { path: 'privacy-policy', element: <LazyWrapper><PrivacyPolicy /></LazyWrapper> },
       { path: 'offer', element: <LazyWrapper><Offer /></LazyWrapper> },

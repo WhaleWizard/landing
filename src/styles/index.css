@@ -193,7 +193,14 @@ html[data-ww-instant-scroll='true'] {
  * Пауза декоративных петель на время самой прокрутки. Скелетоны загрузки сюда
  * не входят: замерший шиммер читается как зависшая страница, а не как экономия.
  */
-html[data-ww-scrolling='true'] :is(.animate-pulse, .animate-ping, .ww-ambient-motion) {
+html[data-ww-scrolling='true'] :is(.animate-pulse, .animate-ping, .ww-ambient-motion, .cosmic-stage *, .ths *, .cds *) {
+  animation-play-state: paused !important;
+}
+
+/* Pseudo-elements are not matched by `.ths *`, so the timeline beam kept
+ * running while the page was being scrolled. Pause the source node explicitly
+ * to avoid a detached gradient update competing with scroll work. */
+html[data-ww-scrolling='true'] .ths-line-item::before {
   animation-play-state: paused !important;
 }
 
@@ -206,7 +213,18 @@ html[data-ww-scrolling='true'] :is(.animate-pulse, .animate-ping, .ww-ambient-mo
  * каждом пересечении границы экрана, и это чувствовалось как зацеп прокрутки.
  */
 [data-hero-ambient='off'] .ww-ambient-motion,
-[data-ambient='off'] .ww-ambient-motion {
+[data-ambient='off'] .ww-ambient-motion,
+[data-hero-ambient='off'] .cosmic-stage *,
+[data-hero-ambient='off'] .ths *,
+[data-hero-ambient='off'] .cds *,
+[data-ambient='off'] .cosmic-stage *,
+[data-ambient='off'] .ths *,
+[data-ambient='off'] .cds * {
+  animation-play-state: paused;
+}
+
+[data-hero-ambient='off'] .ths-line-item::before,
+[data-ambient='off'] .ths-line-item::before {
   animation-play-state: paused;
 }
 
@@ -472,7 +490,8 @@ input[type='number']::-webkit-outer-spin-button {
 
 .legal-progress {
   position: sticky;
-  top: 0;
+  /* Не прячем индикатор под фиксированной шапкой на длинных документах. */
+  top: 80px;
   z-index: 5;
   height: 3px;
   margin: 0 0 14px;
@@ -558,7 +577,9 @@ input[type='number']::-webkit-outer-spin-button {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.025);
   margin: 0 0 10px;
-  scroll-margin-top: 16px;
+  /* Fixed public navbar is 80px high; keep the opened section visible below
+     it instead of hiding the summary under the header after TOC navigation. */
+  scroll-margin-top: 96px;
   transition: border-color 0.25s;
 }
 .legal-sec[open] { border-color: var(--legal-line); }

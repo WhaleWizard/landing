@@ -13,7 +13,7 @@ import {
   Video,
   Inbox,
 } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { trackContact, trackThankYouConversion } from '../consent/consent';
 import Navbar from '../components/Navbar';
 import SEO from '../components/SEO';
@@ -21,6 +21,7 @@ import ThanksCosmicScene from '../components/ThanksCosmicScene';
 import { useScrollTo } from '../components/hooks/useScrollTo';
 import { readLeadContext, type LeadContactChannel, type LeadServiceSlug } from '../utils/leadContext';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { withReturnTo } from '../utils/siteNavigation';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -100,6 +101,8 @@ export default function ThankYou() {
   // моменту перехода, а перечитывать его на каждый рендер незачем.
   const [context] = useState(() => readLeadContext());
   const { scrollTo } = useScrollTo();
+  const location = useLocation();
+  const linkState = withReturnTo(location);
 
   useEffect(() => {
     trackThankYouConversion();
@@ -311,7 +314,7 @@ export default function ThankYou() {
                     transition={{ duration: 0.55, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] }}
                     className="h-full"
                   >
-                    <Link to={card.to} className="ths-tile h-full">
+                    <Link to={card.to} state={linkState} className="ths-tile h-full">
                       {/* Космический объект в углу — из той же серии, что в
                           сцене наверху: плитка становится окном в сцену, а не
                           прямоугольником с текстом. */}
@@ -335,7 +338,7 @@ export default function ThankYou() {
               {/* Явный выход туда, откуда пришла заявка. Меню делает это же
                   молча, но человек не обязан догадываться, куда его уведёт
                   «Услуги» — путь возврата должен быть виден. */}
-              <Link to={origin.path} className="ths-return">
+              <Link to={origin.path} state={linkState} className="ths-return">
                 <ArrowLeft className="h-4 w-4" />
                 {origin.label}
               </Link>
