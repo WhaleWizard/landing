@@ -43,10 +43,9 @@ async function prepareCurrentSiteContent(): Promise<unknown> {
 let appRendered = false;
 
 function renderApp() {
-  // Защёлка от второго createRoot на том же узле. Путей к renderApp два:
-  // через startViewTransition и в обход него, и если переход успеет вызвать
-  // колбэк, а потом бросит исключение, сработают оба — React смонтирует второе
-  // приложение поверх первого. Случай редкий, но диагностируется он тяжело.
+  // Защёлка от второго createRoot на том же узле. Bootstrap должен монтировать
+  // приложение ровно один раз, даже если асинхронный route-preload завершится
+  // одновременно с обработчиком восстановления после ошибки.
   if (appRendered) return;
   appRendered = true;
   flushSync(() => {
