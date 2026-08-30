@@ -345,11 +345,21 @@ function StableScrollPositionRestoration() {
 
 function RouteFocusManager() {
   const location = useLocation();
+  const navigationType = useNavigationType();
   useEffect(() => {
     // Якорные переходы сами выставляют скролл к нужному блоку. Перенос фокуса
     // на h1 в этот момент мог бы незаметно изменить виртуальный viewport у
     // screen reader и вернуть страницу наверх.
-    if (location.hash || /^\/admin(?:\/|$)/.test(location.pathname)) return undefined;
+    // On a direct cold load the browser has no previous route to announce.
+    // Focusing the heading here only paints a focus ring over the first hero
+    // while the shell hand-off is still settling. Keep the focus hand-off for
+    // real SPA navigations and history entries, where it helps screen-reader
+    // users orient themselves.
+    if (
+      location.hash
+      || /^\/admin(?:\/|$)/.test(location.pathname)
+      || (navigationType === 'POP' && location.key === 'default')
+    ) return undefined;
 
     const frame = window.requestAnimationFrame(() => {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
@@ -361,7 +371,7 @@ function RouteFocusManager() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [location.hash, location.key, location.pathname]);
+  }, [location.hash, location.key, location.pathname, navigationType]);
 
   return null;
 }
