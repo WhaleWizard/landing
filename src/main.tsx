@@ -64,32 +64,12 @@ function handOffToApp() {
     return;
   }
 
-  type ViewTransitionHandle = {
-    finished?: Promise<unknown>;
-    ready?: Promise<unknown>;
-    updateCallbackDone?: Promise<unknown>;
-  };
-  const transitionDocument = document as Document & {
-    startViewTransition?: (update: () => void) => ViewTransitionHandle | undefined;
-  };
-  if (transitionDocument.startViewTransition) {
-    try {
-      const transition = transitionDocument.startViewTransition(renderApp);
-      // Переход возвращает промисы, и браузер отклоняет их, когда прерывает
-      // анимацию: вкладка скрыта, начался другой переход, изменился размер
-      // окна. Приложение к этому моменту уже отрисовано, но отказ никто не
-      // ловил — и в консоли каждого посетителя оставалась ошибка
-      // «Transition was aborted because of invalid state». Ни на вид, ни на
-      // саму анимацию перехвата не влияет: он только убирает шум.
-      transition?.finished?.catch(() => undefined);
-      transition?.ready?.catch(() => undefined);
-      transition?.updateCallbackDone?.catch(() => undefined);
-      return;
-    } catch {
-      // Fall through to the light CSS hand-off on unsupported edge cases.
-    }
-  }
-
+  // Do not wrap this first mount in the View Transition API. React can commit
+  // its route-level Suspense fallback for one microtask even after the route
+  // preload has resolved; the browser would snapshot that generic skeleton as
+  // the "new" view and keep it visible over the ready app for the transition
+  // duration. A direct compositor-only fade keeps the generated shell hand-off
+  // smooth without ever capturing an intermediate frame.
   rootElement.classList.add('ww-app-handoff');
   renderApp();
   window.setTimeout(() => rootElement.classList.remove('ww-app-handoff'), 360);
