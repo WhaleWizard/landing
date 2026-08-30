@@ -75,3 +75,20 @@
 - После браузерного прохода повторён `npm run check`: typecheck, smoke-тесты,
   production build (2372 модуля), 27 статических маршрутов и SEO-контракт 11/11
   прошли без ошибок. Вкладка оставлена на главной странице сверху.
+
+## Live production pass 2026-08-30
+
+- Production обновлён из `main` через существующий Cloudflare Pages GitHub-пайплайн;
+  live HTML и JS-бандл содержат актуальные маркеры шлифовки (`reducedMotion`,
+  `ww_scroll_positions_v2`, `useDialogFocus`).
+- В живом браузере повторно открыты все 18 маршрутов матрицы на desktop 1280 px и
+  mobile 390 px, включая `/admin`, `/admin/content-preview` и 404. Для страниц
+  проверены scroll вниз/вверх и попытки вправо/влево: page-level `scrollX=0`,
+  `document/body.scrollWidth` не выходят за ширину viewport, возврат вверх даёт
+  `scrollY=0`; заголовки и canonical redirect корректны.
+- На production отдельно прогнаны Home и Meta Apps: вертикальный scroll до 900 px
+  и обратно, горизонтальный жест страницы, overflow fixed/canvas-слоёв и мобильные
+  snap-карусели. Декоративные слои остаются внутри `overflow:hidden/clip`, карусели
+  являются намеренными внутренними scroller-ами, page-level overflow не найден.
+- После прохода `tab.dev.logs({levels:["error","warn"]})` вернул пустой список;
+  битых загруженных изображений нет. Вкладка production возвращена на Home сверху.
