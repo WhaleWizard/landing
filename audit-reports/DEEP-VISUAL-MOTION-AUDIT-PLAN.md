@@ -135,3 +135,9 @@
   добавлено выравнивание относительно фактической высоты fixed-navbar и
   повторная проверка после deferred-секций. Это сохраняет целевой блок видимым
   после догрузки контента на 320/390 px и не меняет дизайн секций.
+- Узкий production-pass на 320 px подтвердил тот же fallback для сервисной
+  `lazyServiceLanding`: даже при готовом `ServiceLandingPage` React успевал
+  показать skeleton до hero. Сервисные route wrappers теперь читают resolved
+  module/preload synchronously и запускают сетевой fallback только при реальной
+  задержке; повторный live sweep на desktop/mobile и 320 px не показал skeleton
+  после hand-off.

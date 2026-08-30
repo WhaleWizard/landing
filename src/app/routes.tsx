@@ -75,23 +75,37 @@ const MarketingGlossaryPage = preloadable(loadMarketingGlossaryPage);
 const NotFound = preloadable(loadNotFound);
 
 type ServiceType = import('./pages/ServiceLandingPage').ServiceType;
-type ServicePreload = () => Promise<unknown>;
+type ServicePreload = MemoizedLoader<unknown>;
 
 function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = []) {
-  return lazy(async () => {
+  let Loaded: ComponentType<any> | undefined;
+  let pending: Promise<unknown> | undefined;
+
+  const resolveLoaded = () => {
+    const module = loadServiceLandingPage.resolved as typeof import('./pages/ServiceLandingPage') | undefined;
+    if (!module?.ServiceLandingPage || preloads.some((preload) => !preload.resolved)) return;
+    Loaded = () => createElement(module.ServiceLandingPage, { service });
+  };
+
+  return function RoutedServiceLanding() {
+    resolveLoaded();
+    if (Loaded) return createElement(Loaded);
+
     // Above-the-fold hero chunks start together with the landing module instead
     // of forming a second/third request waterfall after it has evaluated.
-    const [module] = await Promise.all([
-      loadServiceLandingPage(),
-      ...preloads.map((preload) => preload()),
-    ]);
-
-    return {
-      default: function RoutedServiceLanding() {
-        return <module.ServiceLandingPage service={service} />;
-      },
-    };
-  });
+    if (!pending) {
+      pending = Promise.all([
+        loadServiceLandingPage(),
+        ...preloads.map((preload) => preload()),
+      ]).then(() => {
+        resolveLoaded();
+      }).catch((error) => {
+        pending = undefined;
+        throw error;
+      });
+    }
+    throw pending;
+  };
 }
 
 const MetaAdsPage = lazyServiceLanding('meta-ads', [
