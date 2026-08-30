@@ -1,29 +1,48 @@
 type RouteLoader = () => Promise<unknown>;
 
-export const loadHome = () => import('../pages/Home');
-export const loadThankYou = () => import('../pages/ThankYou');
-export const loadBlogPage = () => import('../pages/BlogPage');
-export const loadCasesPage = () => import('../pages/CasesPage');
-export const loadCalculator = () => import('../pages/Calculator');
-export const loadRoiPage = () => import('../pages/RoiPage');
-export const loadAdmin = () => import('../pages/Admin');
-export const loadContentPreview = () => import('../pages/ContentPreview');
-export const loadPrivacyPolicy = () => import('../pages/PrivacyPolicy');
-export const loadOffer = () => import('../pages/Offer');
-export const loadCookiePolicy = () => import('../pages/CookiePolicy');
-export const loadFaqPage = () => import('../pages/FAQPage');
-export const loadMarketingGlossaryPage = () => import('../pages/MarketingGlossaryPage');
-export const loadNotFound = () => import('../pages/NotFound');
-export const loadServiceLandingPage = () => import('../pages/ServiceLandingPage');
-export const loadHero = () => import('../components/Hero');
+/**
+ * Route preloading and React.lazy must share the same promise. Calling
+ * `import()` twice returns two promises even when the module is already in the
+ * browser cache; React can therefore render one Suspense fallback frame after
+ * bootstrap has awaited the first promise. Cache each route import and reset
+ * it after a failed request so a transient/chunk-version error can retry.
+ */
+function memoizedImport<T>(loader: () => Promise<T>): () => Promise<T> {
+  let pending: Promise<T> | undefined;
+  return () => {
+    if (pending) return pending;
+    pending = loader().catch((error) => {
+      pending = undefined;
+      throw error;
+    });
+    return pending;
+  };
+}
+
+export const loadHome = memoizedImport(() => import('../pages/Home'));
+export const loadThankYou = memoizedImport(() => import('../pages/ThankYou'));
+export const loadBlogPage = memoizedImport(() => import('../pages/BlogPage'));
+export const loadCasesPage = memoizedImport(() => import('../pages/CasesPage'));
+export const loadCalculator = memoizedImport(() => import('../pages/Calculator'));
+export const loadRoiPage = memoizedImport(() => import('../pages/RoiPage'));
+export const loadAdmin = memoizedImport(() => import('../pages/Admin'));
+export const loadContentPreview = memoizedImport(() => import('../pages/ContentPreview'));
+export const loadPrivacyPolicy = memoizedImport(() => import('../pages/PrivacyPolicy'));
+export const loadOffer = memoizedImport(() => import('../pages/Offer'));
+export const loadCookiePolicy = memoizedImport(() => import('../pages/CookiePolicy'));
+export const loadFaqPage = memoizedImport(() => import('../pages/FAQPage'));
+export const loadMarketingGlossaryPage = memoizedImport(() => import('../pages/MarketingGlossaryPage'));
+export const loadNotFound = memoizedImport(() => import('../pages/NotFound'));
+export const loadServiceLandingPage = memoizedImport(() => import('../pages/ServiceLandingPage'));
+export const loadHero = memoizedImport(() => import('../components/Hero'));
 // Home renders the cosmic scene inside Hero's own Suspense boundary. Preload
 // that nested chunk together with the route so a cold production visit does
 // not hand off from the generated shell to the generic RouteSkeleton before
 // the actual first screen is ready.
-export const loadCosmicHeroScene = () => import('../components/CosmicHeroScene');
-export const loadMetaAppsHeroVisual = () => import('../components/MetaAppsHeroVisual');
-export const loadConsultStudioHero = () => import('../components/service-heroes/ConsultStudioHero');
-export const loadMetaAdsEditorialHero = () => import('../components/service-heroes/MetaAdsEditorialHero');
+export const loadCosmicHeroScene = memoizedImport(() => import('../components/CosmicHeroScene'));
+export const loadMetaAppsHeroVisual = memoizedImport(() => import('../components/MetaAppsHeroVisual'));
+export const loadConsultStudioHero = memoizedImport(() => import('../components/service-heroes/ConsultStudioHero'));
+export const loadMetaAdsEditorialHero = memoizedImport(() => import('../components/service-heroes/MetaAdsEditorialHero'));
 
 const routePromises = new Map<string, Promise<unknown>>();
 
@@ -52,7 +71,14 @@ function routeLoader(pathname: string): { key: string; loader: RouteLoader } | n
     return { key: 'content-preview', loader: loadContentPreview };
   }
   if (pathname === '/meta-ads' || pathname === '/meta-ads/') {
-    return { key: 'meta-ads', loader: loadServiceLandingPage };
+    return {
+      key: 'meta-ads',
+      // Keep the first-screen hero on the same network wave as the landing
+      // route. Otherwise bootstrap hands off the generated shell as soon as
+      // ServiceLandingPage resolves, and MetaAdsEditorialHero briefly falls
+      // back to its Suspense placeholder on a cold production visit.
+      loader: () => Promise.all([loadServiceLandingPage(), loadMetaAdsEditorialHero()]),
+    };
   }
   if (pathname === '/google-ads' || pathname === '/google-ads/') {
     return {
