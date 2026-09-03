@@ -510,6 +510,7 @@ export default function CookieConsentManager() {
       <>
         <button
           type="button"
+          data-cookie-settings-trigger
           onClick={openCookieSettings}
           className="fixed bottom-2 left-2 z-[55] inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-card/85 p-0 text-[11px] font-semibold text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 hover:text-primary sm:h-auto sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2 sm:text-xs md:bottom-4 md:left-4"
           aria-label="Открыть настройки cookie"

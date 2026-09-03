@@ -36,6 +36,8 @@ import {
   type ContentPreviewPayload,
   type ContentPreviewReport,
 } from '../content/contentPreviewProtocol';
+// Home content preview renders the cosmic Hero directly, outside Home.tsx.
+import '../../styles/cosmic-hero.css';
 
 const SERVICE_THEMES: Record<ServiceType, {
   primary: string;

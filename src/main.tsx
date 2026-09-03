@@ -58,20 +58,12 @@ function renderApp() {
 }
 
 function handOffToApp() {
-  if (!hadGeneratedShell || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    renderApp();
-    return;
-  }
-
-  // Do not wrap this first mount in the View Transition API. React can commit
-  // its route-level Suspense fallback for one microtask even after the route
-  // preload has resolved; the browser would snapshot that generic skeleton as
-  // the "new" view and keep it visible over the ready app for the transition
-  // duration. A direct compositor-only fade keeps the generated shell hand-off
-  // smooth without ever capturing an intermediate frame.
-  rootElement.classList.add('ww-app-handoff');
+  // The route module is already prepared before this hand-off. Fading the
+  // entire root created one viewport-sized compositing layer: on iOS it could
+  // leave dark tiles over transformed hero content, and Lighthouse delayed
+  // stable text/image painting until that layer settled. Mount directly; the
+  // generated shell remains visible up to the same-frame React commit.
   renderApp();
-  window.setTimeout(() => rootElement.classList.remove('ww-app-handoff'), 360);
 }
 
 async function bootstrap() {

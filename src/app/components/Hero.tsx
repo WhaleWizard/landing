@@ -25,6 +25,18 @@ export type { HeroTitleLine } from './HeroTitleEffect';
 const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
 const CosmicHeroScene = lazy(() => import('./CosmicHeroScene'));
 
+function CosmicHeroFallback() {
+  return (
+    <div className="cosmic-stage" aria-hidden="true">
+      <div className="cosmic-plane cosmic-sky-plane">
+        <div className="cosmic-sky" />
+      </div>
+      <div className="cosmic-scrim" />
+      <div className="cosmic-vignette" />
+    </div>
+  );
+}
+
 // ─── Static particle data — computed once, never on re-render ──────────────
 const PARTICLE_DATA = Array.from({ length: 12 }, (_, i) => ({
   width:  Math.random() * 3 + 1,
@@ -827,9 +839,9 @@ function Hero({
         id="hero"
         ref={sectionRef}
         data-hero-ambient={motionAllowed ? undefined : 'off'}
-        className="cosmic-hero pt-16 md:pt-20"
+        className="cosmic-hero pt-0 min-[901px]:pt-20"
       >
-        <Suspense fallback={null}>
+        <Suspense fallback={<CosmicHeroFallback />}>
           <CosmicHeroScene active={motionAllowed} />
         </Suspense>
 

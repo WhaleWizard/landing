@@ -877,7 +877,7 @@
    * прижимает содержимое к низу, а полноразмерная плашка перекрывала
    * ряд ссылок.
    */
-  body:has(.not-found-page) button[aria-label*='cookie' i] {
+  body:has(.not-found-page) button[data-cookie-settings-trigger] {
     bottom: 0;
     left: 0;
     width: 44px;
@@ -894,12 +894,12 @@
     backdrop-filter: none;
   }
 
-  body:has(.not-found-page) button[aria-label*='cookie' i] span:last-child {
+  body:has(.not-found-page) button[data-cookie-settings-trigger] span:last-child {
     display: none;
   }
 
-  body:has(.not-found-page) button[aria-label*='cookie' i]:hover,
-  body:has(.not-found-page) button[aria-label*='cookie' i]:focus-visible {
+  body:has(.not-found-page) button[data-cookie-settings-trigger]:hover,
+  body:has(.not-found-page) button[data-cookie-settings-trigger]:focus-visible {
     opacity: 1;
   }
 }
@@ -929,7 +929,7 @@
     min-height: 620px;
   }
 
-  body:has(.not-found-page) button[aria-label*='cookie' i] {
+  body:has(.not-found-page) button[data-cookie-settings-trigger] {
     bottom: 0;
     left: 0;
     width: 44px;
@@ -945,7 +945,7 @@
     backdrop-filter: none;
   }
 
-  body:has(.not-found-page) button[aria-label*='cookie' i] span:last-child {
+  body:has(.not-found-page) button[data-cookie-settings-trigger] span:last-child {
     display: none;
   }
 }

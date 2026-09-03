@@ -13,6 +13,10 @@ import Hero from '../components/Hero';
 import SEO from '../components/SEO';
 import { useSiteSection } from '../hooks/useServiceContent';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+// The mobile cosmic stage participates in document flow. Load its geometry
+// with the Home route (rather than the nested lazy scene) so Suspense reserves
+// 320–430px immediately without making non-cosmic service heroes download it.
+import '../../styles/cosmic-hero.css';
 
 const defaultHomeSeo = {
   title: 'Google Ads, Meta Ads и аналитика',

@@ -1,12 +1,9 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   SCROLL_ACTIVITY_END_EVENT,
   SCROLL_ACTIVITY_START_EVENT,
   isScrollActivityActive,
 } from '../utils/motionPerformance';
-// CSS импортируется здесь, а не на странице: кадр предпросмотра в админке
-// рисует компонент напрямую и без этого получил бы голую вёрстку.
-import '../../styles/cosmic-hero.css';
 
 type Piece = {
   file: string;
@@ -36,6 +33,30 @@ const SHARDS: Piece[] = [
   { file: 'shard7', cls: 'cosmic-c7', w: 133, h: 278 },
 ];
 
+// CSS hides these objects below 900px. Do not download invisible decoration
+// on a phone; when the viewport grows they are mounted and loaded normally.
+const COMPACT_DEEP_MOONS = DEEP_MOONS.filter((piece) => piece.cls === 'cosmic-m3');
+const COMPACT_SHARDS = SHARDS.filter((piece) => (
+  piece.cls === 'cosmic-c1'
+  || piece.cls === 'cosmic-c3'
+  || piece.cls === 'cosmic-c5'
+));
+const WIDE_ONLY_PIECES = [
+  ...DEEP_MOONS.filter((piece) => !COMPACT_DEEP_MOONS.includes(piece)),
+  ...SHARDS.filter((piece) => !COMPACT_SHARDS.includes(piece)),
+];
+
+function preloadPiece(piece: Piece): Promise<void> {
+  const image = new Image();
+  image.decoding = 'async';
+  image.src = `/images/cosmic/${piece.file}.webp`;
+  if (typeof image.decode === 'function') return image.decode().catch(() => undefined);
+  return new Promise((resolve) => {
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+  });
+}
+
 // Насколько сильно план уходит за курсором: [по горизонтали, по вертикали].
 const DEPTH: Record<string, [number, number]> = {
   sky: [10, 7],
@@ -55,13 +76,13 @@ type Dot = { x: number; y: number; r: number; sp: number; ph: number; hue: strin
  * выглядело как сцена из одного кита без кристаллов и мелких сфер.
  * Откладывать тут нечего: всё это и так содержимое первого экрана.
  */
-function Layer({ items }: { items: Piece[] }) {
+function Layer({ items, kind }: { items: Piece[]; kind: 'moon' | 'shard' }) {
   return (
     <>
       {items.map((p) => (
         <img
           key={p.file}
-          className={`cosmic-obj ${p.cls}`}
+          className={`cosmic-obj cosmic-${kind} ${p.cls}`}
           src={`/images/cosmic/${p.file}.webp`}
           alt=""
           width={p.w}
@@ -80,6 +101,43 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
   const dustRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef(active);
   const controlRef = useRef<{ start: () => void; stop: () => void } | null>(null);
+  const [compactScene, setCompactScene] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches
+  ));
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    let revision = 0;
+    let wasCompact = media.matches;
+    const sync = () => {
+      const nextCompact = media.matches;
+      const currentRevision = ++revision;
+      if (nextCompact) {
+        wasCompact = true;
+        setCompactScene(true);
+        return;
+      }
+      if (!wasCompact) {
+        setCompactScene(false);
+        return;
+      }
+
+      // Assets omitted from the compact DOM are decoded before mounting when
+      // a tablet/phone rotates above 900px. The desktop composition therefore
+      // arrives in one frame instead of planets and shards popping in one by
+      // one on a slower connection.
+      wasCompact = false;
+      void Promise.all(WIDE_ONLY_PIECES.map(preloadPiece)).then(() => {
+        if (revision === currentRevision && !media.matches) setCompactScene(false);
+      });
+    };
+    media.addEventListener('change', sync);
+    setCompactScene(wasCompact);
+    return () => {
+      revision += 1;
+      media.removeEventListener('change', sync);
+    };
+  }, []);
 
   useEffect(() => {
     activeRef.current = active;
@@ -93,7 +151,7 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
     if (!stage || !canvas) return;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const coarse = window.matchMedia('(pointer: coarse)').matches || compactScene;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -104,32 +162,55 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
     });
 
     let dots: Dot[] = [];
+    let canvasDpr = 1;
     let raf = 0;
+    let coarseActivated = !coarse;
+    let lastPaintAt = Number.NEGATIVE_INFINITY;
+    let activationTimer = 0;
     let target = { x: 0, y: 0 };
     const current = { x: 0, y: 0 };
 
-    const build = () => {
+    const build = (): boolean => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const nextWidth = Math.round(canvas.clientWidth * dpr);
       const nextHeight = Math.round(canvas.clientHeight * dpr);
-      if (!nextWidth || !nextHeight) return;
+      if (!nextWidth || !nextHeight) return false;
       // Пыль пересобирается только при настоящей смене размера холста. На
       // телефоне прокрутка прячет и показывает адресную строку, браузер шлёт
       // resize, и раньше каждый такой сигнал расставлял все точки заново — на
       // экране это читалось как рывок сцены посреди прокрутки.
-      if (canvas.width === nextWidth && canvas.height === nextHeight && dots.length) return;
+      if (canvas.width === nextWidth && canvas.height === nextHeight && dots.length) return false;
+      const previousWidth = canvas.width;
+      const previousHeight = canvas.height;
+      const previousDpr = canvasDpr;
       canvas.width = nextWidth;
       canvas.height = nextHeight;
+      canvasDpr = dpr;
 
       const count = canvas.clientWidth < 900 ? 34 : 70;
-      dots = Array.from({ length: count }, () => ({
+      const createDot = (): Dot => ({
         x: (0.22 + Math.random() * 0.8) * canvas.width,
         y: Math.random() * canvas.height,
         r: (Math.random() * 1.4 + 0.4) * dpr,
         sp: (Math.random() * 0.2 + 0.04) * dpr,
         ph: Math.random() * Math.PI * 2,
         hue: Math.random() > 0.5 ? '0, 210, 255' : '165, 125, 255',
-      }));
+      });
+      if (dots.length && previousWidth && previousHeight) {
+        const scaleX = nextWidth / previousWidth;
+        const scaleY = nextHeight / previousHeight;
+        dots = dots.slice(0, count).map((dot) => ({
+          ...dot,
+          x: dot.x * scaleX,
+          y: dot.y * scaleY,
+          r: dot.r * dpr / previousDpr,
+          sp: dot.sp * dpr / previousDpr,
+        }));
+        while (dots.length < count) dots.push(createDot());
+      } else {
+        dots = Array.from({ length: count }, createDot);
+      }
+      return true;
     };
 
     const paint = (t: number) => {
@@ -160,6 +241,7 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       && activeRef.current
       && !document.hidden
       && !reduced
+      && coarseActivated
       && !isScrollActivityActive();
 
     let appliedX = Number.NaN;
@@ -170,6 +252,15 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
         raf = 0;
         return;
       }
+
+      // The dust moves slowly. After a touch user activates the scene, 24 fps
+      // is visually continuous while avoiding a full canvas repaint on every
+      // display refresh of a low-power phone.
+      if (coarse && t - lastPaintAt < 1000 / 24) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+      lastPaintAt = t;
 
       current.x += (target.x - current.x) * 0.055;
       current.y += (target.y - current.y) * 0.055;
@@ -206,7 +297,10 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       else start();
     };
     const onScrollStart = () => stop();
-    const onScrollEnd = () => start();
+    const onScrollEnd = () => {
+      if (coarse) coarseActivated = true;
+      start();
+    };
 
     const onMove = (e: MouseEvent) => {
       if (coarse || reduced || !activeRef.current) return;
@@ -214,6 +308,13 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
         x: (e.clientX / window.innerWidth) * 2 - 1,
         y: (e.clientY / window.innerHeight) * 2 - 1,
       };
+    };
+
+    const handleResize = () => {
+      // Changing canvas.width/height clears its bitmap. Repaint immediately
+      // even while the animation loop is intentionally paused during touch
+      // scrolling/browser-bar resize, otherwise dust disappears then pops in.
+      if (build()) paint(performance.now());
     };
 
     build();
@@ -227,26 +328,40 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       }, { rootMargin: '120px 0px', threshold: 0 });
     observer?.observe(stage);
 
-    if (reduced) paint(0);
-    else start();
+    // Always draw a complete first frame. Continuous canvas work starts
+    // immediately on desktop; on touch devices it begins only after the first
+    // real scroll, so loading and the browser-bar resize stay contention-free.
+    paint(0);
+    if (!reduced && !coarse) start();
+    else if (!reduced) {
+      // CSS layers already move immediately. Bring the subtler canvas dust in
+      // only after the first-load burst so the effect remains present without
+      // competing with LCP or Safari's initial browser-bar resize.
+      activationTimer = window.setTimeout(() => {
+        coarseActivated = true;
+        start();
+      }, 4_500);
+    }
     controlRef.current = { start, stop };
     window.addEventListener('mousemove', onMove, { passive: true });
-    window.addEventListener('resize', build, { passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
     document.addEventListener('visibilitychange', onVisibility);
     document.addEventListener(SCROLL_ACTIVITY_START_EVENT, onScrollStart);
     document.addEventListener(SCROLL_ACTIVITY_END_EVENT, onScrollEnd);
 
     return () => {
       stop();
+      if (activationTimer) window.clearTimeout(activationTimer);
+      for (const [el] of planes) el.style.transform = '';
       controlRef.current = null;
       observer?.disconnect();
       window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('resize', build);
+      window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener(SCROLL_ACTIVITY_START_EVENT, onScrollStart);
       document.removeEventListener(SCROLL_ACTIVITY_END_EVENT, onScrollEnd);
     };
-  }, []);
+  }, [compactScene]);
 
   return (
     <div className="cosmic-stage" ref={stageRef} aria-hidden="true">
@@ -259,7 +374,7 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="cosmic-plane cosmic-deep" data-plane="deep">
-        <Layer items={DEEP_MOONS} />
+        <Layer items={compactScene ? COMPACT_DEEP_MOONS : DEEP_MOONS} kind="moon" />
       </div>
 
       <div className="cosmic-halo" />
@@ -283,11 +398,11 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="cosmic-plane cosmic-near" data-plane="near">
-        <Layer items={MOONS} />
+        <Layer items={MOONS} kind="moon" />
       </div>
 
       <div className="cosmic-plane cosmic-front" data-plane="front">
-        <Layer items={SHARDS} />
+        <Layer items={compactScene ? COMPACT_SHARDS : SHARDS} kind="shard" />
       </div>
 
       <canvas className="cosmic-dust" data-plane="dust" ref={dustRef} />

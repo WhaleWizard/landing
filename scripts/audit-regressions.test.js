@@ -318,3 +318,107 @@ test('восстановленная сессия админки грузит п
     'восстановление сессии снова не грузит публикации: после перезагрузки разделы покажут ноль',
   );
 });
+
+test('мобильный hero не получает тёмную полосу и заголовок не обводится после SPA-перехода', async () => {
+  const hero = await readFile('src/app/components/Hero.tsx', 'utf8');
+  const home = await readFile('src/app/pages/Home.tsx', 'utf8');
+  const cosmicStyles = await readFile('src/styles/cosmic-hero.css', 'utf8');
+  const cosmicScene = await readFile('src/app/components/CosmicHeroScene.tsx', 'utf8');
+  const plexus = await readFile('src/app/components/PlexusBackdrop.tsx', 'utf8');
+  const globalStyles = await readFile('src/styles/index.css', 'utf8');
+  const titleEffects = await readFile('src/styles/hero-title-effects.css', 'utf8');
+  const bootstrap = await readFile('src/main.tsx', 'utf8');
+
+  assert.match(
+    hero,
+    /className="cosmic-hero pt-0 min-\[901px\]:pt-20"/,
+    'mobile и tablet cosmic-stage должны начинаться под прозрачной шапкой без однотонной полосы pt-16',
+  );
+  assert.match(
+    hero,
+    /fallback=\{<CosmicHeroFallback \/>\}/,
+    'ленивая mobile-сцена должна резервировать высоту и не сдвигать текст после первого кадра',
+  );
+  assert.match(
+    home,
+    /import ['"]\.\.\/\.\.\/styles\/cosmic-hero\.css['"]/,
+    'геометрия cosmic fallback должна загружаться с Home до вложенного lazy-компонента',
+  );
+  assert.doesNotMatch(
+    hero,
+    /import ['"]\.\.\/\.\.\/styles\/cosmic-hero\.css['"]/,
+    'обычные service hero не должны получать неиспользуемый cosmic CSS',
+  );
+  assert.match(
+    cosmicStyles,
+    /\.cosmic-dust\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;/,
+    'canvas-пыль должна покрывать весь cosmic-stage, а не оставаться 300×150',
+  );
+  assert.match(
+    globalStyles,
+    /main h1\[tabindex='-1'\]:focus\s*\{\s*outline:\s*none;/,
+    'программный фокус страницы не должен рисовать рамку вокруг неинтерактивного h1',
+  );
+  assert.doesNotMatch(
+    titleEffects,
+    /backface-visibility:\s*hidden/,
+    'WebKit не должен оставлять заголовок на отдельном GPU-слое после reveal-анимации',
+  );
+  assert.doesNotMatch(
+    bootstrap,
+    /classList\.add\(['"]ww-app-handoff['"]\)/,
+    'первый render не должен затемнять весь root полноэкранной opacity-анимацией',
+  );
+  assert.match(
+    plexus,
+    /rootMargin:\s*compactMotion\s*\?\s*['"]0px['"]\s*:\s*['"]25% 0px['"]/,
+    'мобильный canvas ниже первого экрана не должен запускаться заранее и конкурировать с LCP',
+  );
+  assert.match(
+    plexus,
+    /targetFps\s*=\s*compactDevice\s*\?\s*24\s*:/,
+    'мобильная plexus-сцена должна сохранять движение с ограниченной частотой перерисовки',
+  );
+  assert.match(
+    cosmicScene,
+    /className=\{`cosmic-obj cosmic-\$\{kind\} \$\{p\.cls\}`\}/,
+    'реальные moon/shard элементы должны попадать под intended стили и reduced-motion',
+  );
+  assert.match(
+    cosmicScene,
+    /if \(build\(\)\) paint\(performance\.now\(\)\)/,
+    'resize мобильной строки браузера не должен оставлять очищенный canvas без пыли',
+  );
+  assert.match(
+    cosmicScene,
+    /for \(const \[el\] of planes\) el\.style\.transform = ['"]['"];/,
+    'при смене compact/desktop режима нельзя оставлять старое inline-смещение параллакса',
+  );
+  assert.match(
+    cosmicScene,
+    /Promise\.all\(WIDE_ONLY_PIECES\.map\(preloadPiece\)\)/,
+    'desktop-декор после поворота устройства должен появляться одним декодированным кадром',
+  );
+  assert.match(
+    plexus,
+    /patternRef\.current = \{ nodes, width, height \}/,
+    'узор plexus должен сохраняться при смене performance-профиля на breakpoint',
+  );
+});
+
+test('404 не превращает кнопку возврата на политику cookie в круг', async () => {
+  const notFoundStyles = await readFile('src/app/pages/NotFound.css', 'utf8');
+  const cookieManager = await readFile('src/app/components/cookie/CookieConsentManager.tsx', 'utf8');
+
+  assert.doesNotMatch(
+    notFoundStyles,
+    /button\[aria-label\*=['"]cookie['"] i\]/,
+    'стили cookie-триггера не должны совпадать с кнопкой «Вернуться на Политику cookie»',
+  );
+  assert.match(
+    notFoundStyles,
+    /button\[data-cookie-settings-trigger\]/,
+    'мобильное сжатие должно быть привязано к собственному data-атрибуту cookie-кнопки',
+  );
+  assert.match(cookieManager, /data-cookie-settings-trigger/);
+});

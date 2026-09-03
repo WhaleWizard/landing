@@ -25,23 +25,11 @@ html[data-ww-instant-scroll='true'] {
   scroll-behavior: auto !important;
 }
 
-/* One restrained crossfade masks the SEO-shell to interactive-app hand-off. */
-::view-transition-old(root) {
-  animation: ww-app-shell-out 160ms ease-out both;
-}
-
-::view-transition-new(root),
-#root.ww-app-handoff {
-  animation: ww-app-shell-in 320ms var(--motion-ease-premium) both;
-}
-
-@keyframes ww-app-shell-out {
-  to { opacity: 0; }
-}
-
-@keyframes ww-app-shell-in {
-  from { opacity: 0.72; }
-  to { opacity: 1; }
+/* RouteFocusManager moves the accessibility cursor to the new page title.
+ * The heading itself is not interactive, so a browser focus rectangle around
+ * its glyph box is misleading; links and controls keep their visible rings. */
+main h1[tabindex='-1']:focus {
+  outline: none;
 }
 
 /*
@@ -80,6 +68,26 @@ html[data-ww-instant-scroll='true'] {
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.45);
   animation: ww-route-sheen 620ms var(--motion-ease-premium) both;
   will-change: transform, opacity;
+}
+
+/* Mobile Safari has to re-rasterize glow and backdrop tiles together while
+ * its browser bars resize the visual viewport. Keep the progress colour, but
+ * avoid a second glowing layer and route sheen on touch screens. */
+@media (hover: none), (pointer: coarse) {
+  .ww-scroll-trail {
+    /* Keep the line visible without painting it over the mobile navbar. */
+    top: 5rem;
+    z-index: 49;
+  }
+
+  .ww-scroll-trail__progress {
+    box-shadow: none;
+    will-change: auto;
+  }
+
+  .ww-scroll-trail__route-sheen {
+    display: none;
+  }
 }
 
 @keyframes ww-route-sheen {

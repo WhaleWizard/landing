@@ -247,7 +247,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
         data-glass={isScrolled || variant === 'content' ? 'true' : 'false'}
         className={`ww-public-navbar fixed top-0 left-0 right-0 z-50 transition-[background-color,border-color,box-shadow] duration-300 ${
           isScrolled || variant === 'content'
-            ? 'bg-background/80 backdrop-blur-xl border-b border-border shadow-lg shadow-primary/5'
+            ? 'border-b border-border bg-background/95 lg:bg-background/80 lg:backdrop-blur-xl lg:shadow-lg lg:shadow-primary/5'
             : 'bg-transparent'
         }`}
       >

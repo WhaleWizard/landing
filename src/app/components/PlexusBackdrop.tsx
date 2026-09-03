@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { isScrollActivityActive } from '../utils/motionPerformance';
 
@@ -12,6 +12,15 @@ type PlexusBackdropProps = {
    */
   inView?: boolean;
   className?: string;
+};
+
+type PlexusNode = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  baseVx: number;
+  baseVy: number;
 };
 
 const LINK_DIST = 150;
@@ -41,6 +50,25 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
   const selfObserved = inView === undefined;
   const inViewRef = useRef(inView ?? false);
   const controlRef = useRef<{ start: () => void; stop: () => void } | null>(null);
+  // Preserve the generated network across a compact/desktop breakpoint
+  // change. The effect still updates its FPS/DPR budget, but the visible
+  // constellation scales in place instead of teleporting to new random nodes.
+  const patternRef = useRef<{ nodes: PlexusNode[]; width: number; height: number }>({
+    nodes: [],
+    width: 0,
+    height: 0,
+  });
+  const [compactMotion, setCompactMotion] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches
+  ));
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const sync = () => setCompactMotion(media.matches);
+    media.addEventListener('change', sync);
+    sync();
+    return () => media.removeEventListener('change', sync);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -49,14 +77,15 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     if (!ctx) return;
 
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    const compactDevice = coarsePointer || compactMotion;
     const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
-    const constrainedDevice = coarsePointer
+    const constrainedDevice = compactDevice
       || navigator.hardwareConcurrency <= 4
       || deviceMemory <= 4;
-    const targetFps = coarsePointer ? 30 : constrainedDevice ? 40 : 60;
+    const targetFps = compactDevice ? 24 : constrainedDevice ? 40 : 60;
     const dpr = Math.min(
       window.devicePixelRatio || 1,
-      coarsePointer ? 1.25 : constrainedDevice ? 1.5 : 2,
+      compactDevice ? 1.25 : constrainedDevice ? 1.5 : 2,
     );
     const minFrameMs = 1000 / targetFps;
     let width = 0;
@@ -65,15 +94,9 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     let canvasTop = 0;
     let lastRectMeasureAt = -1e9;
 
-    type Node = {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      baseVx: number;
-      baseVy: number;
-    };
-    let nodes: Node[] = [];
+    const restoredWidth = patternRef.current.width;
+    const restoredHeight = patternRef.current.height;
+    let nodes = patternRef.current.nodes;
 
     // Ячейки размером с максимальную дистанцию связи. Поэтому для каждой точки
     // достаточно проверить только восемь соседних ячеек вместо всех N² пар.
@@ -85,7 +108,7 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     const [pr, pg, pb] = parseHexColor(styles.getPropertyValue('--primary'), [139, 92, 246]);
     const [ar, ag, ab] = parseHexColor(styles.getPropertyValue('--accent'), [0, 210, 255]);
 
-    const createNode = (targetWidth: number, targetHeight: number): Node => {
+    const createNode = (targetWidth: number, targetHeight: number): PlexusNode => {
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.12 + Math.random() * 0.14;
       return {
@@ -109,8 +132,8 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       if (nextWidth === 0 || nextHeight === 0) return;
       if (Math.abs(nextWidth - width) < 0.5 && Math.abs(nextHeight - height) < 0.5) return;
 
-      const previousWidth = width;
-      const previousHeight = height;
+      const previousWidth = width || restoredWidth;
+      const previousHeight = height || restoredHeight;
       width = nextWidth;
       height = nextHeight;
       canvas.width = Math.round(width * dpr);
@@ -122,7 +145,7 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       gridRows = Math.max(1, Math.ceil(height / LINK_DIST));
       grid = Array.from({ length: gridColumns * gridRows }, () => []);
 
-      const maxNodes = coarsePointer ? 56 : constrainedDevice ? 72 : 100;
+      const maxNodes = compactDevice ? 56 : constrainedDevice ? 72 : 100;
       const density = constrainedDevice ? 25000 : 19000;
       const count = Math.min(maxNodes, Math.max(36, Math.round((width * height) / density)));
       if (nodes.length === 0 || previousWidth === 0 || previousHeight === 0) {
@@ -338,13 +361,14 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
 
     return () => {
       stop();
+      patternRef.current = { nodes, width, height };
       controlRef.current = null;
       resizeObserver?.disconnect();
       if (!resizeObserver) window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMove);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [prefersReduced]);
+  }, [compactMotion, prefersReduced]);
 
   useEffect(() => {
     if (selfObserved) return;
@@ -363,18 +387,22 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       return undefined;
     }
 
-    // Запас в четверть экрана: сеть успевает ожить до того, как секция
-    // въезжает в кадр, и не мигает на границе.
+    // Desktop gets a small lead-in. On a phone the section is mounted before
+    // it is visible, so starting its full-size canvas in that lead-in would
+    // compete with the hero's first paint for no visible benefit.
     const observer = new IntersectionObserver(([entry]) => {
       const visible = Boolean(entry?.isIntersecting);
       inViewRef.current = visible;
       if (visible) controlRef.current?.start();
       else controlRef.current?.stop();
-    }, { rootMargin: '25% 0px', threshold: 0 });
+    }, {
+      rootMargin: compactMotion ? '0px' : '25% 0px',
+      threshold: compactMotion ? 0.01 : 0,
+    });
 
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [selfObserved]);
+  }, [compactMotion, selfObserved]);
 
   return <canvas ref={canvasRef} aria-hidden="true" className={`pointer-events-none ${className}`} />;
 });

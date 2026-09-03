@@ -312,6 +312,10 @@ const ROUTE_ENTRY_MODULES = {
     'src/app/pages/ServiceLandingPage.tsx',
     'src/app/components/service-heroes/ConsultStudioHero.tsx',
   ],
+  // Internal sentinel used only while generating dist/404.html. Its public
+  // canonical is intentionally absent, but it still needs the real NotFound
+  // route chunk/CSS instead of inheriting the much heavier Home preload set.
+  '/__not-found': ['src/app/pages/NotFound.tsx'],
 };
 
 // JSON внутри <script> обязан пережить разбор HTML: незакрытый тег или
@@ -963,6 +967,7 @@ function htmlTemplate({
   title,
   description,
   canonicalPath,
+  assetRoute = canonicalPath,
   bodyHtml,
   ogType = 'website',
   ogImage,
@@ -1015,10 +1020,10 @@ function htmlTemplate({
   const fontPreloadHtml = renderFontPreloads(fontPreloads);
   if (fontPreloadHtml) html = insertBeforeHeadClose(html, fontPreloadHtml);
 
-  const routeStylesheetHtml = renderRouteStylesheets(canonicalPath, baseHtml);
+  const routeStylesheetHtml = renderRouteStylesheets(assetRoute, baseHtml);
   if (routeStylesheetHtml) html = insertBeforeHeadClose(html, routeStylesheetHtml);
 
-  const modulePreloadHtml = renderModulePreloads(canonicalPath, baseHtml);
+  const modulePreloadHtml = renderModulePreloads(assetRoute, baseHtml);
   if (modulePreloadHtml) html = insertBeforeHeadClose(html, modulePreloadHtml);
 
   if (headExtra) html = insertBeforeHeadClose(html, headExtra);
@@ -1047,6 +1052,7 @@ function writeNotFoundPage(baseHtml) {
     title: 'Страница не найдена | Whale Wizard',
     description: 'Такой страницы нет. Вернитесь на главную или загляните в блог и кейсы.',
     canonicalPath: '/',
+    assetRoute: '/__not-found',
     noIndex: true,
     dropCanonical: true,
     bodyHtml: renderGeneratedShell({

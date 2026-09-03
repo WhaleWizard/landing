@@ -370,6 +370,32 @@ test('critical lazy route visuals are linked before React discovers them', () =>
   }
 });
 
+test('404 preloads its own route instead of the full Home hero', () => {
+  const manifestPath = join(DIST, '.vite', 'manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const notFound = findManifestEntry(manifest, 'src/app/pages/NotFound.tsx');
+  const home = findManifestEntry(manifest, 'src/app/pages/Home.tsx');
+  const cosmic = findManifestEntry(manifest, 'src/app/components/CosmicHeroScene.tsx');
+  assert.ok(notFound, 'NotFound entry is missing from the Vite manifest');
+  assert.ok(home, 'Home entry is missing from the Vite manifest');
+  assert.ok(cosmic, 'CosmicHeroScene entry is missing from the Vite manifest');
+
+  const html = readFileSync(join(DIST, '404.html'), 'utf8');
+  const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+  const preloads = new Set(links(head, 'modulepreload').map((tag) => attribute(tag, 'href')));
+  const stylesheets = new Set(links(head, 'stylesheet').map((tag) => attribute(tag, 'href')));
+  const [, notFoundEntry] = notFound;
+  const [, homeEntry] = home;
+  const [, cosmicEntry] = cosmic;
+
+  assert.ok(preloads.has(`/${notFoundEntry.file}`), '404 must preload the NotFound route chunk');
+  for (const css of notFoundEntry.css || []) {
+    assert.ok(stylesheets.has(`/${css}`), `404 must load its route stylesheet ${css}`);
+  }
+  assert.ok(!preloads.has(`/${homeEntry.file}`), '404 must not preload Home');
+  assert.ok(!preloads.has(`/${cosmicEntry.file}`), '404 must not preload CosmicHeroScene');
+});
+
 test('the page generator refuses an already generated root shell', () => {
   const source = readFileSync(join(ROOT, 'scripts', 'generate-pages.js'), 'utf8');
   assert.match(source, /dist\/index\.html is already generated/);

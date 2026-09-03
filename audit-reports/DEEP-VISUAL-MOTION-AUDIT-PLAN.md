@@ -141,3 +141,57 @@
   module/preload synchronously и запускают сетевой fallback только при реальной
   задержке; повторный live sweep на desktop/mobile и 320 px не показал skeleton
   после hand-off.
+
+## Финальная шлифовка visual/motion/loading 2026-09-03
+
+- Построчно пересмотрена текущая критическая цепочка первого экрана: `main.tsx` →
+  route preload → `Hero.tsx` → `CosmicHeroScene.tsx` → CSS сцены, а также общие
+  navbar/scroll-trail/title effects, canvas `PlexusBackdrop` и мобильная 404.
+- Подтверждены четыре разные причины видимых дефектов, а не один общий «медленный
+  lazy-load»: полноэкранный opacity-слой над React root оставлял WebKit-тени;
+  `Suspense fallback={null}` вставлял mobile cosmic-stage после первого paint и
+  давал измеренный CLS около `0.47`; `pt-16` оставлял однотонную полосу над
+  mobile hero; CSS 404 выбирал любую кнопку с `cookie` в `aria-label` и поэтому
+  сжимал основную кнопку возврата в прозрачный круг.
+- Исправления сохраняют дизайн и движение: геометрический fallback сразу
+  резервирует cosmic-stage; CSS сцены приходит вместе с Home; мобильные скрытые
+  декорации не монтируются; dust и plexus рисуют полноценный статичный первый
+  кадр, затем продолжают motion с мобильным лимитом 24 fps; offscreen plexus на
+  телефоне не стартует заранее. На desktop остаются полные слои, параллакс,
+  свечения и 60 fps там, где устройство это допускает.
+- Убран только общий root-fade, создававший проблемный viewport-sized compositor
+  layer. Reveal-анимации заголовков сохранены, но их финальные keyframes теперь
+  освобождают `transform/filter`, поэтому браузер не держит текст на отдельной
+  размытой GPU-текстуре. Focus-ring снят только с программно фокусируемого
+  неинтерактивного `h1`; у ссылок, кнопок и полей видимый focus остаётся.
+- Production-like browser sweep охватил 16 публичных маршрутов (`/`, четыре
+  услуги, блог, кейсы, оба калькулятора, thank-you, FAQ, glossary, три legal и
+  404) на 320, 390 и 1440 px; граница cosmic hero отдельно проверена на
+  768/820/900/901/920 px. Непреднамеренный page-level horizontal overflow,
+  обрезанные интерактивные элементы, битые изображения и оставшиеся skeleton
+  после стабилизации не обнаружены.
+- На каждом маршруте выполнен вертикальный проход вниз/вверх; длинные страницы
+  вернулись в `scrollY=0`, короткая 404 корректно не скроллится. Намеренные
+  horizontal scroller-ы главной и услуг прошли `0 → 685 → 0`, FAQ и glossary —
+  `0 → 534 → 0`; при этом page-level `scrollX` оставался `0`.
+- Повторный mobile Lighthouse production-like после резервирования сцены:
+  `CLS=0`, `TBT=260 ms`, 49 запросов. До правок локально воспроизводился
+  `CLS≈0.47`; live production baseline имел `TBT=2080 ms` и 55 запросов.
+  FCP/LCP локального HTTP/1 preview намеренно не сравниваются с CDN — итоговые
+  значения фиксируются отдельным live-прогоном после Cloudflare deploy.
+- Регрессии закреплены source-contract тестами: mobile hero breakpoint/fallback,
+  освобождение GPU-слоя текста, отсутствие root-fade, отложенный mobile plexus и
+  точный `data-cookie-settings-trigger` для 404. Перед выкладкой обязателен полный
+  `npm run check`; после выкладки — тот же viewport/scroll/cold-load проход на
+  `https://www.whalewzrd.com/`.
+- Последнее независимое ревью дополнительно закрыло resize/reduced-motion края:
+  planet/shard получили свои реальные групповые классы; canvas-пыль покрывает
+  всю сцену вместо intrinsic `300×150`, сохраняет координаты при resize и сразу
+  перерисовывается даже при остановленном цикле; старые inline parallax transforms
+  очищаются при смене режима; узор plexus сохраняется между mobile/desktop.
+- В production generator 404 отделён `assetRoute` от canonical: вместо Home/Hero/
+  Cosmic preloads загружаются NotFound JS/CSS. У 404 стало 8 критических asset
+  ссылок вместо 24; новый SEO-output тест проверяет отсутствие Home/Cosmic.
+- По просьбе владельца дальнейшее расширение аудита остановлено после этого
+  пакета; оставшиеся направления перечислены в
+  `HANDOFF-VISUAL-PERFORMANCE-2026-09-03.md`.
