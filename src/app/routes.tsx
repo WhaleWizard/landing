@@ -7,6 +7,7 @@ import { ArticlesProvider } from './context/ArticlesContext';
 import { useRememberPublicRoute } from './utils/siteNavigation';
 import { isPathLocked, refreshPageLocks } from './utils/pageLocks';
 import { onUserScrollIntent, readDocumentScrollY, restoreWindowScrollPosition } from './utils/scrollRestoration';
+import { preloadable } from './utils/preloadable';
 import {
   loadAdmin,
   loadBlogPage,
@@ -31,34 +32,6 @@ import {
 } from './utils/routePreload';
 const CookieConsentManager = lazy(() => import('./components/cookie/CookieConsentManager'));
 const PageLockHandoff = lazy(() => import('./components/PageLockHandoff'));
-
-/**
- * React.lazy attaches its promise handler only on the first render. If
- * bootstrap has already awaited that same import, React can still commit one
- * Suspense fallback frame before the handler's microtask marks it resolved.
- * Read the memoized loader's resolved module synchronously to make the first
- * production frame the actual route, while preserving Suspense for navigations
- * whose chunk is genuinely still in flight.
- */
-function preloadable(loader: MemoizedLoader<any>): ComponentType<any> {
-  let Loaded = loader.resolved?.default as ComponentType<any> | undefined;
-  let pending: Promise<unknown> | undefined;
-
-  return function PreloadedRoute(props: any) {
-    if (!Loaded) Loaded = loader.resolved?.default as ComponentType<any> | undefined;
-    if (Loaded) return createElement(Loaded, props);
-
-    if (!pending) {
-      pending = loader().then((module) => {
-        Loaded = module.default as ComponentType<any>;
-      }).catch((error) => {
-        pending = undefined;
-        throw error;
-      });
-    }
-    throw pending;
-  };
-}
 
 const Home = preloadable(loadHome);
 const ThankYou = preloadable(loadThankYou);

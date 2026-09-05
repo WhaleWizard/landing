@@ -11,6 +11,8 @@ import type { TestimonialsContent } from '../components/Testimonials';
 import useServiceContent from '../hooks/useServiceContent';
 import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import { onUserScrollIntent } from '../utils/scrollRestoration';
+import { preloadable } from '../utils/preloadable';
+import { loadHero, loadConsultStudioHero, loadMetaAdsEditorialHero } from '../utils/heroPreload';
 import {
   managedBodyClasses,
   managedBodyStyle,
@@ -26,12 +28,12 @@ const CallToAction = lazy(() => import('../components/CallToAction'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
 const LandingForm = lazy(() => import('../components/LandingForm'));
 const Footer = lazy(() => import('../components/Footer'));
-const Hero = lazy(() => import('../components/Hero'));
-const ConsultStudioHero = lazy(() => import('../components/service-heroes/ConsultStudioHero'));
+const Hero = preloadable(loadHero);
+const ConsultStudioHero = preloadable(loadConsultStudioHero);
 // Отдельным чанком, как и остальные хиро услуг: статический импорт клал его в
 // общий модуль лендингов, и Google Ads, консультация и Meta Apps скачивали код
 // чужого первого экрана. Для Meta Ads он подгружается параллельно страницей.
-const MetaAdsEditorialHero = lazy(() => import('../components/service-heroes/MetaAdsEditorialHero'));
+const MetaAdsEditorialHero = preloadable(loadMetaAdsEditorialHero);
 
 export type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 

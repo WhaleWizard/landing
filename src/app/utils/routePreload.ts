@@ -1,36 +1,15 @@
+import { memoizedImport } from './memoizedImport';
+import {
+  loadHero, loadCosmicHeroScene, loadMetaAppsHeroVisual,
+  loadConsultStudioHero, loadMetaAdsEditorialHero,
+} from './heroPreload';
+export type { MemoizedLoader } from './memoizedImport';
+export {
+  loadHero, loadCosmicHeroScene, loadMetaAppsHeroVisual,
+  loadConsultStudioHero, loadMetaAdsEditorialHero,
+} from './heroPreload';
+
 type RouteLoader = () => Promise<unknown>;
-
-export type MemoizedLoader<T> = (() => Promise<T>) & {
-  /** The module is exposed once its promise has fulfilled so a route wrapper
-   * can render synchronously instead of showing a one-frame Suspense fallback. */
-  resolved?: T;
-};
-
-/**
- * Route preloading and React.lazy must share the same promise. Calling
- * `import()` twice returns two promises even when the module is already in the
- * browser cache; React can therefore render one Suspense fallback frame after
- * bootstrap has awaited the first promise. Cache each route import and reset
- * it after a failed request so a transient/chunk-version error can retry.
- */
-function memoizedImport<T>(loader: () => Promise<T>): MemoizedLoader<T> {
-  let pending: Promise<T> | undefined;
-  const load = (() => {
-    if (pending) return pending;
-    pending = loader().then(
-      (value) => {
-        load.resolved = value;
-        return value;
-      },
-      (error) => {
-        pending = undefined;
-        throw error;
-      },
-    );
-    return pending;
-  }) as MemoizedLoader<T>;
-  return load;
-}
 
 export const loadHome = memoizedImport(() => import('../pages/Home'));
 export const loadThankYou = memoizedImport(() => import('../pages/ThankYou'));
@@ -47,15 +26,6 @@ export const loadFaqPage = memoizedImport(() => import('../pages/FAQPage'));
 export const loadMarketingGlossaryPage = memoizedImport(() => import('../pages/MarketingGlossaryPage'));
 export const loadNotFound = memoizedImport(() => import('../pages/NotFound'));
 export const loadServiceLandingPage = memoizedImport(() => import('../pages/ServiceLandingPage'));
-export const loadHero = memoizedImport(() => import('../components/Hero'));
-// Home renders the cosmic scene inside Hero's own Suspense boundary. Preload
-// that nested chunk together with the route so a cold production visit does
-// not hand off from the generated shell to the generic RouteSkeleton before
-// the actual first screen is ready.
-export const loadCosmicHeroScene = memoizedImport(() => import('../components/CosmicHeroScene'));
-export const loadMetaAppsHeroVisual = memoizedImport(() => import('../components/MetaAppsHeroVisual'));
-export const loadConsultStudioHero = memoizedImport(() => import('../components/service-heroes/ConsultStudioHero'));
-export const loadMetaAdsEditorialHero = memoizedImport(() => import('../components/service-heroes/MetaAdsEditorialHero'));
 
 const routePromises = new Map<string, Promise<unknown>>();
 

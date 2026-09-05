@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useRef, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, Suspense, useCallback, useRef, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Braces, Database } from 'lucide-react';
 import { Button } from './ui/button';
@@ -22,8 +22,11 @@ import HeroTitleEffect, {
 
 export type { HeroTitleLine } from './HeroTitleEffect';
 
-const MetaAppsHeroVisual = lazy(() => import('./MetaAppsHeroVisual'));
-const CosmicHeroScene = lazy(() => import('./CosmicHeroScene'));
+import { preloadable } from '../utils/preloadable';
+import { loadCosmicHeroScene, loadMetaAppsHeroVisual } from '../utils/heroPreload';
+
+const MetaAppsHeroVisual = preloadable(loadMetaAppsHeroVisual);
+const CosmicHeroScene = preloadable(loadCosmicHeroScene);
 
 function CosmicHeroFallback() {
   return (

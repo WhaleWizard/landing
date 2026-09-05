@@ -34,7 +34,7 @@
     "build:migration-map": "node scripts/build-migration-map.js",
     "test:migration-map": "node --test scripts/migration-guard.test.js",
     "test:page-locks": "node --test scripts/page-locks.test.js",
-    "test:audit-regressions": "node --test scripts/audit-regressions.test.js scripts/scroll-restoration.test.js scripts/service-route-lifecycle.test.js",
+    "test:audit-regressions": "node --test scripts/audit-regressions.test.js scripts/scroll-restoration.test.js scripts/service-route-lifecycle.test.js scripts/first-screen-preload.test.js",
     "test:lead-dedupe": "node --test scripts/lead-dedupe-index.test.js",
     "test:versions-retention": "node --test scripts/versions-retention.test.js",
     "test:datalayer": "node --test scripts/datalayer-events.test.js",

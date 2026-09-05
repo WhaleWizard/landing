@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-05T15:54:42.191Z",
-  "baseCommit": "c546df0f6318afcf28d58fc57052c68eebfea3e7",
+  "generatedAt": "2026-09-05T20:57:28.748Z",
+  "baseCommit": "ac1c17f3eb4b62e074f15a06df9d0f16bc34e576",
   "rules": [
     "This is an inventory, not proof of review. not_reviewed is intentional even for partly inspected files.",
     "Read complete source and follow dependencies before marking code_reviewed; record exact line ranges and evidence.",
@@ -9,8 +9,8 @@
     "Binary assets are not line-audited; audit their request timing, dimensions, srcset, decoding, quality and visible use in the route matrix."
   ],
   "counts": {
-    "files": 367,
-    "lines": 120212
+    "files": 371,
+    "lines": 120349
   },
   "files": [
     {
@@ -1267,7 +1267,7 @@
     {
       "path": "package.json",
       "lines": 85,
-      "sha256": "0b025683edb99b357d6b2c429319d28b4ce17c0f09afb59eb9f7f2cbff45dedd",
+      "sha256": "a5ca3bac196b0275dde69524aed6a3e97a3891c74ed9eca31297ef8e7b01706c",
       "group": "build-tests-config",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -1441,6 +1441,15 @@
       "path": "scripts/fetch-articles.test.js",
       "lines": 111,
       "sha256": "da7163f113ba9ffce29da642c15655021e80b33c00471d82379ec7768ae99032",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/first-screen-preload.test.js",
+      "lines": 128,
+      "sha256": "931f5067f9560279458d36cac1586b80f760be3908533f181c8aca8b0dbe64a3",
       "group": "build-tests-config",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -1808,12 +1817,14 @@
     },
     {
       "path": "src/app/components/Hero.tsx",
-      "lines": 903,
-      "sha256": "4d9702946f80b460a673dabb175e026edbdf7ae27da7c18df1289b520734723a",
+      "lines": 906,
+      "sha256": "b9cd8364536529b1c1a8b56effc08eab6c5e5951f8f67ad2f4a80fbb003e4bad",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
-      "evidence": []
+      "evidence": [],
+      "previousEvidence": [],
+      "reviewInvalidatedByChange": true
     },
     {
       "path": "src/app/components/HeroTitleEffect.tsx",
@@ -2879,12 +2890,14 @@
     },
     {
       "path": "src/app/pages/ServiceLandingPage.tsx",
-      "lines": 1141,
-      "sha256": "8a1e34ff967190502d033b95ada4b5be05ecc739eb8de07a28b33613a0d0082a",
+      "lines": 1143,
+      "sha256": "d57d633dc10bee4a4f45175a65d9bbd2870709e063f3241c9288422ded28f415",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
-      "evidence": []
+      "evidence": [],
+      "previousEvidence": [],
+      "reviewInvalidatedByChange": true
     },
     {
       "path": "src/app/pages/ThankYou.tsx",
@@ -2897,8 +2910,8 @@
     },
     {
       "path": "src/app/routes.tsx",
-      "lines": 493,
-      "sha256": "bccae4e1ffb5bcca7783d426a0d43ac64b73a3512aadb1175233f00d0b1143e3",
+      "lines": 466,
+      "sha256": "607856e35026188ab44e4dcab2d3f673ffffddb4e7a35f940dc8b9054cdf8a51",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -2970,6 +2983,15 @@
       "evidence": []
     },
     {
+      "path": "src/app/utils/heroPreload.ts",
+      "lines": 10,
+      "sha256": "ea2bef8b8849f06957ec3bd5d850926541998c49667dec9f85cc2b4c199044c1",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
       "path": "src/app/utils/leadContext.ts",
       "lines": 108,
       "sha256": "9ebda63a5cbfeea483bbad621a3651605e6637fbcf2568874568197632959484",
@@ -2991,6 +3013,15 @@
       "path": "src/app/utils/leadRetryQueue.ts",
       "lines": 147,
       "sha256": "71902503056aa6429723160640358ae7e0dfc5132164f33d79004c57e0fc71b8",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/memoizedImport.ts",
+      "lines": 24,
+      "sha256": "645d66880987e497e369ab6e380d29e6527298618514182c50c53d8f6fa186d9",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -3042,13 +3073,24 @@
       "evidence": []
     },
     {
-      "path": "src/app/utils/routePreload.ts",
-      "lines": 163,
-      "sha256": "ccba00c535e30cba50ce3bfff30818cb65270b6dc6f2f0095cd8203989686409",
+      "path": "src/app/utils/preloadable.ts",
+      "lines": 27,
+      "sha256": "d35941a4eb15fd2ba4fc1b71b5479be12c908975c45c961ffa6c6ec0ee32344b",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
       "evidence": []
+    },
+    {
+      "path": "src/app/utils/routePreload.ts",
+      "lines": 133,
+      "sha256": "4fff3feeaf6099571d4b96241c3818c290168c204c4ef8304c5c6eb4f5ad8a45",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": [],
+      "previousEvidence": [],
+      "reviewInvalidatedByChange": true
     },
     {
       "path": "src/app/utils/sanitizeHtml.ts",
