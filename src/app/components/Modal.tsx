@@ -128,7 +128,7 @@ export default function Modal({
                 <X className="w-5 h-5 text-muted-foreground" />
               </motion.button>
             </div>
-            <div className={`${flushBody ? '' : 'p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'} overflow-y-auto overscroll-contain modal-scroll ${bodyClassName ?? ''}`}>
+            <div className={`${flushBody ? 'modal-scroll-flush' : 'p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'} overflow-y-auto overscroll-contain modal-scroll ${bodyClassName ?? ''}`}>
               {children}
             </div>
             {!hideFooter && (

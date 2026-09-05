@@ -6,6 +6,7 @@ import RouteIntentPreloader from './components/RouteIntentPreloader';
 import { ArticlesProvider } from './context/ArticlesContext';
 import { useRememberPublicRoute } from './utils/siteNavigation';
 import { isPathLocked, refreshPageLocks } from './utils/pageLocks';
+import { onUserScrollIntent, readDocumentScrollY, restoreWindowScrollPosition } from './utils/scrollRestoration';
 import {
   loadAdmin,
   loadBlogPage,
@@ -82,6 +83,9 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
   let pending: Promise<unknown> | undefined;
 
   const resolveLoaded = () => {
+    // Keep React's component identity once resolved. Recreating this wrapper
+    // on a parent render remounts the entire landing, resetting forms/scenes.
+    if (Loaded) return;
     const module = loadServiceLandingPage.resolved as typeof import('./pages/ServiceLandingPage') | undefined;
     if (!module?.ServiceLandingPage || preloads.some((preload) => !preload.resolved)) return;
     Loaded = () => createElement(module.ServiceLandingPage, { service });
@@ -250,7 +254,7 @@ function StableScrollPositionRestoration() {
 
     const remember = () => {
       if (!active || Date.now() < ignoreScrollUntilRef.current) return;
-      const y = window.scrollY;
+      const y = readDocumentScrollY();
       positionsRef.current.set(key, y);
       positionsRef.current.set(path, y);
       pendingPersistY = y;
@@ -270,14 +274,16 @@ function StableScrollPositionRestoration() {
     const preserveBeforeNavigation = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element) || !target.closest('a,button,[role="link"]')) return;
-      if (!active || Date.now() < ignoreScrollUntilRef.current) return;
+      if (!active) return;
       // A router navigation can trigger its clamped scroll before the next
       // location has rendered. Capture the outgoing value at click time so
       // that synthetic movement cannot replace it in the map.
-      const y = window.scrollY;
+      const y = readDocumentScrollY();
       positionsRef.current.set(key, y);
       positionsRef.current.set(path, y);
-      ignoreScrollUntilRef.current = Date.now() + 1800;
+      // Only an actual location change starts the restoration guard. Buttons
+      // also open accordions, calculators and dialogs; freezing persistence on
+      // each click lost the visitor's next scroll position for 1.8 seconds.
       try {
         const raw = window.sessionStorage.getItem(storageKey);
         const persisted = raw ? JSON.parse(raw) as Record<string, number> : {};
@@ -293,10 +299,13 @@ function StableScrollPositionRestoration() {
     window.addEventListener('scroll', remember, { passive: true });
     document.addEventListener('pointerdown', preserveBeforeNavigation, true);
     document.addEventListener('click', preserveBeforeNavigation, true);
+    const stopIntentListener = onUserScrollIntent(() => {
+      ignoreScrollUntilRef.current = 0;
+    });
     const rememberBeforeUnload = () => {
       // pagehide can happen while the scroll listener is throttled. Persist
       // the latest outgoing position synchronously as a final safeguard.
-      const y = window.scrollY;
+      const y = readDocumentScrollY();
       positionsRef.current.set(key, y);
       positionsRef.current.set(path, y);
       persist(y);
@@ -309,6 +318,7 @@ function StableScrollPositionRestoration() {
       document.removeEventListener('pointerdown', preserveBeforeNavigation, true);
       document.removeEventListener('click', preserveBeforeNavigation, true);
       window.removeEventListener('pagehide', rememberBeforeUnload);
+      stopIntentListener();
     };
   }, [currentPath, location.key]);
 
@@ -343,44 +353,7 @@ function StableScrollPositionRestoration() {
     }
     if (saved == null) return undefined;
 
-    let frame = 0;
-    let attempts = 0;
-    let previousHeight = -1;
-    let stableFrames = 0;
-    const restore = () => {
-      attempts += 1;
-      const height = document.documentElement.scrollHeight;
-      if (height === previousHeight) stableFrames += 1;
-      else {
-        previousHeight = height;
-        stableFrames = 0;
-      }
-
-      const maxScroll = Math.max(0, height - window.innerHeight);
-      const settled = stableFrames >= 3 || attempts >= 120;
-      if (settled) {
-        window.scrollTo({
-          top: Math.min(saved, maxScroll),
-          left: 0,
-          behavior: 'auto',
-        });
-        return;
-      }
-      frame = window.requestAnimationFrame(restore);
-    };
-
-    frame = window.requestAnimationFrame(restore);
-    const timer = window.setTimeout(() => {
-      window.scrollTo({
-        top: Math.min(saved ?? 0, Math.max(0, document.documentElement.scrollHeight - window.innerHeight)),
-        left: 0,
-        behavior: 'auto',
-      });
-    }, 1200);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
+    return restoreWindowScrollPosition(saved);
   }, [location.hash, location.key, location.pathname, location.search, navigationType]);
 
   return null;

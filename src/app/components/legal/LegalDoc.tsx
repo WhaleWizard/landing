@@ -58,6 +58,14 @@ export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
 
     update();
     target.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    // Rotation, modal resizing and font wrapping change the reading range
+    // without a scroll or details toggle. Keep the same indicator in sync.
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(update);
+    resizeObserver?.observe(root);
+    if (scrollParent) resizeObserver?.observe(scrollParent);
     // Высота меняется при раскрытии разделов
     const toggles = Array.from(root.querySelectorAll('details'));
     toggles.forEach((d) => d.addEventListener('toggle', update));
@@ -65,6 +73,8 @@ export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
       target.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      resizeObserver?.disconnect();
       toggles.forEach((d) => d.removeEventListener('toggle', update));
     };
   }, []);

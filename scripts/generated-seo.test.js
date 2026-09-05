@@ -321,6 +321,53 @@ test('blog and article HTML preload the private BlogPage route chunk', () => {
   }
 });
 
+test('legal and confirmation HTML preload only their own static dependency graph', () => {
+  const manifest = JSON.parse(readFileSync(join(DIST, '.vite', 'manifest.json'), 'utf8'));
+  const routes = [
+    ['/privacy-policy', 'src/app/pages/PrivacyPolicy.tsx'],
+    ['/offer', 'src/app/pages/Offer.tsx'],
+    ['/cookie-policy', 'src/app/pages/CookiePolicy.tsx'],
+    ['/thank-you', 'src/app/pages/ThankYou.tsx'],
+  ];
+
+  for (const [route, source] of routes) {
+    const resolved = findManifestEntry(manifest, source);
+    assert.ok(resolved, `${route}: route entry is missing from the Vite manifest`);
+    const [routeKey] = resolved;
+    const graph = new Map();
+    const collect = (key) => {
+      if (graph.has(key)) return;
+      const item = manifest[key];
+      assert.ok(item, `${route}: unresolved static dependency ${key}`);
+      graph.set(key, item);
+      for (const imported of item.imports || []) collect(imported);
+    };
+    collect('index.html');
+    collect(routeKey);
+
+    const html = readFileSync(join(DIST, route.slice(1), 'index.html'), 'utf8');
+    const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+    const preloads = links(head, 'modulepreload').map((tag) => attribute(tag, 'href'));
+    const stylesheets = new Set(links(head, 'stylesheet').map((tag) => attribute(tag, 'href')));
+    const scripts = new Set(tags(head, 'script').map((tag) => attribute(tag, 'src')));
+    const expectedModules = new Set([...graph.values()].map((item) => `/${item.file}`));
+
+    assert.equal(preloads.length, new Set(preloads).size, `${route}: duplicate modulepreload`);
+    for (const href of preloads) {
+      assert.ok(expectedModules.has(href), `${route}: unrelated or deferred module was preloaded: ${href}`);
+    }
+    for (const item of graph.values()) {
+      assert.ok(
+        preloads.includes(`/${item.file}`) || scripts.has(`/${item.file}`),
+        `${route}: static dependency ${item.file} waits for JavaScript discovery`,
+      );
+      for (const css of item.css || []) {
+        assert.ok(stylesheets.has(`/${css}`), `${route}: route CSS ${css} waits for JavaScript discovery`);
+      }
+    }
+  }
+});
+
 test('service HTML links route stylesheets before its lazy route executes', () => {
   const manifestPath = join(DIST, '.vite', 'manifest.json');
   assert.ok(existsSync(manifestPath), 'Vite manifest is missing');
@@ -343,6 +390,29 @@ test('service HTML links route stylesheets before its lazy route executes', () =
       assert.ok(stylesheets.has(`/${file}`), `${route}: missing route stylesheet ${file}`);
     }
   }
+});
+
+test('consultation image preloads match the responsive desk actually rendered by its hero', () => {
+  const html = readFileSync(join(DIST, 'consult', 'index.html'), 'utf8');
+  const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+  const images = links(head, 'preload').filter((tag) => attribute(tag, 'as') === 'image');
+  const sceneCss = readFileSync(join(ROOT, 'src', 'styles', 'consult-desk-scene.css'), 'utf8');
+  const expected = [
+    ['/images/consult-proof/desk-v.webp', '(max-width: 1023px)'],
+    ['/images/consult-proof/desk-h.webp', 'not all and (max-width: 1023px)'],
+  ];
+  for (const [href, media] of expected) {
+    assert.ok(sceneCss.includes(`url('${href}')`), `preload ${href} must be consumed by the actual scene CSS`);
+    assert.ok(existsSync(join(DIST, href.slice(1))), `missing built desk image ${href}`);
+    const matches = images.filter((tag) => attribute(tag, 'href') === href);
+    assert.equal(matches.length, 1, `the first HTML response must discover ${href} exactly once`);
+    assert.equal(attribute(matches[0], 'media'), media, `do not preload both desk orientations on one device`);
+    assert.equal(attribute(matches[0], 'fetchpriority'), 'high');
+  }
+  assert.ok(
+    images.every((tag) => !attribute(tag, 'href')?.includes('/workspace-')),
+    'the retired workspace photo must not compete with the live desk on the network',
+  );
 });
 
 test('critical lazy route visuals are linked before React discovers them', () => {

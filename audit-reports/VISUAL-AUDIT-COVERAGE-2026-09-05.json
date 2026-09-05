@@ -1,0 +1,3324 @@
+{
+  "generatedAt": "2026-09-05T15:54:42.191Z",
+  "baseCommit": "c546df0f6318afcf28d58fc57052c68eebfea3e7",
+  "rules": [
+    "This is an inventory, not proof of review. not_reviewed is intentional even for partly inspected files.",
+    "Read complete source and follow dependencies before marking code_reviewed; record exact line ranges and evidence.",
+    "Use verified only after route/state/mobile/desktop checks; identify automated and real-device checks separately.",
+    "Changing a file hash invalidates its previous review. Do not label generated/vendor code hand-reviewed; audit its source/generator and emitted behavior.",
+    "Binary assets are not line-audited; audit their request timing, dimensions, srcset, decoding, quality and visible use in the route matrix."
+  ],
+  "counts": {
+    "files": 367,
+    "lines": 120212
+  },
+  "files": [
+    {
+      "path": "functions/_lib/admin-2fa.ts",
+      "lines": 180,
+      "sha256": "4a0644eb9a91356ff8b55f2e66bd17bb02aecdf36f155171f938f4bc42e25d68",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/admin-alerts.ts",
+      "lines": 345,
+      "sha256": "3d7974cab2e3f3eb53f04c310926fa73a351e06a6a2d89010bd9549106b51a08",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/admin-crm.ts",
+      "lines": 312,
+      "sha256": "9555c698c661eae695ec7891880a8bb18ceb31291993306707457eab45bfe513",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/admin-lead-quality-status.ts",
+      "lines": 320,
+      "sha256": "9388cb85e8a2fb2d8e3fe524513aac13253972d0ff4fccc916950aaefc56b5c3",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/admin-session.ts",
+      "lines": 117,
+      "sha256": "99ae536e450b0d78a76d015e9193b7b4186b4bf506fb40e85d6c25a0518452bc",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/admin-totp.ts",
+      "lines": 184,
+      "sha256": "98f85099f96b01c8929d24796abee9d7a5f7469054db221b7d97aa90ad618fa4",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/article-page.ts",
+      "lines": 258,
+      "sha256": "ffb6a32f48abbce12d958df48a991810bd8c1c594a174d19b500ca528b6d35e8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/articles.ts",
+      "lines": 378,
+      "sha256": "c92eab2d2e50566b15cb6ab4ccf5bba25e2923bd6967df182ef5e54cd4c1915a",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/auth.ts",
+      "lines": 33,
+      "sha256": "f8567fb669c98248baaaf7acad9b3ed6f21449605a25c7b319c38412e80fbc9e",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/cache.ts",
+      "lines": 20,
+      "sha256": "174c8caa00e0e20f0bfdade0b19d9928f3f136d08f449b928b58841d552c59d4",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/content-font-ids.ts",
+      "lines": 157,
+      "sha256": "4b77a2a03f37a4ff27216fb9821a9841e761442d4196f62938581b2138a5e350",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/d1.ts",
+      "lines": 273,
+      "sha256": "999d2210f24419f8796b79382c8dcbdd37a1566b306bf30c729f14cffeaab585",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/form-guard-stats.ts",
+      "lines": 104,
+      "sha256": "c7168e4bd0630a73e948eeef9a66242517ccb1ef7e9bffde1aecf6ca714e4ab0",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/http.ts",
+      "lines": 72,
+      "sha256": "c435b0db08444dd10e481b8b7dcdf018d010b6fa2205c8838bdcfef9a34f4bb3",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/jsonbin.ts",
+      "lines": 397,
+      "sha256": "2658ffb159cbc7f20a86d5639f75dad35145ab9ee090acbbabfdcea72f8edd77",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/lead-quality.ts",
+      "lines": 343,
+      "sha256": "380872b462dfc851a43d5fb3d47c41b63e7f22b3b913434668d8eefcffbe6131",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/leads.ts",
+      "lines": 769,
+      "sha256": "43f7d3bf229310df5ff1a896cb036ffc210c2f15b0f12a18bc0785f90122b854",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/media-folders.ts",
+      "lines": 79,
+      "sha256": "8f864a3d197b61ab05c77665da60ee0595235260996d274ce89289f80dd381c0",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/meta-capi.ts",
+      "lines": 230,
+      "sha256": "9dd7824fe20055ef1896969ba759790f1706fb4c53fd5e7936ef4b74a1970bc0",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/meta-diagnostics.ts",
+      "lines": 284,
+      "sha256": "59dfc6ae4b353d3f29a426cdb48bc5518ff66d4ab179f536fe93c5a6b0805d78",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/meta-outbox.ts",
+      "lines": 409,
+      "sha256": "3716e267fd5ddf090e5bf2a1d1b4f20479aa821124af5fc2403ca49107829dc8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/meta-pii.ts",
+      "lines": 35,
+      "sha256": "696565c986f3d343c6643f24b406053a183e47b0bc3b878343c31c7600bdebd2",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/migration-guard.ts",
+      "lines": 76,
+      "sha256": "8543d7d3970db206d34fb7fc2fcbf6d46524fb25bf29c486288770b4996b3af4",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/migration-signatures.ts",
+      "lines": 341,
+      "sha256": "a91d7258852e27fcf54bbc279092b6a613bf4bd78f481325f48d5980313fd6ec",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/migration-sql.ts",
+      "lines": 52,
+      "sha256": "727bad98229308222bd5792e49872007e29694237f992f03206694dfdc8c78dd",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/migration-tables.ts",
+      "lines": 50,
+      "sha256": "d306c1fbb433522913434d66778235dd7b0c216613c437d7d18ac98f3921b57d",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/migration-unlocks.ts",
+      "lines": 55,
+      "sha256": "13767705ad7d39f5a992654bf523922986e6fc35983cf4933c6978fc57ea1c57",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/money.ts",
+      "lines": 73,
+      "sha256": "ce05c6b0c2e777867ff84f109c3f033587963e363390ca3989a1b5689d40a658",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/page-lock-interest.ts",
+      "lines": 278,
+      "sha256": "a1e82f19c41abef65b0258ba0784c6b0811309484b62adc7ce61d15d572acfe8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/page-lock-page.ts",
+      "lines": 613,
+      "sha256": "db0d9f9912adae18b13b72d016af1f9b725517d0debca4cdd451a1157a3c1946",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/page-lock-preview.ts",
+      "lines": 221,
+      "sha256": "cdba495e2a85b03dcc9486d5dffd1762efb33523bc631adb4d8aba7dc5501646",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/page-locks.ts",
+      "lines": 526,
+      "sha256": "705fbd3fde1636a1a0ba0d02494c210a4f0662dbbd5f58bf5bf3bb62e5950b6c",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/rate-limit.ts",
+      "lines": 99,
+      "sha256": "0ee921647d40a156d43ea212589bbe6392a6d0f1a3712397a61b04ddc44eb502",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/redact.ts",
+      "lines": 81,
+      "sha256": "81ee9f4ff3349e50c7c2b4d51f2a2765ad9643ea6b685fe3b8ce22e2aa1bdaeb",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/sanitize.ts",
+      "lines": 101,
+      "sha256": "f83627ac41f1ad2763f8a8f6a813b5c5c3e480d6f12d6714fc2c126634d3e91d",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/seo.ts",
+      "lines": 393,
+      "sha256": "dc8615758985af949b98f192096a6571c6784884d3efe8a3a5a57e3e273f95ba",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/site-content.ts",
+      "lines": 595,
+      "sha256": "922213be5f42b2898b1560e40e15e7ef9f155ae7cf3ec695811568f068f1dd8a",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/tracking-signature.ts",
+      "lines": 179,
+      "sha256": "eb0f10215762cb4997ab123f1612c14447ed173f24a8afadab43475be2004ce1",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/turnstile.ts",
+      "lines": 87,
+      "sha256": "f3efb0a24694e38a0fa7df939ee92b772f37a97b1c7b4f30ae09c82541ba45b8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/types.ts",
+      "lines": 110,
+      "sha256": "daaa39131ebc6cf8043caf8f9acca2301cf407c835ed3d96aea0a0669955684c",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_lib/url-sanitize.ts",
+      "lines": 37,
+      "sha256": "98cde00b74e4de88f4a6eb1aab2b5f54903fe8d39d0402cb95f057807e87dd00",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/_middleware.ts",
+      "lines": 228,
+      "sha256": "87605aac9eb53e9756a577d0f99c8cb72dfc584db8d99e03a4cba60b586176fe",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/_middleware.ts",
+      "lines": 54,
+      "sha256": "6ee4ccffdc5b48f28a7d101dba04a33d306149cca3dc317a6c3e7a03cca17243",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/ad-spend.ts",
+      "lines": 296,
+      "sha256": "96713684ccb4bed5f6acb810e2e1a72df1d56a987e62c638db3cf2ac1cdd53eb",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/alerts.ts",
+      "lines": 86,
+      "sha256": "0de714f8c469b205ce0231eb5a2a52a855a033afd99b8339cf15d9613f5f42af",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/article-versions.ts",
+      "lines": 94,
+      "sha256": "2efd00210fd44f675823dca1b693fcfccc4cdcc5628994cd24c5e7331d87d0ed",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/articles.ts",
+      "lines": 386,
+      "sha256": "a9c11e0a54db558c600375e7c35957fb48ac7c6274033b2d09928cb550170234",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/attribution.ts",
+      "lines": 853,
+      "sha256": "8fab582679d0bc335a30a24c6787431a4576a7c037482c099a9a61bc9ad94395",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/auth.ts",
+      "lines": 264,
+      "sha256": "12225f2a16c2e494b59d2641375e81fb7dd3eaf0c487cdbad404994304158382",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/clients.ts",
+      "lines": 577,
+      "sha256": "133f4bf81d768d9d45a5e20285b350326de8b88c0d9a8dc15786a0708a813727",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/content-stats.ts",
+      "lines": 143,
+      "sha256": "b370358c66699c96d402ae4db7657d104fa4a3d1f651bae35da8eec736907fe1",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/crm-analytics.ts",
+      "lines": 259,
+      "sha256": "86dc333c99a4cf0bc573ebb2a977a73b6d6a357312579a0a748e9338f813de8b",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/crm-leads.ts",
+      "lines": 306,
+      "sha256": "b44e0b7fd6eab7fad51acfe44dc3f01aad4a1ddcb135e88418c3282c89c398a8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/crm-templates.ts",
+      "lines": 151,
+      "sha256": "a3504d4430aed55cf1a5a2e390aeca3388165c864b31bd46d1148798999071a7",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/finance.ts",
+      "lines": 329,
+      "sha256": "ab275003957d4a134ff3d8cf6ab3f1a96a7f3bd9f93103d1bdf4c55b14666271",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/goals.ts",
+      "lines": 291,
+      "sha256": "2680ee505828c57978631e3cd45acd6d2643869cceff6abad0d4b7ad59ec4fa4",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/health.ts",
+      "lines": 569,
+      "sha256": "aad9123545aecc951413addd95c4d0dd28cd3b19d88372bdce31253c8eb96537",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/lead-crm.ts",
+      "lines": 1072,
+      "sha256": "82c171b44e81d9f62d135088c4cd4e4f48ec390b10951b1e94086a0c1870d2ee",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/lead-trash.ts",
+      "lines": 411,
+      "sha256": "eaeaa1960dd3d3f2b00695230b9ec779d47447f3c2457d48ca8bf7d8b7130f85",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/leads.ts",
+      "lines": 362,
+      "sha256": "21da6f6a717aaa44f24682ca2a272b0a38c0734005407885b9ed326b4bd1dff3",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/media.ts",
+      "lines": 274,
+      "sha256": "1f7aeeb541e4690aa4f240c5e03c2ec3f95b9b511fe728d378984f0325d0b85b",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/meta-center.ts",
+      "lines": 572,
+      "sha256": "0424166973af11eba3ed6d87da799b74f0e84a270497a25ab46db725a87ee67b",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/migrations.ts",
+      "lines": 181,
+      "sha256": "b9d1e97f3665eab879b44e9b1ed9893ba1ca61a246d98858b37e4a3bc3a824e8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/page-lock-preview.ts",
+      "lines": 69,
+      "sha256": "1e42ad13656cf87af26998b77cfaea10fdf06fa8c18b1f70225c373947088127",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/page-locks.ts",
+      "lines": 358,
+      "sha256": "6af07eadb39cc17cd95adb360c9ecd102ff2ea2b106847b20a8d4a67e840ba93",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/performance.ts",
+      "lines": 566,
+      "sha256": "30ce66c531a4b6daf83742fc9e9198161e2fa54ec91d9f78670b015203f2e47f",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/planner-template.ts",
+      "lines": 159,
+      "sha256": "7188ff6d1758ea23c1d6a5c5f96ce4b6a912cc37364d86f29a1979375a41f2c1",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/planner.ts",
+      "lines": 296,
+      "sha256": "82d5e237606ec4e13c0f874402e6363c8c515461968c25254022d72588303f1b",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/report.ts",
+      "lines": 215,
+      "sha256": "94ff35c7fcec84d6498bc7e8b9a0be4d7d771a95aa5630bab7ebe98ef133e016",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/site-sections.ts",
+      "lines": 293,
+      "sha256": "fb66bb853abdfac6954df5a2c23f969708bbfc728de04dbbfc4fd01409bccb7c",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/stats.ts",
+      "lines": 174,
+      "sha256": "f1973f6fc398057e902518e047fb35f232896b807bbc932422147a8a046e41cb",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/today.ts",
+      "lines": 644,
+      "sha256": "962afdb4235fcc08deb46e0eb7a7af6f4301a24a16282e19251b2edacbcccba7",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/upload.ts",
+      "lines": 143,
+      "sha256": "53a96f998a784e243c94b1b408b0f07056d62a3dc87561e01bc92196b0e9b73e",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/admin/vitals.ts",
+      "lines": 136,
+      "sha256": "b0578ebeef5a38ee5cbbc987db7b7c68fbfc6667e47acdcc800df61f741bf412",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/alerts-run.ts",
+      "lines": 55,
+      "sha256": "5eb89876cd2219466a183b7869963d67201a02f44f85df07c7b6941dc86737bf",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/article.ts",
+      "lines": 5,
+      "sha256": "b51264e55c137b339d9784a7eb567c4141426111161b9bbdee9d9c028b17b710",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/articles.ts",
+      "lines": 135,
+      "sha256": "6d3f110a8fa54a2646486d3f25d672a1631941258f8906f6426c5d96ffa993a0",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/geo.ts",
+      "lines": 25,
+      "sha256": "24db5dc8f578cdd804725c03af52f9573b792deef184656d251951e33d9e13e0",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/health/content.ts",
+      "lines": 51,
+      "sha256": "8bf18ae79067270d68daeed7f2225dfadd8678bc6cdefaca291973f88f82e54e",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/lead.ts",
+      "lines": 827,
+      "sha256": "2fddd93a3a0714366285404dbc01d065badc4ed9e1f47094e1006a4fd3618edc",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-diagnostics-alerts.ts",
+      "lines": 138,
+      "sha256": "a53d36b5f4ec650630dd489d57e698468df277fb9a1c52153b171555386c7045",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-diagnostics-anomalies.ts",
+      "lines": 78,
+      "sha256": "0b11e7c7ab9b9f6e763f00bbc2818d0f61cf5f5a42f4e3b10c89f98c963e80c3",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-diagnostics-coverage.ts",
+      "lines": 122,
+      "sha256": "4cd26ec69d8e0561d12ff9fd0b14d2c369b45efdd37100ad17cf163806ef761e",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-diagnostics-funnel.ts",
+      "lines": 74,
+      "sha256": "6ecb107e3af5ba94c02ee0d6e5de87ffc99a58f2530c0883382af52fc546b194",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-diagnostics-health.ts",
+      "lines": 196,
+      "sha256": "ccb653f2f87c6f32f5ca2fd91b3e3e066e635000dfe0803f9ae57d51e2c3895b",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-diagnostics-summary.ts",
+      "lines": 213,
+      "sha256": "7caed9e96e237af021bc3d5c0b341faa0c9a92e3de8a21eeeac860d24778e5a8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-event.ts",
+      "lines": 670,
+      "sha256": "7d3e968755bffe66a375b90366977ed801d0dc4729cdecf1a5577bb671be38e8",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-outbox-process.ts",
+      "lines": 42,
+      "sha256": "86211d2e1ac21cfa3e409ffd6c5764f0f2b98afd66c22cf1d481885dc56f8197",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/meta-test-event.ts",
+      "lines": 338,
+      "sha256": "783515021a293f3702f8a3fc5aa22d86d1c44d0e5e8bc33522e151999c47eb31",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/page-lock-notify.ts",
+      "lines": 196,
+      "sha256": "d159a6d4a5eb2f4f887a21ec56f14e178e366f0fb90fc8705a553d97495bc422",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/page-locks.ts",
+      "lines": 31,
+      "sha256": "f6bbd7d555ba36740b4ab4139817d8396dde1d6ad05c98474cde1cf07d7d7481",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/pageview.ts",
+      "lines": 662,
+      "sha256": "1181f290a3bbf48b91ef3737a2e644938fc673b9c7be3c88513c0c989d423189",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/site-content.ts",
+      "lines": 68,
+      "sha256": "e11238e90dd02d2fc70b715c5dfd6e4c369bd9affe64cc09d5d711f58103e697",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/api/vitals.ts",
+      "lines": 125,
+      "sha256": "ea3b88992400598e8326446b06ae92cb2a7398be7bdf590c0681c529d345ea11",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/blog/[slug].ts",
+      "lines": 3,
+      "sha256": "ef8b997a9bec2113cbac5fe2e93c2188cf6400dda48cffdbfff633b26d64cc40",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/cases/[slug].ts",
+      "lines": 3,
+      "sha256": "02363cfacbd753b79618aaf08f2144b09af70db792506dc312771dd1599e96e1",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/feed.xml.ts",
+      "lines": 43,
+      "sha256": "f8e110a989e5fa70ddc2fe42b26015bf293ca110b8376496e4bb49596bcd5a13",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "functions/sitemap.xml.ts",
+      "lines": 56,
+      "sha256": "00666c6578bd2fcc4bc1e4cc32b58dbe19e8687e1a84c30c985916def561b64c",
+      "group": "edge",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "index.html",
+      "lines": 37,
+      "sha256": "c07a9bf33ad54b7b92e3b823b0fcb27b5ae286f66f54262d7989cf28ec9737ce",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0001_create_articles.sql",
+      "lines": 25,
+      "sha256": "e6fd4d74e1ac4f01f935f96d54b00c0ed86acdc16a1cfd081b0aebd686e5cfaa",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0002_meta_capi_diagnostics.sql",
+      "lines": 31,
+      "sha256": "bd86b56040b86e26aaf83a27d382cddb35f34bad9b29d2c4c3c6afcb53e479d6",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0003_meta_capi_diagnostics_quality.sql",
+      "lines": 9,
+      "sha256": "fad6718b7c765098a1772a114c261a4955c6aa2bbd71909fdf6ddb765986e6c5",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0004_meta_capi_diagnostics_enrichment.sql",
+      "lines": 12,
+      "sha256": "baa44122a458bba824f7716ee2c05f1fd59381b5421d1b3958a5563d83f54b0d",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0005_meta_outbox.sql",
+      "lines": 15,
+      "sha256": "0ee93d432795e1ad28d7e587ff0529d932804bd6cb34520a37f6d5d61b2dd7f8",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0006_articles_status_and_versions.sql",
+      "lines": 13,
+      "sha256": "d0db23d299149913f55d076ac46041ae986c02f1eb4ae83a5f87f26d4fd53adc",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0007_articles_case_data.sql",
+      "lines": 3,
+      "sha256": "e86123f21cf5bba7432c122b559456d9284207b1830c1cb40403f197fd64cfba",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0008_leads_and_page_stats.sql",
+      "lines": 41,
+      "sha256": "a556aa14294b269f3532e92cb60f012b2a1e9dda717307f637d5df0892748d8c",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0009_leads_dedupe_quality.sql",
+      "lines": 7,
+      "sha256": "fadbe6b7b2b7010a991bd7acac6bf6cc4585cbbb4dd7310617cd72af60c1020f",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0010_leads_meta_quality.sql",
+      "lines": 9,
+      "sha256": "2af3980d2b21c252924fc6106d9e35dd204413d51d5a363479ea252db583ca7f",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0011_leads_utm.sql",
+      "lines": 8,
+      "sha256": "77152fdbdbf1033830628e3ade60eb5a15219b338f6d659b8067ebe8aceeafb8",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0012_admin_control_center.sql",
+      "lines": 42,
+      "sha256": "21092aee1f66026828adabec8f341d6bbc8cd34718a8f8de18cedcb5fddce2f1",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0013_site_sections.sql",
+      "lines": 29,
+      "sha256": "41fbb5654573a0e9d14d1a0c6a3bff852a6b231ec644c838b41d285534e6d540",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0014_crm_workspace.sql",
+      "lines": 89,
+      "sha256": "2f6b71c2af5dc5c035c91e8e66aac3124fe2be430405ee0f622affc84c914d76",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0015_lead_consent_receipts.sql",
+      "lines": 13,
+      "sha256": "58eb1d9c3738b72ac4aef938b0bc97c25bed52b3dc3ba4ee7f4da5c734cb5622",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0016_meta_diagnostics_retention.sql",
+      "lines": 17,
+      "sha256": "0dc7216d9ace7eafe5573e24b48e8ab59551fdd3426685b21fcbfdf290f7b222",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0017_crm_correctness.sql",
+      "lines": 37,
+      "sha256": "7742b64ec6f2d285442dda0888cb324b93d5dbf5895633e51283231e0067e747",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0018_tracking_request_nonces.sql",
+      "lines": 56,
+      "sha256": "e39677e8d52501832debfc45656d71c0e5b1603459c3f01a94d5ad9513e680f9",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0019_lead_ingestion_idempotency.sql",
+      "lines": 33,
+      "sha256": "e41bcda28503d954368af78ff097a1e01e52c83457c423b19859e17f32cd3a42",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0020_leads_soft_delete.sql",
+      "lines": 16,
+      "sha256": "676225f7ad0b651a1b68d09bc2c3fa8be2118bf5e18c443b30bfdf13320eff50",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0021_planner.sql",
+      "lines": 12,
+      "sha256": "14d2d767c3d6c4d6433ed22b15577b100c4c011d918ad140be9a4f872697fe0c",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0022_leads_form_source.sql",
+      "lines": 12,
+      "sha256": "d1386e4fbe6f813a756b0e0ef6c3cf08a8e1b3278f84d60976a63956803d1632",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0023_ad_spend.sql",
+      "lines": 27,
+      "sha256": "635893add3cea78a94aee89a60a7147d89e6d15f913af9e92d2b76b1032cd2c3",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0024_admin_goals.sql",
+      "lines": 22,
+      "sha256": "fa592b66997e73889e7343d913d40d862db1abcb082fa04935cbe2b013cd3e60",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0025_crm_speed.sql",
+      "lines": 26,
+      "sha256": "d7629f699af2248af336a977cee5a917bd3d231a6f982c96eae06a0189af5f4f",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0026_leads_geo_device.sql",
+      "lines": 15,
+      "sha256": "74851201bfb973859e7458cefdccc352fc86a32c7a1459349300c959f5d2a34a",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0027_web_vitals.sql",
+      "lines": 23,
+      "sha256": "a9a547f1fdd2c558051cd505e81702a36e7d221b4d7446f9ddbfd620a64b8968",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0028_admin_alerts.sql",
+      "lines": 28,
+      "sha256": "151fe1d4acfe5af1f0f7e9d878864d42e9c39503f39ddf8e5b4bafe2a99eb1ff",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0029_planner_template.sql",
+      "lines": 11,
+      "sha256": "b9bc382aa88b6ef00e2bccfb7452e77030c1a880e9c23714ec3afb0a39f7a060",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0030_pagespeed_history.sql",
+      "lines": 24,
+      "sha256": "27d2dd3337382e62644c1436f105ea9a3550efc388f4420a14576848445d6d51",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0031_media_alt.sql",
+      "lines": 11,
+      "sha256": "95451629b446f51cb962acf8d46db1f85df38f1c0c5b57516861b49172be6076",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0032_clients.sql",
+      "lines": 94,
+      "sha256": "1d3925c8a6d4b7e58570da759fc1950362c22afcc85661fd2b6628c0a5de00a3",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0033_finance.sql",
+      "lines": 74,
+      "sha256": "4fd1ef6c6fc0a53298bcd42a57cf468bdb37e5506713df5e9216f88be5865a0e",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0034_page_locks.sql",
+      "lines": 61,
+      "sha256": "67de6314d3671d56a965fec3d4d9e7a8115d6b15b2f9844d612e583d10e06c8a",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0035_page_lock_contacts.sql",
+      "lines": 34,
+      "sha256": "e8a00197cd62ff40b31ad23b50513f13a61507197ebf63ca468edb31128b9da3",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0036_admin_2fa.sql",
+      "lines": 33,
+      "sha256": "ae79f2d557195f5224bd2b750b77d38116bec009bde8f715b18166cfb2d9f8e4",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0037_form_guard_daily.sql",
+      "lines": 27,
+      "sha256": "0728304d5f888783bb0d59b61de478ba21df197da09d775482ebc85e1b70d0c1",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0038_meta_outbox_cleanup_index.sql",
+      "lines": 16,
+      "sha256": "02d2f89b722fed6fbc4e2f4efedacc05cad3f21597a2f6d39c93829e02a4f8e0",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0039_leads_dedupe_index.sql",
+      "lines": 66,
+      "sha256": "ec8c68f8b7e3dfd69b0257500bdcada93f10254ea3225f933f26c708299fddb6",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "migrations/0040_versions_retention.sql",
+      "lines": 71,
+      "sha256": "3ad38c315b1eaea3408f7199e424109c9c161c3fb16437475db7d9144443ceaa",
+      "group": "schema",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "package.json",
+      "lines": 85,
+      "sha256": "0b025683edb99b357d6b2c429319d28b4ce17c0f09afb59eb9f7f2cbff45dedd",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": [],
+      "previousEvidence": [],
+      "reviewInvalidatedByChange": true
+    },
+    {
+      "path": "public/_headers",
+      "lines": 18,
+      "sha256": "052f246c30780dcf4321f09248faeb27f397907276b2ff796738cae3d5fce7fb",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "public/_redirects",
+      "lines": 12,
+      "sha256": "f82216c3cff9a5cd1ca9d8c8ab74688863b82d909fa2c97bc4a00dfd4db2774e",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "public/_routes.json",
+      "lines": 5,
+      "sha256": "96dd102cf9ea811e196813ac4616cb1c55aa7bf4815e0cf6828d9c95fa852207",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/admin-jsx-imports.test.js",
+      "lines": 61,
+      "sha256": "81292a08224c3a3005f7bd460c633a10fb78f9d9b28f8d15bc12b23c77ecd65c",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/admin-migrations.test.js",
+      "lines": 177,
+      "sha256": "57ee63b5402f279453c6f3da6602de50806dc6335363bb9dd3d6c7940ada1d97",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/admin-performance.test.js",
+      "lines": 122,
+      "sha256": "e1dd7ce43fee6380760007bc0c22da23e714584ef02b785fac51e3a4d76f1755",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/articles-api.test.js",
+      "lines": 189,
+      "sha256": "56c41a7428d5459548371f0e11d7821cfcd6501b1c5793d9950fc6a1f9cc8da3",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/articles-runtime.test.js",
+      "lines": 744,
+      "sha256": "6c24999d7228a83423901dca14391b8a93cf676ea9690d4e77275af2eefa9d39",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/audit-regressions.test.js",
+      "lines": 424,
+      "sha256": "5e5497bec7693356d65ab2a904fefea435ab121e18ddc2f6b8b35a93f48b5fd7",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/build-font-library.js",
+      "lines": 320,
+      "sha256": "242c66bbdae736837b503eb778af699f51105e41abbce6f17c5c2699f3afbae6",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/build-migration-map.js",
+      "lines": 213,
+      "sha256": "8a690f03bc61792bb045911b713b75ab3ed07a5773b4714daf88d30141a43a47",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/calculator-engine.test.js",
+      "lines": 142,
+      "sha256": "e4bce02280f30695085379e5157d0cfeebcf161411abb9a911788cc0485ca881",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/case-from-client.test.js",
+      "lines": 193,
+      "sha256": "a2615c7c84f0e0bcd380377dc1e1880183bfe0723b37c1ceeff1e67cbf6cc34d",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/config.js",
+      "lines": 57,
+      "sha256": "06050c11415fec439d67d21e9ad8f564f332dc0ab491d5f71e7cefe2947a822e",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/content-entry.tsx",
+      "lines": 23,
+      "sha256": "635f32847e930ac5fb4319cc2e3d0732075c496778d329c65982e1050eae0787",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/content-fonts.test.js",
+      "lines": 135,
+      "sha256": "158e5f2dc279cddab3ab711959d037b73e5a7971f83a29a455828531087de514",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/datalayer-events.test.js",
+      "lines": 92,
+      "sha256": "d423e9693b3c22f601966b37101a89e83231c6a9b7e1f636cc8e540fa7782b50",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/fetch-articles.js",
+      "lines": 304,
+      "sha256": "d3ef9b380b0ef95edd5fb0d08ed546e5c575c1925b952a1d9578f0bab0be3cc5",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/fetch-articles.test.js",
+      "lines": 111,
+      "sha256": "da7163f113ba9ffce29da642c15655021e80b33c00471d82379ec7768ae99032",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/font-library.manifest.js",
+      "lines": 471,
+      "sha256": "b12ae471232f305b799a54c4dbb8733005d655fee9510ad8412f6cbba2b67847",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/generate-pages.js",
+      "lines": 2077,
+      "sha256": "18d5ab2794540d3157b00751d50e22ce0e6b8a7d739c183eb3ff0b74a78be05c",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/generateMedia.js",
+      "lines": 54,
+      "sha256": "a5d626204ef3cec84512c1446535ac9b3aebcc587a7492cfd34bff03e263cfd8",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/generated-seo.test.js",
+      "lines": 606,
+      "sha256": "2fd694e59713880409a193199e6f10b9dd29ffea4f6fa0647b2c2743e032cb5d",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/glossary-content.test.js",
+      "lines": 98,
+      "sha256": "06d58bb128763d164ee8c8d20f142eb6c011c975124c738fd752d3ee00f80aee",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/lead-dedupe-index.test.js",
+      "lines": 122,
+      "sha256": "bd4b15a79c3eaeb72079d06a1c74924100f7389dd9ce25fccde6b4888cfc0adf",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/lead-reliability.test.js",
+      "lines": 582,
+      "sha256": "66dab5d0011fdf7e2846678110777f7c4a80e46ea16913deb90359a7c0e03838",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/meta-capi-smoke-tests.js",
+      "lines": 629,
+      "sha256": "bb22c0653cd50e0053ae5c04e1b943cba24599ef4c9da4ec4a35d0ced0fde7a8",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/migration-guard.test.js",
+      "lines": 186,
+      "sha256": "4e3b39b190c4cef61730e693809ff778711db726b65528532864f709fbac9449",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/page-locks.test.js",
+      "lines": 222,
+      "sha256": "43bebea67ef8987042f72d0f7d0639920a201f293204e11d8bf4b77728cddb7f",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/production-sync.test.js",
+      "lines": 158,
+      "sha256": "f06eb8305898c28cbe219cec8560e009ddd9e1f2e96a6cebbea70c5d116733bc",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/scroll-restoration.test.js",
+      "lines": 180,
+      "sha256": "88bd65707613645087f28376d615a8f70ff7b66f7c1b67d57bb242ee4afa29d5",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/service-route-lifecycle.test.js",
+      "lines": 108,
+      "sha256": "67121f65c06c0cfea5ee5a412d86fb86c6817f032714bf90f3f036a8b12d8b37",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/site-content-cache.test.js",
+      "lines": 129,
+      "sha256": "05f533a97aae40bc550026049809c4d9f0d46dc1ad5a8915c350ffa3449fe914",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/site-content-compatibility.test.js",
+      "lines": 144,
+      "sha256": "af665bb34c9627a000b4cba4655423e0355f8c29647493d4eca404485fbfae6e",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/site-content-sync.js",
+      "lines": 296,
+      "sha256": "cd724a93a6a75d92e6c936e80e43147e456ffaf0919fb2f60861ec39f06317bc",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/site-content-sync.test.js",
+      "lines": 237,
+      "sha256": "f446d59914f97d3d02b6cdd97318351c3d4eabcf328f2fbaee08266f3c033e06",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/sync-production-content.js",
+      "lines": 197,
+      "sha256": "242a4166d9bdc64d8d7504ecaa59d87fd89c2c054c822855802728b8fb80333f",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/templates/page-template.example.html",
+      "lines": 19,
+      "sha256": "415104395eec7752e5ff21aef87900e0ff3afb4a25b43f0aee8728270077b714",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/tracking-security.test.js",
+      "lines": 128,
+      "sha256": "52a8e68b092720cdb124d968863e2b81398e0e9673bb13e68dfbfeca017f1316",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/versions-retention.test.js",
+      "lines": 93,
+      "sha256": "785896c8ce0b0943330c990f610ed8ed8f1bf16c4857cc52033ab92d3c6cd416",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/App.tsx",
+      "lines": 14,
+      "sha256": "144eb097128749bb1b116d9d541d5812854189c9bfb42fcf9596caac9447a7e3",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/calculator/engine.ts",
+      "lines": 224,
+      "sha256": "6c3ef1114df27e355b00f6a9f5c0f0370922abd87c51a27b8257d87016016070",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/AppErrorBoundary.tsx",
+      "lines": 32,
+      "sha256": "034413b09f58ee0855109bd9935aa189987bffa8d5f8ad5ac103f24cfd297de7",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ArticleEditor.tsx",
+      "lines": 871,
+      "sha256": "0e549ceff66c53cd040ef32e5599d17c3ad51c050ab5f04268d93565290de061",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ArticlesLoadError.tsx",
+      "lines": 22,
+      "sha256": "13f1637d99532d7f50104e699329d8d2ce18ee48d032e98eba3ecf53443faeae",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Blog.tsx",
+      "lines": 146,
+      "sha256": "b216ee77d54ba35f6dcb55ad05e935fb782bc0a42244dd3237e3a4fcbc19551b",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/BudgetCalculator.tsx",
+      "lines": 5,
+      "sha256": "d60492a0429ddd841526fbc847e92563471187b073bbfbae00d0d844e0fdf755",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/BudgetCalculatorPopup.tsx",
+      "lines": 9,
+      "sha256": "29062816998b69edb0865b73994046ac687362b72b77ba38f94f42156d6b68a6",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/CalculatorButtons.tsx",
+      "lines": 181,
+      "sha256": "a7854cdf4864697e77be963fa5d5edc1870034a5090136bce793068b116b4759",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/CallToAction.tsx",
+      "lines": 91,
+      "sha256": "1777147aec94ef04ef4e753d4a0d9bf639108efa4428c7eb872b1e25c7fb6300",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/CaseArticleView.tsx",
+      "lines": 303,
+      "sha256": "fd5b1161fecaf50662e82b833d4d23f5af34f17f0fc1ca253c5f530b8407585e",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/CaseFieldsEditor.tsx",
+      "lines": 151,
+      "sha256": "abb168122dcf4d4df6e355bc88aa0f08abc6da8fd8d840766c012965999afb7a",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Cases.tsx",
+      "lines": 471,
+      "sha256": "292cc323cfc7f92d540be1a4a8f1dbdec48cd48d4c57a9934ca6d7786d78c813",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ContactForm.tsx",
+      "lines": 867,
+      "sha256": "0487ded3837a2dad65d34e8ef3196cb97bc2d4a70a88858f6570a76f5f71a0d6",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/CosmicHeroScene.tsx",
+      "lines": 416,
+      "sha256": "e07c0f1f4cc8509a086fb94d575095c073db134cc851033cc40832fca2e1248b",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/CountryFlag.tsx",
+      "lines": 65,
+      "sha256": "cdd52495c8b5b05badfb7104f9dfdc9f6ed2381e73793245e57c9291ff3fbdd8",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/DeferredImage.tsx",
+      "lines": 56,
+      "sha256": "ab6a28b18fad4d9513105ab67ddf96bc699f78b0fd3639167f947cb0aac34ab4",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Footer.tsx",
+      "lines": 337,
+      "sha256": "01f63158b5dc3f8631aa368e8b9a6e3434b40c16df6cc9ff1e4731bd5839fb14",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/FormNotice.tsx",
+      "lines": 50,
+      "sha256": "cf74029db34a58454e8bffbffbf74778efa3d3f7e5ffb3c77034eb7f6be7eecf",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Hero.tsx",
+      "lines": 903,
+      "sha256": "4d9702946f80b460a673dabb175e026edbdf7ae27da7c18df1289b520734723a",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/HeroTitleEffect.tsx",
+      "lines": 425,
+      "sha256": "2a00a4756406778cee018f1f6cd08204dbce17917b19867c80b1e1ba98ba2095",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/LandingForm.tsx",
+      "lines": 734,
+      "sha256": "8da8bc73cee25324f04aa30a4a1b5a208c3d0498175cb3fbd40c89c7784aeff9",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/LegalConsentCopy.tsx",
+      "lines": 36,
+      "sha256": "248182bd25b5d698b7b313b7e362e8118c5ebdc840af6714fee1748ffd4fd0c3",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/MarketingCalculator.tsx",
+      "lines": 1114,
+      "sha256": "e65cd4c08a7034c1ba072b515436bd260c4864c788a00102bcaf32dd4407affb",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/MetaAppsHeroVisual.tsx",
+      "lines": 776,
+      "sha256": "e0d93868da9fc47a64f69611824b2d2268f68ad399337462f79a930ec51f3e9c",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Modal.tsx",
+      "lines": 167,
+      "sha256": "f7767ac6c51687d5937719e15316e3404c3f09efa3838d689a58f540c5d680fb",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Navbar.tsx",
+      "lines": 400,
+      "sha256": "e93ea96ef5a8557e78b85c6dc98d48be1d5dd02012c632a41038ec93816ad706",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/PageLockHandoff.tsx",
+      "lines": 71,
+      "sha256": "6e6ae7ab890d87232e9c373973fe5ec2e0ee698b9fd319a9c77490e4aa1e281b",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/PageNav.tsx",
+      "lines": 82,
+      "sha256": "9954735dc6ccee8c563dadfbf0651b053b169c9c84055a418cc9a191b43705b9",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/PlexusBackdrop.tsx",
+      "lines": 412,
+      "sha256": "38fd5bba76ecfab34b476c0cd90e3681b429d6da1dc04819b70e87150dc8d04b",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/RoiCalculatorPopup.tsx",
+      "lines": 9,
+      "sha256": "84f30ab7e277510410fec7bb4435f180af61d7e23c305a82362d7902d86a7cbf",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/RouteIntentPreloader.tsx",
+      "lines": 70,
+      "sha256": "50463fddfde490f90b7f264adb7c3e1ec195a5d0e551a7040cb22c399325336a",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/RouteSkeleton.tsx",
+      "lines": 50,
+      "sha256": "53cdabefecefb4fd287d7b7a458c2c7b99ccbf2ddf501e1973744742b745d7a4",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/SEO.tsx",
+      "lines": 165,
+      "sha256": "4cff289eaff227034f73e7e5f811c4b9c76a3fee15e5af453f181a554a7de4f2",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ScrollExperience.tsx",
+      "lines": 89,
+      "sha256": "6e66ce9725ef04029d776bc9b6fdef21150ae7ecf15bba3dff4fd5baeda1903f",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Services.tsx",
+      "lines": 528,
+      "sha256": "97b42d6c6b03bd266ac1288886bb16f2dccbe9e24c004f18cfc27a28a0808c74",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/SocialBar.tsx",
+      "lines": 149,
+      "sha256": "6f021cba7a8ff363324fe12d4f65d636b48d2ae3e6f21d8f6ea219024477a0c5",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/Testimonials.tsx",
+      "lines": 679,
+      "sha256": "174341f77396e7bc4a70d5df573b8f40f147f4f4a2f0c0e8ac262523d768a0d1",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ThanksCosmicScene.tsx",
+      "lines": 329,
+      "sha256": "156695ecb18fe569f2bb9d7514c23d6cabe04a082df468add8020ece32bb9579",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminAdSpend.tsx",
+      "lines": 323,
+      "sha256": "19fcf4a77d458342e86e7eaf86a235fa9cf14b60207960bf63e4283e9e9b7831",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminAlerts.tsx",
+      "lines": 205,
+      "sha256": "284cc686b58dbb58e19b04db5d927bc991af9fadd1ee893a1f458516718fee7e",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminAttribution.tsx",
+      "lines": 683,
+      "sha256": "76cfc47d77449792bb21f043a02bc1ea1b9f15351a973001533365a82d5b69c8",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminClients.tsx",
+      "lines": 865,
+      "sha256": "b12aaeccd01216d2c3b9327539f2d3257b5a30e4c9122a726c5a6b0873421d3d",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminCommandPalette.tsx",
+      "lines": 133,
+      "sha256": "2698af326b5ad528fc6c75361af3ebe7b9cfafdd905b945bab6c10fd126361a2",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminContentControl.tsx",
+      "lines": 1834,
+      "sha256": "eaf48bab04819fcba94f66028ac3907e510ca85d3496bd3519f13efe990ee9e4",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminContentPreview.tsx",
+      "lines": 321,
+      "sha256": "0eb6a2055e080ef6f96f2973ae1e11c9a1a7654f14d4b97a63bbb74491b57e91",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminDataLayer.tsx",
+      "lines": 249,
+      "sha256": "2d23c753d04b812e794ad29ce675ffa542db74d18a6f5734b41157239426a809",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminDisclosure.tsx",
+      "lines": 29,
+      "sha256": "12f387a2cdddb22f305164d796783388a590b9006404faabb45f8a7d79f3fd2a",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminFaqControl.tsx",
+      "lines": 268,
+      "sha256": "0cb2b9ba719375da9ec03ef0006bda1e0532d8f6c9d0823e08847cd06fbd9d71",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminFeedback.tsx",
+      "lines": 188,
+      "sha256": "df157d97a7d875cd00d5b5eba243f00a4df63433e80cfb3ec9bb994b73aaa745",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminFinance.tsx",
+      "lines": 713,
+      "sha256": "17dad94e56239d0f43784cca22fb09bb1d138a02ed0c4ef4812739692317d8a4",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminGoals.tsx",
+      "lines": 504,
+      "sha256": "fe5649f2d66f9dbcc09ca1d001d3c6d0a2abbf66087b9f015a21b94e8b0db313",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminHealth.tsx",
+      "lines": 264,
+      "sha256": "95381bb2267b5800bd27448291abf096c6e908bce7a5c8583894b40ad13873d5",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminLeads.tsx",
+      "lines": 1650,
+      "sha256": "00607fbb35b414744b5e4da6a4cf049230d7ce4692c874155b6aebcc55261fcc",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminMedia.tsx",
+      "lines": 672,
+      "sha256": "f975e776a742a137b98ab283a95cde1a0a672d6f7f8c9ee04456ad63c5c23a04",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminMetaCenter.tsx",
+      "lines": 769,
+      "sha256": "b0e92e9d77f69f10dfc3468515a6541397290266337a1a689faffbbe97a07705",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminMigrations.tsx",
+      "lines": 240,
+      "sha256": "d8ff6f7d54a3d1459a7928587295f2c58ef1a873c09df665585134d9f2df3af1",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminPageLocks.tsx",
+      "lines": 663,
+      "sha256": "e34b23fecffba94c853878e4b4d2b8891e62a01022849bb6014528de2fe94639",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminPerformance.tsx",
+      "lines": 808,
+      "sha256": "559c043e20f7f78e75cc383aa2fb0f30512b12b6b1cece42d97faeb27c1e7643",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminPlanner.tsx",
+      "lines": 1525,
+      "sha256": "97eda14b0b3dd592d6933d6b66d3be72aa1b1b031437f4ac90f818e3bf5405fd",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminPlannerCharts.tsx",
+      "lines": 181,
+      "sha256": "bb7ea79035abc3c5962c88ace085b94d4f3b8e4cba3569230f8e26d7a149f0ce",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminPrompt.tsx",
+      "lines": 140,
+      "sha256": "a7789d22ffa6301c99c96f876ee716c4411e73bf5978fccf077ada42f1184d4f",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminReport.tsx",
+      "lines": 281,
+      "sha256": "4b3bd77e3bbe03ae54ce1a31f3157a9ec4176f937b94fdbeea358d4bba8d25f2",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminSecurity.tsx",
+      "lines": 245,
+      "sha256": "68458b33b175036e97729a3b5d2fbda5acbcda4686515bf490f4c085c2c3fd9f",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminToday.tsx",
+      "lines": 679,
+      "sha256": "7792c7d25e826e1e0383bf922006bd10f5c7158934a781c44ccb4b1641eb9f30",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AdminUI.tsx",
+      "lines": 218,
+      "sha256": "ce528f529b95b02e4624d70dfd528a1ddea26e01f2111ad50f0a05967b362185",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/ArticleCalendar.tsx",
+      "lines": 158,
+      "sha256": "fe9746152dd4dddc7f748304489deaae465300cf7f7be92e439b71fa70edc7b9",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/AttributionCharts.tsx",
+      "lines": 553,
+      "sha256": "ab6f0f5444400f5359bc95931a8083c111b84d5c73cb0fdce6da61cfab0cd496",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/CaseBuilderDialog.tsx",
+      "lines": 224,
+      "sha256": "8489605035997e32e2aa9bcc6c6570a9ff61f947a2e6f40383ad7a1edfaa0b58",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/ContentPerformance.tsx",
+      "lines": 149,
+      "sha256": "07ea41fbcd9b6540878364e6ab4f93a8174802d4477ae859b3668ba1f07c928e",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/CrmAnalytics.tsx",
+      "lines": 355,
+      "sha256": "1c7cdea501aa73f39c5cbad50483651b4511f529f1480984648795c086ee83be",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/CrmBoard.tsx",
+      "lines": 391,
+      "sha256": "9017b3929cae36b091dfcc0c732007525a572b371c5c976134e082608602d132",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/CrmQuickActions.tsx",
+      "lines": 299,
+      "sha256": "f8227bb1d92213443501eb7868e32d002262c4c3bf7bffa3eb7f131b5ec26642",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/LeadCountryBadge.tsx",
+      "lines": 18,
+      "sha256": "22c6b2b7c4ea1c4801268c3372347c64c9d87b37a5ffe55ddb8c3909e401e7fe",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/RealUserVitals.tsx",
+      "lines": 165,
+      "sha256": "d8256e29fadbe249b4feefbde07833ef2d48972425082fff67a6875038574ee0",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/SeoAssistant.tsx",
+      "lines": 168,
+      "sha256": "c6821ba6c26d5225d198ce8d07dcb641c4dcc664362a29620b1dc7e95ff3d86f",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/TodayGoal.tsx",
+      "lines": 103,
+      "sha256": "2ece10d0af0be1ed847bfe2f0d37567dbb997f7f7caea076c9fe4d04367dcbec",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/TodayNote.tsx",
+      "lines": 146,
+      "sha256": "690c3d83d43a5682a334730f335c81b0c8b3ad10f849e791b3ca1b3ab5014cd5",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/TodayPlan.tsx",
+      "lines": 209,
+      "sha256": "638a3b6413189e1d64262934685171aad8ea6443fb7055b82478d7388415cb71",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/caseFromClient.ts",
+      "lines": 307,
+      "sha256": "80dc2bb8b99edd01cb1a0e9cd1b1cc5e6fa888ce1f4e05af8da09e0fbc4da9a7",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/leadDuplicates.ts",
+      "lines": 96,
+      "sha256": "0acccb5c683223e02128af3ede97afa9efd1e16cd156285018b691ff63c8c8fc",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/leadScore.ts",
+      "lines": 125,
+      "sha256": "d64065a205eb19719e263b78081465012315726ea7200e1c6a8e949584b88233",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/admin/plannerModel.ts",
+      "lines": 361,
+      "sha256": "553d9138f5c71a536cf6ef0a1751bd0e78518ee7b8a84a6ab16f57b9c060f216",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/brand/BrandLogo.tsx",
+      "lines": 37,
+      "sha256": "b91cf3bcc05a5f8fcbf320ea3b13d788c2b2cfb15f29ec8afc362e686f06d0be",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/brand/WhaleMark.tsx",
+      "lines": 60,
+      "sha256": "97cbdd6983403eb5e81e4bae42789d5258eacb083646f433347dda2fe2c847b8",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/cookie/CookieConsentManager.tsx",
+      "lines": 644,
+      "sha256": "ce59bbc55dd587659b582212284ae127c660ca0ffbce80e9d2b5560af4d4dd2d",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/figma/ImageWithFallback.tsx",
+      "lines": 31,
+      "sha256": "5e7b24c31b6f30f3e63c9b5c280168aab8c332b092323ad71583ec7cd974de0a",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/hooks/useAmbientVisibility.ts",
+      "lines": 63,
+      "sha256": "3d80ab67005f72ff43e6b1b719dfdf25da32a0a73bfd32ed608895d522e22508",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/hooks/useArticlesApi.ts",
+      "lines": 258,
+      "sha256": "de2fefbb1f974031d274bec41fac2f1b3e5cb657e78f8c36a4559c86f0945d23",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/hooks/useDialogFocus.ts",
+      "lines": 139,
+      "sha256": "0f31d936a76a8ccea36dce79413be1f51b6ec2182a51b26da8ecdabe518c0825",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/hooks/useScrollTo.tsx",
+      "lines": 53,
+      "sha256": "dd91c13adc0eb43ef21ad3f26a7894c50993544c31320acbff1e58c4f91a1af0",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/hooks/useTurnstile.ts",
+      "lines": 250,
+      "sha256": "2f6ba37ea162efede4493f6d7b18058a02beba3a48290ccc93979f54e0f6c691",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/legal/CookiePolicyContent.tsx",
+      "lines": 175,
+      "sha256": "1ef56c2dce70ad022edc1b8b0757f34ae100eab828bf68930c18e6a2fd00c5f3",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/legal/LegalDoc.tsx",
+      "lines": 154,
+      "sha256": "68277ef8cbbffd66618f70bad45cae6319763a1b6317bd087bd701595fbc45d8",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/legal/OfferContent.tsx",
+      "lines": 570,
+      "sha256": "1214057fc78146050ff842ccad86cc0e52e0826be3c7cc6fac4f1a42a03afeb0",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/legal/PdConsentContent.tsx",
+      "lines": 80,
+      "sha256": "9873e2670936e9685790dffee3eeea9ce6457b38d0d1676546fdeceace480123",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/legal/PrivacyPolicyContent.tsx",
+      "lines": 287,
+      "sha256": "f80ea8a50c24ae3cf260a79bbfa6b0470df6786864168cc993401402514d8fb7",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/legal/legalMeta.tsx",
+      "lines": 26,
+      "sha256": "9f07cf72599a7f4c08060b1ed6a9b0c2df022b66044f2f1f083d967b68280a79",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/meta-apps-hero.css",
+      "lines": 1313,
+      "sha256": "b38202d6b7263f99e04b0906015d554fbf28093a65c43298649dcf0037213d9e",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/service-heroes/ConsultDeskScene.tsx",
+      "lines": 283,
+      "sha256": "e54d1d64594c422816be68ed392f48159bcfce72315365f7873b222d5b8afe56",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/service-heroes/ConsultStudioHero.tsx",
+      "lines": 138,
+      "sha256": "eb9e7ef94363d43be6cc8f5eb54bd10d53321402f00a33de74754328caeea29b",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/service-heroes/MetaAdsEditorialHero.tsx",
+      "lines": 267,
+      "sha256": "1e84d86661170c534b856378cfc69188a0e0739aa21324a157515b612643b4bc",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/service-heroes/consult-studio-hero.css",
+      "lines": 612,
+      "sha256": "cfc8f47136e4ae74449693998610b3c846b36eddcb2a6a7a368713e4c523c285",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/service-heroes/meta-ads-editorial-hero.css",
+      "lines": 759,
+      "sha256": "14da88cf28cd09a8f0b3a74342bad2577522739247b62875b62fd56416fb185d",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/accordion.tsx",
+      "lines": 66,
+      "sha256": "8e81071a29e955991f5646be795f1f713375f70dd341929b0c07364091e3b024",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/button.tsx",
+      "lines": 58,
+      "sha256": "2d569a917ea72e3cad5a8f9928d6aa99516e51ebdb4fd0e578d0c62e8e42fb3c",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/dialog.tsx",
+      "lines": 135,
+      "sha256": "01e2554139231830376c1fe189ad95094e229d97c6e2f631a7be9e9734e88950",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/input.tsx",
+      "lines": 21,
+      "sha256": "f40e18f3d61a4842c178a9f594af8d9d07f2b3417c403783e04f9313a5f88789",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/popover.tsx",
+      "lines": 48,
+      "sha256": "cb136dd80dbaa2fffb59ba6a7fa08e5388fd85746d811aacc4c1ca62968ea616",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/select.tsx",
+      "lines": 189,
+      "sha256": "aafe9bb0ce1ab56eff006fe27a62499a77df281c7856ba8f51f9ea490eada453",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/sheet.tsx",
+      "lines": 139,
+      "sha256": "37fc4a4997db7ed3150e2e4ced8705155458e2281553977f26df378deb5e51c4",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/textarea.tsx",
+      "lines": 18,
+      "sha256": "f99c2b5ea05044530548241398b633ec8b34c5aaa3b8269455630f32d251de33",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/use-mobile.ts",
+      "lines": 21,
+      "sha256": "b2650083768061a6e1474a74e38e7607f7cd5be2583ef6d4ddb41955bd034b68",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/components/ui/utils.ts",
+      "lines": 6,
+      "sha256": "c0adf27efbfa148d5abcf99e860f8e3e6c8fc77a1f99e023c08ef4f12e6ece29",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/config.ts",
+      "lines": 7,
+      "sha256": "bd0f47ef5deb2346e3ebb678387681d0bd419e5f10f6e8e6119aaec94f671b50",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/consent/consent.ts",
+      "lines": 1861,
+      "sha256": "4eaebcea2b026d3afe4b04b762c6446f8eef1fea8fe2b93f27a08ebb1ba81f6d",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/content/contentPreviewProtocol.ts",
+      "lines": 38,
+      "sha256": "ea9655dd4cb4fbfed88057d1e5b5d0f67cfdba1d61dfa766ed957ef8b2c6ade9",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/context/ArticlesContext.tsx",
+      "lines": 366,
+      "sha256": "a84926c968f3080e35b70f43c6e3c5abdf7fbc111a68252ea2bbae4838e15713",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/data/caseCatalog.ts",
+      "lines": 208,
+      "sha256": "248544f5ea444987b7922091e11629bf27b062a9b2eb176e053e698f55e1ce36",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/data/dataLayerEvents.ts",
+      "lines": 224,
+      "sha256": "9cb60f37538389b76d262684c4f3a331bbf1578c8215a8e48303db5d9a0c64c9",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/data/marketingGlossary.ts",
+      "lines": 1871,
+      "sha256": "bf0f256944d523fdf8fba057bd5aa050b74f94ddcb930a5bdf50835e2ee137fa",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/hooks/useDragScroll.ts",
+      "lines": 91,
+      "sha256": "657ab083b249514ef7da279ef6f7b7a8ce88aec592af84a39cc02684d92db820",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/hooks/useFaqContent.ts",
+      "lines": 89,
+      "sha256": "652e6a2c64ed39cdaa7ef9718e1bfd8068d18d5b9ef76fd565c79fb2b44577fb",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/hooks/useServiceContent.ts",
+      "lines": 170,
+      "sha256": "fc41de9fb746f692f8fdd3657e4d5708d6292fd93c034c2764f1fdf469fd71eb",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/Admin.tsx",
+      "lines": 2022,
+      "sha256": "79f988647b0298959554d9c0810c7a3dcae2a210e251420e469df88b64119d1e",
+      "group": "admin",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/BlogPage.tsx",
+      "lines": 1401,
+      "sha256": "a164410c7fdb000aa4b6b486040a2722b4efc63c7436394aba275f55e0718ca1",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/Calculator.tsx",
+      "lines": 34,
+      "sha256": "bbb87fc79590c0071b2b5331b4393c24912108f32a6efd229c3c29d785edfa55",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/CasesPage.tsx",
+      "lines": 818,
+      "sha256": "b7071063c3543ed40f5a3c5f5be9f443d5da19b00f55f1e46d1312ed79995670",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/ContentPreview.tsx",
+      "lines": 610,
+      "sha256": "b8c2978d75770b6198b5f5014d9c733cd8c94ee4a58b822760c7f78c1bc94e83",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/CookiePolicy.tsx",
+      "lines": 50,
+      "sha256": "ac508a069f3b541d18acf1ead6c36cf4c113563d54f991d9f2ccb21fb7f2d717",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/FAQPage.tsx",
+      "lines": 759,
+      "sha256": "e0415d398e22ee73a51f05fd91b89b75bfcaa89d56998d09ad50f246ec889bcc",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/Home.tsx",
+      "lines": 215,
+      "sha256": "41954bf611af19de63024d423c2b2047a8243de0555dce3c9f93e59494bfdc9b",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/MarketingGlossaryPage.tsx",
+      "lines": 574,
+      "sha256": "543976c4fa284ef83c32bad506187e9824255ae6ec80c434c33b29d3c3ddf3d2",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/NotFound.css",
+      "lines": 1011,
+      "sha256": "61b3a5f5ae4ace270f9cc34d1a86de85d2d4f093088a192b606774d9ff7d74b8",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/NotFound.tsx",
+      "lines": 155,
+      "sha256": "7847c72905550aa6348aebfb01bc5c86e12c3a9efe850a8d3e27491cdfd3f98e",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/Offer.tsx",
+      "lines": 50,
+      "sha256": "66378f7c319d643cf53e5550cc6fe3cd517fe1dccdf7f2badde2cf00170c4d30",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/PrivacyPolicy.tsx",
+      "lines": 51,
+      "sha256": "9c87db1663f7a9014828a29a1fc299668483aa31da4fe274ea91af762eeddd87",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/RoiPage.tsx",
+      "lines": 34,
+      "sha256": "eef85bdae9500f54b8f54f5f88ee45f0b2f2e3878f3d30da691042b6f9c678bd",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/ServiceLandingPage.tsx",
+      "lines": 1141,
+      "sha256": "8a1e34ff967190502d033b95ada4b5be05ecc739eb8de07a28b33613a0d0082a",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/pages/ThankYou.tsx",
+      "lines": 380,
+      "sha256": "68ede68ca789e8789f0bf796f030c9cf14c1a2045f7076dd14b0ca232c10427d",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/routes.tsx",
+      "lines": 493,
+      "sha256": "bccae4e1ffb5bcca7783d426a0d43ac64b73a3512aadb1175233f00d0b1143e3",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": [],
+      "previousEvidence": [],
+      "reviewInvalidatedByChange": true
+    },
+    {
+      "path": "src/app/utils/articleCategory.ts",
+      "lines": 3,
+      "sha256": "541f0188258ac3c3ca2e4b630cab70ac7af39430f8fde6b7ef95d9fa233d946d",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/articleContentImages.ts",
+      "lines": 8,
+      "sha256": "26e4b550a96c843c931d10d8bbb9d9375c352b701037e374aff660d29439a899",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/articleCover.ts",
+      "lines": 8,
+      "sha256": "a076eaaf8de267cbf7b44693defa76f9e369832f5ae5930a53086e0bc9874fa0",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/articleMeta.ts",
+      "lines": 8,
+      "sha256": "f7a716cdeb0981de93ed0a2b6a9e22e8632a3d79524975d05b44f982f996c017",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/compressImage.ts",
+      "lines": 90,
+      "sha256": "43c9c61564dc02d583a33fd62cdeb2e7e6b3c9af8b946d372d508a9e0f0b5de0",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/contentFontCatalog.ts",
+      "lines": 907,
+      "sha256": "11e6475b6a7ed21b83555560e37551b2c2d2cb21165374e8adecb233e4e75771",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/contentTypography.ts",
+      "lines": 686,
+      "sha256": "c80aab83a7172b32f324e9aaf6a993af39eff7a616b861486ca96681e46b6925",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/leadContext.ts",
+      "lines": 108,
+      "sha256": "9ebda63a5cbfeea483bbad621a3651605e6637fbcf2568874568197632959484",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/leadRetryConsent.ts",
+      "lines": 86,
+      "sha256": "ee109f6ee1c4b32ea1d91a7b5e39dc8a46f8763ba5a26d4d1d56915719a63a82",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/leadRetryQueue.ts",
+      "lines": 147,
+      "sha256": "71902503056aa6429723160640358ae7e0dfc5132164f33d79004c57e0fc71b8",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/motionPerformance.ts",
+      "lines": 7,
+      "sha256": "4e0e39fc7a184eb63ad41b8967334923bd384638d909c3e8c01f9e4dde85aac1",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/motionPreference.ts",
+      "lines": 11,
+      "sha256": "4b976af353b2b9c3b61ba49d7a431bf0175f512aebe5de71a723a31621455458",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/pageLocks.ts",
+      "lines": 168,
+      "sha256": "f430860966bae43f1ee2a5fa71fdc28b5066c4422930e65bc643dfcf73071e0a",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/phoneCountry.ts",
+      "lines": 149,
+      "sha256": "2463e6be9619b09403845c42668251811a4efd9b11d9fb8b5c572d247161f137",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/plural.ts",
+      "lines": 28,
+      "sha256": "93e58c203b927521b70a077393a40662c6b4d2415b911f9fa2464cf6fd55c838",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/routePreload.ts",
+      "lines": 163,
+      "sha256": "ccba00c535e30cba50ce3bfff30818cb65270b6dc6f2f0095cd8203989686409",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/sanitizeHtml.ts",
+      "lines": 97,
+      "sha256": "337ad09ce0ad5db769995ecc42ce3e7f7b9e14a7eabe9f9ecbb9c0ce375e97b3",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/scrollRestoration.ts",
+      "lines": 106,
+      "sha256": "21f35d634d53d6a7e9e62df7f3b4094f993bed7c6ac7a4f1282098006c42791f",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/siteContentSeed.ts",
+      "lines": 48,
+      "sha256": "646cf5137068e5ee4a17e8b1f3f35cdb889ec0ca7dcf4fe443b5f9515f2557e8",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/siteNavigation.ts",
+      "lines": 344,
+      "sha256": "101dbcd151f100f344705a15c40a4164029ba0a69f053fea1c4c6aff66a51336",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/smartTitle.ts",
+      "lines": 28,
+      "sha256": "725aea20f4d94ae54f5532ce42836a50d2f4ba775710ce3bb36fe3b99fd7dd5c",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/webVitals.ts",
+      "lines": 135,
+      "sha256": "92cbf8683f83e886b95d95e94ec83fa2295cf23c271ac18711ab8e8b5a21878a",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/main.tsx",
+      "lines": 110,
+      "sha256": "ab4d6c2b8eb56f2dabdca6af063fceb1e069a4448dfc735af883957b8eaf6228",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/react-fetch-priority.d.ts",
+      "lines": 8,
+      "sha256": "cfc0e8a61d7749bd2a2282537b1b1b27e386305b9234de88d9bc293278d4fc66",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/admin-tailwind.css",
+      "lines": 10,
+      "sha256": "abaceb86e1f9201377a4fa9deeec1b638be0af9e5923c68b39a96f5470be1fa5",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/admin-theme.css",
+      "lines": 2474,
+      "sha256": "0d5f52521b3f3d0c78fa986f87b48c01bf9b7260af716eeb2c976e9d1c87e866",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/admin-ui.css",
+      "lines": 15500,
+      "sha256": "a388bfe09328ea7ea082681ab1a4e91447f374c330f03ce728fb66981a367cd1",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/blog-readable.css",
+      "lines": 238,
+      "sha256": "8c71697356fbcf9af6845e223ac6a2b3fe0570fe64aed123cd765175c0cb6856",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/cases-finder.css",
+      "lines": 2452,
+      "sha256": "705c5c5738f27a70fdcc4ba63e6de9e331ae28f194de55646524feec2487792b",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/consult-desk-scene.css",
+      "lines": 231,
+      "sha256": "97d073b075b1b6363c24f054b5867ba9994029ea0ef59369f2e9d54d46ae7761",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/content-font-library.css",
+      "lines": 5288,
+      "sha256": "5bc7385d0001ad8292f86edb4c8ee605587d66adf8a322e440d952114b12399e",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/cosmic-hero.css",
+      "lines": 282,
+      "sha256": "cedd1ee1cba566749e802b0cb2a2c34a350791eeaf3e6220e02f2593c77a0934",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/fonts.css",
+      "lines": 39,
+      "sha256": "89e69bc32e1ad9d7e7eb3dc26c62b582d64439317e2606b585ffd49caeb2d8ec",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/footer.css",
+      "lines": 26,
+      "sha256": "574b23f5638e0d8e22a97b654a5d832d98d1fbd48f266c4e9c00d82157ae61c6",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/hero-title-effects.css",
+      "lines": 236,
+      "sha256": "2134f845d38fffe24bf010a27641fb42ff8707c609ed97b310767f81d5d0f492",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/index.css",
+      "lines": 698,
+      "sha256": "1af7c5353534912039d9b6abdf72cccdba0cad9017e21d86d142d57d86a75af3",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/page-lock-handoff.css",
+      "lines": 69,
+      "sha256": "71ce4a6d5d38026a926760e021d4154ccf48423a8e9cd9188ace6afb065b58b6",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/route-reveal.css",
+      "lines": 20,
+      "sha256": "da06c04b5865539c029f44dc1942e33bd851d8ee3b8dfd5241681f1a3ca5f949",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/tailwind.css",
+      "lines": 53,
+      "sha256": "273083213ad1b0c2a0181c5b28bfa49d1fc311f9430a2c1794ef0bfc8324d9b0",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/thanks-scene.css",
+      "lines": 1071,
+      "sha256": "05d878d41314ba3abc60db708dccf1c8e834b4d662c2d2933fadf1979a686c58",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/theme.css",
+      "lines": 223,
+      "sha256": "6fb77f8b05313b6a4708c5f925a838a0133086eeb1727f2ab232526501e0f853",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/styles/whale-brand.css",
+      "lines": 86,
+      "sha256": "0510b7df6d59cef0d821e9d5fc19a51919d4c579831809d0963938796e3ff3bf",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/types/cloudflare-pages.d.ts",
+      "lines": 134,
+      "sha256": "7b749c165407c61033772fbe2194b9b55afce1d52417e266f54054684d614a97",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "tsconfig.app.json",
+      "lines": 23,
+      "sha256": "915bd0fcf26994490535a5d0e92a1079e083caec3cf28933e1a98e262606a3f3",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "tsconfig.functions.json",
+      "lines": 17,
+      "sha256": "82e3274dd22100f75ef49a94092691492f26a0b78691ca23d184482f304c07ce",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "vite.config.ts",
+      "lines": 365,
+      "sha256": "0dd6f13b3c21c22253ef4a55c46d6329c67caeaa7d37ffea6c8caeec2fdbb7ff",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    }
+  ]
+}

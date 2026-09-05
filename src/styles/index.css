@@ -498,8 +498,9 @@ input[type='number']::-webkit-outer-spin-button {
 
 .legal-progress {
   position: sticky;
-  /* Не прячем индикатор под фиксированной шапкой на длинных документах. */
-  top: 80px;
+  /* The page scrollport includes the 80px navbar. A modal's scrollport starts
+   * below its own header; reusing that offset paints the bar over the text. */
+  top: var(--legal-progress-top, 80px);
   z-index: 5;
   height: 3px;
   margin: 0 0 14px;
@@ -516,6 +517,17 @@ input[type='number']::-webkit-outer-spin-button {
   transform-origin: left center;
   will-change: transform;
 }
+
+.modal-scroll {
+  /* Sticky in a padded scrollport is inset by its padding as well. Cancel
+   * that inset so the reading bar sticks to the header/content boundary. */
+  --legal-progress-top: -1rem;
+  --legal-anchor-offset: 16px;
+}
+@media (min-width: 640px) {
+  .modal-scroll { --legal-progress-top: -1.5rem; }
+}
+.modal-scroll-flush { --legal-progress-top: 0px; }
 
 .legal-intro { margin-bottom: 18px; }
 .legal-intro p { line-height: 1.75; }
@@ -587,7 +599,7 @@ input[type='number']::-webkit-outer-spin-button {
   margin: 0 0 10px;
   /* Fixed public navbar is 80px high; keep the opened section visible below
      it instead of hiding the summary under the header after TOC navigation. */
-  scroll-margin-top: 96px;
+  scroll-margin-top: var(--legal-anchor-offset, 96px);
   transition: border-color 0.25s;
 }
 .legal-sec[open] { border-color: var(--legal-line); }

@@ -298,6 +298,13 @@ const ROUTE_ENTRY_MODULES = {
   '/marketing-glossary': ['src/app/pages/MarketingGlossaryPage.tsx'],
   '/calculator': ['src/app/pages/Calculator.tsx'],
   '/roi-calculator': ['src/app/pages/RoiPage.tsx'],
+  // These direct entries also wait for their lazy route before bootstrap
+  // hands off the HTML shell. Discover their code/CSS from HTML, not only
+  // after the main JavaScript has downloaded and executed.
+  '/privacy-policy': ['src/app/pages/PrivacyPolicy.tsx'],
+  '/offer': ['src/app/pages/Offer.tsx'],
+  '/cookie-policy': ['src/app/pages/CookiePolicy.tsx'],
+  '/thank-you': ['src/app/pages/ThankYou.tsx'],
   '/meta-ads': [
     'src/app/pages/ServiceLandingPage.tsx',
     'src/app/components/service-heroes/MetaAdsEditorialHero.tsx',
@@ -838,14 +845,18 @@ const HERO_PRELOADS = {
   '/google-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
   '/consult': [
     {
-      href: '/images/consult-proof/workspace-mobile.webp',
+      // ConsultDeskScene replaced the old single workspace portrait. Keep the
+      // responsive preload in sync with .cds-desk so the real background starts
+      // from HTML and the retired photo does not consume the mobile bandwidth.
+      href: '/images/consult-proof/desk-v.webp',
       priority: true,
       media: '(max-width: 1023px)',
     },
     {
-      href: '/images/consult-proof/workspace-portrait.webp',
+      href: '/images/consult-proof/desk-h.webp',
       priority: true,
-      media: '(min-width: 1024px)',
+      // Match the CSS default at fractional widths too (zoom can yield 1023.33px).
+      media: 'not all and (max-width: 1023px)',
     },
   ],
   '/meta-apps': [

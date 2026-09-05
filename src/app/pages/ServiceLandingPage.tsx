@@ -10,6 +10,7 @@ import type { CallToActionContent } from '../components/CallToAction';
 import type { TestimonialsContent } from '../components/Testimonials';
 import useServiceContent from '../hooks/useServiceContent';
 import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
+import { onUserScrollIntent } from '../utils/scrollRestoration';
 import {
   managedBodyClasses,
   managedBodyStyle,
@@ -895,7 +896,13 @@ function DeferredSection({
     let attempts = 0;
     let stableFrames = 0;
     let previousHeight = -1;
+    let cancelled = false;
+    const stopIntentListener = onUserScrollIntent(() => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    });
     const alignToHashTarget = () => {
+      if (cancelled) return;
       const target = document.getElementById(anchorId);
       if (target) {
         // The section sits below a fixed navbar. `scrollIntoView({ block:
@@ -925,17 +932,25 @@ function DeferredSection({
         // scroll itself. Four stable frames can otherwise finish before its
         // chunk response arrives, leaving a later anchor displaced by the
         // section's real height.
-        if ((stableFrames >= 4 && attempts >= 45) || attempts >= 90) return;
+        if ((stableFrames >= 4 && attempts >= 45) || attempts >= 90) {
+          stopIntentListener();
+          return;
+        }
         frame = window.requestAnimationFrame(alignToHashTarget);
         return;
       }
 
       attempts += 1;
       if (attempts < 90) frame = window.requestAnimationFrame(alignToHashTarget);
+      else stopIntentListener();
     };
 
     frame = window.requestAnimationFrame(alignToHashTarget);
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      stopIntentListener();
+    };
   }, [anchorId, location.key, navigationType, shouldRender]);
 
   return (
