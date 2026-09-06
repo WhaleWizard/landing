@@ -33,7 +33,8 @@ export function onUserScrollIntent(onIntent: () => void): () => void {
     onIntent();
   };
   const handleKey = (event: KeyboardEvent) => {
-    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || !SCROLL_KEYS.has(event.key)) return;
+    const documentJump = event.ctrlKey && !event.metaKey && (event.key === 'Home' || event.key === 'End');
+    if (event.defaultPrevented || (event.ctrlKey && !documentJump) || event.metaKey || event.altKey || !SCROLL_KEYS.has(event.key)) return;
     const target = event.target;
     if (target instanceof Element) {
       // These controls consume navigation keys themselves, without moving

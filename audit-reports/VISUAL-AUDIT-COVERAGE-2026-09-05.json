@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-05T20:57:28.748Z",
-  "baseCommit": "ac1c17f3eb4b62e074f15a06df9d0f16bc34e576",
+  "generatedAt": "2026-09-06T17:16:59.544Z",
+  "baseCommit": "1b3e6112d466ae553a2ba1fcb6ab4e1fd8e5313f",
   "rules": [
     "This is an inventory, not proof of review. not_reviewed is intentional even for partly inspected files.",
     "Read complete source and follow dependencies before marking code_reviewed; record exact line ranges and evidence.",
@@ -9,8 +9,8 @@
     "Binary assets are not line-audited; audit their request timing, dimensions, srcset, decoding, quality and visible use in the route matrix."
   ],
   "counts": {
-    "files": 371,
-    "lines": 120349
+    "files": 373,
+    "lines": 120682
   },
   "files": [
     {
@@ -1267,13 +1267,11 @@
     {
       "path": "package.json",
       "lines": 85,
-      "sha256": "a5ca3bac196b0275dde69524aed6a3e97a3891c74ed9eca31297ef8e7b01706c",
+      "sha256": "6c6672805755b28d1d8430363c20fa58c4f04cb113f8cc4cc6fdf48a140b998c",
       "group": "build-tests-config",
       "status": "not_reviewed",
       "reviewedRanges": [],
-      "evidence": [],
-      "previousEvidence": [],
-      "reviewInvalidatedByChange": true
+      "evidence": []
     },
     {
       "path": "public/_headers",
@@ -1324,6 +1322,15 @@
       "path": "scripts/admin-performance.test.js",
       "lines": 122,
       "sha256": "e1dd7ce43fee6380760007bc0c22da23e714584ef02b785fac51e3a4d76f1755",
+      "group": "build-tests-config",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "scripts/anchor-scroll.test.js",
+      "lines": 228,
+      "sha256": "00c118123adc7f25ee9e02b3304eec1f6d6c2a66301a261dd53dd4ce5755a3cd",
       "group": "build-tests-config",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -1556,8 +1563,8 @@
     },
     {
       "path": "scripts/scroll-restoration.test.js",
-      "lines": 180,
-      "sha256": "88bd65707613645087f28376d615a8f70ff7b66f7c1b67d57bb242ee4afa29d5",
+      "lines": 193,
+      "sha256": "69a7dc956efe23db0600dd1ef97356c4ec27c0f0e39b71ef3b17fc9dee878f24",
       "group": "build-tests-config",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -1822,9 +1829,7 @@
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
-      "evidence": [],
-      "previousEvidence": [],
-      "reviewInvalidatedByChange": true
+      "evidence": []
     },
     {
       "path": "src/app/components/HeroTitleEffect.tsx",
@@ -2458,8 +2463,8 @@
     },
     {
       "path": "src/app/components/hooks/useScrollTo.tsx",
-      "lines": 53,
-      "sha256": "dd91c13adc0eb43ef21ad3f26a7894c50993544c31320acbff1e58c4f91a1af0",
+      "lines": 69,
+      "sha256": "d688b6532c4eddab26c2221ee6f592440ff00edf99964abd8d3318caf6422179",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -2530,8 +2535,8 @@
     },
     {
       "path": "src/app/components/meta-apps-hero.css",
-      "lines": 1313,
-      "sha256": "b38202d6b7263f99e04b0906015d554fbf28093a65c43298649dcf0037213d9e",
+      "lines": 1316,
+      "sha256": "5077cd25e14ba8cdf31e9fb58c9da4ac70127e620cce13e384791e25fd1229ab",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -2827,8 +2832,8 @@
     },
     {
       "path": "src/app/pages/Home.tsx",
-      "lines": 215,
-      "sha256": "41954bf611af19de63024d423c2b2047a8243de0555dce3c9f93e59494bfdc9b",
+      "lines": 207,
+      "sha256": "fc604ecc578709a1af3a7c539d477b93eb7c1fe28c4e96a66ac97872e39ae047",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -2895,9 +2900,7 @@
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
-      "evidence": [],
-      "previousEvidence": [],
-      "reviewInvalidatedByChange": true
+      "evidence": []
     },
     {
       "path": "src/app/pages/ThankYou.tsx",
@@ -2915,9 +2918,7 @@
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
-      "evidence": [],
-      "previousEvidence": [],
-      "reviewInvalidatedByChange": true
+      "evidence": []
     },
     {
       "path": "src/app/utils/articleCategory.ts",
@@ -2977,6 +2978,15 @@
       "path": "src/app/utils/contentTypography.ts",
       "lines": 686,
       "sha256": "c80aab83a7172b32f324e9aaf6a993af39eff7a616b861486ca96681e46b6925",
+      "group": "frontend",
+      "status": "not_reviewed",
+      "reviewedRanges": [],
+      "evidence": []
+    },
+    {
+      "path": "src/app/utils/deferredAnchor.ts",
+      "lines": 80,
+      "sha256": "393b72460818f27483aed1664478948292cbe2287ff440994096c15bd70739eb",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
@@ -3088,9 +3098,7 @@
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],
-      "evidence": [],
-      "previousEvidence": [],
-      "reviewInvalidatedByChange": true
+      "evidence": []
     },
     {
       "path": "src/app/utils/sanitizeHtml.ts",
@@ -3103,8 +3111,8 @@
     },
     {
       "path": "src/app/utils/scrollRestoration.ts",
-      "lines": 106,
-      "sha256": "21f35d634d53d6a7e9e62df7f3b4094f993bed7c6ac7a4f1282098006c42791f",
+      "lines": 107,
+      "sha256": "49f17a3820912fd4e69479b32d7e4b1cfb771e9d87e39d499186b97c7d7b6fd9",
       "group": "frontend",
       "status": "not_reviewed",
       "reviewedRanges": [],

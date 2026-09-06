@@ -13,6 +13,7 @@ import Hero from '../components/Hero';
 import SEO from '../components/SEO';
 import { useSiteSection } from '../hooks/useServiceContent';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { alignDeferredAnchor, precedesDeferredHashTarget } from '../utils/deferredAnchor';
 // The mobile cosmic stage participates in document flow. Load its geometry
 // with the Home route (rather than the nested lazy scene) so Suspense reserves
 // 320–430px immediately without making non-cosmic service heroes download it.
@@ -56,6 +57,7 @@ function SectionSkeleton({ heights }: { heights: DeferredSectionHeights }) {
     <div
       className="min-h-[var(--home-deferred-mobile)] w-full md:min-h-[var(--home-deferred-tablet)] lg:min-h-[var(--home-deferred-desktop)]"
       style={style}
+      data-home-placeholder=""
       aria-hidden="true"
     />
   );
@@ -101,7 +103,9 @@ function DeferredSection({
 
     const mount = () => setShouldRender(true);
     const mountForHash = () => {
-      if (hashTargetsSection(anchorId)) mount();
+      // Deep links need the real heights above their target. Keep ordinary
+      // (hashless) loads lazy and leave sections after the target deferred.
+      if (precedesDeferredHashTarget(section)) mount();
     };
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -124,30 +128,18 @@ function DeferredSection({
       window.removeEventListener('hashchange', mountForHash);
       window.removeEventListener('beforeprint', mount);
     };
-  }, [anchorId, shouldRender]);
+  }, [anchorId, location.hash, location.key, shouldRender]);
 
   useEffect(() => {
     const shouldAlignHash = navigationType !== 'POP' || location.key === 'default';
     if (!shouldAlignHash || !shouldRender || !anchorId || !hashTargetsSection(anchorId)) return;
 
-    let frame = 0;
-    let attempts = 0;
-    const alignToTarget = () => {
-      const target = document.getElementById(anchorId);
-      if (target) {
-        target.scrollIntoView({ behavior: 'auto', block: 'start' });
-        return;
-      }
-      attempts += 1;
-      if (attempts < 60) frame = window.requestAnimationFrame(alignToTarget);
-    };
-
-    frame = window.requestAnimationFrame(alignToTarget);
-    return () => window.cancelAnimationFrame(frame);
-  }, [anchorId, location.key, navigationType, shouldRender]);
+    const section = sectionRef.current;
+    if (section) return alignDeferredAnchor(anchorId, section);
+  }, [anchorId, location.hash, location.key, navigationType, shouldRender]);
 
   return (
-    <section ref={sectionRef} id={shouldRender ? undefined : anchorId}>
+    <section ref={sectionRef} data-home-section="" data-home-anchor={anchorId} id={shouldRender ? undefined : anchorId}>
       {shouldRender ? (
         <Suspense fallback={<SectionSkeleton heights={heights} />}>{children}</Suspense>
       ) : (

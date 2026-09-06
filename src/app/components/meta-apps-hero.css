@@ -1191,15 +1191,18 @@
   }
 
   .meta-receipt-slot--1 {
-    top: -58px;
+    /* On narrow screens the 226px CTA extends into the receipt column.
+       Keep the complete animated stack below the buttons, without changing
+       its internal spacing, the phone/pedestal or the wider-screen overlap. */
+    top: 14px;
   }
 
   .meta-receipt-slot--2 {
-    top: 66px;
+    top: 138px;
   }
 
   .meta-receipt-slot--3 {
-    top: 188px;
+    top: 260px;
   }
 
   .meta-apps-hero-actions {

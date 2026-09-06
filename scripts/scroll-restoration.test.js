@@ -149,13 +149,26 @@ test('scroll keys cancel restoration but form controls and consumed keys do not'
   onUserScrollIntent(() => { cancelled += 1; });
   browser.fire('keydown', { key: 'ArrowDown', target: browser.document.getElementById('input') });
   browser.fire('keydown', { key: ' ', target: browser.document.getElementById('button') });
-  browser.fire('keydown', { key: 'Home', ctrlKey: true });
+  browser.fire('keydown', { key: 'PageUp', ctrlKey: true });
   browser.fire('keydown', { key: 'PageDown', defaultPrevented: true });
   assert.equal(cancelled, 0);
   browser.fire('keydown', { key: 'PageDown' });
   assert.equal(cancelled, 1);
   assert.equal(browser.listenerCount(), 0);
 });
+
+for (const key of ['Home', 'End']) {
+  test(`Ctrl+${key} cancels a pending document restore but not navigation inside an input`, (t) => {
+    const browser = browserFixture(t);
+    let cancelled = 0;
+    onUserScrollIntent(() => { cancelled += 1; });
+    browser.fire('keydown', { key, ctrlKey: true, target: browser.document.getElementById('input') });
+    assert.equal(cancelled, 0);
+    browser.fire('keydown', { key, ctrlKey: true });
+    assert.equal(cancelled, 1);
+    assert.equal(browser.listenerCount(), 0);
+  });
+}
 
 test('dragging a classic scrollbar cancels restoration without treating page buttons as scroll', (t) => {
   const browser = browserFixture(t);
