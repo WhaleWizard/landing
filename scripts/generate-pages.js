@@ -792,9 +792,12 @@ const HERO_PRELOADS = {
       // ConsultDeskScene replaced the old single workspace portrait. Keep the
       // responsive preload in sync with .cds-desk so the real background starts
       // from HTML and the retired photo does not consume the mobile bandwidth.
-      href: '/images/consult-proof/desk-v.webp',
+      // Плотность экрана выбирается теми же дескрипторами, что и image-set в
+      // CSS: 2× телефоны берут 800-пиксельный вариант, 3× — оригинал.
+      href: '/images/consult-proof/desk-v-800.webp',
       priority: true,
       media: '(max-width: 1023px)',
+      imageSrcSet: '/images/consult-proof/desk-v-800.webp 2x, /images/consult-proof/desk-v.webp 3x',
     },
     {
       href: '/images/consult-proof/desk-h.webp',
@@ -802,6 +805,11 @@ const HERO_PRELOADS = {
       // Match the CSS default at fractional widths too (zoom can yield 1023.33px).
       media: 'not all and (max-width: 1023px)',
     },
+    // Предметы сцены рисует React после загрузки чанка хиро; без preload
+    // браузер узнавал о них на 6–7-й секунде холодной загрузки, а ноутбук —
+    // самый крупный объект первого экрана телефона, то есть его LCP.
+    { href: '/images/consult-proof/scene/laptop.webp' },
+    { href: '/images/consult-proof/scene/notebook.webp' },
   ],
   '/meta-apps': [
     {
@@ -818,6 +826,18 @@ const HERO_PRELOADS = {
     },
     { href: '/images/meta-hero-pedestal-rack.webp', media: '(min-width: 768px)' },
     { href: '/images/meta-phone-3d-shell.webp', media: '(min-width: 768px)' },
+  ],
+};
+
+// Шрифты, которые страница показывает на первом экране из собственного CSS,
+// а не из настроек типографики в CMS. Без preload браузер запрашивает их
+// только после загрузки чанка хиро, и текст на 4–6-й секунде холодной
+// загрузки переключается с системного шрифта на авторский.
+const ROUTE_FONT_PRELOADS = {
+  '/consult': [
+    '/fonts/hero/commissioner-300-normal-cyrillic.woff2',
+    '/fonts/hero/commissioner-400-normal-cyrillic.woff2',
+    '/fonts/hero/commissioner-600-normal-cyrillic.woff2',
   ],
 };
 
@@ -1664,7 +1684,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
             : '',
         ].filter(Boolean).join('\n'),
         imagePreloads: HERO_PRELOADS[page.route] || [],
-        fontPreloads: resolveHeroFontPreloads(page.hero),
+        fontPreloads: [...new Set([...resolveHeroFontPreloads(page.hero), ...(ROUTE_FONT_PRELOADS[page.route] || [])])],
         baseHtml,
         bodyHtml: page.route === '/admin/content-preview'
           ? `    <h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">${escapeHtml(page.h1)}</h1>`

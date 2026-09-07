@@ -405,7 +405,7 @@ test('consultation image preloads match the responsive desk actually rendered by
   const images = links(head, 'preload').filter((tag) => attribute(tag, 'as') === 'image');
   const sceneCss = readFileSync(join(ROOT, 'src', 'styles', 'consult-desk-scene.css'), 'utf8');
   const expected = [
-    ['/images/consult-proof/desk-v.webp', '(max-width: 1023px)'],
+    ['/images/consult-proof/desk-v-800.webp', '(max-width: 1023px)'],
     ['/images/consult-proof/desk-h.webp', 'not all and (max-width: 1023px)'],
   ];
   for (const [href, media] of expected) {
@@ -415,6 +415,24 @@ test('consultation image preloads match the responsive desk actually rendered by
     assert.equal(matches.length, 1, `the first HTML response must discover ${href} exactly once`);
     assert.equal(attribute(matches[0], 'media'), media, `do not preload both desk orientations on one device`);
     assert.equal(attribute(matches[0], 'fetchpriority'), 'high');
+  }
+  // Телефон получает вариант под плотность экрана теми же дескрипторами, что
+  // и image-set в CSS: иначе preload и CSS выбрали бы разные файлы и картинка
+  // скачивалась бы дважды.
+  const mobileDesk = images.find((tag) => attribute(tag, 'href') === '/images/consult-proof/desk-v-800.webp');
+  const mobileSrcSet = '/images/consult-proof/desk-v-800.webp 2x, /images/consult-proof/desk-v.webp 3x';
+  assert.equal(attribute(mobileDesk, 'imagesrcset'), mobileSrcSet, 'mobile desk preload must carry the density set');
+  assert.ok(sceneCss.includes(`image-set(url('/images/consult-proof/desk-v-800.webp') 2x, url('/images/consult-proof/desk-v.webp') 3x)`), 'scene CSS must select the same density set');
+  assert.ok(existsSync(join(DIST, 'images', 'consult-proof', 'desk-v.webp')), 'the 3x desk original must stay built');
+  // Крупные предметы сцены объявлены из HTML: React рисует их после загрузки
+  // чанка хиро, и без preload ноутбук (LCP телефона) обнаруживался на 6–7-й секунде.
+  for (const href of ['/images/consult-proof/scene/laptop.webp', '/images/consult-proof/scene/notebook.webp']) {
+    assert.equal(images.filter((tag) => attribute(tag, 'href') === href).length, 1, `${href} must be preloaded exactly once`);
+    assert.ok(existsSync(join(DIST, href.slice(1))), `missing built scene object ${href}`);
+  }
+  const fontPreloads = links(head, 'preload').filter((tag) => attribute(tag, 'as') === 'font').map((tag) => attribute(tag, 'href'));
+  for (const weight of [300, 400, 600]) {
+    assert.ok(fontPreloads.includes(`/fonts/hero/commissioner-${weight}-normal-cyrillic.woff2`), `consult must preload Commissioner ${weight} cyrillic used above the fold`);
   }
   assert.ok(
     images.every((tag) => !attribute(tag, 'href')?.includes('/workspace-')),

@@ -76,12 +76,18 @@ function defaultWorkerCache(): WorkerCache | null {
   }
 }
 
-function auditCacheRequest(request: Request, target: URL, strategy: Strategy): Request {
+function auditCacheRequest(request: Request, env: Env, target: URL, strategy: Strategy): Request {
   const cacheUrl = new URL(request.url);
   cacheUrl.search = '';
   cacheUrl.searchParams.set('url', target.toString());
   cacheUrl.searchParams.set('strategy', strategy);
   cacheUrl.searchParams.set('cacheVersion', PSI_CACHE_VERSION);
+  // Результат помнится 12 часов, и после выкладки кнопка «Проверить все»
+  // показывала цифры старой версии сайта. Коммит выкладки входит в ключ:
+  // новая версия — новый замер, без ручного сброса. Локально и в Preview без
+  // этой переменной поведение прежнее.
+  const deploy = String(env.CF_PAGES_COMMIT_SHA || '').trim();
+  if (deploy) cacheUrl.searchParams.set('deploy', deploy.slice(0, 12));
   return new Request(cacheUrl.toString(), { method: 'GET' });
 }
 
@@ -422,7 +428,7 @@ async function runAudit(
   }
 
   const cache = defaultWorkerCache();
-  const cacheRequest = auditCacheRequest(request, target, strategy);
+  const cacheRequest = auditCacheRequest(request, env, target, strategy);
   if (cache && !force) {
     try {
       const cachedResponse = await cache.match(cacheRequest);

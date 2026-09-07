@@ -182,7 +182,14 @@
      трети, и половина дерева пропадала бы зря. */
   .cds-desk {
     inset: -2%;
-    background-image: url('/images/consult-proof/desk-v.webp');
+    /* Тот же кадр стола, но под плотность экрана: на телефонах с 2× экраном
+       браузер всё равно уменьшал бы 1200×1800 до 800×1200, а качал при этом
+       416 КБ. Вариант 800 px даёт тот же пиксельный результат за 246 КБ;
+       3× экраны (iPhone Pro) по-прежнему получают оригинал. Первая строка —
+       запас для браузеров без image-set. */
+    background-image: url('/images/consult-proof/desk-v-800.webp');
+    background-image: -webkit-image-set(url('/images/consult-proof/desk-v-800.webp') 2x, url('/images/consult-proof/desk-v.webp') 3x);
+    background-image: image-set(url('/images/consult-proof/desk-v-800.webp') 2x, url('/images/consult-proof/desk-v.webp') 3x);
     background-position: center 42%;
   }
 
