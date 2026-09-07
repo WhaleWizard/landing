@@ -121,13 +121,18 @@ function ConsultDeskScene() {
       }));
     };
 
+    // Скорость пылинок задана за кадр при 60 Гц; шаг считается по времени,
+    // чтобы экран 120 Гц не гонял их вдвое быстрее, а пауза не давала прыжка.
+    let lastPaintT = Number.NaN;
     const paint = (t: number) => {
       if (!ctx) return;
+      const step = Number.isNaN(lastPaintT) ? 1 : Math.min(3, Math.max(0, (t - lastPaintT) / (1000 / 60)));
+      lastPaintT = t;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (const m of motes) {
         if (!reduced) {
-          m.y -= m.sp;
-          m.x += m.drift;
+          m.y -= m.sp * step;
+          m.x += m.drift * step;
           if (m.y < -6) {
             m.y = canvas.height * 0.85;
             m.x = (0.02 + Math.random() * 0.68) * canvas.width;

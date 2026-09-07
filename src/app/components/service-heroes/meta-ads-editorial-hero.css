@@ -175,7 +175,7 @@
   margin-top: 24px;
 }
 
-.meta-editorial-hero__actions button {
+.meta-editorial-hero__actions :is(button, a) {
   min-height: 52px;
   border-radius: 999px;
   padding-inline: 24px;
@@ -631,7 +631,7 @@
     margin-top: 19px;
   }
 
-  .meta-editorial-hero__actions button {
+  .meta-editorial-hero__actions :is(button, a) {
     width: 100%;
     min-height: 52px;
     font-size: 14px;

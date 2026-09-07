@@ -372,7 +372,12 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       const elapsed = lastFrameAt === 0 ? FRAME_MS : now - lastFrameAt;
       if (lastFrameAt === 0 || elapsed >= budget - 0.5) {
         lastFrameAt = now;
-        draw(true, Math.min(2.5, elapsed / FRAME_MS));
+        // Симуляция продвигается на реально прошедшее время, а потолок лишь
+        // чуть выше текущего бюджета кадра: после свёрнутой вкладки точки не
+        // телепортируются. Прежний потолок в 2,5 кадра был меньше бюджета
+        // прокрутки — сеть замедлялась втрое на время скролла и ускорялась
+        // после.
+        draw(true, Math.min(budget / FRAME_MS + 1, elapsed / FRAME_MS));
       }
       rafId = requestAnimationFrame(loop);
     };

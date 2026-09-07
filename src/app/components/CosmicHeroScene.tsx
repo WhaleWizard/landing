@@ -213,12 +213,19 @@ function CosmicHeroScene({ active = true }: { active?: boolean }) {
       return true;
     };
 
+    // Скорость пыли задана в пикселях за кадр при 60 Гц — это авторская
+    // скорость. Шаг считается по прошедшему времени, чтобы на телефоне с
+    // бюджетом 24 к/с и на экране 120 Гц движение было тем же, что на
+    // десктопе; потолок в три кадра не даёт прыжка после паузы.
+    let lastPaintT = Number.NaN;
     const paint = (t: number) => {
       if (!ctx) return;
+      const step = Number.isNaN(lastPaintT) ? 1 : Math.min(3, Math.max(0, (t - lastPaintT) / (1000 / 60)));
+      lastPaintT = t;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (const d of dots) {
         if (!reduced && activeRef.current) {
-          d.y -= d.sp;
+          d.y -= d.sp * step;
           if (d.y < -6) {
             d.y = canvas.height + 6;
             d.x = (0.22 + Math.random() * 0.8) * canvas.width;

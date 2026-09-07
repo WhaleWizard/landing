@@ -64,7 +64,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
   };
 
   return (
-    <section id="hero" className="meta-editorial-hero" aria-labelledby="meta-editorial-title">
+    <section id="hero" data-ww-first-screen="meta-ads" className="meta-editorial-hero" aria-labelledby="meta-editorial-title">
       <div className="meta-editorial-hero__glow meta-editorial-hero__glow--blue" aria-hidden="true" />
       <div className="meta-editorial-hero__glow meta-editorial-hero__glow--pink" aria-hidden="true" />
 
@@ -125,22 +125,24 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
 
           <div className="meta-editorial-hero__actions">
             <Button
-              type="button"
+              asChild
               size="lg"
-              onClick={() => scrollTo('contact')}
               className="meta-editorial-hero__primary"
             >
-              <span>{content.primaryButton}</span>
-              <ArrowRight aria-hidden="true" />
+              <a href="#contact" onClick={(event) => { event.preventDefault(); scrollTo('contact'); }}>
+                <span>{content.primaryButton}</span>
+                <ArrowRight aria-hidden="true" />
+              </a>
             </Button>
             <Button
-              type="button"
+              asChild
               size="lg"
               variant="outline"
-              onClick={() => scrollTo('cases')}
               className="meta-editorial-hero__secondary"
             >
-              {content.secondaryButton}
+              <a href="#cases" onClick={(event) => { event.preventDefault(); scrollTo('cases'); }}>
+                {content.secondaryButton}
+              </a>
             </Button>
           </div>
 

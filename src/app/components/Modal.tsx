@@ -3,6 +3,13 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useDialogFocus } from './hooks/useDialogFocus';
+import { useManagedTitleFit } from '../utils/contentTypography';
+
+// Заголовок окна умещается не больше чем в две строки целиком: «Политика
+// конфиденциальности и обработки персональных данных» на телефоне уходила в
+// три-четыре. Кегль уменьшается только когда иначе не помещается, и не ниже
+// 12px; обрезки и многоточия нет — весь текст остаётся на экране.
+const MODAL_TITLE_FIT = { maxLines: 2, minFontSize: 12 } as const;
 
 interface ModalProps {
   isOpen: boolean;
@@ -30,6 +37,7 @@ export default function Modal({
   flushBody = false,
 }: ModalProps) {
   const modalRef = useDialogFocus<HTMLDivElement>(isOpen, onClose);
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(undefined, MODAL_TITLE_FIT);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -114,7 +122,7 @@ export default function Modal({
             } ${dialogClassName ?? ''}`}
           >
             <div className="flex justify-between items-start gap-3 p-4 sm:p-5 border-b border-border">
-              <h2 className="min-w-0 flex-1 break-words text-balance text-lg sm:text-xl font-semibold leading-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              <h2 ref={titleRef} className="min-w-0 flex-1 break-words text-balance text-lg sm:text-xl font-semibold leading-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {title}
               </h2>
               <m.button

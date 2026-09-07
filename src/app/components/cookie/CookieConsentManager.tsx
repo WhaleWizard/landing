@@ -273,7 +273,12 @@ export default function CookieConsentManager() {
       ? (consentRef.current ? 'hidden' : 'banner')
       : current);
   }, []);
-  const dialogRef = useDialogFocus<HTMLDivElement>(mode !== 'hidden' && docModal === null, closeCookieDialog);
+  // Пока открыт документ, окно cookie не закрывается, а ставится на паузу:
+  // Escape и Tab уходят документу, а после его закрытия фокус возвращается
+  // на ссылку, которой документ открыли, а не на первый переключатель.
+  const dialogRef = useDialogFocus<HTMLDivElement>(mode !== 'hidden', closeCookieDialog, undefined, {
+    paused: docModal !== null,
+  });
 
   useEffect(() => () => cancelPendingTrackingRuntimeLoad(), []);
 

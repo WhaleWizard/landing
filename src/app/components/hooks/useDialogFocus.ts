@@ -24,6 +24,18 @@ function getFocusable(root: HTMLElement | null): HTMLElement[] {
   });
 }
 
+export type DialogFocusOptions = {
+  /**
+   * Диалог остаётся открытым, но поверх него открыт вложенный (документ из
+   * окна cookie). На паузе он не ловит Escape и Tab — ими владеет вложенное
+   * окно — и не переставляет фокус заново, когда вложенное закрывается:
+   * возврат фокуса на кнопку, которой открыли документ, делает само вложенное
+   * окно. Раньше внешний диалог «закрывался» на это время и при возврате
+   * снова ставил фокус на свой первый переключатель.
+   */
+  paused?: boolean;
+};
+
 /**
  * Keep keyboard focus inside a custom dialog and return it to the opener.
  * Native-looking overlays in the public app use this instead of relying on
@@ -34,12 +46,17 @@ export function useDialogFocus<T extends HTMLElement>(
   isOpen: boolean,
   onClose: () => void,
   initialFocusRef?: RefObject<HTMLElement | null>,
+  options: DialogFocusOptions = {},
 ) {
   const dialogRef = useRef<T>(null);
   const closeRef = useRef(onClose);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   closeRef.current = onClose;
+  const paused = options.paused === true;
 
+  // Захват и возврат фокуса привязаны только к открытию/закрытию: пауза ради
+  // вложенного окна не должна ни трогать запомненный opener, ни повторять
+  // начальную установку фокуса.
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -55,6 +72,17 @@ export function useDialogFocus<T extends HTMLElement>(
       if (first) first.focus();
       else dialog?.focus();
     });
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      const restoreTarget = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      restoreTarget?.focus({ preventScroll: true });
+    };
+  }, [initialFocusRef, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || paused) return undefined;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -80,14 +108,8 @@ export function useDialogFocus<T extends HTMLElement>(
     };
 
     document.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener('keydown', onKeyDown);
-      const restoreTarget = restoreFocusRef.current;
-      restoreFocusRef.current = null;
-      restoreTarget?.focus({ preventScroll: true });
-    };
-  }, [initialFocusRef, isOpen]);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, paused]);
 
   return dialogRef;
 }

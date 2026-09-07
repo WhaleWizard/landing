@@ -9,11 +9,15 @@ export function useIsMobile() {
 
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    // Один и тот же критерий на первом рендере и в эффекте. При дробной
+    // ширине окна (масштаб, дробный DPR) `innerWidth < 768` и медиазапрос
+    // `max-width: 767px` отвечали по-разному, и блок перестраивался после
+    // первого кадра.
     const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+      setIsMobile(mql.matches);
     };
     mql.addEventListener("change", onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    setIsMobile(mql.matches);
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
