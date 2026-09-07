@@ -95,3 +95,16 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 export function sanitizeHtml(input: string): string {
   return DOMPurify.sanitize(input, CONFIG);
 }
+
+/**
+ * Та же очистка, но результат отдаётся деревом, а не строкой.
+ *
+ * Странице статьи нужно дописать якоря заголовкам и подменить картинки, а
+ * потом снова прогнать разметку через санитайзер. Раньше между двумя
+ * проходами стоял ещё один полный разбор строки через DOMParser — на
+ * телефоне открытие статьи стоило лишних десятков миллисекунд главного
+ * потока. Дерево из первого прохода можно править напрямую.
+ */
+export function sanitizeHtmlToBody(input: string): HTMLElement {
+  return DOMPurify.sanitize(input, { ...CONFIG, RETURN_DOM: true }) as HTMLElement;
+}

@@ -12,8 +12,8 @@ import { ARTICLE_IMAGE_SIZES, resolveArticleImage } from './articleImages';
  * Остальное без изменения размеров: далёкие CMS-изображения просто грузятся
  * позже и с низким приоритетом.
  */
-export function optimizeArticleContentImages(doc: Document): void {
-  for (const image of doc.body.querySelectorAll<HTMLImageElement>('img')) {
+export function optimizeArticleContentImages(root: ParentNode): void {
+  for (const image of root.querySelectorAll<HTMLImageElement>('img')) {
     const source = image.getAttribute('src') || '';
     const resolved = resolveArticleImage(source);
     if (resolved) {

@@ -14,6 +14,8 @@ import SEO from '../components/SEO';
 import { useSiteSection } from '../hooks/useServiceContent';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { alignDeferredAnchor, precedesDeferredHashTarget } from '../utils/deferredAnchor';
+import { memoizedImport } from '../utils/memoizedImport';
+import { useWarmSections } from '../utils/sectionWarmup';
 // The mobile cosmic stage participates in document flow. Load its geometry
 // with the Home route (rather than the nested lazy scene) so Suspense reserves
 // 320–430px immediately without making non-cosmic service heroes download it.
@@ -24,15 +26,36 @@ const defaultHomeSeo = {
   description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
 };
 
-const Services = lazy(() => import('../components/Services'));
-const Cases = lazy(() => import('../components/Cases'));
-const CallToAction = lazy(() => import('../components/CallToAction'));
-const Testimonials = lazy(() => import('../components/Testimonials'));
-const Blog = lazy(() => import('../components/Blog'));
-const SocialBar = lazy(() => import('../components/SocialBar'));
-const ContactForm = lazy(() => import('../components/ContactForm'));
-const Footer = lazy(() => import('../components/Footer'));
-const CalculatorButtons = lazy(() => import('../components/CalculatorButtons'));
+const loadServices = memoizedImport(() => import('../components/Services'));
+const Services = lazy(loadServices);
+const loadCases = memoizedImport(() => import('../components/Cases'));
+const Cases = lazy(loadCases);
+const loadCallToAction = memoizedImport(() => import('../components/CallToAction'));
+const CallToAction = lazy(loadCallToAction);
+const loadTestimonials = memoizedImport(() => import('../components/Testimonials'));
+const Testimonials = lazy(loadTestimonials);
+const loadBlog = memoizedImport(() => import('../components/Blog'));
+const Blog = lazy(loadBlog);
+const loadSocialBar = memoizedImport(() => import('../components/SocialBar'));
+const SocialBar = lazy(loadSocialBar);
+const loadContactForm = memoizedImport(() => import('../components/ContactForm'));
+const ContactForm = lazy(loadContactForm);
+const loadFooter = memoizedImport(() => import('../components/Footer'));
+const Footer = lazy(loadFooter);
+const loadCalculatorButtons = memoizedImport(() => import('../components/CalculatorButtons'));
+const CalculatorButtons = lazy(loadCalculatorButtons);
+
+const HOME_SECTION_LOADERS = [
+  loadServices,
+  loadCases,
+  loadCallToAction,
+  loadTestimonials,
+  loadBlog,
+  loadSocialBar,
+  loadCalculatorButtons,
+  loadContactForm,
+  loadFooter,
+];
 
 type DeferredSectionHeights = {
   mobile: number;
@@ -154,6 +177,8 @@ export default function Home() {
   // Закрытый раздел не должен зазывать себя с главной: блок с карточками
   // вёл бы на заглушку.
   const isHiddenInNav = useIsPathHiddenInNav();
+  // Порядок совпадает с порядком секций на странице: первой греется ближайшая.
+  useWarmSections(HOME_SECTION_LOADERS);
   return (
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden">
       <SEO

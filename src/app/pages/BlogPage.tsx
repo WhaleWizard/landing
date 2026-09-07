@@ -25,7 +25,7 @@ import { isCaseArticle } from '../utils/articleCategory';
 import { useArticles } from '../context/ArticlesContext';
 import type { Article } from '../components/hooks/useArticlesApi';
 import RouteSkeleton from '../components/RouteSkeleton';
-import { sanitizeHtml } from '../utils/sanitizeHtml';
+import { sanitizeHtml, sanitizeHtmlToBody } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
 import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
 import { formatReadTime } from '../utils/articleMeta';
@@ -511,28 +511,31 @@ function BlogPageComponent() {
   // Санитизация + оглавление: проставляем id всем h2, чтобы работали якоря
   const { articleHtml, toc } = useMemo(() => {
     if (!selectedArticle) return { articleHtml: '', toc: [] };
-    const safe = sanitizeHtml(selectedArticle.content || '');
+    const content = selectedArticle.content || '';
     try {
-      const doc = new DOMParser().parseFromString(safe, 'text/html');
-      const headings = Array.from(doc.body.querySelectorAll('h2'));
+      // Первый проход отдаёт уже очищенное дерево: лишний разбор строки через
+      // DOMParser между двумя очистками стоил открытию статьи заметный кусок
+      // главного потока на телефоне, а безопасности не добавлял.
+      const body = sanitizeHtmlToBody(content);
+      const headings = Array.from(body.querySelectorAll('h2'));
       const items = headings.map((heading, index) => {
         const text = heading.textContent?.trim() || `Раздел ${index + 1}`;
         const id = heading.id || `razdel-${index + 1}`;
         heading.id = id;
         return { id, text };
       });
-      optimizeArticleContentImages(doc);
+      optimizeArticleContentImages(body);
       // Второй проход санитайзера — не перестраховка, а закрытие разрыва.
-      // Между первой очисткой и вставкой в страницу разметка разбирается и
-      // собирается заново, а DOMPurify прямо предупреждает: часть конструкций
+      // Между первой очисткой и вставкой в страницу разметка сериализуется и
+      // разбирается заново, а DOMPurify прямо предупреждает: часть конструкций
       // переживает очистку и меняет смысл при повторном разборе. Здесь
       // санитайзер — последнее, что трогает строку перед вставкой.
       //
       // Подсказки загрузки картинок при этом не теряются: `decoding` и
       // `fetchpriority` внесены во все три списка разрешённых атрибутов.
-      return { articleHtml: sanitizeHtml(doc.body.innerHTML), toc: items };
+      return { articleHtml: sanitizeHtml(body.innerHTML), toc: items };
     } catch {
-      return { articleHtml: safe, toc: [] };
+      return { articleHtml: sanitizeHtml(content), toc: [] };
     }
   }, [selectedArticle]);
 

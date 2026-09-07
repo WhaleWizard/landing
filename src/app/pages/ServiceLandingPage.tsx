@@ -12,6 +12,8 @@ import useServiceContent from '../hooks/useServiceContent';
 import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import { onUserScrollIntent } from '../utils/scrollRestoration';
 import { preloadable } from '../utils/preloadable';
+import { memoizedImport } from '../utils/memoizedImport';
+import { useWarmSections } from '../utils/sectionWarmup';
 import { loadHero, loadConsultStudioHero, loadMetaAdsEditorialHero } from '../utils/heroPreload';
 import {
   managedBodyClasses,
@@ -22,12 +24,27 @@ import {
   type ContentTypography,
 } from '../utils/contentTypography';
 
-const Services = lazy(() => import('../components/Services'));
-const Cases = lazy(() => import('../components/Cases'));
-const CallToAction = lazy(() => import('../components/CallToAction'));
-const Testimonials = lazy(() => import('../components/Testimonials'));
-const LandingForm = lazy(() => import('../components/LandingForm'));
-const Footer = lazy(() => import('../components/Footer'));
+const loadServices = memoizedImport(() => import('../components/Services'));
+const Services = lazy(loadServices);
+const loadCases = memoizedImport(() => import('../components/Cases'));
+const Cases = lazy(loadCases);
+const loadCallToAction = memoizedImport(() => import('../components/CallToAction'));
+const CallToAction = lazy(loadCallToAction);
+const loadTestimonials = memoizedImport(() => import('../components/Testimonials'));
+const Testimonials = lazy(loadTestimonials);
+const loadLandingForm = memoizedImport(() => import('../components/LandingForm'));
+const LandingForm = lazy(loadLandingForm);
+const loadFooter = memoizedImport(() => import('../components/Footer'));
+const Footer = lazy(loadFooter);
+
+const SERVICE_SECTION_LOADERS = [
+  loadServices,
+  loadCases,
+  loadCallToAction,
+  loadTestimonials,
+  loadLandingForm,
+  loadFooter,
+];
 const Hero = preloadable(loadHero);
 const ConsultStudioHero = preloadable(loadConsultStudioHero);
 // Отдельным чанком, как и остальные хиро услуг: статический импорт клал его в
@@ -1043,15 +1060,21 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
   );
 }
 
-export function ServiceLandingPage({ service }: { service: ServiceType }) {
-  const config = useServiceContent(service, pageConfigs[service]);
+export function serviceThemeStyle(service: ServiceType): CSSProperties {
   const theme = themes[service];
-  const cssVars = {
+  return {
     '--primary': theme.primary,
     '--accent': theme.accent,
     '--secondary': theme.secondary,
     '--ring': theme.primary,
   } as CSSProperties;
+}
+
+export function ServiceLandingPage({ service }: { service: ServiceType }) {
+  const config = useServiceContent(service, pageConfigs[service]);
+  const theme = themes[service];
+  const cssVars = serviceThemeStyle(service);
+  useWarmSections(SERVICE_SECTION_LOADERS);
 
   useEffect(() => {
     const root = document.documentElement;
