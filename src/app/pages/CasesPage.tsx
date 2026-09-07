@@ -14,7 +14,7 @@ import {
   type SetStateAction,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import {
   ArrowRight,
   ArrowUpDown,
@@ -48,6 +48,7 @@ import { isMetaSafeCaseFilterValue, trackCaseFilter } from '../consent/consent';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import DeferredImage from '../components/DeferredImage';
 import ArticlesLoadError from '../components/ArticlesLoadError';
+import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
 import { useManagedTitleFit } from '../utils/contentTypography';
 import {
   getCaseBackTarget,
@@ -307,7 +308,7 @@ function CaseResultCard({ item, index, href, onOpen }: { item: CaseView; index: 
   const mobileMetrics = metrics.length ? metrics.slice(0, 3) : [{ value: mainMetric, label: mainMetricLabel }];
 
   return (
-    <motion.article
+    <m.article
       layout
       initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
@@ -327,7 +328,7 @@ function CaseResultCard({ item, index, href, onOpen }: { item: CaseView; index: 
       >
         <div className="cases-result-cover">
           <DeferredImage
-            src={item.image}
+            {...articleImageAttributes(item.image, ARTICLE_IMAGE_SIZES.caseCover)}
             alt={item.imageAlt}
             loading={index === 0 ? 'eager' : 'lazy'}
             decoding="async"
@@ -369,7 +370,7 @@ function CaseResultCard({ item, index, href, onOpen }: { item: CaseView; index: 
           </div>
         </div>
       </a>
-    </motion.article>
+    </m.article>
   );
 }
 
@@ -638,14 +639,14 @@ export default function CasesPage() {
             />
 
             <div className="cases-finder-intro">
-              <motion.div
+              <m.div
                 initial={reduceMotion ? false : { opacity: 0, y: 12 }}
                 animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
               >
                 <span className="cases-finder-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Библиотека кейсов</span>
                 <h1 ref={introTitleFit}>Найдите кейс, похожий&nbsp;на <span>ваш проект</span></h1>
                 <p>Выберите канал, нишу или результат — и откройте полный разбор с контекстом, решениями и цифрами.</p>
-              </motion.div>
+              </m.div>
               <label className="cases-search">
                 <Search className="h-5 w-5" aria-hidden="true" />
                 <span className="sr-only">Поиск по кейсам</span>

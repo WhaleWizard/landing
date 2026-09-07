@@ -229,7 +229,7 @@ test('три санитайзера HTML статей разрешают одн�
   const files = [
     'src/app/utils/sanitizeHtml.ts',
     'functions/_lib/sanitize.ts',
-    'scripts/generate-pages.js',
+    'scripts/article-sanitizer.js',
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../${file}`, import.meta.url), 'utf8')),
@@ -421,4 +421,26 @@ test('404 не превращает кнопку возврата на поли�
     'мобильное сжатие должно быть привязано к собственному data-атрибуту cookie-кнопки',
   );
   assert.match(cookieManager, /data-cookie-settings-trigger/);
+});
+
+test('анимации собраны на m.* внутри LazyMotion, а не на полном motion', async () => {
+  // Полный `motion.*` тянет всю библиотеку (45 КБ gzip) на каждую страницу.
+  // App оборачивает дерево в LazyMotion с domAnimation, и компоненты обязаны
+  // использовать `m.*`: один забытый `motion.div` вернул бы всё обратно.
+  const { execSync } = await import('node:child_process');
+  const files = execSync('git ls-files src/app', { encoding: 'utf8' })
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((file) => /\.(tsx|ts)$/.test(file));
+  const offenders = [];
+  for (const file of files) {
+    const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    if (/import\s*\{[^}]*\bmotion\b[^}]*\}\s*from\s*'motion\/react'/.test(source)) offenders.push(`${file}: import { motion }`);
+    if (/<motion\.[a-zA-Z]/.test(source)) offenders.push(`${file}: <motion.*>`);
+  }
+  assert.deepEqual(offenders, [], 'используйте m.* из motion/react вместо motion.*');
+
+  const app = await readFile(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.ok(app.includes('<LazyMotion features={domAnimation}>'), 'App должен оборачивать дерево в LazyMotion с domAnimation');
+  assert.ok(app.includes('<MotionConfig reducedMotion="user">'), 'уважение prefers-reduced-motion не должно потеряться');
 });

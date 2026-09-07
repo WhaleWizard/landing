@@ -1,11 +1,12 @@
 // src/app/components/Blog.tsx
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { ArrowRight, Clock, BookOpen, MoveHorizontal } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useRef, memo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
+import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
 import { formatReadTime } from '../utils/articleMeta';
 import { isCaseArticle } from '../utils/articleCategory';
 import { useDragScroll } from '../hooks/useDragScroll';
@@ -35,7 +36,7 @@ function Blog() {
     <section id="blog" className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible">
       <div className="absolute top-1/2 right-0 transform -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-accent/10 via-transparent to-transparent rounded-full blur-3xl" />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 md:mb-16">
-        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="text-center">
+        <m.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-accent/10 border border-accent/20 backdrop-blur-sm mb-4 md:mb-6">
             <BookOpen className="w-3 h-3 md:w-4 md:h-4 text-accent" />
             <span className="text-xs md:text-sm text-accent">Статьи и разборы</span>
@@ -47,10 +48,10 @@ function Blog() {
           <p className="text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
             Разбираю запуски, аналитику и решения, которые влияют на заявки и продажи.
           </p>
-        </motion.div>
+        </m.div>
       </div>
       <div className="relative w-full">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 6 }}
           whileInView={{ opacity: 0.8, y: 0 }}
           viewport={{ once: true }}
@@ -59,13 +60,13 @@ function Blog() {
         >
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-background/40 backdrop-blur-sm">
             <MoveHorizontal className="w-3.5 h-3.5 text-primary" />
-            <motion.div
+            <m.div
               className="h-1.5 w-10 rounded-full bg-gradient-to-r from-primary/30 via-primary/80 to-primary/30"
               animate={{ x: [-4, 4, -4] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
             />
           </div>
-        </motion.div>
+        </m.div>
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
         <div ref={scrollContainerRef} className="blog-carousel-scroll scrollbar-brand flex gap-5 md:gap-7 overflow-x-auto px-5 pb-10 pt-5 md:px-10 -mt-5" style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}>
@@ -78,7 +79,7 @@ function Blog() {
             карточка не изменилась. Тот же приём уже применён в витрине кейсов.
           */}
           {blogArticles.map((article) => (
-            <motion.a
+            <m.a
               key={article.slug}
               href={`/blog/${article.slug}`}
               onClick={(event) => {
@@ -98,7 +99,7 @@ function Blog() {
                   <div className="absolute -bottom-12 -right-8 h-44 w-44 rounded-full bg-accent/20 blur-3xl" aria-hidden="true" />
                   <span className="absolute inset-0 flex select-none items-center justify-center text-2xl font-black tracking-tight text-white/[0.08]" aria-hidden="true">Whale Wizard</span>
                   {hasCustomCover(article.image) && (
-                    <ImageWithFallback src={article.image} alt={article.title} className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <ImageWithFallback {...articleImageAttributes(article.image, ARTICLE_IMAGE_SIZES.carousel)} alt={article.title} className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 py-1 md:px-4 md:py-2 rounded-full bg-primary/30 backdrop-blur-md border border-white/20">
@@ -119,7 +120,7 @@ function Blog() {
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
               </div>
-            </motion.a>
+            </m.a>
           ))}
         </div>
       </div>

@@ -14,7 +14,7 @@ import '../../styles/admin-ui.css';
 import '../../styles/admin-theme.css';
 import { lazy, Suspense, useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import {
   LogIn, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, GripVertical,
@@ -675,7 +675,7 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
   drag(drop(ref));
 
   return (
-    <motion.div
+    <m.div
       ref={ref}
       layout
       transition={{ duration: 0.18, ease: 'easeOut' }}
@@ -735,7 +735,7 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
         <Trash2 className="w-4 h-4" />
       </button>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -1393,7 +1393,7 @@ export default function Admin() {
       <AdminThemeProvider>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
         <main className="admin-login">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.32, ease: [0.2, 0, 0, 1] }}
@@ -1445,7 +1445,7 @@ export default function Admin() {
                 <LogIn aria-hidden="true" /> {authLoading ? 'Проверяю' : 'Войти'}
               </button>
             </form>
-          </motion.div>
+          </m.div>
         </main>
       </AdminThemeProvider>
     );
@@ -1555,7 +1555,7 @@ export default function Admin() {
               */}
 
             <Suspense fallback={<AdminSectionSkeleton />}>
-              <motion.div
+              <m.div
                 key={adminView}
                 className="min-w-0"
                 initial={reduceMotion ? false : { opacity: 0, y: 12 }}
@@ -2011,7 +2011,7 @@ export default function Admin() {
           </div>
           </DndProvider>
               )}
-              </motion.div>
+              </m.div>
             </Suspense>
             </div>
           </main>

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import {
   Instagram,
   MessageCircle,
@@ -166,7 +166,7 @@ export default function ThankYou() {
           <ThanksCosmicScene />
 
           <div className="relative mx-auto w-full max-w-7xl px-5 sm:px-6">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 26 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -220,7 +220,7 @@ export default function ThankYou() {
               <p className="mt-3 text-xs text-muted-foreground">
                 В Telegram отвечаю быстрее всего — можно сразу дописать детали.
               </p>
-            </motion.div>
+            </m.div>
           </div>
         </section>
 
@@ -238,7 +238,7 @@ export default function ThankYou() {
             {/* На широком экране заголовок уходит в свою колонку слева: одна
                 узкая панель посреди пустого поля читалась как случайный блок. */}
             <div className="ths-wrap ths-split">
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-80px' }}
@@ -252,12 +252,12 @@ export default function ThankYou() {
                 <p className="ths-split-note">
                   Ничего делать не нужно — просто держите телефон под рукой.
                 </p>
-              </motion.div>
+              </m.div>
 
               <div className="ths-panel">
                 <ol className="ths-line">
                   {steps.map((step, i) => (
-                    <motion.li
+                    <m.li
                       key={step.title}
                       className="ths-line-item"
                       initial={{ opacity: 0, y: 18 }}
@@ -273,7 +273,7 @@ export default function ThankYou() {
                         <h3 className="ths-line-title">{step.title}</h3>
                         <p className="ths-line-note">{step.note}</p>
                       </div>
-                    </motion.li>
+                    </m.li>
                   ))}
                 </ol>
               </div>
@@ -291,7 +291,7 @@ export default function ThankYou() {
           {/* Пока ждёте */}
           <section className="ths-section">
             <div className="ths-wrap">
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-80px' }}
@@ -302,11 +302,11 @@ export default function ThankYou() {
                   Пока ждёте
                 </p>
                 <h2 className="ths-h2">Подобрал по теме, с которой вы пришли</h2>
-              </motion.div>
+              </m.div>
 
               <div className="ths-tiles">
                 {waitingCards.map((card, i) => (
-                  <motion.div
+                  <m.div
                     key={card.to}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -331,7 +331,7 @@ export default function ThankYou() {
                         <ArrowRight className="h-4 w-4" />
                       </span>
                     </Link>
-                  </motion.div>
+                  </m.div>
                 ))}
               </div>
 

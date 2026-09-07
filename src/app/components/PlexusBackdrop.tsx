@@ -30,6 +30,10 @@ const LINK_DIST_SQ = LINK_DIST * LINK_DIST;
 const REPEL_DIST_SQ = REPEL_DIST * REPEL_DIST;
 const REPEL_MIN_SQ = 0.5 * 0.5;
 const FRAME_MS = 1000 / 60;
+/** Шаг прозрачности при группировке линий: 1/40 — не больше 1–2 уровней из 255. */
+const PLEXUS_ALPHA_STEPS = 40;
+/** Ступени смешения основного цвета с акцентным для тех же групп. */
+const PLEXUS_MIX_STEPS = 8;
 
 function parseHexColor(value: string, fallback: [number, number, number]): [number, number, number] {
   const hex = value.trim().replace('#', '');
@@ -230,13 +234,49 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       }
     };
 
+    /**
+     * Цвет линий и точек квантуется в общие «ведёрки»: прозрачность с шагом
+     * 1/40, смешение фиолетового с голубым — в 8 ступеней. Все отрезки одного
+     * ведёрка уходят в один `stroke()`, точки — в один `fill()`.
+     *
+     * Раньше каждая из сотен линий получала свой `strokeStyle` и свой вызов
+     * `stroke()`: на телефоне и в headless-Chrome PageSpeed кадр стоил
+     * десятки миллисекунд, сеть съедала около четверти процессора всё время,
+     * пока страница открыта, а проверка скорости не могла дождаться тишины
+     * и обрывалась. Расчёт положения точек, притяжение к курсору и сами
+     * значения цвета не менялись — округление на 1–2 уровня из 255 глазом
+     * не читается, а число команд холсту падает на порядок.
+     */
+    const styleCache = new Map<number, string>();
+    const bucketStyle = (alphaLevel: number, mixLevel: number): string => {
+      const key = alphaLevel * PLEXUS_MIX_STEPS + mixLevel;
+      let style = styleCache.get(key);
+      if (!style) {
+        const mix = mixLevel / (PLEXUS_MIX_STEPS - 1);
+        const red = Math.round(pr + (ar - pr) * mix);
+        const green = Math.round(pg + (ag - pg) * mix);
+        const blue = Math.round(pb + (ab - pb) * mix);
+        style = `rgba(${red},${green},${blue},${(alphaLevel / PLEXUS_ALPHA_STEPS).toFixed(3)})`;
+        styleCache.set(key, style);
+      }
+      return style;
+    };
+    const bucketKey = (alpha: number, mix: number): number => {
+      const alphaLevel = Math.min(PLEXUS_ALPHA_STEPS, Math.max(0, Math.round(alpha * PLEXUS_ALPHA_STEPS)));
+      const mixLevel = Math.min(PLEXUS_MIX_STEPS - 1, Math.max(0, Math.round(mix * (PLEXUS_MIX_STEPS - 1))));
+      return alphaLevel * PLEXUS_MIX_STEPS + mixLevel;
+    };
+    const lineBatches = new Map<number, Path2D>();
+    const dotBatches = new Map<number, Path2D>();
+
     const draw = (animate: boolean, delta = 1) => {
       if (width === 0 || height === 0) return;
       if (animate) updateNodes(delta);
       ctx.clearRect(0, 0, width, height);
       for (const cell of grid) cell.length = 0;
+      lineBatches.clear();
+      dotBatches.clear();
 
-      ctx.lineWidth = 1;
       for (let i = 0; i < nodes.length; i += 1) {
         const node = nodes[i];
         const cellX = Math.min(gridColumns - 1, Math.max(0, Math.floor(node.x / LINK_DIST)));
@@ -271,20 +311,26 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
               const glow = attractorDistance < INFLUENCE_R ? 1 - attractorDistance / INFLUENCE_R : 0;
               const alpha = (1 - distance / LINK_DIST) * (0.1 + glow * 0.3);
               const mix = Math.min(1, (midX / width) * 0.6 + glow * 0.55);
-              const red = Math.round(pr + (ar - pr) * mix);
-              const green = Math.round(pg + (ag - pg) * mix);
-              const blue = Math.round(pb + (ab - pb) * mix);
 
-              ctx.strokeStyle = `rgba(${red},${green},${blue},${alpha})`;
-              ctx.beginPath();
-              ctx.moveTo(node.x, node.y);
-              ctx.lineTo(other.x, other.y);
-              ctx.stroke();
+              const key = bucketKey(alpha, mix);
+              let path = lineBatches.get(key);
+              if (!path) {
+                path = new Path2D();
+                lineBatches.set(key, path);
+              }
+              path.moveTo(node.x, node.y);
+              path.lineTo(other.x, other.y);
             }
           }
         }
 
         grid[cellY * gridColumns + cellX].push(i);
+      }
+
+      ctx.lineWidth = 1;
+      for (const [key, path] of lineBatches) {
+        ctx.strokeStyle = bucketStyle(Math.floor(key / PLEXUS_MIX_STEPS), key % PLEXUS_MIX_STEPS);
+        ctx.stroke(path);
       }
 
       for (const node of nodes) {
@@ -293,13 +339,21 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
         const distance = Math.sqrt(dx * dx + dy * dy);
         const glow = distance < INFLUENCE_R ? 1 - distance / INFLUENCE_R : 0;
         const mix = Math.min(1, (node.x / width) * 0.6 + glow * 0.55);
-        const red = Math.round(pr + (ar - pr) * mix);
-        const green = Math.round(pg + (ag - pg) * mix);
-        const blue = Math.round(pb + (ab - pb) * mix);
-        ctx.fillStyle = `rgba(${red},${green},${blue},${0.25 + glow * 0.45})`;
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, 1.6 + glow * 0.9, 0, Math.PI * 2);
-        ctx.fill();
+        const radius = 1.6 + glow * 0.9;
+        const key = bucketKey(0.25 + glow * 0.45, mix);
+        let path = dotBatches.get(key);
+        if (!path) {
+          path = new Path2D();
+          dotBatches.set(key, path);
+        }
+        // moveTo перед дугой: иначе путь соединил бы соседние точки линией.
+        path.moveTo(node.x + radius, node.y);
+        path.arc(node.x, node.y, radius, 0, Math.PI * 2);
+      }
+
+      for (const [key, path] of dotBatches) {
+        ctx.fillStyle = bucketStyle(Math.floor(key / PLEXUS_MIX_STEPS), key % PLEXUS_MIX_STEPS);
+        ctx.fill(path);
       }
     };
 

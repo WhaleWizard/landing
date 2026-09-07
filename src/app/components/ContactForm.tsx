@@ -1,6 +1,6 @@
 import { useState, useCallback, memo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router';
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import {
   Send,
   CheckCircle2,
@@ -395,7 +395,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-start">
           {/* Левая часть */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
@@ -417,7 +417,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
             </p>
             <div className="space-y-4 pt-4">
               {benefits.map((item, index) => (
-                <motion.div
+                <m.div
                   key={index}
                   className="flex items-start gap-4 group"
                   initial={{ opacity: 0, x: -20 }}
@@ -425,23 +425,23 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                   viewport={{ once: true }}
                   transition={{ delay: item.delay, duration: 0.5 }}
                 >
-                  <motion.div
+                  <m.div
                     className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center transition-transform"
                     {...benefitHover}
                   >
                     <item.icon className="w-6 h-6 text-primary" />
-                  </motion.div>
+                  </m.div>
                   <div className="min-w-0">
                     <h4 className="font-semibold mb-1">{item.title}</h4>
                     <p className="text-pretty text-sm text-muted-foreground leading-relaxed">{item.description}</p>
                   </div>
-                </motion.div>
+                </m.div>
               ))}
             </div>
-          </motion.div>
+          </m.div>
 
           {/* Правая часть – форма */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, x: 50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
@@ -455,7 +455,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
 
               <div className="relative">
                 {isSubmitted ? (
-                  <motion.div
+                  <m.div
                     className="text-center py-12 space-y-4"
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -470,7 +470,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                     </div>
                     <h3 className="text-xl md:text-2xl font-bold">Заявка отправлена</h3>
                     <p className="text-sm md:text-base text-muted-foreground">Спасибо. Посмотрю вводные и свяжусь по указанному контакту.</p>
-                  </motion.div>
+                  </m.div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Honeypot – невидимое поле для ботов */}
@@ -508,7 +508,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
                         />
                         {focusedField === 'name' && (
-                          <motion.div
+                          <m.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             className="absolute inset-0 rounded-lg border-2 border-primary/50 pointer-events-none"
@@ -538,7 +538,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
                         />
                         {focusedField === 'email' && (
-                          <motion.div
+                          <m.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             className="absolute inset-0 rounded-lg border-2 border-primary/50 pointer-events-none"
@@ -601,7 +601,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                       <p className="block text-sm mb-3 font-medium">Бюджет на рекламу в месяц</p>
                       <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-3">
                         {budgetOptions.map((option) => (
-                          <motion.div
+                          <m.div
                             key={option.value}
                             {...radioHover}
                             whileTap={{ scale: 0.95 }}
@@ -634,12 +634,12 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                                 <div className="text-xs sm:text-sm font-semibold leading-tight">{option.label}</div>
                               </div>
                               {formData.budget === option.value && (
-                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex-shrink-0">
+                                <m.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex-shrink-0">
                                   <CheckCircle2 className="w-5 h-5 text-primary" />
-                                </motion.div>
+                                </m.div>
                               )}
                             </label>
-                          </motion.div>
+                          </m.div>
                         ))}
                       </div>
                     </div>
@@ -664,7 +664,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"
                         />
                         {focusedField === 'message' && (
-                          <motion.div
+                          <m.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             className="absolute inset-0 rounded-lg border-2 border-primary/50 pointer-events-none"
@@ -710,7 +710,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                     <div className="min-h-[70px] md:min-h-[60px] transition-all duration-300">
                       <AnimatePresence mode="wait">
                         {contactMethod === 'telegram' && (
-                          <motion.div
+                          <m.div
                             key="telegram"
                             initial={{ opacity: 0, y: -5 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -731,10 +731,10 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                               autoComplete="off"
                               className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm"
                             />
-                          </motion.div>
+                          </m.div>
                         )}
                         {contactMethod === 'whatsapp' && (
-                          <motion.div
+                          <m.div
                             key="whatsapp"
                             initial={{ opacity: 0, y: -5 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -745,7 +745,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                             <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs text-muted-foreground">
                               Сообщение придёт на WhatsApp, привязанный к указанному выше номеру.
                             </div>
-                          </motion.div>
+                          </m.div>
                         )}
                       </AnimatePresence>
                     </div>
@@ -829,7 +829,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                 )}
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       </div>
 

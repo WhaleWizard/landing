@@ -55,6 +55,13 @@ function parseHeadersFile(source) {
     }
 
     assert.ok(currentPattern, `_headers contains a header without a route: ${rawLine.trim()}`);
+    // `! Header-Name` снимает заголовок, унаследованный от более общего
+    // правила; Cloudflare Pages иначе склеивает оба значения через запятую.
+    const detach = rawLine.trim().match(/^!\s*(\S+)$/);
+    if (detach) {
+      rules.get(currentPattern).set(`!${detach[1].toLowerCase()}`, true);
+      continue;
+    }
     const separator = rawLine.indexOf(':');
     assert.ok(separator > 0, `_headers contains an invalid header: ${rawLine.trim()}`);
     const name = rawLine.slice(0, separator).trim().toLowerCase();
@@ -592,6 +599,16 @@ test('bypassed static assets retain security and cache headers', () => {
       `${pattern} needs bounded caching because its filenames are not content hashes`,
     );
   }
+  // Живой production отдавал `max-age=0, must-revalidate, …, max-age=31536000,
+  // immutable`: общее правило `/*` не заменяется узким, а склеивается с ним,
+  // и браузер перепроверял каждый чанк при каждом заходе.
+  for (const pattern of ['/assets/*', '/images/*', '/fonts/*']) {
+    assert.equal(
+      rules.get(pattern)?.get('!cache-control'),
+      true,
+      `${pattern} must detach the global Cache-Control before setting its own`,
+    );
+  }
 
   const middleware = readFileSync(join(ROOT, 'functions', '_middleware.ts'), 'utf8');
   for (const [name, value] of STATIC_SECURITY_HEADERS) {
@@ -603,4 +620,57 @@ test('bypassed static assets retain security and cache headers', () => {
     }
     assert.ok(middleware.includes(value), `Function security headers are missing the static value: ${value}`);
   }
+});
+
+test('article HTML preloads its optimized cover and never ships heavy originals eagerly', () => {
+  const manifestPath = join(ROOT, 'public', 'images', 'articles', 'manifest.json');
+  assert.ok(existsSync(manifestPath), 'public/images/articles/manifest.json is missing');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')).images || {};
+  const knownOriginals = Object.keys(manifest);
+  assert.ok(knownOriginals.length > 0, 'the image manifest must not be empty');
+
+  let coverPreloads = 0;
+  for (const file of walkIndexFiles(DIST)) {
+    const route = routeFromFile(file);
+    if (!/^\/(blog|cases)\/[^/]+$/.test(route)) continue;
+    const html = readFileSync(file, 'utf8');
+    const head = html.slice(0, html.indexOf('</head>'));
+    const body = html.slice(html.indexOf('<body'));
+
+    // Оригиналы из CMS могут остаться только в og:image, JSON-LD и в seed
+    // статьи; в разметке `<img>` их быть не должно.
+    for (const original of knownOriginals) {
+      assert.ok(
+        !body.includes(`src="${original}"`),
+        `${route}: shell still renders the heavy original ${original}`,
+      );
+    }
+
+    for (const tag of tags(body, 'img')) {
+      assert.equal(attribute(tag, 'loading'), 'lazy', `${route}: shell images must be lazy: ${tag.slice(0, 120)}`);
+      const src = attribute(tag, 'src') || '';
+      if (src.startsWith('/images/articles/')) {
+        assert.ok(attribute(tag, 'srcset'), `${route}: optimized image needs srcset: ${tag.slice(0, 120)}`);
+        assert.ok(attribute(tag, 'width') && attribute(tag, 'height'), `${route}: optimized image needs intrinsic size`);
+      }
+    }
+
+    const seedMatch = html.match(/<script\b[^>]*\bid=["']ww-article-seed["'][^>]*>([\s\S]*?)<\/script>/i);
+    assert.ok(seedMatch, `${route}: article seed is missing`);
+    const seed = JSON.parse(seedMatch[1]);
+    const cover = manifest[String(seed.image || '')];
+    const imagePreloads = links(head, 'preload').filter((tag) => attribute(tag, 'as') === 'image');
+    if (cover) {
+      const preload = imagePreloads.find((tag) => (attribute(tag, 'href') || '').startsWith(`/images/articles/${cover.id}-`));
+      assert.ok(preload, `${route}: optimized cover must be preloaded from HTML`);
+      assert.ok(attribute(preload, 'imagesrcset'), `${route}: cover preload needs imagesrcset`);
+      assert.ok(attribute(preload, 'imagesizes'), `${route}: cover preload needs imagesizes`);
+      assert.equal(attribute(preload, 'fetchpriority'), 'high', `${route}: the cover is the LCP frame`);
+      coverPreloads += 1;
+    } else {
+      assert.equal(imagePreloads.length, 0, `${route}: an unknown cover must not be preloaded as a heavy original`);
+    }
+  }
+
+  assert.ok(coverPreloads > 0, 'at least one article should preload an optimized cover');
 });

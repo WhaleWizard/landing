@@ -6,7 +6,7 @@ interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElemen
   fallback?: string;
 }
 
-export function ImageWithFallback({ src, alt, fallback = '/og-image-v2.jpg', ...props }: ImageWithFallbackProps) {
+export function ImageWithFallback({ src, alt, fallback = '/og-image-v2.jpg', srcSet, sizes, ...props }: ImageWithFallbackProps) {
   const [imgSrc, setImgSrc] = useState(src);
   const [fallbackFailed, setFallbackFailed] = useState(false);
 
@@ -27,5 +27,21 @@ export function ImageWithFallback({ src, alt, fallback = '/og-image-v2.jpg', ...
   // intact instead of displaying the browser's broken-image icon.
   if (fallbackFailed) return null;
 
-  return <img src={imgSrc} alt={alt} onError={handleError} loading="lazy" decoding="async" {...props} />;
+  // Набор вариантов описывает исходную картинку. После подмены на запасной
+  // файл он должен исчезнуть: иначе браузер продолжил бы выбирать из
+  // битого набора и никогда не показал бы запасной `src`.
+  const usingFallback = imgSrc === fallback && src !== fallback;
+
+  return (
+    <img
+      src={imgSrc}
+      srcSet={usingFallback ? undefined : srcSet}
+      sizes={usingFallback ? undefined : sizes}
+      alt={alt}
+      onError={handleError}
+      loading="lazy"
+      decoding="async"
+      {...props}
+    />
+  );
 }

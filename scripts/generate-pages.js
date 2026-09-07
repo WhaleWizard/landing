@@ -1,8 +1,6 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import createDOMPurify from 'dompurify';
-import { parseHTML } from 'linkedom';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import {
@@ -18,6 +16,12 @@ import {
 } from './config.js';
 import { loadPublishedSiteContent, mergePublishedContent } from './site-content-sync.js';
 import { FONT_LIBRARY, cssFamilyName } from './font-library.manifest.js';
+import {
+  ARTICLE_IMAGE_SIZES,
+  readArticleImageManifest,
+  resolveManifestImage,
+} from './article-image-manifest.js';
+import { createArticleSanitizer } from './article-sanitizer.js';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(SCRIPTS_DIR, '..', 'public');
@@ -56,91 +60,31 @@ async function loadSiteContent() {
 
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
-const { window: sanitizerWindow } = parseHTML('<!doctype html><html><body></body></html>');
-const domPurify = createDOMPurify(sanitizerWindow);
+// Готовые WebP-варианты картинок статей (scripts/optimize-article-images.js).
+// Оболочка страницы отдаёт текст статьи до React, и до этой подмены браузер
+// начинал качать оригиналы из CMS по 0,3–2 МБ каждый ещё до первого кадра.
+const ARTICLE_IMAGE_MANIFEST = readArticleImageManifest();
 
-
-const SAFE_IFRAME_HOSTS = new Set(['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'youtube-nocookie.com', 'player.vimeo.com']);
-
-function isSafeIframeSrc(src = '') {
-  try {
-    const url = new URL(src);
-    return url.protocol === 'https:' && SAFE_IFRAME_HOSTS.has(url.hostname.toLowerCase());
-  } catch {
-    return false;
-  }
+function resolveArticleCoverPreload(article) {
+  const resolved = resolveManifestImage(ARTICLE_IMAGE_MANIFEST, String(article?.image || '').trim());
+  if (!resolved) return null;
+  // Обложка — самый крупный элемент первого экрана статьи. Без preload
+  // браузер узнаёт о ней только после загрузки и выполнения React-чанка.
+  return {
+    href: resolved.src,
+    priority: true,
+    imageSrcSet: resolved.srcSet,
+    imageSizes: ARTICLE_IMAGE_SIZES.cover,
+  };
 }
 
-domPurify.addHook('uponSanitizeElement', (node, data) => {
-  if (data.tagName === 'iframe') {
-    const src = node.getAttribute('src') || '';
-    if (!isSafeIframeSrc(src)) node.remove();
-  }
-});
-
-domPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.nodeName?.toLowerCase() === 'a') {
-    const href = node.getAttribute('href') || '';
-    const target = node.getAttribute('target') || '';
-    if (target === '_blank' || /^https?:\/\//i.test(href)) node.setAttribute('rel', 'noopener noreferrer');
-  }
-
-  if (node.nodeName?.toLowerCase() === 'iframe') {
-    const src = node.getAttribute('src') || '';
-    if (isSafeIframeSrc(src)) {
-      node.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
-      node.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-    }
-  }
-});
-
-const ARTICLE_HTML_SANITIZE_CONFIG = {
-  ALLOWED_TAGS: [
-    'p', 'br', 'hr',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'ul', 'ol', 'li', 'strong', 'em', 'b', 'i',
-    'blockquote', 'pre', 'code',
-    'a', 'img', 'figure', 'figcaption',
-    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
-    'details', 'summary', 'aside', 'section', 'div', 'span',
-    'video', 'source', 'iframe',
-    'svg', 'defs', 'linearGradient', 'stop', 'path',
-  ],
-  ALLOWED_ATTR: [
-    'href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style', 'loading', 'decoding', 'fetchpriority',
-    'width', 'height', 'data-ww-block', 'data-ww-tone',
-    'id', 'role', 'aria-label',
-    'colspan', 'rowspan', 'scope',
-    'srcset', 'sizes',
-    'type', 'controls', 'autoplay', 'loop', 'muted', 'playsinline', 'poster', 'preload',
-    'allow', 'allowfullscreen', 'frameborder', 'sandbox', 'referrerpolicy',
-    'viewBox', 'preserveAspectRatio', 'd', 'fill', 'stroke', 'stroke-width',
-    'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
-  ],
-  ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|data:image\/(?:png|jpe?g|webp|gif|avif);base64,|\/)/i,
-  /**
-   * Все остальные разрешённые атрибуты — не ссылки, и проверять их адресной
-   * регуляркой нельзя.
-   *
-   * DOMPurify отбрасывает атрибут, если его значение не прошло
-   * ALLOWED_URI_REGEXP и сам атрибут не числится «неадресным». Своя строгая
-   * регулярка выше требует https://, data:image или ведущую косую черту —
-   * поэтому width="640", colspan="2", loading="lazy", d="M0 0" и ещё три
-   * десятка атрибутов молча вырезались, хотя стоят в списке разрешённых.
-   *
-   * Список выводится из ALLOWED_ATTR, а не пишется руками: иначе новый атрибут
-   * добавили бы в один список и забыли про второй — и он снова оказался бы
-   * мёртвым без единой ошибки.
-   */
-  ADD_URI_SAFE_ATTR: [],
-};
-
-// Ссылочные атрибуты остаются под проверкой адреса, остальные — нет.
-const URL_BEARING_ATTR = new Set(['href', 'src', 'srcset', 'poster']);
-ARTICLE_HTML_SANITIZE_CONFIG.ADD_URI_SAFE_ATTR = ARTICLE_HTML_SANITIZE_CONFIG.ALLOWED_ATTR.filter((attr) => !URL_BEARING_ATTR.has(attr));
+// Санитайзер вынесен в scripts/article-sanitizer.js: там он работает поверх
+// jsdom, а не linkedom, у которого DOMPurify считал окружение непригодным и
+// возвращал HTML статьи без единой правки. Здесь — только вызов.
+const articleSanitizer = createArticleSanitizer({ imageManifest: ARTICLE_IMAGE_MANIFEST });
 
 function sanitizeArticleHtml(html = '') {
-  return domPurify.sanitize(String(html || ''), ARTICLE_HTML_SANITIZE_CONFIG);
+  return articleSanitizer.sanitize(html);
 }
 
 function isPublishedArticle(article, nowIso = new Date().toISOString()) {
@@ -1779,6 +1723,7 @@ function renderArticlePages(articles, baseHtml) {
     const articleTitle = `${article.seoTitle || article.title} | Whale Wizard`;
     const articleDescription = article.seoDescription || article.description;
     const articleFaqJsonLd = buildFaqJsonLd(article.faq || []);
+    const coverPreload = resolveArticleCoverPreload(article);
 
     writeRoute(
       path,
@@ -1787,7 +1732,10 @@ function renderArticlePages(articles, baseHtml) {
         description: articleDescription,
         canonicalPath: path,
         ogType: 'article',
+        // og:image остаётся исходным адресом: превью в мессенджерах и соцсетях
+        // уже закэшированы по нему, а вес там не критичен.
         ogImage: article.image,
+        imagePreloads: coverPreload ? [coverPreload] : [],
         articlePublishedTime: toIsoDate(article.publishedAt) || toIsoDate(article.date),
         articleModifiedTime: toIsoDate(article.updatedAt) || toIsoDate(article.publishedAt) || toIsoDate(article.date),
         articleSection: article.category,

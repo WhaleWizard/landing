@@ -1,5 +1,5 @@
 // src/app/pages/BlogPage.tsx
-import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
+import { AnimatePresence, m, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -27,6 +27,7 @@ import type { Article } from '../components/hooks/useArticlesApi';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
+import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
 import { formatReadTime } from '../utils/articleMeta';
 import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import DeferredImage from '../components/DeferredImage';
@@ -404,14 +405,14 @@ function CaseZipWarning({ download, onClose, onConfirm, dialogRef }: {
     <AnimatePresence>
       {download && (
         <>
-          <motion.div
+          <m.div
             className="fixed inset-0 z-[1000] bg-black/75 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
-          <motion.div
+          <m.div
             ref={dialogRef}
             role="dialog"
             aria-modal="true"
@@ -451,7 +452,7 @@ function CaseZipWarning({ download, onClose, onConfirm, dialogRef }: {
                 </button>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>
@@ -743,7 +744,7 @@ function BlogPageComponent() {
             articleModifiedTime={toIsoDate(selectedArticle.updatedAt) || toIsoDate(selectedArticle.publishedAt) || toIsoDate(selectedArticle.date)}
             articleSection={selectedArticle.category}
           />
-          <motion.div
+          <m.div
             aria-hidden="true"
             className="fixed left-0 right-0 top-0 z-[70] h-1 origin-left bg-gradient-to-r from-primary via-accent to-secondary"
             style={{ scaleX: readingProgress }}
@@ -787,7 +788,7 @@ function BlogPageComponent() {
           articleSection={selectedArticle.category}
         />
         {/* Прогресс чтения — поверх всего, тонкая градиентная полоса */}
-        <motion.div
+        <m.div
           aria-hidden="true"
           className="fixed top-0 left-0 right-0 z-[60] h-1 origin-left bg-gradient-to-r from-primary via-accent to-secondary"
           style={{ scaleX: readingProgress }}
@@ -811,7 +812,7 @@ function BlogPageComponent() {
                 className="mb-6"
               />
 
-              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-5xl space-y-5">
+              <m.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-5xl space-y-5">
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                   <span className="rounded-lg border border-primary/25 bg-primary/15 px-3 py-1.5 font-semibold uppercase tracking-[0.04em] text-primary">{selectedArticle.category}</span>
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="h-4 w-4" /><span>{formatReadTime(selectedArticle.readTime)}</span></div>
@@ -832,14 +833,14 @@ function BlogPageComponent() {
                     <p className="text-xs text-muted-foreground">Практика performance-маркетинга</p>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
             </div>
           </div>
           {hasCustomCover(selectedArticle.image) && (
-            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
+            <m.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
               <div className="blog-hero-cover rounded-2xl overflow-hidden border border-border shadow-2xl">
                 <img
-                  src={selectedArticle.image}
+                  {...articleImageAttributes(selectedArticle.image, ARTICLE_IMAGE_SIZES.cover)}
                   alt={selectedArticle.title}
                   loading="eager"
                   decoding="async"
@@ -852,9 +853,9 @@ function BlogPageComponent() {
                   }}
                 />
               </div>
-            </motion.div>
+            </m.div>
           )}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+          <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap mx-auto max-w-6xl px-4 pb-20 sm:px-6">
             <div className="lg:grid lg:grid-cols-[minmax(0,760px)_minmax(230px,290px)] lg:items-start lg:justify-between lg:gap-12">
               <main className="min-w-0">
             {toc.length >= 3 && (
@@ -928,14 +929,14 @@ function BlogPageComponent() {
                 <ul className="space-y-3">
                   {relatedArticles.map((article) => (
                     <li key={article.slug}>
-                      <motion.button
+                      <m.button
                         whileHover={{ x: 4 }}
                         transition={{ type: 'spring', stiffness: 320, damping: 24 }}
                         onClick={() => openRelatedArticle(article.slug)}
                         className="text-left bg-transparent border-none p-0 text-primary hover:underline cursor-pointer"
                       >
                         {article.title}
-                      </motion.button>
+                      </m.button>
                     </li>
                   ))}
                 </ul>
@@ -990,7 +991,7 @@ function BlogPageComponent() {
                 </aside>
               )}
             </div>
-          </motion.div>
+          </m.div>
         </section>
         <Suspense fallback={null}>
           <Footer />
@@ -998,14 +999,14 @@ function BlogPageComponent() {
         <AnimatePresence>
           {pendingZipDownload && (
             <>
-              <motion.div
+              <m.div
                 className="fixed inset-0 z-[1000] bg-black/75 backdrop-blur-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={closeZipWarning}
               />
-              <motion.div
+              <m.div
                 ref={zipDialogRef}
                 role="dialog"
                 aria-modal="true"
@@ -1070,7 +1071,7 @@ function BlogPageComponent() {
                     </button>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
             </>
           )}
         </AnimatePresence>
@@ -1103,7 +1104,7 @@ function BlogPageComponent() {
             backFallback="/"
             className="mb-7"
           />
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={isCasesRoute ? 'mb-10 text-center md:mb-14' : 'mb-8 max-w-3xl md:mb-10'}>
+          <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={isCasesRoute ? 'mb-10 text-center md:mb-14' : 'mb-8 max-w-3xl md:mb-10'}>
             <div className={`mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary ${isCasesRoute ? 'mx-auto' : ''}`}>
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               {isCasesRoute ? `Кейсы · ${scopedArticles.length}` : `Практический блог · ${russianCountLabel(scopedArticles.length, ['статья', 'статьи', 'статей'])}`}
@@ -1119,7 +1120,7 @@ function BlogPageComponent() {
                 ? 'В каждом материале — исходная задача, принятые решения, цифры и ограничения результата.'
                 : 'Выберите, что нужно решить. Покажу разборы, которые помогают принять решение, а не пересказывают справку рекламного кабинета.'}
             </p>
-          </motion.div>
+          </m.div>
 
           {!isCasesRoute && (
             <>
@@ -1275,13 +1276,19 @@ function BlogPageComponent() {
                     >
                       <div className="relative min-h-[230px] overflow-hidden bg-background/50 sm:min-h-[300px]">
                         <img
-                          src={hasCustomCover(featuredArticle.image) ? featuredArticle.image : '/images/brand/whale-wizard.webp'}
+                          {...(hasCustomCover(featuredArticle.image)
+                            ? articleImageAttributes(featuredArticle.image, ARTICLE_IMAGE_SIZES.featured)
+                            : { src: '/images/brand/whale-wizard.webp' })}
                           alt=""
                           loading="eager"
                           decoding="async"
                           fetchpriority="high"
                           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
                           onError={(event) => {
+                            // Набор вариантов сильнее `src`: без его снятия
+                            // запасная картинка так и не показалась бы.
+                            event.currentTarget.removeAttribute('srcset');
+                            event.currentTarget.removeAttribute('sizes');
                             event.currentTarget.src = '/images/brand/whale-wizard.webp';
                           }}
                         />
@@ -1320,7 +1327,7 @@ function BlogPageComponent() {
                       </div>
                       <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/80 bg-card/50">
                         {feedArticles.map((article, index) => (
-                          <motion.article
+                          <m.article
                             key={article.slug}
                             initial={{ opacity: 0, y: 12 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -1335,12 +1342,16 @@ function BlogPageComponent() {
                             >
                               <div className="aspect-[4/3] overflow-hidden rounded-xl bg-background/60 sm:aspect-[16/10]">
                                 <DeferredImage
-                                  src={hasCustomCover(article.image) ? article.image : '/images/brand/whale-wizard.webp'}
+                                  {...(hasCustomCover(article.image)
+                                    ? articleImageAttributes(article.image, ARTICLE_IMAGE_SIZES.thumbnail)
+                                    : { src: '/images/brand/whale-wizard.webp' })}
                                   alt=""
                                   loading="lazy"
                                   decoding="async"
                                   className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
                                   onError={(event) => {
+                                    event.currentTarget.removeAttribute('srcset');
+                                    event.currentTarget.removeAttribute('sizes');
                                     event.currentTarget.src = '/images/brand/whale-wizard.webp';
                                   }}
                                 />
@@ -1357,7 +1368,7 @@ function BlogPageComponent() {
                               </div>
                               <ArrowRight className="hidden h-5 w-5 text-primary transition-transform group-hover:translate-x-1 sm:block" aria-hidden="true" />
                             </button>
-                          </motion.article>
+                          </m.article>
                         ))}
                       </div>
                     </section>

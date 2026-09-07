@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { Calculator, TrendingUp, ArrowRight } from 'lucide-react';
 import Modal from './Modal';
 
@@ -20,7 +20,7 @@ export default function CalculatorButtons() {
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
         {/* Заголовок */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -38,11 +38,11 @@ export default function CalculatorButtons() {
           <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
             Оцените стоимость ведения и посчитайте ROAS или ROMI по своим цифрам. Это отправная точка, а не прогноз результата.
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Десктопная версия */}
         <div className="hidden md:flex items-stretch gap-0 max-w-4xl mx-auto">
-          <motion.button
+          <m.button
             onClick={() => setIsBudgetModalOpen(true)}
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -63,11 +63,11 @@ export default function CalculatorButtons() {
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
-          </motion.button>
+          </m.button>
 
           <div className="relative w-px bg-gradient-to-b from-transparent via-primary/50 to-transparent mx-2" />
 
-          <motion.button
+          <m.button
             onClick={() => setIsRoiModalOpen(true)}
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -88,12 +88,12 @@ export default function CalculatorButtons() {
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
-          </motion.button>
+          </m.button>
         </div>
 
         {/* Мобильная версия: обе задачи сразу видны, вертикальный скролл не перехватывается. */}
         <div className="relative grid gap-3 md:hidden">
-            <motion.button
+            <m.button
               onClick={() => setIsBudgetModalOpen(true)}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -117,9 +117,9 @@ export default function CalculatorButtons() {
                   </div>
                 </div>
               </div>
-            </motion.button>
+            </m.button>
 
-            <motion.button
+            <m.button
               onClick={() => setIsRoiModalOpen(true)}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -143,7 +143,7 @@ export default function CalculatorButtons() {
                   </div>
                 </div>
               </div>
-            </motion.button>
+            </m.button>
         </div>
       </div>
 

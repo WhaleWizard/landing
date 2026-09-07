@@ -1,6 +1,6 @@
 import { useState, useCallback, memo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router';
-import { motion, useInView } from 'motion/react';
+import { m, useInView } from 'motion/react';
 import {
   Send,
   CheckCircle2,
@@ -388,7 +388,7 @@ function LandingForm({
           className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all backdrop-blur-sm pl-4"
         />
         {focusedField === name && (
-          <motion.div
+          <m.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="absolute inset-0 rounded-lg border-2 border-primary/50 pointer-events-none"
@@ -399,7 +399,7 @@ function LandingForm({
   );
 
   return (
-    <motion.div
+    <m.div
       ref={formRef}
       initial={{ opacity: 0, rotateX: 15, y: 40 }}
       animate={inView ? { opacity: 1, rotateX: 0, y: 0 } : {}}
@@ -416,7 +416,7 @@ function LandingForm({
 
         <div className="relative z-10">
           {isSubmitted ? (
-            <motion.div
+            <m.div
               role="status"
               aria-live="polite"
               className="text-center py-12 space-y-4"
@@ -432,7 +432,7 @@ function LandingForm({
               </div>
               <h3 className="text-xl md:text-2xl font-bold">Заявка отправлена</h3>
               <p className="text-sm md:text-base text-muted-foreground">Посмотрю вводные и свяжусь по указанному контакту.</p>
-            </motion.div>
+            </m.div>
           ) : (
             <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="space-y-5">
               {/* Title */}
@@ -545,7 +545,7 @@ function LandingForm({
                     </p>
                     <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2">
                       {budgetOptions.map((option) => (
-                        <motion.button
+                        <m.button
                           key={option.value}
                           type="button"
                           onClick={() => setFormData(prev => ({ ...prev, budget: option.value }))}
@@ -560,15 +560,15 @@ function LandingForm({
                         >
                           {option.label}
                           {formData.budget === option.value && (
-                            <motion.span
+                            <m.span
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
                               className="ml-2 inline-block"
                             >
                               <CheckCircle2 className="w-4 h-4 inline" />
-                            </motion.span>
+                            </m.span>
                           )}
-                        </motion.button>
+                        </m.button>
                       ))}
                     </div>
                   </div>
@@ -604,7 +604,7 @@ function LandingForm({
                         className="bg-background/50 border-border/50 focus:border-primary focus:bg-background/70 transition-all resize-none backdrop-blur-sm"
                       />
                       {focusedField === 'problem' && (
-                        <motion.div
+                        <m.div
                           initial={{ scale: 0.95, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           className="absolute inset-0 rounded-lg border-2 border-primary/50 pointer-events-none"
@@ -676,7 +676,7 @@ function LandingForm({
               )}
 
               {/* Submit */}
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <m.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   type="submit"
                   disabled={isSubmitting || !agreed}
@@ -696,7 +696,7 @@ function LandingForm({
                     </>
                   )}
                 </Button>
-              </motion.div>
+              </m.div>
             </form>
           )}
         </div>
@@ -727,7 +727,7 @@ function LandingForm({
           <OfferContent />
         </Suspense>
       </Modal>
-    </motion.div>
+    </m.div>
   );
 }
 

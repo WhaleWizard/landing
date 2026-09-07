@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { ArrowDown, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { memo, useCallback } from 'react';
@@ -43,7 +43,7 @@ function CallToAction({ content: contentProp = defaultCallToActionContent, conte
       <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-secondary/5" />
       
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -82,7 +82,7 @@ function CallToAction({ content: contentProp = defaultCallToActionContent, conte
               </Button>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

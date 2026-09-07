@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { AlertTriangle, ChevronLeft, ChevronRight, Clock3, RefreshCw } from 'lucide-react';
 import LeadCountryBadge from './LeadCountryBadge';
 
@@ -118,7 +118,7 @@ function BoardCard<T extends BoardLead>({
   const amount = money(lead.deal_value, lead.deal_currency);
 
   return (
-    <motion.div
+    <m.div
       layout={!reduced}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       ref={ref}
@@ -173,7 +173,7 @@ function BoardCard<T extends BoardLead>({
           <ChevronRight aria-hidden="true" />
         </button>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 

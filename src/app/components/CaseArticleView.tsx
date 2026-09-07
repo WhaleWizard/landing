@@ -2,7 +2,7 @@
 // в общей блокирующей таблице стилей всего сайта. Тот же файл импортирует
 // pages/CasesPage.tsx — там лежат правила витрины .cases-*.
 import '../../styles/cases-finder.css';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import {
   ArrowRight,
   CalendarDays,
@@ -26,6 +26,7 @@ import {
   getCaseDisplayTitle,
   getMergedCaseData,
 } from '../data/caseCatalog';
+import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
 import { formatReadTime } from '../utils/articleMeta';
 import { useManagedTitleFit } from '../utils/contentTypography';
 import { smartTitleBreaks } from '../utils/smartTitle';
@@ -128,7 +129,7 @@ export default function CaseArticleView({
             />
 
             <div className="case-article-hero-grid">
-              <motion.div
+              <m.div
                 className="case-article-lead"
                 initial={reduceMotion ? false : { opacity: 0, y: 14 }}
                 animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
@@ -145,22 +146,22 @@ export default function CaseArticleView({
                   {(caseData.sources || []).map((source) => <SourceChip key={source} source={source} />)}
                   {caseData.niche ? <span className="case-article-chip">{caseData.niche}</span> : null}
                 </div>
-              </motion.div>
+              </m.div>
 
-              <motion.figure
+              <m.figure
                 className="case-article-cover"
                 initial={reduceMotion ? false : { opacity: 0, scale: 0.985 }}
                 animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
                 transition={reduceMotion ? undefined : { duration: 0.45, delay: 0.08 }}
               >
                 <img
-                  src={cover}
+                  {...articleImageAttributes(cover, ARTICLE_IMAGE_SIZES.caseCover)}
                   alt={getCaseCoverAlt(article)}
                   loading="eager"
                   decoding="async"
                   fetchpriority="high"
                 />
-              </motion.figure>
+              </m.figure>
 
               <aside className="case-article-toc-desktop" aria-label="Оглавление">
                 <h2>В этой статье</h2>
@@ -283,7 +284,7 @@ export default function CaseArticleView({
                       href={`/cases/${item.slug}${relatedSearch}`}
                       onClick={(event) => handleInternalLink(event, () => onRelated(item.slug))}
                     >
-                      <DeferredImage src={getCaseCover(item)} alt="" loading="lazy" decoding="async" />
+                      <DeferredImage {...articleImageAttributes(getCaseCover(item), ARTICLE_IMAGE_SIZES.caseRelated)} alt="" loading="lazy" decoding="async" />
                       <span>{data.niche || 'Кейс'}</span>
                       <strong>{getCaseDisplayTitle(item.title)}</strong>
                       <small>{formatReadTime(item.readTime)} <ArrowRight aria-hidden="true" /></small>

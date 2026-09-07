@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, memo, useCallback, useEffect } from 'react';
@@ -216,7 +216,7 @@ function Cases({
       <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
+        <m.div
           initial={staticMotion ? false : { opacity: 0, y: 30 }}
           whileInView={staticMotion ? undefined : { opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -254,13 +254,13 @@ function Cases({
               ))}
             </p>
           ) : null}
-        </motion.div>
+        </m.div>
 
         {/* Desktop Grid */}
         {!isMobile && (
         <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8 overflow-visible">
           {caseItems.map((item, index) => (
-            <motion.div
+            <m.div
               key={index}
               initial={staticMotion ? false : { opacity: 0, y: 30 }}
               whileInView={staticMotion ? undefined : { opacity: 1, y: 0 }}
@@ -270,13 +270,13 @@ function Cases({
               style={{ transform: 'translateZ(0)' }}
             >
               <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/20 to-transparent opacity-0 blur-2xl pointer-events-none ${staticMotion ? '' : 'group-hover:opacity-100 transition-opacity duration-500'}`} />
-              <motion.div
+              <m.div
                 className={`absolute top-4 left-4 w-10 h-10 rounded-lg bg-primary/10 backdrop-blur-sm border border-primary/30 flex items-center justify-center opacity-0 z-10 ${staticMotion ? '' : 'group-hover:opacity-100 transition-opacity'}`}
                 initial={staticMotion ? false : { scale: 0.8 }}
                 {...cardHover}
               >
                 <BarChart3 className="w-5 h-5 text-primary" />
-              </motion.div>
+              </m.div>
 
               <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
                 <ImageWithFallback
@@ -310,7 +310,7 @@ function Cases({
                 {item.stats.length > 0 ? (
                   <div className="grid grid-cols-3 gap-3 md:gap-4 pt-4 border-t border-border/50">
                     {item.stats.map((stat, idx) => (
-                      <motion.div
+                      <m.div
                         key={idx}
                         className="relative space-y-1 p-2 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 backdrop-blur-sm"
                         {...desktopHover}
@@ -322,12 +322,12 @@ function Cases({
                         </div>
                         <div className="min-h-8 break-words [overflow-wrap:anywhere] pr-6 text-pretty text-xs leading-tight text-muted-foreground">{stat.label}</div>
                         <div className="break-words text-sm md:text-base font-bold leading-tight text-primary">{stat.value}</div>
-                      </motion.div>
+                      </m.div>
                     ))}
                   </div>
                 ) : null}
               </div>
-            </motion.div>
+            </m.div>
           ))}
         </div>
         )}
@@ -353,7 +353,7 @@ function Cases({
                   className="w-full flex-none snap-center px-2"
                   style={{ scrollSnapStop: 'always' }}
                 >
-                  <motion.div
+                  <m.div
                     initial={staticMotion ? false : { opacity: 0, scale: 0.9 }}
                     whileInView={staticMotion ? undefined : { opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
@@ -394,7 +394,7 @@ function Cases({
                       ) : null}
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-primary via-accent to-secondary opacity-30" />
-                  </motion.div>
+                  </m.div>
                 </div>
             ))}
           </div>

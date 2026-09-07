@@ -11,9 +11,13 @@ type DeferredImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
  * длинных лентах может сразу скачать десятки тяжёлых обложек. Здесь URL вообще
  * не попадает в DOM до приближения карточки к viewport; само изображение,
  * размеры и эффекты карточки при этом остаются прежними.
+ *
+ * `srcSet` откладывается вместе с `src`: иначе браузер выбрал бы вариант из
+ * набора и начал загрузку, не дожидаясь появления карточки на экране.
  */
 export default function DeferredImage({
   src,
+  srcSet,
   rootMargin = '320px 0px',
   loading = 'lazy',
   fetchPriority,
@@ -48,6 +52,7 @@ export default function DeferredImage({
       {...props}
       ref={imageRef}
       src={shouldLoad ? src : undefined}
+      srcSet={shouldLoad ? srcSet : undefined}
       data-deferred-src={shouldLoad ? undefined : src}
       loading={loading}
       fetchpriority={fetchPriority}

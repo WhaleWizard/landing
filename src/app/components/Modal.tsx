@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
@@ -87,7 +87,7 @@ export default function Modal({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -95,7 +95,7 @@ export default function Modal({
             onClick={onClose}
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000]"
           />
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -117,7 +117,7 @@ export default function Modal({
               <h2 className="min-w-0 flex-1 break-words text-balance text-lg sm:text-xl font-semibold leading-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {title}
               </h2>
-              <motion.button
+              <m.button
                 whileHover={{ rotate: 90 }}
                 whileTap={{ scale: 0.95 }}
                 transition={{ duration: 0.2 }}
@@ -126,7 +126,7 @@ export default function Modal({
                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl hover:bg-primary/10 transition-colors"
               >
                 <X className="w-5 h-5 text-muted-foreground" />
-              </motion.button>
+              </m.button>
             </div>
             <div className={`${flushBody ? 'modal-scroll-flush' : 'p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'} overflow-y-auto overscroll-contain modal-scroll ${bodyClassName ?? ''}`}>
               {children}
@@ -138,7 +138,7 @@ export default function Modal({
                 </button>
               </div>
             )}
-          </motion.div>
+          </m.div>
         </>
       )}
       <style>{`

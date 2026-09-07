@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, lazy, Suspense, useMemo } from 'react';
 import { useSiteSection } from '../hooks/useServiceContent';
@@ -418,7 +418,7 @@ function Testimonials({
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
         {/* Заголовок */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -438,13 +438,13 @@ function Testimonials({
           <p style={managedBodyStyle(content.typography)} className={`text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto ${managedBodyClasses(content.typography)}`}>
             {content.description}
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Десктопная версия — горизонтальная лента карточек */}
         {!isMobile && (
         <div className="relative left-1/2 hidden w-screen -translate-x-1/2 md:block">
           <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 6 }}
               whileInView={{ opacity: 0.8, y: 0 }}
               viewport={{ once: true }}
@@ -452,12 +452,12 @@ function Testimonials({
               className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/40 px-3 py-1 backdrop-blur-sm"
             >
               <MoveHorizontal className="h-3.5 w-3.5 text-primary" />
-              <motion.div
+              <m.div
                 className="h-1.5 w-10 rounded-full bg-gradient-to-r from-primary/30 via-primary/80 to-primary/30"
                 animate={{ x: [-4, 4, -4] }}
                 transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
               />
-            </motion.div>
+            </m.div>
 
             <div className="flex gap-3">
               <button
@@ -494,7 +494,7 @@ function Testimonials({
               }}
             >
               {items.map((testimonial, index) => (
-                <motion.div
+                <m.div
                   key={`${testimonial.company}-${testimonial.name}`}
                   data-testimonial-card
                   initial={{ opacity: 0, y: 30 }}
@@ -504,7 +504,7 @@ function Testimonials({
                   className="min-h-[340px] w-[min(380px,calc(100vw-4rem))] flex-shrink-0 snap-start group"
                 >
                   <TestimonialCard testimonial={testimonial} index={index} />
-                </motion.div>
+                </m.div>
               ))}
             </div>
           </div>
@@ -571,7 +571,7 @@ function Testimonials({
                 data-mobile-testimonial-card
                 className="w-full flex-shrink-0 snap-start px-2"
               >
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
@@ -579,7 +579,7 @@ function Testimonials({
                   className="relative min-h-[360px]"
                 >
                   <TestimonialCard testimonial={testimonial} index={index} compact />
-                </motion.div>
+                </m.div>
               </div>
             ))}
           </div>
@@ -644,7 +644,7 @@ function Testimonials({
         )}
 
         {/* Блок доверия (статистика) */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -652,7 +652,7 @@ function Testimonials({
           className="mt-12 md:mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"
         >
           {stats.map((stat, index) => (
-            <motion.div
+            <m.div
               key={index}
               className="relative min-w-0 text-center p-4 md:p-6 rounded-2xl bg-card/30 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-300 group"
               {...statHover}
@@ -668,9 +668,9 @@ function Testimonials({
                 </div>
                 <div className="text-pretty text-xs md:text-sm text-muted-foreground leading-tight">{stat.label}</div>
               </div>
-            </motion.div>
+            </m.div>
           ))}
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

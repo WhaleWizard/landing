@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { BarChart3, Users, Globe, TrendingUp, Sparkles, Target, Zap, Info, type LucideIcon } from 'lucide-react';
 import { useState, useRef, memo, useCallback, lazy, Suspense, useEffect, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
@@ -240,7 +240,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
         </Suspense>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -260,13 +260,13 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
             <p style={managedBodyStyle(sectionContent.typography)} className={`mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
               {sectionContent.description}
             </p>
-          </motion.div>
+          </m.div>
 
           {/* Desktop Grid */}
           {!isMobile && (
           <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8 overflow-visible">
             {serviceCards.map((service, index) => (
-              <motion.div
+              <m.div
                 key={index}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -288,7 +288,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                       <div className={`p-4 rounded-2xl bg-gradient-to-br ${service.gradient} shadow-lg group-hover:shadow-2xl transition-shadow duration-300`}>
                         <service.icon className="w-6 h-6 md:w-8 md:h-8 text-white" />
                       </div>
-                      <motion.div
+                      <m.div
                         className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-50 blur-xl`}
                         transition={{ duration: 0.3 }}
                       />
@@ -303,7 +303,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
 
                     <div className="space-y-3">
                       {service.features.map((feature, idx) => (
-                        <motion.div 
+                        <m.div 
                           key={idx} 
                           className="flex min-w-0 items-center gap-3"
                           initial={{ opacity: 0, x: -10 }}
@@ -315,7 +315,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                             <Sparkles className="w-3 h-3 text-primary" />
                           </div>
                           <span className="min-w-0 break-words text-pretty text-sm leading-snug text-foreground/80">{feature}</span>
-                        </motion.div>
+                        </m.div>
                       ))}
                     </div>
                   </div>
@@ -336,7 +336,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                     <Zap className="w-5 h-5 text-primary animate-pulse" />
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
             ))}
           </div>
           )}
@@ -363,7 +363,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                     className="w-full flex-none snap-center px-2"
                     style={{ scrollSnapStop: 'always' }}
                   >
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}
@@ -419,7 +419,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
 
                         <div className={`absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r ${service.gradient} opacity-30`} />
                       </div>
-                    </motion.div>
+                    </m.div>
                   </div>
               ))}
             </div>

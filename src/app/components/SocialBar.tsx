@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import {
   Instagram,
   Youtube,
@@ -51,7 +51,7 @@ function SocialDock() {
   }, []);
 
   return (
-    <motion.section
+    <m.section
       id="social"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
@@ -101,7 +101,7 @@ function SocialDock() {
           {socials.map((s, i) => {
             const Icon = s.icon;
             return (
-              <motion.a
+              <m.a
                 key={s.label}
                 data-social-card
                 href={s.href}
@@ -123,7 +123,7 @@ function SocialDock() {
                 <span className="text-[11px] md:text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors whitespace-nowrap">
                   {s.label}
                 </span>
-              </motion.a>
+              </m.a>
             );
           })}
         </div>
@@ -142,7 +142,7 @@ function SocialDock() {
         }
         `).join('')}
       `}</style>
-    </motion.section>
+    </m.section>
   );
 }
 

@@ -1,5 +1,5 @@
 import { memo, Suspense, useCallback, useRef, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Braces, Database } from 'lucide-react';
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
@@ -146,7 +146,7 @@ function valueSizeClass(value: string) {
 const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
   return (
   <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 pt-5 md:pt-8">
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.3, duration: 0.5 }}
@@ -157,9 +157,9 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
       </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[0]?.value ?? '')} font-semibold md:font-bold text-primary tracking-[-0.02em]`}>{stats[0]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[0]?.label}</div>
-    </motion.div>
+    </m.div>
 
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.4, duration: 0.5 }}
@@ -170,9 +170,9 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
       </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[1]?.value ?? '')} font-semibold md:font-bold text-accent tracking-[-0.02em]`}>{stats[1]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[1]?.label}</div>
-    </motion.div>
+    </m.div>
 
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.5, duration: 0.5 }}
@@ -183,7 +183,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
       </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[2]?.value ?? '')} font-semibold md:font-bold text-secondary tracking-[-0.02em]`}>{stats[2]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[2]?.label}</div>
-    </motion.div>
+    </m.div>
   </div>
   );
 });
@@ -204,7 +204,7 @@ const MetaAppsStatsStrip = memo(({
   className?: string;
   staticMotion?: boolean;
 }) => (
-  <motion.div
+  <m.div
     initial={staticMotion ? false : { opacity: 0, y: 14 }}
     animate={{ opacity: 1, y: 0 }}
     transition={staticMotion ? { duration: 0 } : { delay: 0.55, duration: 0.55 }}
@@ -246,7 +246,7 @@ const MetaAppsStatsStrip = memo(({
         </span>
       </div>
     ))}
-  </motion.div>
+  </m.div>
 ));
 MetaAppsStatsStrip.displayName = 'MetaAppsStatsStrip';
 
@@ -272,7 +272,7 @@ const LeftContent = memo(({
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 14 });
   const titleAnimation = content.titleAnimation || {};
   return (
-  <motion.div
+  <m.div
     initial={staticMotion ? false : { opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={staticMotion ? { duration: 0 } : { duration: 0.8 }}
@@ -282,13 +282,13 @@ const LeftContent = memo(({
     // успевает уменьшить заголовок вместо того, чтобы его обрезало.
     className={`min-w-0 max-w-2xl ${mobileFirst ? 'meta-apps-hero-copy order-1' : 'order-2 lg:order-1'} ${content.titleLines?.length ? 'space-y-4 md:space-y-5' : 'space-y-5 md:space-y-7'}`}
   >
-    <motion.div
+    <m.div
       className="relative inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
     >
       {!staticMotion ? <span className="ww-hero-glow-loop ww-ambient-motion absolute inset-0 -z-10 rounded-full" aria-hidden="true" /> : null}
       <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary" />
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
-    </motion.div>
+    </m.div>
 
     {content.titleLines?.length ? (
       <h1
@@ -391,7 +391,7 @@ const LeftContent = memo(({
         staticMotion={staticMotion}
       />
     )}
-  </motion.div>
+  </m.div>
   );
 });
 LeftContent.displayName = 'LeftContent';
@@ -431,7 +431,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
   const hoverPropsNoRotate = !isTouch ? { whileHover: { scale: 1.1 } } : {};
 
   return (
-    <motion.div
+    <m.div
       aria-hidden="true"
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
@@ -534,7 +534,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
 
       <div className={showCards ? 'contents' : 'hidden'}>
       {/* Data Cards */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.8, duration: 0.8, type: 'spring' }}
@@ -551,45 +551,45 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
                 total ad spend
               </div>
             </div>
-            <motion.div
+            <m.div
               className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
               {...hoverProps}
             >
               <Target className="w-3 h-3 md:w-4 md:h-4 text-primary" />
-            </motion.div>
+            </m.div>
           </div>
-          <motion.div
+          <m.div
             className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-primary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.5 }}
           >
             $800,000+
-          </motion.div>
+          </m.div>
           <div className="flex items-center gap-1.5 md:gap-2 relative z-10">
-            <motion.div
+            <m.div
               className="flex-1 h-0.5 md:h-1 rounded-full bg-primary/20 overflow-hidden"
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
               transition={{ delay: 1.4, duration: 0.8 }}
               style={{ willChange: 'transform' }}
             >
-              <motion.div
+              <m.div
                 className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 0.85 }}
                 transition={{ delay: 1.6, duration: 0.8 }}
                 style={{ transformOrigin: 'left', willChange: 'transform' }}
               />
-            </motion.div>
+            </m.div>
             <span className="text-[9px] sm:text-[10px] md:text-xs text-primary font-medium">
               +120%
             </span>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.9, duration: 0.8, type: 'spring' }}
@@ -608,27 +608,27 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
                 в среднем
               </div>
             </div>
-            <motion.div
+            <m.div
               className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-accent/10 flex items-center justify-center border border-accent/30"
               {...hoverPropsMinus}
             >
               <BarChart3 className="w-3 h-3 md:w-4 md:h-4 text-accent" />
-            </motion.div>
+            </m.div>
           </div>
-          <motion.div
+          <m.div
             className="break-words text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-accent mb-2 md:mb-3 relative z-10 leading-none tracking-[-0.02em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.3, duration: 0.5 }}
           >
             6.2
-          </motion.div>
+          </m.div>
           <svg
             className="w-full h-4 md:h-6 relative z-10"
             viewBox="0 0 60 20"
             preserveAspectRatio="none"
           >
-            <motion.path
+            <m.path
               d="M 0,15 L 15,12 L 30,8 L 45,5 L 60,3"
               stroke="url(#sparkGradient)"
               strokeWidth="2"
@@ -646,9 +646,9 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
             </defs>
           </svg>
         </div>
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1.0, duration: 0.8, type: 'spring' }}
@@ -667,24 +667,24 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
                 total ad spend
               </div>
             </div>
-            <motion.div
+            <m.div
               className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-secondary/10 flex items-center justify-center border border-secondary/30"
               {...hoverProps}
             >
               <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-secondary" />
-            </motion.div>
+            </m.div>
           </div>
-          <motion.div
+          <m.div
             className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-secondary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.4, duration: 0.5 }}
           >
             $1,200,000+
-          </motion.div>
+          </m.div>
           <div className="flex items-center gap-1 md:gap-1.5 relative z-10">
             {[80, 95, 100, 70, 90].map((scale, i) => (
-              <motion.div
+              <m.div
                 key={i}
                 className="w-1 md:w-1.5 rounded-full bg-secondary/30"
                 style={{ height: `${scale}%` }}
@@ -692,19 +692,19 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
                 animate={{ scaleY: 1 }}
                 transition={{ delay: 1.6 + i * 0.1, duration: 0.4 }}
               >
-                <motion.div
+                <m.div
                   className="w-full bg-gradient-to-t from-secondary to-accent rounded-full"
                   initial={{ height: 0 }}
                   animate={{ height: '100%' }}
                   transition={{ delay: 1.8 + i * 0.1, duration: 0.4 }}
                 />
-              </motion.div>
+              </m.div>
             ))}
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1.1, duration: 0.8, type: 'spring' }}
@@ -723,23 +723,23 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
             <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium">
               сред. ROI
             </div>
-            <motion.div
+            <m.div
               className="relative w-6 h-6 md:w-8 md:h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
               {...hoverPropsNoRotate}
             >
               <span className="ww-hero-glow-loop ww-ambient-motion absolute inset-0 -z-10 rounded-lg" aria-hidden="true" />
               <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-primary" />
-            </motion.div>
+            </m.div>
           </div>
-          <motion.div
+          <m.div
             className="text-2xl sm:text-4xl md:text-5xl font-semibold md:font-bold text-primary relative z-10 leading-none tracking-[-0.03em]"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.5, duration: 0.5 }}
           >
             240%
-          </motion.div>
-          <motion.div
+          </m.div>
+          <m.div
             className="mt-2 md:mt-3 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent rounded-full relative z-10"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
@@ -747,7 +747,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
             style={{ transformOrigin: 'left', willChange: 'transform' }}
           />
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Connection lines */}
       <svg
@@ -755,7 +755,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
         style={{ zIndex: 5 }}
       >
         {LINE_PATHS.map((d, i) => (
-          <motion.path
+          <m.path
             key={i}
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 0.3 }}
@@ -778,7 +778,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
       </div>
 
       <div className="absolute inset-0 rounded-3xl border border-primary/30 pointer-events-none shadow-2xl shadow-primary/20" />
-    </motion.div>
+    </m.div>
   );
 });
 RightPanel.displayName = 'RightPanel';

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, ChevronDown, Search, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -564,7 +564,7 @@ export default function FAQPage() {
             ]}
             className="mb-8"
           />
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center mb-10"
@@ -583,7 +583,7 @@ export default function FAQPage() {
             <p className="text-muted-foreground mt-4 max-w-3xl mx-auto text-pretty">
               {FAQ_SEO.lead}
             </p>
-          </motion.div>
+          </m.div>
 
           <div className="mb-7 rounded-2xl border border-border bg-card/30 p-3 sm:p-4">
             <div className="relative">
@@ -724,7 +724,7 @@ export default function FAQPage() {
             </div>
           )}
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -748,7 +748,7 @@ export default function FAQPage() {
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       </section>
       <Suspense fallback={null}>

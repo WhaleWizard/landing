@@ -21,7 +21,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import {
-  motion,
+  m,
   useMotionValue,
   useReducedMotion,
   useSpring,
@@ -108,7 +108,7 @@ function EventRow({ index, icon, label, status, reveal, reduced, subtle }: Event
   const hiddenX = subtle ? -4 : -10;
 
   return (
-    <motion.div
+    <m.div
       className="meta-phone-event"
       initial={reduced ? false : { opacity: 0, x: hiddenX }}
       animate={{ opacity: reveal ? 1 : 0, x: reveal ? 0 : hiddenX }}
@@ -123,7 +123,7 @@ function EventRow({ index, icon, label, status, reveal, reduced, subtle }: Event
         <strong>{label}</strong>
         <span>{status}</span>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -148,7 +148,7 @@ function PhoneNotification({
   const hiddenScale = subtle ? 0.985 : 0.97;
 
   return (
-    <motion.div
+    <m.div
       className="meta-phone-notification"
       initial={reduced ? false : { opacity: 0, y: hiddenY, scale: hiddenScale }}
       animate={{
@@ -170,7 +170,7 @@ function PhoneNotification({
         <span>{subtitle}</span>
       </div>
       <span className="meta-phone-notification__time">сейчас</span>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -207,7 +207,7 @@ function PhoneScreen({
         </div>
 
         <div className="meta-phone-events">
-          <motion.div
+          <m.div
             className="meta-phone-events__line"
             initial={reduced ? false : { scaleY: 0 }}
             animate={{ scaleY: reveal ? 1 : 0 }}
@@ -218,7 +218,7 @@ function PhoneScreen({
             }}
           />
           {loop && (
-            <motion.div
+            <m.div
               className="meta-phone-events__pulse"
               animate={{ y: ['0%', '310%'], opacity: [0, 1, 1, 0] }}
               transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 1.8, ease: 'easeInOut' }}
@@ -290,7 +290,7 @@ function PhoneScreen({
           />
         </div>
 
-        <motion.div
+        <m.div
           className="meta-phone-final-status"
           initial={reduced ? false : { opacity: 0, y: subtle ? 6 : 12 }}
           animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : subtle ? 6 : 12 }}
@@ -304,12 +304,12 @@ function PhoneScreen({
             <Check />
           </span>
           <span>Дедупликация выполнена</span>
-        </motion.div>
+        </m.div>
       </div>
 
       <div className="meta-phone-home-indicator" />
 
-      <motion.div
+      <m.div
         className="meta-phone-reflection"
         animate={loop ? { x: ['-145%', '270%'] } : { x: '-145%' }}
         transition={{ duration: 2.8, repeat: loop ? Infinity : 0, repeatDelay: 5.5, ease: 'easeInOut' }}
@@ -337,11 +337,11 @@ function Receipt({
   const hiddenScale = subtle ? 0.98 : 0.94;
 
   return (
-    <motion.div
+    <m.div
       className={`meta-receipt-slot meta-receipt-slot--${index + 1}`}
       style={{ y: parallax ? scrollY : 0 }}
     >
-      <motion.div
+      <m.div
         initial={reduced ? false : { opacity: 0, x: hiddenX, scale: hiddenScale }}
         animate={{
           opacity: reveal ? 1 : 0,
@@ -368,7 +368,7 @@ function Receipt({
             `as const`, а motion ждёт изменяемый список значений и readonly-
             кортеж не принимает.
           */}
-          <motion.article
+          <m.article
             className="meta-receipt"
             style={{
               backgroundImage:
@@ -397,7 +397,7 @@ function Receipt({
             </div>
 
             {mark === 'check' && (
-              <motion.img
+              <m.img
                 className="meta-receipt__check-image"
                 src="/images/meta-verification-stamp.webp"
                 alt=""
@@ -417,7 +417,7 @@ function Receipt({
             )}
 
             {mark === 'stamp' && (
-              <motion.img
+              <m.img
                 className="meta-receipt__stamp-image"
                 src="/images/meta-transfer-stamp.webp"
                 alt=""
@@ -439,10 +439,10 @@ function Receipt({
                 }}
               />
             )}
-          </motion.article>
+          </m.article>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -609,7 +609,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
   }, [mouseX, mouseY]);
 
   return (
-    <motion.div
+    <m.div
       ref={containerRef}
       aria-hidden="true"
       className="meta-apps-visual"
@@ -633,7 +633,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
       <div className="meta-apps-stage">
         <div className="meta-apps-stage__glow" />
         <div className="meta-apps-stage__floor" />
-        <motion.img
+        <m.img
           className="meta-apps-stage__stone"
           src="/images/meta-hero-pedestal-rack.webp"
           srcSet="/images/meta-hero-pedestal-rack-mobile.webp 768w, /images/meta-hero-pedestal-rack-medium.webp 1152w, /images/meta-hero-pedestal-rack.webp 1536w"
@@ -658,12 +658,12 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           }}
         />
 
-        <motion.div
+        <m.div
           ref={phoneAnchorRef}
           className="meta-phone-anchor"
           style={{ y: parallaxEnabled ? phoneScrollY : 0 }}
         >
-          <motion.div
+          <m.div
             className="meta-phone-enter"
             initial={motionOff ? false : {
               opacity: 0,
@@ -678,11 +678,11 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
               bounce: subtleMotion ? 0.08 : 0.18,
             }}
           >
-            <motion.div
+            <m.div
               className="meta-phone-object"
               style={parallaxEnabled ? { rotateX: phoneTiltX, rotateY: phoneTiltY } : undefined}
             >
-              <motion.div
+              <m.div
                 className="meta-phone-float"
                 animate={loop ? { y: [0, -4, 0] } : { y: 0 }}
                 transition={{ duration: 5.8, repeat: loop ? Infinity : 0, ease: 'easeInOut' }}
@@ -723,10 +723,10 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
                     />
                   </div>
                 </div>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        </motion.div>
+              </m.div>
+            </m.div>
+          </m.div>
+        </m.div>
 
         <Receipt
           index={0}
@@ -767,7 +767,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           scrollY={receiptThreeScrollY}
         />
       </div>
-    </motion.div>
+    </m.div>
   );
 });
 

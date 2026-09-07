@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, BookOpenText, Filter, Layers3, Link2, Search, Smartphone } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -252,7 +252,7 @@ export default function MarketingGlossaryPage() {
             ]}
             className="mb-8"
           />
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -280,7 +280,7 @@ export default function MarketingGlossaryPage() {
                 <p className="mt-1 text-xl font-semibold sm:text-2xl">{metaAppsTermCount}</p>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       </section>
 

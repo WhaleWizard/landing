@@ -1,9 +1,21 @@
 import { parseHTML } from 'linkedom';
-import createDOMPurify from 'dompurify';
 
-const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
-const purify = createDOMPurify((document.defaultView)!);
-
+/**
+ * Санитайзер HTML статей для Cloudflare Functions.
+ *
+ * Раньше здесь стоял DOMPurify поверх linkedom. У документа linkedom нет
+ * `implementation`, DOMPurify считал окружение непригодным и молча возвращал
+ * строку без изменений — то есть очистки на сервере не было вовсе. Теперь
+ * очистка своя: разметка разбирается linkedom, а дальше обходится дерево и
+ * остаётся только то, что явно разрешено. Правило простое и проверяемое:
+ * неизвестный тег удаляется вместе с содержимым, неизвестный атрибут —
+ * снимается, адрес в ссылочном атрибуте обязан пройти регулярку.
+ *
+ * Списки тегов и атрибутов совпадают с `src/app/utils/sanitizeHtml.ts` и
+ * `scripts/article-sanitizer.js` — это стережёт `test:audit-regressions`.
+ * Браузер поверх этого по-прежнему пропускает статью через настоящий
+ * DOMPurify: серверная очистка — вторая линия, а не единственная.
+ */
 const SAFE_IFRAME_HOSTS = new Set([
   'www.youtube.com',
   'youtube.com',
@@ -38,17 +50,8 @@ const CONFIG = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|data:image\/(?:png|jpe?g|webp|gif|avif);base64,|\/)/i,
   /**
    * Все остальные разрешённые атрибуты — не ссылки, и проверять их адресной
-   * регуляркой нельзя.
-   *
-   * DOMPurify отбрасывает атрибут, если его значение не прошло
-   * ALLOWED_URI_REGEXP и сам атрибут не числится «неадресным». Своя строгая
-   * регулярка выше требует https://, data:image или ведущую косую черту —
-   * поэтому width="640", colspan="2", loading="lazy", d="M0 0" и ещё три
-   * десятка атрибутов молча вырезались, хотя стоят в списке разрешённых.
-   *
-   * Список выводится из ALLOWED_ATTR, а не пишется руками: иначе новый атрибут
-   * добавили бы в один список и забыли про второй — и он снова оказался бы
-   * мёртвым без единой ошибки.
+   * регуляркой нельзя. Список выводится из ALLOWED_ATTR, а не пишется руками:
+   * иначе новый атрибут добавили бы в один список и забыли про второй.
    */
   ADD_URI_SAFE_ATTR: [] as string[],
 };
@@ -56,6 +59,13 @@ const CONFIG = {
 // Ссылочные атрибуты остаются под проверкой адреса, остальные — нет.
 const URL_BEARING_ATTR = new Set(['href', 'src', 'srcset', 'poster']);
 CONFIG.ADD_URI_SAFE_ATTR = CONFIG.ALLOWED_ATTR.filter((attr) => !URL_BEARING_ATTR.has(attr));
+
+const ALLOWED_TAGS = new Set(CONFIG.ALLOWED_TAGS.map((tag) => tag.toLowerCase()));
+const ALLOWED_ATTR = new Set(CONFIG.ALLOWED_ATTR.map((attr) => attr.toLowerCase()));
+
+const ELEMENT_NODE = 1;
+const TEXT_NODE = 3;
+const CDATA_NODE = 4;
 
 function isSafeIframeSrc(src: string): boolean {
   try {
@@ -66,19 +76,37 @@ function isSafeIframeSrc(src: string): boolean {
   }
 }
 
-purify.addHook('uponSanitizeElement', (node, data) => {
-  if (data.tagName === 'iframe') {
-    const element = node as Element;
-    const src = element.getAttribute('src') || '';
-    if (!isSafeIframeSrc(src)) {
-      element.remove();
+function isAllowedUri(value: string): boolean {
+  // DOMPurify нормализует адрес тем же способом: управляющие символы внутри
+  // `java\tscript:` не должны обходить проверку.
+  const normalized = value.replace(/[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g, '').trim();
+  return CONFIG.ALLOWED_URI_REGEXP.test(normalized);
+}
+
+function isAllowedSrcSet(value: string): boolean {
+  return value
+    .split(',')
+    .map((candidate) => candidate.trim().split(/\s+/)[0] || '')
+    .filter(Boolean)
+    .every(isAllowedUri);
+}
+
+function sanitizeAttributes(element: Element): void {
+  const tag = element.tagName.toLowerCase();
+  for (const attribute of Array.from(element.attributes)) {
+    const name = attribute.name.toLowerCase();
+    const value = String(attribute.value ?? '');
+    if (!ALLOWED_ATTR.has(name)) {
+      element.removeAttribute(attribute.name);
+      continue;
+    }
+    if (URL_BEARING_ATTR.has(name)) {
+      const valid = name === 'srcset' ? isAllowedSrcSet(value) : isAllowedUri(value);
+      if (!valid) element.removeAttribute(attribute.name);
     }
   }
-});
 
-purify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.nodeName?.toLowerCase() === 'a') {
-    const element = node as Element;
+  if (tag === 'a') {
     const href = element.getAttribute('href') || '';
     const target = element.getAttribute('target') || '';
     if (target === '_blank' || /^https?:\/\//i.test(href)) {
@@ -86,16 +114,47 @@ purify.addHook('afterSanitizeAttributes', (node) => {
     }
   }
 
-  if (node.nodeName?.toLowerCase() === 'iframe') {
-    const element = node as Element;
-    const src = element.getAttribute('src') || '';
-    if (isSafeIframeSrc(src)) {
-      element.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
-      element.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-    }
+  if (tag === 'iframe') {
+    element.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+    element.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
   }
-});
+}
+
+function sanitizeNode(node: Node): void {
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType === TEXT_NODE || child.nodeType === CDATA_NODE) continue;
+    if (child.nodeType !== ELEMENT_NODE) {
+      // Комментарии, инструкции обработки и прочее — не содержимое статьи.
+      node.removeChild(child);
+      continue;
+    }
+
+    const element = child as Element;
+    const tag = element.tagName.toLowerCase();
+    if (!ALLOWED_TAGS.has(tag)) {
+      // Как у DOMPurify по умолчанию: неизвестный элемент уходит целиком, а не
+      // «разворачивается». Так `<script>`, `<style>` и `<template>` не могут
+      // оставить после себя ни текст, ни вложенную разметку.
+      node.removeChild(element);
+      continue;
+    }
+
+    if (tag === 'iframe' && !isSafeIframeSrc(element.getAttribute('src') || '')) {
+      node.removeChild(element);
+      continue;
+    }
+
+    sanitizeAttributes(element);
+    sanitizeNode(element);
+  }
+}
 
 export function sanitizeArticleHtml(input: string): string {
-  return purify.sanitize(input, CONFIG);
+  const source = String(input || '');
+  if (!source.trim()) return '';
+  const { document } = parseHTML(`<!DOCTYPE html><html><body>${source}</body></html>`);
+  const body = document.body;
+  if (!body) return '';
+  sanitizeNode(body);
+  return body.innerHTML;
 }
