@@ -20,13 +20,37 @@ function ScrollExperience({ showTrail = true, routeKey }: ScrollExperienceProps)
     let idleTimer = 0;
     let scrolling = false;
 
+    // Пока страницу ни разу не прокручивали, прогресс равен нулю по самой
+    // формуле: `scrollY / maxScroll` при нулевом `scrollY` — ноль при любой
+    // высоте документа. Значит и высоту читать незачем.
+    //
+    // На загрузке это решает главную проблему: наблюдатель размеров висит на
+    // всём документе, а документ растёт от каждой доехавшей картинки, шрифта
+    // и подгруженной секции. Каждое такое срабатывание читало
+    // `root.scrollHeight` и заставляло браузер пересчитать раскладку всей
+    // страницы заново. На телефоне это стоило около 0,8 секунды процессорного
+    // времени на первой загрузке главной.
+    let scrolledAtLeastOnce = false;
+    let lastWritten = '';
+
+    const writeProgress = (progress: number) => {
+      const value = String(Math.round(progress * 10000) / 10000);
+      if (value === lastWritten) return;
+      lastWritten = value;
+      progressRef.current?.style.setProperty('--ww-scroll-progress', value);
+    };
+
     const updateProgress = () => {
       frame = 0;
+      if (!scrolledAtLeastOnce) {
+        writeProgress(0);
+        return;
+      }
       const maxScroll = Math.max(0, root.scrollHeight - window.innerHeight);
       const progress = maxScroll > 0
         ? Math.min(1, Math.max(0, window.scrollY / maxScroll))
         : 0;
-      progressRef.current?.style.setProperty('--ww-scroll-progress', String(progress));
+      writeProgress(progress);
     };
 
     const scheduleProgressUpdate = () => {
@@ -44,6 +68,7 @@ function ScrollExperience({ showTrail = true, routeKey }: ScrollExperienceProps)
     };
 
     const handleScroll = () => {
+      scrolledAtLeastOnce = true;
       if (!scrolling) {
         scrolling = true;
         root.dataset.wwScrolling = 'true';
@@ -54,6 +79,10 @@ function ScrollExperience({ showTrail = true, routeKey }: ScrollExperienceProps)
       idleTimer = window.setTimeout(finishScroll, SCROLL_IDLE_DELAY_MS);
     };
 
+    // Перезагрузка страницы восстанавливает прокрутку до того, как эффект
+    // успеет подписаться на события: события прокрутки в этом случае не будет,
+    // и без разовой проверки полоса осталась бы пустой.
+    scrolledAtLeastOnce = window.scrollY > 0;
     updateProgress();
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', scheduleProgressUpdate, { passive: true });

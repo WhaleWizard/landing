@@ -448,6 +448,12 @@ function Receipt({
 
 const MOBILE_STATIC_MEDIA = '(max-width: 767px), (hover: none) and (pointer: coarse)';
 
+/** Ширина, в которой нарисован экран телефона: под неё считается масштаб. */
+const PHONE_DESIGN_WIDTH = 770;
+const PHONE_SCALE_PROPERTY = '--meta-phone-scale';
+/** Запасное значение до первого замера — то же, что стояло в состоянии. */
+const PHONE_SCALE_FALLBACK = 0.48;
+
 function useMobileViewport() {
   const [mobile, setMobile] = useState(
     () => typeof window !== 'undefined' && window.matchMedia(MOBILE_STATIC_MEDIA).matches,
@@ -469,7 +475,6 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
   const phoneAnchorRef = useRef<HTMLDivElement>(null);
   const pointerFrameRef = useRef(0);
   const pointerPointRef = useRef<{ x: number; y: number } | null>(null);
-  const [phoneScale, setPhoneScale] = useState(0.48);
   const [onScreen, setOnScreen] = useState(false);
   const reduced = Boolean(useReducedMotion());
   const mobile = useMobileViewport();
@@ -507,17 +512,43 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
   const reveal = motionOff || inView || mobile;
   const loop = inView && !motionOff;
 
+  /**
+   * Экран телефона нарисован в своих 770 px и ужимается под реальную ширину
+   * подставки. Масштаб едет CSS-переменной, а не состоянием React.
+   *
+   * Так было раньше и почему это дорого: каждый замер читал геометрию через
+   * `getBoundingClientRect()` — то есть заставлял браузер пересчитать всю
+   * раскладку — и тут же вызывал `setState`, перерисовывая сцену целиком.
+   * Наблюдатель размеров срабатывает на каждую подгрузившуюся картинку и на
+   * каждый доехавший шрифт, поэтому на телефоне первая загрузка тратила на
+   * этот замер больше секунды процессорного времени.
+   *
+   * Теперь ширина берётся из самого события наблюдателя (браузер её уже
+   * измерил), значение округляется до тысячных, и одинаковый масштаб не
+   * трогает страницу вовсе. Внешне ничего не меняется: то же число в том же
+   * `transform: scale()`.
+   */
   useLayoutEffect(() => {
     const anchor = phoneAnchorRef.current;
     if (!anchor) return undefined;
 
-    const updateScale = () => {
-      setPhoneScale(anchor.getBoundingClientRect().width / 770);
+    let applied = 0;
+    const apply = (width: number) => {
+      if (!(width > 0)) return;
+      const next = Math.round((width / PHONE_DESIGN_WIDTH) * 100000) / 100000;
+      if (next === applied) return;
+      applied = next;
+      anchor.style.setProperty(PHONE_SCALE_PROPERTY, String(next));
     };
 
-    updateScale();
+    apply(anchor.getBoundingClientRect().width);
     if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(updateScale);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const box = Array.isArray(entry.borderBoxSize) ? entry.borderBoxSize[0] : undefined;
+      apply(box ? box.inlineSize : entry.contentRect.width);
+    });
     observer.observe(anchor);
     return () => observer.disconnect();
   }, []);
@@ -690,7 +721,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
                 <div className="meta-phone-frame">
                   <div
                     className="meta-phone-canvas"
-                    style={{ transform: `scale(${phoneScale})` }}
+                    style={{ transform: `scale(var(${PHONE_SCALE_PROPERTY}, ${PHONE_SCALE_FALLBACK}))` }}
                   >
                     <div
                       className="meta-phone-aperture"

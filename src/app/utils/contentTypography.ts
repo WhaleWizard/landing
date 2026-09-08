@@ -314,18 +314,32 @@ export const TITLE_FIT_MEASURING_ATTRIBUTE = 'data-title-fit-measuring';
  */
 export const TITLE_FIT_SCALE_ATTRIBUTE = 'data-title-fit-scale';
 
-function countRenderedTextLines(element: HTMLElement): number {
+/**
+ * Прямоугольники строк текста внутри элемента.
+ *
+ * Меряется один раз за проверку и используется дважды: и для переполнения по
+ * ширине, и для подсчёта строк. Раньше каждая из этих двух проверок строила
+ * свой Range и заново заставляла браузер считать раскладку, а подгонка кегля
+ * вызывает их по кругу — до девяти раз за один замер. Результат тот же,
+ * работы вдвое меньше.
+ */
+function measureTextRects(element: HTMLElement): DOMRect[] {
   const documentRef = element.ownerDocument;
-  if (!documentRef || !element.textContent?.trim()) return 0;
+  if (!documentRef || !element.textContent?.trim()) return [];
   const range = documentRef.createRange();
   range.selectNodeContents(element);
-  const rectangles = Array.from(range.getClientRects())
+  const rectangles = Array.from(range.getClientRects());
+  range.detach?.();
+  return rectangles;
+}
+
+function countLinesFromRects(rectangles: DOMRect[]): number {
+  const visible = rectangles
     .filter((rect) => rect.width > 0.5 && rect.height > 0.5)
     .sort((left, right) => left.top - right.top || left.left - right.left);
-  range.detach?.();
 
   const lineTops: number[] = [];
-  for (const rectangle of rectangles) {
+  for (const rectangle of visible) {
     const middle = rectangle.top + rectangle.height / 2;
     if (!lineTops.some((known) => Math.abs(known - middle) <= 2)) lineTops.push(middle);
   }
@@ -344,14 +358,9 @@ function hasNestedNowrap(element: HTMLElement): boolean {
  * за край и обрезается родительским `overflow: hidden`. Поэтому ширину строк
  * меряем по реальным прямоугольникам текста.
  */
-function textOverflowsHorizontally(element: HTMLElement): boolean {
+function textOverflowsHorizontally(element: HTMLElement, measured: DOMRect[]): boolean {
   if (element.scrollWidth > element.clientWidth + 1) return true;
-  const documentRef = element.ownerDocument;
-  if (!documentRef) return false;
-  const range = documentRef.createRange();
-  range.selectNodeContents(element);
-  const rectangles = Array.from(range.getClientRects()).filter((rect) => rect.width > 0.5);
-  range.detach?.();
+  const rectangles = measured.filter((rect) => rect.width > 0.5);
   if (rectangles.length === 0) return false;
 
   const box = element.getBoundingClientRect();
@@ -367,11 +376,16 @@ function textOverflowsHorizontally(element: HTMLElement): boolean {
 
 function elementTextFits(element: HTMLElement, maxLines: number, singleLine: boolean): boolean {
   if (element.clientWidth <= 0) return true;
-  if (textOverflowsHorizontally(element)) return false;
-  if (singleLine) return countRenderedTextLines(element) <= 1;
+  // Дешёвая проверка идёт первой и часто отвечает сама: прямоугольники строк
+  // считаются только если она не решила вопрос.
+  if (element.scrollWidth > element.clientWidth + 1) return false;
+
+  const rectangles = measureTextRects(element);
+  if (textOverflowsHorizontally(element, rectangles)) return false;
+  if (singleLine) return countLinesFromRects(rectangles) <= 1;
   if (maxLines <= 0) return true;
 
-  const measuredLines = countRenderedTextLines(element);
+  const measuredLines = countLinesFromRects(rectangles);
   if (measuredLines > 0) return measuredLines <= maxLines;
 
   const computed = window.getComputedStyle(element);
