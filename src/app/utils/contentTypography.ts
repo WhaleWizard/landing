@@ -457,6 +457,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     let lastFitWidth = -1;
     let lastFitHeight = -1;
     let lastAppliedFontSize = '';
+    // Замер решил, что подгонять нечего, но мог ошибиться из-за незавершённой
+    // разметки эффекта. Пока флаг стоит, страховочные замеры продолжаются.
+    let needsRecheck = true;
     let originalFontSize = element.style.getPropertyValue('font-size');
     let originalFontSizePriority = element.style.getPropertyPriority('font-size');
 
@@ -483,6 +486,17 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         lastAppliedFontSize = '';
       }
     };
+
+    /*
+     * Вылезал ли текст за край ДО того, как замер выключил эффекты появления.
+     *
+     * На время замера заголовку ставится признак `data-title-fit-measuring`,
+     * и CSS показывает конечное состояние эффекта. Раскладка при этом меняется:
+     * в спокойном состоянии строка торчала за колонку, а во время замера
+     * помещалась — и замер честно решал, что подгонять нечего. Именно так
+     * заголовок Meta Ads оставался обрезанным при «уменьшить движение».
+     */
+    let overflowedBeforeMeasuring = false;
 
     const measureAndApply = () => {
       resetBeforeMeasurement();
@@ -514,7 +528,8 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       // отвечает «нет», замер выходил отсюда и оставлял заголовок торчащим за
       // границу колонки — на странице Meta Ads так и было при включённом
       // «уменьшить движение».
-      const overflowsWidth = element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
+      const overflowsWidth = overflowedBeforeMeasuring
+        || (element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1);
       if (maxLines <= 0 && !wholeHeadingNowrap && !nestedNowrap && !overflowsWidth) return;
 
       const originalWhiteSpace = element.style.getPropertyValue('white-space');
@@ -536,7 +551,10 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         return;
       }
 
-      if (elementTextFits(element, maxLines, singleLine)) {
+      // Если в спокойном состоянии текст торчал за колонку, «всё помещается»
+      // доверять нельзя: проверка идёт с выключенными эффектами, а там
+      // раскладка другая.
+      if (!overflowsWidth && elementTextFits(element, maxLines, singleLine)) {
         restoreWhiteSpace();
         return;
       }
@@ -547,11 +565,24 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       let best = floor;
       element.style.setProperty('font-size', `${floor}px`, 'important');
 
-      /** Помещается ли текст по ширине — без учёта ограничения на строки. */
+      /**
+       * Помещается ли текст по ширине — без учёта ограничения на строки.
+       *
+       * Меряем в спокойном состоянии, сняв признак замера: под ним CSS
+       * показывает конечное состояние эффекта, и раскладка отличается от той,
+       * которую увидит посетитель. Из-за этого проверка отвечала «помещается»
+       * там, где на деле строка торчала за колонку.
+       */
       const withinWidth = () => {
-        if (element.clientWidth <= 0) return true;
-        if (element.scrollWidth > element.clientWidth + 1) return false;
-        return !textOverflowsHorizontally(element, measureTextRects(element));
+        const wasMeasuring = element.hasAttribute(TITLE_FIT_MEASURING_ATTRIBUTE);
+        if (wasMeasuring) element.removeAttribute(TITLE_FIT_MEASURING_ATTRIBUTE);
+        try {
+          if (element.clientWidth <= 0) return true;
+          if (element.scrollWidth > element.clientWidth + 1) return false;
+          return !textOverflowsHorizontally(element, measureTextRects(element));
+        } finally {
+          if (wasMeasuring) element.setAttribute(TITLE_FIT_MEASURING_ATTRIBUTE, '');
+        }
       };
 
       if (elementTextFits(element, maxLines, singleLine)) {
@@ -585,6 +616,10 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         if (withinWidth()) {
           restoreOriginalFontSize();
           restoreWhiteSpace();
+          // Замер мог попасть в момент, когда строки эффекта ещё не разложены
+          // и текст поэтому переносится обычным образом. Отмечаем, что решение
+          // «подгонять нечего» нужно перепроверить позже.
+          needsRecheck = true;
           return;
         }
 
@@ -608,6 +643,36 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
 
       lastAppliedFontSize = `${Math.floor(best * 10) / 10}px`;
       element.style.setProperty('font-size', lastAppliedFontSize, 'important');
+
+      /*
+       * Последняя страховка. Что бы ни решили правила выше, заголовок не имеет
+       * права торчать за границу колонки: там стоит обрезка, и посетитель
+       * увидит оборванное слово. Если после подгонки текст всё ещё вылезает,
+       * уменьшаем ровно до той величины, при которой он помещается.
+       */
+      if (!withinWidth()) {
+        let safeLow = floor;
+        let safeHigh = best;
+        let safeBest = floor;
+        element.style.setProperty('font-size', `${floor}px`, 'important');
+        if (withinWidth()) {
+          for (let iteration = 0; iteration < 12 && safeHigh - safeLow > 0.1; iteration += 1) {
+            const candidate = (safeLow + safeHigh) / 2;
+            element.style.setProperty('font-size', `${candidate}px`, 'important');
+            if (withinWidth()) {
+              safeBest = candidate;
+              safeLow = candidate;
+            } else {
+              safeHigh = candidate;
+            }
+          }
+        }
+        best = safeBest;
+        lastAppliedFontSize = `${Math.floor(best * 10) / 10}px`;
+        element.style.setProperty('font-size', lastAppliedFontSize, 'important');
+      }
+
+      needsRecheck = false;
       element.setAttribute(TITLE_FIT_SCALE_ATTRIBUTE, String(Math.round((best / authoredSize) * 100)));
       restoreWhiteSpace();
     };
@@ -699,6 +764,8 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       // Эффекты появления сдвигают, размывают и прячут части заголовка. Пока
       // они играют, любое измерение врёт, и подгонка ужимала заголовок почти
       // до минимума. На время замера эффекты выключаем.
+      overflowedBeforeMeasuring = element.clientWidth > 0
+        && element.scrollWidth > element.clientWidth + 1;
       element.setAttribute(TITLE_FIT_MEASURING_ATTRIBUTE, '');
       try {
         measureAndApply();
@@ -760,7 +827,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
      * состояние. Каждый замер идемпотентен — если подгонять нечего, он просто
      * ничего не меняет.
      */
-    const settleTimers = [300, 900, 2000].map((delay) => window.setTimeout(scheduleFit, delay));
+    const settleTimers = [300, 900, 2000, 3500].map((delay) => window.setTimeout(() => {
+      if (needsRecheck) scheduleFit();
+    }, delay));
 
     return () => {
       cancelled = true;
