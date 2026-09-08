@@ -19,7 +19,7 @@ import {
   type AdminCrmTaskKind,
   type AdminCrmTaskStatus,
 } from '../../_lib/admin-crm';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -1033,7 +1033,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
-  const body = await request.json().catch(() => ({})) as LeadCrmPayload;
+  const body = await readCappedJsonBody(request) as LeadCrmPayload;
   if (!verifyAdminPassword(getPassword(request, body), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }

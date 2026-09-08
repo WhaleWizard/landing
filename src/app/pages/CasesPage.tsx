@@ -392,7 +392,8 @@ export default function CasesPage() {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
   // Шапка витрины: две строки — потолок, третья ломает ритм экрана.
-  const introTitleFit = useManagedTitleFit<HTMLHeadingElement>(INTRO_TITLE_LINES, { minFontSize: 22 });  const internalSearchRef = useRef<string | null>(null);
+  const introTitleFit = useManagedTitleFit<HTMLHeadingElement>(INTRO_TITLE_LINES, { minFontSize: 22 });
+  const internalSearchRef = useRef<string | null>(null);
   const hydratedSearchRef = useRef<string | null>(null);
   const skipUrlWriteRef = useRef(false);
   const [urlReady, setUrlReady] = useState(false);
@@ -621,7 +622,7 @@ export default function CasesPage() {
   return (
     <>
       <SEO
-        title="Кейсы рекламных проектов — задачи, решения и результаты"
+        title="Кейсы рекламы: задачи, решения, цифры"
         description="Опубликованные проекты Whale Wizard: исходная задача, рекламные каналы, бюджет, ключевые метрики и логика решений."
         url="/cases"
       />

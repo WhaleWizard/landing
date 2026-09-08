@@ -4,7 +4,7 @@ import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { verifyAdminPassword, verifyDebugSecret } from '../_lib/auth';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
-import { detectCountryCode, fetchMetaWithRetry, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
+import { detectCountryCode, postMetaEvents, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
 import { normalizeEmail, normalizeLocation, normalizeName, normalizePhone, sha256Hex } from '../_lib/meta-pii';
 
 const TEST_EVENTS = ['PageView', 'ViewContent', 'FormStart', 'LeadFormView', 'EngagedView', 'Contact', 'Lead', 'QualifiedLead', 'UnqualifiedLead'] as const;
@@ -275,15 +275,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   // Через общий отправитель, как и все остальные события: он даёт таймаут и
   // повторы. Голый fetch здесь означал, что зависший запрос к Meta держал бы
   // ответ админке до лимита воркера.
-  const response = await fetchMetaWithRetry(
-    `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: events, test_event_code: testCode }),
-    },
-    env,
-  );
+  const response = await postMetaEvents(env, { apiVersion, pixelId, token, body: JSON.stringify({ data: events, test_event_code: testCode }) });
 
   const resultText = await response.text();
   const parsed = (() => {

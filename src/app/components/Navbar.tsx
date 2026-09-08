@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { Menu, X, Briefcase, Trophy, Newspaper, Star, HelpCircle, Phone, Calculator, ChevronRight } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from './ui/button';
 import BrandLogo from './brand/BrandLogo';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
@@ -39,6 +39,14 @@ type NavItem = {
   preloadRoute?: string;
   /** Куда ведёт пункт. Ссылка на закрытую страницу из меню убирается. */
   routePath?: string;
+  /**
+   * Полный адрес перехода. Пункты меню, ведущие на другую страницу, рисуются
+   * настоящей ссылкой, а не кнопкой: у кнопки нет адреса, поэтому её не видит
+   * поисковик, её нельзя открыть в новой вкладке и нельзя скопировать. Пункты,
+   * которые прокручивают текущую страницу к блоку, остаются кнопками — им
+   * адрес не нужен.
+   */
+  href?: string;
 };
 
 /** Ключ страницы услуги для ?from= — по нему кейсы знают, куда вернуть. */
@@ -213,16 +221,16 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       { label: 'Отзывы', action: () => scrollToSection('about') },
       // Со страниц услуг раньше не было выхода в контентные разделы:
       // все пункты вели на якоря внутри той же страницы.
-      { label: 'Все кейсы', action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
-      { label: 'Блог', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
+      { label: 'Все кейсы', href: `/cases?from=${serviceFromKey(location.pathname)}`, action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+      { label: 'Блог', href: '/blog', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
     ]
     : variant === 'content'
       ? [
         { label: 'Услуги', action: () => scrollToSection('services'), preloadRoute: sectionsPath },
-        { label: 'Кейсы', action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
-        { label: 'Блог', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
+        { label: 'Кейсы', href: `/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`, action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+        { label: 'Блог', href: '/blog', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
         { label: 'О нас', action: () => scrollToSection('about'), preloadRoute: sectionsPath },
-        { label: 'FAQ', action: () => { navigate('/faq', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
+        { label: 'FAQ', href: '/faq', action: () => { navigate('/faq', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
         // Блок соцсетей есть только на главной. На лендинге услуги якоря
         // `social` нет вовсе, и пункт молча не срабатывал бы — там «Контакты»
         // ведут к форме заявки.
@@ -233,7 +241,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
         { label: 'Кейсы', action: () => scrollToSection('cases') },
         { label: 'Блог', action: () => scrollToSection('blog') },
         { label: 'Отзывы', action: () => scrollToSection('about') },
-        { label: 'FAQ', action: () => navigate('/faq', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
+        { label: 'FAQ', href: '/faq', action: () => navigate('/faq', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social') },
         { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
       ];
@@ -266,22 +274,46 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
 
             {/* Десктопное меню */}
             <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-              {navItems.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={item.action}
-                  data-route-preload={item.preloadRoute}
-                  aria-current={isContentItemActive(item.label) ? 'page' : undefined}
-                  className={`relative transition-[color,transform] duration-200 hover:-translate-y-0.5 group ${
-                    isContentItemActive(item.label)
-                      ? 'text-primary'
-                      : 'text-foreground/80 hover:text-primary'
-                  }`}
-                >
-                  {item.label}
+              {navItems.map((item) => {
+                const className = `relative transition-[color,transform] duration-200 hover:-translate-y-0.5 group ${
+                  isContentItemActive(item.label)
+                    ? 'text-primary'
+                    : 'text-foreground/80 hover:text-primary'
+                }`;
+                const underline = (
                   <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full ${isContentItemActive(item.label) ? 'w-full' : 'w-0'}`} />
-                </button>
-              ))}
+                );
+                // Пункт, ведущий на другую страницу, — настоящая ссылка.
+                // Пункт, прокручивающий текущую страницу, остаётся кнопкой.
+                if (item.href) {
+                  return (
+                    <Link
+                      key={item.label}
+                      to={item.href}
+                      state={withReturnTo(location)}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      data-route-preload={item.preloadRoute}
+                      aria-current={isContentItemActive(item.label) ? 'page' : undefined}
+                      className={className}
+                    >
+                      {item.label}
+                      {underline}
+                    </Link>
+                  );
+                }
+                return (
+                  <button
+                    key={item.label}
+                    onClick={item.action}
+                    data-route-preload={item.preloadRoute}
+                    aria-current={isContentItemActive(item.label) ? 'page' : undefined}
+                    className={className}
+                  >
+                    {item.label}
+                    {underline}
+                  </button>
+                );
+              })}
               <Button
                 onClick={() => scrollToSection('contact')}
                 data-route-preload={variant === 'content' ? sectionsPath : undefined}
@@ -353,14 +385,9 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
               <nav className="flex-1 overflow-y-auto px-3 py-3">
                 {navItems.map((item) => {
                   const Icon = NAV_ICONS[item.label] ?? Briefcase;
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={item.action}
-                      data-route-preload={item.preloadRoute}
-                      aria-current={isContentItemActive(item.label) ? 'page' : undefined}
-                      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-[background-color,transform] hover:bg-primary/10 active:scale-[0.98] active:bg-primary/15 ${isContentItemActive(item.label) ? 'bg-primary/10' : ''}`}
-                    >
+                  const className = `group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-[background-color,transform] hover:bg-primary/10 active:scale-[0.98] active:bg-primary/15 ${isContentItemActive(item.label) ? 'bg-primary/10' : ''}`;
+                  const inner = (
+                    <>
                       <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
                         <Icon className="h-[18px] w-[18px]" />
                       </span>
@@ -368,6 +395,32 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
                         {item.label}
                       </span>
                       <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground/50 transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
+                    </>
+                  );
+                  if (item.href) {
+                    return (
+                      <Link
+                        key={item.label}
+                        to={item.href}
+                        state={withReturnTo(location)}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        data-route-preload={item.preloadRoute}
+                        aria-current={isContentItemActive(item.label) ? 'page' : undefined}
+                        className={className}
+                      >
+                        {inner}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={item.action}
+                      data-route-preload={item.preloadRoute}
+                      aria-current={isContentItemActive(item.label) ? 'page' : undefined}
+                      className={className}
+                    >
+                      {inner}
                     </button>
                   );
                 })}

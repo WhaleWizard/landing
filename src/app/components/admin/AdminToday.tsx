@@ -196,7 +196,7 @@ export default function AdminToday({
         // Часовой пояс нужен, чтобы «план на сегодня» совпадал с тем днём,
         // который показывает планер: он считает дни местным календарём.
         fetch(`/api/admin/today?timezone_offset=${new Date().getTimezoneOffset()}`, options),
-        fetch('/api/admin/stats', options),
+        fetch(`/api/admin/stats?timezone_offset=${new Date().getTimezoneOffset()}`, options),
       ]);
       const todayPayload = await todayResponse.json().catch(() => null) as TodayResponse | null;
       const statsPayload = await statsResponse.json().catch(() => null) as StatsResponse | null;

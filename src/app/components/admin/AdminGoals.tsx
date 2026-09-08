@@ -208,7 +208,7 @@ export default function AdminGoals({ password }: { password: string }) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/admin/goals?period=${period}`, {
+      const response = await fetch(`/api/admin/goals?period=${period}&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -238,7 +238,7 @@ export default function AdminGoals({ password }: { password: string }) {
     setSaving(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/goals', {
+      const response = await fetch(`/api/admin/goals?timezone_offset=${new Date().getTimezoneOffset()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',

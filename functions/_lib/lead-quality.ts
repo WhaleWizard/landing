@@ -2,7 +2,7 @@ import type { Env } from './types';
 import { normalizeEmail, normalizeLocation, normalizeName, normalizePhone, sha256Hex } from './meta-pii';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from './meta-diagnostics';
 import {
-  fetchMetaWithRetry,
+  postMetaEvents,
   getMetaApiVersion,
   getMetaDataProcessingOptions,
   getMetaPixelId,
@@ -273,11 +273,7 @@ export async function sendLeadQualityEvent(env: Env, lead: LeadQualityRow, quali
   };
 
   try {
-    const response = await fetchMetaWithRetry(
-      `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
-      env,
-    );
+    const response = await postMetaEvents(env, { apiVersion, pixelId, token, body });
     if (!response.ok) {
       const errorText = await response.text();
       const errorReceipt = parseMetaApiReceipt(errorText);

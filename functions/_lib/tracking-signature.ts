@@ -80,6 +80,36 @@ async function claimNonceWithKv(env: Env, nonce: string, ttl: number): Promise<b
   return true;
 }
 
+/**
+ * Отклонять ли запрос в строгом режиме.
+ *
+ * Подпись рассчитана на отправителя, который умеет её ставить: браузеру для
+ * этого пришлось бы держать общий секрет, а это раздать ключ всем посетителям.
+ * Поэтому код сайта подпись не формирует и не может.
+ *
+ * Раньше строгий режим отклонял ВСЁ, что пришло без подписи, — то есть каждую
+ * заявку, каждый просмотр страницы и каждое событие Meta с настоящего сайта.
+ * Один переключатель в настройках останавливал приём заявок целиком, а очередь
+ * повторов считала отказ 403 окончательным и выбрасывала заявку.
+ *
+ * Теперь строгий режим отклоняет только те запросы, которые подпись **принесли
+ * и не подтвердили**: подделанную, просроченную или уже использованную. Запрос
+ * вообще без подписи проходит и записывается в журнал как неподписанный —
+ * ровно так же, как в режиме наблюдения. Защита от подделки чужим сервером
+ * остаётся на проверке источника запроса (`isTrustedTrackingRequest`).
+ */
+const UNSIGNED_REASONS = new Set(['missing_headers', 'signature_not_configured']);
+
+export function shouldRejectBySignature(
+  mode: TrackingSignatureMode,
+  verification: SignatureVerification | undefined,
+): boolean {
+  if (mode !== 'enforce') return false;
+  if (verification?.ok === true) return false;
+  if (verification && verification.ok === false && UNSIGNED_REASONS.has(verification.reason)) return false;
+  return true;
+}
+
 export function getTrackingSignatureMode(env: Env): TrackingSignatureMode {
   const raw = String(env.TRACKING_SIGNATURE_MODE || 'monitor').trim().toLowerCase();
   if (raw === 'off' || raw === 'monitor' || raw === 'enforce') return raw;

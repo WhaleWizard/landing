@@ -10,7 +10,7 @@
  * было бы нельзя.
  */
 
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
@@ -115,7 +115,7 @@ async function sessionResponse(env: Env, body: Record<string, unknown>): Promise
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   let body: AuthBody;
   try {
-    body = await request.json() as AuthBody;
+    body = await readCappedJsonBody(request) as AuthBody;
   } catch {
     return json({ success: false, error: 'invalid_json' }, { status: 400, headers: noStore });
   }

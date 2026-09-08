@@ -31,6 +31,7 @@ import { formatReadTime } from '../utils/articleMeta';
 import { useManagedTitleFit } from '../utils/contentTypography';
 import { smartTitleBreaks } from '../utils/smartTitle';
 import DeferredImage from './DeferredImage';
+import { articleDisplayDate } from '../utils/articleDate';
 
 const Footer = lazy(() => import('./Footer'));
 
@@ -138,7 +139,7 @@ export default function CaseArticleView({
                 <div className="case-article-meta">
                   <span className="case-article-category">Кейс</span>
                   <span><Clock3 aria-hidden="true" /> {formatReadTime(article.readTime)}</span>
-                  <span><CalendarDays aria-hidden="true" /> {article.date}</span>
+                  <span><CalendarDays aria-hidden="true" /> {articleDisplayDate(article)}</span>
                 </div>
                 <h1 ref={setTitleRef} tabIndex={-1}>{smartTitleBreaks(displayTitle)}</h1>
                 <p>{seoDescription}</p>

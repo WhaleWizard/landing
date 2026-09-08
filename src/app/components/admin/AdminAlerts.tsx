@@ -61,7 +61,7 @@ export default function AdminAlerts({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/alerts', {
+      const response = await fetch(`/api/admin/alerts?timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -87,7 +87,7 @@ export default function AdminAlerts({
   const post = async (body: Record<string, unknown>): Promise<AlertsResponse | null> => {
     setBusy(true);
     try {
-      const response = await fetch('/api/admin/alerts', {
+      const response = await fetch(`/api/admin/alerts?timezone_offset=${new Date().getTimezoneOffset()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',

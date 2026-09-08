@@ -76,7 +76,7 @@ export default function AdminReport({ password }: { password: string }) {
     const requestId = ++requestSequence.current;
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/report?period=${period}`, {
+      const response = await fetch(`/api/admin/report?period=${period}&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',

@@ -383,9 +383,9 @@ export function renderFeedXml(siteUrl: string, articles: Article[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>
-  <title>Whale Wizard Blog</title>
+  <title>Whale Wizard — статьи и кейсы</title>
   <link>${xmlEscape(`${siteUrl}/blog/`)}</link>
-  <description>Новые статьи Whale Wizard</description>
+  <description>Материалы о Google Ads, Meta Ads и аналитике: разборы, инструкции и кейсы с цифрами</description>
   <language>ru-RU</language>
 ${items}
 </channel>

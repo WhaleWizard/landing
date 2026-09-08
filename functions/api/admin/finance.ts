@@ -4,6 +4,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoneyOrZero } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
+import { localTodayIso } from '../../_lib/local-day';
 
 /**
  * Финансы: счета, свои расходы, часы по клиентам и настройки.
@@ -163,7 +164,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       timeEntries: times.results || [],
       clients,
       settings: settings || { tax_rate: 0, target_hourly_rate: 0, main_currency: 'USD', requisites: '' },
-      today: new Date().toISOString().slice(0, 10),
+      today: localTodayIso(request),
       // Разовые продажи включаются самим фактом применённой миграции: интерфейс
       // не должен предлагать кнопку, которой некуда писать.
       oneOffSales,
@@ -239,7 +240,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'mark_paid') {
       if (!id) return json({ success: false, error: 'Нужен id счёта' }, { status: 400, headers: noStore });
-      const paidAt = cleanDate(body.paid_at) || new Date().toISOString().slice(0, 10);
+      const paidAt = cleanDate(body.paid_at) || localTodayIso(request);
       await db.prepare(
         `UPDATE invoices SET status = 'paid', paid_at = ?, updated_at = datetime('now') WHERE id = ?`,
       ).bind(paidAt, id).run();
@@ -309,7 +310,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'save_expense') {
       const values = [
-        cleanDate(body.day) || new Date().toISOString().slice(0, 10),
+        cleanDate(body.day) || localTodayIso(request),
         cleanText(body.category, 80),
         cleanAmount(body.amount),
         ACCOUNTING_CURRENCY,
@@ -338,7 +339,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
       const values = [
         Number(body.client_id || 0) || null,
-        cleanDate(body.day) || new Date().toISOString().slice(0, 10),
+        cleanDate(body.day) || localTodayIso(request),
         Math.round(hours * 100) / 100,
         cleanText(body.note, 300),
       ];

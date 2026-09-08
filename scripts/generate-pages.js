@@ -65,6 +65,20 @@ const BUILD_DATE = new Date().toISOString().split('T')[0];
 // начинал качать оригиналы из CMS по 0,3–2 МБ каждый ещё до первого кадра.
 const ARTICLE_IMAGE_MANIFEST = readArticleImageManifest();
 
+/** Адрес обложки для разметки: своя оптимизированная копия, если она есть. */
+/** Дата статьи для читателя: та же, что уходит в разметку для поисковика. */
+function shellArticleDate(article) {
+  const iso = toIsoDate(article?.publishedAt) || toIsoDate(article?.date);
+  if (!iso) return String(article?.date || '');
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  return `${day}.${month}.${year}`;
+}
+
+function articleStructuredImage(article) {
+  const resolved = resolveManifestImage(ARTICLE_IMAGE_MANIFEST, String(article?.image || '').trim());
+  return resolved?.src || article?.image || '/og-image-v2.jpg';
+}
+
 function resolveArticleCoverPreload(article) {
   const resolved = resolveManifestImage(ARTICLE_IMAGE_MANIFEST, String(article?.image || '').trim());
   if (!resolved) return null;
@@ -651,7 +665,10 @@ function buildArticleJsonLd(article) {
     '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
     headline: article.seoTitle || article.title,
     description: article.seoDescription || article.description,
-    image: [toAbsoluteUrl(article.image || '/og-image-v2.jpg')],
+    // Картинка для поисковика берётся из оптимизированной копии на нашем
+    // домене, а не из исходного адреса CMS: раньше в разметке стоял внешний
+    // хостинг, и расширенный сниппет Google зависел от чужого сервера.
+    image: [toAbsoluteUrl(articleStructuredImage(article))],
     ...(publishedDate ? { datePublished: publishedDate } : {}),
     ...(modifiedDate ? { dateModified: modifiedDate } : {}),
     mainEntityOfPage: canonical,
@@ -1196,7 +1213,7 @@ function heroShellLeadStyle(hero) {
   return family ? `${generatedShellStyles.lead};font-family:${family}` : generatedShellStyles.lead;
 }
 
-function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, children = '', sections = [] }) {
+function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, children = '', sections = [], currentRoute = '' }) {
   const sectionsHtml = sections
     .map(
       (s) => `
@@ -1215,7 +1232,45 @@ function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, chi
 ${children}${sectionsHtml}
         <div style="${generatedShellStyles.footer}" aria-hidden="true"><span style="${generatedShellStyles.dot}"></span><span>Загружаем интерактивную версию сайта…</span></div>
       </section>
+${renderShellNavHtml(currentRoute)}
     </main>`;
+}
+
+/**
+ * Ссылки на остальные разделы прямо в статической оболочке.
+ *
+ * Оболочка отдаётся до выполнения скриптов, и раньше на страницах услуг, FAQ и
+ * калькуляторов в ней не было **ни одной** внутренней ссылки: шапка и подвал
+ * появляются только после запуска React. Поисковому роботу с посадочной
+ * страницы было некуда идти, вес между страницами не передавался, а обход
+ * держался на одной карте сайта.
+ *
+ * Это те же адреса, что и в готовом подвале, — подмены содержимого нет.
+ */
+const SHELL_NAV_LINKS = [
+  { href: '/', label: 'Главная' },
+  { href: '/meta-ads/', label: 'Реклама в Meta' },
+  { href: '/meta-apps/', label: 'Реклама приложений' },
+  { href: '/google-ads/', label: 'Google Ads' },
+  { href: '/consult/', label: 'Консультация' },
+  { href: '/cases/', label: 'Кейсы' },
+  { href: '/blog/', label: 'Блог' },
+  { href: '/faq/', label: 'Вопросы и ответы' },
+  { href: '/marketing-glossary/', label: 'Словарь метрик' },
+  { href: '/calculator/', label: 'Калькулятор бюджета' },
+  { href: '/roi-calculator/', label: 'Калькулятор окупаемости' },
+];
+
+function renderShellNavHtml(currentRoute) {
+  const normalized = String(currentRoute || '').replace(/\/+$/, '') || '/';
+  const links = SHELL_NAV_LINKS
+    .filter((link) => link.href.replace(/\/+$/, '') !== normalized || link.href === '/')
+    .map((link) => `<a href="${link.href}" style="color:rgba(148,163,184,.92);text-decoration:none">${escapeHtml(link.label)}</a>`)
+    .join('<span aria-hidden="true"> · </span>');
+
+  return `      <nav aria-label="Разделы сайта" style="margin:22px auto 0;max-width:920px;text-align:center;font-size:13px;line-height:2;color:rgba(148,163,184,.75)">
+        ${links}
+      </nav>`;
 }
 
 // ─── Рендер разделов из реальных данных сайта (для ботов/ИИ без выполнения JS) ──
@@ -1609,7 +1664,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
     {
       route: '/privacy-policy',
       title: 'Политика конфиденциальности | Whale Wizard',
-      description: 'Правила обработки персональных данных.',
+      description: 'Порядок обработки персональных данных, cookie, аналитики и заявок на сайте Whale Wizard: какие данные собираются, зачем и как их удалить.',
       h1: 'Политика конфиденциальности',
       lead: `Условия обработки персональных данных. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.PrivacyPolicyContent),
@@ -1617,7 +1672,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
     {
       route: '/offer',
       title: 'Публичная оферта | Whale Wizard',
-      description: 'Условия предоставления услуг и порядок взаимодействия.',
+      description: 'Условия оказания услуг по настройке и ведению рекламы: порядок оплаты, сроки, ответственность сторон и права на рекламные материалы.',
       h1: 'Публичная оферта',
       lead: `Официальные условия оказания услуг. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.OfferContent),
@@ -1625,7 +1680,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
     {
       route: '/cookie-policy',
       title: 'Политика cookie | Whale Wizard',
-      description: 'Информация о cookie и управлении согласиями.',
+      description: 'Какие cookie, пиксели и счётчики использует сайт, зачем они нужны и как в один клик изменить своё согласие на их использование.',
       h1: 'Политика cookie',
       lead: `Правила использования cookie и аналитических технологий. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.CookiePolicyContent),
@@ -1694,6 +1749,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
           hero: page.hero,
           eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wizard',
           sections: page.sections || [],
+          currentRoute: page.route,
         }),
       }),
     );
@@ -1732,6 +1788,7 @@ function renderArticleListPage({ articles, seedArticles = articles, route, title
 ${articleItems}
         </div>`
           : `        <p style="${generatedShellStyles.lead}">${escapeHtml(emptyText)}</p>`,
+        currentRoute: route,
       }),
     }),
   );
@@ -1773,10 +1830,11 @@ function renderArticlePages(articles, baseHtml) {
           title: article.title,
           lead: articleDescription,
           eyebrow: article.category,
-          children: `        <p style="${generatedShellStyles.articleMeta}"><strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` · <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
+          children: `        <p style="${generatedShellStyles.articleMeta}"><strong>Дата:</strong> ${escapeHtml(shellArticleDate(article))}${article.readTime ? ` · <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
         <section style="${generatedShellStyles.articleBody}">
 ${sanitizeArticleHtml(article.content)}
         </section>`,
+          currentRoute: getArticlePath(article),
         }),
       }),
     );
@@ -1831,12 +1889,25 @@ function writeRobots() {
   // `noindex` — и адрес может попасть в выдачу пустым, если на него откуда-то
   // сошлётся ссылка. Разрешённый обход служебной страницы безвреден: там
   // статическая оболочка, а `noindex` робот прочитает и выполнит.
+  // Помощники на основе ИИ названы поимённо намеренно. Раньше они попадали под
+  // общее `User-agent: *` и обходили сайт «по умолчанию»: ни разрешить
+  // осознанно, ни закрыть отдельного робота было нельзя. Сейчас доступ открыт
+  // всем перечисленным — чтобы ответы про рекламу ссылались на этот сайт, — и
+  // каждому явно показан путь к машинному описанию.
+  const aiAgents = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-User',
+    'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended', 'CCBot',
+    'Bytespider', 'meta-externalagent', 'Amazonbot', 'YandexAdditional'];
+
   const robots = `User-agent: *
 Allow: /
 Sitemap: ${SITE_URL}/sitemap.xml
 
 # AI assistants: machine-readable site context and content index
 # ${SITE_URL}/llms.txt
+# ${SITE_URL}/llms-full.txt
+${aiAgents.map((agent) => `
+User-agent: ${agent}
+Allow: /`).join('')}
 `;
 
   writeFileSync(join(DIST_DIR, 'robots.txt'), robots, 'utf8');
@@ -1972,6 +2043,40 @@ function validateGeneratedOutput(staticPages = [], latestArticles = []) {
   }
 }
 
+/**
+ * Полный текстовый свод для ИИ-ассистентов: dist/llms-full.txt.
+ *
+ * `llms.txt` — это оглавление: адреса и краткие описания. Ассистенту, который
+ * отвечает на вопрос про рекламу, нужен сам текст, а обходить два десятка
+ * страниц он обычно не станет. По соглашению рядом с оглавлением кладут полный
+ * свод, и раньше этот адрес отвечал ошибкой, хотя в robots.txt на него ссылка.
+ */
+function writeLlmsFull(articles) {
+  const llmsPath = join(DIST_DIR, 'llms.txt');
+  const header = existsSync(llmsPath) ? readFileSync(llmsPath, 'utf8').trimEnd() : '';
+
+  const parts = [header, '', '---', '', '# Full content (auto-generated at build)', ''];
+  for (const article of articles) {
+    const url = `${SITE_URL}${getArticlePath(article)}`;
+    const kind = isCaseArticle(article) ? 'Case study' : 'Blog article';
+    const text = stripHtml(article.content || '').replace(/\s+/g, ' ').trim();
+    parts.push(
+      `## ${article.seoTitle || article.title}`,
+      '',
+      `URL: ${url}`,
+      `Type: ${kind}`,
+      `Category: ${article.category || ''}`,
+      `Published: ${String(article.publishedAt || '').slice(0, 10)}`,
+      `Summary: ${article.seoDescription || article.description || ''}`,
+      '',
+      text,
+      '',
+    );
+  }
+
+  writeFileSync(join(DIST_DIR, 'llms-full.txt'), `${parts.join('\n').trimEnd()}\n`, 'utf8');
+}
+
 // Дописывает в dist/llms.txt автогенерируемый индекс всех статей и кейсов,
 // чтобы ИИ-ассистенты видели полное оглавление контента без обхода сайта.
 function appendLlmsContentIndex(articles) {
@@ -2034,6 +2139,7 @@ async function main() {
   writeSitemap(allRoutes);
   writeRobots();
   appendLlmsContentIndex(articles);
+  writeLlmsFull(articles);
   validateGeneratedOutput(staticPages, latestArticles);
 
   console.log(`✅ Generated ${allRoutes.length} static routes`);

@@ -3,9 +3,9 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { detectCountryCode, fetchMetaWithRetry, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
+import { detectCountryCode, postMetaEvents, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent, processMetaOutbox } from '../_lib/meta-outbox';
-import { getTrackingSignatureMode, recordTrackingSignatureAudit, verifyTrackingSignature } from '../_lib/tracking-signature';
+import { getTrackingSignatureMode, recordTrackingSignatureAudit, shouldRejectBySignature, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 import { recordPageStats } from '../_lib/leads';
 
@@ -535,15 +535,7 @@ async function sendMetaPageView(
   await enqueueMetaEvent(env, { id: outboxId, event_name: 'PageView', event_id: payload.event_id || outboxId, payload_json: body });
 
   try {
-    const response = await fetchMetaWithRetry(
-      `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      },
-      env
-    );
+    const response = await postMetaEvents(env, { apiVersion, pixelId, token, body });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -614,7 +606,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const signatureMode = getTrackingSignatureMode(env);
   const signature = signatureMode === 'off' ? undefined : await verifyTrackingSignature(request, env, rawBody);
   waitUntil(recordTrackingSignatureAudit(env, { endpoint: 'pageview', mode: signatureMode, verification: signature }));
-  if (signatureMode === 'enforce' && signature?.ok !== true) {
+  if (shouldRejectBySignature(signatureMode, signature)) {
     return json(
       { success: false, error: signature?.ok === false ? signature.reason : 'signature_not_verified' },
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },

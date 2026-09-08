@@ -10,7 +10,7 @@ export default function CalculatorPage() {
   return (
     <>
       <SEO
-        title="Калькулятор бюджета, ROAS и ROMI для Google Ads и Meta Ads"
+        title="Калькулятор бюджета, ROAS и ROMI"
         description="Прогноз воронки, фактические ROAS и ROMI, точка безубыточности и прозрачная оценка ведения Google Ads и Meta Ads для рынков СНГ."
         url="/calculator"
       />

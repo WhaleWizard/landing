@@ -1,10 +1,11 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoney } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
+import { localTodayIso } from '../../_lib/local-day';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 const MIGRATION = '0024_admin_goals.sql';
@@ -161,8 +162,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const db = env.DB;
   try {
-    const todayRow = await db.prepare("SELECT date('now') AS today").first<{ today: string }>();
-    const today = String(todayRow?.today || new Date().toISOString().slice(0, 10));
+    // Дата берётся по времени владельца: SQL-функция date('now') в SQLite
+    // всегда считает по Гринвичу, и с полуночи до пяти утра давала вчера.
+    const today = localTodayIso(request);
     const period = normalizePeriod(new URL(request.url).searchParams.get('period'), today.slice(0, 7));
 
     let goal: Goal | null = null;
@@ -231,7 +233,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const body = await readCappedJsonBody(request) as Record<string, unknown>;
   if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || String(body.password || ''), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }

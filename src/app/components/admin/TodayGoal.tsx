@@ -48,7 +48,7 @@ export default function TodayGoal({ password, onNavigate }: { password: string; 
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/goals', {
+      const response = await fetch(`/api/admin/goals?timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',

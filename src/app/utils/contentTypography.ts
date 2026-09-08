@@ -496,9 +496,26 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       const computedWhiteSpace = window.getComputedStyle(element).whiteSpace;
       const wholeHeadingNowrap = forceNowrap || computedWhiteSpace === 'nowrap';
       const nestedNowrap = hasNestedNowrap(element);
+      /*
+       * «Одна строка» требуется только от заголовка, который сам по себе одна
+       * строка. Если внутри уже лежат готовые строки с запретом переноса —
+       * автор разбил заголовок вручную, и требовать от него одну строку
+       * бессмысленно: сколько кегль ни уменьшай, строк меньше не станет, а
+       * алгоритм упирался в минимум и делал заголовок нечитаемым. Ширину при
+       * этом всё равно проверяем — за край текст выходить не должен.
+       */
+      const singleLine = wholeHeadingNowrap && !nestedNowrap;
 
       // Unlimited, normally wrapping headings must retain their authored CSS.
-      if (maxLines <= 0 && !wholeHeadingNowrap && !nestedNowrap) return;
+      //
+      // Условие «текст не вылезает за край» добавлено намеренно. Признак
+      // запрета переноса у вложенных строк появляется не в первом кадре: пока
+      // эффект появления не разложил заголовок на строки, `hasNestedNowrap`
+      // отвечает «нет», замер выходил отсюда и оставлял заголовок торчащим за
+      // границу колонки — на странице Meta Ads так и было при включённом
+      // «уменьшить движение».
+      const overflowsWidth = element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
+      if (maxLines <= 0 && !wholeHeadingNowrap && !nestedNowrap && !overflowsWidth) return;
 
       const originalWhiteSpace = element.style.getPropertyValue('white-space');
       const originalWhiteSpacePriority = element.style.getPropertyPriority('white-space');
@@ -519,7 +536,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         return;
       }
 
-      if (elementTextFits(element, maxLines, wholeHeadingNowrap)) {
+      if (elementTextFits(element, maxLines, singleLine)) {
         restoreWhiteSpace();
         return;
       }
@@ -530,15 +547,61 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       let best = floor;
       element.style.setProperty('font-size', `${floor}px`, 'important');
 
-      if (elementTextFits(element, maxLines, wholeHeadingNowrap)) {
+      /** Помещается ли текст по ширине — без учёта ограничения на строки. */
+      const withinWidth = () => {
+        if (element.clientWidth <= 0) return true;
+        if (element.scrollWidth > element.clientWidth + 1) return false;
+        return !textOverflowsHorizontally(element, measureTextRects(element));
+      };
+
+      if (elementTextFits(element, maxLines, singleLine)) {
         for (let iteration = 0; iteration < 12 && high - low > 0.1; iteration += 1) {
           const candidate = (low + high) / 2;
           element.style.setProperty('font-size', `${candidate}px`, 'important');
-          if (elementTextFits(element, maxLines, wholeHeadingNowrap)) {
+          if (elementTextFits(element, maxLines, singleLine)) {
             best = candidate;
             low = candidate;
           } else {
             high = candidate;
+          }
+        }
+      } else {
+        /*
+         * Даже на минимальном кегле текст не уложился в разрешённое число
+         * строк. Так бывает, когда строки заданы разрывами в самом заголовке
+         * или когда заголовку задан запрет переноса: количество строк от
+         * размера шрифта не зависит, и уменьшать дальше бессмысленно.
+         *
+         * Раньше алгоритм в этом случае оставлял минимальный кегль: на
+         * странице Meta Ads заголовок в 29 px превращался в 18 px на телефоне
+         * и 63 px в 18 px на компьютере — то есть требование «одна строка»
+         * просто делало заголовок нечитаемым, ничего не исправив.
+         *
+         * Теперь возвращаем задуманный размер и уменьшаем ровно настолько,
+         * чтобы текст не вылезал за край. Если он и так помещается по ширине,
+         * не трогаем вовсе.
+         */
+        element.style.setProperty('font-size', `${authoredSize}px`, 'important');
+        if (withinWidth()) {
+          restoreOriginalFontSize();
+          restoreWhiteSpace();
+          return;
+        }
+
+        element.style.setProperty('font-size', `${floor}px`, 'important');
+        if (withinWidth()) {
+          low = floor;
+          high = authoredSize;
+          best = floor;
+          for (let iteration = 0; iteration < 12 && high - low > 0.1; iteration += 1) {
+            const candidate = (low + high) / 2;
+            element.style.setProperty('font-size', `${candidate}px`, 'important');
+            if (withinWidth()) {
+              best = candidate;
+              low = candidate;
+            } else {
+              high = candidate;
+            }
           }
         }
       }
@@ -682,10 +745,28 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     window.addEventListener('orientationchange', scheduleFit, { passive: true });
     scheduleFit();
 
+    /*
+     * Поздние контрольные замеры.
+     *
+     * Эффект появления раскладывает заголовок на строки с запретом переноса
+     * не в первом кадре. До этого текст переносится обычным образом и за край
+     * не вылезает, поэтому ранний замер решает, что подгонять нечего. Когда
+     * строки появляются, ширина самого заголовка не меняется — наблюдатель
+     * размеров молчит, и заголовок остаётся торчащим за границу колонки.
+     * Именно так вело себя «Уменьшить движение» на странице Meta Ads.
+     *
+     * Замеров три, потому что момент готовности разметки зависит от скорости
+     * сети и устройства: один поздний замер иногда попадал в промежуточное
+     * состояние. Каждый замер идемпотентен — если подгонять нечего, он просто
+     * ничего не меняет.
+     */
+    const settleTimers = [300, 900, 2000].map((delay) => window.setTimeout(scheduleFit, delay));
+
     return () => {
       cancelled = true;
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       if (effectsTimer) window.clearTimeout(effectsTimer);
+      settleTimers.forEach((timer) => window.clearTimeout(timer));
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
       fontSet?.removeEventListener?.('loadingdone', onFontsLoaded);

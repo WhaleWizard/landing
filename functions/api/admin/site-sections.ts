@@ -1,6 +1,6 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL, deleteCacheByUrl } from '../../_lib/cache';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { isMissingSchemaError, migrationRequiredResponse } from '../../_lib/migration-guard';
 import { isSiteContentKey, safeSiteJsonObject, sanitizeSiteContent } from '../../_lib/site-content';
@@ -140,7 +140,7 @@ type WriteBody = {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
-  const body = await request.json().catch(() => ({})) as WriteBody;
+  const body = await readCappedJsonBody(request) as WriteBody;
   if (!verifyAdminPassword(credentials(request, body), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }

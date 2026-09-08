@@ -70,3 +70,25 @@ export async function readRequestText(request: Request, maxBytes: number): Promi
     reader.releaseLock();
   }
 }
+
+/**
+ * JSON тела запроса с ограничением размера.
+ *
+ * `request.json()` читает тело целиком и без предела. Эндпоинты админки
+ * вызывали его ДО проверки пароля — значит любой запрос без пароля, но с
+ * огромным телом, заставлял воркер это тело разобрать и только потом получал
+ * отказ. В `upload.ts` этот приём уже исправлен, там даже стоит комментарий
+ * зачем; здесь то же самое для остальных.
+ *
+ * Слишком большое тело считается пустым: обработчик дальше сам ответит
+ * «не авторизован» или «не хватает данных», и лишней работы не будет.
+ */
+export async function readCappedJsonBody(request: Request, maxBytes = 256 * 1024): Promise<unknown> {
+  const raw = await readRequestText(request, maxBytes);
+  if (!raw.ok || !raw.text) return {};
+  try {
+    return JSON.parse(raw.text) as unknown;
+  } catch {
+    return {};
+  }
+}

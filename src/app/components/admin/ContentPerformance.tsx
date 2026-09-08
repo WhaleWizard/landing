@@ -47,7 +47,7 @@ export default function ContentPerformance({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/content-stats?days=90', {
+      const response = await fetch(`/api/admin/content-stats?days=90&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',

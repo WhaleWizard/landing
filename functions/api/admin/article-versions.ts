@@ -1,4 +1,4 @@
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
@@ -25,7 +25,7 @@ function isValidSlug(slug: string): boolean {
 }
 
 async function readJsonPayload(request: Request): Promise<{ password?: string; slug?: string; article?: unknown }> {
-  return (await request.json().catch(() => ({}))) as { password?: string; slug?: string; article?: unknown };
+  return (await readCappedJsonBody(request)) as { password?: string; slug?: string; article?: unknown };
 }
 
 function getPasswordFromRequest(request: Request, payload?: { password?: string }): string {

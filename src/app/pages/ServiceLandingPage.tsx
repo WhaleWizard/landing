@@ -330,7 +330,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   'google-ads': {
     seo: {
-      title: 'Настройка и ведение Google Ads — Search, Shopping, PMax',
+      title: 'Google Ads: Search, Shopping и Performance Max',
       description: 'Настройка и ведение Google Ads для услуг и e-commerce: Search, Shopping, Performance Max, аналитика конверсий и оптимизация по CPA или ценности продаж.',
       url: '/google-ads',
     },
@@ -645,7 +645,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   consult: {
     seo: {
-      title: 'Консультация по рекламе: аудит кабинета и разбор для таргетологов',
+      title: 'Консультация по рекламе: аудит кабинета',
       description: 'Консультация один на один за $70: аудит рекламного кабинета Meta и Google для бизнеса, помощь тем, кто ведёт рекламу сам, и разбор оффера и кейсов для таргетологов.',
       url: '/consult',
     },

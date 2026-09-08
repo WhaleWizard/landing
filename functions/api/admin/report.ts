@@ -4,6 +4,7 @@ import { json } from '../../_lib/http';
 import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
+import { localTodayIso } from '../../_lib/local-day';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
@@ -124,8 +125,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const db = env.DB;
   try {
-    const todayRow = await db.prepare("SELECT date('now') AS today").first<{ today: string }>();
-    const today = String(todayRow?.today || new Date().toISOString().slice(0, 10));
+    // Дата берётся по времени владельца: SQL-функция date('now') в SQLite
+    // всегда считает по Гринвичу, и с полуночи до пяти утра давала вчера.
+    const today = localTodayIso(request);
     const period = normalizePeriod(new URL(request.url).searchParams.get('period'), today.slice(0, 7));
     const { from, to } = monthBounds(period);
 

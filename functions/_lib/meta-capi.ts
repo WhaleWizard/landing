@@ -193,6 +193,61 @@ export async function fetchMetaWithRetry(url: string, init: RequestInit, env: En
   throw (lastError instanceof Error ? lastError : new Error('Meta request failed after retries'));
 }
 
+/**
+ * Токен доступа в теле запроса, а не в адресе.
+ *
+ * Раньше он уходил строкой `?access_token=...`, то есть попадал в журналы
+ * Cloudflare и в трассировки ошибок вместе с адресом. Утёкший токен даёт
+ * постороннему право слать события в наш пиксель.
+ */
+function mergeAccessToken(bodyJson: string, token: string): string {
+  try {
+    const parsed = JSON.parse(bodyJson) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return bodyJson;
+    return JSON.stringify({ ...parsed, access_token: token });
+  } catch {
+    return bodyJson;
+  }
+}
+
+function looksLikeTokenRejection(text: string): boolean {
+  return /access[_ ]token|OAuth|"code"\s*:\s*190|Invalid appsecret/i.test(text);
+}
+
+/**
+ * Отправка событий в Meta с токеном в теле запроса.
+ *
+ * Запасной путь оставлен намеренно: доставка событий — самое ценное, что есть
+ * у сайта, и она не должна зависеть от того, каким способом Graph API согласен
+ * принять токен. Если ответ выглядит как отказ именно по токену, повторяем
+ * запрос старым способом, чтобы событие всё равно ушло.
+ */
+export async function postMetaEvents(
+  env: Env,
+  options: { apiVersion: string; pixelId: string; token: string; body: string },
+): Promise<Response> {
+  const { apiVersion, pixelId, token, body } = options;
+  const url = `https://graph.facebook.com/${apiVersion}/${pixelId}/events`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: mergeAccessToken(body, token),
+  };
+
+  const response = await fetchMetaWithRetry(url, init, env);
+  if (response.ok || response.status < 400 || response.status >= 500) return response;
+
+  const preview = await response.clone().text().catch(() => '');
+  if (!looksLikeTokenRejection(preview)) return response;
+
+  console.warn('[Meta CAPI] Токен в теле запроса не принят, повторяю прежним способом');
+  return fetchMetaWithRetry(
+    `${url}?access_token=${token}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+    env,
+  );
+}
+
 export function isTrustedTrackingRequest(request: Request, env: Env): boolean {
   const siteUrl = env.SITE_URL;
   if (!siteUrl) return true;

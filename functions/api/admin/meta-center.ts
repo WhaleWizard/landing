@@ -1,6 +1,6 @@
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { processMetaOutbox } from '../../_lib/meta-outbox';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { redactSensitiveText } from '../../_lib/redact';
@@ -535,7 +535,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
-  const body = await request.json().catch(() => ({})) as { password?: string; action?: string; limit?: number };
+  const body = await readCappedJsonBody(request) as { password?: string; action?: string; limit?: number };
   if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || body.password || '', env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }

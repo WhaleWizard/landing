@@ -8,7 +8,7 @@ import {
   notifyAlerts,
   syncAlerts,
 } from '../../_lib/admin-alerts';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -54,7 +54,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const body = await request.json().catch(() => ({})) as { password?: string; action?: string; id?: number };
+  const body = await readCappedJsonBody(request) as { password?: string; action?: string; id?: number };
   if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || body.password || '', env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }

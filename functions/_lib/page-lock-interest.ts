@@ -1,5 +1,5 @@
 import {
-  fetchMetaWithRetry,
+  postMetaEvents,
   getMetaApiVersion,
   getMetaDataProcessingOptions,
   getMetaPixelId,
@@ -200,11 +200,7 @@ export async function sendPageInterestEvent(env: Env, input: PageInterestInput):
   };
 
   try {
-    const response = await fetchMetaWithRetry(
-      `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
-      env,
-    );
+    const response = await postMetaEvents(env, { apiVersion, pixelId, token, body });
 
     if (!response.ok) {
       const errorText = await response.text();

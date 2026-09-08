@@ -1,6 +1,6 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { renderPageLockHtml } from '../../_lib/page-lock-page';
 import {
   emptyLock,
@@ -32,7 +32,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const body = await readCappedJsonBody(request) as Record<string, unknown>;
   if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || String(body.password || ''), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }

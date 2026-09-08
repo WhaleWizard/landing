@@ -183,7 +183,7 @@ export default function AdminFinance({ password }: { password: string }) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/finance', {
+      const response = await fetch(`/api/admin/finance?timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -219,7 +219,7 @@ export default function AdminFinance({ password }: { password: string }) {
   const request = useCallback(async (payload: Record<string, unknown>, success?: string) => {
     setBusy(true);
     try {
-      const response = await fetch('/api/admin/finance', {
+      const response = await fetch(`/api/admin/finance?timezone_offset=${new Date().getTimezoneOffset()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',

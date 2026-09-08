@@ -16,7 +16,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
-import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router';
+import { useParams, useNavigate, useLocation, useNavigationType, Link} from 'react-router';
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense, type Ref } from 'react';
 import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
@@ -37,6 +37,7 @@ import { useManagedTitleFit } from '../utils/contentTypography';
 import { smartTitleBreaks } from '../utils/smartTitle';
 import { useReturnTo, withReturnTo } from '../utils/siteNavigation';
 import { useDialogFocus } from '../components/hooks/useDialogFocus';
+import { articleDisplayDate } from '../utils/articleDate';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 const Footer = lazy(() => import('../components/Footer'));
@@ -819,7 +820,7 @@ function BlogPageComponent() {
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                   <span className="rounded-lg border border-primary/25 bg-primary/15 px-3 py-1.5 font-semibold uppercase tracking-[0.04em] text-primary">{selectedArticle.category}</span>
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="h-4 w-4" /><span>{formatReadTime(selectedArticle.readTime)}</span></div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-4 w-4" /><span>{selectedArticle.date}</span></div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-4 w-4" /><span>{articleDisplayDate(selectedArticle)}</span></div>
                 </div>
                 <h1 ref={setArticleTitleRef} tabIndex={-1} className="text-balance text-[clamp(1.85rem,8vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.032em] text-foreground focus:outline-none md:max-w-4xl">{smartTitleBreaks(selectedArticle.title)}</h1>
                 <p className="max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">{seoDescription}</p>
@@ -932,14 +933,18 @@ function BlogPageComponent() {
                 <ul className="space-y-3">
                   {relatedArticles.map((article) => (
                     <li key={article.slug}>
-                      <m.button
-                        whileHover={{ x: 4 }}
-                        transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                        onClick={() => openRelatedArticle(article.slug)}
-                        className="text-left bg-transparent border-none p-0 text-primary hover:underline cursor-pointer"
-                      >
-                        {article.title}
-                      </m.button>
+                      {/* Ссылка, а не кнопка: у кнопки нет адреса, поэтому её не
+                          видит поисковик, её нельзя открыть в новой вкладке и
+                          нельзя скопировать. Вид и движение прежние. */}
+                      <m.span whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 320, damping: 24 }} className="block">
+                        <Link
+                          to={`${routeBase}/${article.slug}${preservedCaseSearch}`}
+                          state={withReturnTo(location)}
+                          className="text-left text-primary hover:underline"
+                        >
+                          {article.title}
+                        </Link>
+                      </m.span>
                     </li>
                   ))}
                 </ul>
@@ -1309,7 +1314,7 @@ function BlogPageComponent() {
                           {featuredArticle.description}
                         </p>
                         <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{featuredArticle.date}</span>
+                          <span className="inline-flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{articleDisplayDate(featuredArticle)}</span>
                           <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{formatReadTime(featuredArticle.readTime)}</span>
                         </div>
                         <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
@@ -1365,7 +1370,7 @@ function BlogPageComponent() {
                                   {article.title}
                                 </h3>
                                 <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground sm:text-xs">
-                                  <span>{article.date}</span>
+                                  <span>{articleDisplayDate(article)}</span>
                                   <span>{formatReadTime(article.readTime)}</span>
                                 </div>
                               </div>

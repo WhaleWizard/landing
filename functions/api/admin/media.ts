@@ -1,4 +1,4 @@
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
@@ -140,7 +140,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const body = await request.json().catch(() => ({})) as {
+  const body = await readCappedJsonBody(request) as {
     password?: string; action?: string; key?: string; keys?: string[]; folder?: string; name?: string; alt?: string;
   };
   if (!verifyAdminPassword(getPassword(request, body), env)) {

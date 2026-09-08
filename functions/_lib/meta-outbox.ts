@@ -1,6 +1,6 @@
 import type { Env } from './types';
 import {
-  fetchMetaWithRetry,
+  postMetaEvents,
   getMetaApiVersion,
   getMetaPixelId,
   isConfirmedMetaReceipt,
@@ -347,15 +347,7 @@ export async function processMetaOutbox(env: Env, limit = 10): Promise<OutboxPro
     }
 
     try {
-      const response = await fetchMetaWithRetry(
-        `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${token}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: row.payload_json,
-        },
-        env,
-      );
+      const response = await postMetaEvents(env, { apiVersion, pixelId, token, body: row.payload_json });
 
       const responseText = await response.text();
       const receipt = parseMetaApiReceipt(responseText);

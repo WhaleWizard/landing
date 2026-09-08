@@ -132,9 +132,12 @@ function CalculatorSelect({
         <SelectTrigger
           id={id}
           aria-labelledby={`${id}-label`}
-          className="h-12 rounded-xl border-border/80 bg-background/70 px-3.5 text-sm font-medium text-foreground shadow-none transition hover:border-primary/40 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 data-[state=open]:border-primary data-[state=open]:ring-2 data-[state=open]:ring-primary/20"
+          className="h-12 rounded-xl border-border/80 bg-background/70 px-3.5 text-sm font-medium text-foreground shadow-none transition [&>span]:min-w-0 [&>span]:truncate hover:border-primary/40 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 data-[state=open]:border-primary data-[state=open]:ring-2 data-[state=open]:ring-primary/20"
         >
-          <SelectValue />
+          {/* Длинные названия рынков не помещались в поле на экране 320 px и
+              обрезались на середине слова без всякого признака, что текст
+              продолжается. Многоточие показывает это честно. */}
+          <SelectValue className="block min-w-0 truncate text-left" />
         </SelectTrigger>
         <SelectContent
           position="popper"
@@ -228,7 +231,7 @@ function FieldGroup({
         <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
           {icon}
         </span>
-        <h3 className="text-sm font-semibold sm:text-base">{title}</h3>
+        <h2 className="text-sm font-semibold sm:text-base">{title}</h2>
       </div>
       {children}
     </div>

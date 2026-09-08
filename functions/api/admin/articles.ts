@@ -10,7 +10,7 @@ import {
   shouldUseD1Articles,
 } from '../../_lib/articles';
 import { getArticlePath } from '../../_lib/seo';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import type { Article, Env } from '../../_lib/types';
 
 interface AuthPayload {
@@ -195,7 +195,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const payload = (await request.json().catch(() => ({}))) as AuthPayload;
+  const payload = (await readCappedJsonBody(request)) as AuthPayload;
   const password = String(payload?.password || '');
 
   if (!verifyAdminPassword(password, env)) {
@@ -260,7 +260,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const payload = (await request.json().catch(() => ({}))) as UpdatePayload;
+  const payload = (await readCappedJsonBody(request)) as UpdatePayload;
   const password = String(payload?.password || '');
 
   if (!verifyAdminPassword(password, env)) {

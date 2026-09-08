@@ -1,6 +1,6 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
-import { json } from '../../_lib/http';
+import { json, readCappedJsonBody } from '../../_lib/http';
 import { migrationRequiredResponse } from '../../_lib/migration-guard';
 import { actorHash, createPreviewToken, PREVIEW_QUERY, PREVIEW_TTL_SECONDS } from '../../_lib/page-lock-preview';
 import {
@@ -238,7 +238,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (rateLimited) return rateLimited;
   if (isForeignOrigin(request)) return unauthorized();
 
-  const body = await request.json().catch(() => ({})) as SavePayload & { password?: string; action?: string; id?: number };
+  const body = await readCappedJsonBody(request) as SavePayload & { password?: string; action?: string; id?: number };
   if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || body.password || '', env)) return unauthorized();
   if (!env.DB) return noDatabase();
 

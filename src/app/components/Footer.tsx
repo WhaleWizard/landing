@@ -12,7 +12,12 @@ const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
 const footerHeadingClass = 'font-semibold mb-4 flex items-center gap-2';
 const footerListClass = 'space-y-2 text-sm font-semibold text-muted-foreground';
-const footerLinkClass = 'font-semibold hover:text-primary transition-colors';
+// Область нажатия у ссылок подвала была 19 px в высоту при зазоре 8–9 px:
+// попасть пальцем на телефоне трудно, а свой же чек-лист проекта требует
+// минимум 24 px. Отступ добавлен внутрь ссылки и тут же скомпенсирован
+// отрицательным внешним отступом — расстояние между строками и вся вёрстка
+// остаются прежними, увеличивается только площадь, которая ловит палец.
+const footerLinkClass = 'font-semibold hover:text-primary transition-colors inline-block py-[3px] -my-[3px]';
 const footerContactLinkClass =
   'flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors group';
 const footerLegalLinkClass =
@@ -105,9 +110,9 @@ function Footer() {
           <div className={`footer-reveal min-w-0 space-y-4 ${hasEntered ? 'is-visible' : ''}`}>
             <div className="flex items-center gap-1">
               <WhaleMark size={52} animated />
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 Whale Wizard
-              </h3>
+              </h2>
             </div>
             <p className="text-pretty text-sm text-muted-foreground">
               Performance-маркетинг в Google Ads и Meta Ads: от настройки аналитики до оптимизации по продажам.
@@ -123,10 +128,10 @@ function Footer() {
             id="footer-services"
             className={`footer-reveal min-w-0 footer-reveal-delay-1 ${hasEntered ? 'is-visible' : ''}`}
           >
-            <h4 className={footerHeadingClass}>
+            <h3 className={footerHeadingClass}>
               Услуги
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
-            </h4>
+            </h3>
 
             <ul className={footerListClass}>
               {!isHiddenInNav('/meta-ads') && (
@@ -165,10 +170,10 @@ function Footer() {
 
           {/* Company */}
           <div className={`footer-reveal min-w-0 footer-reveal-delay-2 ${hasEntered ? 'is-visible' : ''}`}>
-            <h4 className={footerHeadingClass}>
+            <h3 className={footerHeadingClass}>
               Разделы
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
-            </h4>
+            </h3>
 
             <ul className={footerListClass}>
               <li>
@@ -241,10 +246,10 @@ function Footer() {
 
           {/* Contact */}
           <div className={`footer-reveal min-w-0 footer-reveal-delay-3 ${hasEntered ? 'is-visible' : ''}`}>
-            <h4 className={footerHeadingClass}>
+            <h3 className={footerHeadingClass}>
               Контакты
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent max-w-[40px]" />
-            </h4>
+            </h3>
 
             <ul className="space-y-3">
               <li>
