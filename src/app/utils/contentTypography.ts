@@ -457,9 +457,6 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     let lastFitWidth = -1;
     let lastFitHeight = -1;
     let lastAppliedFontSize = '';
-    // Замер решил, что подгонять нечего, но мог ошибиться из-за незавершённой
-    // разметки эффекта. Пока флаг стоит, страховочные замеры продолжаются.
-    let needsRecheck = true;
     let originalFontSize = element.style.getPropertyValue('font-size');
     let originalFontSizePriority = element.style.getPropertyPriority('font-size');
 
@@ -616,10 +613,6 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         if (withinWidth()) {
           restoreOriginalFontSize();
           restoreWhiteSpace();
-          // Замер мог попасть в момент, когда строки эффекта ещё не разложены
-          // и текст поэтому переносится обычным образом. Отмечаем, что решение
-          // «подгонять нечего» нужно перепроверить позже.
-          needsRecheck = true;
           return;
         }
 
@@ -672,7 +665,6 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         element.style.setProperty('font-size', lastAppliedFontSize, 'important');
       }
 
-      needsRecheck = false;
       element.setAttribute(TITLE_FIT_SCALE_ATTRIBUTE, String(Math.round((best / authoredSize) * 100)));
       restoreWhiteSpace();
     };
@@ -827,9 +819,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
      * состояние. Каждый замер идемпотентен — если подгонять нечего, он просто
      * ничего не меняет.
      */
-    const settleTimers = [300, 900, 2000, 3500].map((delay) => window.setTimeout(() => {
-      if (needsRecheck) scheduleFit();
-    }, delay));
+    const settleTimers = [300, 900, 2000, 3500].map(
+      (delay) => window.setTimeout(scheduleFit, delay),
+    );
 
     return () => {
       cancelled = true;
