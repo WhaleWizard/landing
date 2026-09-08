@@ -107,10 +107,20 @@ function RouteErrorBoundary() {
     const msg = String(error?.message || '');
     if (msg.includes('Failed to fetch dynamically imported module')) {
       const onceKey = 'ww_chunk_reload_once_v1';
-      const alreadyRetried = window.sessionStorage.getItem(onceKey) === '1';
+      // Хранилище может быть запрещено настройками браузера, и обращение к
+      // нему бросает исключение. Здесь это особенно некстати: мы уже внутри
+      // обработчика ошибки, и второй сбой оставил бы посетителя на пустой
+      // странице вместо перезагрузки на свежую сборку.
+      const readOnce = () => {
+        try { return window.sessionStorage.getItem(onceKey) === '1'; } catch { return false; }
+      };
+      const rememberOnce = () => {
+        try { window.sessionStorage.setItem(onceKey, '1'); } catch { /* без памяти перезагрузка всё равно одна */ }
+      };
+      const alreadyRetried = readOnce();
       const timer = window.setTimeout(() => {
         if (alreadyRetried) return;
-        window.sessionStorage.setItem(onceKey, '1');
+        rememberOnce();
         const url = new URL(window.location.href);
         url.searchParams.set('_v', String(Date.now()));
         window.location.replace(url.toString());

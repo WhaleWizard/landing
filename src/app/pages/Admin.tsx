@@ -466,10 +466,32 @@ function useTopbarHeight() {
   return setNode;
 }
 
+/**
+ * Браузер с запретом на данные сайта не просто возвращает пустоту — обращение
+ * к localStorage бросает исключение. Здесь это особенно опасно: тема и
+ * плотность читаются в самом верхнем провайдере, и ошибка гасила бы всю
+ * админку белым экраном. Остальные разделы уже читают память через try.
+ */
+function readAdminSetting(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeAdminSetting(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Приватный режим: настройка не переживёт перезагрузку, но интерфейс цел.
+  }
+}
+
 function AdminThemeProvider({ children }: { children: React.ReactNode }) {
   useCardSpotlight();
   const [mode, setMode] = useState<'light' | 'dark'>(() => {
-    const stored = localStorage.getItem('ww-admin-theme');
+    const stored = readAdminSetting('ww-admin-theme');
     if (stored === 'light' || stored === 'dark') return stored;
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
@@ -478,7 +500,7 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
   // admin-theme.css: инлайновые стили побеждали бы таблицу стилей, и обе темы
   // пришлось бы держать в двух местах сразу.
   useEffect(() => {
-    localStorage.setItem('ww-admin-theme', mode);
+    writeAdminSetting('ww-admin-theme', mode);
     document.body.dataset.adminTheme = mode;
     return () => {
       delete document.body.dataset.adminTheme;
@@ -492,13 +514,13 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
   // Плотность списков: «просторно» удобно читать, «плотно» — когда заявок или
   // файлов много и важнее увидеть больше строк за один экран.
   const [density, setDensityState] = useState<AdminDensity>(() => (
-    localStorage.getItem('ww-admin-density') === 'compact' ? 'compact' : 'cozy'
+    readAdminSetting('ww-admin-density') === 'compact' ? 'compact' : 'cozy'
   ));
 
   const setDensity = useCallback((value: AdminDensity) => setDensityState(value), []);
 
   useEffect(() => {
-    localStorage.setItem('ww-admin-density', density);
+    writeAdminSetting('ww-admin-density', density);
   }, [density]);
 
   return (

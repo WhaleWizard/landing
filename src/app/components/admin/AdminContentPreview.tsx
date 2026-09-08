@@ -202,10 +202,22 @@ export default function AdminContentPreview({
   // Свёрнутое состояние переживает перезагрузку: длинные тексты правят без
   // предпросмотра, и каждый раз сворачивать его заново — лишний шаг.
   const [collapsed, setCollapsed] = useState(
-    () => typeof window !== 'undefined' && window.localStorage.getItem(PREVIEW_COLLAPSED_KEY) === '1',
+    () => {
+      // Браузер с запретом на данные сайта бросает исключение уже на чтении:
+      // без этой обёртки редактор не открывался бы вовсе.
+      try {
+        return typeof window !== 'undefined' && window.localStorage.getItem(PREVIEW_COLLAPSED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    },
   );
   useEffect(() => {
-    window.localStorage.setItem(PREVIEW_COLLAPSED_KEY, collapsed ? '1' : '0');
+    try {
+      window.localStorage.setItem(PREVIEW_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch {
+      // Приватный режим: состояние не переживёт перезагрузку, это не поломка.
+    }
   }, [collapsed]);
   const [clippedLines, setClippedLines] = useState<string[]>([]);
   // Заголовок умеет уменьшаться сам, и до этого редактор молчал: владелец

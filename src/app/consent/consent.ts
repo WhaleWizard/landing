@@ -78,7 +78,15 @@ export function saveConsent(
     },
   };
 
-  localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+  // Браузер с запретом на данные сайта бросает исключение прямо на записи.
+  // Раньше оно вылетало из обработчика кнопки «Принять»: согласие не
+  // применялось, пиксели не грузились, и в Meta не уходило ничего. Решение
+  // посетителя важнее его сохранения — сначала применяем, потом запоминаем.
+  try {
+    localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+  } catch {
+    // Согласие проживёт текущую вкладку: cookie ниже ставится отдельно.
+  }
   document.cookie = `${CONSENT_KEY}=1; Max-Age=${CONSENT_TTL_DAYS * 24 * 60 * 60}; Path=/; SameSite=Lax; Secure`;
   if (!consent.categories.marketing) clearMetaMarketingStorage();
 
@@ -86,7 +94,11 @@ export function saveConsent(
 }
 
 export function clearConsent(): void {
-  localStorage.removeItem(CONSENT_KEY);
+  try {
+    localStorage.removeItem(CONSENT_KEY);
+  } catch {
+    // Хранилище недоступно — стирать нечего, cookie снимается ниже.
+  }
   document.cookie = `${CONSENT_KEY}=; Max-Age=0; Path=/; SameSite=Lax; Secure`;
   clearMetaMarketingStorage();
 }
