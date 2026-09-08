@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock3, Database,
   Info, Inbox, RefreshCw, Send, Server, ShieldCheck, XCircle,
@@ -596,7 +596,14 @@ export default function AdminMetaCenter({ password }: { password: string }) {
                   Чем выше столбец, тем больше данных Meta может сопоставить с человеком. Падение матчинга поднимает цену заявки, и заметить его здесь можно раньше, чем в кабинете.
                 </p>
               </header>
-              <div className="meta-trend">
+              {/*
+                Ширину графика задаёт число дней: без этого колонки растягивались
+                на всю карточку и столбцы стояли по девяносто пикселей друг от друга.
+              */}
+              <div
+                className="meta-trend"
+                style={{ '--meta-trend-cols': (data.qualityTrend || []).length } as CSSProperties}
+              >
                 {(data.qualityTrend || []).map((point) => {
                   const score = point.averageScore ?? 0;
                   const tone = score >= 70 ? 'is-good' : score >= 45 ? 'is-warn' : 'is-bad';

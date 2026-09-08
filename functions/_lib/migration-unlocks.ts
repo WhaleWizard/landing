@@ -52,4 +52,5 @@ export const MIGRATION_UNLOCKS: Readonly<Record<string, string>> = {
   '0038_meta_outbox_cleanup_index.sql': 'Очередь досылки Meta чистится быстрее.',
   '0039_leads_dedupe_index.sql': 'Поиск дублей заявки по индексу вместо перебора последних 500.',
   '0040_versions_retention.sql': 'История версий статей и текстов обрезается до пятидесяти.',
+  '0041_invoice_one_off_sales.sql': 'Разовые продажи в «Финансах»: консультация, аудит, настройка без карточки клиента.',
 };

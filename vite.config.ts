@@ -154,11 +154,28 @@ function localArticlesApi() {
 
   const verifyLocalPassword = (password) => String(password || '') === localAdminPassword
 
-  return {
-    name: 'local-articles-api',
-    apply: 'serve',
-    configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
+  /**
+   * Доступ к локальным admin-эндпоинтам: пароль в заголовке ИЛИ действующая
+   * сессия в cookie.
+   *
+   * На бою пароль подставляет `functions/api/admin/_middleware.ts` при живой
+   * сессии, поэтому после перезагрузки `/admin` всё работает без повторного
+   * ввода. Локально этого middleware нет, и раздел, открытый по сохранённой
+   * сессии, получал 401 на каждый запрос — расхождение стенда с production.
+   */
+  const isLocalAdminRequest = (req, password) => (
+    verifyLocalPassword(password)
+    || String(req.headers.cookie || '').includes('ww_admin_session=local-dev')
+  )
+
+  /**
+   * Обработчик локальных API. Отдельная функция, а не метод плагина: хуки Vite
+   * вызываются со своим `this`. Вешается и на dev-сервер, и на `vite preview`,
+   * потому что production-сборку админки тоже нужно уметь открыть локально —
+   * в dev-режиме React добавляет собственные проверки, и замеры отзывчивости
+   * получаются завышенными.
+   */
+  const handleLocalApi = async (req, res, next) => {
         const url = new URL(req.url || '/', 'http://localhost')
 
         if (url.pathname === '/api/articles' && req.method === 'GET') {
@@ -202,7 +219,7 @@ function localArticlesApi() {
 
         if (url.pathname === '/api/admin/articles' && req.method === 'GET') {
           const password = req.headers['x-admin-password']
-          if (!verifyLocalPassword(password)) {
+          if (!isLocalAdminRequest(req, password)) {
             sendJson(res, 401, { success: false, error: 'Unauthorized' })
             return
           }
@@ -241,6 +258,97 @@ function localArticlesApi() {
             invalidationFailedCount: 0,
           })
           return
+        }
+
+        /**
+         * Локальный редактор текстов сайта.
+         *
+         * Раздел «Тексты сайта» живёт в D1, которой в Vite нет, и до этого
+         * мока проверить редактор можно было только в Preview или Production —
+         * то есть на живом сайте. Здесь черновик читается и пишется в тот же
+         * `data/site-content.local.json`, что отдаёт публичный
+         * `/api/site-content`, поэтому правку сразу видно и на страницах.
+         *
+         * История версий локально не ведётся: она нужна для отката на бою, а
+         * подделывать её значило бы показывать записи, которых нет.
+         */
+        if (url.pathname === '/api/admin/site-sections') {
+          const password = req.headers['x-admin-password']
+          const key = String(url.searchParams.get('key') || '')
+
+          if (req.method === 'GET') {
+            if (!isLocalAdminRequest(req, password)) {
+              sendJson(res, 401, { success: false, error: 'Unauthorized' })
+              return
+            }
+            const payload = readSiteContentPayload()
+            if (!key) {
+              sendJson(res, 200, {
+                success: true,
+                localOnly: true,
+                sections: Object.keys(payload.sections || {}).map((sectionKey) => ({
+                  section_key: sectionKey,
+                  page_path: '',
+                  label: sectionKey,
+                  status: 'draft',
+                  version: 1,
+                  published_version: null,
+                  updated_at: payload.fetchedAt || null,
+                  published_at: null,
+                })),
+              })
+              return
+            }
+            const stored = payload.sections?.[key] || null
+            sendJson(res, 200, {
+              success: true,
+              localOnly: true,
+              section: stored ? {
+                key,
+                pagePath: '',
+                label: key,
+                draft: stored,
+                published: stored,
+                status: 'draft',
+                version: 1,
+                publishedVersion: null,
+                updatedAt: payload.fetchedAt || null,
+                publishedAt: null,
+              } : null,
+              versions: [],
+            })
+            return
+          }
+
+          if (req.method === 'POST') {
+            const body = await readJsonBody(req)
+            if (!isLocalAdminRequest(req, password || body?.password)) {
+              sendJson(res, 401, { success: false, error: 'Unauthorized' })
+              return
+            }
+            const bodyKey = String(body?.key || key)
+            if (!bodyKey || !body?.content || typeof body.content !== 'object') {
+              sendJson(res, 400, { success: false, error: 'Нужны key и content' })
+              return
+            }
+            const payload = readSiteContentPayload()
+            const nowIso = new Date().toISOString()
+            writeFileSync(localSiteContentPath, `${JSON.stringify({
+              schemaVersion: 1,
+              fetchedAt: nowIso,
+              sections: { ...(payload.sections || {}), [bodyKey]: body.content },
+            }, null, 2)}\n`, 'utf8')
+            sendJson(res, 200, {
+              success: true,
+              localOnly: true,
+              status: body.action === 'publish' ? 'published' : 'draft',
+              version: 1,
+              publishedVersion: body.action === 'publish' ? 1 : null,
+              updatedAt: nowIso,
+              publishedAt: body.action === 'publish' ? nowIso : null,
+            })
+            return
+          }
         }
 
         if (url.pathname === '/api/site-content' && req.method === 'GET') {
@@ -306,7 +414,7 @@ function localArticlesApi() {
         // to the SPA index.html with a misleading HTTP 200 response.
         if (url.pathname.startsWith('/api/admin/')) {
           const password = req.headers['x-admin-password']
-          if (!verifyLocalPassword(password)) {
+          if (!isLocalAdminRequest(req, password)) {
             sendJson(res, 401, { success: false, error: 'Unauthorized' })
             return
           }
@@ -320,8 +428,13 @@ function localArticlesApi() {
         }
 
         next()
-      })
-    },
+  }
+
+  return {
+    name: 'local-articles-api',
+    apply: 'serve',
+    configureServer(server) { server.middlewares.use(handleLocalApi) },
+    configurePreviewServer(server) { server.middlewares.use(handleLocalApi) },
   }
 }
 

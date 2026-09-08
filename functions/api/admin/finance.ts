@@ -17,6 +17,7 @@ import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 const MIGRATION = '0033_finance.sql';
+const ONE_OFF_SALES_MIGRATION = '0041_invoice_one_off_sales.sql';
 const MAX_BODY_BYTES = 64 * 1024;
 const CONTROL_CHARS = new RegExp('[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]', 'g');
 
@@ -70,6 +71,38 @@ function cleanInvoiceStatus(value: unknown): string {
   return ['draft', 'issued', 'paid', 'cancelled'].includes(text) ? text : 'draft';
 }
 
+/**
+ * За что деньги. Абонентка — значение по умолчанию: все счета, выставленные до
+ * миграции 0041, были именно ей, и подписывать их иначе было бы враньём.
+ */
+const INVOICE_KINDS = ['retainer', 'consultation', 'audit', 'setup', 'other'];
+
+function cleanInvoiceKind(value: unknown): string {
+  const text = String(value ?? '');
+  return INVOICE_KINDS.includes(text) ? text : 'retainer';
+}
+
+/**
+ * Разовые продажи живут в двух колонках счёта, которые приходят с миграцией
+ * 0041. Пока её не применили, раздел обязан работать по-старому, а не падать:
+ * схема читается один раз на воркер и кэшируется на пять минут.
+ */
+let invoiceColumnsCache: { columns: Set<string>; expiresAt: number } | null = null;
+
+async function getInvoiceColumns(db: D1Database): Promise<Set<string>> {
+  const now = Date.now();
+  if (invoiceColumnsCache && invoiceColumnsCache.expiresAt > now) return invoiceColumnsCache.columns;
+  const result = await db.prepare('PRAGMA table_info(invoices)').all<{ name: string }>();
+  const columns = new Set((result.results || []).map((column) => column.name).filter(Boolean));
+  invoiceColumnsCache = { columns, expiresAt: now + 5 * 60 * 1000 };
+  return columns;
+}
+
+async function hasOneOffSales(db: D1Database): Promise<boolean> {
+  const columns = await getInvoiceColumns(db);
+  return columns.has('kind') && columns.has('payer');
+}
+
 /** Первое число месяца, с которого показываем историю: год назад. */
 function historyFrom(): string {
   const now = new Date();
@@ -93,6 +126,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const since = historyFrom();
 
   try {
+    const oneOffSales = await hasOneOffSales(db);
     const [invoices, expenses, times, settings] = await Promise.all([
       db.prepare(
         `SELECT * FROM invoices
@@ -125,6 +159,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       clients,
       settings: settings || { tax_rate: 0, target_hourly_rate: 0, main_currency: 'USD', requisites: '' },
       today: new Date().toISOString().slice(0, 10),
+      // Разовые продажи включаются самим фактом применённой миграции: интерфейс
+      // не должен предлагать кнопку, которой некуда писать.
+      oneOffSales,
+      oneOffSalesMigration: ONE_OFF_SALES_MIGRATION,
     }, { headers: noStore });
   } catch (error) {
     if (isMissingTableError(error)) return migrationResponse();
@@ -173,19 +211,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         cleanInvoiceStatus(body.status),
         cleanText(body.note, 500),
       ];
+      // «За что» и «кто заплатил» пишутся только когда колонки существуют:
+      // до миграции 0041 счёт сохраняется как раньше, без потери остальных полей.
+      const oneOff = await hasOneOffSales(db);
+      const extraColumns = oneOff ? [cleanInvoiceKind(body.kind), cleanText(body.payer, 120)] : [];
+
       if (id) {
         await db.prepare(
           `UPDATE invoices SET client_id = ?, number = ?, period = ?, amount = ?, currency = ?,
-             issued_at = ?, due_at = ?, paid_at = ?, status = ?, note = ?, updated_at = datetime('now')
+             issued_at = ?, due_at = ?, paid_at = ?, status = ?, note = ?${oneOff ? ', kind = ?, payer = ?' : ''},
+             updated_at = datetime('now')
            WHERE id = ?`,
-        ).bind(...values, id).run();
+        ).bind(...values, ...extraColumns, id).run();
       } else {
         await db.prepare(
-          `INSERT INTO invoices (client_id, number, period, amount, currency, issued_at, due_at, paid_at, status, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).bind(...values).run();
+          `INSERT INTO invoices (client_id, number, period, amount, currency, issued_at, due_at, paid_at, status, note${oneOff ? ', kind, payer' : ''})
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?${oneOff ? ', ?, ?' : ''})`,
+        ).bind(...values, ...extraColumns).run();
       }
-      return json({ success: true }, { headers: noStore });
+      return json({ success: true, oneOffSales: oneOff }, { headers: noStore });
     }
 
     if (action === 'mark_paid') {
@@ -220,7 +264,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
          WHERE status = 'active'`,
       ).all<{ id: number; retainer_amount: number; retainer_currency: string; billing_day: number | null }>();
 
-      const existing = await db.prepare('SELECT client_id FROM invoices WHERE period = ?').bind(period).all<{ client_id: number }>();
+      // Массовое выставление касается только абонентки. Разовая продажа
+      // повторяться из месяца в месяц не может, поэтому и «уже выставлено»
+      // считается по абонентке: иначе проданная в августе консультация
+      // отменила бы августовский счёт этому же клиенту.
+      const oneOffColumns = await hasOneOffSales(db);
+      const existing = await db.prepare(
+        `SELECT client_id FROM invoices WHERE period = ?${oneOffColumns ? " AND kind = 'retainer'" : ''}`,
+      ).bind(period).all<{ client_id: number }>();
       const already = new Set((existing.results || []).map((row) => row.client_id));
 
       const active = clients.results || [];
@@ -236,8 +287,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           const issued = `${period}-${String(day).padStart(2, '0')}`;
           const due = new Date(Date.UTC(year, month - 1, day + 7)).toISOString().slice(0, 10);
           return db.prepare(
-            `INSERT INTO invoices (client_id, period, amount, currency, issued_at, due_at, status)
-             VALUES (?, ?, ?, ?, ?, ?, 'issued')`,
+            `INSERT INTO invoices (client_id, period, amount, currency, issued_at, due_at, status${oneOffColumns ? ', kind' : ''})
+             VALUES (?, ?, ?, ?, ?, ?, 'issued'${oneOffColumns ? ", 'retainer'" : ''})`,
           ).bind(client.id, period, client.retainer_amount, client.retainer_currency, issued, due);
         });
 

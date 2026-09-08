@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Clock3, CircleDollarSign, Plus, Receipt, RefreshCw, Save, Trash2, Wallet,
+  Clock3, CircleDollarSign, Handshake, Plus, Receipt, RefreshCw, Save, Trash2, Wallet,
 } from 'lucide-react';
 import { AdminDecimalInput, AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
@@ -19,6 +19,25 @@ import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFee
 type Tab = 'invoices' | 'totals' | 'time';
 type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
 
+/**
+ * За что деньги. Абонентка — то, чем были все счета до миграции 0041, поэтому
+ * она же значение по умолчанию: подписать старый счёт иначе значило бы соврать.
+ */
+type InvoiceKind = 'retainer' | 'consultation' | 'audit' | 'setup' | 'other';
+
+const KIND_LABEL: Record<InvoiceKind, string> = {
+  retainer: 'Абонентка',
+  consultation: 'Консультация',
+  audit: 'Аудит',
+  setup: 'Настройка',
+  other: 'Другое',
+};
+
+const KIND_OPTIONS = (Object.keys(KIND_LABEL) as InvoiceKind[]).map((value) => ({ value, label: KIND_LABEL[value] }));
+
+/** Разовые продажи — всё, кроме абонентки: они не повторяются каждый месяц. */
+const ONE_OFF_KINDS = new Set<InvoiceKind>(['consultation', 'audit', 'setup', 'other']);
+
 interface Invoice {
   id: number;
   client_id: number | null;
@@ -31,6 +50,9 @@ interface Invoice {
   paid_at: string | null;
   status: InvoiceStatus;
   note: string;
+  /** Приходят с миграцией 0041; до неё сервер их не отдаёт. */
+  kind?: InvoiceKind;
+  payer?: string;
 }
 
 interface Expense {
@@ -47,6 +69,16 @@ interface TimeEntry {
   client_id: number | null;
   day: string;
   hours: number;
+  note: string;
+}
+
+/** Черновик разовой продажи: минимум полей, чтобы записать её за десять секунд. */
+interface OneOffSale {
+  kind: InvoiceKind;
+  payer: string;
+  amount: number;
+  day: string;
+  paid: boolean;
   note: string;
 }
 
@@ -132,10 +164,20 @@ export default function AdminFinance({ password }: { password: string }) {
   const [expenseDraft, setExpenseDraft] = useState<Expense | null>(null);
   const [timeDraft, setTimeDraft] = useState<TimeEntry | null>(null);
   const [issueMonth, setIssueMonth] = useState(currentMonth());
+  const [saleDraft, setSaleDraft] = useState<OneOffSale | null>(null);
+  // Разовые продажи включаются применённой миграцией: предлагать кнопку,
+  // которой некуда писать, нельзя.
+  const [oneOffSales, setOneOffSales] = useState(false);
+  const [oneOffMigration, setOneOffMigration] = useState('');
 
   const clientName = useCallback((id: number | null) => (
     clients.find((client) => client.id === id)?.name || (id ? `#${id}` : 'без клиента')
   ), [clients]);
+
+  /** Кому выставлен счёт: карточка клиента, иначе имя разового покупателя. */
+  const invoiceParty = useCallback((invoice: Invoice) => (
+    invoice.client_id ? clientName(invoice.client_id) : (invoice.payer?.trim() || 'без клиента')
+  ), [clientName]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -150,6 +192,7 @@ export default function AdminFinance({ password }: { password: string }) {
         success?: boolean; error?: string; migration?: string;
         invoices?: Invoice[]; expenses?: Expense[]; timeEntries?: TimeEntry[];
         clients?: FinanceClient[]; settings?: Settings; today?: string;
+        oneOffSales?: boolean; oneOffSalesMigration?: string;
       } | null;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
@@ -162,6 +205,8 @@ export default function AdminFinance({ password }: { password: string }) {
       setClients(payload.clients || []);
       if (payload.settings) setSettings(payload.settings);
       if (payload.today) setToday(payload.today);
+      setOneOffSales(payload.oneOffSales === true);
+      setOneOffMigration(payload.oneOffSalesMigration || '');
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить финансы');
     } finally {
@@ -240,6 +285,35 @@ export default function AdminFinance({ password }: { password: string }) {
 
     return { outstanding, overdue, receivedThisMonth, spentThisMonth, profit, tax };
   }, [expenses, invoices, settings.tax_rate, today]);
+
+  /**
+   * Разовые продажи за месяц: сколько штук и на какую сумму.
+   *
+   * Считаются по оплате, а не по выставлению: пока за консультацию не
+   * заплатили, денег в месяце нет, и показывать их как приход нельзя.
+   */
+  const oneOffThisMonth = useMemo(() => {
+    const month = currentMonth();
+    const money: Money = new Map();
+    const byKind = new Map<InvoiceKind, number>();
+    let count = 0;
+
+    invoices.forEach((invoice) => {
+      const kind = invoice.kind || 'retainer';
+      if (!ONE_OFF_KINDS.has(kind)) return;
+      if (invoice.status !== 'paid' || monthOf(invoice.paid_at) !== month) return;
+      count += 1;
+      addMoney(money, invoice.currency, invoice.amount);
+      byKind.set(kind, (byKind.get(kind) || 0) + 1);
+    });
+
+    const breakdown = [...byKind.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([kind, kindCount]) => `${KIND_LABEL[kind].toLowerCase()} — ${kindCount}`)
+      .join(', ');
+
+    return { count, money, breakdown };
+  }, [invoices]);
 
   const byMonth = useMemo(() => {
     const map = new Map<string, { received: Money; spent: Money }>();
@@ -352,6 +426,19 @@ export default function AdminFinance({ password }: { password: string }) {
           <strong className="adm-tile__value">{formatMoney(summary.profit)}</strong>
           <span className="admin-hint">Получено минус налог и расходы, по каждой валюте отдельно.</span>
         </div>
+        {oneOffSales && (
+          <div className="adm-tile">
+            <span className="adm-tile__title">Разовые продажи за месяц</span>
+            <strong className="adm-tile__value">
+              {oneOffThisMonth.count === 0 ? '—' : `${oneOffThisMonth.count} · ${formatMoney(oneOffThisMonth.money)}`}
+            </strong>
+            <span className="admin-hint">
+              {oneOffThisMonth.count === 0
+                ? 'Консультации, аудиты и разовые настройки. Пока ни одной оплаченной.'
+                : `${oneOffThisMonth.breakdown}. Считаются по дате оплаты.`}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="crm-view-switch" role="group" aria-label="Разделы финансов">
@@ -371,6 +458,13 @@ export default function AdminFinance({ password }: { password: string }) {
               <p className="admin-hint">У абонентки счета из месяца в месяц одинаковые — выставляйте их разом.</p>
             </div>
             <div className="finance__head-actions">
+              {oneOffSales && (
+                <button type="button" className="admin-button admin-button--compact" onClick={() => setSaleDraft({
+                  kind: 'consultation', payer: '', amount: 0, day: today, paid: true, note: '',
+                })}>
+                  <Handshake aria-hidden="true" /> Продал консультацию
+                </button>
+              )}
               <input className="admin-input" type="month" value={issueMonth} onChange={(event) => setIssueMonth(event.target.value)} aria-label="Месяц выставления" />
               <button type="button" className="admin-button admin-button--compact" disabled={busy} onClick={async () => {
                 const result = await request({ action: 'issue_month', period: issueMonth });
@@ -405,11 +499,96 @@ export default function AdminFinance({ password }: { password: string }) {
             </div>
           </header>
 
+          {!oneOffSales && oneOffMigration && (
+            <div className="admin-notice" role="status">
+              Разовые продажи (консультация, аудит, настройка) появятся после миграции <code>{oneOffMigration}</code>.
+              До неё раздел работает как раньше: счета по абонентке.
+            </div>
+          )}
+
+          {/*
+            Разовая продажа — не тот же счёт, что абонентка: у неё нет клиента в
+            базе, нет срока оплаты и она не повторяется. Поэтому у неё своя
+            короткая форма из четырёх полей, а не общая форма счёта.
+          */}
+          {saleDraft && (
+            <div className="finance__form">
+              <p className="admin-hint">
+                Разовая продажа: человек пришёл, получил разбор и заплатил. Карточку клиента заводить не нужно —
+                достаточно имени или телеграма, чтобы потом вспомнить, кому именно продано.
+              </p>
+              <div className="admin-crm-form-grid">
+                <AdminSelect label="За что" value={saleDraft.kind}
+                  options={KIND_OPTIONS.filter((option) => option.value !== 'retainer')}
+                  onValueChange={(value) => setSaleDraft({ ...saleDraft, kind: value as InvoiceKind })} />
+                <label className="admin-field"><span className="admin-label">Кому продано</span>
+                  <input className="admin-input" maxLength={120} placeholder="имя или @телеграм" value={saleDraft.payer}
+                    onChange={(event) => setSaleDraft({ ...saleDraft, payer: event.target.value })} />
+                </label>
+                <label className="admin-field"><span className="admin-label">Сумма, $</span>
+                  <AdminDecimalInput className="admin-input" value={saleDraft.amount}
+                    onValueChange={(amount) => setSaleDraft({ ...saleDraft, amount: amount ?? 0 })} />
+                </label>
+                <label className="admin-field"><span className="admin-label">Дата</span>
+                  <input className="admin-input" type="date" value={saleDraft.day}
+                    onChange={(event) => setSaleDraft({ ...saleDraft, day: event.target.value })} />
+                </label>
+                <label className="admin-field admin-field--wide"><span className="admin-label">Комментарий</span>
+                  <input className="admin-input" maxLength={500} placeholder="о чём был разбор" value={saleDraft.note}
+                    onChange={(event) => setSaleDraft({ ...saleDraft, note: event.target.value })} />
+                </label>
+                <label className="admin-field admin-field--wide admin-field--check">
+                  <input type="checkbox" checked={saleDraft.paid}
+                    onChange={(event) => setSaleDraft({ ...saleDraft, paid: event.target.checked })} />
+                  <span>Деньги уже получены</span>
+                </label>
+              </div>
+              <div className="finance__form-actions">
+                <button type="button" className="admin-button admin-button--primary" disabled={busy} onClick={async () => {
+                  if (saleDraft.amount <= 0) {
+                    notify.error('Нужна сумма', 'Продажа без суммы ничего не добавит в итоги месяца.');
+                    return;
+                  }
+                  const saved = await request({
+                    action: 'save_invoice',
+                    id: 0,
+                    client_id: null,
+                    kind: saleDraft.kind,
+                    payer: saleDraft.payer.trim(),
+                    number: '',
+                    // Месяц берётся из даты продажи: по нему считаются итоги.
+                    period: saleDraft.day.slice(0, 7),
+                    amount: saleDraft.amount,
+                    issued_at: saleDraft.day,
+                    due_at: null,
+                    paid_at: saleDraft.paid ? saleDraft.day : null,
+                    status: saleDraft.paid ? 'paid' : 'issued',
+                    note: saleDraft.note,
+                  }, saleDraft.paid ? 'Продажа записана' : 'Счёт за разовую услугу выставлен');
+                  if (saved) setSaleDraft(null);
+                }}>
+                  <Save aria-hidden="true" /> Записать
+                </button>
+                <button type="button" className="admin-button admin-button--quiet" onClick={() => setSaleDraft(null)}>Отмена</button>
+              </div>
+            </div>
+          )}
+
           {invoiceDraft && (
             <div className="finance__form">
               <div className="admin-crm-form-grid">
+                {oneOffSales && (
+                  <AdminSelect label="За что" value={invoiceDraft.kind || 'retainer'} options={KIND_OPTIONS}
+                    onValueChange={(value) => setInvoiceDraft({ ...invoiceDraft, kind: value as InvoiceKind })} />
+                )}
                 <AdminSelect label="Клиент" value={String(invoiceDraft.client_id || 0)} options={clientOptions}
                   onValueChange={(value) => setInvoiceDraft({ ...invoiceDraft, client_id: Number(value) || null })} />
+                {oneOffSales && !invoiceDraft.client_id && (
+                  <label className="admin-field"><span className="admin-label">Кому продано</span>
+                    <input className="admin-input" maxLength={120} placeholder="имя или @телеграм" value={invoiceDraft.payer || ''}
+                      onChange={(event) => setInvoiceDraft({ ...invoiceDraft, payer: event.target.value })} />
+                  </label>
+                )}
                 <label className="admin-field"><span className="admin-label">За месяц</span>
                   <input className="admin-input" type="month" value={invoiceDraft.period} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, period: e.target.value })} />
                 </label>
@@ -447,7 +626,7 @@ export default function AdminFinance({ password }: { password: string }) {
               <table className="adm-data-table">
                 <thead>
                   <tr>
-                    <th>Клиент</th><th>За месяц</th><th className="is-numeric">Сумма</th>
+                    <th>Клиент</th>{oneOffSales && <th>За что</th>}<th>За месяц</th><th className="is-numeric">Сумма</th>
                     <th>Срок</th><th>Статус</th><th />
                   </tr>
                 </thead>
@@ -456,7 +635,8 @@ export default function AdminFinance({ password }: { password: string }) {
                     const overdue = isOverdue(invoice, today);
                     return (
                       <tr key={invoice.id}>
-                        <td>{clientName(invoice.client_id)}</td>
+                        <td>{invoiceParty(invoice)}</td>
+                        {oneOffSales && <td>{KIND_LABEL[invoice.kind || 'retainer']}</td>}
                         <td>{invoice.period ? formatMonthLabel(invoice.period) : '—'}</td>
                         <td className="is-numeric">{formatOne(invoice.amount, invoice.currency)}</td>
                         <td className={overdue ? 'is-bad' : ''}>{invoice.due_at || '—'}</td>

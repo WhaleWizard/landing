@@ -338,4 +338,13 @@ export const MIGRATION_SIGNATURES: readonly MigrationSignature[] = [
     indexes: ['idx_article_versions_slug_id', 'idx_site_section_versions_key_id'],
     triggers: ['trg_article_versions_retention', 'trg_site_section_versions_retention'],
   },
+  {
+    file: '0041_invoice_one_off_sales.sql',
+    tables: [],
+    columns: {
+      invoices: ['kind', 'payer'],
+    },
+    indexes: ['idx_invoices_kind'],
+    triggers: [],
+  },
 ];

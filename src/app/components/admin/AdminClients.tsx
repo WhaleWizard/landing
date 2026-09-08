@@ -501,7 +501,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
             <label className="admin-field"><span className="admin-label">Действует до</span>
               <input className="admin-input" type="date" value={draft.contract_ends_at || ''} onChange={(e) => setDraft({ ...draft, contract_ends_at: e.target.value || null })} />
             </label>
-            <label className="admin-field clients__check">
+            <label className="admin-field admin-field--check">
               <input type="checkbox" checked={Boolean(draft.contract_auto_renew)} onChange={(e) => setDraft({ ...draft, contract_auto_renew: e.target.checked ? 1 : 0 })} />
               <span>Продлевается автоматически</span>
             </label>
