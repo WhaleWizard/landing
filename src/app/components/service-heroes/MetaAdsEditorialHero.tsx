@@ -10,6 +10,7 @@ import {
   managedTitleClasses,
   managedTitleStyle,
   useManagedTitleFit,
+  withMobileTitleLines,
 } from '../../utils/contentTypography';
 // Стили живут рядом с компонентом, а не на странице: точный предпросмотр
 // редактора монтирует хиро напрямую и без этого рисовал голую вёрстку.
@@ -56,7 +57,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 18 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 18 });
   const titleAnimation = content.titleAnimation || {};
 
   const scrollTo = (elementId: 'contact' | 'cases') => {

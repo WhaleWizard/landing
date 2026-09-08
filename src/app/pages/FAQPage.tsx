@@ -9,6 +9,10 @@ import { trackFaqOpen } from '../consent/consent';
 import { glossaryTermById } from '../data/marketingGlossary';
 import useFaqContent from '../hooks/useFaqContent';
 import { preferredScrollBehavior } from '../utils/motionPreference';
+import { useManagedTitleFit } from '../utils/contentTypography';
+
+/** Заголовок страницы на телефоне — не больше двух строк. */
+const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -541,6 +545,7 @@ export default function FAQPage() {
     window.history.replaceState(window.history.state, '', nextUrl);
   };
 
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 20 });
   const resetFilters = () => {
     setQuery('');
     setSelectedCategory('all');
@@ -574,7 +579,7 @@ export default function FAQPage() {
               <span className="text-xs md:text-sm text-primary font-semibold">FAQ</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-pretty">
+            <h1 ref={staticTitleFit} className="text-3xl sm:text-4xl md:text-5xl font-bold text-pretty">
               Ответы на вопросы о рекламе и{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 аналитике

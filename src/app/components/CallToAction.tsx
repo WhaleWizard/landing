@@ -11,6 +11,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
   type ContentTypography,
+  withMobileTitleLines,
 } from '../utils/contentTypography';
 
 export type CallToActionContent = {
@@ -30,7 +31,7 @@ export const defaultCallToActionContent: CallToActionContent = {
 
 function CallToAction({ content: contentProp = defaultCallToActionContent, contentKey = null }: { content?: CallToActionContent; contentKey?: string | null }) {
   const content = useSiteSection(contentKey, 'callToAction', contentProp);
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 14 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 14 });
   const { scrollToWhenReady } = useScrollTo();
 
   const scrollToContact = useCallback(() => {

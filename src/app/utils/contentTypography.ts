@@ -172,6 +172,33 @@ function normalizeMaxLines(value: unknown): number {
   return Math.min(6, Math.max(1, Math.floor(value)));
 }
 
+/**
+ * Заголовок блока на телефоне — не больше двух строк.
+ *
+ * На узком экране длинный заголовок разъезжался на три и четыре строки и
+ * занимал пол-экрана. Ограничение включается по умолчанию для всех блоков
+ * сайта; если владелец задал своё число строк в редакторе текстов, оно
+ * главнее.
+ *
+ * Ограничение выполняет подгонка кегля: она уменьшает шрифт, пока строк не
+ * станет достаточно мало, но не ниже предела читаемости у каждого блока.
+ * Если даже на минимальном кегле две строки недостижимы — значит текст
+ * слишком длинный, и заголовок остаётся в задуманном размере: нечитаемый
+ * мелкий шрифт хуже лишней строки.
+ */
+export const MOBILE_TITLE_LINES = 2;
+
+export function withMobileTitleLines(
+  typography: ContentTypography | null | undefined,
+  lines: number = MOBILE_TITLE_LINES,
+): ContentTypography {
+  const source = typography || {};
+  return {
+    ...source,
+    titleMaxLinesMobile: normalizeMaxLines(source.titleMaxLinesMobile) || lines,
+  };
+}
+
 export function normalizeContentTypography(
   value?: ContentTypography | null,
 ): NormalizedContentTypography {
@@ -333,17 +360,49 @@ function measureTextRects(element: HTMLElement): DOMRect[] {
   return rectangles;
 }
 
+/**
+ * Сколько строк реально занимает текст.
+ *
+ * Раньше строки различались по середине прямоугольника с допуском в два
+ * пикселя. Заголовок из кусков разной высоты — обычная строка и выделенная с
+ * другим кеглем или отступом — давал разные середины на одной и той же
+ * визуальной строке, и подсчёт завышал число строк. Из-за этого ограничение
+ * «две строки» становилось невыполнимым: подгонка уменьшала кегль, счётчик всё
+ * равно видел лишнюю строку, и в итоге заголовок оставался нетронутым.
+ *
+ * Теперь две части считаются одной строкой, если их вертикальные диапазоны
+ * перекрываются больше чем наполовину. Это не зависит ни от кегля, ни от
+ * отступов.
+ */
 function countLinesFromRects(rectangles: DOMRect[]): number {
   const visible = rectangles
     .filter((rect) => rect.width > 0.5 && rect.height > 0.5)
     .sort((left, right) => left.top - right.top || left.left - right.left);
 
-  const lineTops: number[] = [];
+  let lines = 0;
+  let lineTop = 0;
+  let lineBottom = 0;
   for (const rectangle of visible) {
-    const middle = rectangle.top + rectangle.height / 2;
-    if (!lineTops.some((known) => Math.abs(known - middle) <= 2)) lineTops.push(middle);
+    const top = rectangle.top;
+    const bottom = rectangle.bottom;
+    if (lines === 0) {
+      lines = 1;
+      lineTop = top;
+      lineBottom = bottom;
+      continue;
+    }
+    const overlap = Math.min(lineBottom, bottom) - Math.max(lineTop, top);
+    const smaller = Math.min(lineBottom - lineTop, bottom - top);
+    if (smaller > 0 && overlap > smaller / 2) {
+      lineTop = Math.min(lineTop, top);
+      lineBottom = Math.max(lineBottom, bottom);
+      continue;
+    }
+    lines += 1;
+    lineTop = top;
+    lineBottom = bottom;
   }
-  return lineTops.length;
+  return lines;
 }
 
 function hasNestedNowrap(element: HTMLElement): boolean {

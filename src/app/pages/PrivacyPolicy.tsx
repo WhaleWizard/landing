@@ -5,10 +5,15 @@ import SEO from '../components/SEO';
 import { LEGAL_UPDATED_AT } from '../components/legal/legalMeta';
 import PrivacyPolicyContent from '../components/legal/PrivacyPolicyContent';
 import '../../styles/route-reveal.css';
+import { useManagedTitleFit } from '../utils/contentTypography';
 
 const Footer = lazy(() => import('../components/Footer'));
 
+/** Заголовок страницы на телефоне — не больше двух строк. */
+const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
+
 export default function PrivacyPolicy() {
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 16 });
   return (
     <>
       <SEO
@@ -31,7 +36,7 @@ export default function PrivacyPolicy() {
 
             <div className="route-intro-reveal text-center mb-12">
               {/* На 320px длинное «конфиденциальности» не влезало в строку и обрезалось. */}
-              <h1 className="text-balance break-words text-2xl font-bold sm:text-4xl md:text-5xl">
+              <h1 ref={staticTitleFit} className="text-balance break-words text-2xl font-bold sm:text-4xl md:text-5xl">
                 Политика<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> конфиденциальности и обработки персональных данных</span>
               </h1>
               <p className="text-muted-foreground mt-4">Дата последнего обновления: {LEGAL_UPDATED_AT}</p>

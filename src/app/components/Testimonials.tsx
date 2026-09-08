@@ -10,6 +10,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
   type ContentTypography,
+  withMobileTitleLines,
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
@@ -241,7 +242,7 @@ function Testimonials({
   );
   const sectionContent = useSiteSection(contentKey, 'testimonials', fallback);
   const content: TestimonialsContent = sectionContent;
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 16 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 16 });
   const stats = sectionContent.stats ?? statsProp;
   // Карточки отзывов приходят из CMS; статический список — запасной вариант,
   // если раздел ещё не сохраняли или запрос не дошёл.

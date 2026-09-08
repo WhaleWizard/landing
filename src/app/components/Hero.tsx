@@ -13,6 +13,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
   type ContentTypography,
+  withMobileTitleLines,
 } from '../utils/contentTypography';
 import HeroTitleEffect, {
   resolveHeroTitleLine,
@@ -269,7 +270,7 @@ const LeftContent = memo(({
   statsVariant = 'default',
   statsClassName = '',
 }: LeftContentProps) => {
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 14 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 14 });
   const titleAnimation = content.titleAnimation || {};
   return (
   <m.div

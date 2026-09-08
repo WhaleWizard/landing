@@ -21,6 +21,10 @@ import {
   type MarketingGlossaryItem,
 } from '../data/marketingGlossary';
 import { preferredScrollBehavior } from '../utils/motionPreference';
+import { useManagedTitleFit } from '../utils/contentTypography';
+
+/** Заголовок страницы на телефоне — не больше двух строк. */
+const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -227,6 +231,8 @@ export default function MarketingGlossaryPage() {
     }
   };
 
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 20 });
+  const ctaTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 16 });
   const resetFilters = () => {
     setQuery('');
     setSelectedSection('all');
@@ -259,7 +265,7 @@ export default function MarketingGlossaryPage() {
             className="max-w-4xl"
           >
             <p className="text-primary font-medium mb-3">Справочник по рекламе, данным и продукту</p>
-            <h1 className="text-balance text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
+            <h1 ref={staticTitleFit} className="text-balance text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
               Словарь маркетинга <span className="text-primary">без лишнего жаргона</span>
             </h1>
             <p className="max-w-3xl text-pretty text-base text-muted-foreground md:text-lg">
@@ -551,7 +557,7 @@ export default function MarketingGlossaryPage() {
                 <BookOpenText className="w-4 h-4" />
                 Метрики под ваш проект
               </p>
-              <h2 className="text-balance text-2xl font-semibold">Неясно, какие показатели смотреть?</h2>
+              <h2 ref={ctaTitleFit} className="text-balance text-2xl font-semibold">Неясно, какие показатели смотреть?</h2>
               <p className="mt-2 max-w-2xl text-pretty text-muted-foreground">
                 Разберём путь от рекламного расхода до продажи или события приложения и выберем метрики, по которым можно принимать решения.
               </p>

@@ -22,6 +22,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
   type ContentTypography,
+  withMobileTitleLines,
 } from '../utils/contentTypography';
 
 const loadServices = memoizedImport(() => import('../components/Services'));
@@ -988,7 +989,7 @@ function DeferredSection({
 
 function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProps, 'service' | 'contact' | 'theme'>) {
   const sectionRef = useRef<HTMLElement>(null);
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(contact.typography, { minFontSize: 16 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(contact.typography), { minFontSize: 16 });
   // Соседние секции монтируются только при приближении к viewport. Эта — нет,
   // поэтому её пятна размытием в 128px пульсировали всё время, даже когда до
   // формы ещё далеко. Пауза за пределами экрана ставится атрибутом на секции:

@@ -54,6 +54,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
   type ContentTypography,
+  withMobileTitleLines,
 } from '../utils/contentTypography';
 
 const budgetOptions = [
@@ -120,7 +121,7 @@ const useTouchDevice = () => {
 
 function ContactForm({ content: contentProp = defaultContactContent, contentKey = null }: { content?: ContactFormContent; contentKey?: string | null }) {
   const content = useSiteSection(contentKey, 'contact', contentProp);
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 16 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 16 });
   const [formData, setFormData] = useState({
     name: '',
     email: '',

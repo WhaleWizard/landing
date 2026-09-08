@@ -26,6 +26,7 @@ import {
   type ScenarioId,
   type ServiceGoal,
 } from '../calculator/engine';
+import { useManagedTitleFit } from '../utils/contentTypography';
 import {
   Select,
   SelectContent,
@@ -61,6 +62,9 @@ type CalculatorSelectProps = {
   options: Array<{ value: string; label: string }>;
   className?: string;
 };
+
+/** Заголовок страницы на телефоне — не больше двух строк. */
+const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
 
 const modeOptions: Array<{
   id: CalculatorMode;
@@ -991,6 +995,7 @@ export default function MarketingCalculator({
     );
   };
 
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 20 });
   const currentMode = modeOptions.find((item) => item.id === mode) ?? modeOptions[0];
 
   return (
@@ -1010,7 +1015,7 @@ export default function MarketingCalculator({
               <Calculator className="h-4 w-4" />
               Медиаплан и экономика
             </div>
-            <h1 className="text-balance text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
+            <h1 ref={staticTitleFit} className="text-balance text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
               Считайте не клики, а{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 деньги после маркетинга

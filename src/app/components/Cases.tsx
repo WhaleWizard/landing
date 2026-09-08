@@ -11,6 +11,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
   type ContentTypography,
+  withMobileTitleLines,
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
@@ -121,7 +122,7 @@ function Cases({
   // the hook's state here used to leave the preview one render behind because
   // useSiteContent synchronizes a changed fallback from an effect.
   const sectionContent = contentKey ? storedContent : fallbackContent;
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(sectionContent.typography, { minFontSize: 16 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(sectionContent.typography), { minFontSize: 16 });
   const caseItems = sectionContent.items;
   const navigate = useNavigate();
   const location = useLocation();

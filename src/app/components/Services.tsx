@@ -11,6 +11,7 @@ import {
   managedTitleStyle,
   useManagedTitleFit,
   type ContentTypography,
+  withMobileTitleLines,
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
@@ -116,7 +117,7 @@ export const defaultServicesContent: ServicesContent = {
 
 function Services({ content, contentKey = null }: { content?: ServicesContent; contentKey?: string | null }) {
   const sectionContent = useSiteSection(contentKey, 'services', content ?? defaultServicesContent);
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(sectionContent.typography, { minFontSize: 16 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(sectionContent.typography), { minFontSize: 16 });
   const serviceCards = sectionContent.cards;
   const modalContent = sectionContent.detailed;
   const [currentIndex, setCurrentIndex] = useState(0);
