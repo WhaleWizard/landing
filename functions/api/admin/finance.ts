@@ -84,9 +84,14 @@ function cleanInvoiceKind(value: unknown): string {
 
 /**
  * Разовые продажи живут в двух колонках счёта, которые приходят с миграцией
- * 0041. Пока её не применили, раздел обязан работать по-старому, а не падать:
- * схема читается один раз на воркер и кэшируется на пять минут.
+ * 0041. Пока её не применили, раздел обязан работать по-старому, а не падать.
+ *
+ * Схема читается один раз на воркер и кэшируется на минуту. Дольше держать
+ * нельзя: сразу после применения миграции владелец открывает раздел и должен
+ * увидеть новую кнопку, а не сообщение о том, что миграции нет.
  */
+const INVOICE_COLUMNS_TTL_MS = 60 * 1000;
+
 let invoiceColumnsCache: { columns: Set<string>; expiresAt: number } | null = null;
 
 async function getInvoiceColumns(db: D1Database): Promise<Set<string>> {
@@ -94,7 +99,7 @@ async function getInvoiceColumns(db: D1Database): Promise<Set<string>> {
   if (invoiceColumnsCache && invoiceColumnsCache.expiresAt > now) return invoiceColumnsCache.columns;
   const result = await db.prepare('PRAGMA table_info(invoices)').all<{ name: string }>();
   const columns = new Set((result.results || []).map((column) => column.name).filter(Boolean));
-  invoiceColumnsCache = { columns, expiresAt: now + 5 * 60 * 1000 };
+  invoiceColumnsCache = { columns, expiresAt: now + INVOICE_COLUMNS_TTL_MS };
   return columns;
 }
 
