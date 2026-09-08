@@ -26,6 +26,7 @@ import {
   managedBodyStyle,
   managedTitleClasses,
   managedTitleStyle,
+  TITLE_FIT_SCALE_ATTRIBUTE,
   useManagedTitleFit,
 } from '../utils/contentTypography';
 import type { EditableContent, EditorSection } from '../components/admin/AdminContentControl';
@@ -470,6 +471,19 @@ function ContentPreviewSurface({
   );
 }
 
+/**
+ * Насколько заголовок пришлось уменьшить, чтобы уложить его в разрешённое
+ * число строк. Признак ставит сама подгонка кегля; его отсутствие означает,
+ * что заголовок показан в задуманном размере.
+ */
+function readTitleFitScale(root: ParentNode): number | null {
+  const heading = root.querySelector('h1');
+  const raw = heading?.getAttribute(TITLE_FIT_SCALE_ATTRIBUTE);
+  if (!raw) return null;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 && value < 100 ? value : null;
+}
+
 /** Строки заголовка, которым не хватило ширины даже после уменьшения кегля. */
 function findClippedTitleLines(root: ParentNode): string[] {
   const heading = root.querySelector('h1');
@@ -527,13 +541,15 @@ function usePreviewReport(payload: ContentPreviewPayload | null, fontsReady: boo
         ? findClippedTitleLines(root)
         : [];
       const contentHeight = measureContentHeight(root);
-      const signature = JSON.stringify([clippedTitleLines, contentHeight]);
+      const titleFitScale = payload.section === 'hero' ? readTitleFitScale(root) : null;
+      const signature = JSON.stringify([clippedTitleLines, contentHeight, titleFitScale]);
       if (signature === lastSignature) return;
       lastSignature = signature;
       const message: ContentPreviewReport = {
         type: CONTENT_PREVIEW_REPORT_MESSAGE,
         revision: payload.revision,
         clippedTitleLines,
+        titleFitScale,
         contentHeight,
       };
       window.parent.postMessage(message, window.location.origin);

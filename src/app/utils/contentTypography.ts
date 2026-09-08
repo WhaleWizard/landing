@@ -304,6 +304,16 @@ export const managedBodyStyles = managedBodyStyle;
  */
 export const TITLE_FIT_MEASURING_ATTRIBUTE = 'data-title-fit-measuring';
 
+/**
+ * Сколько процентов исходного кегля осталось у заголовка после подгонки.
+ * Ставится только когда подгонка действительно уменьшила текст, и нужен
+ * редактору: настройка «максимум строк» умеет ужать заголовок втрое, и без
+ * этого признака владелец видит только результат, а причину — нет.
+ * На внешний вид не влияет: обычный признак, к которому нет ни одного правила
+ * в стилях.
+ */
+export const TITLE_FIT_SCALE_ATTRIBUTE = 'data-title-fit-scale';
+
 function countRenderedTextLines(element: HTMLElement): number {
   const documentRef = element.ownerDocument;
   if (!documentRef || !element.textContent?.trim()) return 0;
@@ -437,6 +447,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     let originalFontSizePriority = element.style.getPropertyPriority('font-size');
 
     const restoreOriginalFontSize = () => {
+      element.removeAttribute(TITLE_FIT_SCALE_ATTRIBUTE);
       if (!lastAppliedFontSize) return;
       if (originalFontSize) {
         element.style.setProperty('font-size', originalFontSize, originalFontSizePriority);
@@ -461,6 +472,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
 
     const measureAndApply = () => {
       resetBeforeMeasurement();
+      // Признак ставится заново на каждом замере: иначе прошлая подгонка
+      // осталась бы висеть после того, как текст снова помещается целиком.
+      element.removeAttribute(TITLE_FIT_SCALE_ATTRIBUTE);
 
       const maxLines = hasExplicitMaxLines
         ? explicitMaxLines
@@ -517,6 +531,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
 
       lastAppliedFontSize = `${Math.floor(best * 10) / 10}px`;
       element.style.setProperty('font-size', lastAppliedFontSize, 'important');
+      element.setAttribute(TITLE_FIT_SCALE_ATTRIBUTE, String(Math.round((best / authoredSize) * 100)));
       restoreWhiteSpace();
     };
 

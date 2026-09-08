@@ -208,15 +208,20 @@ export default function AdminContentPreview({
     window.localStorage.setItem(PREVIEW_COLLAPSED_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
   const [clippedLines, setClippedLines] = useState<string[]>([]);
+  // Заголовок умеет уменьшаться сам, и до этого редактор молчал: владелец
+  // ставил «максимум строк · ПК = 1», видел кегль втрое меньше и не понимал,
+  // сломалось это или так задумано.
+  const [titleFitScale, setTitleFitScale] = useState<number | null>(null);
   const settledContent = useDebounced(content, 220);
   const pending = settledContent !== content;
   const revisionRef = useRef(0);
   const handleReport = useCallback((report: ContentPreviewReport) => {
     setClippedLines(report.clippedTitleLines);
+    setTitleFitScale(report.titleFitScale);
   }, []);
   // Предупреждение относится к конкретному блоку и конкретной ширине: при
   // смене любого из них оно недействительно, пока кадр не отчитается заново.
-  useEffect(() => { setClippedLines([]); }, [page, section, presetId]);
+  useEffect(() => { setClippedLines([]); setTitleFitScale(null); }, [page, section, presetId]);
   const payload = useMemo<ContentPreviewPayload>(() => {
     revisionRef.current += 1;
     return {
@@ -302,6 +307,14 @@ export default function AdminContentPreview({
           <strong>Не помещается на ширине {preset.width} px:</strong>{' '}
           {clippedLines.map((line) => `«${line}»`).join(', ')}. Сайт уже уменьшил заголовок до предела
           читаемости — сократите строку или разбейте её на две.
+        </div>
+      ) : null}
+
+      {clippedLines.length === 0 && titleFitScale !== null && titleFitScale < 85 ? (
+        <div className="admin-notice admin-notice--warning" role="status">
+          <strong>Заголовок уменьшен до {titleFitScale}% от задуманного размера</strong>{' '}
+          на ширине {preset.width} px — иначе он не уложился в разрешённое число строк.
+          Разрешите больше строк, сократите текст или разбейте заголовок на строки вручную.
         </div>
       ) : null}
 
