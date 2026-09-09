@@ -35,10 +35,36 @@ import {
   SelectValue,
 } from './ui/select';
 
+/**
+ * Какая из двух страниц калькулятора рисует заголовок.
+ *
+ * `/calculator/` и `/roi-calculator/` — один компонент с одними и теми же
+ * вкладками, и раньше у них был один заголовок и один вводный абзац. Для
+ * поиска это две одинаковые страницы: он оставлял в выдаче одну из них.
+ * Теперь у каждой своя тема — бюджет и окупаемость — под свой запрос.
+ */
+type CalculatorPage = 'budget' | 'roi';
+
 type MarketingCalculatorProps = {
   variant?: 'page' | 'dialog';
   initialMode?: CalculatorMode;
+  page?: CalculatorPage;
   onClose?: () => void;
+};
+
+const PAGE_COPY: Record<CalculatorPage, { badge: string; titlePrefix: string; titleAccent: string; lead: string }> = {
+  budget: {
+    badge: 'Медиаплан и бюджет',
+    titlePrefix: 'Калькулятор',
+    titleAccent: 'рекламного бюджета',
+    lead: 'Укажите медиабюджет, площадки и задачу — калькулятор даст ориентир по стоимости ведения Google Ads и Meta Ads, а вкладка «Прогноз» покажет, сколько заявок и продаж принесёт бюджет в осторожном, базовом и сильном сценарии.',
+  },
+  roi: {
+    badge: 'Окупаемость рекламы',
+    titlePrefix: 'Калькулятор окупаемости',
+    titleAccent: 'ROI и ROMI',
+    lead: 'Подставьте расход рекламных кабинетов, выручку, средний чек и маржу, добавьте ведение, креативы, сервисы и налоги — калькулятор покажет ROAS, полный ROMI и точку безубыточности по вашим цифрам, а не по средним по рынку.',
+  },
 };
 
 type NumericInputProps = {
@@ -277,8 +303,10 @@ function MetricCard({
 export default function MarketingCalculator({
   variant = 'page',
   initialMode = 'forecast',
+  page = 'budget',
   onClose,
 }: MarketingCalculatorProps) {
+  const pageCopy = PAGE_COPY[page];
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState<CalculatorMode>(initialMode);
@@ -1013,16 +1041,16 @@ export default function MarketingCalculator({
           <header className="mx-auto mb-7 max-w-3xl text-center md:mb-10">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary sm:text-sm">
               <Calculator className="h-4 w-4" />
-              Медиаплан и экономика
+              {pageCopy.badge}
             </div>
             <h1 ref={staticTitleFit} className="text-balance text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
-              Считайте не клики, а{' '}
+              {pageCopy.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                деньги после маркетинга
+                {pageCopy.titleAccent}
               </span>
             </h1>
             <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Прогноз воронки, фактические ROAS и ROMI, точка безубыточности и прозрачный ориентир по стоимости ведения — в одном расчёте.
+              {pageCopy.lead}
             </p>
           </header>
         )}

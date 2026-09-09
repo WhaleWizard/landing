@@ -1,5 +1,5 @@
 import MarketingCalculator from './MarketingCalculator';
 
 export default function BudgetCalculator() {
-  return <MarketingCalculator variant="page" initialMode="quote" />;
+  return <MarketingCalculator variant="page" initialMode="quote" page="budget" />;
 }

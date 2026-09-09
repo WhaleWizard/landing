@@ -5,5 +5,5 @@ type RoiCalculatorPopupProps = {
 };
 
 export default function RoiCalculatorPopup({ onClose }: RoiCalculatorPopupProps) {
-  return <MarketingCalculator variant={onClose ? 'dialog' : 'page'} initialMode="actual" onClose={onClose} />;
+  return <MarketingCalculator variant={onClose ? 'dialog' : 'page'} initialMode="actual" page="roi" onClose={onClose} />;
 }
