@@ -24,7 +24,7 @@ const SECURITY_TXT_PATH = '/.well-known/security.txt';
 function renderSecurityTxt(): Response {
   const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const body = [
-    'Contact: mailto:shoshinruslan97@gmail.com',
+    'Contact: mailto:whalewzrd@gmail.com',
     'Contact: https://t.me/white_rsh',
     `Expires: ${expires}`,
     'Preferred-Languages: ru, en',
@@ -69,7 +69,7 @@ function buildCsp(): string {
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://analytics.tiktok.com",
-    "connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://api.jsonbin.io https://script.google.com https://ipwho.is",
+    "connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://ipwho.is",
     // Метрика ставит собственный кадр на mc.yandex.ru и без него писала в
     // консоль ошибку CSP на каждой странице: домены счётчика есть в script-src
     // и connect-src, а во frame-src их забыли. Вебвизор живёт на своих доменах,

@@ -539,7 +539,8 @@ async function loadAnalyticsRuntimes(): Promise<void> {
   if (useTagManagerRuntime) prepareTagManagerQueue(gtmId);
   else prepareDirectAnalyticsQueues(gaId, ymId);
 
-  if (!analyticsConfigLogged) {
+  // Сводка настроек — только в разработке: посетителю в консоли она ни к чему.
+  if (!analyticsConfigLogged && import.meta.env.DEV) {
     console.info('[analytics] bootstrap config', {
       gtmId,
       gaId,

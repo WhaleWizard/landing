@@ -8,6 +8,9 @@ import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
 import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
 import { formatReadTime } from '../utils/articleMeta';
+// Та же дата, что в списке блога и в самой статье: раньше карусель показывала
+// свободный текст из CMS («апрель 2026 г.»), а список — точную дату публикации.
+import { articleDisplayDate } from '../utils/articleDate';
 import { isCaseArticle } from '../utils/articleCategory';
 import { useDragScroll } from '../hooks/useDragScroll';
 import ArticlesLoadError from './ArticlesLoadError';
@@ -109,7 +112,7 @@ function Blog() {
                 <div className="p-4 md:p-6 space-y-3 md:space-y-4">
                   <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-white/70">
                     <div className="flex items-center gap-1"><Clock className="w-3 h-3 md:w-4 md:h-4" /><span>{formatReadTime(article.readTime)}</span></div>
-                    <div className="h-1 w-1 rounded-full bg-white/30" /><span>{article.date}</span>
+                    <div className="h-1 w-1 rounded-full bg-white/30" /><span>{articleDisplayDate(article)}</span>
                   </div>
                   <h3 className="text-base md:text-lg lg:text-xl font-bold text-white group-hover:text-primary transition-colors">{article.title}</h3>
                   <p className="text-xs md:text-sm text-white/60 leading-relaxed line-clamp-2">{article.description}</p>

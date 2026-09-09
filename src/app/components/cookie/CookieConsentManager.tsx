@@ -440,7 +440,6 @@ export default function CookieConsentManager() {
   }, []);
 
   const isVisible = mode !== 'hidden';
-  const blocked = loadingGeo || isVisible || docModal !== null;
 
   useEffect(() => {
     if (!isVisible) return;
@@ -479,16 +478,6 @@ export default function CookieConsentManager() {
       if (sameHistoryEntry) window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
     };
   }, [isVisible, location.key]);
-
-  useEffect(() => {
-    document.documentElement.dataset.wwCookieUi = blocked ? 'blocked' : 'ready';
-    window.dispatchEvent(new CustomEvent('ww:cookie-ui-change', { detail: { blocked } }));
-
-    return () => {
-      delete document.documentElement.dataset.wwCookieUi;
-      window.dispatchEvent(new CustomEvent('ww:cookie-ui-change', { detail: { blocked: true } }));
-    };
-  }, [blocked]);
 
   const docDialog =
     docModal !== null ? (

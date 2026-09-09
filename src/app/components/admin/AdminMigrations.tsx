@@ -54,14 +54,27 @@ function MigrationCard({ row, password, isNext }: { row: MigrationRow; password:
   const copySql = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/migrations?sql=${encodeURIComponent(row.file)}`, {
-        headers: { 'X-Admin-Password': password },
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      const data = await response.json().catch(() => null) as { sql?: string } | null;
-      if (!data?.sql) throw new Error('пустой ответ');
-      await navigator.clipboard.writeText(data.sql);
+      const loadSql = async () => {
+        const response = await fetch(`/api/admin/migrations?sql=${encodeURIComponent(row.file)}`, {
+          headers: { 'X-Admin-Password': password },
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const data = await response.json().catch(() => null) as { sql?: string } | null;
+        if (!data?.sql) throw new Error('пустой ответ');
+        return data.sql;
+      };
+      // Safari разрешает запись в буфер только в ответ на нажатие и считает
+      // жест истёкшим, пока идёт запрос. `ClipboardItem` с обещанием
+      // запускает запись сразу, а текст подставляет, когда он загрузится.
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        const item = new ClipboardItem({
+          'text/plain': loadSql().then((sql) => new Blob([sql], { type: 'text/plain' })),
+        });
+        await navigator.clipboard.write([item]);
+      } else {
+        await navigator.clipboard.writeText(await loadSql());
+      }
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {

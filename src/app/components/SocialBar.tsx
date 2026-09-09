@@ -16,7 +16,10 @@ import { useDragScroll } from '../hooks/useDragScroll';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 
 const socials = [
-  { icon: Send, href: 'https://t.me/whalewzrd', label: 'Telegram', color: '#26A5E4' },
+  // Один адрес Telegram на весь сайт — тот же, что в подвале, на «спасибо» и в
+  // юридических текстах (@white_rsh). Второй адрес вёл на тот же аккаунт,
+  // но два разных ника на одном сайте читались как ошибка.
+  { icon: Send, href: 'https://t.me/white_rsh', label: 'Telegram', color: '#26A5E4' },
   { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
   { icon: Youtube, href: 'https://youtube.com/@whalewzrd', label: 'YouTube', color: '#FF0000' },
   { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },

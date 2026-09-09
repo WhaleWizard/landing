@@ -741,7 +741,10 @@ export async function recordPageStats(env: Env, pagePath: string | undefined, re
   //
   // Просмотры страниц при этом считаются всегда: в них нет ничего личного.
   // Пропускается только строка уникального посетителя.
-  const salt = env.TRACKING_HMAC_SECRET || env.ADMIN_PASSWORD;
+  // Без TRACKING_HMAC_SECRET соль выводится из пароля админки односторонним
+  // хешем, а не берётся как есть: пароль — не соль, смешивать секреты нельзя.
+  const salt = env.TRACKING_HMAC_SECRET
+    || (env.ADMIN_PASSWORD ? await sha256Hex(`visitor-salt:${env.ADMIN_PASSWORD}`) : '');
   const visitorHash = salt ? await sha256Hex(`${ip}|${userAgent}|${day}|${salt}`) : '';
 
   try {

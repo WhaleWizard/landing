@@ -298,10 +298,10 @@ function Footer() {
         {/* Bottom */}
         <div className={`footer-reveal footer-reveal-fade footer-reveal-delay-4 pt-8 border-t border-border/50 ${hasEntered ? 'is-visible' : ''}`}>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p className="flex items-center gap-2">
-              © 2026 WhaleWzrd. Все права защищены.
+            <p className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+              <span className="whitespace-nowrap">© 2026 WhaleWzrd. Все права защищены.</span>
               <span className="hidden md:inline">|</span>
-              <span className="text-xs">Google Ads · Meta Ads</span>
+              <span className="whitespace-nowrap text-xs">Google Ads · Meta Ads</span>
             </p>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 justify-center md:justify-end leading-none">

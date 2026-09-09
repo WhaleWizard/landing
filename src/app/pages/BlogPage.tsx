@@ -27,7 +27,7 @@ import type { Article } from '../components/hooks/useArticlesApi';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml, sanitizeHtmlToBody } from '../utils/sanitizeHtml';
 import { hasCustomCover } from '../utils/articleCover';
-import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
+import { ARTICLE_IMAGE_SIZES, articleImageAttributes, resolveArticleImage } from '../utils/articleImages';
 import { formatReadTime } from '../utils/articleMeta';
 import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import DeferredImage from '../components/DeferredImage';
@@ -307,7 +307,15 @@ function toIsoDate(value?: string): string | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString().slice(0, 10);
 }
 
+/**
+ * Картинка в разметке JSON-LD — та же, что в статической оболочке: локальный
+ * WebP из манифеста, если он собран, иначе исходный адрес из CMS. Раньше
+ * приложение отдавало внешний адрес, а статика — локальный файл, и Google
+ * видел на одной странице две разные картинки статьи.
+ */
 function absoluteArticleImage(path = ''): string {
+  const optimized = resolveArticleImage(path)?.src;
+  if (optimized) return `${SITE_URL}${optimized}`;
   if (/^https?:\/\//i.test(path)) return path;
   return `${SITE_URL}${path.startsWith('/') ? path : `/${path || 'og-image-v2.jpg'}`}`;
 }

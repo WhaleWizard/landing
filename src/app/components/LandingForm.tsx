@@ -173,6 +173,12 @@ function LandingForm({
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
   const inView = useInView(formRef, { once: true, margin: '-100px' });
+  // На тач-экране «наведение» срабатывает от касания и не снимается: кнопка
+  // бюджета оставалась увеличенной после нажатия. Там остаётся только отклик
+  // на само нажатие, на десктопе эффект наведения прежний.
+  const [hoverScale] = useState<{ scale: number } | undefined>(() => (
+    typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches ? undefined : { scale: 1.02 }
+  ));
 
   // Код страны подставляется по адресу посетителя, но только пока он не выбрал
   // его сам. Ответ /api/geo приходит через несколько сотен миллисекунд после
@@ -550,7 +556,7 @@ function LandingForm({
                           type="button"
                           onClick={() => setFormData(prev => ({ ...prev, budget: option.value }))}
                           aria-pressed={formData.budget === option.value}
-                          whileHover={{ scale: 1.02 }}
+                          whileHover={hoverScale}
                           whileTap={{ scale: 0.98 }}
                           className={`p-3 rounded-xl border text-sm font-medium transition-all ${
                             formData.budget === option.value
@@ -581,7 +587,7 @@ function LandingForm({
                     'experience',
                     'Кто вы',
                     <Briefcase className="w-4 h-4 text-primary" />,
-                    'Владелец бизнеса / веду рекламу сам / таргетолог'
+                    'Владелец / маркетолог / таргетолог'
                   )}
 
                   <div className="relative">
@@ -676,7 +682,7 @@ function LandingForm({
               )}
 
               {/* Submit */}
-              <m.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <m.div whileHover={hoverScale} whileTap={{ scale: 0.98 }}>
                 <Button
                   type="submit"
                   disabled={isSubmitting || !agreed}

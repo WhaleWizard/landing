@@ -1,4 +1,4 @@
-import { json } from '../_lib/http';
+import { json, readCappedJsonBody } from '../_lib/http';
 import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
@@ -261,7 +261,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     );
   }
 
-  const payload = (await request.json().catch(() => ({}))) as MetaTestPayload;
+  const payload = (await readCappedJsonBody(request)) as MetaTestPayload;
   const requested = payload.event_name === 'all' || !payload.event_name ? TEST_EVENTS : TEST_EVENTS.filter((name) => name === payload.event_name);
   const eventSourceUrl = payload.page_url || request.headers.get('Referer') || env.SITE_URL || request.url;
   const originalLead = { eventId: `test-Lead-${crypto.randomUUID()}`, eventTime: Math.floor(Date.now() / 1000) };

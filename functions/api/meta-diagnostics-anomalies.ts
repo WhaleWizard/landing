@@ -47,7 +47,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const rows = await env.DB.prepare(query)
     .bind(sinceRecent, sinceRecent, sinceRecent, sinceRecent, sinceBaseline, sinceBaseline, sinceBaseline, sinceBaseline, sinceBaseline)
-    .all<any>();
+    .all<Record<string, string | number | null>>();
 
   const anomalies: Array<Record<string, unknown>> = [];
   for (const row of rows.results || []) {

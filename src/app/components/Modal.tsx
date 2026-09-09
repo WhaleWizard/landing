@@ -149,26 +149,6 @@ export default function Modal({
           </m.div>
         </>
       )}
-      <style>{`
-        .modal-scroll {
-          scrollbar-width: thin;
-          scrollbar-color: color-mix(in srgb, var(--primary) 55%, transparent) rgba(255, 255, 255, 0.05);
-        }
-        .modal-scroll::-webkit-scrollbar {
-          width: 4px;
-        }
-        .modal-scroll::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 10px;
-        }
-        .modal-scroll::-webkit-scrollbar-thumb {
-          background: linear-gradient(135deg, var(--primary), var(--accent), var(--secondary));
-          border-radius: 10px;
-        }
-        .modal-scroll::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 78%, white 22%), color-mix(in srgb, var(--accent) 78%, white 22%), color-mix(in srgb, var(--secondary) 78%, white 22%));
-        }
-      `}</style>
     </AnimatePresence>,
     document.body
   );

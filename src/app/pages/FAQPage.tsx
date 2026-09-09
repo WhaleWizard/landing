@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { m } from 'motion/react';
-import { useLocation, useNavigate, useNavigationType } from 'react-router';
+import { Link, useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, ChevronDown, Search, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
@@ -693,13 +693,13 @@ export default function FAQPage() {
                           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4 text-xs">
                             <span className="text-muted-foreground">Термины:</span>
                             {faq.relatedTermIds.map((termId) => (
-                              <a
+                              <Link
                                 key={termId}
-                                href={`/marketing-glossary/#term-${termId}`}
+                                to={`/marketing-glossary/#term-${termId}`}
                                 className="rounded-md border border-border px-2 py-1 text-primary hover:border-primary/50"
                               >
                                 {glossaryTermById[termId]?.abbreviation || glossaryTermById[termId]?.term || termId}
-                              </a>
+                              </Link>
                             ))}
                           </div>
                         ) : null}
