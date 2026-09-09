@@ -3,13 +3,14 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { markMetaEventSent, recordMetaDiagnostics, wasMetaEventAlreadySent } from '../_lib/meta-diagnostics';
-import { detectCountryCode, detectDeviceFromUserAgent, postMetaEvents, isConfirmedMetaReceipt, isTrustedTrackingRequest, resolveDeviceType, type MetaApiReceipt } from '../_lib/meta-capi';
+import { detectCountryCode, detectDeviceFromUserAgent, postMetaEvents, isConfirmedMetaReceipt, isTrustedTrackingRequest, type MetaApiReceipt } from '../_lib/meta-capi';
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, shouldRejectBySignature, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 import { isTelegramConfigured, markLeadTelegramDelivered, sendLeadToTelegram, storeLead, type StoreLeadResult } from '../_lib/leads';
 import { isTurnstileConfigured, verifyTurnstileToken } from '../_lib/turnstile';
 import { recordFormRejection } from '../_lib/form-guard-stats';
+import { createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
 
 const MAX_LEAD_BODY_BYTES = 64 * 1024;
 
@@ -97,10 +98,6 @@ interface LeadPayload {
 
 const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
 
-function sanitizeText(value: string, max: number): string {
-  return String(value || '').trim().slice(0, max);
-}
-
 /**
  * Грубый тип устройства из user-agent: телефон, планшет или компьютер.
  * В базе поле хранится строкой, поэтому «неизвестно» здесь — пустая строка,
@@ -115,10 +112,6 @@ function detectCountry(request: Request): string {
   return detectCountryCode(request) || '';
 }
 
-function sanitizeNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
 function normalizeEmailForMeta(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -129,45 +122,11 @@ function normalizePhoneForMeta(value: string): string {
   return digits;
 }
 
-function normalizeTextForMeta(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function normalizeLocationForMeta(value: string): string {
-  return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
-}
-
 // Имена нормализуются как на клиенте (consent.ts) и в событиях качества
 // (_lib/meta-pii.ts): нижний регистр, без пробелов и пунктуации. Иначе хеши
 // fn/ln одного человека расходятся между событиями и не сопоставляются Meta.
 function normalizeNameForMeta(value: string): string {
   return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
-}
-function normalizeGender(value: string | undefined): 'm' | 'f' | undefined {
-  const raw = (value || '').trim().toLowerCase();
-  if (!raw) return undefined;
-  if (raw === 'm' || raw === 'male' || raw === 'man' || raw === 'м' || raw === 'муж') return 'm';
-  if (raw === 'f' || raw === 'female' || raw === 'woman' || raw === 'ж' || raw === 'жен') return 'f';
-  return undefined;
-}
-function normalizeDobPart(value: string | undefined, len: 2 | 4): string | undefined {
-  const digits = String(value || '').replace(/\D/g, '');
-  if (!digits) return undefined;
-  return digits.slice(0, len).padStart(len, '0');
-}
-
-function createFbcFromFbclid(fbclid: string | undefined, eventTime: number): string | undefined {
-  return fbclid ? `fb.1.${eventTime * 1000}.${fbclid}` : undefined;
-}
-
-function createFbcFromPageUrl(pageUrl: string | undefined, eventTime: number): string | undefined {
-  if (!pageUrl) return undefined;
-
-  try {
-    return createFbcFromFbclid(new URL(pageUrl).searchParams.get('fbclid')?.trim(), eventTime);
-  } catch {
-    return undefined;
-  }
 }
 
 function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
@@ -250,104 +209,12 @@ function normalizeLeadPayload(payload: LeadPayload): LeadPayload {
   };
 }
 
-async function sha256Normalized(value: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(value);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 function buildExternalIdSeed(payload: LeadPayload, fbp: string | undefined): string | undefined {
   if (payload.external_id) return payload.external_id;
   const seed = payload.session_id || fbp || payload.email || payload.phone || undefined;
   if (!seed) return undefined;
   return `anon:${seed}`;
 }
-
-
-function safeDecodeURIComponent(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function getMetaCookies(request: Request): { fbp?: string; fbc?: string } {
-  const cookieHeader = request.headers.get('Cookie') || '';
-  const pairs = cookieHeader.split(';').map(p => p.trim());
-  const result: { fbp?: string; fbc?: string } = {};
-  for (const pair of pairs) {
-    const [key, ...rest] = pair.split('=');
-    const value = rest.join('=');
-    if (key === '_fbp') result.fbp = safeDecodeURIComponent(value);
-    else if (key === '_fbc') result.fbc = safeDecodeURIComponent(value);
-  }
-  return result;
-}
-
-
-function resolveEventTime(payloadEventTime: number | undefined): number {
-  const now = Math.floor(Date.now() / 1000);
-  if (!payloadEventTime) return now;
-
-  const eventTime = Math.floor(payloadEventTime);
-  const maxPastAgeSeconds = 7 * 24 * 60 * 60;
-  const maxFutureSkewSeconds = 5 * 60;
-
-  if (eventTime < now - maxPastAgeSeconds || eventTime > now + maxFutureSkewSeconds) {
-    return now;
-  }
-
-  return eventTime;
-}
-
-function extractRequestContext(request: Request, pageUrl?: string) {
-  const country = detectCountryCode(request);
-  const city = request.headers.get('CF-IPCity') || request.headers.get('X-City') || undefined;
-  const region = request.headers.get('CF-Region') || request.headers.get('X-Region') || undefined;
-  const regionCode = request.headers.get('CF-Region-Code') || request.headers.get('X-Region-Code') || undefined;
-  const timezone = request.headers.get('CF-Timezone') || undefined;
-  const language = request.headers.get('Accept-Language')?.split(',')[0]?.trim() || undefined;
-  const platform = request.headers.get('Sec-CH-UA-Platform')?.replaceAll('"', '') || undefined;
-  // Заголовок Sec-CH-UA-Mobile присылает только Chromium; для Safari и Firefox
-  // тип устройства берётся из user-agent, иначе параметр уходил бы в Meta
-  // пустым как раз на мобильном трафике.
-  const isMobile = resolveDeviceType(request);
-
-  let utmSource: string | undefined;
-  let utmMedium: string | undefined;
-  let utmCampaign: string | undefined;
-  let utmContent: string | undefined;
-  let utmTerm: string | undefined;
-  let utmId: string | undefined;
-  let gclid: string | undefined;
-  let wbraid: string | undefined;
-  let gbraid: string | undefined;
-  let yclid: string | undefined;
-
-  try {
-    const sourceUrl = new URL(pageUrl || request.url);
-    utmSource = sourceUrl.searchParams.get('utm_source') || undefined;
-    utmMedium = sourceUrl.searchParams.get('utm_medium') || undefined;
-    utmCampaign = sourceUrl.searchParams.get('utm_campaign') || undefined;
-    utmContent = sourceUrl.searchParams.get('utm_content') || undefined;
-    utmTerm = sourceUrl.searchParams.get('utm_term') || undefined;
-    utmId = sourceUrl.searchParams.get('utm_id') || undefined;
-    gclid = sourceUrl.searchParams.get('gclid') || undefined;
-    wbraid = sourceUrl.searchParams.get('wbraid') || undefined;
-    gbraid = sourceUrl.searchParams.get('gbraid') || undefined;
-    yclid = sourceUrl.searchParams.get('yclid') || undefined;
-  } catch {
-    // no-op
-  }
-
-  return { country, city, region, regionCode, timezone, language, platform, isMobile, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, utmId, gclid, wbraid, gbraid, yclid };
-}
-
-
-
 
 function getLeadDiagnosticsContext(payload: LeadPayload) {
   return {
@@ -356,66 +223,6 @@ function getLeadDiagnosticsContext(payload: LeadPayload) {
     contact_method: payload.contactMethod,
     lead_source_page: payload.lead_source_page,
   };
-}
-
-function normalizePagePath(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  const path = value.split('?')[0].split('#')[0] || '/';
-  return path.length > 1 ? path.replace(/\/$/, '') : path;
-}
-
-function sanitizeUrlForMeta(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  try {
-    const url = new URL(value);
-    return `${url.origin}${url.pathname}`;
-  } catch {
-    return undefined;
-  }
-}
-
-
-type MetaDataProcessingOptions = {
-  data_processing_options?: string[];
-  data_processing_options_country?: number;
-  data_processing_options_state?: number;
-};
-
-function parseDataProcessingOptions(value: string | undefined): string[] | undefined {
-  const options = (value || '')
-    .split(',')
-    .map((option) => option.trim())
-    .filter(Boolean);
-  return options.length ? options : undefined;
-}
-
-function parseOptionalInteger(value: string | undefined): number | undefined {
-  if (!value?.trim()) return undefined;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) ? parsed : undefined;
-}
-
-function getMetaDataProcessingOptions(env: Env): MetaDataProcessingOptions {
-  const dataProcessingOptions = parseDataProcessingOptions(env.META_CAPI_DATA_PROCESSING_OPTIONS);
-  if (!dataProcessingOptions) return {};
-
-  const country = parseOptionalInteger(env.META_CAPI_DATA_PROCESSING_OPTIONS_COUNTRY);
-  const state = parseOptionalInteger(env.META_CAPI_DATA_PROCESSING_OPTIONS_STATE);
-  const hasGeoPair = typeof country === 'number' && typeof state === 'number';
-
-  return {
-    data_processing_options: dataProcessingOptions,
-    data_processing_options_country: hasGeoPair ? country : undefined,
-    data_processing_options_state: hasGeoPair ? state : undefined,
-  };
-}
-
-function hasAnyUtm(payload: LeadPayload, ctx: ReturnType<typeof extractRequestContext>): boolean {
-  return Boolean(
-    payload.utm_source || payload.utm_medium || payload.utm_campaign || payload.utm_content ||
-    payload.utm_term || payload.utm_id || ctx.utmSource || ctx.utmMedium || ctx.utmCampaign ||
-    ctx.utmContent || ctx.utmTerm || ctx.utmId
-  );
 }
 
 async function sendMetaConversionEvent(
