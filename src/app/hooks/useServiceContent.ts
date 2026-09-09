@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { readInlineSiteContentSeed } from '../utils/siteContentSeed';
 
 export const SITE_CONTENT_CACHE_TTL_MS = 15_000;
-const SITE_CONTENT_REVALIDATE_COOLDOWN_MS = 1_000;
+// Повторная проверка при монтировании хука отдыхает столько же, сколько живёт
+// кэш. Раньше пауза была в одну секунду: секции одной страницы («Услуги»,
+// «Кейсы», «Отзывы», форма) монтируются по мере прокрутки, и каждая, опоздав
+// на секунду, заново качала тот же `site:home` — на боевом сайте тексты
+// главной уходили с сервера дважды на каждом заходе.
+const SITE_CONTENT_REVALIDATE_COOLDOWN_MS = SITE_CONTENT_CACHE_TTL_MS;
 
 type ServiceContentCacheEntry = {
   content: Record<string, unknown> | null;
@@ -140,9 +145,10 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
     }
     setContent(resolveContent(cacheKey, fallback));
     let active = true;
-    // Mounting a route revalidates an old module-cache entry. A just-completed
-    // intent preload is reused for one second, and concurrent section hooks are
-    // still collapsed by serviceContentPending.
+    // Mounting a route revalidates an old module-cache entry. A fresh entry
+    // (preload or a sibling section on the same page) is reused for the cache
+    // TTL, and concurrent section hooks are still collapsed by
+    // serviceContentPending.
     void loadSiteContent(cacheKey, true)
       .then((loaded) => {
         if (!active) return;

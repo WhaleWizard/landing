@@ -32,6 +32,7 @@ import { useManagedTitleFit } from '../utils/contentTypography';
 import { smartTitleBreaks } from '../utils/smartTitle';
 import DeferredImage from './DeferredImage';
 import { articleDisplayDate } from '../utils/articleDate';
+import { withPlural } from '../utils/plural';
 
 const Footer = lazy(() => import('./Footer'));
 
@@ -235,7 +236,7 @@ export default function CaseArticleView({
 
             {Array.isArray(article.keyTakeaways) && article.keyTakeaways.length ? (
               <details className="case-article-takeaways case-article-takeaways-mobile">
-                <summary><span>Ключевые тезисы</span><small>{article.keyTakeaways.length} пункта</small></summary>
+                <summary><span>Ключевые тезисы</span><small>{withPlural(article.keyTakeaways.length, ['пункт', 'пункта', 'пунктов'])}</small></summary>
                 <ul>
                   {article.keyTakeaways.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}
                 </ul>

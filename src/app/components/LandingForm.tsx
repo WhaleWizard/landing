@@ -39,6 +39,7 @@ import {
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
 import { isRetryableLeadStatus, queueLeadForRetry } from '../utils/leadRetryQueue';
+import { fetchGeoPayload } from '../utils/geoLookup';
 import { saveLeadContext } from '../utils/leadContext';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
@@ -180,8 +181,7 @@ function LandingForm({
   // — и в CRM, в Telegram и хешем `ph` в Meta уходил номер с чужим кодом.
   useEffect(() => {
     let active = true;
-    void fetch('/api/geo')
-      .then((res) => (res.ok ? res.json() : null))
+    void fetchGeoPayload()
       .then((data) => {
         if (!active || phoneCountryTouchedRef.current || !data?.countryCode) return;
         const countryCode = String(data.countryCode).toUpperCase();

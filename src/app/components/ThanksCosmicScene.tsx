@@ -98,10 +98,15 @@ function ThanksCosmicScene() {
     let target = { x: 0, y: 0 };
     const current = { x: 0, y: 0 };
 
-    const build = () => {
+    // Размер приходит из события наблюдателя: холст растянут на всю сцену
+    // (`inset: 0`), поэтому её контент-бокс и есть размер холста. Читать
+    // clientWidth внутри наблюдателя нельзя — это пересчёт раскладки страницы.
+    const build = (size?: { width: number; height: number }) => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = Math.round(canvas.clientWidth * dpr);
-      const h = Math.round(canvas.clientHeight * dpr);
+      const cssWidth = size ? size.width : canvas.clientWidth;
+      const cssHeight = size ? size.height : canvas.clientHeight;
+      const w = Math.round(cssWidth * dpr);
+      const h = Math.round(cssHeight * dpr);
       // Присваивание в width/height само считается изменением размера —
       // без этой проверки наблюдатель ушёл бы в бесконечный цикл.
       if (!w || !h || (canvas.width === w && canvas.height === h)) {
@@ -110,7 +115,7 @@ function ThanksCosmicScene() {
       canvas.width = w;
       canvas.height = h;
 
-      const count = canvas.clientWidth < 900 ? 34 : 66;
+      const count = cssWidth < 900 ? 34 : 66;
       motes = Array.from({ length: count }, () => ({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
@@ -198,12 +203,16 @@ function ThanksCosmicScene() {
 
     // Наблюдаем за сценой, а не за холстом: холст мы меняем внутри build, и
     // наблюдение за ним замкнуло бы цикл на себя.
-    const handleResize = () => build();
+    const handleResize = (entries: ResizeObserverEntry[]) => {
+      const box = entries[0]?.contentRect;
+      build(box ? { width: box.width, height: box.height } : undefined);
+    };
+    const handleWindowResize = () => build();
     const observer = typeof ResizeObserver === 'undefined'
       ? null
       : new ResizeObserver(handleResize);
     observer?.observe(root);
-    if (!observer) window.addEventListener('resize', handleResize, { passive: true });
+    if (!observer) window.addEventListener('resize', handleWindowResize, { passive: true });
 
     build();
 
@@ -226,7 +235,7 @@ function ThanksCosmicScene() {
     return () => {
       stop();
       observer?.disconnect();
-      if (!observer) window.removeEventListener('resize', handleResize);
+      if (!observer) window.removeEventListener('resize', handleWindowResize);
       visibility?.disconnect();
       window.removeEventListener('mousemove', onMove);
       document.removeEventListener('visibilitychange', onVisibility);

@@ -92,7 +92,7 @@ const ORIGIN: Record<LeadServiceSlug, { path: string; label: string }> = {
 const socialLinks = [
   { name: 'Telegram', icon: MessageCircle, link: TELEGRAM_LINK },
   { name: 'Instagram', icon: Instagram, link: 'https://instagram.com/whalewzrd' },
-  { name: 'YouTube', icon: Youtube, link: 'https://youtube.com/whalewzrd' },
+  { name: 'YouTube', icon: Youtube, link: 'https://www.youtube.com/@whalewzrd' },
   { name: 'Email', icon: Mail, link: 'mailto:whalewzrd@gmail.com' },
 ];
 
@@ -180,7 +180,7 @@ export default function ThankYou() {
               <h1 className="mt-4 text-[1.75rem] font-bold leading-[1.15] sm:text-4xl lg:text-[2.75rem]">
                 {context?.name ? `${context.name}, ` : ''}
                 <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                  заявка у меня
+                  {context?.name ? 'заявка у меня' : 'Заявка у меня'}
                 </span>
               </h1>
 

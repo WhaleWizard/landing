@@ -123,12 +123,11 @@
   );
 }
 
+/* Вариант акцента (телефон/десктоп) выбирает <picture> в разметке по тому же
+   медиа-условию, что и мобильная раскладка ниже; отдельные классы больше не
+   нужны, и лишний кадр не скачивается. */
 .not-found-page .nf-accent {
   z-index: 3;
-}
-
-.not-found-page .nf-accent--mobile {
-  display: none;
 }
 
 .not-found-page .nf-grid {
@@ -716,14 +715,6 @@
   .not-found-page .nf-whale-layer {
     top: var(--nf-portal-top);
     width: var(--nf-portal);
-  }
-
-  .not-found-page .nf-accent--desktop {
-    display: none;
-  }
-
-  .not-found-page .nf-accent--mobile {
-    display: block;
   }
 
   .not-found-page .nf-portal img:not(.nf-preview) {

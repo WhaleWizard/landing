@@ -125,14 +125,24 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       };
     };
 
-    const rebuild = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvasLeft = rect.left;
-      canvasTop = rect.top;
-      lastRectMeasureAt = performance.now();
-
-      const nextWidth = rect.width;
-      const nextHeight = rect.height;
+    const rebuild = (size?: { width: number; height: number }) => {
+      let nextWidth: number;
+      let nextHeight: number;
+      if (size) {
+        // Размер пришёл из события наблюдателя — раскладку страницы не трогаем
+        // (правило из CLAUDE.md). Положение холста для курсора пересчитается
+        // при следующем движении мыши.
+        nextWidth = size.width;
+        nextHeight = size.height;
+        lastRectMeasureAt = -1e9;
+      } else {
+        const rect = canvas.getBoundingClientRect();
+        canvasLeft = rect.left;
+        canvasTop = rect.top;
+        lastRectMeasureAt = performance.now();
+        nextWidth = rect.width;
+        nextHeight = rect.height;
+      }
       if (nextWidth === 0 || nextHeight === 0) return;
       if (Math.abs(nextWidth - width) < 0.5 && Math.abs(nextHeight - height) < 0.5) return;
 
@@ -395,15 +405,17 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       else start();
     };
     rebuild();
-    const handleResize = () => {
-      rebuild();
+    const handleResize = (entries?: ResizeObserverEntry[]) => {
+      const box = entries?.[0]?.contentRect;
+      rebuild(box ? { width: box.width, height: box.height } : undefined);
       if (!rafId) draw(false);
     };
+    const handleWindowResize = () => handleResize();
     const resizeObserver = typeof ResizeObserver === 'undefined'
       ? null
       : new ResizeObserver(handleResize);
     resizeObserver?.observe(canvas);
-    if (!resizeObserver) window.addEventListener('resize', handleResize, { passive: true });
+    if (!resizeObserver) window.addEventListener('resize', handleWindowResize, { passive: true });
 
     controlRef.current = { start, stop };
 
@@ -423,7 +435,7 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
       patternRef.current = { nodes, width, height };
       controlRef.current = null;
       resizeObserver?.disconnect();
-      if (!resizeObserver) window.removeEventListener('resize', handleResize);
+      if (!resizeObserver) window.removeEventListener('resize', handleWindowResize);
       window.removeEventListener('mousemove', handleMove);
       document.removeEventListener('visibilitychange', handleVisibility);
     };

@@ -43,6 +43,7 @@ import {
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
 import { isRetryableLeadStatus, queueLeadForRetry } from '../utils/leadRetryQueue';
+import { fetchGeoPayload } from '../utils/geoLookup';
 import { saveLeadContext } from '../utils/leadContext';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { useTurnstile } from './hooks/useTurnstile';
@@ -186,8 +187,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   // — и в CRM, в Telegram и хешем `ph` в Meta уходил номер с чужим кодом.
   useEffect(() => {
     let active = true;
-    void fetch('/api/geo')
-      .then((res) => (res.ok ? res.json() : null))
+    void fetchGeoPayload()
       .then((data) => {
         if (!active || phoneCountryTouchedRef.current || !data?.countryCode) return;
         const countryCode = String(data.countryCode).toUpperCase();

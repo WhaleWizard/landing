@@ -668,7 +668,10 @@ function BlogPageComponent() {
 
   // Сначала раздел (блог/кейсы), затем тема, затем поиск — раньше поиск
   // игнорировал раздел и на /cases находил статьи блога.
-  const scopedArticles = allArticles.filter((article) => (isCasesRoute ? isCaseArticle(article) : !isCaseArticle(article)));
+  const scopedArticles = useMemo(
+    () => allArticles.filter((article) => (isCasesRoute ? isCaseArticle(article) : !isCaseArticle(article))),
+    [allArticles, isCasesRoute],
+  );
   const topics = useMemo(() => buildBlogTopics(scopedArticles), [scopedArticles]);
   const activeTopicRule = topics.find((topic) => topic.id === activeTopic) ?? null;
   const normalizedQueryTokens = normalizeTokens(searchQuery);
@@ -1277,9 +1280,9 @@ function BlogPageComponent() {
               ) : (
                 <>
                   <article className="group overflow-hidden rounded-3xl border border-primary/25 bg-card/65 shadow-2xl shadow-primary/[0.06]">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/blog/${featuredArticle.slug}`, { state: withReturnTo(location) })}
+                    <Link
+                      to={`/blog/${featuredArticle.slug}`}
+                      state={withReturnTo(location)}
                       className="grid w-full text-left md:grid-cols-[minmax(0,1.02fr)_minmax(320px,0.98fr)]"
                     >
                       <div className="relative min-h-[230px] overflow-hidden bg-background/50 sm:min-h-[300px]">
@@ -1321,7 +1324,7 @@ function BlogPageComponent() {
                           Читать статью <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                         </span>
                       </div>
-                    </button>
+                    </Link>
                   </article>
 
                   {feedArticles.length > 0 && (
@@ -1343,9 +1346,9 @@ function BlogPageComponent() {
                             transition={{ delay: Math.min(index, 5) * 0.04 }}
                             className="group"
                           >
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/blog/${article.slug}`, { state: withReturnTo(location) })}
+                            <Link
+                              to={`/blog/${article.slug}`}
+                              state={withReturnTo(location)}
                               className="grid w-full grid-cols-[88px_minmax(0,1fr)] items-center gap-3 p-3 text-left transition hover:bg-primary/[0.05] sm:grid-cols-[136px_minmax(0,1fr)_auto] sm:gap-5 sm:p-4"
                             >
                               <div className="aspect-[4/3] overflow-hidden rounded-xl bg-background/60 sm:aspect-[16/10]">
@@ -1375,7 +1378,7 @@ function BlogPageComponent() {
                                 </div>
                               </div>
                               <ArrowRight className="hidden h-5 w-5 text-primary transition-transform group-hover:translate-x-1 sm:block" aria-hidden="true" />
-                            </button>
+                            </Link>
                           </m.article>
                         ))}
                       </div>
@@ -1398,14 +1401,14 @@ function BlogPageComponent() {
                   В кейсах — те же принципы, но с бюджетами, сроками и цифрами конкретных проектов.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate('/cases?from=blog', { state: withReturnTo(location) })}
+              <Link
+                to="/cases?from=blog"
+                state={withReturnTo(location)}
                 className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95"
               >
                 <span className="text-sm md:text-base">Смотреть кейсы</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-              </button>
+              </Link>
             </div>
           </section>
         </div>

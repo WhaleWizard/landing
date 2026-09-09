@@ -93,6 +93,18 @@ function resolveArticleDate(article: Article): string | null {
   );
 }
 
+/**
+ * Дата в бот-версии статьи — та же, что в разметке JSON-LD: точная
+ * `publishedAt`, а не свободный текст из CMS («апрель 2026 г.»). Раньше
+ * поисковик видел на одной странице две разные даты.
+ */
+function articleDateLabel(article: Article): string {
+  const iso = toIsoDate(article.publishedAt);
+  if (!iso) return article.date || '';
+  const [year, month, day] = iso.split('-');
+  return `${day}.${month}.${year}`;
+}
+
 function formatReadTime(value = ''): string {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -276,7 +288,7 @@ export function renderArticleHtml(siteUrl: string, article: Article, sectionPath
       <header>
         <h1>${escapeHtml(article.title)}</h1>
         <p>${escapeHtml(description)}</p>
-        <p><strong>Категория:</strong> ${escapeHtml(article.category)} | <strong>Дата:</strong> ${escapeHtml(article.date)}${article.readTime ? ` | <strong>Время чтения:</strong> ${escapeHtml(formatReadTime(article.readTime))}` : ''}</p>
+        <p><strong>Категория:</strong> ${escapeHtml(article.category)} | <strong>Дата:</strong> ${escapeHtml(articleDateLabel(article))}${article.readTime ? ` | <strong>Время чтения:</strong> ${escapeHtml(formatReadTime(article.readTime))}` : ''}</p>
       </header>
       ${article.summary ? `<aside><h2>Краткий ответ</h2><p>${escapeHtml(article.summary)}</p></aside>` : ''}
       ${keyTakeaways.length > 0 ? `<section><h2>Ключевые тезисы</h2><ul>${keyTakeaways.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul></section>` : ''}

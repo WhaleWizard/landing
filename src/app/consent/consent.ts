@@ -1,3 +1,5 @@
+import { fetchGeoPayload } from '../utils/geoLookup';
+
 export type ConsentCategories = {
   necessary: true;
   analytics: boolean;
@@ -165,9 +167,9 @@ function evaluateCountry(countryCode: string): boolean {
 }
 
 async function resolveViaCloudflare(): Promise<GeoResolution> {
-  const response = await fetch('/api/geo', { method: 'GET', credentials: 'omit' });
-  if (!response.ok) throw new Error('geo endpoint unavailable');
-  const data = await response.json() as { countryCode?: string; requiresConsent?: boolean };
+  // Общий запрос с формой заявки: регион нужен и ей, и баннеру согласия.
+  const data = await fetchGeoPayload();
+  if (!data) throw new Error('geo endpoint unavailable');
   if (!data?.countryCode || typeof data.requiresConsent !== 'boolean') {
     throw new Error('invalid geo payload');
   }

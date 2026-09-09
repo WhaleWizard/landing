@@ -51,14 +51,24 @@ export default function NotFound() {
 
           {/* слой 1 · портал и карточка маршрута внутри него */}
           <div className="nf-portal" aria-hidden="true">
-            <img className="nf-depth" src="/images/404/portal-depth.png" alt="" width="896" height="896" />
-            <img className="nf-aura" src="/images/404/portal-aura.png" alt="" width="896" height="896" />
-            <img className="nf-rings nf-rings--halo" src="/images/404/portal-rings-cutout.png" alt="" width="896" height="896" />
-            <img className="nf-rings" src="/images/404/portal-rings-cutout.png" alt="" width="896" height="896" />
-            <img className="nf-accent nf-accent--desktop" src="/images/404/portal-accent-desktop.png" alt="" width="896" height="896" />
-            <img className="nf-accent nf-accent--mobile" src="/images/404/portal-accent-mobile.png" alt="" width="896" height="896" />
-            <img className="nf-grid" src="/images/404/portal-grid.png" alt="" width="896" height="896" />
-            <img className="nf-preview" src="/images/404/route-preview.png" alt="" width="364" height="320" />
+            {/* WebP вместо PNG: те же кадры весят в пять раз меньше (2 МБ → 0,4 МБ),
+                а на 404 попадают по битым ссылкам, в том числе из рекламы. */}
+            <img className="nf-depth" src="/images/404/portal-depth.webp" alt="" width="896" height="896" />
+            <img className="nf-aura" src="/images/404/portal-aura.webp" alt="" width="896" height="896" />
+            <img className="nf-rings nf-rings--halo" src="/images/404/portal-rings-cutout.webp" alt="" width="896" height="896" />
+            <img className="nf-rings" src="/images/404/portal-rings-cutout.webp" alt="" width="896" height="896" />
+            {/* Акцент один: вариант выбирает <picture>, поэтому телефон больше не
+                качает десктопный кадр «про запас» (и наоборот). Условие то же,
+                что у мобильной раскладки в NotFound.css. */}
+            <picture>
+              <source
+                media="(max-width: 640px), (min-width: 641px) and (max-width: 899px) and (orientation: portrait)"
+                srcSet="/images/404/portal-accent-mobile.webp"
+              />
+              <img className="nf-accent" src="/images/404/portal-accent-desktop.webp" alt="" width="896" height="896" />
+            </picture>
+            <img className="nf-grid" src="/images/404/portal-grid.webp" alt="" width="896" height="896" />
+            <img className="nf-preview" src="/images/404/route-preview.webp" alt="" width="364" height="320" />
           </div>
 
           {/* слой 2 · затемнение под текстом, обязательно НИЖЕ кита */}

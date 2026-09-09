@@ -13,7 +13,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import {
   ArrowRight,
@@ -799,14 +799,14 @@ export default function CasesPage() {
                     В блоге — разборы механик, которые стоят за этими цифрами: воронки, аналитика, ставки и креативы.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/blog', { state: withReturnTo(location) })}
+                <Link
+                  to="/blog"
+                  state={withReturnTo(location)}
                   className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95"
                 >
                   <span className="text-sm md:text-base">Читать блог</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-                </button>
+                </Link>
               </div>
             </section>
           </div>
