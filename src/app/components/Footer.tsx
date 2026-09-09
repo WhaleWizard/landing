@@ -1,4 +1,4 @@
-import { Mail, MessageSquare, ExternalLink } from 'lucide-react';
+import { Mail, MessageSquare } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
@@ -278,18 +278,6 @@ function Footer() {
                   </div>
                   Telegram
                 </a>
-              </li>
-
-              <li>
-                <button
-                  onClick={() => scrollToSection('cases')}
-                  className={footerContactLinkClass}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
-                    <ExternalLink className="w-4 h-4" />
-                  </div>
-                  Смотреть кейсы
-                </button>
               </li>
             </ul>
           </div>

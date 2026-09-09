@@ -907,7 +907,9 @@ function resolveHeroFontPreloads(hero = {}) {
     requestedFonts.set(fontId, current);
   };
 
-  register(typography.titleFont, heroHeading(hero), defaultWeight);
+  // Поясняющая строка наследует шрифт заголовка, поэтому её текст тоже
+  // участвует в выборе подмножества (кириллица/латиница) для предзагрузки.
+  register(typography.titleFont, `${heroHeading(hero)} ${heroSupportingText(hero)}`, defaultWeight);
   register(
     FONT_LIBRARY_BY_ID.get(typography.bodyFont)?.bodySafe ? typography.bodyFont : undefined,
     Array.isArray(hero.paragraphs) ? hero.paragraphs.join(' ') : '',
@@ -1511,12 +1513,26 @@ function documentTitle(title) {
   return `${normalized} | Whale Wizard`;
 }
 
+// Поясняющая строка («supporting») в <h1> не входит — в живой странице она
+// стоит отдельным абзацем под заголовком; в статике попадает в лид.
 function heroHeading(hero = {}) {
   if (Array.isArray(hero.titleLines) && hero.titleLines.length > 0) {
-    const lines = hero.titleLines.map((line) => String(line?.text || '').trim()).filter(Boolean);
+    const lines = hero.titleLines
+      .filter((line) => line?.tone !== 'supporting')
+      .map((line) => String(line?.text || '').trim())
+      .filter(Boolean);
     if (lines.length > 0) return lines.join(' ');
   }
   return [hero.titlePrefix, hero.titleAccent].map((part) => String(part || '').trim()).filter(Boolean).join(' ');
+}
+
+function heroSupportingText(hero = {}) {
+  if (!Array.isArray(hero.titleLines)) return '';
+  return hero.titleLines
+    .filter((line) => line?.tone === 'supporting')
+    .map((line) => String(line?.text || '').trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 const SERVICE_TYPE_LABELS = {
@@ -1562,7 +1578,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       description: config.seo.description,
       h1: heroHeading(config.hero),
       hero: config.hero,
-      lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
+      lead: [heroSupportingText(config.hero), ...config.hero.paragraphs.map((paragraph) => String(paragraph))].filter(Boolean).join(' '),
       sections: renderServicePageSections(config),
       siteContentSeed: { key: contentKey, content: publishedOverride },
       breadcrumbName: serviceName,

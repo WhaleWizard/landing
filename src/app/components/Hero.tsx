@@ -292,61 +292,69 @@ const LeftContent = memo(({
     </m.div>
 
     {content.titleLines?.length ? (
-      <h1
-        ref={titleRef}
-        aria-label={content.titleLines.map((line) => line.text).join(' ')}
-        className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
-        style={managedTitleStyle(content.typography)}
-      >
-        {content.titleLines.map((line, index) => {
-          // Ключ по позиции, а не по тексту: иначе правка буквы пересоздаёт
-          // строку и эффект появления запускается заново — в предпросмотре
-          // это выглядело как исчезающий и обрезанный заголовок.
-          if (line.tone === 'supporting') {
-            const supporting = resolveHeroTitleLine(line, titleAnimation);
+      // Поясняющая строка («supporting») стоит под заголовком отдельным
+      // абзацем, а не внутри <h1>: в самом заголовке она давала третью
+      // строку на телефоне, которую подгонка кегля убрать не могла — у неё
+      // свой, меньший кегль. Обёртка нужна, чтобы отступы остались прежними:
+      // вертикальный шаг колонки ложится на обёртку, а не между h1 и абзацем.
+      <div>
+        <h1
+          ref={titleRef}
+          aria-label={content.titleLines.filter((line) => line.tone !== 'supporting').map((line) => line.text).join(' ')}
+          className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
+          style={managedTitleStyle(content.typography)}
+        >
+          {content.titleLines.map((line, index) => {
+            // Ключ по позиции, а не по тексту: иначе правка буквы пересоздаёт
+            // строку и эффект появления запускается заново — в предпросмотре
+            // это выглядело как исчезающий и обрезанный заголовок.
+            if (line.tone === 'supporting') return null;
+            const resolved = resolveHeroTitleLine(line, titleAnimation, { display: 'block' });
             return (
-              <span
+              <HeroTitleEffect
+                as="span"
                 key={`line-${index}`}
-                className="mt-2.5 flex items-center gap-2.5 text-[13px] min-[360px]:text-sm sm:text-base md:text-[17px] font-medium leading-snug tracking-[-0.01em] text-muted-foreground"
-                style={{ display: 'flex' }}
+                className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
+                style={resolved.style}
+                text={line.text}
+                effect={resolved.effect}
+                speed={resolved.speed}
+                delayMs={resolved.delayMs}
+                sequenceIndex={index}
               >
-                <span
-                  aria-hidden="true"
-                  className="h-px w-6 sm:w-8 shrink-0 bg-gradient-to-r from-primary via-accent to-secondary opacity-80"
-                />
-                <HeroTitleEffect
-                  as="span"
-                  text={line.text}
-                  effect={supporting.effect}
-                  speed={supporting.speed}
-                  delayMs={supporting.delayMs}
-                  style={supporting.style}
-                  sequenceIndex={index}
-                >
-                  {line.text}
-                </HeroTitleEffect>
-              </span>
+                {line.text}
+              </HeroTitleEffect>
             );
-          }
-
-          const resolved = resolveHeroTitleLine(line, titleAnimation, { display: 'block' });
+          })}
+        </h1>
+        {content.titleLines.map((line, index) => {
+          if (line.tone !== 'supporting') return null;
+          const supporting = resolveHeroTitleLine(line, titleAnimation);
           return (
-            <HeroTitleEffect
-              as="span"
+            <p
               key={`line-${index}`}
-              className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
-              style={resolved.style}
-              text={line.text}
-              effect={resolved.effect}
-              speed={resolved.speed}
-              delayMs={resolved.delayMs}
-              sequenceIndex={index}
+              className="mt-2.5 flex items-center gap-2.5 text-[13px] min-[360px]:text-sm sm:text-base md:text-[17px] font-medium leading-snug tracking-[-0.01em] text-muted-foreground"
+              style={{ display: 'flex', fontFamily: managedTitleStyle(content.typography).fontFamily }}
             >
-              {line.text}
-            </HeroTitleEffect>
+              <span
+                aria-hidden="true"
+                className="h-px w-6 sm:w-8 shrink-0 bg-gradient-to-r from-primary via-accent to-secondary opacity-80"
+              />
+              <HeroTitleEffect
+                as="span"
+                text={line.text}
+                effect={supporting.effect}
+                speed={supporting.speed}
+                delayMs={supporting.delayMs}
+                style={supporting.style}
+                sequenceIndex={index}
+              >
+                {line.text}
+              </HeroTitleEffect>
+            </p>
           );
         })}
-      </h1>
+      </div>
     ) : (
       <h1 ref={titleRef} style={managedTitleStyle(content.typography)} className={`max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
         <HeroTitleEffect as="span" className="block" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={0}>{content.titlePrefix}</HeroTitleEffect>{' '}
