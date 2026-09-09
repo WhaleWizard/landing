@@ -854,11 +854,25 @@ async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): 
     ).bind(`Объединена с заявкой #${leadId}`, duplicateId),
     db.prepare('INSERT INTO crm_notes (lead_id, body, pinned) VALUES (?, ?, 0)').bind(leadId, summary),
   ];
+  // Номер версии карточки растёт всегда, даже если полей для переноса не
+  // нашлось: второй открытый редактор должен заметить, что карточка изменилась,
+  // а не перезаписать её своим устаревшим состоянием.
+  if (leadColumns.has('crm_revision')) updates.push('crm_revision = crm_revision + 1');
   if (updates.length) {
     statements.unshift(
       db.prepare(`UPDATE leads SET ${updates.join(', ')}, updated_at = datetime('now') WHERE id = ?`).bind(...values, leadId),
     );
   }
+  // Слияние попадает в историю карточки: раньше в ленте активности его не
+  // было, и понять, откуда взялись чужие заметки, было негде.
+  statements.push(createCrmActivityStatement(db, {
+    leadId,
+    type: 'lead_merged',
+    from: String(duplicateId),
+    to: String(leadId),
+    note: summary,
+    actionId: normalizeActionId(body.action_id),
+  }, leadColumns.has('crm_action_id')));
 
   await db.batch(statements);
   return { merged: duplicateId, filled, summary };

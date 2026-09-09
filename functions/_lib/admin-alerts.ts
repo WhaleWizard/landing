@@ -1,4 +1,5 @@
 import { getLeadsColumns, hasLeadSoftDelete } from './leads';
+import { localTodayIsoFromOffset, sqliteLocalModifier } from './local-day';
 import type { Env } from './types';
 
 export const ADMIN_ALERTS_MIGRATION = '0028_admin_alerts.sql';
@@ -55,9 +56,14 @@ async function tableExists(db: D1Database, name: string): Promise<boolean> {
  * нет, правило просто молчит. Тревога не должна зависеть от того, какие
  * миграции успели применить.
  */
-export async function collectAlerts(env: Env): Promise<AlertDraft[]> {
+export async function collectAlerts(env: Env, timezoneOffsetMinutes = 0): Promise<AlertDraft[]> {
   const db = env.DB;
   if (!db) return [];
+  // Месяц и день считаются по времени владельца, когда раздел открыт из
+  // браузера (смещение приходит с запросом). Cron смещения не знает и живёт
+  // по Гринвичу — в первые часы нового месяца он ещё смотрит на прошлый.
+  const localToday = localTodayIsoFromOffset(timezoneOffsetMinutes);
+  const localModifier = sqliteLocalModifier(timezoneOffsetMinutes);
 
   const drafts: AlertDraft[] = [];
   const columns = await getLeadsColumns(db);
@@ -150,7 +156,7 @@ export async function collectAlerts(env: Env): Promise<AlertDraft[]> {
 
   // 4. Цель месяца: расход выше потолка и отставание от плана по заявкам.
   if (await tableExists(db, 'admin_goals')) {
-    const period = new Date().toISOString().slice(0, 7);
+    const period = localToday.slice(0, 7);
     const goal = await db.prepare('SELECT * FROM admin_goals WHERE period = ?')
       .bind(period)
       .first<{ leads_target: number; spend_cap: number; currency: string }>();
@@ -160,8 +166,8 @@ export async function collectAlerts(env: Env): Promise<AlertDraft[]> {
       if (number(goal.spend_cap) > 0 && await tableExists(db, 'ad_spend')) {
         const spend = await db.prepare(`
           SELECT COALESCE(SUM(amount), 0) AS total FROM ad_spend
-          WHERE day >= date('now', 'start of month') AND currency = ?
-        `).bind(currency).first<{ total: number }>();
+          WHERE day >= date(?, 'start of month') AND currency = ?
+        `).bind(localToday, currency).first<{ total: number }>();
         const spent = number(spend?.total);
         if (spent > number(goal.spend_cap)) {
           drafts.push({
@@ -176,16 +182,16 @@ export async function collectAlerts(env: Env): Promise<AlertDraft[]> {
       }
 
       if (number(goal.leads_target) > 0 && columns.has('created_at')) {
-        const now = new Date();
-        const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-        const elapsed = now.getUTCDate();
+        const [year, month, day] = localToday.split('-').map(Number);
+        const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+        const elapsed = day;
         const share = elapsed / daysInMonth;
         if (share >= PACE_CHECK_FROM) {
           const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
           const leads = await db.prepare(`
             SELECT COUNT(*) AS total FROM leads
-            WHERE ${activeCond} AND date(${timeColumn}) >= date('now', 'start of month')
-          `).first<{ total: number }>();
+            WHERE ${activeCond} AND date(${timeColumn}, ?) >= date(?, 'start of month')
+          `).bind(localModifier, localToday).first<{ total: number }>();
           const forecast = Math.round(number(leads?.total) / share);
           if (forecast < number(goal.leads_target) * 0.85) {
             drafts.push({

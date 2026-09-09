@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { pageLockLabel, readPageLockSnapshot } from '../../_lib/page-locks';
+import { localTodayIsoFromOffset, sqliteLocalModifier } from '../../_lib/local-day';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -526,14 +527,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     let tasksToday = 0;
     if (hasTasks && hasLeads) {
       const activeCond = (await schema.columnExists('leads', 'deleted_at')) ? 'l.deleted_at IS NULL' : '1=1';
+      // «Сегодня» у задачи — по дню владельца, а не по Гринвичу: до пяти утра
+      // по местному времени задачи на сегодня иначе числились завтрашними.
+      const localModifier = sqliteLocalModifier(timezoneOffset);
+      const localToday = localTodayIsoFromOffset(timezoneOffset);
       const counters = await db.prepare(
         `SELECT
            SUM(CASE WHEN t.status = 'open' THEN 1 ELSE 0 END) AS open,
            SUM(CASE WHEN t.status = 'open' AND t.due_at IS NOT NULL AND datetime(t.due_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
-           SUM(CASE WHEN t.status = 'open' AND t.due_at IS NOT NULL AND date(t.due_at) = date('now') THEN 1 ELSE 0 END) AS today
+           SUM(CASE WHEN t.status = 'open' AND t.due_at IS NOT NULL AND date(t.due_at, ?1) = ?2 THEN 1 ELSE 0 END) AS today
          FROM crm_tasks t INNER JOIN leads l ON l.id = t.lead_id
          WHERE ${activeCond}`,
-      ).first<{ open: number; overdue: number; today: number }>();
+      ).bind(localModifier, localToday).first<{ open: number; overdue: number; today: number }>();
       tasksOpen = Number(counters?.open || 0);
       tasksOverdue = Number(counters?.overdue || 0);
       tasksToday = Number(counters?.today || 0);
@@ -542,9 +547,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         `SELECT t.id, t.title, t.due_at, l.name, l.email, l.phone, l.telegram_username
          FROM crm_tasks t INNER JOIN leads l ON l.id = t.lead_id
          WHERE t.status = 'open' AND t.due_at IS NOT NULL
-           AND date(t.due_at) <= date('now') AND ${activeCond}
+           AND date(t.due_at, ?1) <= ?2 AND ${activeCond}
          ORDER BY datetime(t.due_at) ASC LIMIT ${FOCUS_LIMIT_PER_KIND * 2}`,
-      ).all<{ id: number; title: string; due_at: string; name: string; email: string; phone: string; telegram_username: string }>();
+      ).bind(localModifier, localToday).all<{ id: number; title: string; due_at: string; name: string; email: string; phone: string; telegram_username: string }>();
       for (const row of rows.results || []) {
         const overdue = new Date(row.due_at).getTime() < Date.now();
         focus.push({

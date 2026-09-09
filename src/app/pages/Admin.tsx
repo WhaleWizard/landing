@@ -147,6 +147,20 @@ async function adminLogin(password: string, code: string): Promise<AdminLoginRes
   return { ok: false, error: loginErrorText(payload?.error) };
 }
 
+/**
+ * Дата публикации для поля `datetime-local` — по местному времени владельца.
+ * Раньше подставлялись первые символы ISO-строки, то есть время по Гринвичу:
+ * в UTC+5 поле показывало публикацию на пять часов раньше настоящей, а
+ * «поправка» сдвигала её вперёд.
+ */
+function toDateTimeLocalValue(iso?: string): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** Жива ли сессия с прошлого раза — проверяется один раз при открытии. */
 async function checkAdminSession(): Promise<boolean> {
   try {
@@ -1163,11 +1177,16 @@ export default function Admin() {
       return;
     }
     const newSlug = `${article.slug}-copy`;
+    // Копия — всегда новый черновик без даты оригинала: иначе копия
+    // опубликованной статьи уходила на сайт сразу и со старой датой.
     openArticleEditor({
       ...article,
       id: 0,
       slug: newSlug,
       title: `${article.title} (копия)`,
+      status: 'draft',
+      publishedAt: undefined,
+      updatedAt: undefined,
       date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
     }, { dirty: true, slugEdited: true });
   };
@@ -1827,7 +1846,7 @@ export default function Admin() {
                     <input
                       aria-label="Дата и время публикации"
                       type="datetime-local"
-                      value={editingArticle.publishedAt ? editingArticle.publishedAt.slice(0, 16) : ''}
+                      value={toDateTimeLocalValue(editingArticle.publishedAt)}
                       onChange={(e) => setEditingArticle({ ...editingArticle, publishedAt: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
                       className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                     />

@@ -38,3 +38,24 @@ export function localTodayIso(request: Request): string {
 export function localMonth(request: Request): string {
   return localTodayIso(request).slice(0, 7);
 }
+
+/** Местная дата по уже разобранному смещению — для мест без объекта запроса. */
+export function localTodayIsoFromOffset(offsetMinutes: number): string {
+  const offset = Number.isFinite(offsetMinutes) && Math.abs(offsetMinutes) <= MAX_OFFSET_MINUTES
+    ? Math.trunc(offsetMinutes)
+    : 0;
+  return new Date(Date.now() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Модификатор для SQLite, переводящий хранимое UTC-время в местное:
+ * `date(created_at, ?)` со значением `'+300 minutes'` даёт местный день
+ * для UTC+5. Смещение из браузера идёт со знаком «наоборот» (−300), поэтому
+ * знак меняется здесь.
+ */
+export function sqliteLocalModifier(offsetMinutes: number): string {
+  const offset = Number.isFinite(offsetMinutes) && Math.abs(offsetMinutes) <= MAX_OFFSET_MINUTES
+    ? Math.trunc(offsetMinutes)
+    : 0;
+  return `${-offset >= 0 ? '+' : '-'}${Math.abs(offset)} minutes`;
+}

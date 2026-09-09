@@ -265,7 +265,12 @@ export default function AdminPageLocks({ password }: { password: string }) {
   const openPreviewTab = useCallback(async (route: RouteState) => {
     // Вкладка открывается сразу по клику: если ждать ответа сервера, браузер
     // посчитает её всплывающим окном и заблокирует.
-    const tab = window.open('', '_blank', 'noopener');
+    //
+    // Без `noopener` в третьем параметре: с ним `window.open` по спецификации
+    // всегда возвращает null, и код уходил в ветку «браузер заблокировал»,
+    // оставляя пустую вкладку. Связь с открывшей страницей рвём вручную.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
     try {
       const payload = await post({ action: 'preview_token', path: route.path });
       if (!payload.url) throw new Error('Сервер не вернул ссылку');

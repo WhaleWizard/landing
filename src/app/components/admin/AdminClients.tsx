@@ -237,7 +237,9 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/clients', {
+      // Смещение часового пояса — чтобы светофор считал «после десятого числа»
+      // и дни до конца договора по календарю владельца, а не по Гринвичу.
+      const response = await fetch(`/api/admin/clients?timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -262,7 +264,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
   useEffect(() => { void load(); }, [load]);
 
   const fetchDetails = useCallback(async (id: number) => {
-    const response = await fetch(`/api/admin/clients?id=${id}`, {
+    const response = await fetch(`/api/admin/clients?id=${id}&timezone_offset=${new Date().getTimezoneOffset()}`, {
       headers: { 'X-Admin-Password': password },
       credentials: 'same-origin',
       cache: 'no-store',

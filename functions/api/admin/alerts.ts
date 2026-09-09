@@ -9,6 +9,7 @@ import {
   syncAlerts,
 } from '../../_lib/admin-alerts';
 import { json, readCappedJsonBody } from '../../_lib/http';
+import { timezoneOffsetFromRequest } from '../../_lib/local-day';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -36,7 +37,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     // Открытие раздела заодно пересчитывает поводы: иначе список показывал бы
     // состояние на момент последнего запуска cron, а не на сейчас.
-    const drafts = await collectAlerts(env);
+    const drafts = await collectAlerts(env, timezoneOffsetFromRequest(request));
     await syncAlerts(env, drafts);
     return json({
       success: true,

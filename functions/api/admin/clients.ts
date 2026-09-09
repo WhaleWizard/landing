@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoney, parseMoneyOrZero } from '../../_lib/money';
+import { localTodayIso } from '../../_lib/local-day';
 import type { Env } from '../../_lib/types';
 
 /**
@@ -123,15 +124,28 @@ function cleanServices(value: unknown): string {
   return JSON.stringify(list);
 }
 
-function monthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+/**
+ * Календарь светофора идёт от местной даты владельца (`YYYY-MM-DD` из
+ * `localTodayIso`), а не от `new Date()` по Гринвичу: до пяти утра по местному
+ * времени «после десятого числа» и «дней до конца договора» иначе считались
+ * от вчерашнего дня.
+ */
+function previousMonthOf(todayIso: string): string {
+  const [year, month] = todayIso.split('-').map(Number);
+  const previous = new Date(Date.UTC(year, month - 2, 1));
+  return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-function daysUntil(iso: string | null): number | null {
+function dayOfMonthOf(todayIso: string): number {
+  return Number(todayIso.slice(8, 10)) || 0;
+}
+
+function daysUntil(iso: string | null, todayIso: string): number | null {
   if (!iso) return null;
   const target = new Date(`${iso}T00:00:00Z`).getTime();
-  if (Number.isNaN(target)) return null;
-  return Math.round((target - Date.now()) / 86_400_000);
+  const today = new Date(`${todayIso}T00:00:00Z`).getTime();
+  if (Number.isNaN(target) || Number.isNaN(today)) return null;
+  return Math.round((target - today) / 86_400_000);
 }
 
 /**
@@ -143,6 +157,7 @@ function computeHealth(
   client: ClientRow,
   previousMonthReported: boolean,
   trend: { current: number | null; previous: number | null },
+  todayIso: string,
 ): { health: Health; reasons: string[] } {
   if (client.status === 'finished') return { health: 'ok', reasons: [] };
 
@@ -152,20 +167,19 @@ function computeHealth(
     if (level === 'critical' || (level === 'attention' && health === 'ok')) health = level;
   };
 
-  const now = new Date();
-  const previousMonth = monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+  const previousMonth = previousMonthOf(todayIso);
   // До десятого числа отчёт за прошлый месяц ещё не просрочен — это нормальный
   // срок на сбор цифр, а не повод краснеть.
   //
   // Спрашиваем именно про прошлый месяц, а не «совпадает ли он с самым свежим
   // отправленным». Отчёт за текущий месяц, отправленный вперёд, делал самый
   // свежий месяц текущим — и раздел требовал отчёт, который давно отправлен.
-  if (client.status === 'active' && now.getUTCDate() > 10 && !previousMonthReported) {
+  if (client.status === 'active' && dayOfMonthOf(todayIso) > 10 && !previousMonthReported) {
     reasons.push(`Отчёт за ${previousMonth} не отправлен`);
     raise('critical');
   }
 
-  const untilEnd = daysUntil(client.contract_ends_at);
+  const untilEnd = daysUntil(client.contract_ends_at, todayIso);
   if (untilEnd !== null && untilEnd >= 0 && !client.contract_auto_renew) {
     if (untilEnd <= 14) {
       reasons.push(`Договор кончается через ${untilEnd} дн.`);
@@ -180,7 +194,7 @@ function computeHealth(
     raise('critical');
   }
 
-  const untilTouch = daysUntil(client.next_touch_at);
+  const untilTouch = daysUntil(client.next_touch_at, todayIso);
   if (untilTouch !== null && untilTouch < 0) {
     reasons.push(`Следующее касание просрочено на ${Math.abs(untilTouch)} дн.`);
     raise('critical');
@@ -197,7 +211,7 @@ function computeHealth(
   }
 
   if (client.status === 'paused') {
-    const back = daysUntil(client.paused_until);
+    const back = daysUntil(client.paused_until, todayIso);
     if (back !== null && back < 0) {
       reasons.push('Пауза кончилась, а клиент всё ещё на паузе');
       raise('attention');
@@ -230,9 +244,8 @@ function toHealthMonth(row: {
  * никогда. Владелец видел светофор только точкой в списке, а зачем она горит,
  * узнать было негде.
  */
-function healthOf(client: ClientRow, months: HealthMonth[]): { health: Health; reasons: string[]; lastReportMonth: string | null } {
-  const now = new Date();
-  const previousMonthKey = monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+function healthOf(client: ClientRow, months: HealthMonth[], todayIso: string): { health: Health; reasons: string[]; lastReportMonth: string | null } {
+  const previousMonthKey = previousMonthOf(todayIso);
   const withCpl = months.filter((item) => item.cpl !== null);
   // Два месяца сравниваются только внутри одной валюты. Иначе смена валюты
   // в таблице месяцев рисовала бы «цена лида выросла на 12 000%» — число,
@@ -242,11 +255,12 @@ function healthOf(client: ClientRow, months: HealthMonth[]): { health: Health; r
     client,
     months.some((item) => item.month === previousMonthKey && item.reported),
     { current: withCpl[0]?.cpl ?? null, previous: comparable ? withCpl[1].cpl : null },
+    todayIso,
   );
   return { health, reasons, lastReportMonth: months.find((item) => item.reported)?.month || null };
 }
 
-async function listClients(env: Env): Promise<Response> {
+async function listClients(env: Env, todayIso: string): Promise<Response> {
   const db = env.DB as D1Database;
   const [clientRows, monthRows] = await Promise.all([
     db.prepare('SELECT * FROM clients ORDER BY (status = \'finished\'), name COLLATE NOCASE').all<ClientRow>(),
@@ -265,7 +279,7 @@ async function listClients(env: Env): Promise<Response> {
 
   const clients = (clientRows.results || []).map((client) => {
     const months = monthsByClient.get(client.id) || [];
-    const { health, reasons, lastReportMonth } = healthOf(client, months);
+    const { health, reasons, lastReportMonth } = healthOf(client, months, todayIso);
     return {
       ...client,
       services: (() => { try { return JSON.parse(client.services); } catch { return []; } })(),
@@ -318,7 +332,7 @@ async function listClients(env: Env): Promise<Response> {
   }, { headers: noStore });
 }
 
-async function getClient(env: Env, id: number): Promise<Response> {
+async function getClient(env: Env, id: number, todayIso: string): Promise<Response> {
   const db = env.DB as D1Database;
   const client = await db.prepare('SELECT * FROM clients WHERE id = ?').bind(id).first<ClientRow>();
   if (!client) return json({ success: false, error: 'Клиент не найден' }, { status: 404, headers: noStore });
@@ -334,7 +348,7 @@ async function getClient(env: Env, id: number): Promise<Response> {
   const monthRows = (months.results || []) as Array<{
     month: string; report_sent_at: string | null; spend: number | null; leads: number | null; spend_currency: string | null;
   }>;
-  const { health, reasons, lastReportMonth } = healthOf(client, monthRows.map(toHealthMonth));
+  const { health, reasons, lastReportMonth } = healthOf(client, monthRows.map(toHealthMonth), todayIso);
 
   return json({
     success: true,
@@ -414,7 +428,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: true, client: found || null }, { headers: noStore });
     }
     const id = Number(params.get('id') || 0);
-    return id > 0 ? await getClient(env, id) : await listClients(env);
+    const todayIso = localTodayIso(request);
+    return id > 0 ? await getClient(env, id, todayIso) : await listClients(env, todayIso);
   } catch (error) {
     if (isMissingTableError(error)) return migrationResponse();
     return json(

@@ -130,9 +130,10 @@ function monthOf(day: string | null): string {
   return day ? day.slice(0, 7) : '';
 }
 
+/** Текущий месяц по местному времени владельца, а не по Гринвичу. */
 function currentMonth(): string {
   const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function formatMonthLabel(month: string): string {
@@ -741,7 +742,10 @@ export default function AdminFinance({ password }: { password: string }) {
                     <span className="finance__list-main">{expense.category || 'без категории'}{expense.note ? ` · ${expense.note}` : ''}</span>
                     <strong>{formatOne(expense.amount, expense.currency)}</strong>
                     <button type="button" className="admin-icon-button" aria-label="Удалить расход"
-                      onClick={() => void request({ action: 'delete_expense', id: expense.id })}>
+                      onClick={() => void (async () => {
+                        const confirmed = await confirmAsk({ title: 'Удалить расход?', description: 'Восстановить его будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' });
+                        if (confirmed) await request({ action: 'delete_expense', id: expense.id });
+                      })()}>
                       <Trash2 aria-hidden="true" />
                     </button>
                   </li>
@@ -878,7 +882,10 @@ export default function AdminFinance({ password }: { password: string }) {
                     <span className="finance__list-main">{clientName(entry.client_id)}{entry.note ? ` · ${entry.note}` : ''}</span>
                     <strong>{entry.hours.toLocaleString('ru-RU')} ч</strong>
                     <button type="button" className="admin-icon-button" aria-label="Удалить запись"
-                      onClick={() => void request({ action: 'delete_time', id: entry.id })}>
+                      onClick={() => void (async () => {
+                        const confirmed = await confirmAsk({ title: 'Удалить запись часов?', description: 'Восстановить её будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' });
+                        if (confirmed) await request({ action: 'delete_time', id: entry.id });
+                      })()}>
                       <Trash2 aria-hidden="true" />
                     </button>
                   </li>

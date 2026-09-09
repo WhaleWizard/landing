@@ -231,6 +231,9 @@ export const saveArticles = async (articles: Article[], password: string): Promi
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        // Заголовок нужен восстановленной сессии: пароль в памяти вкладки
+        // после перезагрузки пустой, а сервер подставляет его именно сюда.
+        ...(password ? { 'X-Admin-Password': password } : {}),
       },
       credentials: 'same-origin',
       body: JSON.stringify({

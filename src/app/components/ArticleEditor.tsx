@@ -74,6 +74,37 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Ссылка на видео → адрес для встраивания. Раньше распознавался только
+ * `watch?v=`: короткие `youtu.be/…`, Shorts и ссылки из «Поделиться» давали в
+ * статье пустую рамку. Незнакомый адрес отдаётся как есть.
+ */
+function toVideoEmbedUrl(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.replace(/^www\.|^m\./, '');
+    let id = '';
+    if (host === 'youtu.be') {
+      id = parsed.pathname.split('/').filter(Boolean)[0] || '';
+    } else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts[0] === 'watch') id = parsed.searchParams.get('v') || '';
+      else if (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'live' || parts[0] === 'v') id = parts[1] || '';
+    } else if (host === 'vimeo.com') {
+      const vimeoId = parsed.pathname.split('/').filter(Boolean).pop() || '';
+      return /^\d+$/.test(vimeoId) ? `https://player.vimeo.com/video/${vimeoId}` : raw;
+    }
+    if (/^[\w-]{6,}$/.test(id)) {
+      const start = parsed.searchParams.get('t') || parsed.searchParams.get('start');
+      const seconds = start ? String(start).match(/^\d+/)?.[0] : '';
+      return `https://www.youtube.com/embed/${id}${seconds ? `?start=${seconds}` : ''}`;
+    }
+  } catch {
+    // Не адрес — оставляем строку как есть.
+  }
+  return raw.replace('watch?v=', 'embed/').split('&')[0];
+}
+
 function escapeHtml(value = ''): string {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -141,7 +172,7 @@ function blockToHtml(block: ContentBlock): string {
     case 'video': {
       const url = String(block.videoUrl || '').trim();
       if (!url) return '';
-      const embedUrl = url.replace('watch?v=', 'embed/').split('&')[0];
+      const embedUrl = toVideoEmbedUrl(url);
       return `<div data-ww-block="video" style="margin:1.25em 0;position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:1rem;border:1px solid rgba(255,255,255,.14);"><iframe src="${escapeHtml(embedUrl)}" style="position:absolute;top:0;left:0;width:100%;height:100%;" frameborder="0" allowfullscreen></iframe></div>`;
     }
     case 'gallery': {

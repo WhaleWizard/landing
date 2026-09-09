@@ -539,7 +539,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
-  const body = await readCappedJsonBody(request) as { password?: string; action?: string };
+  const body = await readCappedJsonBody(request) as { password?: string; action?: string; timezone_offset?: number };
   if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || body.password || '', env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
@@ -550,12 +550,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, error: 'Секреты Telegram не настроены' }, { status: 503, headers: noStore });
   }
   try {
+    // Время в сообщении — по часам владельца: смещение приходит из браузера.
+    // Раньше подпись была «МСК», хотя владелец живёт в другом поясе.
+    const rawOffset = Number(body.timezone_offset);
+    const offset = Number.isFinite(rawOffset) && Math.abs(rawOffset) <= 840 ? Math.trunc(rawOffset) : 0;
+    const localTime = new Date(Date.now() - offset * 60_000).toLocaleString('ru-RU', { timeZone: 'UTC' });
+    const hours = Math.abs(offset) / 60;
+    const zoneLabel = offset === 0 ? 'UTC' : `UTC${offset < 0 ? '+' : '−'}${Number.isInteger(hours) ? hours : hours.toFixed(1)}`;
     const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: env.TELEGRAM_CHAT_ID,
-        text: `✅ Тест уведомлений из админки whalewzrd.com — всё работает (${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })} МСК)`,
+        text: `✅ Тест уведомлений из админки whalewzrd.com — всё работает (${localTime} ${zoneLabel})`,
       }),
     });
     if (!res.ok) {

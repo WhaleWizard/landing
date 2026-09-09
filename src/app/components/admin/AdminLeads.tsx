@@ -255,6 +255,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   task_deleted: 'Задача удалена',
   tags_updated: 'Теги обновлены',
   quality_changed: 'Качество лида изменено',
+  lead_merged: 'Объединена с дублем',
 };
 
 function formatDate(raw?: string | null): string {

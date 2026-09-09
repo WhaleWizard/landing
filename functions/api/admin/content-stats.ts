@@ -78,6 +78,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SELECT page_path, SUM(views) AS views
         FROM page_stats_daily
         WHERE day >= date('now', ?)
+          AND (page_path LIKE '/blog/%' OR page_path LIKE '/cases/%')
         GROUP BY page_path
         ORDER BY views DESC
         LIMIT 500
@@ -101,6 +102,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
           FROM leads
           WHERE date(${timeColumn}) >= date('now', ?)
             AND TRIM(COALESCE(page_path, '')) != ''
+            AND (page_path LIKE '/blog/%' OR page_path LIKE '/cases/%')
             AND ${activeCond}
           GROUP BY page_path
           LIMIT 500

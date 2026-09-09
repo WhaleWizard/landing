@@ -240,14 +240,16 @@ export default function AdminMedia({ password, articles }: { password: string; a
     }
   };
 
-  const moveFile = async (file: MediaFile, folder: string) => {
+  const moveFile = async (file: MediaFile, folder: string, options: { reload?: boolean } = {}) => {
     if ((mediaUsage.get(file.key) || []).length > 0) {
       setError('Файл используется в публикациях: перенос изменит ссылку и картинка там сломается.');
       return;
     }
     if (await post({ action: 'move', key: file.key, folder })) {
       notify.success('Файл перенесён', `«${file.name}» → ${folder ? `папка «${folder}»` : 'файлы без папки'}`);
-      await load();
+      // Массовый перенос перезагружает список один раз после всех файлов,
+      // а не после каждого.
+      if (options.reload !== false) await load();
     }
   };
 
@@ -477,8 +479,9 @@ export default function AdminMedia({ password, articles }: { password: string; a
                 onValueChange={(value) => {
                   const target = value === '__none__' ? '' : value;
                   void (async () => {
-                    for (const file of selectedFiles) await moveFile(file, target);
+                    for (const file of selectedFiles) await moveFile(file, target, { reload: false });
                     setSelected([]);
+                    await load();
                   })();
                 }}
               />

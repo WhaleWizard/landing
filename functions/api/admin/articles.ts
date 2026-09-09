@@ -196,7 +196,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (rateLimited) return rateLimited;
 
   const payload = (await readCappedJsonBody(request)) as AuthPayload;
-  const password = String(payload?.password || '');
+  const password = String(request.headers.get('X-Admin-Password') || payload?.password || '');
 
   if (!verifyAdminPassword(password, env)) {
     return json(
@@ -261,7 +261,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   if (rateLimited) return rateLimited;
 
   const payload = (await readCappedJsonBody(request)) as UpdatePayload;
-  const password = String(payload?.password || '');
+  // Пароль берётся и из заголовка: после перезагрузки /admin сессия
+  // восстанавливается по cookie, и `_middleware.ts` подставляет пароль только
+  // в заголовок. Читая одно лишь тело, сохранение отвечало «Unauthorized»,
+  // пока владелец не выйдет и не войдёт заново.
+  const password = String(request.headers.get('X-Admin-Password') || payload?.password || '');
 
   if (!verifyAdminPassword(password, env)) {
     return json(

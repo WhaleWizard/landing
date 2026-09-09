@@ -111,7 +111,7 @@ export default function AdminHealth({ password }: { password: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action: 'telegram-test' }),
+        body: JSON.stringify({ action: 'telegram-test', timezone_offset: new Date().getTimezoneOffset() }),
       });
       const payload = await res.json().catch(() => null) as { success?: boolean; error?: string } | null;
       if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
