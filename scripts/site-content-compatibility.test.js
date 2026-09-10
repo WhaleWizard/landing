@@ -123,6 +123,38 @@ test('same headings never erase edited case content or typography', async () => 
   assert.ok(otherPageResult.cases);
 });
 
+test('stored reader drops superseded SEO fields so the source text can win', async () => {
+  const { safeSiteJsonObject, sanitizeSiteContent } = await siteContentModule;
+
+  const stored = {
+    seo: {
+      title: 'Настройка Meta Ads для заявок и продаж',
+      description: 'Запуск и ведение рекламы в Facebook и Instagram: оффер, креативы, Meta Pixel, Conversions API и передача статусов лидов из CRM.',
+    },
+    hero: { badge: 'Meta Ads для заявок и продаж', titleAccent: 'клиенты, а не просто лиды' },
+  };
+
+  const result = safeSiteJsonObject('service:meta-ads', JSON.stringify(stored));
+  assert.equal(result.seo, undefined, 'устаревший seo-блок должен исчезнуть целиком');
+  assert.equal(result.hero.badge, undefined, 'устаревший бейдж должен исчезнуть');
+  assert.equal(result.hero.titleAccent, 'клиенты, а не просто лиды', 'правка владельца обязана остаться');
+
+  // Правка владельца в том же поле снимает совпадение целиком.
+  const edited = structuredClone(stored);
+  edited.seo.title = 'Свой заголовок владельца';
+  const editedResult = safeSiteJsonObject('service:meta-ads', JSON.stringify(edited));
+  assert.equal(editedResult.seo.title, 'Свой заголовок владельца');
+  assert.equal(editedResult.seo.description, undefined);
+
+  // Как и с кейсами, отправка формы через POST ничего не теряет.
+  const submitted = sanitizeSiteContent('service:meta-ads', stored);
+  assert.equal(submitted.seo.title, stored.seo.title);
+
+  // Чужая страница с тем же текстом не трогается.
+  const otherPage = safeSiteJsonObject('service:google-ads', JSON.stringify(stored));
+  assert.equal(otherPage.seo.title, stored.seo.title);
+});
+
 test('case sanitizer keeps the public four-card layout contract', async () => {
   const { sanitizeSiteContent } = await siteContentModule;
   const items = Array.from({ length: 6 }, (_, index) => ({

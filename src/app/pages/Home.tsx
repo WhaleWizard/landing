@@ -22,8 +22,8 @@ import { useWarmSections } from '../utils/sectionWarmup';
 import '../../styles/cosmic-hero.css';
 
 const defaultHomeSeo = {
-  title: 'Google Ads, Meta Ads и аналитика',
-  description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
+  title: 'Таргетолог Instagram и Facebook, специалист по Google Ads',
+  description: 'Настраиваю и веду рекламу в Instagram, Facebook и Google для бизнеса и мобильных приложений: заявки, продажи, установки. Pixel, Conversions API, GA4 и данные CRM. Удалённо, по всему миру.',
 };
 
 const loadServices = memoizedImport(() => import('../components/Services'));

@@ -131,6 +131,53 @@ function isExactLegacyMetaAdsCases(value: unknown): boolean {
 }
 
 /**
+ * Отдельные поля, сохранённые в D1 из прежней версии исходника.
+ *
+ * Админка сохраняет раздел целиком, поэтому в базу попадают и те строки,
+ * которых владелец не касался. Пока там лежит точная копия старого значения,
+ * она перекрывает новый текст в коде — правка SEO молча не доезжает до сайта.
+ *
+ * Совпадение проверяется побайтно и только на чтении: отредактированный
+ * владельцем текст под это условие не подпадает и остаётся на месте.
+ */
+const SUPERSEDED_STORED_FIELDS: Partial<Record<
+  SiteContentKey,
+  ReadonlyArray<readonly [section: string, field: string, superseded: string]>
+>> = {
+  'service:meta-ads': [
+    ['seo', 'title', 'Настройка Meta Ads для заявок и продаж'],
+    ['seo', 'description', 'Запуск и ведение рекламы в Facebook и Instagram: оффер, креативы, Meta Pixel, Conversions API и передача статусов лидов из CRM.'],
+    ['hero', 'badge', 'Meta Ads для заявок и продаж'],
+  ],
+  'service:meta-apps': [
+    ['seo', 'title', 'Реклама мобильных приложений в Meta Ads'],
+    ['seo', 'description', 'Продвижение iOS- и Android-приложений: события после установки, Meta SDK, MMP, Conversions API, креативы и оптимизация по целевому действию.'],
+    ['hero', 'badge', 'Meta Ads для iOS и Android'],
+  ],
+};
+
+function dropSupersededStoredFields(key: SiteContentKey, value: UnknownRecord): UnknownRecord {
+  const fields = SUPERSEDED_STORED_FIELDS[key];
+  if (!fields) return value;
+
+  let result = value;
+  for (const [section, field, superseded] of fields) {
+    const block = result[section];
+    if (!block || typeof block !== 'object' || Array.isArray(block)) continue;
+    const current = block as UnknownRecord;
+    if (current[field] !== superseded) continue;
+
+    const { [field]: _superseded, ...rest } = current;
+    result = { ...result };
+    // Пустой раздел убирается целиком: `{ seo: {} }` в слиянии ведёт себя не
+    // так, как его отсутствие, и мешает исходнику подставить свой текст.
+    if (Object.keys(rest).length > 0) result[section] = rest;
+    else delete result[section];
+  }
+  return result;
+}
+
+/**
  * Applies compatibility only to JSON read from D1/version history. POST input
  * still goes through sanitizeSiteContent unchanged, so a newly submitted block
  * can never disappear merely because it resembles an older source version.
@@ -139,9 +186,10 @@ function applyStoredSiteContentCompatibility(
   key: SiteContentKey,
   value: UnknownRecord,
 ): UnknownRecord {
-  if (key !== 'service:meta-ads' || !isExactLegacyMetaAdsCases(value.cases)) return value;
-  const { cases: _legacyCases, ...current } = value;
-  return current;
+  const current = dropSupersededStoredFields(key, value);
+  if (key !== 'service:meta-ads' || !isExactLegacyMetaAdsCases(current.cases)) return current;
+  const { cases: _legacyCases, ...withoutCases } = current;
+  return withoutCases;
 }
 
 export function isServiceContentKey(value: string): value is ServiceContentKey {

@@ -155,6 +155,8 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
       author: {
         '@type': 'Person',
         name: 'Whale Wizard',
+        url: `${siteUrl}/`,
+        sameAs: ['https://t.me/white_rsh'],
       },
       publisher: {
         '@type': 'Organization',

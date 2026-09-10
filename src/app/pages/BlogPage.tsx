@@ -1102,8 +1102,8 @@ function BlogPageComponent() {
     <>
       <Navbar variant="content" />
       <SEO
-        title={isCasesRoute ? 'Кейсы рекламных проектов' : 'Блог о рекламе и аналитике'}
-        description={isCasesRoute ? 'Разборы рекламных проектов: исходная задача, решения, метрики и выводы.' : 'Практические материалы о Google Ads, Meta Ads, аналитике и экономике рекламы.'}
+        title={isCasesRoute ? 'Кейсы по таргету и Google Ads: бюджеты, цена заявки, ROI' : 'Блог о таргете и Google Ads: как получать заявки из рекламы'}
+        description={isCasesRoute ? 'Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения.' : 'Статьи о рекламе в Instagram, Facebook и Google Ads: запуск, снижение цены заявки, аналитика, продвижение мобильных приложений. Практика без воды и обещаний.'}
         url={routeBase}
       />
       <section

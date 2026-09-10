@@ -587,7 +587,9 @@ function buildOrganizationJsonLd() {
     url: SITE_URL,
     logo: `${SITE_URL}/images/brand/whale-wizard.png`,
     image: `${SITE_URL}/og-image-v2.jpg`,
-    description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи.',
+    description: 'Таргетолог Meta Ads и специалист по Google Ads: настройка и ведение рекламы в Instagram, Facebook и Google под заявки, продажи и установки приложений.',
+    alternateName: ['WhaleWzrd', 'whalewzrd.com'],
+    knowsAbout: ['Meta Ads', 'Instagram Ads', 'Facebook Ads', 'Google Ads', 'Performance Max', 'Google Shopping', 'Meta Conversions API', 'Google Analytics 4', 'Google Tag Manager', 'Продвижение мобильных приложений', 'AppsFlyer', 'Adjust'],
     email: 'whalewzrd@gmail.com',
     // Услуга удалённая и на русском — это единственное, что здесь правда.
     // Прежний список RU/US/AE/TR/EU заявлял охват, которого нечем подтвердить:
@@ -595,7 +597,7 @@ function buildOrganizationJsonLd() {
     // нет, а Узбекистан, откуда работает владелец, в список даже не входил.
     areaServed: 'Worldwide',
     availableLanguage: 'ru',
-    serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],
+    serviceType: ['Таргетированная реклама в Instagram и Facebook', 'Настройка и ведение Google Ads', 'Продвижение мобильных приложений', 'Performance-маркетинг', 'Лидогенерация'],
     sameAs: ['https://t.me/white_rsh'],
   };
 }
@@ -675,6 +677,8 @@ function buildArticleJsonLd(article) {
     author: {
       '@type': 'Person',
       name: 'Whale Wizard',
+      url: `${SITE_URL}/`,
+      sameAs: ['https://t.me/white_rsh'],
     },
     publisher: {
       '@type': 'Organization',
@@ -733,7 +737,7 @@ function buildStaticBreadcrumbJsonLd(route, name) {
 
 // Описывает саму услугу, а не сайт: без этого лендинги услуг для поиска и
 // ИИ-ответов ничем не отличались от обычной страницы.
-function buildServiceJsonLd(route, { name, description, serviceType }) {
+function buildServiceJsonLd(route, { name, description, serviceType, audience, offer }) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Service',
@@ -746,6 +750,20 @@ function buildServiceJsonLd(route, { name, description, serviceType }) {
       name: 'Whale Wizard',
       url: `${SITE_URL}/`,
     },
+    // Совпадает с организацией: услуга удалённая, на русском, без привязки к стране.
+    areaServed: 'Worldwide',
+    availableLanguage: 'ru',
+    ...(audience ? { audience: { '@type': 'Audience', audienceType: audience } } : {}),
+    ...(offer ? {
+      offers: {
+        '@type': 'Offer',
+        price: offer.price,
+        priceCurrency: offer.priceCurrency,
+        description: offer.description,
+        url: `${SITE_URL}${withTrailingSlashIfStaticRoute(route)}`,
+        availability: 'https://schema.org/InStock',
+      },
+    } : {}),
     inLanguage: 'ru',
   };
 }
@@ -1535,11 +1553,26 @@ function heroSupportingText(hero = {}) {
     .join(' ');
 }
 
+// Названия услуг — на языке запросов, а не внутренних терминов: по ним
+// поиск и ИИ-ответы сопоставляют страницу с тем, что печатает клиент.
 const SERVICE_TYPE_LABELS = {
-  'meta-ads': 'Реклама в Meta Ads',
-  'meta-apps': 'Реклама мобильных приложений в Meta Ads',
-  'google-ads': 'Реклама в Google Ads',
-  consult: 'Консультация по контекстной и таргетированной рекламе',
+  'meta-ads': 'Таргетированная реклама в Instagram и Facebook (Meta Ads)',
+  'meta-apps': 'Продвижение мобильных приложений в Meta Ads',
+  'google-ads': 'Контекстная реклама в Google Ads',
+  consult: 'Консультация по рекламе и аудит рекламного кабинета',
+};
+
+// Кому адресована услуга и что она стоит — для Service JSON-LD. Цена есть
+// только у консультации: у ведения она зависит от бюджета и объёма работ,
+// а выдуманная «от …» нарушила бы правило сайта не придумывать числа.
+const SERVICE_SCHEMA_DETAILS = {
+  'meta-ads': { audience: 'Бизнес, e-commerce, инфобизнес и B2B, которым нужны заявки и продажи из Instagram и Facebook' },
+  'meta-apps': { audience: 'Команды iOS- и Android-приложений, которым нужны платящие пользователи, а не дешёвые установки' },
+  'google-ads': { audience: 'Услуги, B2B и интернет-магазины, которых уже ищут в Google' },
+  consult: {
+    audience: 'Владельцы бизнеса, специалисты, ведущие рекламу сами, и таргетологи',
+    offer: { price: '70', priceCurrency: 'USD', description: 'Консультация 60–90 минут: аудит рекламного кабинета или разбор одного главного вопроса' },
+  },
 };
 
 const BREADCRUMB_LABELS = {
@@ -1587,6 +1620,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
           name: serviceName,
           description: config.seo.description,
           serviceType: SERVICE_TYPE_LABELS[service] || serviceName,
+          ...(SERVICE_SCHEMA_DETAILS[service] || {}),
         }),
       ],
     };
@@ -1605,16 +1639,14 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
     testimonialItems: content.testimonialsData,
     contact: mergePublishedContent(content.defaultContactContent, homeOverride?.contact),
   };
+  // Тот же дефолт, что в Home.tsx и AdminContentControl.tsx (HOME_SEO).
+  // Заголовок главной собирается по общему правилу «текст | Whale Wizard»:
+  // отдельный формат «Whale Wizard — …» прятал поисковую фразу за брендом.
   const homeSeo = mergePublishedContent({
-    title: 'Google Ads, Meta Ads и аналитика',
-    description: 'Настройка и ведение Google Ads и Meta Ads с опорой на аналитику, качество заявок и продажи: GA4, GTM, Meta Pixel, CAPI и данные CRM.',
+    title: 'Таргетолог Instagram и Facebook, специалист по Google Ads',
+    description: 'Настраиваю и веду рекламу в Instagram, Facebook и Google для бизнеса и мобильных приложений: заявки, продажи, установки. Pixel, Conversions API, GA4 и данные CRM. Удалённо, по всему миру.',
   }, homeOverride?.seo);
-  // Preserve the established home title format when the source default is in
-  // use; an explicitly edited SEO title follows the same suffix convention as
-  // the client-side SEO component.
-  const homeDocumentTitle = homeSeo.title === 'Google Ads, Meta Ads и аналитика'
-    ? 'Whale Wizard — Google Ads, Meta Ads и аналитика'
-    : documentTitle(homeSeo.title);
+  const homeDocumentTitle = documentTitle(homeSeo.title);
 
   const faqOverride = publishedContent['site:faq'];
   const faqItems = Array.isArray(faqOverride?.items) && faqOverride.items.length > 0
@@ -1643,15 +1675,15 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
     // окупаемость — иначе поиск считал их дубликатами и держал в выдаче одну.
     {
       route: '/calculator',
-      title: documentTitle('Калькулятор рекламного бюджета и стоимости ведения'),
-      description: 'Прогноз заявок и продаж по медиабюджету в трёх сценариях и ориентир по стоимости ведения Google Ads и Meta Ads. Считает по вашим цифрам, а не по средним по рынку.',
+      title: documentTitle('Калькулятор бюджета на рекламу: сколько стоит таргет и Google Ads'),
+      description: 'Посчитайте, сколько нужно бюджета на рекламу в Instagram, Facebook и Google, сколько заявок и продаж он даст в трёх сценариях и сколько стоит ведение. По вашим цифрам, а не по средним по рынку.',
       h1: 'Калькулятор рекламного бюджета',
       lead: 'Укажите медиабюджет, площадки и задачу — калькулятор даст ориентир по стоимости ведения Google Ads и Meta Ads, а вкладка «Прогноз» покажет, сколько заявок и продаж принесёт бюджет в осторожном, базовом и сильном сценарии.',
     },
     {
       route: '/roi-calculator',
       title: documentTitle('Калькулятор окупаемости рекламы: ROI, ROMI и ROAS'),
-      description: 'Рассчитайте ROAS, полный ROMI и точку безубыточности с учётом всех расходов на маркетинг: ведение, креативы, сервисы, налоги и комиссии.',
+      description: 'Калькулятор ROI, ROMI и ROAS рекламы: рассчитайте окупаемость и точку безубыточности с учётом ведения, креативов, сервисов, налогов и комиссий — по своим цифрам, а не по средним по рынку.',
       h1: 'Калькулятор окупаемости ROI и ROMI',
       lead: 'Подставьте расход рекламных кабинетов, выручку, средний чек и маржу, добавьте ведение, креативы, сервисы и налоги — калькулятор покажет ROAS, полный ROMI и точку безубыточности по вашим цифрам, а не по средним по рынку.',
     },
@@ -1869,8 +1901,8 @@ function renderBlogPages(articles, baseHtml) {
     articles: blogArticles,
     seedArticles: articles,
     route: '/blog',
-    title: 'Блог о рекламе и аналитике | Whale Wizard',
-    description: 'Практические материалы о Google Ads, Meta Ads, аналитике и экономике рекламы.',
+    title: 'Блог о таргете и Google Ads: как получать заявки из рекламы | Whale Wizard',
+    description: 'Статьи о рекламе в Instagram, Facebook и Google Ads: запуск, снижение цены заявки, аналитика, продвижение мобильных приложений. Практика без воды и обещаний.',
     h1: 'Решения для реальных задач',
     lead: 'Выберите, что нужно решить. Покажу разборы, которые помогают принять решение, а не пересказывают справку рекламного кабинета.',
     eyebrow: 'Практический блог',
@@ -1881,8 +1913,8 @@ function renderBlogPages(articles, baseHtml) {
     articles: caseArticles,
     seedArticles: articles,
     route: '/cases',
-    title: 'Кейсы рекламных проектов — задачи, решения и результаты | Whale Wizard',
-    description: 'Опубликованные проекты Whale Wizard: исходная задача, рекламные каналы, бюджет, ключевые метрики и логика решений.',
+    title: 'Кейсы по таргету и Google Ads: бюджеты, цена заявки, ROI | Whale Wizard',
+    description: 'Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения.',
     h1: 'Проекты с цифрами и контекстом',
     lead: 'Фильтруйте по нише и каналу. В карточках указаны только опубликованные показатели проекта.',
     eyebrow: 'Кейсы Whale Wizard',

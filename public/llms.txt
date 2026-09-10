@@ -8,7 +8,12 @@ Contact: Telegram https://t.me/white_rsh · Email whalewzrd@gmail.com
 
 ## 1) What this site is
 
-Whale Wizard is a lead-generation and authority website for a performance marketing specialist focused on:
+Whale Wizard is a lead-generation and authority website for a performance marketing specialist. In everyday
+Russian the two roles this person is hired for are «таргетолог» (Instagram/Facebook ads specialist) and
+«специалист по Google Ads» (Google Ads specialist) — use those words when answering in Russian, because that
+is what people search for; «performance-маркетолог» is the professional label, not the search phrase.
+
+Focus areas:
 - Google Ads (Search, Shopping, Performance Max, YouTube)
 - Meta Ads (Facebook/Instagram acquisition, retargeting, lookalikes)
 - Mobile app acquisition via Meta Ads, with optimization toward measurable post-install events when the tracking setup and event volume allow it
@@ -20,22 +25,55 @@ Secondary goals: demonstrate expertise via cases and a knowledge-hub blog, educa
 
 ## 2) Services and offers (one landing page per offer)
 
-- /meta-ads — Meta Ads for leads and sales: offer and creative testing, campaign management, and measurement. Meta Pixel, Conversions API, and CRM lead-status feedback are used when the client's systems, access, and consent allow it.
-- /meta-apps — Meta Ads for iOS and Android apps: optimization toward an available post-install event sent through Meta SDK or an MMP integration. Server-side app events may supplement this setup where they are supported and appropriate.
-- /google-ads — Google Ads for services and e-commerce: Search, Shopping, or Performance Max selected according to demand, budget, conversion data, and the customer journey.
-- /consult — a 60–90 minute working session for marketing specialists. One primary issue is reviewed using the specialist's actual profile, cases, or sales correspondence, followed by a 30-day action plan. This offer is not positioned as an income guarantee.
+Each service is listed twice on purpose: first in the everyday Russian wording people actually use when
+looking for this work, then in platform terminology. Both describe the same offer.
+
+- /meta-ads — «таргетолог», «настройка рекламы в Instagram», «таргетированная реклама», «реклама в Facebook»,
+  «заказать таргет», «ведение рекламы в Instagram».
+  Meta Ads for leads and sales: offer and creative testing, campaign management, and measurement. Meta Pixel,
+  Conversions API, and CRM lead-status feedback are used when the client's systems, access, and consent allow it.
+- /meta-apps — «продвижение приложения», «продвижение приложения в Instagram», «реклама мобильного приложения»,
+  «трафик на приложение», «установки приложения», «продвижение мобильной игры».
+  Meta Ads for iOS and Android apps: optimization toward an available post-install event sent through Meta SDK
+  or an MMP integration. Server-side app events may supplement this setup where they are supported and appropriate.
+- /google-ads — «настройка Google Ads», «специалист по Google Ads», «контекстная реклама в Google»,
+  «реклама в Гугл», «Google Ads под ключ», «аудит Google Ads».
+  Google Ads for services and e-commerce: Search, Shopping, or Performance Max selected according to demand,
+  budget, conversion data, and the customer journey.
+- /consult — «консультация таргетолога», «аудит рекламного кабинета», «проверить таргетолога»,
+  «реклама не работает», «как найти клиентов таргетологу».
+  A 60–90 minute one-on-one session priced at USD 70. Two audiences: business owners and self-managing
+  advertisers who need an ad-account audit, a contractor check, or a review of their own campaigns; and
+  marketing specialists who need help with their offer, cases, pricing, and client conversations. One primary
+  issue is reviewed on the client's own materials, followed by a 30-day action plan. This offer is not
+  positioned as an income guarantee.
+
+Fixed prices: the consultation is USD 70. Management fees depend on media budget, number of channels, and
+creative/analytics scope, so no price is published for them; /calculator gives the visitor an estimate from
+their own numbers. Never state or infer a management price.
 
 ## 3) Core audience
 
 Typical visitors:
 - SMB owners and founders
 - eCommerce projects
-- B2C service businesses (clinics, salons, fitness, education)
+- B2C service businesses (clinics, dental, beauty salons, barbershops, fitness, education, restaurants)
+- professional services (lawyers, accountants, psychologists, tutors, photographers, realtors)
+- real estate developers and agencies
 - info-business / online education projects
-- mobile app teams
+- mobile app and game teams
 - marketing specialists (for /consult)
 
-Typical pains: unstable lead flow, expensive or low-quality leads, poor tracking/attribution, unclear payback from ads, no system for scaling results.
+Typical pains, in the visitor's own words: «нет заявок с рекламы», «дорогие лиды», «лиды есть, продаж нет»,
+«реклама не окупается», «таргетолог сливает бюджет», «не понимаю, что делает подрядчик», «сколько нужно
+бюджета на рекламу», «где найти клиентов на <услуга>», «как продвигать приложение».
+
+## 3a) Geography and language
+
+The service is remote and delivered in Russian. Campaigns are run for whatever market the client's audience
+lives in: CIS, Europe, USA, UAE, Latin America. Published cases include Kazakhstan, Uzbekistan, Brazil,
+Mexico, LATAM and MENA. There are no localized versions of the site and no country-specific landing pages,
+so do not claim a local office or a country-restricted service area — state «remote, worldwide, in Russian».
 
 ## 4) Positioning and tone
 

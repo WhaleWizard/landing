@@ -622,8 +622,8 @@ export default function CasesPage() {
   return (
     <>
       <SEO
-        title="Кейсы рекламы: задачи, решения, цифры"
-        description="Опубликованные проекты Whale Wizard: исходная задача, рекламные каналы, бюджет, ключевые метрики и логика решений."
+        title="Кейсы по таргету и Google Ads: бюджеты, цена заявки, ROI"
+        description="Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения."
         url="/cases"
       />
       <Navbar variant="content" />

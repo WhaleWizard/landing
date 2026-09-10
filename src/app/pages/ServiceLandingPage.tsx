@@ -171,18 +171,18 @@ export const META_APPS_TESTIMONIAL_CONTENT: TestimonialsContent = {
 export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' | 'theme'>> = {
   'meta-ads': {
     seo: {
-      title: 'Настройка Meta Ads для заявок и продаж',
-      description: 'Запуск и ведение рекламы в Facebook и Instagram: оффер, креативы, Meta Pixel, Conversions API и передача статусов лидов из CRM.',
+      title: 'Таргетолог Meta Ads: настройка рекламы в Instagram и Facebook',
+      description: 'Настройка и ведение таргетированной рекламы в Instagram и Facebook под заявки и продажи, а не клики: оффер, креативы, Pixel и Conversions API, статусы лидов из CRM. Удалённо, по всему миру.',
       url: '/meta-ads',
     },
     hero: {
-      badge: 'Meta Ads для заявок и продаж',
-      titlePrefix: 'Реклама в Meta:',
+      badge: 'Таргетолог Meta Ads · Instagram и Facebook',
+      titlePrefix: 'Реклама в Instagram и Facebook:',
       titleAccent: 'клиенты, а не лиды',
       titleLines: [
-        { text: 'Реклама в Meta:' },
+        { text: 'Реклама в Instagram и Facebook:' },
         { text: 'клиенты, а не лиды', tone: 'accent' },
-        { text: 'Instagram и Facebook — с оптимизацией на продажи', tone: 'supporting' },
+        { text: 'таргет с оптимизацией на заявки и продажи, а не на клики', tone: 'supporting' },
       ],
       paragraphs: [
         'Настраиваю и веду таргет в Instagram и Facebook: оффер, креативы, аудитории, ретаргетинг. Первые заявки — уже в период теста.',
@@ -331,12 +331,12 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   'google-ads': {
     seo: {
-      title: 'Google Ads: Search, Shopping и Performance Max',
-      description: 'Настройка и ведение Google Ads для услуг и e-commerce: Search, Shopping, Performance Max, аналитика конверсий и оптимизация по CPA или ценности продаж.',
+      title: 'Настройка и ведение Google Ads: контекстная реклама под заявки',
+      description: 'Специалист по Google Ads: настройка и ведение контекстной рекламы в Google для услуг, B2B и интернет-магазинов — Search, Shopping, Performance Max. Спрос и цену заявки считаю до старта. Удалённо, по всему миру.',
       url: '/google-ads',
     },
     hero: {
-      badge: 'Настройка и ведение Google Ads',
+      badge: 'Специалист по Google Ads · настройка и ведение',
       titlePrefix: 'Реклама в Google:',
       titleAccent: 'клиенты, которые уже ищут вас',
       paragraphs: [
@@ -486,16 +486,16 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   'meta-apps': {
     seo: {
-      title: 'Реклама мобильных приложений в Meta Ads',
-      description: 'Продвижение iOS- и Android-приложений: события после установки, Meta SDK, MMP, Conversions API, креативы и оптимизация по целевому действию.',
+      title: 'Продвижение мобильного приложения: реклама в Instagram и Facebook',
+      description: 'Реклама iOS- и Android-приложений в Meta Ads: установки, регистрации, покупки и подписки, а не просто инсталлы. Настраиваю SDK, MMP и Conversions API, готовлю креативы, считаю CPI и цену платящего пользователя.',
       url: '/meta-apps',
     },
     hero: {
-      badge: 'Meta Ads для iOS и Android',
-      titlePrefix: 'Реклама приложений в Meta:',
+      badge: 'Реклама приложений в Instagram и Facebook',
+      titlePrefix: 'Реклама приложения в Instagram и Facebook:',
       titleAccent: 'качественные установки',
       titleLines: [
-        { text: 'Реклама приложений в Meta:' },
+        { text: 'Реклама приложения в Instagram и Facebook:' },
         { text: 'качественные установки', tone: 'accent' },
         { text: 'и оптимизация на покупки, донаты и подписки', tone: 'supporting' },
       ],
@@ -646,8 +646,8 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   consult: {
     seo: {
-      title: 'Консультация по рекламе: аудит кабинета',
-      description: 'Консультация один на один за $70: аудит рекламного кабинета Meta и Google для бизнеса, помощь тем, кто ведёт рекламу сам, и разбор оффера и кейсов для таргетологов.',
+      title: 'Консультация таргетолога и аудит рекламного кабинета — $70',
+      description: 'Консультация по рекламе один на один за $70: аудит кабинета Meta Ads и Google Ads, проверка подрядчика, разбор кампаний для тех, кто ведёт рекламу сам, помощь таргетологам с оффером и ценой. 60–90 минут.',
       url: '/consult',
     },
     hero: {

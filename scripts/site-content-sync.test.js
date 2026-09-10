@@ -9,6 +9,7 @@ import {
   loadPublishedSiteContent,
   mergePublishedContent,
   SITE_CONTENT_KEYS,
+  SUPERSEDED_STORED_FIELDS,
   writeSiteContentSnapshot,
 } from './site-content-sync.js';
 
@@ -84,6 +85,46 @@ test('build compatibility removes only the exact superseded Meta Ads cases', () 
   edited.items[0].description = 'Владелец изменил карточку.';
   const current = applyStoredSiteContentCompatibility('service:meta-ads', { cases: edited });
   assert.equal(current.cases.items[0].description, edited.items[0].description);
+});
+
+test('build compatibility drops superseded stored fields and keeps edited ones', () => {
+  for (const [key, fields] of Object.entries(SUPERSEDED_STORED_FIELDS)) {
+    const stored = {};
+    for (const [section, field, superseded] of fields) {
+      stored[section] = { ...stored[section], [field]: superseded };
+    }
+    // Раздел, где все поля устарели, исчезает целиком: пустой объект в
+    // слиянии мешает исходнику подставить свой текст.
+    assert.deepEqual(applyStoredSiteContentCompatibility(key, structuredClone(stored)), {}, key);
+
+    const [section, field] = fields[0];
+    const edited = structuredClone(stored);
+    edited[section][field] = 'Владелец изменил этот текст.';
+    const result = applyStoredSiteContentCompatibility(key, edited);
+    assert.equal(result[section][field], 'Владелец изменил этот текст.', `${key}: ${section}.${field}`);
+  }
+});
+
+/**
+ * Устаревшее значение перечисляется в двух местах: сервер применяет его при
+ * чтении из D1, сборка — к тому, что успел отдать ещё не выложенный сервер.
+ * Разойтись они не должны, иначе один и тот же текст на сайте и в статике
+ * окажется разным.
+ */
+test('superseded stored fields match between the server reader and the build', () => {
+  const server = readFileSync('functions/_lib/site-content.ts', 'utf8');
+  const block = server.match(/const SUPERSEDED_STORED_FIELDS[\s\S]*?\n};/);
+  assert.ok(block, 'в functions/_lib/site-content.ts нет SUPERSEDED_STORED_FIELDS');
+
+  for (const [key, fields] of Object.entries(SUPERSEDED_STORED_FIELDS)) {
+    assert.ok(block[0].includes(`'${key}'`), `сервер не знает про ${key}`);
+    for (const [section, field, superseded] of fields) {
+      assert.ok(
+        block[0].includes(`['${section}', '${field}', '${superseded}']`),
+        `сервер не знает про ${key}: ${section}.${field}`,
+      );
+    }
+  }
 });
 
 test('D1 content is fetched for every supported section and stored as a build snapshot', async () => {

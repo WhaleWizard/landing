@@ -135,7 +135,9 @@ export default function SEO({
       url: SITE_URL,
       logo: `${SITE_URL}/images/brand/whale-wizard.png`,
       image: absoluteImage,
-      description: 'Настройка и ведение Google Ads и Meta Ads с аналитикой, событиями и оценкой рекламы по заявкам, продажам и экономике проекта.',
+      description: 'Таргетолог Meta Ads и специалист по Google Ads: настройка и ведение рекламы в Instagram, Facebook и Google под заявки, продажи и установки приложений.',
+      alternateName: ['WhaleWzrd', 'whalewzrd.com'],
+      knowsAbout: ['Meta Ads', 'Instagram Ads', 'Facebook Ads', 'Google Ads', 'Performance Max', 'Google Shopping', 'Meta Conversions API', 'Google Analytics 4', 'Google Tag Manager', 'Продвижение мобильных приложений', 'AppsFlyer', 'Adjust'],
       email: 'whalewzrd@gmail.com',
       // Услуга удалённая и на русском — это единственное, что здесь правда.
       // Прежний список RU/US/AE/TR/EU заявлял охват, которого нечем подтвердить:
@@ -143,7 +145,7 @@ export default function SEO({
       // нет, а Узбекистан, откуда работает владелец, в список даже не входил.
       areaServed: 'Worldwide',
       availableLanguage: 'ru',
-      serviceType: ['Google Ads', 'Meta Ads', 'Performance Marketing', 'Lead Generation'],
+      serviceType: ['Таргетированная реклама в Instagram и Facebook', 'Настройка и ведение Google Ads', 'Продвижение мобильных приложений', 'Performance-маркетинг', 'Лидогенерация'],
       sameAs: ['https://t.me/white_rsh'],
     });
 

@@ -94,7 +94,42 @@ function exactLegacyTypography(value) {
   ));
 }
 
-export function applyStoredSiteContentCompatibility(key, content) {
+// Зеркало SUPERSEDED_STORED_FIELDS из functions/_lib/site-content.ts.
+// Сборка идёт до выкладки сервера, поэтому в момент первого деплоя правки
+// живой API ещё отдаёт старые строки — без этой копии они бы запеклись
+// в статический HTML и во встроенный на страницу слепок контента.
+export const SUPERSEDED_STORED_FIELDS = {
+  'service:meta-ads': [
+    ['seo', 'title', 'Настройка Meta Ads для заявок и продаж'],
+    ['seo', 'description', 'Запуск и ведение рекламы в Facebook и Instagram: оффер, креативы, Meta Pixel, Conversions API и передача статусов лидов из CRM.'],
+    ['hero', 'badge', 'Meta Ads для заявок и продаж'],
+  ],
+  'service:meta-apps': [
+    ['seo', 'title', 'Реклама мобильных приложений в Meta Ads'],
+    ['seo', 'description', 'Продвижение iOS- и Android-приложений: события после установки, Meta SDK, MMP, Conversions API, креативы и оптимизация по целевому действию.'],
+    ['hero', 'badge', 'Meta Ads для iOS и Android'],
+  ],
+};
+
+function dropSupersededStoredFields(key, content) {
+  const fields = SUPERSEDED_STORED_FIELDS[key];
+  if (!fields || !isRecord(content)) return content;
+
+  let result = content;
+  for (const [section, field, superseded] of fields) {
+    const block = result[section];
+    if (!isRecord(block) || block[field] !== superseded) continue;
+
+    const { [field]: _superseded, ...rest } = block;
+    result = { ...result };
+    if (Object.keys(rest).length > 0) result[section] = rest;
+    else delete result[section];
+  }
+  return result;
+}
+
+export function applyStoredSiteContentCompatibility(key, storedContent) {
+  const content = dropSupersededStoredFields(key, storedContent);
   if (key !== 'service:meta-ads' || !isRecord(content) || !isRecord(content.cases)) return content;
   const cases = content.cases;
   const exact = cases.badge === LEGACY_META_ADS_CASES.badge

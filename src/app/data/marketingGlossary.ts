@@ -62,8 +62,8 @@ export interface GlossaryCollection {
 }
 
 export const MARKETING_GLOSSARY_SEO = {
-  title: 'Словарь маркетинговых метрик и терминов',
-  description: 'Канонические определения метрик, рекламы, аналитики, CRM, SEO и продвижения приложений: формулы, ограничения и связи между терминами.',
+  title: 'Словарь рекламных терминов: CPL, ROAS, CPI, CAPI простыми словами',
+  description: 'Простые определения терминов рекламы и аналитики: CPL, CPA, ROAS, ROMI, CPI, LTV, Pixel, Conversions API, MMP — с формулами, ограничениями и примерами для Meta Ads и Google Ads.',
   h1: 'Словарь маркетинга без лишнего жаргона',
   lead: 'Найдите термин, проверьте формулу и ограничения или откройте подборку Meta Apps — от событий и deep links до ATT, SKAdNetwork и экономики когорт.',
 } as const;
