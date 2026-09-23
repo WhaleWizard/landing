@@ -53,6 +53,8 @@ export interface Article {
   }>;
   status?: 'draft' | 'published';
   caseData?: CaseData;
+  /** Порядок на главной (1..15); пусто — не закреплена. */
+  featuredOrder?: number | null;
   /** Public listing payloads omit the heavy article body. */
   _summary?: boolean;
 }
@@ -206,8 +208,10 @@ export const fetchArticle = async (
   return { ...payload.article, _summary: false };
 };
 
+// Список для админки приходит без текстов: тела статей грузятся по одной при
+// открытии редактора (fetchAdminArticle).
 export const fetchAdminArticles = async (password: string): Promise<Article[]> => {
-  const res = await fetch(`${API_ROUTES.adminArticles}?_=${Date.now()}`, {
+  const res = await fetch(`${API_ROUTES.adminArticles}?view=summary&_=${Date.now()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -223,6 +227,64 @@ export const fetchAdminArticles = async (password: string): Promise<Article[]> =
   }
 
   return sanitizeAdminArticles(asArticleArray(payload.articles));
+};
+
+export const fetchAdminArticle = async (slug: string, password: string): Promise<Article> => {
+  const normalizedSlug = String(slug || '').trim();
+  if (!hasValidSlug(normalizedSlug)) throw new Error('Invalid article slug');
+
+  const params = new URLSearchParams({ slug: normalizedSlug, _: String(Date.now()) });
+  const res = await fetch(`${API_ROUTES.adminArticles}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Password': password,
+    },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+
+  const payload = (await res.json().catch(() => null)) as { success?: boolean; article?: Article; error?: string } | null;
+  if (!res.ok || !payload?.success || !payload.article) {
+    throw new Error(payload?.error || `HTTP ${res.status}`);
+  }
+  return { ...payload.article, _summary: false };
+};
+
+export const deleteArticle = async (slug: string, password: string): Promise<void> => {
+  const params = new URLSearchParams({ slug: String(slug || '').trim() });
+  const res = await fetch(`${API_ROUTES.adminArticles}?${params.toString()}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Password': password,
+    },
+    credentials: 'same-origin',
+  });
+  const payload = (await res.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+  if (!res.ok || !payload?.success) {
+    throw new Error(payload?.error || `HTTP ${res.status}`);
+  }
+};
+
+/** Закрепление на главной: весь список слагов в нужном порядке одним запросом. */
+export const saveFeaturedOrder = async (slugs: string[], password: string): Promise<void> => {
+  const res = await fetch(API_ROUTES.adminArticlesFeatured, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(password ? { 'X-Admin-Password': password } : {}),
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify({ password, slugs }),
+  });
+  const payload = (await res.json().catch(() => null)) as { success?: boolean; error?: string; code?: string; migration?: string } | null;
+  if (!res.ok || !payload?.success) {
+    if (payload?.code === 'MIGRATION_REQUIRED') {
+      throw new Error(payload.error || `Примените миграцию ${payload.migration}`);
+    }
+    throw new Error(payload?.error || `HTTP ${res.status}`);
+  }
 };
 
 export const saveArticles = async (articles: Article[], password: string): Promise<AdminUpdateResponse> => {

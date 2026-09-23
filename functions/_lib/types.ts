@@ -51,6 +51,8 @@ export interface Article {
   }>;
   status?: 'draft' | 'published';
   caseData?: CaseData;
+  /** Порядок на главной (1..15); пусто — не закреплена. Миграция 0042. */
+  featuredOrder?: number | null;
 }
 
 export interface Env {

@@ -3,5 +3,6 @@ export const API_BASE = '';
 export const API_ROUTES = {
   articles: `${API_BASE}/api/articles`,
   adminArticles: `${API_BASE}/api/admin/articles`,
+  adminArticlesFeatured: `${API_BASE}/api/admin/articles-featured`,
   lead: `${API_BASE}/api/lead`,
 };

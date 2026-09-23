@@ -193,3 +193,170 @@ test('опорная статья защищена от изменения и ч
   assert.equal(changed.status, 409);
   assert.equal(rows(sqlite)[0].title, 'Опорная');
 });
+
+// ——— Пакеты 2–3: список без текстов, статья по слагу, удаление, закрепление ———
+
+async function loadFeaturedEndpoint() {
+  const result = await build({
+    entryPoints: ['functions/api/admin/articles-featured.ts'],
+    bundle: true,
+    format: 'esm',
+    target: 'es2022',
+    platform: 'node',
+    write: false,
+  });
+  const code = `${result.outputFiles[0].text}\n//${randomUUID()}`;
+  return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+}
+
+const featuredEndpoint = await loadFeaturedEndpoint();
+
+function databaseWithout(prefix) {
+  const sqlite = new DatabaseSync(':memory:');
+  for (const file of ALL_MIGRATIONS.filter((name) => !name.startsWith(prefix))) {
+    sqlite.exec(readFileSync(`migrations/${file}`, 'utf8'));
+  }
+  return sqlite;
+}
+
+async function adminGet(sqlite, query) {
+  const background = [];
+  const response = await endpoint.onRequestGet({
+    request: new Request(`https://example.test/api/admin/articles${query}`, {
+      headers: { 'X-Admin-Password': PASSWORD },
+    }),
+    env: makeEnv(sqlite),
+    waitUntil: (promise) => background.push(promise),
+  });
+  await Promise.allSettled(background);
+  return { status: response.status, payload: await response.json() };
+}
+
+async function adminDelete(sqlite, slug) {
+  const background = [];
+  const response = await endpoint.onRequestDelete({
+    request: new Request(`https://example.test/api/admin/articles?slug=${encodeURIComponent(slug)}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Password': PASSWORD },
+    }),
+    env: makeEnv(sqlite),
+    waitUntil: (promise) => background.push(promise),
+  });
+  await Promise.allSettled(background);
+  return { status: response.status, payload: await response.json() };
+}
+
+async function putFeatured(sqlite, slugs) {
+  const background = [];
+  const response = await featuredEndpoint.onRequestPut({
+    request: new Request('https://example.test/api/admin/articles-featured', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': PASSWORD },
+      body: JSON.stringify({ slugs }),
+    }),
+    env: makeEnv(sqlite),
+    waitUntil: (promise) => background.push(promise),
+  });
+  await Promise.allSettled(background);
+  return { status: response.status, payload: await response.json() };
+}
+
+test('краткий список админки отдаёт черновики и запланированные, но без текстов', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { article: article({ slug: 'live', content: '<p>Большой текст.</p>' }) });
+  await patch(sqlite, { article: article({ slug: 'draft', status: 'draft' }) });
+  await patch(sqlite, { article: article({ slug: 'scheduled', publishedAt: '2099-01-01T09:00:00.000Z' }) });
+
+  const { status, payload } = await adminGet(sqlite, '?view=summary');
+  assert.equal(status, 200);
+  assert.deepEqual(payload.articles.map((item) => item.slug), ['live', 'draft', 'scheduled']);
+  assert.ok(payload.articles.every((item) => item.content === '' && item._summary === true), 'в кратком виде текста нет');
+  assert.equal(payload.articles.find((item) => item.slug === 'draft').status, 'draft');
+});
+
+test('статья по слагу приходит целиком, включая черновик; чужой слаг — 404', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { article: article({ slug: 'draft', status: 'draft', content: '<p>Черновой текст.</p>' }) });
+
+  const found = await adminGet(sqlite, '?slug=draft');
+  assert.equal(found.status, 200);
+  assert.equal(found.payload.article.content, '<p>Черновой текст.</p>');
+  assert.equal(found.payload.article.status, 'draft');
+
+  assert.equal((await adminGet(sqlite, '?slug=nope')).status, 404);
+  assert.equal((await adminGet(sqlite, '?slug=Bad%20Slug')).status, 400);
+});
+
+test('удаление убирает одну статью и не трогает соседей; опорную удалить нельзя', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { article: article({ slug: 'first' }) });
+  await patch(sqlite, { article: article({ slug: 'second' }) });
+  await patch(sqlite, { article: article({ slug: PROTECTED_SLUG, title: 'Опорная' }) });
+
+  const removed = await adminDelete(sqlite, 'first');
+  assert.equal(removed.status, 200);
+  assert.deepEqual(rows(sqlite).map((row) => row.slug), ['second', PROTECTED_SLUG]);
+
+  assert.equal((await adminDelete(sqlite, 'first')).status, 404, 'повторное удаление — 404, а не 200');
+  assert.equal((await adminDelete(sqlite, PROTECTED_SLUG)).status, 409);
+  assert.equal(rows(sqlite).length, 2);
+});
+
+test('закрепление на главной: порядок 1..N, остальным пусто, правка статьи его не снимает', async () => {
+  const sqlite = freshDatabase();
+  for (const slug of ['a', 'b', 'c']) await patch(sqlite, { article: article({ slug }) });
+
+  const set = await putFeatured(sqlite, ['c', 'a']);
+  assert.equal(set.status, 200);
+  const orderOf = () => Object.fromEntries(sqlite.prepare('SELECT slug, featured_order FROM articles').all().map((row) => [row.slug, row.featured_order]));
+  assert.deepEqual(orderOf(), { a: 2, b: null, c: 1 });
+
+  // Краткий список несёт порядок наружу — по нему админка рисует бейджи.
+  const summary = await adminGet(sqlite, '?view=summary');
+  assert.equal(summary.payload.articles.find((item) => item.slug === 'c').featuredOrder, 1);
+  assert.equal(summary.payload.articles.find((item) => item.slug === 'b').featuredOrder, undefined);
+
+  // Обычное сохранение статьи (без поля) закрепление не сбрасывает.
+  await patch(sqlite, { article: article({ slug: 'c', title: 'Третья, исправленная' }) });
+  assert.equal(orderOf().c, 1);
+
+  // Пустой список снимает закрепление со всех.
+  await putFeatured(sqlite, []);
+  assert.deepEqual(orderOf(), { a: null, b: null, c: null });
+
+  assert.equal((await putFeatured(sqlite, ['a', 'a'])).status, 400, 'дубли не принимаются');
+  assert.equal((await putFeatured(sqlite, Array.from({ length: 16 }, (_, i) => `s${i}`))).status, 400, 'больше 15 нельзя');
+});
+
+test('без миграции 0042 закрепление объясняет себя, а не падает', async () => {
+  // Свежие модули: список колонок кэшируется на пять минут внутри загруженного
+  // кода, и после тестов с миграцией он помнил бы колонку, которой здесь нет.
+  const freshArticles = await loadEndpoint();
+  const freshFeatured = await loadFeaturedEndpoint();
+  const sqlite = databaseWithout('0042');
+  const call = async (handler, request) => {
+    const background = [];
+    const response = await handler({ request, env: makeEnv(sqlite), waitUntil: (promise) => background.push(promise) });
+    await Promise.allSettled(background);
+    return { status: response.status, payload: await response.json() };
+  };
+  const patchFresh = (body) => call(freshArticles.onRequestPatch, new Request('https://example.test/api/admin/articles', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Admin-Password': PASSWORD }, body: JSON.stringify(body),
+  }));
+
+  assert.equal((await patchFresh({ article: article({ slug: 'a' }) })).status, 200);
+
+  const { status, payload } = await call(freshFeatured.onRequestPut, new Request('https://example.test/api/admin/articles-featured', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Admin-Password': PASSWORD }, body: JSON.stringify({ slugs: ['a'] }),
+  }));
+  assert.equal(status, 503);
+  assert.equal(payload.code, 'MIGRATION_REQUIRED');
+  assert.equal(payload.migration, '0042_articles_featured_order.sql');
+
+  // Остальное без миграции работает как раньше.
+  const summary = await call(freshArticles.onRequestGet, new Request('https://example.test/api/admin/articles?view=summary', {
+    headers: { 'X-Admin-Password': PASSWORD },
+  }));
+  assert.equal(summary.status, 200);
+  assert.equal((await patchFresh({ article: article({ slug: 'b' }) })).status, 200);
+});

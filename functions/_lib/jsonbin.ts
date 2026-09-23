@@ -209,6 +209,9 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
       faq: extractFaq(article),
       status: article.status === 'draft' ? 'draft' : 'published',
       caseData: normalizeCaseData(article.caseData),
+      featuredOrder: Number.isInteger(article.featuredOrder) && Number(article.featuredOrder) > 0
+        ? Number(article.featuredOrder)
+        : undefined,
     };
   });
 }

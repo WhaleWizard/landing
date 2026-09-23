@@ -316,6 +316,7 @@ const INLINE_ARTICLE_SUMMARY_KEYS = new Set([
   'tags',
   'summary',
   'caseData',
+  'featuredOrder',
   '_summary',
 ]);
 
@@ -339,6 +340,7 @@ function toInlineArticleSummary(article) {
   // An explicitly empty object suppresses the legacy case catalog, so it is
   // meaningful and must not be collapsed into an absent value.
   if (article.caseData !== undefined) summary.caseData = article.caseData;
+  if (Number.isInteger(article.featuredOrder) && article.featuredOrder > 0) summary.featuredOrder = article.featuredOrder;
 
   return summary;
 }
@@ -1588,6 +1590,9 @@ const BREADCRUMB_LABELS = {
 };
 
 function renderStaticPages(baseHtml, { content, latestArticles, publishedContent = {} }) {
+  // Главная показывает не весь блог, а закреплённые владельцем (или 15
+  // последних) — тем же правилом, что и живая карусель в Blog.tsx.
+  const homeArticles = content.selectHomeArticles(latestArticles);
   const serviceStaticPage = (service) => {
     const sourceConfig = content.pageConfigs[service];
     if (!sourceConfig) throw new Error(`Missing page config for ${service}`);
@@ -1665,9 +1670,9 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
       h1: heroHeading(homeContent.hero),
       hero: homeContent.hero,
       lead: homeContent.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
-      sections: renderHomeSections(homeContent, latestArticles),
+      sections: renderHomeSections(homeContent, homeArticles),
       siteContentSeed: { key: 'site:home', content: homeOverride ?? null },
-      articleSeed: latestArticles,
+      articleSeed: homeArticles,
     },
     // Тексты повторяют `PAGE_COPY` и `<SEO>` в компонентах страниц: боту без
     // JavaScript и браузеру с ним должна доставаться одна и та же страница.
@@ -1978,7 +1983,7 @@ function assertFileContains(pathname, markers, label) {
   }
 }
 
-function validateGeneratedOutput(staticPages = [], latestArticles = []) {
+function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArticles = latestArticles) {
   assertFileContains(routeIndexPath('/'), [
     'facebook-domain-verification',
     'feed.xml',
@@ -2035,7 +2040,11 @@ function validateGeneratedOutput(staticPages = [], latestArticles = []) {
     'Проекты с цифрами и контекстом',
   ], 'Generated /cases HTML');
 
-  const expectedSummarySlugs = latestArticles.map((article) => article.slug);
+  const expectedSeedSlugs = {
+    '/': homeArticles.map((article) => article.slug),
+    '/blog': latestArticles.map((article) => article.slug),
+    '/cases': latestArticles.map((article) => article.slug),
+  };
   for (const route of ['/', '/blog', '/cases']) {
     const html = readFileSync(routeIndexPath(route), 'utf8');
     const seeds = [...html.matchAll(/<script\b[^>]*\bid=["']ww-article-seed["'][^>]*>([\s\S]*?)<\/script>/gi)];
@@ -2050,7 +2059,7 @@ function validateGeneratedOutput(staticPages = [], latestArticles = []) {
       throw new Error(`Generated ${route} HTML contains an invalid article seed.`);
     }
 
-    if (!Array.isArray(seed) || seed.length !== latestArticles.length) {
+    if (!Array.isArray(seed) || seed.length !== expectedSeedSlugs[route].length) {
       throw new Error(`Generated ${route} HTML contains an incomplete article-list seed.`);
     }
     if (seed.some((article) => (
@@ -2060,7 +2069,7 @@ function validateGeneratedOutput(staticPages = [], latestArticles = []) {
     ))) {
       throw new Error(`Generated ${route} HTML article-list seed must contain summaries only.`);
     }
-    if (seed.map((article) => article.slug).join('\n') !== expectedSummarySlugs.join('\n')) {
+    if (seed.map((article) => article.slug).join('\n') !== expectedSeedSlugs[route].join('\n')) {
       throw new Error(`Generated ${route} HTML article-list seed is not synchronized with published articles.`);
     }
   }
@@ -2192,7 +2201,7 @@ async function main() {
   writeRobots();
   appendLlmsContentIndex(articles);
   writeLlmsFull(articles);
-  validateGeneratedOutput(staticPages, latestArticles);
+  validateGeneratedOutput(staticPages, latestArticles, content.selectHomeArticles(latestArticles));
 
   console.log(`✅ Generated ${allRoutes.length} static routes`);
 }

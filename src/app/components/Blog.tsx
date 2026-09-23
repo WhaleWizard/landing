@@ -11,7 +11,7 @@ import { formatReadTime } from '../utils/articleMeta';
 // Та же дата, что в списке блога и в самой статье: раньше карусель показывала
 // свободный текст из CMS («апрель 2026 г.»), а список — точную дату публикации.
 import { articleDisplayDate } from '../utils/articleDate';
-import { isCaseArticle } from '../utils/articleCategory';
+import { selectHomeArticles } from '../utils/homeArticles';
 import { useDragScroll } from '../hooks/useDragScroll';
 import ArticlesLoadError from './ArticlesLoadError';
 import { withReturnTo } from '../utils/siteNavigation';
@@ -22,7 +22,9 @@ function Blog() {
   const navigate = useNavigate();
   const location = useLocation();
   const { articles, loading, error: articlesError, refreshArticles } = useArticles();
-  const blogArticles = articles.filter((article) => !isCaseArticle(article));
+  // Закреплённые владельцем в его порядке, иначе пятнадцать последних.
+  // Кейсы не показываем — у них своя витрина выше.
+  const blogArticles = selectHomeArticles(articles);
 
   const openArticle = useCallback((slug: string) => {
     navigate(`/blog/${slug}`, {

@@ -347,4 +347,13 @@ export const MIGRATION_SIGNATURES: readonly MigrationSignature[] = [
     indexes: ['idx_invoices_kind'],
     triggers: [],
   },
+  {
+    file: '0042_articles_featured_order.sql',
+    tables: [],
+    columns: {
+      articles: ['featured_order'],
+    },
+    indexes: ['idx_articles_featured_order'],
+    triggers: [],
+  },
 ];

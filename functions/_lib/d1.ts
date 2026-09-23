@@ -21,6 +21,7 @@ interface D1Row {
   faq_json: string | null;
   status: string | null;
   case_data_json?: string | null;
+  featured_order?: number | null;
 }
 
 /**
@@ -107,6 +108,9 @@ function mapRowToArticle(row: D1Row): Article {
     faq: parseFaq(row.faq_json),
     status: normalizeArticleStatus(row.status),
     caseData: parseCaseData(row.case_data_json),
+    featuredOrder: row.featured_order === null || row.featured_order === undefined
+      ? undefined
+      : Number(row.featured_order),
   };
 }
 
@@ -148,6 +152,7 @@ export async function fetchArticleSummariesFromD1(env: Env): Promise<Article[]> 
 
   const articleColumns = await getArticlesColumns(env.DB);
   const hasCaseColumn = articleColumns.has('case_data_json');
+  const hasFeaturedColumn = articleColumns.has('featured_order');
   const statusSelection = articleColumns.has('status')
     ? 'status'
     : "'published' AS status";
@@ -157,6 +162,7 @@ export async function fetchArticleSummariesFromD1(env: Env): Promise<Article[]> 
       '' AS content, image, seo_title, seo_description, published_at, updated_at,
       tags_json, summary, key_takeaways_json, faq_json, ${statusSelection}
       ${hasCaseColumn ? ', case_data_json' : ''}
+      ${hasFeaturedColumn ? ', featured_order' : ''}
       FROM articles
       ORDER BY id ASC`)
     .all<D1Row>();
@@ -191,6 +197,7 @@ export async function fetchArticleCandidatesFromD1(env: Env, rawSlug: string): P
 type ArticleUpsertContext = {
   insertSql: string;
   hasCaseColumn: boolean;
+  hasFeaturedColumn: boolean;
 };
 
 /**
@@ -199,14 +206,20 @@ type ArticleUpsertContext = {
  * чтобы правила про published_at и набор колонок не разошлись.
  */
 async function getArticleUpsertContext(env: Env & { DB: D1Database }): Promise<ArticleUpsertContext> {
-  const hasCaseColumn = (await getArticlesColumns(env.DB)).has('case_data_json');
+  const columnsInDb = await getArticlesColumns(env.DB);
+  const hasCaseColumn = columnsInDb.has('case_data_json');
+  const hasFeaturedColumn = columnsInDb.has('featured_order');
 
   const baseColumns = [
     'id', 'slug', 'title', 'category', 'read_time', 'date', 'description', 'content', 'image',
     'seo_title', 'seo_description', 'published_at', 'updated_at', 'tags_json', 'summary',
     'key_takeaways_json', 'faq_json', 'status',
   ];
-  const columns = hasCaseColumn ? [...baseColumns, 'case_data_json'] : baseColumns;
+  const columns = [
+    ...baseColumns,
+    ...(hasCaseColumn ? ['case_data_json'] : []),
+    ...(hasFeaturedColumn ? ['featured_order'] : []),
+  ];
   const placeholders = columns.map(() => '?').join(', ');
   const updateSet = columns
     .filter((column) => column !== 'id' && column !== 'slug')
@@ -217,14 +230,18 @@ async function getArticleUpsertContext(env: Env & { DB: D1Database }): Promise<A
       // оставлен как страховка от NULL: обнулять сохранённую дату нельзя.
       column === 'published_at'
         ? 'published_at = COALESCE(excluded.published_at, articles.published_at)'
-        : `${column} = excluded.${column}`
+        // Закрепление на главной меняет свой эндпоинт (articles-featured).
+        // Обычное сохранение статьи, где поля нет, не должно его снимать.
+        : column === 'featured_order'
+          ? 'featured_order = COALESCE(excluded.featured_order, articles.featured_order)'
+          : `${column} = excluded.${column}`
     ));
   updateSet.unshift('id = excluded.id');
 
   const insertSql = `INSERT INTO articles (${columns.join(', ')}) VALUES (${placeholders})
     ON CONFLICT(slug) DO UPDATE SET ${updateSet.join(', ')}`;
 
-  return { insertSql, hasCaseColumn };
+  return { insertSql, hasCaseColumn, hasFeaturedColumn };
 }
 
 function bindArticleUpsert(
@@ -261,6 +278,11 @@ function bindArticleUpsert(
   ];
   if (context.hasCaseColumn) {
     values.push(article.caseData ? JSON.stringify(article.caseData) : null);
+  }
+  if (context.hasFeaturedColumn) {
+    values.push(Number.isInteger(article.featuredOrder) && Number(article.featuredOrder) > 0
+      ? Number(article.featuredOrder)
+      : null);
   }
 
   return env.DB.prepare(context.insertSql).bind(...values);
@@ -325,4 +347,25 @@ export async function nextArticleIdFromD1(env: Env): Promise<number> {
     .prepare('SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM articles')
     .first<{ next_id: number }>();
   return Math.max(1, Number(row?.next_id || 1));
+}
+
+/** Закрепление на главной: перечисленным — порядок 1..N, всем остальным — пусто. */
+export async function writeFeaturedOrderToD1(env: Env, slugs: string[]): Promise<void> {
+  if (!hasD1(env)) {
+    throw new Error('D1 is not configured');
+  }
+  const statements = [env.DB.prepare('UPDATE articles SET featured_order = NULL WHERE featured_order IS NOT NULL')];
+  slugs.forEach((slug, index) => {
+    statements.push(env.DB.prepare('UPDATE articles SET featured_order = ? WHERE slug = ?').bind(index + 1, slug));
+  });
+  await env.DB.batch(statements);
+}
+
+/** Удаление одной статьи. История версий остаётся: она живёт в своей таблице. */
+export async function deleteArticleFromD1(env: Env, slug: string): Promise<boolean> {
+  if (!hasD1(env)) {
+    throw new Error('D1 is not configured');
+  }
+  const result = await env.DB.prepare('DELETE FROM articles WHERE slug = ?').bind(slug).run();
+  return Number(result.meta?.changes || 0) > 0;
 }

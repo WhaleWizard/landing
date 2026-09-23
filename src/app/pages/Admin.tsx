@@ -12,21 +12,20 @@ import '../../styles/admin-tailwind.css';
 import '../../styles/admin-ui.css';
 // Строго после admin-ui.css: слой темы переопределяет её поверхности.
 import '../../styles/admin-theme.css';
-import { lazy, Suspense, useEffect, useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
+import { lazy, Suspense, useEffect, useState, useMemo, useCallback, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { m, useReducedMotion } from 'motion/react';
 import {
   LogIn, Save, Plus, Trash2, Sun, Moon,
-  Search, Copy, Calendar, EyeOff, Upload, GripVertical,
-  ShieldCheck, ExternalLink, History, RotateCcw,
+  Search, Copy, Calendar, EyeOff, Upload, Pin, PinOff, ArrowUp, ArrowDown,
+  ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
   Rows2, Rows3, Users, Wallet, Lock, Radio, Database,
   type LucideIcon
 } from 'lucide-react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useArticles } from '../context/ArticlesContext';
+import { HOME_ARTICLES_LIMIT } from '../utils/homeArticles';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
@@ -664,68 +663,45 @@ function formatStaleAge(days: number): string {
   return `${years} ${years < 5 ? 'года' : 'лет'}`;
 }
 
-const ADMIN_DND_TYPE = 'ADMIN_ARTICLE_ITEM';
-
 interface AdminArticleItemProps {
   article: Article;
-  index: number;
+  /** Позиция среди закреплённых на главной (с нуля) или null, если не закреплена. */
+  featuredIndex: number | null;
+  featuredCount: number;
+  canFeature: boolean;
   onEdit: (article: Article) => void;
   onDuplicate: (article: Article) => void;
   onDelete: (slug: string) => void;
-  onMove: (fromIndex: number, toIndex: number) => void;
-  onDragEnd: () => void;
+  onToggleFeatured: (article: Article) => void;
+  onMoveFeatured: (article: Article, direction: -1 | 1) => void;
   locked: boolean;
 }
 
 
-function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMove, onDragEnd, locked }: AdminArticleItemProps) {
-  const ref = useRef<HTMLDivElement>(null);
+function AdminArticleItem({ article, featuredIndex, featuredCount, canFeature, onEdit, onDuplicate, onDelete, onToggleFeatured, onMoveFeatured, locked }: AdminArticleItemProps) {
   const staleDays = daysSinceUpdate(article);
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: ADMIN_DND_TYPE,
-    item: { index },
-    canDrag: !locked,
-    end: () => onDragEnd(),
-    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  }), [index, locked, onDragEnd]);
-
-  // Перестановка происходит уже при наведении (а не при отпускании):
-  // соседние статьи плавно сдвигаются, видно направление перемещения.
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: ADMIN_DND_TYPE,
-    hover: (dragged: { index: number }, monitor) => {
-      if (locked || !ref.current || dragged.index === index) return;
-      const rect = ref.current.getBoundingClientRect();
-      const middleY = (rect.bottom - rect.top) / 2;
-      const offset = monitor.getClientOffset();
-      if (!offset) return;
-      const hoverY = offset.y - rect.top;
-      if (dragged.index < index && hoverY < middleY) return;
-      if (dragged.index > index && hoverY > middleY) return;
-      onMove(dragged.index, index);
-      dragged.index = index;
-    },
-    collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
-  }), [index, locked, onMove]);
-
-  drag(drop(ref));
+  const isFeatured = featuredIndex !== null;
 
   return (
     <m.div
-      ref={ref}
       layout
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className={`admin-article-row p-2.5 rounded-xl border ${isOver ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'}`}
-      style={{ opacity: isDragging ? 0.35 : 1 }}
+      className="admin-article-row p-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50"
     >
+      {/* На месте ручки перетаскивания — кнопка «на главной». Порядок
+          закреплённых меняется стрелками у бейджа: перетаскивание списка
+          отправляло бы на сервер все статьи целиком, а список теперь без
+          текстов. */}
       <button
         type="button"
-        className={`admin-article-row__grab p-1.5 rounded-lg text-[var(--adm-fg)]/50 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'}`}
-        title={locked ? 'Статья защищена от изменений' : 'Перетащить'}
-        aria-label={locked ? 'Статья защищена от перемещения' : 'Перетащить статью'}
-        disabled={locked}
+        onClick={() => onToggleFeatured(article)}
+        disabled={!canFeature}
+        className={`admin-article-row__grab p-1.5 rounded-lg ${isFeatured ? 'text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/50'} ${canFeature ? 'hover:bg-[var(--adm-primary)]/10' : 'cursor-not-allowed opacity-50'}`}
+        title={!canFeature ? 'Кейсы на главную не закрепляются' : isFeatured ? 'Убрать с главной' : 'Закрепить на главной'}
+        aria-label={!canFeature ? 'Кейсы на главную не закрепляются' : isFeatured ? 'Убрать с главной' : 'Закрепить на главной'}
+        aria-pressed={isFeatured}
       >
-        {locked ? <ShieldCheck className="w-4 h-4" /> : <GripVertical className="w-4 h-4" />}
+        {isFeatured ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
       </button>
       <button type="button" onClick={() => onEdit(article)} className="admin-article-row__main" aria-label={`Редактировать: ${article.title}`}>
         <span className="admin-article-row__title">{article.title}</span>
@@ -734,6 +710,31 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
       <div className="admin-article-row__badges">
         {locked && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]">защищена</span>
+        )}
+        {featuredIndex !== null && (
+          <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]">
+            на главной · {featuredIndex + 1}
+            <button
+              type="button"
+              onClick={() => onMoveFeatured(article, -1)}
+              disabled={featuredIndex === 0}
+              className="p-0.5 rounded hover:bg-[var(--adm-primary)]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Выше на главной"
+              aria-label="Выше на главной"
+            >
+              <ArrowUp className="w-3 h-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMoveFeatured(article, 1)}
+              disabled={featuredIndex >= featuredCount - 1}
+              className="p-0.5 rounded hover:bg-[var(--adm-primary)]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Ниже на главной"
+              aria-label="Ниже на главной"
+            >
+              <ArrowDown className="w-3 h-3" />
+            </button>
+          </span>
         )}
         {staleDays !== null && staleDays >= STALE_AFTER_DAYS && article.status !== 'draft' && (
           <span
@@ -775,13 +776,6 @@ function AdminArticleItem({ article, index, onEdit, onDuplicate, onDelete, onMov
   );
 }
 
-function moveArrayItem<T>(array: T[], fromIndex: number, toIndex: number): T[] {
-  const copy = [...array];
-  const [item] = copy.splice(fromIndex, 1);
-  copy.splice(toIndex, 0, item);
-  return copy;
-}
-
 function useFilteredArticles(articles: Article[]) {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
@@ -806,7 +800,7 @@ export default function Admin() {
   const [sessionChecking, setSessionChecking] = useState(true);
   const [error, setError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const { articles, loading, forceRefreshAdminArticles, updateArticles, updateArticle } = useArticles();
+  const { articles, loading, forceRefreshAdminArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles } = useArticles();
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [savedArticleSnapshot, setSavedArticleSnapshot] = useState('');
@@ -818,15 +812,9 @@ export default function Admin() {
 
   // Черновик порядка на время перетаскивания: список перестраивается на лету
   // (с анимацией), в базу порядок уходит один раз — при отпускании.
-  const [draftOrder, setDraftOrderState] = useState<Article[] | null>(null);
-  const draftOrderRef = useRef<Article[] | null>(null);
-  const setDraftOrder = useCallback((value: Article[] | null) => {
-    draftOrderRef.current = value;
-    setDraftOrderState(value);
-  }, []);
-  const orderedArticles = draftOrder ?? articles;
 
-  const { query, setQuery, filtered } = useFilteredArticles(orderedArticles);
+
+  const { query, setQuery, filtered } = useFilteredArticles(articles);
   const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
   const reduceMotion = useReducedMotion();
@@ -1143,81 +1131,112 @@ export default function Admin() {
       tone: 'danger',
     });
     if (!confirmed) return;
-    const updated = articles.filter(a => a.slug !== slug);
     try {
-      const success = await updateArticles(updated, password);
-      if (success) {
-        if (editingArticle?.slug === slug) setEditingArticle(null);
-        await forceRefreshAdminArticles(password);
-        await refreshHealth();
-      } else {
-        notify.error('Не удалось удалить статью');
-      }
+      // Удаляется одна статья, а не переотправляется весь список: список в
+      // памяти без текстов, и отправка его целиком затёрла бы тела соседей.
+      await removeArticle(slug, password);
+      if (editingArticle?.slug === slug) setEditingArticle(null);
+      notify.success('Статья удалена');
+      await refreshHealth();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       notify.error('Ошибка при удалении', message);
     }
   };
 
-  const handleDuplicate = (article: Article) => {
+  // Список приходит без текстов: перед редактором статья догружается целиком.
+  const openArticleForEdit = useCallback(async (article: Article) => {
+    const hasBody = !article._summary && Boolean(article.content);
+    if (!article.slug || article.id === 0 || hasBody) {
+      openArticleEditor(article);
+      return;
+    }
+    try {
+      openArticleEditor(await loadAdminArticle(article.slug, password));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      notify.error('Не удалось открыть статью', message);
+    }
+  }, [loadAdminArticle, openArticleEditor, password]);
+
+  const duplicateArticle = async (article: Article) => {
     if (isProtectedArticle(article)) {
       notify.error('Защищённую статью нельзя дублировать');
       return;
     }
-    const newSlug = `${article.slug}-copy`;
-    // Копия — всегда новый черновик без даты оригинала: иначе копия
-    // опубликованной статьи уходила на сайт сразу и со старой датой.
+    let source = article;
+    if (article._summary || !article.content) {
+      try {
+        source = await loadAdminArticle(article.slug, password);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+        notify.error('Не удалось открыть статью', message);
+        return;
+      }
+    }
+    // Копия — всегда новый черновик без даты оригинала и без закрепления:
+    // иначе копия опубликованной статьи уходила на сайт сразу и со старой датой.
     openArticleEditor({
-      ...article,
+      ...source,
       id: 0,
-      slug: newSlug,
-      title: `${article.title} (копия)`,
+      slug: `${source.slug}-copy`,
+      title: `${source.title} (копия)`,
       status: 'draft',
       publishedAt: undefined,
       updatedAt: undefined,
+      featuredOrder: undefined,
+      _summary: false,
       date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
     }, { dirty: true, slugEdited: true });
   };
 
+  // Закреплённые на главной — в порядке владельца. Кейсы не закрепляются:
+  // у них своя витрина, а карусель главной показывает только статьи.
+  const featuredSlugs = useMemo(() => (
+    articles
+      .filter((article) => (
+        article.category !== CASES_CATEGORY
+        && Number.isInteger(article.featuredOrder)
+        && Number(article.featuredOrder) > 0
+      ))
+      .sort((a, b) => Number(a.featuredOrder) - Number(b.featuredOrder))
+      .map((article) => article.slug)
+  ), [articles]);
 
-  // Визуальная перестановка при наведении (во время перетаскивания)
-  const moveArticle = useCallback((fromIndex: number, toIndex: number) => {
-    const base = draftOrderRef.current ?? articles;
-    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= base.length || toIndex >= base.length) return;
-    if (isProtectedArticle(base[fromIndex]) || isProtectedArticle(base[toIndex])) return;
-    const protectedIndex = base.findIndex(isProtectedArticle);
-    const crossesProtectedArticle = protectedIndex >= 0 && (
-      (fromIndex < protectedIndex && toIndex >= protectedIndex) ||
-      (fromIndex > protectedIndex && toIndex <= protectedIndex)
-    );
-    if (crossesProtectedArticle) return; // тихо не пускаем через защищённую статью
-    setDraftOrder(moveArrayItem(base, fromIndex, toIndex));
-  }, [articles, setDraftOrder]);
-
-  // Сохранение нового порядка — один раз, когда статью отпустили
-  const commitArticleOrder = useCallback(async () => {
-    const draft = draftOrderRef.current;
-    if (!draft) return;
-    const changed = draft.some((article, index) => article.slug !== articles[index]?.slug);
-    if (!changed) {
-      setDraftOrder(null);
-      return;
-    }
+  const applyFeatured = async (slugs: string[], successMessage: string) => {
     try {
-      const success = await updateArticles(draft, password);
-      if (!success) {
-        notify.error('Порядок статей не сохранился');
-      }
-      await forceRefreshAdminArticles(password);
-      await refreshHealth();
+      await setFeaturedArticles(slugs, password);
+      notify.success(successMessage);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      notify.error('Ошибка при смене порядка', message);
-      await forceRefreshAdminArticles(password);
-    } finally {
-      setDraftOrder(null);
+      notify.error('Не удалось сохранить закрепление', message);
     }
-  }, [articles, forceRefreshAdminArticles, password, setDraftOrder, updateArticles]);
+  };
+
+  const toggleFeatured = (article: Article) => {
+    if (article.category === CASES_CATEGORY) {
+      notify.error('Кейсы на главную не закрепляются', 'У них своя витрина на главной.');
+      return;
+    }
+    if (featuredSlugs.includes(article.slug)) {
+      void applyFeatured(featuredSlugs.filter((slug) => slug !== article.slug), 'Убрано с главной');
+      return;
+    }
+    if (featuredSlugs.length >= HOME_ARTICLES_LIMIT) {
+      notify.error(`На главной не больше ${HOME_ARTICLES_LIMIT} статей`, 'Сначала уберите одну из закреплённых.');
+      return;
+    }
+    void applyFeatured([...featuredSlugs, article.slug], 'Закреплено на главной');
+  };
+
+  const moveFeatured = (article: Article, direction: -1 | 1) => {
+    const index = featuredSlugs.indexOf(article.slug);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= featuredSlugs.length) return;
+    const next = [...featuredSlugs];
+    [next[index], next[target]] = [next[target], next[index]];
+    void applyFeatured(next, 'Порядок на главной обновлён');
+  };
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -1340,7 +1359,7 @@ export default function Admin() {
   const openArticleFromPalette = (article: Article) => {
     setAdminSectionFilter('all');
     setAdminView('articles');
-    openArticleEditor(article);
+    void openArticleForEdit(article);
   };
 
   const commandGroups: AdminCommandGroup[] = [
@@ -1389,7 +1408,7 @@ export default function Admin() {
     },
     {
       heading: 'Публикации',
-      items: orderedArticles.slice(0, 60).map((article) => ({
+      items: articles.slice(0, 60).map((article) => ({
         id: `article-${article.slug}`,
         label: article.title || 'Без названия',
         // Slug уникален — он же не даёт совпасть двум одинаковым заголовкам.
@@ -1620,7 +1639,7 @@ export default function Admin() {
                 />
               )}
               {adminView === 'finance' && <AdminFinance password={password} />}
-              {adminView === 'media' && <AdminMedia password={password} articles={orderedArticles} />}
+              {adminView === 'media' && <AdminMedia password={password} articles={articles} />}
               {adminView === 'access' && <AdminPageLocks password={password} />}
               {adminView === 'events' && <AdminDataLayer />}
               {adminView === 'migrations' && <AdminMigrations password={password} />}
@@ -1635,7 +1654,6 @@ export default function Admin() {
               )}
 
               {adminView === 'articles' && (
-          <DndProvider backend={HTML5Backend}>
           <div className="admin-editor-layout">
             <div className="admin-editor-list p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
               <div className="flex justify-between items-center mb-4">
@@ -1694,17 +1712,19 @@ export default function Admin() {
                       </div>
                     )}
                     {filteredBySection.map((article) => {
-                      const articleIndex = orderedArticles.findIndex((item) => item.slug === article.slug);
+                      const featuredIndex = featuredSlugs.indexOf(article.slug);
                       return (
                         <AdminArticleItem
                           key={article.slug}
                           article={article}
-                          index={articleIndex}
-                          onEdit={(item) => openArticleEditor(item)}
-                          onDuplicate={handleDuplicate}
+                          featuredIndex={featuredIndex >= 0 ? featuredIndex : null}
+                          featuredCount={featuredSlugs.length}
+                          canFeature={article.category !== CASES_CATEGORY}
+                          onEdit={(item) => void openArticleForEdit(item)}
+                          onDuplicate={(item) => void duplicateArticle(item)}
                           onDelete={handleDelete}
-                          onMove={moveArticle}
-                          onDragEnd={() => void commitArticleOrder()}
+                          onToggleFeatured={toggleFeatured}
+                          onMoveFeatured={moveFeatured}
                           locked={isProtectedArticle(article)}
                         />
                       );
@@ -1723,8 +1743,8 @@ export default function Admin() {
                 <div className="px-3.5 pb-3.5">
                   <ContentPerformance
                     password={password}
-                    articles={orderedArticles}
-                    onOpen={(article) => openArticleEditor(article)}
+                    articles={articles}
+                    onOpen={(article) => void openArticleForEdit(article)}
                   />
                 </div>
               </details>
@@ -1736,8 +1756,8 @@ export default function Admin() {
                 </summary>
                 <div className="px-3.5 pb-3.5">
                   <ArticleCalendar
-                    articles={orderedArticles}
-                    onOpen={(article) => openArticleEditor(article)}
+                    articles={articles}
+                    onOpen={(article) => void openArticleForEdit(article)}
                   />
                 </div>
               </details>
@@ -2038,7 +2058,6 @@ export default function Admin() {
               )}
             </div>
           </div>
-          </DndProvider>
               )}
               </m.div>
             </Suspense>

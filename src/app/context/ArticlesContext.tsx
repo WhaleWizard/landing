@@ -1,6 +1,16 @@
 // src/app/context/ArticlesContext.tsx
 import { createContext, useCallback, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { fetchAdminArticles, fetchArticle, fetchArticles, saveArticle, saveArticles, Article } from '../components/hooks/useArticlesApi';
+import {
+  deleteArticle,
+  fetchAdminArticle,
+  fetchAdminArticles,
+  fetchArticle,
+  fetchArticles,
+  saveArticle,
+  saveArticles,
+  saveFeaturedOrder,
+  Article,
+} from '../components/hooks/useArticlesApi';
 
 interface ArticlesContextType {
   articles: Article[];
@@ -12,6 +22,9 @@ interface ArticlesContextType {
   forceRefreshAdminArticles: (password: string) => Promise<void>;
   updateArticles: (newArticles: Article[], password: string) => Promise<boolean>;
   updateArticle: (article: Article, password: string) => Promise<Article | null>;
+  loadAdminArticle: (slug: string, password: string) => Promise<Article>;
+  removeArticle: (slug: string, password: string) => Promise<void>;
+  setFeaturedArticles: (slugs: string[], password: string) => Promise<void>;
 }
 
 const ArticlesContext = createContext<ArticlesContextType | undefined>(undefined);
@@ -323,6 +336,28 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
     return saved;
   }, []);
 
+  /** Полный текст одной статьи для редактора; список в памяти получает его же. */
+  const loadAdminArticle = useCallback(async (slug: string, password: string) => {
+    const article = await fetchAdminArticle(slug, password);
+    setArticles((current) => current.map((item) => (
+      item.slug === article.slug ? { ...item, ...article, _summary: false } : item
+    )));
+    return article;
+  }, []);
+
+  const removeArticle = useCallback(async (slug: string, password: string) => {
+    await deleteArticle(slug, password);
+    setArticles((current) => current.filter((item) => item.slug !== slug));
+  }, []);
+
+  const setFeaturedArticles = useCallback(async (slugs: string[], password: string) => {
+    await saveFeaturedOrder(slugs, password);
+    setArticles((current) => current.map((item) => {
+      const index = slugs.indexOf(item.slug);
+      return { ...item, featuredOrder: index >= 0 ? index + 1 : undefined };
+    }));
+  }, []);
+
   useEffect(() => {
     // Вход в админку не должен заранее тянуть публичную выдачу: после успешной
     // проверки пароля Admin сам загружает полный набор материалов.
@@ -378,7 +413,7 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
   }, []);
 
   return (
-    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle }}>
+    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles }}>
       {children}
     </ArticlesContext.Provider>
   );

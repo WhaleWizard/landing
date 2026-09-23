@@ -1,8 +1,17 @@
-import { CACHE_CONTROL, deleteCacheByUrl } from '../../_lib/cache';
+import { CACHE_CONTROL } from '../../_lib/cache';
+import { buildSeoCacheTargets, invalidateSeoCaches, purgeCloudflareEdgeCache } from '../../_lib/article-cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
-import { fetchArticleFromD1, fetchArticlesFromD1, nextArticleIdFromD1, writeArticleToD1, writeArticlesToD1 } from '../../_lib/d1';
+import {
+  deleteArticleFromD1,
+  fetchArticleFromD1,
+  fetchArticleSummariesFromD1,
+  fetchArticlesFromD1,
+  nextArticleIdFromD1,
+  writeArticleToD1,
+  writeArticlesToD1,
+} from '../../_lib/d1';
 import {
   fetchArticlesWithFallback,
   isPublishedArticle,
@@ -38,72 +47,6 @@ function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');
   const { origin } = new URL(request.url);
   return origin.replace(/\/$/, '');
-}
-
-interface CacheInvalidationReport {
-  targets: string[];
-  successful: string[];
-  failed: string[];
-}
-
-function buildSeoCacheTargets(siteUrl: string, articleSlugs: string[]): string[] {
-  return [
-    `${siteUrl}/api/articles`,
-    `${siteUrl}/api/articles?view=summary`,
-    `${siteUrl}/sitemap.xml`,
-    `${siteUrl}/feed.xml`,
-    ...articleSlugs.flatMap((slug) => [
-      `${siteUrl}/api/articles?slug=${encodeURIComponent(slug)}`,
-      `${siteUrl}/blog/${slug}`,
-      `${siteUrl}/cases/${slug}`,
-    ]),
-  ];
-}
-
-// caches.default.delete() чистит кэш только текущего дата-центра Cloudflare.
-// Для глобальной очистки нужен API-вызов purge_cache — работает, если заданы
-// CF_ZONE_ID и CF_CACHE_PURGE_TOKEN (токен с правом Zone.Cache Purge).
-async function purgeCloudflareEdgeCache(env: Env, urls: string[]): Promise<{ attempted: boolean; ok: boolean; error?: string }> {
-  const zoneId = env.CF_ZONE_ID;
-  const apiToken = env.CF_CACHE_PURGE_TOKEN;
-  if (!zoneId || !apiToken) return { attempted: false, ok: false };
-
-  try {
-    // Cloudflare ограничивает purge_by_url 30 адресами за вызов.
-    for (let offset = 0; offset < urls.length; offset += 30) {
-      const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiToken}`,
-        },
-        body: JSON.stringify({ files: urls.slice(offset, offset + 30) }),
-      });
-      if (!response.ok) {
-        return { attempted: true, ok: false, error: `HTTP ${response.status}` };
-      }
-    }
-    return { attempted: true, ok: true };
-  } catch (error) {
-    return { attempted: true, ok: false, error: error instanceof Error ? error.message : 'purge failed' };
-  }
-}
-
-async function invalidateSeoCaches(targets: string[]): Promise<CacheInvalidationReport> {
-  const settled = await Promise.allSettled(targets.map((url) => deleteCacheByUrl(url)));
-  const successful: string[] = [];
-  const failed: string[] = [];
-
-  settled.forEach((result, index) => {
-    if (result.status === 'fulfilled') successful.push(targets[index]);
-    else failed.push(targets[index]);
-  });
-
-  return {
-    targets,
-    successful,
-    failed,
-  };
 }
 
 async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Article[]): Promise<void> {
@@ -238,12 +181,43 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     );
   }
 
+  const url = new URL(request.url);
+  const requestedSlug = String(url.searchParams.get('slug') || '').trim();
+  const summaryView = url.searchParams.get('view') === 'summary';
+  const useD1 = shouldUseD1Articles(env) && Boolean(env.DB);
+
   try {
-    const articles = await fetchArticlesWithFallback(env, request, waitUntil);
+    if (requestedSlug) {
+      if (!isValidAdminSlug(requestedSlug)) {
+        return json({ success: false, error: 'Invalid article slug' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+      }
+      // Одна статья целиком — вместе с черновиками и запланированными: это
+      // админка, а не публичная выдача. Точечное чтение из D1, при сбое —
+      // общая цепочка со снимком.
+      const direct = useD1 ? await fetchArticleFromD1(env, requestedSlug).catch(() => null) : null;
+      const article = direct
+        ?? (await fetchArticlesWithFallback(env, request, waitUntil)).find((item) => item.slug === requestedSlug)
+        ?? null;
+      if (!article) {
+        return json({ success: false, error: 'Article not found' }, { status: 404, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+      }
+      return json({ success: true, article }, { headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    }
+
+    // Список без текстов: при шестистах статьях полные тела весят мегабайты,
+    // а списку нужны только заголовок, статус и даты. Текст редактор
+    // догружает по слагу при открытии.
+    const summaries = summaryView && useD1
+      ? await fetchArticleSummariesFromD1(env).catch(() => null)
+      : null;
+    const articles = summaries ?? await fetchArticlesWithFallback(env, request, waitUntil);
     articles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+    const payload = summaryView
+      ? articles.map((article) => ({ ...article, content: '', _summary: true }))
+      : articles;
 
     return json(
-      { success: true, articles },
+      { success: true, articles: payload },
       {
         headers: { 'Cache-Control': CACHE_CONTROL.noStore },
       },
@@ -498,6 +472,56 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
   } catch (error) {
     return json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to save article' },
+      { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+};
+
+/**
+ * Удаление одной статьи по слагу. Через режим списка (PUT) удалять больше
+ * нельзя: список в админке приходит без текстов, и отправка его обратно
+ * затёрла бы тела всех остальных статей пустыми строками.
+ */
+export const onRequestDelete: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+  const rateLimited = await enforceRateLimit(request, 'admin');
+  if (rateLimited) return rateLimited;
+
+  const password = String(request.headers.get('X-Admin-Password') || '');
+  if (!verifyAdminPassword(password, env)) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+
+  const slug = String(new URL(request.url).searchParams.get('slug') || '').trim();
+  if (!isValidAdminSlug(slug)) {
+    return json({ success: false, error: 'Invalid article slug' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+  if (slug === PROTECTED_ARTICLE_SLUG) return protectedArticleError();
+
+  try {
+    let deleted = false;
+    if (shouldUseD1Articles(env)) {
+      deleted = await deleteArticleFromD1(env, slug);
+      if (deleted) waitUntil(persistD1ArticlesSnapshot(env));
+    } else {
+      const all = await fetchArticlesFromJsonBin(env);
+      const next = all.filter((article) => article.slug !== slug);
+      deleted = next.length !== all.length;
+      if (deleted) await writeArticlesToJsonBin(env, next, all);
+    }
+
+    if (!deleted) {
+      return json({ success: false, error: 'Article not found' }, { status: 404, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    }
+
+    const siteUrl = getSiteUrl(env, request);
+    const cacheTargets = buildSeoCacheTargets(siteUrl, [slug]);
+    waitUntil(invalidateSeoCaches(cacheTargets).then(() => undefined));
+    waitUntil(purgeCloudflareEdgeCache(env, cacheTargets).then(() => undefined));
+
+    return json({ success: true, deleted: slug }, { headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  } catch (error) {
+    return json(
+      { success: false, error: error instanceof Error ? error.message : 'Failed to delete article' },
       { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
