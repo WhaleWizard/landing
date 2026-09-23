@@ -2,13 +2,19 @@
 /**
  * Импорт статей в CMS по одной через PATCH /api/admin/articles.
  *
- *   node scripts/import-articles.mjs --dir content/articles [--env-file path] [--dry-run]
- *        [--status draft|published] [--delay-ms 2500] [--report report.json] [--only slug1,slug2]
+ *   node scripts/import-articles.mjs --dir content/articles [--env-file path] [--code 123456]
+ *        [--dry-run] [--status draft|published] [--delay-ms 2500] [--report report.json]
+ *        [--only slug1,slug2]
  *
  * Откуда пароль: переменная окружения ADMIN_PASSWORD или файл `--env-file`
  * (строки KEY=VALUE). Файл с паролем живёт ВНЕ репозитория и никогда не
  * печатается — в отчёте его нет. SITE_URL берётся оттуда же, по умолчанию
  * https://www.whalewzrd.com.
+ *
+ * Двухфакторная защита: первый запуск — с `--code` из приложения (или
+ * резервным кодом). Сессия на 12 часов сохраняется рядом с файлом пароля,
+ * вне репозитория, и следующие запуски в эти 12 часов кода не требуют.
+ * Подробности — scripts/admin-client.mjs.
  *
  * Что читает: файлы *.json в папке. Каждый — объект статьи (или массив).
  * Обязательны title, slug, content (HTML, как из редактора). Остальное
@@ -22,6 +28,7 @@
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { createAdminClient } from './admin-client.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.dir) {
@@ -30,17 +37,19 @@ if (!args.dir) {
 }
 
 const envFile = args['env-file'] || process.env.WHALEWZRD_ENV_FILE;
-const fileEnv = envFile ? readEnvFile(envFile) : {};
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || fileEnv.ADMIN_PASSWORD || '';
-const SITE_URL = (process.env.SITE_URL || fileEnv.SITE_URL || 'https://www.whalewzrd.com').replace(/\/$/, '');
 const DRY_RUN = Boolean(args['dry-run']);
 const DELAY_MS = Number(args['delay-ms'] || 2500);
 const FORCE_STATUS = args.status === 'published' || args.status === 'draft' ? args.status : null;
 const ONLY = args.only ? new Set(String(args.only).split(',').map((s) => s.trim()).filter(Boolean)) : null;
 
-if (!DRY_RUN && !ADMIN_PASSWORD) {
-  console.error('Пароль админки не найден: задайте ADMIN_PASSWORD или --env-file');
-  process.exit(2);
+let client = null;
+if (!DRY_RUN) {
+  try {
+    client = createAdminClient({ envFile, code: args.code === true ? '' : args.code });
+  } catch (error) {
+    console.error(error.message);
+    process.exit(2);
+  }
 }
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -51,7 +60,7 @@ if (!existsSync(dir) || !statSync(dir).isDirectory()) {
 }
 
 const files = readdirSync(dir).filter((name) => name.endsWith('.json')).sort();
-const report = { created: [], updated: [], skipped: [], failed: [], dryRun: DRY_RUN, site: SITE_URL };
+const report = { created: [], updated: [], skipped: [], failed: [], dryRun: DRY_RUN, site: client ? client.siteUrl : null };
 
 const candidates = [];
 for (const name of files) {
@@ -70,7 +79,7 @@ for (const name of files) {
   }
 }
 
-console.log(`Найдено статей: ${candidates.length} (файлов ${files.length}), пропущено ${report.skipped.length}${DRY_RUN ? ', режим проверки' : ''}`);
+console.log(`Найдено статей: ${candidates.length} (файлов ${files.length}), пропущено ${report.skipped.length}${DRY_RUN ? ', режим проверки без отправки' : ''}`);
 
 for (const [index, { file, article }] of candidates.entries()) {
   const label = `${String(index + 1).padStart(3)}/${candidates.length} ${article.slug}`;
@@ -85,6 +94,8 @@ for (const [index, { file, article }] of candidates.entries()) {
   } else {
     report.failed.push({ file, slug: article.slug, reason: outcome.error });
     console.log(`${label} — ОШИБКА: ${outcome.error}`);
+    // Нет доступа — остальные статьи упадут так же, дальше идти бессмысленно.
+    if (outcome.fatal) break;
   }
   if (index < candidates.length - 1) await sleep(DELAY_MS);
 }
@@ -109,19 +120,6 @@ function parseArgs(argv) {
     const next = argv[i + 1];
     if (next === undefined || next.startsWith('--')) out[key] = true;
     else { out[key] = next; i += 1; }
-  }
-  return out;
-}
-
-function readEnvFile(path) {
-  const out = {};
-  if (!existsSync(path)) {
-    console.error(`Файл окружения не найден: ${path}`);
-    process.exit(2);
-  }
-  for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-    if (match) out[match[1]] = match[2].replace(/^["']|["']$/g, '');
   }
   return out;
 }
@@ -167,9 +165,9 @@ function normalize(raw, file) {
 
 async function sendWithRetry(article, attempt = 1) {
   try {
-    const res = await fetch(`${SITE_URL}/api/admin/articles`, {
+    const res = await client.request('/api/admin/articles', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': ADMIN_PASSWORD },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ article }),
     });
     if (res.status === 429 && attempt <= 3) {
@@ -178,14 +176,18 @@ async function sendWithRetry(article, attempt = 1) {
       return sendWithRetry(article, attempt + 1);
     }
     const payload = await res.json().catch(() => null);
+    if (res.status === 401) return { ok: false, fatal: true, error: payload?.error || 'нет доступа' };
     if (!res.ok || !payload?.success) return { ok: false, error: payload?.error || `HTTP ${res.status}` };
     return { ok: true, created: Boolean(payload.created), id: payload.article?.id };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Вход не удался (нужен код, неверный пароль) — повтор не поможет.
+    if (/Вход|двухфакторн|сессию|Пароль/.test(message)) return { ok: false, fatal: true, error: message };
     if (attempt <= 3) {
       await sleep(5_000);
       return sendWithRetry(article, attempt + 1);
     }
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return { ok: false, error: message };
   }
 }
 
