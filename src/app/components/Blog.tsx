@@ -15,6 +15,7 @@ import { selectHomeArticles } from '../utils/homeArticles';
 import { useDragScroll } from '../hooks/useDragScroll';
 import ArticlesLoadError from './ArticlesLoadError';
 import { withReturnTo } from '../utils/siteNavigation';
+import { categoryDisplayLabel } from '../data/blogSections';
 
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -108,7 +109,7 @@ function Blog() {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 py-1 md:px-4 md:py-2 rounded-full bg-primary/30 backdrop-blur-md border border-white/20">
-                    <span className="text-xs md:text-sm font-semibold text-white">{article.category}</span>
+                    <span className="text-xs md:text-sm font-semibold text-white">{categoryDisplayLabel(article.category)}</span>
                   </div>
                 </div>
                 <div className="p-4 md:p-6 space-y-3 md:space-y-4">

@@ -27,6 +27,7 @@ import {
 import { useArticles } from '../context/ArticlesContext';
 import { HOME_ARTICLES_LIMIT } from '../utils/homeArticles';
 import { appendImageUpload, prepareImageUpload } from '../utils/prepareImageUpload';
+import { ARTICLE_CATEGORY_VALUES, sectionForCategory } from '../data/blogSections';
 import { withPlural } from '../utils/plural';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
@@ -182,6 +183,21 @@ async function checkAdminSession(): Promise<boolean> {
 
 const PROTECTED_ARTICLE_SLUG = 'kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh';
 const CASES_CATEGORY = 'Кейсы';
+
+/**
+ * Разделы для редактора: восемь из справочника блога. Старую категорию
+ * статьи (например, «Meta Ads») показываем отдельным пунктом, чтобы поле не
+ * выглядело пустым и сохранение ничего не меняло без ведома владельца.
+ */
+function articleCategoryOptions(current: string | undefined): Array<{ value: string; label: string }> {
+  const options = ARTICLE_CATEGORY_VALUES.map((value) => ({ value, label: value }));
+  const legacy = String(current || '').trim();
+  if (legacy && !ARTICLE_CATEGORY_VALUES.includes(legacy)) {
+    const section = sectionForCategory(legacy);
+    options.push({ value: legacy, label: section ? `${legacy} — старая, это «${section.label}»` : `${legacy} — старая категория` });
+  }
+  return options;
+}
 
 function isProtectedArticle(article?: Pick<Article, 'slug'> | null): boolean {
   return article?.slug === PROTECTED_ARTICLE_SLUG;
@@ -1064,6 +1080,10 @@ export default function Admin() {
       notify.error('Нужен адрес страницы', 'Заполните поле slug — это часть ссылки на статью.');
       return;
     }
+    if (!String(editingArticle.category || '').trim()) {
+      notify.error('Выберите раздел', 'Без раздела статью не найти в фильтре блога.');
+      return;
+    }
 
     const normalizedArticle: Article = {
       ...editingArticle,
@@ -1386,7 +1406,7 @@ export default function Admin() {
           label: 'Написать статью',
           keywords: ['новая', 'создать', 'пост', 'блог'],
           icon: <Plus />,
-          run: () => { setAdminSectionFilter('blog'); setAdminView('articles'); createArticleDraft('Блог'); },
+          run: () => { setAdminSectionFilter('blog'); setAdminView('articles'); createArticleDraft(''); },
         },
         {
           id: 'new-case',
@@ -1668,7 +1688,7 @@ export default function Admin() {
                 <button onClick={() => {
                   // Раздел новой статьи подстраивается под активный фильтр:
                   // включён фильтр «Кейсы» — сразу создаём кейс
-                  createArticleDraft(adminSectionFilter === 'cases' ? CASES_CATEGORY : 'Блог');
+                  createArticleDraft(adminSectionFilter === 'cases' ? CASES_CATEGORY : '');
                 }} className="admin-button h-10 w-10 p-0 text-[var(--adm-primary)]" aria-label="Создать публикацию" title="Создать публикацию">
                   <Plus className="w-4 h-4" />
                 </button>
@@ -1836,8 +1856,9 @@ export default function Admin() {
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Раздел публикации</label>
                       <AdminSelect
                         ariaLabel="Раздел публикации"
-                        value={editingArticle.category || 'Блог'}
-                        options={[{ value: 'Блог', label: 'Блог' }, { value: 'Кейсы', label: 'Кейсы' }]}
+                        value={editingArticle.category || ''}
+                        placeholder="Выберите раздел"
+                        options={articleCategoryOptions(editingArticle.category)}
                         onValueChange={(value) => setEditingArticle({ ...editingArticle, category: value })}
                       />
                     </div>

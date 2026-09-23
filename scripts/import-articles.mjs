@@ -17,8 +17,9 @@
  * Подробности — scripts/admin-client.mjs.
  *
  * Что читает: файлы *.json в папке. Каждый — объект статьи (или массив).
- * Обязательны title, slug, content (HTML, как из редактора). Остальное
- * дозаполняется: category «Блог», readTime по числу слов, date, image.
+ * Обязательны title, slug, content (HTML, как из редактора) и category —
+ * один из разделов `src/app/data/blogSections.ts` или «Кейсы». Остальное
+ * дозаполняется: readTime по числу слов, date, image.
  * Статус по умолчанию — draft: ничего не уходит на сайт, пока владелец не
  * решит иначе (или не передан --status published).
  *
@@ -28,6 +29,7 @@
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createAdminClient } from './admin-client.mjs';
 
 const args = parseArgs(process.argv.slice(2));
@@ -53,6 +55,9 @@ if (!DRY_RUN) {
 }
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// Разделы блога берутся из того же справочника, что у фильтра и редактора:
+// статья с незнакомым разделом выпала бы в отдельную плитку фильтра.
+const ARTICLE_CATEGORY_VALUES = await loadArticleCategories();
 const dir = resolve(args.dir);
 if (!existsSync(dir) || !statSync(dir).isDirectory()) {
   console.error(`Папка не найдена: ${dir}`);
@@ -133,6 +138,10 @@ function normalize(raw, file) {
   if (!SLUG_RE.test(slug)) return { problem: `${file}: плохой slug «${slug}»` };
   if (!content) return { problem: `${file}: пустой content` };
   if (content.length > 120_000) return { problem: `${file}: content длиннее 120 000 символов` };
+  const category = String(raw.category || '').trim();
+  if (!ARTICLE_CATEGORY_VALUES.includes(category)) {
+    return { problem: `${file}: раздел «${category || 'не указан'}» не из списка: ${ARTICLE_CATEGORY_VALUES.join(' · ')}` };
+  }
 
   const words = content.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length;
   const description = String(raw.description || raw.summary || '').trim().slice(0, 2000);
@@ -142,7 +151,7 @@ function normalize(raw, file) {
     id: Number(raw.id) || 0,
     slug,
     title,
-    category: String(raw.category || 'Блог').trim(),
+    category,
     readTime: String(raw.readTime || Math.max(1, Math.round(words / 200))),
     date: String(raw.date || new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })),
     description,
@@ -193,4 +202,17 @@ async function sendWithRetry(article, attempt = 1) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function loadArticleCategories() {
+  const { build } = await import('esbuild');
+  const result = await build({
+    entryPoints: [fileURLToPath(new URL('../src/app/data/blogSections.ts', import.meta.url))],
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    write: false,
+  });
+  const module = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
+  return module.ARTICLE_CATEGORY_VALUES;
 }

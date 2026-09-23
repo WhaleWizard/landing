@@ -8,11 +8,13 @@ import {
   ChevronDown,
   Clock,
   Download,
+  Handshake,
   ListTree,
   Megaphone,
   Search,
   Smartphone,
   Sparkles,
+  Store,
   TrendingUp,
   X,
 } from 'lucide-react';
@@ -23,6 +25,7 @@ import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import { isCaseArticle } from '../utils/articleCategory';
 import { BLOG_PAGE_SIZE, parseBlogPage } from '../utils/blogListing';
+import { BLOG_SECTIONS, categoryDisplayLabel, normalizeTopicId, sectionOfArticle } from '../data/blogSections';
 import { useArticles } from '../context/ArticlesContext';
 import type { Article } from '../components/hooks/useArticlesApi';
 import RouteSkeleton from '../components/RouteSkeleton';
@@ -53,63 +56,25 @@ const SITE_URL = 'https://www.whalewzrd.com';
 const ARTICLE_TITLE_LINES = { titleMaxLinesDesktop: 2, titleMaxLinesMobile: 3 };
 const LIST_TITLE_LINES = { titleMaxLinesDesktop: 1, titleMaxLinesMobile: 2 };
 
-type BlogTopicRule = {
+type BlogTopic = {
   id: string;
   label: string;
   description: string;
   icon: typeof BarChart3;
-  categories: string[];
-  tokens: string[];
+  count: number;
 };
 
-type BlogTopic = BlogTopicRule & { count: number };
-
-// Темы блога. Раньше здесь были четыре «цели» с зашитым списком категорий:
-// они не совпадали с тем, о чём статьи написаны на самом деле, и читатель,
-// которому нужен был Google или приложения, не мог их найти. Теперь темы
-// подбираются по категории и ключевым словам самой статьи.
-const BLOG_TOPIC_RULES: BlogTopicRule[] = [
-  {
-    id: 'meta',
-    label: 'Meta Ads',
-    description: 'Facebook и Instagram',
-    icon: Megaphone,
-    categories: ['Meta Ads', 'Ретаргетинг'],
-    tokens: ['meta ads', 'facebook', 'instagram', 'ретаргет'],
-  },
-  {
-    id: 'google',
-    label: 'Google Ads',
-    description: 'Поиск, PMax и YouTube',
-    icon: Search,
-    categories: ['Google Ads'],
-    tokens: ['google ads', 'performance max', 'pmax', 'shopping', 'youtube'],
-  },
-  {
-    id: 'apps',
-    label: 'Приложения',
-    description: 'Установки и события в приложении',
-    icon: Smartphone,
-    categories: ['Mobile Apps', 'Приложения'],
-    tokens: ['приложен', 'app install', 'mobile app'],
-  },
-  {
-    id: 'analytics',
-    label: 'Аналитика и данные',
-    description: 'Атрибуция, CAPI и отчёты',
-    icon: BarChart3,
-    categories: ['Аналитика', 'Reporting', 'CRM'],
-    tokens: ['атрибуц', 'capi', 'дашборд', 'сквозная аналитика'],
-  },
-  {
-    id: 'growth',
-    label: 'Рост и экономика',
-    description: 'Масштабирование, ниши, окупаемость',
-    icon: TrendingUp,
-    categories: ['E-commerce', 'B2B', 'GEO', 'Оптимизация', 'Стратегии', 'Запуск', 'Google + Meta'],
-    tokens: ['масштабирован', 'рентабельн', 'окупаем'],
-  },
-];
+// Иконки разделов. Сами разделы — в data/blogSections.ts: их же предлагает
+// редактор статьи, и фильтр не может разойтись с тем, что выбирает автор.
+const SECTION_ICONS: Record<string, typeof BarChart3> = {
+  meta: Megaphone,
+  apps: Smartphone,
+  google: Search,
+  niches: Store,
+  money: TrendingUp,
+  analytics: BarChart3,
+  contractor: Handshake,
+};
 
 // Подписи короткие: рядом стоит слово «Сначала», и «Сначала: Сначала новые»
 // читалось как ошибка, а на узком экране занимало три строки.
@@ -121,56 +86,40 @@ const BLOG_SORTS = [
 
 type BlogSort = (typeof BLOG_SORTS)[number]['id'];
 
-function articleHaystack(article: Article): string {
-  return [
-    article.title,
-    article.description,
-    article.category,
-    Array.isArray(article.tags) ? article.tags.join(' ') : '',
-  ].filter(Boolean).join(' ').toLowerCase();
-}
-
-function matchesTopic(article: Article, rule: BlogTopicRule): boolean {
-  if (article.category && rule.categories.includes(article.category)) return true;
-  if (rule.tokens.length === 0) return false;
-  const haystack = articleHaystack(article);
-  return rule.tokens.some((token) => haystack.includes(token));
-}
-
 /**
- * Темы для фильтра: сначала подготовленные, затем — категории, которые
- * ни в одну не попали. Благодаря этому новый раздел появляется в фильтре
- * сам, без правки кода, и ни одна статья не остаётся недоступной.
+ * Раздел статьи для фильтра. У статьи ровно один раздел: раньше тема
+ * угадывалась по словам, и одна статья числилась сразу в четырёх темах.
+ * Статья, которая не подошла ни к одному разделу, попадает в плитку своей
+ * категории — так ни одна не остаётся недоступной.
  */
+function topicIdOf(article: Article): string {
+  const section = sectionOfArticle(article);
+  if (section) return section.id;
+  return article.category ? `category:${article.category}` : '';
+}
+
 function buildBlogTopics(articles: Article[]): BlogTopic[] {
-  const covered = new Set<string>();
-  const topics: BlogTopic[] = [];
-
-  BLOG_TOPIC_RULES.forEach((rule) => {
-    const matched = articles.filter((article) => matchesTopic(article, rule));
-    if (matched.length === 0) return;
-    matched.forEach((article) => covered.add(article.slug));
-    topics.push({ ...rule, count: matched.length });
-  });
-
-  const leftovers = new Map<string, number>();
+  const counts = new Map<string, number>();
   articles.forEach((article) => {
-    if (covered.has(article.slug) || !article.category) return;
-    leftovers.set(article.category, (leftovers.get(article.category) || 0) + 1);
+    const id = topicIdOf(article);
+    if (id) counts.set(id, (counts.get(id) || 0) + 1);
   });
 
-  Array.from(leftovers.entries())
+  const topics: BlogTopic[] = BLOG_SECTIONS
+    .filter((section) => counts.has(section.id))
+    .map((section) => ({
+      id: section.id,
+      label: section.short,
+      description: section.description,
+      icon: SECTION_ICONS[section.id] ?? Sparkles,
+      count: counts.get(section.id) || 0,
+    }));
+
+  Array.from(counts.entries())
+    .filter(([id]) => id.startsWith('category:'))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ru'))
-    .forEach(([category, count]) => {
-      topics.push({
-        id: `category:${category}`,
-        label: category,
-        description: 'Отдельная тема',
-        icon: Sparkles,
-        categories: [category],
-        tokens: [],
-        count,
-      });
+    .forEach(([id, count]) => {
+      topics.push({ id, label: id.slice('category:'.length), description: 'Отдельная тема', icon: Sparkles, count });
     });
 
   return topics;
@@ -494,7 +443,7 @@ function BlogPageComponent() {
   }, [allArticles, isCasesRoute, loading, slug]);
   // Поддержка /blog?search=… — этот формат заявлен в JSON-LD SearchAction (SEO.tsx)
   const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
-  const [activeTopic, setActiveTopic] = useState(() => new URLSearchParams(window.location.search).get('topic') || '');
+  const [activeTopic, setActiveTopic] = useState(() => normalizeTopicId(new URLSearchParams(window.location.search).get('topic')));
   const [sort, setSort] = useState<BlogSort>(() => {
     const requested = new URLSearchParams(window.location.search).get('sort');
     return BLOG_SORTS.some((item) => item.id === requested) ? (requested as BlogSort) : 'new';
@@ -504,7 +453,7 @@ function BlogPageComponent() {
   const [pageState, setPageState] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return {
-      key: `${params.get('topic') || ''}|${params.get('sort') || 'new'}|${(params.get('search') || '').trim()}`,
+      key: `${normalizeTopicId(params.get('topic'))}|${params.get('sort') || 'new'}|${(params.get('search') || '').trim()}`,
       page: parseBlogPage(params.get('page')),
     };
   });
@@ -695,7 +644,7 @@ function BlogPageComponent() {
   const normalizedQueryTokens = normalizeTokens(searchQuery);
   const filteredArticles = scopedArticles
     .filter((article) => {
-      if (activeTopicRule && !matchesTopic(article, activeTopicRule)) return false;
+      if (activeTopicRule && topicIdOf(article) !== activeTopicRule.id) return false;
       if (normalizedQueryTokens.length === 0) return true;
 
       const haystack = normalizeTokens([
@@ -1335,7 +1284,7 @@ function BlogPageComponent() {
                         </span>
                       </div>
                       <div className="flex min-w-0 flex-col justify-center p-5 sm:p-7 md:p-9">
-                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">{featuredArticle.category}</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">{categoryDisplayLabel(featuredArticle.category)}</p>
                         <h2 className="mt-3 text-balance text-2xl font-bold leading-tight tracking-[-0.025em] text-foreground transition group-hover:text-primary sm:text-3xl">
                           {featuredArticle.title}
                         </h2>
@@ -1394,7 +1343,7 @@ function BlogPageComponent() {
                                 />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-primary sm:text-xs">{article.category}</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-primary sm:text-xs">{categoryDisplayLabel(article.category)}</p>
                                 <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-foreground transition group-hover:text-primary sm:text-lg">
                                   {article.title}
                                 </h3>
