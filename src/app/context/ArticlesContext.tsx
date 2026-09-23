@@ -1,6 +1,6 @@
 // src/app/context/ArticlesContext.tsx
 import { createContext, useCallback, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { fetchAdminArticles, fetchArticle, fetchArticles, saveArticles, Article } from '../components/hooks/useArticlesApi';
+import { fetchAdminArticles, fetchArticle, fetchArticles, saveArticle, saveArticles, Article } from '../components/hooks/useArticlesApi';
 
 interface ArticlesContextType {
   articles: Article[];
@@ -11,6 +11,7 @@ interface ArticlesContextType {
   forceRefreshArticles: () => Promise<void>;
   forceRefreshAdminArticles: (password: string) => Promise<void>;
   updateArticles: (newArticles: Article[], password: string) => Promise<boolean>;
+  updateArticle: (article: Article, password: string) => Promise<Article | null>;
 }
 
 const ArticlesContext = createContext<ArticlesContextType | undefined>(undefined);
@@ -304,6 +305,24 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
     return result.success;
   }, []);
 
+  /**
+   * Сохранение одной статьи. Список в памяти обновляется по слагу, порядок по
+   * id сохраняется — так карточка новой статьи встаёт туда же, куда её поставит
+   * следующая полная загрузка.
+   */
+  const updateArticle = useCallback(async (article: Article, password: string) => {
+    const sequence = ++requestSequence.current;
+    const result = await saveArticle(article, password);
+    const saved = result.article ?? null;
+    if (saved && sequence === requestSequence.current) {
+      setArticles((current) => {
+        const rest = current.filter((item) => item.slug !== saved.slug);
+        return [...rest, saved].sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      });
+    }
+    return saved;
+  }, []);
+
   useEffect(() => {
     // Вход в админку не должен заранее тянуть публичную выдачу: после успешной
     // проверки пароля Admin сам загружает полный набор материалов.
@@ -359,7 +378,7 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
   }, []);
 
   return (
-    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles }}>
+    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle }}>
       {children}
     </ArticlesContext.Provider>
   );

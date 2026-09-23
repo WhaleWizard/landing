@@ -259,3 +259,34 @@ export const saveArticles = async (articles: Article[], password: string): Promi
     throw error;
   }
 };
+
+export interface AdminSaveArticleResponse {
+  success: boolean;
+  article?: Article;
+  created?: boolean;
+  error?: string;
+}
+
+/**
+ * Сохранение одной статьи (PATCH). Весь список больше не отправляется:
+ * тринадцать статей уже весили 168 КБ при лимите тела 256 КБ.
+ */
+export const saveArticle = async (article: Article, password: string): Promise<AdminSaveArticleResponse> => {
+  const res = await fetch(API_ROUTES.adminArticles, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      // Заголовок нужен восстановленной сессии: пароль в памяти вкладки после
+      // перезагрузки пустой, а сервер подставляет его именно сюда.
+      ...(password ? { 'X-Admin-Password': password } : {}),
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify({ password, article }),
+  });
+
+  const payload = (await res.json().catch(() => null)) as AdminSaveArticleResponse | null;
+  if (!res.ok || !payload?.success || !payload.article) {
+    throw new Error(payload?.error || `HTTP ${res.status}`);
+  }
+  return payload;
+};

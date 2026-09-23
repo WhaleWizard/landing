@@ -202,6 +202,28 @@ export function scheduleD1ArticlesSnapshot(
   );
 }
 
+/**
+ * Снимок D1 после сохранения одной статьи. Снимок — это весь блог целиком (он
+ * подменяет базу, когда та недоступна), поэтому после точечной записи список
+ * читается заново, но в фоне через waitUntil, а не на пути ответа админке.
+ */
+export async function persistD1ArticlesSnapshot(env: Env): Promise<void> {
+  if (!env.BUCKET || !String(env.ADMIN_PASSWORD || '').trim()) return;
+  try {
+    const articles = await fetchArticlesFromD1(env);
+    const payload: D1SnapshotPayload = {
+      version: 1,
+      source: 'd1',
+      savedAt: new Date().toISOString(),
+      total: articles.length,
+      articles,
+    };
+    await writeD1Snapshot(env, JSON.stringify(payload));
+  } catch {
+    console.error('[articles] Failed to persist the D1 R2 snapshot after a single-article save.');
+  }
+}
+
 export async function fetchArticlesWithFallback(
   env: Env,
   request: Request,

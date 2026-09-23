@@ -806,7 +806,7 @@ export default function Admin() {
   const [sessionChecking, setSessionChecking] = useState(true);
   const [error, setError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const { articles, loading, forceRefreshAdminArticles, updateArticles } = useArticles();
+  const { articles, loading, forceRefreshAdminArticles, updateArticles, updateArticle } = useArticles();
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [savedArticleSnapshot, setSavedArticleSnapshot] = useState('');
@@ -1088,8 +1088,9 @@ export default function Admin() {
         .filter((item) => item.question && item.answer),
     };
 
-    let updatedArticles = [...articles];
-    const conflictingArticle = updatedArticles.find((article) => (
+    // Адрес занят другой статьёй — сервер ответил бы тем же, но лучше сказать
+    // до отправки, чем после.
+    const conflictingArticle = articles.find((article) => (
       article.slug === normalizedArticle.slug && article.id !== normalizedArticle.id
     ));
     if (conflictingArticle) {
@@ -1097,23 +1098,10 @@ export default function Admin() {
       return;
     }
 
-    const nextId = () => Math.max(0, ...updatedArticles.map((a) => a.id), 0) + 1;
-    const slugIndex = updatedArticles.findIndex((a) => a.slug === normalizedArticle.slug);
-    if (slugIndex !== -1) {
-      updatedArticles[slugIndex] = normalizedArticle;
-    } else if (normalizedArticle.id && normalizedArticle.id !== 0) {
-      const idIndex = updatedArticles.findIndex((a) => a.id === normalizedArticle.id);
-      if (idIndex !== -1) {
-        updatedArticles[idIndex] = { ...normalizedArticle, id: updatedArticles[idIndex].id };
-      } else {
-        updatedArticles.push(normalizedArticle);
-      }
-    } else {
-      updatedArticles.push({ ...normalizedArticle, id: nextId() });
-    }
-
     try {
-      const success = await updateArticles(updatedArticles, password);
+      // Уходит одна статья, а не весь список: id новой статье выдаёт сервер.
+      const saved = await updateArticle(normalizedArticle, password);
+      const success = Boolean(saved);
       if (success) {
         if (normalizedArticle.slug) {
           await fetch('/api/admin/article-versions', {

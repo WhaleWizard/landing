@@ -2,10 +2,11 @@ import { CACHE_CONTROL, deleteCacheByUrl } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { fetchArticlesFromJsonBin, writeArticlesToJsonBin } from '../../_lib/jsonbin';
-import { fetchArticlesFromD1, writeArticlesToD1 } from '../../_lib/d1';
+import { fetchArticleFromD1, fetchArticlesFromD1, nextArticleIdFromD1, writeArticleToD1, writeArticlesToD1 } from '../../_lib/d1';
 import {
   fetchArticlesWithFallback,
   isPublishedArticle,
+  persistD1ArticlesSnapshot,
   scheduleD1ArticlesSnapshot,
   shouldUseD1Articles,
 } from '../../_lib/articles';
@@ -20,6 +21,11 @@ interface AuthPayload {
 interface UpdatePayload {
   password?: string;
   articles?: Article[];
+}
+
+interface SingleUpdatePayload {
+  password?: string;
+  article?: Article;
 }
 
 const MAX_ARTICLES = 500;
@@ -385,6 +391,114 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
         status: 502,
         headers: { 'Cache-Control': CACHE_CONTROL.noStore },
       },
+    );
+  }
+};
+
+function isValidAdminSlug(value: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length <= 200;
+}
+
+function protectedArticleError(): Response {
+  return json(
+    { success: false, error: `Protected article "${PROTECTED_ARTICLE_SLUG}" cannot be changed through admin updates` },
+    { status: 409, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
+}
+
+/**
+ * Сохранение ОДНОЙ статьи по слагу. Режим списка (PUT) остался для удаления
+ * и перестановки, но редактор и импорт ходят сюда: список из тринадцати
+ * статей уже весил 168 КБ при лимите тела 256 КБ, и на двадцатой статье
+ * сохранение целиком просто перестало бы проходить.
+ *
+ * Остальные статьи не трогаются: id не перенумеровываются, отсутствующие
+ * слаги не удаляются. Защита опорной статьи действует так же, как в PUT.
+ */
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+  const rateLimited = await enforceRateLimit(request, 'admin');
+  if (rateLimited) return rateLimited;
+
+  const payload = (await readCappedJsonBody(request)) as SingleUpdatePayload;
+  const password = String(request.headers.get('X-Admin-Password') || payload?.password || '');
+
+  if (!verifyAdminPassword(password, env)) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+
+  const incoming = payload?.article;
+  if (!incoming || typeof incoming !== 'object' || !isValidArticlePayload(incoming)) {
+    return json(
+      { success: false, error: 'Invalid article payload: check required fields and size limits' },
+      { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  }
+
+  const slug = String(incoming.slug || '').trim();
+  if (!isValidAdminSlug(slug)) {
+    return json({ success: false, error: 'Invalid article slug' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+  }
+
+  try {
+    const useD1 = shouldUseD1Articles(env);
+    let existing: Article | null = null;
+    let saved: Article | null = null;
+
+    if (useD1) {
+      existing = await fetchArticleFromD1(env, slug);
+      if (!isProtectedArticleUnchanged(existing ? [existing] : [], [incoming])) return protectedArticleError();
+      const article: Article = {
+        ...incoming,
+        slug,
+        id: existing?.id ?? await nextArticleIdFromD1(env),
+        status: incoming.status || 'published',
+      };
+      saved = await writeArticleToD1(env, article, existing);
+      waitUntil(persistD1ArticlesSnapshot(env));
+    } else {
+      const all = await fetchArticlesFromJsonBin(env);
+      existing = all.find((article) => article.slug === slug) ?? null;
+      if (!isProtectedArticleUnchanged(existing ? [existing] : [], [incoming])) return protectedArticleError();
+      const article: Article = {
+        ...incoming,
+        slug,
+        id: existing?.id ?? Math.max(0, ...all.map((item) => Number(item.id) || 0)) + 1,
+        status: incoming.status || 'published',
+      };
+      const next = existing ? all.map((item) => (item.slug === slug ? article : item)) : [...all, article];
+      const updated = await writeArticlesToJsonBin(env, next, all);
+      saved = updated.find((item) => item.slug === slug) ?? null;
+    }
+
+    if (!saved) {
+      return json({ success: false, error: 'Article was not persisted' }, { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    }
+
+    const siteUrl = getSiteUrl(env, request);
+    const cacheTargets = buildSeoCacheTargets(siteUrl, [slug]);
+    const invalidationPromise = invalidateSeoCaches(cacheTargets);
+    waitUntil(invalidationPromise.then(() => undefined));
+    waitUntil(purgeCloudflareEdgeCache(env, cacheTargets).then(() => undefined));
+    waitUntil(notifyIndexNow(env, siteUrl, [saved]));
+    const invalidationReport = await invalidationPromise;
+
+    return json(
+      {
+        success: true,
+        article: saved,
+        created: !existing,
+        cacheInvalidationAttempted: true,
+        globalPurgeConfigured: Boolean(env.CF_ZONE_ID && env.CF_CACHE_PURGE_TOKEN),
+        invalidatedPathsCount: invalidationReport.successful.length,
+        invalidationTargetsCount: invalidationReport.targets.length,
+        invalidationFailedCount: invalidationReport.failed.length,
+      },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+  } catch (error) {
+    return json(
+      { success: false, error: error instanceof Error ? error.message : 'Failed to save article' },
+      { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
 };

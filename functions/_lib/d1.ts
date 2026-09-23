@@ -188,13 +188,17 @@ export async function fetchArticleCandidatesFromD1(env: Env, rawSlug: string): P
   return (result.results || []).map(mapRowToArticle);
 }
 
-export async function writeArticlesToD1(env: Env, rawArticles: Article[], existingArticles: Article[]): Promise<Article[]> {
-  if (!hasD1(env)) {
-    throw new Error('D1 is not configured');
-  }
+type ArticleUpsertContext = {
+  insertSql: string;
+  hasCaseColumn: boolean;
+};
 
-  const normalized = applyFreshnessMetadata(normalizeArticles(rawArticles), existingArticles);
-  const nowIso = new Date().toISOString();
+/**
+ * Один SQL upsert на все пути записи. Раньше он собирался внутри записи
+ * всего списка; точечное сохранение одной статьи использует тот же текст,
+ * чтобы правила про published_at и набор колонок не разошлись.
+ */
+async function getArticleUpsertContext(env: Env & { DB: D1Database }): Promise<ArticleUpsertContext> {
   const hasCaseColumn = (await getArticlesColumns(env.DB)).has('case_data_json');
 
   const baseColumns = [
@@ -220,42 +224,63 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
   const insertSql = `INSERT INTO articles (${columns.join(', ')}) VALUES (${placeholders})
     ON CONFLICT(slug) DO UPDATE SET ${updateSet.join(', ')}`;
 
+  return { insertSql, hasCaseColumn };
+}
+
+function bindArticleUpsert(
+  env: Env & { DB: D1Database },
+  context: ArticleUpsertContext,
+  article: Article,
+  nowIso: string,
+): D1PreparedStatement {
+  // Статья уже прошла applyFreshnessMetadata, где дата публикации разрешена
+  // по правилу «введённое важнее прежнего». Повторно сверяться с прежним
+  // значением здесь нельзя: именно это и отменяло правку даты.
+  const publishedAt = article.publishedAt || nowIso;
+  const updatedAt = article.updatedAt || nowIso;
+
+  const values: Array<string | number | null> = [
+    article.id,
+    article.slug,
+    article.title,
+    article.category,
+    article.readTime || '',
+    article.date,
+    article.description,
+    article.content,
+    article.image || '/og-image-v2.jpg',
+    article.seoTitle || article.title,
+    article.seoDescription || article.description,
+    publishedAt,
+    updatedAt,
+    JSON.stringify(article.tags || []),
+    article.summary || '',
+    JSON.stringify(article.keyTakeaways || []),
+    JSON.stringify(article.faq || []),
+    normalizeArticleStatus(article.status) as string,
+  ];
+  if (context.hasCaseColumn) {
+    values.push(article.caseData ? JSON.stringify(article.caseData) : null);
+  }
+
+  return env.DB.prepare(context.insertSql).bind(...values);
+}
+
+export async function writeArticlesToD1(env: Env, rawArticles: Article[], existingArticles: Article[]): Promise<Article[]> {
+  if (!hasD1(env)) {
+    throw new Error('D1 is not configured');
+  }
+
+  const normalized = applyFreshnessMetadata(normalizeArticles(rawArticles), existingArticles);
+  const nowIso = new Date().toISOString();
+  const context = await getArticleUpsertContext(env);
+
   const statements: D1PreparedStatement[] = [];
   const seen = new Set<string>();
 
   for (const article of normalized) {
     seen.add(article.slug);
-    // `normalized` уже прошёл applyFreshnessMetadata, где дата публикации
-    // разрешена по правилу «введённое важнее прежнего». Повторно сверяться с
-    // прежним значением здесь нельзя: именно это и отменяло правку даты.
-    const publishedAt = article.publishedAt || nowIso;
-    const updatedAt = article.updatedAt || nowIso;
-
-    const values: Array<string | number | null> = [
-      article.id,
-      article.slug,
-      article.title,
-      article.category,
-      article.readTime || '',
-      article.date,
-      article.description,
-      article.content,
-      article.image || '/og-image-v2.jpg',
-      article.seoTitle || article.title,
-      article.seoDescription || article.description,
-      publishedAt,
-      updatedAt,
-      JSON.stringify(article.tags || []),
-      article.summary || '',
-      JSON.stringify(article.keyTakeaways || []),
-      JSON.stringify(article.faq || []),
-      normalizeArticleStatus(article.status) as string,
-    ];
-    if (hasCaseColumn) {
-      values.push(article.caseData ? JSON.stringify(article.caseData) : null);
-    }
-
-    statements.push(env.DB.prepare(insertSql).bind(...values));
+    statements.push(bindArticleUpsert(env, context, article, nowIso));
   }
 
   if (existingArticles.length > 0 && normalized.length > 0) {
@@ -270,4 +295,34 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
   }
 
   return fetchArticlesFromD1(env);
+}
+
+/**
+ * Сохранение одной статьи. Остальной блог не трогается: ни удалений
+ * отсутствующих слагов, ни перенумерации id — только upsert одной строки.
+ * Ради этого админка и импорт перестали гонять весь список одним запросом:
+ * тринадцать статей уже весили 168 КБ при лимите тела 256 КБ.
+ */
+export async function writeArticleToD1(env: Env, rawArticle: Article, existing: Article | null): Promise<Article | null> {
+  if (!hasD1(env)) {
+    throw new Error('D1 is not configured');
+  }
+
+  const [normalized] = applyFreshnessMetadata(normalizeArticles([rawArticle]), existing ? [existing] : []);
+  if (!normalized) {
+    throw new Error('Article payload could not be normalized');
+  }
+
+  const context = await getArticleUpsertContext(env);
+  await bindArticleUpsert(env, context, normalized, new Date().toISOString()).run();
+  return fetchArticleFromD1(env, normalized.slug);
+}
+
+/** Следующий свободный id для новой статьи: id в базе не перенумеровываются. */
+export async function nextArticleIdFromD1(env: Env): Promise<number> {
+  if (!hasD1(env)) return 1;
+  const row = await env.DB
+    .prepare('SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM articles')
+    .first<{ next_id: number }>();
+  return Math.max(1, Number(row?.next_id || 1));
 }
