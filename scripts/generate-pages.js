@@ -1898,13 +1898,25 @@ ${sanitizeArticleHtml(article.content)}
   }
 }
 
-function renderBlogPages(articles, baseHtml) {
+// Встроенный список каждой страницы — ровно то, что она показывает первым
+// экраном: блогу первые BLOG_PAGE_SIZE статей, кейсам — кейсы. Остальное
+// догружается в фоне кратким списком из API. Список ссылок для роботов в
+// статической оболочке остаётся полным.
+function listSeeds(articles, blogPageSize) {
+  return {
+    '/blog': articles.filter((article) => !isCaseArticle(article)).slice(0, blogPageSize),
+    '/cases': articles.filter(isCaseArticle),
+  };
+}
+
+function renderBlogPages(articles, baseHtml, blogPageSize) {
   const blogArticles = articles.filter((article) => !isCaseArticle(article));
   const caseArticles = articles.filter(isCaseArticle);
+  const seeds = listSeeds(articles, blogPageSize);
 
   renderArticleListPage({
     articles: blogArticles,
-    seedArticles: articles,
+    seedArticles: seeds['/blog'],
     route: '/blog',
     title: 'Блог о таргете и Google Ads: как получать заявки из рекламы | Whale Wizard',
     description: 'Статьи о рекламе в Instagram, Facebook и Google Ads: запуск, снижение цены заявки, аналитика, продвижение мобильных приложений. Практика без воды и обещаний.',
@@ -1916,7 +1928,7 @@ function renderBlogPages(articles, baseHtml) {
 
   renderArticleListPage({
     articles: caseArticles,
-    seedArticles: articles,
+    seedArticles: seeds['/cases'],
     route: '/cases',
     title: 'Кейсы по таргету и Google Ads: бюджеты, цена заявки, ROI | Whale Wizard',
     description: 'Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения.',
@@ -1983,7 +1995,7 @@ function assertFileContains(pathname, markers, label) {
   }
 }
 
-function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArticles = latestArticles) {
+function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArticles = latestArticles, blogPageSize = latestArticles.length) {
   assertFileContains(routeIndexPath('/'), [
     'facebook-domain-verification',
     'feed.xml',
@@ -2040,10 +2052,11 @@ function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArti
     'Проекты с цифрами и контекстом',
   ], 'Generated /cases HTML');
 
+  const seeds = listSeeds(latestArticles, blogPageSize);
   const expectedSeedSlugs = {
     '/': homeArticles.map((article) => article.slug),
-    '/blog': latestArticles.map((article) => article.slug),
-    '/cases': latestArticles.map((article) => article.slug),
+    '/blog': seeds['/blog'].map((article) => article.slug),
+    '/cases': seeds['/cases'].map((article) => article.slug),
   };
   for (const route of ['/', '/blog', '/cases']) {
     const html = readFileSync(routeIndexPath(route), 'utf8');
@@ -2191,7 +2204,7 @@ async function main() {
     String(resolveArticleDate(b) || '').localeCompare(String(resolveArticleDate(a) || '')));
 
   const staticPages = renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
-  renderBlogPages(latestArticles, baseHtml);
+  renderBlogPages(latestArticles, baseHtml, content.BLOG_PAGE_SIZE);
   writeNotFoundPage(baseHtml);
 
   const articleRoutes = articles.map((article) => getArticlePath(article));
@@ -2201,7 +2214,7 @@ async function main() {
   writeRobots();
   appendLlmsContentIndex(articles);
   writeLlmsFull(articles);
-  validateGeneratedOutput(staticPages, latestArticles, content.selectHomeArticles(latestArticles));
+  validateGeneratedOutput(staticPages, latestArticles, content.selectHomeArticles(latestArticles), content.BLOG_PAGE_SIZE);
 
   console.log(`✅ Generated ${allRoutes.length} static routes`);
 }

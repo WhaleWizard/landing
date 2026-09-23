@@ -22,6 +22,7 @@ import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import { isCaseArticle } from '../utils/articleCategory';
+import { BLOG_PAGE_SIZE, parseBlogPage } from '../utils/blogListing';
 import { useArticles } from '../context/ArticlesContext';
 import type { Article } from '../components/hooks/useArticlesApi';
 import RouteSkeleton from '../components/RouteSkeleton';
@@ -498,6 +499,15 @@ function BlogPageComponent() {
     const requested = new URLSearchParams(window.location.search).get('sort');
     return BLOG_SORTS.some((item) => item.id === requested) ? (requested as BlogSort) : 'new';
   });
+  // Номер шага списка привязан к набору фильтров: сменили тему, поиск или
+  // порядок — список снова начинается с первого шага, без отдельного эффекта.
+  const [pageState, setPageState] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      key: `${params.get('topic') || ''}|${params.get('sort') || 'new'}|${(params.get('search') || '').trim()}`,
+      page: parseBlogPage(params.get('page')),
+    };
+  });
   const [showAllTopics, setShowAllTopics] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [pendingZipDownload, setPendingZipDownload] = useState<{ href: string; target: string; fileName: string } | null>(null);
@@ -706,6 +716,13 @@ function BlogPageComponent() {
     });
   const featuredArticle = !isCasesRoute ? filteredArticles[0] ?? null : null;
   const feedArticles = !isCasesRoute ? filteredArticles.slice(1) : filteredArticles;
+  const filterKey = `${activeTopic}|${sort}|${searchQuery.trim()}`;
+  const listPage = pageState.key === filterKey ? pageState.page : 1;
+  // Первый шаг — главная карточка и ещё двадцать три, дальше по двадцать четыре.
+  const visibleFeedCount = Math.max(0, listPage * BLOG_PAGE_SIZE - (featuredArticle ? 1 : 0));
+  const visibleFeedArticles = feedArticles.slice(0, visibleFeedCount);
+  const hiddenFeedCount = feedArticles.length - visibleFeedArticles.length;
+  const showMoreArticles = () => setPageState({ key: filterKey, page: listPage + 1 });
 
   // Тема, сортировка и поиск живут в адресе: такую ссылку можно отправить,
   // и она откроется с тем же набором статей. Чужие параметры (utm и прочие)
@@ -722,13 +739,14 @@ function BlogPageComponent() {
     apply('topic', activeTopicRule ? activeTopic : '');
     apply('sort', sort === 'new' ? '' : sort);
     apply('search', searchQuery.trim());
+    apply('page', listPage > 1 ? String(listPage) : '');
 
     const query = params.toString();
     const nextUrl = `/blog${query ? `?${query}` : ''}`;
     if (`${location.pathname}${location.search}` !== nextUrl) {
       navigate(nextUrl, { replace: true });
     }
-  }, [activeTopic, activeTopicRule, isCasesRoute, loading, location.pathname, location.search, navigate, searchQuery, slug, sort]);
+  }, [activeTopic, activeTopicRule, isCasesRoute, listPage, loading, location.pathname, location.search, navigate, searchQuery, slug, sort]);
 
   if (loading) return <RouteSkeleton />;
 
@@ -1345,7 +1363,7 @@ function BlogPageComponent() {
                         <span className="text-xs text-muted-foreground">{russianCountLabel(feedArticles.length, ['материал', 'материала', 'материалов'])}</span>
                       </div>
                       <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/80 bg-card/50">
-                        {feedArticles.map((article, index) => (
+                        {visibleFeedArticles.map((article, index) => (
                           <m.article
                             key={article.slug}
                             initial={{ opacity: 0, y: 12 }}
@@ -1390,6 +1408,17 @@ function BlogPageComponent() {
                           </m.article>
                         ))}
                       </div>
+                      {hiddenFeedCount > 0 && (
+                        <div className="mt-4 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={showMoreArticles}
+                            className="blog-touch-target rounded-xl border border-primary/30 px-5 text-sm font-semibold text-primary hover:bg-primary/10"
+                          >
+                            Показать ещё {Math.min(BLOG_PAGE_SIZE, hiddenFeedCount)}
+                          </button>
+                        </div>
+                      )}
                     </section>
                   )}
                 </>

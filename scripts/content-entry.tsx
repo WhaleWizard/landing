@@ -22,3 +22,4 @@ export { default as OfferContent } from '../src/app/components/legal/OfferConten
 export { default as CookiePolicyContent } from '../src/app/components/legal/CookiePolicyContent';
 export { LEGAL_UPDATED_AT } from '../src/app/components/legal/legalMeta';
 export { selectHomeArticles, HOME_ARTICLES_LIMIT } from '../src/app/utils/homeArticles';
+export { BLOG_PAGE_SIZE } from '../src/app/utils/blogListing';
