@@ -8,7 +8,7 @@ import type { Article } from '../hooks/useArticlesApi';
 import { confirmAsk, notify } from './AdminFeedback';
 import { promptAsk } from './AdminPrompt';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
-import { compressImage, formatBytes } from '../../utils/compressImage';
+import { appendImageUpload, formatBytes, prepareImageUpload } from '../../utils/prepareImageUpload';
 import { withPlural } from '../../utils/plural';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 
@@ -297,12 +297,12 @@ export default function AdminMedia({ password, articles }: { password: string; a
     try {
       let saved = 0;
       for (const original of items) {
-        // Пережимаем в браузере: в хранилище и посетителям уходит уже
-        // лёгкий WebP, а не оригинал с телефона на 8 МБ.
-        const { file, savedBytes } = await compressImage(original);
-        saved += savedBytes;
+        // Пережимаем в браузере и делаем копии под разные экраны: в хранилище
+        // и посетителям уходит лёгкий WebP, а не оригинал с телефона на 8 МБ.
+        const prepared = await prepareImageUpload(original);
+        saved += prepared.savedBytes;
         const form = new FormData();
-        form.append('file', file);
+        appendImageUpload(form, prepared);
         form.append('password', password);
         if (activeFolder) form.append('folder', activeFolder);
         const res = await fetch('/api/admin/upload', {

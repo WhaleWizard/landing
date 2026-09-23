@@ -1,4 +1,5 @@
 import { ARTICLE_IMAGE_MANIFEST, type ArticleImageManifestEntry } from '../data/articleImageManifest.generated';
+import { resolveUploadedImage } from './imageVariants';
 
 /**
  * Готовые варианты картинок статей.
@@ -9,6 +10,10 @@ import { ARTICLE_IMAGE_MANIFEST, type ArticleImageManifestEntry } from '../data/
  * из статьи подменяется на эти варианты. Неизвестный адрес — например,
  * у материала, опубликованного после последней сборки, — остаётся как есть:
  * страница показывает оригинал, просто медленнее.
+ *
+ * Картинки, загруженные через админку, в манифест не попадают: их копии
+ * делает браузер владельца при загрузке, а размеры записаны в имени файла
+ * (`imageVariants.ts`). Такие адреса разбираются без сборки.
  *
  * Правила ширин и запасного `src` повторяют `scripts/article-image-manifest.js`.
  */
@@ -57,7 +62,7 @@ function pickFallbackWidth(widths: number[]): number {
 export function resolveArticleImage(url: string | null | undefined): ResolvedArticleImage | null {
   const key = String(url || '').trim();
   const entry = key ? ARTICLE_IMAGE_MANIFEST[key] : undefined;
-  if (!entry || !Array.isArray(entry.widths) || entry.widths.length === 0) return null;
+  if (!entry || !Array.isArray(entry.widths) || entry.widths.length === 0) return resolveUploadedImage(key);
   return {
     src: variantPath(entry, pickFallbackWidth(entry.widths)),
     srcSet: entry.widths.map((width) => `${variantPath(entry, width)} ${width}w`).join(', '),

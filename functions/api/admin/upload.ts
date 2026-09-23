@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { UPLOADS_PREFIX, normalizeFolderName, publicUploadUrl } from '../../_lib/media-folders';
+import { dimensionSuffix, isValidImageDimension, variantKey, variantWidths } from '../../_lib/image-variants';
 import type { Env } from '../../_lib/types';
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -60,6 +61,45 @@ function validateUpload(file: File): string | null {
   return null;
 }
 
+/** Картинки, у которых бывают копии: GIF не пережимается, документы — не картинки. */
+const VARIANT_SOURCE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+const VARIANT_FIELD = /^variant-(\d{1,5})$/;
+
+type VariantPlan = { width: number; height: number; files: Array<{ width: number; file: File }> };
+
+/**
+ * Копии принимаются только полным набором: суффикс размеров в имени файла
+ * обещает странице все ширины сразу, и одна недостающая дала бы в `srcset`
+ * ссылку на пустоту. Набор ширин сервер выводит сам из ширины оригинала.
+ */
+function readVariantPlan(formData: FormData, file: File): VariantPlan | null | string {
+  const fields = [...formData.keys()].filter((name) => VARIANT_FIELD.test(name));
+  const hasSize = formData.has('width') || formData.has('height');
+  if (!fields.length && !hasSize) return null;
+
+  const mime = String(file.type || '').toLowerCase();
+  if (!VARIANT_SOURCE_TYPES.has(mime)) return 'Image variants are allowed only for JPEG, PNG, WebP or AVIF';
+  const width = Number(formData.get('width'));
+  const height = Number(formData.get('height'));
+  if (!isValidImageDimension(width) || !isValidImageDimension(height)) return 'Invalid image width or height';
+
+  const expected = variantWidths(width);
+  const provided = new Set(fields.map((name) => Number(VARIANT_FIELD.exec(name)?.[1])));
+  if (provided.size !== expected.length || expected.some((value) => !provided.has(value))) {
+    return `Image variants must be exactly: ${expected.join(', ')}`;
+  }
+
+  const files: Array<{ width: number; file: File }> = [];
+  for (const value of expected) {
+    const variant = formData.get(`variant-${value}`);
+    if (!(variant instanceof File)) return `Variant ${value} is not a file`;
+    if (String(variant.type || '').toLowerCase() !== 'image/webp') return `Variant ${value} must be image/webp`;
+    if (variant.size <= 0 || variant.size > MAX_UPLOAD_BYTES) return `Variant ${value} has invalid size`;
+    files.push({ width: value, file: variant });
+  }
+  return { width, height, files };
+}
+
 function getPublicHost(env: Env): string {
   return String(env.R2_PUBLIC_HOST || 'https://pub-0c68f065a6a3442c97a55535ba03e377.r2.dev').replace(/\/$/, '');
 }
@@ -113,17 +153,47 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: false, error: validationError }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
 
+    const plan = readVariantPlan(formData, file);
+    if (typeof plan === 'string') {
+      return json({ success: false, error: plan }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    }
+
     const safeName = sanitizeFilename(file.name);
     // Папка выбирается в медиатеке; без неё раскладка остаётся прежней — по дате.
     const folder = normalizeFolderName(formData.get('folder'));
-    const key = `${UPLOADS_PREFIX}${folder ? `${folder}/` : ''}${new Date().toISOString().slice(0, 10)}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+    // Суффикс размеров получает только файл с полным набором копий.
+    const storedName = plan
+      ? safeName.replace(/(\.[a-z0-9]+)$/i, `${dimensionSuffix(plan.width, plan.height)}$1`)
+      : safeName;
+    const key = `${UPLOADS_PREFIX}${folder ? `${folder}/` : ''}${new Date().toISOString().slice(0, 10)}/${Date.now()}-${crypto.randomUUID()}-${storedName}`;
     const contentType = String(file.type || 'application/octet-stream').toLowerCase();
     const isImage = contentType.startsWith('image/');
+    const immutable = 'public, max-age=31536000, immutable';
+
+    // Сначала копии, оригинал последним: ссылка уходит в статью, только когда
+    // на месте всё, на что она укажет. Сбой посередине убирает записанное.
+    const writtenVariants: string[] = [];
+    if (plan) {
+      try {
+        for (const variant of plan.files) {
+          const target = variantKey(key, variant.width);
+          if (!target) throw new Error('variant key');
+          await env.BUCKET.put(target, variant.file.stream(), {
+            httpMetadata: { contentType: 'image/webp', cacheControl: immutable, contentDisposition: 'inline' },
+            customMetadata: { originalName: safeName, uploadedBy: 'admin', variantOf: key, variantWidth: String(variant.width) },
+          });
+          writtenVariants.push(target);
+        }
+      } catch (error) {
+        for (const target of writtenVariants) await env.BUCKET.delete(target).catch(() => undefined);
+        throw error;
+      }
+    }
 
     await env.BUCKET.put(key, file.stream(), {
       httpMetadata: {
         contentType,
-        cacheControl: 'public, max-age=31536000, immutable',
+        cacheControl: immutable,
         contentDisposition: isImage ? 'inline' : `attachment; filename="${safeName}"`,
       },
       customMetadata: {
@@ -133,7 +203,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     });
 
     const publicUrl = publicUploadUrl(getPublicHost(env), key);
-    return json({ success: true, url: publicUrl, key, contentType, size: file.size }, { headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    return json(
+      { success: true, url: publicUrl, key, contentType, size: file.size, variants: plan ? plan.files.map((item) => item.width) : [] },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
   } catch (error) {
     // Внутренняя причина уходит в лог, а не в ответ: текст исключения парсера
     // рассказывал вызывающей стороне об устройстве обработчика.

@@ -61,9 +61,39 @@ export function buildSrcSet(entry) {
   return entry.widths.map((width) => `${variantPath(entry, width)} ${width}w`).join(', ');
 }
 
+/**
+ * Картинки, загруженные через админку, облегчает не сборка, а браузер
+ * владельца при загрузке: копии лежат в R2 рядом с оригиналом, размеры
+ * записаны в имени (`--<Ш>x<В>`). Правила повторяют
+ * `src/app/utils/imageVariants.ts` и `functions/_lib/image-variants.ts`;
+ * совпадение стережёт `npm run test:image-variants`.
+ */
+const UPLOADED_IMAGE = /^(https:\/\/(?:[a-z0-9-]+\.r2\.dev|(?:[a-z0-9-]+\.)*whalewzrd\.com)\/uploads\/[^?#]+?--(\d{2,5})x(\d{2,5}))\.(?:webp|png|jpe?g|avif)$/i;
+
+export function isUploadedImageWithVariants(url) {
+  return UPLOADED_IMAGE.test(String(url || '').trim());
+}
+
+export function resolveUploadedImage(url) {
+  const match = UPLOADED_IMAGE.exec(String(url || '').trim());
+  if (!match) return null;
+  const [, base, rawWidth, rawHeight] = match;
+  const width = Number(rawWidth);
+  const height = Number(rawHeight);
+  if (!width || !height) return null;
+  const widths = variantWidths(width);
+  const at = (value) => `${base}-${value}.webp`;
+  return {
+    src: at(pickFallbackWidth(widths)),
+    srcSet: widths.map((value) => `${at(value)} ${value}w`).join(', '),
+    width,
+    height,
+  };
+}
+
 export function resolveManifestImage(manifest, url) {
   const entry = manifest?.[url];
-  if (!entry || !Array.isArray(entry.widths) || entry.widths.length === 0) return null;
+  if (!entry || !Array.isArray(entry.widths) || entry.widths.length === 0) return resolveUploadedImage(url);
   return {
     src: variantPath(entry, pickFallbackWidth(entry.widths)),
     srcSet: buildSrcSet(entry),
@@ -89,7 +119,9 @@ export function collectArticleImageUrls(articles) {
   const urls = new Set();
   const consider = (value) => {
     const url = String(value || '').trim();
-    if (/^https?:\/\//i.test(url)) urls.add(url);
+    // Загруженные через админку уже облегчены при загрузке — качать их на
+    // сборке незачем.
+    if (/^https?:\/\//i.test(url) && !isUploadedImageWithVariants(url)) urls.add(url);
   };
 
   for (const article of articles) {

@@ -13,6 +13,7 @@ import {
   publicUploadUrl,
   reKeyToFolder,
 } from '../../_lib/media-folders';
+import { isImageVariantKey, variantKeysFor } from '../../_lib/image-variants';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -56,6 +57,14 @@ function getPublicHost(env: Env): string {
   return String(env.R2_PUBLIC_HOST || 'https://pub-0c68f065a6a3442c97a55535ba03e377.r2.dev').replace(/\/$/, '');
 }
 
+/**
+ * Файл, с которым владелец работает в медиатеке: не метка папки и не
+ * уменьшенная копия. Копии живут и умирают вместе со своим оригиналом.
+ */
+function isManagedKey(key: string): boolean {
+  return isSafeUploadKey(key) && !isFolderMarker(key) && !isImageVariantKey(key);
+}
+
 function getPassword(request: Request, body?: { password?: string }): string {
   return request.headers.get('X-Admin-Password') || body?.password || '';
 }
@@ -74,6 +83,8 @@ async function listUploads(env: Env): Promise<{ files: MediaFile[]; markedFolder
         if (folder) markedFolders.add(folder);
         continue;
       }
+      // Уменьшенные копии — служебные файлы оригинала, в списке их не показываем.
+      if (isImageVariantKey(object.key)) continue;
       files.push({
         key: object.key,
         url: publicUploadUrl(publicHost, object.key),
@@ -157,10 +168,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'delete') {
       const keys = (Array.isArray(body.keys) ? body.keys : [body.key])
         .map((key) => String(key || ''))
-        .filter((key) => isSafeUploadKey(key) && !isFolderMarker(key))
+        .filter(isManagedKey)
         .slice(0, MAX_BULK_KEYS);
       if (!keys.length) return json({ success: false, error: 'Не указан ни один корректный файл' }, { status: 400, headers: noStore });
-      for (const key of keys) await bucket.delete(key);
+      for (const key of keys) {
+        // Копии удаляются вместе с оригиналом, иначе остались бы сиротами.
+        for (const variant of variantKeysFor(key)) await bucket.delete(variant);
+        await bucket.delete(key);
+      }
       // Подпись без файла не нужна, но её потеря не должна ронять удаление.
       if (env.DB) {
         for (const key of keys) {
@@ -174,7 +189,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'set_alt') {
       const key = String(body.key || '');
-      if (!isSafeUploadKey(key) || isFolderMarker(key)) {
+      if (!isManagedKey(key)) {
         return json({ success: false, error: 'Некорректный файл' }, { status: 400, headers: noStore });
       }
       if (!env.DB) {
@@ -227,7 +242,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const folder = normalizeFolderName(body.name ?? body.folder);
       if (!folder) return json({ success: false, error: 'Некорректное имя папки' }, { status: 400, headers: noStore });
       const listing = await bucket.list({ prefix: `${UPLOADS_PREFIX}${folder}/`, limit: 20 });
-      const files = listing.objects.filter((object) => !isFolderMarker(object.key));
+      const files = listing.objects.filter((object) => !isFolderMarker(object.key) && !isImageVariantKey(object.key));
       if (files.length > 0) {
         return json({
           success: false,
@@ -240,7 +255,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'move') {
       const key = String(body.key || '');
-      if (!isSafeUploadKey(key) || isFolderMarker(key)) {
+      if (!isManagedKey(key)) {
         return json({ success: false, error: 'Некорректный файл' }, { status: 400, headers: noStore });
       }
       const target = reKeyToFolder(key, body.folder ?? '');
@@ -249,6 +264,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
       const source = await bucket.get(key);
       if (!source) return json({ success: false, error: 'Файл не найден' }, { status: 404, headers: noStore });
+
+      // Уменьшенные копии едут первыми: имя копии выводится из имени
+      // оригинала, и оригинал на новом месте без них показывал бы srcset на
+      // пустоту. Если копия не записалась, всё записанное откатывается.
+      const targetVariants = variantKeysFor(target);
+      const variantMoves = variantKeysFor(key)
+        .map((from, index) => ({ from, to: targetVariants[index] }))
+        .filter((pair): pair is { from: string; to: string } => Boolean(pair.to));
+      const writtenVariants: string[] = [];
+      for (const pair of variantMoves) {
+        const variant = await bucket.get(pair.from);
+        if (!variant) continue;
+        await bucket.put(pair.to, variant.body, { httpMetadata: variant.httpMetadata, customMetadata: { ...variant.customMetadata, variantOf: target } });
+        if (!(await bucket.head(pair.to))) {
+          for (const written of writtenVariants) await bucket.delete(written);
+          return json({ success: false, error: 'Копия картинки не перенеслась, файл оставлен на месте' }, { status: 500, headers: noStore });
+        }
+        writtenVariants.push(pair.to);
+      }
+
       // R2 не умеет переименовывать: копируем с теми же заголовками, и только
       // после подтверждённой записи удаляем исходный объект.
       await bucket.put(target, source.body, {
@@ -256,8 +291,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         customMetadata: source.customMetadata,
       });
       const written = await bucket.head(target);
-      if (!written) return json({ success: false, error: 'Копия не создалась, файл оставлен на месте' }, { status: 500, headers: noStore });
+      if (!written) {
+        for (const variant of writtenVariants) await bucket.delete(variant);
+        return json({ success: false, error: 'Копия не создалась, файл оставлен на месте' }, { status: 500, headers: noStore });
+      }
       await bucket.delete(key);
+      for (const pair of variantMoves) await bucket.delete(pair.from);
       // Подпись привязана к ключу объекта — переносим её вслед за файлом.
       if (env.DB) {
         try {

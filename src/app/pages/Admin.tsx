@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { HOME_ARTICLES_LIMIT } from '../utils/homeArticles';
+import { appendImageUpload, prepareImageUpload } from '../utils/prepareImageUpload';
 import { withPlural } from '../utils/plural';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
@@ -1025,8 +1026,10 @@ export default function Admin() {
 
   const uploadFile = async (file: File): Promise<string | null> => {
     const form = new FormData();
-    form.append('file', file);
     try {
+      // Обложка из генератора весит 1–2 МБ PNG: браузер пережимает её в WebP
+      // и делает копии под разные экраны, чтобы статья не ждала пересборки.
+      appendImageUpload(form, await prepareImageUpload(file));
       form.append('password', password);
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
