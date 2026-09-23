@@ -352,3 +352,24 @@ export const saveArticle = async (article: Article, password: string): Promise<A
   }
   return payload;
 };
+
+/** Расписание: статус и дата выхода, текст статей не трогается. */
+export const saveSchedule = async (
+  items: Array<{ slug: string; publishedAt: string }>,
+  password: string,
+): Promise<{ scheduled: string[]; skipped: string[] }> => {
+  const res = await fetch(API_ROUTES.adminArticlesSchedule, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(password ? { 'X-Admin-Password': password } : {}),
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify({ password, items }),
+  });
+  const payload = (await res.json().catch(() => null)) as { success?: boolean; scheduled?: string[]; skipped?: string[]; error?: string } | null;
+  if (!res.ok || !payload?.success) {
+    throw new Error(payload?.error || `HTTP ${res.status}`);
+  }
+  return { scheduled: payload.scheduled || [], skipped: payload.skipped || [] };
+};

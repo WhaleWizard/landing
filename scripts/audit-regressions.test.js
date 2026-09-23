@@ -444,3 +444,28 @@ test('анимации собраны на m.* внутри LazyMotion, а не 
   assert.ok(app.includes('<LazyMotion features={domAnimation}>'), 'App должен оборачивать дерево в LazyMotion с domAnimation');
   assert.ok(app.includes('<MotionConfig reducedMotion="user">'), 'уважение prefers-reduced-motion не должно потеряться');
 });
+
+test('каждый компонент с перетаскиванием react-dnd сам даёт себе контекст', async () => {
+  // Регрессия 23.09.2026: редактор статей перетаскивает блоки и опирался на
+  // DndProvider в Admin.tsx. Обёртку убрали вместе с перетаскиванием порядка
+  // статей — и открытие любой статьи роняло админку с «Expected drag drop
+  // context». Проверки типов и импортов этого не видят: ошибка появляется
+  // только при рендере. Поэтому правило простое: файл, где есть useDrag или
+  // useDrop, сам оборачивает себя в DndProvider.
+  const { readdir } = await import('node:fs/promises');
+  const walk = async (dir) => (await readdir(dir, { withFileTypes: true })).flatMap((entry) => entry).reduce(async (accP, entry) => {
+    const acc = await accP;
+    const path = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) return acc.concat(await walk(path));
+    return /\.tsx?$/.test(entry.name) ? acc.concat(path) : acc;
+  }, Promise.resolve([]));
+  const root = new URL('../src/app', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+  const files = await walk(root);
+  const offenders = [];
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    const usesDrag = /from ['"]react-dnd['"]/.test(source) && /\buse(Drag|Drop)\(/.test(source);
+    if (usesDrag && !/<DndProvider\b/.test(source)) offenders.push(file.slice(root.length));
+  }
+  assert.deepEqual(offenders, [], `useDrag/useDrop без своего DndProvider: ${offenders.join(', ')}`);
+});

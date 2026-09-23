@@ -369,3 +369,54 @@ export async function deleteArticleFromD1(env: Env, slug: string): Promise<boole
   const result = await env.DB.prepare('DELETE FROM articles WHERE slug = ?').bind(slug).run();
   return Number(result.meta?.changes || 0) > 0;
 }
+
+/**
+ * Расписание публикаций: статус «опубликована» и дата выхода в будущем.
+ * Перепланировать можно только черновик или ещё не вышедшую статью:
+ * дата уже вышедшей — это дата первой публикации, её не сдвигают.
+ * Дата изменения ставится равной дате выхода, иначе в разметке статьи
+ * «изменена» оказалась бы раньше «опубликована».
+ */
+export async function writeScheduleToD1(
+  env: Env,
+  items: Array<{ slug: string; publishedAt: string }>,
+  nowIso: string,
+  protectedSlug: string,
+): Promise<{ scheduled: string[]; skipped: string[] }> {
+  if (!hasD1(env)) {
+    throw new Error('D1 is not configured');
+  }
+  // D1 принимает не больше ста параметров на запрос — читаем пачками.
+  const current = new Map<string, { status: string | null; published_at: string | null }>();
+  for (let offset = 0; offset < items.length; offset += 90) {
+    const chunk = items.slice(offset, offset + 90).map((item) => item.slug);
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await env.DB
+      .prepare(`SELECT slug, status, published_at FROM articles WHERE slug IN (${placeholders})`)
+      .bind(...chunk)
+      .all<{ slug: string; status: string | null; published_at: string | null }>();
+    for (const row of result.results || []) current.set(row.slug, row);
+  }
+
+  const scheduled: string[] = [];
+  const skipped: string[] = [];
+  const statements: D1PreparedStatement[] = [];
+  for (const item of items) {
+    const row = current.get(item.slug);
+    const reschedulable = Boolean(row)
+      && item.slug !== protectedSlug
+      && (row?.status === 'draft' || Boolean(row?.published_at && row.published_at > nowIso));
+    if (!reschedulable) {
+      skipped.push(item.slug);
+      continue;
+    }
+    scheduled.push(item.slug);
+    statements.push(
+      env.DB
+        .prepare("UPDATE articles SET status = 'published', published_at = ?, updated_at = ? WHERE slug = ?")
+        .bind(item.publishedAt, item.publishedAt, item.slug),
+    );
+  }
+  if (statements.length > 0) await env.DB.batch(statements);
+  return { scheduled, skipped };
+}

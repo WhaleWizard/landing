@@ -360,3 +360,86 @@ test('без миграции 0042 закрепление объясняет с�
   assert.equal(summary.status, 200);
   assert.equal((await patchFresh({ article: article({ slug: 'b' }) })).status, 200);
 });
+
+// ——— Пакет 5: расписание публикаций ———
+
+async function loadScheduleEndpoint() {
+  const result = await build({
+    entryPoints: ['functions/api/admin/articles-schedule.ts'],
+    bundle: true,
+    format: 'esm',
+    target: 'es2022',
+    platform: 'node',
+    write: false,
+  });
+  const code = `${result.outputFiles[0].text}\n//${randomUUID()}`;
+  return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+}
+
+const scheduleEndpoint = await loadScheduleEndpoint();
+
+async function putSchedule(sqlite, items) {
+  const background = [];
+  const response = await scheduleEndpoint.onRequestPut({
+    request: new Request('https://example.test/api/admin/articles-schedule', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': PASSWORD },
+      body: JSON.stringify({ items }),
+    }),
+    env: makeEnv(sqlite),
+    waitUntil: (promise) => background.push(promise),
+  });
+  await Promise.allSettled(background);
+  return { status: response.status, payload: await response.json() };
+}
+
+test('расписание ставит черновикам дату выхода и не трогает текст', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { article: article({ slug: 'draft-a', status: 'draft', content: '<p>Текст А.</p>' }) });
+  await patch(sqlite, { article: article({ slug: 'draft-b', status: 'draft', content: '<p>Текст Б.</p>' }) });
+
+  const at = '2099-03-01T06:30:00.000Z';
+  const { status, payload } = await putSchedule(sqlite, [
+    { slug: 'draft-a', publishedAt: at },
+    { slug: 'draft-b', publishedAt: '2099-03-01T12:10:00.000Z' },
+  ]);
+  assert.equal(status, 200);
+  assert.deepEqual(payload.scheduled, ['draft-a', 'draft-b']);
+  assert.deepEqual(payload.skipped, []);
+
+  const row = sqlite.prepare('SELECT status, published_at, updated_at, content FROM articles WHERE slug = ?').get('draft-a');
+  assert.equal(row.status, 'published');
+  assert.equal(row.published_at, at);
+  assert.equal(row.updated_at, at, 'дата изменения не раньше даты выхода');
+  assert.equal(row.content, '<p>Текст А.</p>', 'текст не тронут');
+
+  // До даты выхода статья не видна публично.
+  const listing = await adminGet(sqlite, '?view=summary');
+  assert.equal(listing.payload.articles.find((item) => item.slug === 'draft-a').status, 'published');
+});
+
+test('уже вышедшую и опорную статью расписание не двигает', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { article: article({ slug: 'live', publishedAt: '2026-01-10T10:00:00.000Z' }) });
+  await patch(sqlite, { article: article({ slug: PROTECTED_SLUG, title: 'Опорная', status: 'draft' }) });
+  await patch(sqlite, { article: article({ slug: 'later', publishedAt: '2099-01-01T10:00:00.000Z' }) });
+
+  const { payload } = await putSchedule(sqlite, [
+    { slug: 'live', publishedAt: '2099-05-01T10:00:00.000Z' },
+    { slug: PROTECTED_SLUG, publishedAt: '2099-05-01T11:00:00.000Z' },
+    { slug: 'later', publishedAt: '2099-06-01T10:00:00.000Z' },
+    { slug: 'missing', publishedAt: '2099-06-01T10:00:00.000Z' },
+  ]);
+  assert.deepEqual(payload.scheduled, ['later'], 'перепланируется только ещё не вышедшая');
+  assert.deepEqual(payload.skipped.sort(), ['live', 'missing', PROTECTED_SLUG].sort());
+  assert.equal(sqlite.prepare('SELECT published_at FROM articles WHERE slug = ?').get('live').published_at, '2026-01-10T10:00:00.000Z');
+});
+
+test('расписание отклоняет мусор до записи', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { article: article({ slug: 'draft-a', status: 'draft' }) });
+  assert.equal((await putSchedule(sqlite, [])).status, 400);
+  assert.equal((await putSchedule(sqlite, [{ slug: 'draft-a', publishedAt: 'завтра' }])).status, 400);
+  assert.equal((await putSchedule(sqlite, [{ slug: 'draft-a', publishedAt: '2099-01-01T00:00:00Z' }, { slug: 'draft-a', publishedAt: '2099-01-02T00:00:00Z' }])).status, 400);
+  assert.equal(sqlite.prepare('SELECT status FROM articles WHERE slug = ?').get('draft-a').status, 'draft');
+});

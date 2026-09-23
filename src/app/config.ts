@@ -4,5 +4,6 @@ export const API_ROUTES = {
   articles: `${API_BASE}/api/articles`,
   adminArticles: `${API_BASE}/api/admin/articles`,
   adminArticlesFeatured: `${API_BASE}/api/admin/articles-featured`,
+  adminArticlesSchedule: `${API_BASE}/api/admin/articles-schedule`,
   lead: `${API_BASE}/api/lead`,
 };

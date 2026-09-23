@@ -208,6 +208,103 @@ function localArticlesApi() {
           return
         }
 
+        /**
+         * Локальные двойники новых запросов админки к статьям: краткий
+         * список, статья по слагу, сохранение одной статьи, удаление,
+         * закрепление на главной и расписание. Без них редактор на
+         * localhost перестал бы сохранять — прод перешёл на эти запросы.
+         */
+        if (url.pathname.startsWith('/api/admin/articles')) {
+          const localAuthorized = (body) => isLocalAdminRequest(req, req.headers['x-admin-password'] || body?.password)
+          const slugParam = String(url.searchParams.get('slug') || '').trim()
+
+          if (url.pathname === '/api/admin/articles' && req.method === 'GET' && (slugParam || url.searchParams.get('view') === 'summary')) {
+            if (!localAuthorized()) { sendJson(res, 401, { success: false, error: 'Unauthorized' }); return }
+            const { articles } = readPayload()
+            if (slugParam) {
+              const found = articles.find((article) => article?.slug === slugParam)
+              if (!found) { sendJson(res, 404, { success: false, error: 'Article not found' }); return }
+              sendJson(res, 200, { success: true, article: found })
+              return
+            }
+            sendJson(res, 200, { success: true, articles: articles.map((article) => ({ ...article, content: '', _summary: true })) })
+            return
+          }
+
+          if (url.pathname === '/api/admin/articles' && req.method === 'PATCH') {
+            const body = await readJsonBody(req)
+            if (!localAuthorized(body)) { sendJson(res, 401, { success: false, error: 'Unauthorized' }); return }
+            const incoming = body?.article
+            if (!incoming?.title || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(incoming?.slug || ''))) {
+              sendJson(res, 400, { success: false, error: 'Invalid article payload' })
+              return
+            }
+            const current = readPayload().articles
+            const existing = current.find((article) => article?.slug === incoming.slug)
+            if (incoming.slug === protectedArticleSlug && existing && didArticleChange(existing, incoming)) {
+              sendJson(res, 409, { success: false, error: `Protected article "${protectedArticleSlug}" cannot be changed through admin updates` })
+              return
+            }
+            const merged = { ...incoming, featuredOrder: incoming.featuredOrder ?? existing?.featuredOrder }
+            const next = existing
+              ? current.map((article) => (article?.slug === incoming.slug ? merged : article))
+              : [...current, merged]
+            const saved = writePayload(next, current).articles.find((article) => article.slug === incoming.slug)
+            sendJson(res, 200, { success: true, article: saved, created: !existing })
+            return
+          }
+
+          if (url.pathname === '/api/admin/articles' && req.method === 'DELETE') {
+            if (!localAuthorized()) { sendJson(res, 401, { success: false, error: 'Unauthorized' }); return }
+            if (slugParam === protectedArticleSlug) { sendJson(res, 409, { success: false, error: 'Protected article' }); return }
+            const current = readPayload().articles
+            const next = current.filter((article) => article?.slug !== slugParam)
+            if (next.length === current.length) { sendJson(res, 404, { success: false, error: 'Article not found' }); return }
+            writePayload(next, current)
+            sendJson(res, 200, { success: true, deleted: slugParam })
+            return
+          }
+
+          if (url.pathname === '/api/admin/articles-featured' && req.method === 'PUT') {
+            const body = await readJsonBody(req)
+            if (!localAuthorized(body)) { sendJson(res, 401, { success: false, error: 'Unauthorized' }); return }
+            const slugs = Array.isArray(body?.slugs) ? body.slugs.map(String) : null
+            if (!slugs || slugs.length > 15 || new Set(slugs).size !== slugs.length) {
+              sendJson(res, 400, { success: false, error: 'Invalid slugs' })
+              return
+            }
+            const current = readPayload().articles
+            writePayload(current.map((article) => {
+              const index = slugs.indexOf(article?.slug)
+              return { ...article, featuredOrder: index >= 0 ? index + 1 : undefined }
+            }), current)
+            sendJson(res, 200, { success: true, slugs })
+            return
+          }
+
+          if (url.pathname === '/api/admin/articles-schedule' && req.method === 'PUT') {
+            const body = await readJsonBody(req)
+            if (!localAuthorized(body)) { sendJson(res, 401, { success: false, error: 'Unauthorized' }); return }
+            const items = Array.isArray(body?.items) ? body.items : []
+            if (items.length === 0) { sendJson(res, 400, { success: false, error: 'Invalid payload' }); return }
+            const nowIso = new Date().toISOString()
+            const plan = new Map(items.map((item) => [String(item?.slug || ''), new Date(item?.publishedAt).toISOString()]))
+            const current = readPayload().articles
+            const scheduled = []
+            const next = current.map((article) => {
+              const at = plan.get(article?.slug)
+              const reschedulable = article?.slug !== protectedArticleSlug
+                && (article?.status === 'draft' || Boolean(article?.publishedAt && article.publishedAt > nowIso))
+              if (!at || !reschedulable) return article
+              scheduled.push(article.slug)
+              return { ...article, status: 'published', publishedAt: at }
+            })
+            if (scheduled.length > 0) writePayload(next, current)
+            sendJson(res, 200, { success: true, scheduled, skipped: [...plan.keys()].filter((slug) => !scheduled.includes(slug)) })
+            return
+          }
+        }
+
         if (url.pathname === '/api/admin/articles' && req.method === 'POST') {
           const body = await readJsonBody(req)
           sendJson(res, verifyLocalPassword(body?.password) ? 200 : 401, {

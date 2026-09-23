@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upload, List, ListOrdered } from 'lucide-react';
-import { useDrag, useDrop } from 'react-dnd';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 type BlockType = 'heading' | 'paragraph' | 'accent' | 'list' | 'card' | 'quote' | 'code' | 'image' | 'separator' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
@@ -636,7 +637,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
   );
 });
 
-export default function ArticleEditor({ content, onChange, onUpload, readOnly = false }: ArticleEditorProps) {
+function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: ArticleEditorProps) {
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => parseHtmlToBlocks(content));
   const [htmlOutput, setHtmlOutput] = useState(() => serializeBlocks(blocks));
   const [history, setHistory] = useState<{ past: ContentBlock[][]; future: ContentBlock[][] }>({ past: [], future: [] });
@@ -898,5 +899,20 @@ export default function ArticleEditor({ content, onChange, onUpload, readOnly = 
           </div>
         </div>
       </div>
+  );
+}
+
+/**
+ * Редактор сам держит контекст перетаскивания блоков. Раньше его давал
+ * DndProvider в Admin.tsx вокруг всего раздела статей; когда перетаскивание
+ * порядка статей заменили закреплением и обёртку убрали, открытие любой
+ * статьи роняло админку с «Expected drag drop context». Контекст внутри
+ * самого редактора не зависит от того, кто и где его показывает.
+ */
+export default function ArticleEditor(props: ArticleEditorProps) {
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <ArticleEditorBody {...props} />
+    </DndProvider>
   );
 }

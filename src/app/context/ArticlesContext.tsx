@@ -9,6 +9,7 @@ import {
   saveArticle,
   saveArticles,
   saveFeaturedOrder,
+  saveSchedule,
   Article,
 } from '../components/hooks/useArticlesApi';
 
@@ -25,6 +26,7 @@ interface ArticlesContextType {
   loadAdminArticle: (slug: string, password: string) => Promise<Article>;
   removeArticle: (slug: string, password: string) => Promise<void>;
   setFeaturedArticles: (slugs: string[], password: string) => Promise<void>;
+  scheduleArticles: (items: Array<{ slug: string; publishedAt: string }>, password: string) => Promise<{ scheduled: string[]; skipped: string[] }>;
 }
 
 const ArticlesContext = createContext<ArticlesContextType | undefined>(undefined);
@@ -350,6 +352,16 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
     setArticles((current) => current.filter((item) => item.slug !== slug));
   }, []);
 
+  const scheduleArticles = useCallback(async (items: Array<{ slug: string; publishedAt: string }>, password: string) => {
+    const result = await saveSchedule(items, password);
+    const planned = new Map(items.filter((item) => result.scheduled.includes(item.slug)).map((item) => [item.slug, item.publishedAt]));
+    setArticles((current) => current.map((article) => {
+      const at = planned.get(article.slug);
+      return at ? { ...article, status: 'published' as const, publishedAt: at, updatedAt: at } : article;
+    }));
+    return result;
+  }, []);
+
   const setFeaturedArticles = useCallback(async (slugs: string[], password: string) => {
     await saveFeaturedOrder(slugs, password);
     setArticles((current) => current.map((item) => {
@@ -413,7 +425,7 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
   }, []);
 
   return (
-    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles }}>
+    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles, scheduleArticles }}>
       {children}
     </ArticlesContext.Provider>
   );

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { HOME_ARTICLES_LIMIT } from '../utils/homeArticles';
+import { withPlural } from '../utils/plural';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
@@ -35,6 +36,7 @@ import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
 const ArticleEditor = lazy(() => import('../components/ArticleEditor'));
+const PublishSchedulePanel = lazy(() => import('../components/admin/PublishSchedulePanel'));
 const CaseFieldsEditor = lazy(() => import('../components/CaseFieldsEditor'));
 const AdminLeads = lazy(() => import('../components/admin/AdminLeads'));
 const AdminClients = lazy(() => import('../components/admin/AdminClients'));
@@ -800,7 +802,7 @@ export default function Admin() {
   const [sessionChecking, setSessionChecking] = useState(true);
   const [error, setError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const { articles, loading, forceRefreshAdminArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles } = useArticles();
+  const { articles, loading, forceRefreshAdminArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles, scheduleArticles } = useArticles();
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [savedArticleSnapshot, setSavedArticleSnapshot] = useState('');
@@ -1759,6 +1761,23 @@ export default function Admin() {
                     articles={articles}
                     onOpen={(article) => void openArticleForEdit(article)}
                   />
+                </div>
+              </details>
+
+              {/* Расписание: черновики раскладываются по дням и выходят сами.
+                  Меняется только статус и дата — текст статей не трогается. */}
+              <details className="admin-disclosure mt-2">
+                <summary>
+                  <span>Расписание публикаций</span>
+                  <span className="admin-meta">{withPlural(articleStats.drafts, ['черновик', 'черновика', 'черновиков'])}</span>
+                </summary>
+                <div className="px-3.5 pb-3.5">
+                  <Suspense fallback={<AdminSectionSkeleton tiles={0} rows={3} />}>
+                    <PublishSchedulePanel
+                      articles={articles}
+                      onSchedule={(items) => scheduleArticles(items, password)}
+                    />
+                  </Suspense>
                 </div>
               </details>
             </div>
