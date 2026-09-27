@@ -8,6 +8,7 @@ import { useRememberPublicRoute } from './utils/siteNavigation';
 import { isPathLocked, refreshPageLocks } from './utils/pageLocks';
 import { onUserScrollIntent, readDocumentScrollY, restoreWindowScrollPosition } from './utils/scrollRestoration';
 import { preloadable } from './utils/preloadable';
+import { focusRouteHeading } from './utils/routeFocus';
 import {
   loadAdmin,
   loadBlogPage,
@@ -105,7 +106,7 @@ function RouteErrorBoundary() {
 
   useEffect(() => {
     const msg = String(error?.message || '');
-    if (msg.includes('Failed to fetch dynamically imported module')) {
+    if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg)) {
       const onceKey = 'ww_chunk_reload_once_v1';
       // Хранилище может быть запрещено настройками браузера, и обращение к
       // нему бросает исключение. Здесь это особенно некстати: мы уже внутри
@@ -117,7 +118,10 @@ function RouteErrorBoundary() {
       const rememberOnce = () => {
         try { window.sessionStorage.setItem(onceKey, '1'); } catch { /* без памяти перезагрузка всё равно одна */ }
       };
-      const alreadyRetried = readOnce();
+      // Query marker also works with storage blocked. Without it the error
+      // page reloaded forever when sessionStorage threw on both reads/writes.
+      const retryStamp = Number(new URL(window.location.href).searchParams.get('_v'));
+      const alreadyRetried = readOnce() || (retryStamp > 0 && Date.now() - retryStamp < 60_000);
       const timer = window.setTimeout(() => {
         if (alreadyRetried) return;
         rememberOnce();
@@ -330,7 +334,7 @@ function StableScrollPositionRestoration() {
     // A PUSH/REPLACE always starts at the top. POP entries use our mirror when
     // available, then the persistent fallback; otherwise React Router's native
     // restoration path remains untouched.
-    if (navigationType !== 'POP' && previousPath && previousPath !== path) {
+    if (navigationType !== 'POP' && previousPath && previousPath.split('?')[0] !== location.pathname) {
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       return undefined;
     }
@@ -345,7 +349,10 @@ function StableScrollPositionRestoration() {
 function RouteFocusManager() {
   const location = useLocation();
   const navigationType = useNavigationType();
+  const previousPathname = useRef(location.pathname);
   useEffect(() => {
+    const pathnameChanged = previousPathname.current !== location.pathname;
+    previousPathname.current = location.pathname;
     // Якорные переходы сами выставляют скролл к нужному блоку. Перенос фокуса
     // на h1 в этот момент мог бы незаметно изменить виртуальный viewport у
     // screen reader и вернуть страницу наверх.
@@ -356,20 +363,12 @@ function RouteFocusManager() {
     // users orient themselves.
     if (
       location.hash
+      || !pathnameChanged
       || /^\/admin(?:\/|$)/.test(location.pathname)
       || (navigationType === 'POP' && location.key === 'default')
     ) return undefined;
 
-    const frame = window.requestAnimationFrame(() => {
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      const heading = document.querySelector('main h1');
-      if (!(heading instanceof HTMLElement)) return;
-      if (heading.contains(document.activeElement)) return;
-      heading.tabIndex = -1;
-      heading.focus({ preventScroll: true });
-    });
-
-    return () => window.cancelAnimationFrame(frame);
+    return focusRouteHeading();
   }, [location.hash, location.key, location.pathname, navigationType]);
 
   return null;

@@ -330,7 +330,7 @@ function Testimonials({
       left: targetLeft,
       behavior: behavior ?? (prefersReducedMotion ? 'auto' : 'smooth'),
     });
-  }, [prefersReducedMotion]);
+  }, [items.length, prefersReducedMotion]);
 
   const selectMobileSlide = useCallback((index: number) => {
     disableMobileAutoplay();
@@ -376,10 +376,10 @@ function Testimonials({
 
     const frame = window.requestAnimationFrame(syncMobileIndex);
     return () => window.cancelAnimationFrame(frame);
-  }, [isMobile, syncMobileIndex]);
+  }, [isMobile, items.length, syncMobileIndex]);
 
   useEffect(() => {
-    if (!isMobile || isMobileAutoplayDisabled || prefersReducedMotion) return;
+    if (!isMobile || isMobileAutoplayDisabled || prefersReducedMotion || items.length < 2) return;
 
     // Такт повторяется, а не ставится один раз: пока секция вне экрана, отзыв
     // не листается, но и автолистание не умирает — оно продолжится с возвратом.
@@ -394,6 +394,7 @@ function Testimonials({
     currentIndex,
     isMobile,
     isMobileAutoplayDisabled,
+    items.length,
     prefersReducedMotion,
     scrollMobileTestimonials,
   ]);

@@ -59,6 +59,17 @@ function articleRedirect(requestUrl: URL, siteUrl: string, path: string): Respon
   return Response.redirect(target.toString(), 301);
 }
 
+function unavailableArticleShell(): Response {
+  return new Response('Страница временно недоступна. Попробуйте обновить её через минуту.', {
+    status: 503,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': CACHE_CONTROL.noStore,
+      'Retry-After': '60',
+    },
+  });
+}
+
 async function getArticleShell(
   request: Request,
   next: (request?: Request) => Promise<Response>,
@@ -73,7 +84,20 @@ async function getArticleShell(
   // the BlogPage chunk and route CSS, while the root shell would eagerly fetch
   // the home hero and Home-only chunks before discovering the article route.
   const sectionShell = await next(assetRequest(request, `${sectionPath}/index.html`));
-  if (!sectionShell.headers.get('content-type')?.includes('text/html')) return articleShell;
+  if (!sectionShell.ok) {
+    // The article exists in the CMS. Missing/broken build assets are a
+    // temporary availability problem, never a successful empty article or a
+    // permanent article deletion that crawlers should remove from the index.
+    return new Response(sectionShell.body, {
+      status: sectionShell.status >= 500 ? sectionShell.status : 503,
+      headers: {
+        'Content-Type': sectionShell.headers.get('content-type') || 'text/html; charset=utf-8',
+        'Cache-Control': CACHE_CONTROL.noStore,
+        'Retry-After': '60',
+      },
+    });
+  }
+  if (!sectionShell.headers.get('content-type')?.includes('text/html')) return unavailableArticleShell();
 
   const source = await sectionShell.text();
   const withoutSectionBreadcrumbs = source.replace(
@@ -186,11 +210,15 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
     }
 
     const isBot = isBotRequest(request);
-    const cacheKey = new Request(request.url, { method: 'GET' });
+    const cacheKey = new Request(new URL(requestUrl.pathname, requestUrl.origin).toString(), { method: 'GET' });
 
     if (isBot) {
-      const cached = await matchCache(cacheKey);
-      if (cached) return cached;
+      try {
+        const cached = await matchCache(cacheKey);
+        if (cached) return cached;
+      } catch {
+        // An unavailable cache must not hide an otherwise healthy CMS article.
+      }
     }
 
     let articles: Article[];
@@ -232,7 +260,8 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
 
     if (!isBot) {
       const shell = await getArticleShell(request, next, `${sectionPath}/${slug}`, sectionPath);
-      if (!shell.headers.get('content-type')?.includes('text/html')) return shell;
+      if (!shell.ok) return shell;
+      if (!shell.headers.get('content-type')?.includes('text/html')) return unavailableArticleShell();
 
       const withMeta = applyArticleMeta(shell, siteUrl, article, sectionPath);
       return new Response(withMeta.body, {
@@ -252,7 +281,7 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
       CACHE_CONTROL.botArticle,
     );
 
-    waitUntil(putCache(cacheKey, response));
+    waitUntil(putCache(cacheKey, response).catch(() => undefined));
     return response;
   };
 }

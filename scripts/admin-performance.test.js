@@ -34,6 +34,62 @@ function auditRequest() {
   });
 }
 
+test('admin preview scales from observer entries without forced layout or height-only updates', async (t) => {
+  const { observePreviewViewport } = await bundleTypeScript('src/app/components/admin/previewViewportSizing.ts');
+  const previousObserver = globalThis.ResizeObserver;
+  const previousRaf = globalThis.requestAnimationFrame;
+  const previousCancelRaf = globalThis.cancelAnimationFrame;
+  let frame;
+  globalThis.requestAnimationFrame = (callback) => { frame = callback; return 1; };
+  globalThis.cancelAnimationFrame = () => { frame = null; };
+  const flushFrame = () => { const next = frame; frame = null; next?.(); };
+  let callback;
+  let disconnected = false;
+  const values = new Map();
+  let writes = 0;
+  const node = {
+    style: { setProperty: (key, value) => { writes += 1; values.set(key, value); } },
+    get clientWidth() { assert.fail('ResizeObserver must not read geometry again'); },
+  };
+  globalThis.ResizeObserver = class {
+    constructor(handler) { callback = handler; }
+    observe(target) { assert.equal(target, node); }
+    disconnect() { disconnected = true; }
+  };
+  t.after(() => {
+    globalThis.ResizeObserver = previousObserver;
+    globalThis.requestAnimationFrame = previousRaf;
+    globalThis.cancelAnimationFrame = previousCancelRaf;
+  });
+
+  const stop = observePreviewViewport(node, { width: 1280, height: 1000, fit: true, expanded: false });
+  callback([{ target: node, contentRect: { width: 640, height: 360 } }]);
+  assert.equal(writes, 0, 'never resize the observed stage during the observer delivery');
+  flushFrame();
+  assert.equal(values.get('--adm-preview-scale'), '0.5');
+  assert.equal(values.get('--adm-preview-width'), '640px');
+  assert.equal(values.get('--adm-preview-height'), '500px');
+  assert.equal(values.get('--adm-preview-stage-height'), '500px');
+  const firstWrites = writes;
+  callback([{ target: node, contentRect: { width: 640, height: 500 } }]);
+  flushFrame();
+  assert.equal(writes, firstWrites, 'the resulting height resize must not cause another update');
+  callback([{ target: node, contentRect: { width: 300, height: 500 } }]);
+  flushFrame();
+  assert.equal(values.get('--adm-preview-width'), '300px', 'mobile fit uses the actual inner width');
+  assert.equal(values.get('--adm-preview-stage-height'), '360px');
+  stop();
+  assert.equal(disconnected, true);
+
+  const stopActual = observePreviewViewport(node, { width: 1280, height: 1000, fit: false, expanded: true });
+  callback([{ target: node, contentRect: { width: 300, height: 500 } }]);
+  flushFrame();
+  assert.equal(values.get('--adm-preview-scale'), '1');
+  assert.equal(values.get('--adm-preview-width'), '1280px');
+  assert.equal(values.get('--adm-preview-stage-height'), 'min(1000px, calc(100vh - 190px))');
+  stopActual();
+});
+
 test('PageSpeed retry response controls HTTP error classification', async () => {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;

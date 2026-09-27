@@ -516,6 +516,11 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     let lastFitWidth = -1;
     let lastFitHeight = -1;
     let lastAppliedFontSize = '';
+    let lastFitSignature = '';
+    let contentRevision = 0;
+    let fontRevision = 0;
+    let lastFitInlineStyle = '';
+    let titleFontFamilies = new Set<string>();
     let originalFontSize = element.style.getPropertyValue('font-size');
     let originalFontSizePriority = element.style.getPropertyPriority('font-size');
 
@@ -541,6 +546,22 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         originalFontSizePriority = element.style.getPropertyPriority('font-size');
         lastAppliedFontSize = '';
       }
+    };
+
+    const normalizeFamily = (family: string) => family.replace(/["']/g, '').trim().toLowerCase();
+    const readFitSignature = () => {
+      const families = new Set<string>();
+      const typography = [element, ...element.querySelectorAll<HTMLElement>('*')].map((node) => {
+        const style = window.getComputedStyle(node);
+        style.fontFamily.split(',').forEach((family) => families.add(normalizeFamily(family)));
+        // Appearance effects change opacity/transform, not text geometry.
+        // Keep only inputs that can change line breaks or glyph metrics.
+        return [style.fontFamily, style.fontSize, style.fontWeight, style.lineHeight,
+          style.letterSpacing, style.whiteSpace, style.display].join('|');
+      });
+      titleFontFamilies = families;
+      return [window.innerWidth, element.clientWidth, element.clientHeight,
+        contentRevision, fontRevision, ...typography].join(';');
     };
 
     /*
@@ -795,6 +816,11 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         return;
       }
 
+      // Font readiness, ResizeObserver and late guards often report the same
+      // settled heading. Do not restore its authored size and perform another
+      // binary search unless its text, typography or available space changed.
+      if (measuredOnce && readFitSignature() === lastFitSignature) return;
+
       // Первый замер идёт сразу: эффект только начался, и его перезапуск
       // укладывается в один кадр. Все следующие ждут конца анимации — иначе
       // загрузка шрифта или собственная подгонка обрывали появление заголовка
@@ -827,6 +853,8 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         measuredOnce = true;
         lastFitWidth = element.offsetWidth;
         lastFitHeight = element.offsetHeight;
+        lastFitInlineStyle = element.getAttribute('style') || '';
+        lastFitSignature = readFitSignature();
       }
     };
 
@@ -836,14 +864,18 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     };
 
     const resizeObserver = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => {
+      ? new ResizeObserver(([entry]) => {
         // Смена кегля меняет и размеры заголовка, поэтому наблюдатель отвечает
         // на собственную же подгонку. Такой сигнал пропускаем: иначе замер
         // ходит по кругу и на каждом круге сбрасывает эффект появления.
+        if (!entry) return;
+        const borderBox = Array.isArray(entry.borderBoxSize) ? entry.borderBoxSize[0] : undefined;
+        const width = Math.round(borderBox?.inlineSize ?? entry.contentRect.width);
+        const height = Math.round(borderBox?.blockSize ?? entry.contentRect.height);
         if (
           measuredOnce
-          && element.offsetWidth === lastFitWidth
-          && element.offsetHeight === lastFitHeight
+          && width === lastFitWidth
+          && height === lastFitHeight
         ) return;
         scheduleFit();
       })
@@ -851,13 +883,39 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     resizeObserver?.observe(element);
 
     const mutationObserver = typeof MutationObserver !== 'undefined'
-      ? new MutationObserver(scheduleFit)
+      ? new MutationObserver((mutations) => {
+        // Our font-size writes arrive asynchronously in the same observer.
+        // Ignore only the final style we just applied; CMS text/line/style
+        // changes must still invalidate the cached fit.
+        const changed = mutations.some((mutation) => (
+          mutation.type !== 'attributes'
+          || mutation.target !== element
+          || mutation.attributeName !== 'style'
+          || (element.getAttribute('style') || '') !== lastFitInlineStyle
+        ));
+        if (!changed) return;
+        contentRevision += 1;
+        scheduleFit();
+      })
       : null;
-    mutationObserver?.observe(element, { childList: true, characterData: true, subtree: true });
+    mutationObserver?.observe(element, {
+      childList: true, characterData: true, subtree: true,
+      attributes: true, attributeFilter: ['class', 'style', 'data-effect', 'data-speed'],
+    });
 
     const fontSet = document.fonts;
-    const onFontsLoaded = () => scheduleFit();
-    void fontSet?.ready.then(onFontsLoaded).catch(() => undefined);
+    const onFontsLoaded = (event: Event) => {
+      const faces = (event as FontFaceSetLoadEvent).fontfaces;
+      if (measuredOnce && faces?.length
+        && !faces.some((face) => titleFontFamilies.has(normalizeFamily(face.family)))) return;
+      fontRevision += 1;
+      scheduleFit();
+    };
+    void fontSet?.ready.then(() => {
+      if (cancelled) return;
+      fontRevision += 1;
+      scheduleFit();
+    }).catch(() => undefined);
     fontSet?.addEventListener?.('loadingdone', onFontsLoaded);
     window.addEventListener('resize', scheduleFit, { passive: true });
     window.addEventListener('orientationchange', scheduleFit, { passive: true });

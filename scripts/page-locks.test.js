@@ -41,6 +41,47 @@ const client = await importModule('src/app/utils/pageLocks.ts', 'client');
 
 const catalogPaths = server.PAGE_LOCK_ROUTES.map((route) => route.path);
 
+test('последняя блокировка из памяти переживает одновременный сбой D1 и Cache API', async (t) => {
+  const originalCaches = globalThis.caches;
+  const originalNow = Date.now;
+  let now = 1_000_000;
+  let dbUnavailable = false;
+  Date.now = () => now;
+  globalThis.caches = { default: {
+    match: async () => { throw new Error('Cache API unavailable'); },
+    put: async () => { throw new Error('Cache API unavailable'); },
+    delete: async () => false,
+  } };
+  await server.invalidatePageLockCache();
+  t.after(async () => {
+    await server.invalidatePageLockCache();
+    globalThis.caches = originalCaches;
+    Date.now = originalNow;
+  });
+  const env = { DB: { prepare: () => ({ all: async () => {
+    if (dbUnavailable) throw new Error('D1 unavailable');
+    return { results: [{
+      path: '/blog', include_children: 1, preset: 'update', title: 'Обновляем блог',
+      message: '', eta: null, hide_in_nav: 1, show_subscribe: 0, cta_path: '', updated_at: '',
+    }] };
+  } }) } };
+
+  const fresh = await server.readPageLockSnapshot(env);
+  assert.equal(fresh.source, 'db');
+  assert.equal(fresh.locks[0].path, '/blog');
+  dbUnavailable = true;
+  now += 31_000;
+  const fallback = await server.readPageLockSnapshot(env);
+  assert.equal(fallback.source, 'stale');
+  assert.deepEqual(fallback.locks, fresh.locks);
+  assert.equal(fallback.savedAt, fresh.savedAt);
+
+  now += 11_000;
+  const missingBinding = await server.readPageLockSnapshot({});
+  assert.deepEqual(missingBinding.locks, fresh.locks);
+  assert.equal(missingBinding.source, 'stale');
+});
+
 test('каталог страниц совпадает с картой разделов сайта', () => {
   const source = readFileSync(join(ROOT, 'src/app/utils/siteNavigation.ts'), 'utf8');
   const start = source.indexOf('export const ROUTE_LABELS');

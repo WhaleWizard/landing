@@ -176,6 +176,10 @@
   to   { transform: translate3d(0.8%, -1.2%, 0) rotate(1.1deg); }
 }
 
+.ths[data-ambient='off'] * {
+  animation-play-state: paused;
+}
+
 .ths-whale {
   display: block;
   width: 100%;
@@ -235,12 +239,11 @@
   width: 18%;
   max-width: 190px;
   display: block;
-  will-change: transform, filter;
-  /* Парение и свечение крутятся с самой первой секунды: в это время капсула
-     ещё летит и её не видно, зато потом нет ни одного кадра со стыком. */
-  animation:
-    ths-capsule-float 8s ease-in-out infinite alternate,
-    ths-capsule-glow 4.5s ease-in-out infinite alternate;
+  will-change: transform;
+  filter: drop-shadow(0 0 20px rgba(255, 176, 74, 0.65)) drop-shadow(0 0 48px rgba(255, 138, 40, 0.36));
+  /* Float on the compositor, with a steady glow. Animating both blurred
+     shadows forced a fresh raster of the capsule on every frame. */
+  animation: ths-capsule-float 8s ease-in-out infinite alternate;
 }
 
 .ths-capsule-in {
@@ -264,11 +267,6 @@
 @keyframes ths-capsule-float {
   from { transform: translate3d(0, 1.5%, 0) rotate(-2.4deg); }
   to   { transform: translate3d(0, -7.5%, 0) rotate(2.4deg); }
-}
-
-@keyframes ths-capsule-glow {
-  from { filter: drop-shadow(0 0 14px rgba(255, 176, 74, 0.5)) drop-shadow(0 0 36px rgba(255, 138, 40, 0.28)); }
-  to   { filter: drop-shadow(0 0 26px rgba(255, 196, 110, 0.8)) drop-shadow(0 0 70px rgba(255, 150, 50, 0.45)); }
 }
 
 /* След под капсулой: путь, по которому она прилетела. Координаты — от самой

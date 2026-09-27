@@ -4,6 +4,26 @@
 @import './blog-readable.css';
 @import './whale-brand.css';
 
+/* Safari zooms focused form controls below 16px. A phone in landscape can
+ * cross the desktop typography breakpoint, so use its input capabilities
+ * instead of viewport width. Keep the admin's own typography rules intact. */
+@media (hover: none), (pointer: coarse) {
+  #root :is(
+    input:not([type]),
+    input[type='text'],
+    input[type='search'],
+    input[type='email'],
+    input[type='tel'],
+    input[type='url'],
+    input[type='number'],
+    input[type='password'],
+    textarea,
+    select
+  ):not(:where(.admin-root *)) {
+    font-size: 16px;
+  }
+}
+
 @media (min-width: 768px) and (hover: hover) {
   html {
     /* Prevents desktop layout from shifting sideways when a modal locks body scroll. */

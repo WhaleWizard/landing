@@ -144,11 +144,11 @@ function valueSizeClass(value: string) {
   return 'text-[17px] sm:text-2xl md:text-3xl leading-none';
 }
 
-const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
+const StatsRow = memo(({ stats, settledEntrance = false }: { stats: HeroStat[]; settledEntrance?: boolean }) => {
   return (
   <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 pt-5 md:pt-8">
     <m.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={settledEntrance ? false : { opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.3, duration: 0.5 }}
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 backdrop-blur-sm overflow-hidden"
@@ -161,7 +161,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
     </m.div>
 
     <m.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={settledEntrance ? false : { opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.4, duration: 0.5 }}
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 backdrop-blur-sm overflow-hidden"
@@ -174,7 +174,7 @@ const StatsRow = memo(({ stats }: { stats: HeroStat[] }) => {
     </m.div>
 
     <m.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={settledEntrance ? false : { opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.5, duration: 0.5 }}
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20 backdrop-blur-sm overflow-hidden"
@@ -257,6 +257,7 @@ interface LeftContentProps {
   content: HeroContent;
   mobileFirst?: boolean;
   staticMotion?: boolean;
+  settledEntrance?: boolean;
   statsVariant?: 'default' | 'meta-apps' | 'hidden';
   statsClassName?: string;
 }
@@ -267,6 +268,7 @@ const LeftContent = memo(({
   content,
   mobileFirst = false,
   staticMotion = false,
+  settledEntrance = false,
   statsVariant = 'default',
   statsClassName = '',
 }: LeftContentProps) => {
@@ -274,7 +276,7 @@ const LeftContent = memo(({
   const titleAnimation = content.titleAnimation || {};
   return (
   <m.div
-    initial={staticMotion ? false : { opacity: 0, y: 50 }}
+    initial={staticMotion || settledEntrance ? false : { opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     transition={staticMotion ? { duration: 0 } : { duration: 0.8 }}
     // min-w-0 обязателен: строки заголовка не переносятся, а элемент сетки по
@@ -375,24 +377,28 @@ const LeftContent = memo(({
     <div className={`flex flex-col sm:flex-row gap-3 md:gap-4 ${mobileFirst ? 'meta-apps-hero-actions' : ''}`}>
       <Button
         size="lg"
-        onClick={onScrollToContact}
+        asChild
         className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+        <a href="#contact" onClick={(event) => { event.preventDefault(); onScrollToContact(); }}>
+        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
         <span className="relative text-center leading-tight">{content.primaryButton}</span>
         <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform relative" />
+        </a>
       </Button>
       <Button
         size="lg"
         variant="outline"
-        onClick={onScrollToCases}
+        asChild
         className="border-primary/30 hover:bg-primary/10 backdrop-blur-sm text-sm md:text-base"
       >
-        <span className="text-center leading-tight">{content.secondaryButton}</span>
+        <a href="#cases" onClick={(event) => { event.preventDefault(); onScrollToCases(); }}>
+          <span className="text-center leading-tight">{content.secondaryButton}</span>
+        </a>
       </Button>
     </div>
 
-    {statsVariant === 'default' && <StatsRow stats={content.stats} />}
+    {statsVariant === 'default' && <StatsRow stats={content.stats} settledEntrance={settledEntrance} />}
     {statsVariant === 'meta-apps' && (
       <MetaAppsStatsStrip
         stats={content.stats}
@@ -799,6 +805,8 @@ function Hero({
   visual = 'default',
   contentKey = null,
   staticMotion: staticMotionProp = false,
+  settledEntrance = false,
+  scene,
 }: {
   content?: HeroContent;
   visual?: HeroVisual;
@@ -809,6 +817,10 @@ function Hero({
    * мешает разглядывать текст.
    */
   staticMotion?: boolean;
+  /** Build-time first screen is already visible; do not hide it at hand-off. */
+  settledEntrance?: boolean;
+  /** Shared scene rendered synchronously by the static page generator. */
+  scene?: ReactNode;
 }) {
   const content = useSiteSection(contentKey, 'hero', contentProp);
   const sectionRef     = useRef<HTMLElement>(null);
@@ -851,10 +863,11 @@ function Hero({
         id="hero"
         ref={sectionRef}
         data-hero-ambient={motionAllowed ? undefined : 'off'}
+        data-hero-effects={settledEntrance ? 'settled' : undefined}
         className="cosmic-hero pt-0 min-[901px]:pt-20"
       >
         <Suspense fallback={<CosmicHeroFallback />}>
-          <CosmicHeroScene active={motionAllowed} />
+          {scene ?? <CosmicHeroScene active={motionAllowed} />}
         </Suspense>
 
         <div className="cosmic-copy">
@@ -864,6 +877,7 @@ function Hero({
               onScrollToCases={scrollToCases}
               content={content}
               staticMotion={freezeMotion}
+              settledEntrance={settledEntrance}
               statsVariant="default"
             />
           </div>

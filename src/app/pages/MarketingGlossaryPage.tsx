@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { m } from 'motion/react';
 import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, BookOpenText, Filter, Layers3, Link2, Search, Smartphone } from 'lucide-react';
@@ -89,6 +89,9 @@ export default function MarketingGlossaryPage() {
   const [selectedSection, setSelectedSection] = useState<SectionFilter>('all');
   const [selectedCollection, setSelectedCollection] = useState<CollectionFilter>('all');
   const [openTermId, setOpenTermId] = useState('');
+  const relatedScrollTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(relatedScrollTimerRef.current), []);
 
   const selectedCollectionData = useMemo(
     () => glossaryCollections.find((collection) => collection.id === selectedCollection),
@@ -178,6 +181,7 @@ export default function MarketingGlossaryPage() {
 
     setSelectedCollection('all');
     setSelectedSection('all');
+    setQuery('');
     setOpenTermId(termId);
     const shouldAlignHash = navigationType !== 'POP' || location.key === 'default';
     const timer = window.setTimeout(() => {
@@ -220,12 +224,17 @@ export default function MarketingGlossaryPage() {
   }, []);
 
   const openTerm = (termId: string, scroll = false) => {
+    if (!glossaryTerm(termId)) return;
     setOpenTermId(termId);
     setSelectedCollection('all');
     setSelectedSection('all');
+    // A related term can be outside the current search result. Clear every
+    // filter before opening it, otherwise the new hash points to absent DOM.
+    setQuery('');
     replaceHash(termAnchor(termId));
+    window.clearTimeout(relatedScrollTimerRef.current);
     if (scroll) {
-      window.setTimeout(() => {
+      relatedScrollTimerRef.current = window.setTimeout(() => {
         document.getElementById(termAnchor(termId))?.scrollIntoView({ block: 'start', behavior: preferredScrollBehavior() });
       }, 50);
     }
@@ -248,6 +257,7 @@ export default function MarketingGlossaryPage() {
         url="/marketing-glossary"
       />
 
+      <main>
       <section className="relative overflow-hidden border-b border-border/50 bg-card/20">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 md:pt-28">
@@ -290,7 +300,7 @@ export default function MarketingGlossaryPage() {
         </div>
       </section>
 
-      <main className="min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+      <div className="min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
         <section aria-label="Фильтры словаря" className="min-w-0 max-w-full rounded-2xl border border-border bg-card/40 p-4 md:p-6 mb-8">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
             <div className="relative min-w-0 w-full max-w-full">
@@ -571,6 +581,7 @@ export default function MarketingGlossaryPage() {
             </Button>
           </div>
         </section>
+      </div>
       </main>
       <Suspense fallback={null}>
         <Footer />

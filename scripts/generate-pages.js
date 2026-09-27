@@ -872,9 +872,8 @@ const HERO_PRELOADS = {
 // загрузки переключается с системного шрифта на авторский.
 const ROUTE_FONT_PRELOADS = {
   '/consult': [
-    '/fonts/hero/commissioner-300-normal-cyrillic.woff2',
+    // All Commissioner weights use the same variable font bytes.
     '/fonts/hero/commissioner-400-normal-cyrillic.woff2',
-    '/fonts/hero/commissioner-600-normal-cyrillic.woff2',
   ],
 };
 
@@ -943,7 +942,7 @@ function resolveHeroFontPreloads(hero = {}) {
 
   const hrefs = new Set();
   for (const { font, text, weight } of requestedFonts.values()) {
-    const resolvedWeight = nearestFontWeight(font, weight);
+    const resolvedWeight = font.fileWeight ?? nearestFontWeight(font, weight);
     const subsets = /[\u0400-\u052f]/u.test(text) ? ['cyrillic'] : [];
     if (/[A-Za-z0-9]/u.test(text) || subsets.length === 0) subsets.push('latin');
     const folder = font.dir === 'hero' ? 'hero' : 'library';
@@ -1235,16 +1234,24 @@ function heroShellLeadStyle(hero) {
   return family ? `${generatedShellStyles.lead};font-family:${family}` : generatedShellStyles.lead;
 }
 
-function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, children = '', sections = [], currentRoute = '' }) {
+function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, children = '', sections = [], currentRoute = '', firstScreen = '' }) {
   const sectionsHtml = sections
     .map(
       (s) => `
-        <section style="margin-top:30px;padding-top:24px;border-top:1px solid rgba(255,255,255,.10)">
+        <section${s.id ? ` id="${escapeHtml(s.id)}"` : ''} style="margin-top:30px;padding-top:24px;border-top:1px solid rgba(255,255,255,.10)">
           ${s.heading ? `<h2 style="margin:0 0 14px;font-size:19px;font-weight:800;letter-spacing:-.01em">${escapeHtml(s.heading)}</h2>` : ''}
           ${s.bodyHtml}
         </section>`,
     )
     .join('');
+
+  if (firstScreen) {
+    return `    <main class="dark marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden">
+${firstScreen}
+      <div style="max-width:920px;margin:0 auto;padding:24px 20px 48px">${children}${sectionsHtml}</div>
+${renderShellNavHtml(currentRoute)}
+    </main>`;
+  }
 
   return `    <main style="${generatedShellStyles.main}">
       <section style="${generatedShellStyles.card}${sections.length ? ';width:min(100%,920px)' : ''}">
@@ -1480,13 +1487,14 @@ function renderServicePageSections(config) {
 
 function renderHomeSections(content, latestArticles) {
   const sections = [
-    { heading: null, bodyHtml: renderHeroBodyHtml(content.hero) },
     {
+      id: 'services',
       heading: [content.services.titlePrefix, content.services.titleAccent].filter(Boolean).join(' ') || 'Услуги',
       bodyHtml: `${renderBadgeHtml(content.services.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.services.description)}</p>${renderServiceCardsHtml(content.services.cards)}`,
     },
     {
       heading: [content.cases.titlePrefix, content.cases.titleAccent].filter(Boolean).join(' ') || 'Кейсы',
+      id: 'cases',
       bodyHtml: `${renderBadgeHtml(content.cases.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.cases.description)}</p>${renderCaseItemsHtml(content.cases.items)}`,
     },
     {
@@ -1495,6 +1503,7 @@ function renderHomeSections(content, latestArticles) {
     },
     {
       heading: [content.testimonials.titlePrefix, content.testimonials.titleAccent].filter(Boolean).join(' ') || 'Отзывы клиентов',
+      id: 'about',
       bodyHtml: renderTestimonialsSection(content.testimonials, content.testimonialItems),
     },
   ];
@@ -1502,6 +1511,7 @@ function renderHomeSections(content, latestArticles) {
   if (latestArticles.length) {
     sections.push({
       heading: 'Последние статьи блога',
+      id: 'blog',
       bodyHtml: `<div style="display:grid;gap:10px">${latestArticles
         .slice(0, 6)
         .map((a) => `<a href="${getArticlePath(a)}" style="display:block;${contentStyles.cardBox};color:#f8fafc;text-decoration:none">${escapeHtml(a.title)}</a>`)
@@ -1510,6 +1520,7 @@ function renderHomeSections(content, latestArticles) {
   }
 
   sections.push({
+    id: 'contact',
     heading: [content.contact.titlePrefix, content.contact.titleAccent].filter(Boolean).join(' '),
     bodyHtml: `${renderBadgeHtml(content.contact.badge)}<p style="${contentStyles.body}">${escapeHtml(content.contact.description)}</p>${renderBenefitsHtml(content.contact.benefits)}`,
   });
@@ -1807,6 +1818,7 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
           eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wizard',
           sections: page.sections || [],
           currentRoute: page.route,
+          firstScreen: page.route === '/' ? content.renderHomeFirstScreen(homeContent.hero) : '',
         }),
       }),
     );

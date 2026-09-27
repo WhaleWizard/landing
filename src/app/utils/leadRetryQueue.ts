@@ -27,18 +27,24 @@ function readQueue(): QueuedLead[] {
   }
 }
 
-function writeQueue(queue: QueuedLead[]): void {
+function writeQueue(queue: QueuedLead[]): boolean {
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-MAX_QUEUE_SIZE)));
+    return true;
   } catch {
-    /* localStorage недоступен или переполнен — очередь просто не сохранится в этот раз */
+    return false;
   }
 }
 
-export function queueLeadForRetry(endpoint: string, payload: unknown): void {
-  const queue = readQueue();
-  queue.push({ id: crypto.randomUUID(), endpoint, payload, queuedAt: Date.now() });
-  writeQueue(queue);
+export function queueLeadForRetry(endpoint: string, payload: unknown): boolean {
+  try {
+    const queue = readQueue();
+    queue.push({ id: crypto.randomUUID(), endpoint, payload, queuedAt: Date.now() });
+    return writeQueue(queue);
+  } catch {
+    // A form must keep its entered fields unless the retry really persisted.
+    return false;
+  }
 }
 
 /**

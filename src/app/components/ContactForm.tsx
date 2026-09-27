@@ -238,44 +238,44 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
       }
       setIsSubmitting(true);
 
-      // Проверка «человек или бот» запускается здесь, а не при открытии
-      // страницы: токен живёт минуты, и полученный заранее успел бы протухнуть.
-      // Обычный посетитель ничего не видит и ничего не нажимает.
-      const turnstileToken = await getTurnstileToken();
-      if (!turnstileToken) {
-        setIsSubmitting(false);
-        setVerificationFailed(true);
-        return;
-      }
-      setVerificationFailed(false);
-
-      const eventId = crypto.randomUUID();
-      const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
-      const analyticsClientIds = await getAnalyticsClientIds();
-      const fullPhone = buildFullPhone(phoneCode, formData.phone);
-      const leadPayload = {
-        ...metaBrowserContext,
-        ...analyticsClientIds,
-        name: formData.name,
-        email: formData.email,
-        phone: fullPhone,
-        budget: formData.budget,
-        message: formData.message,
-        contactMethod: contactMethod,
-        telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
-        service: 'WhaleWzrd main landing',
-        service_slug: 'home',
-        form_id: 'home_contact_form',
-        form_variant: 'home_contact_v1',
-        lead_source_page: window.location.pathname,
-        event_id: eventId,
-        hp_trap: hpTrap,
-        turnstile_token: turnstileToken,
-        page_url: window.location.href,
-        referrer: document.referrer || undefined,
-      };
-
+      let leadPayload: Record<string, unknown> | undefined;
       try {
+        // Проверка «человек или бот» запускается здесь, а не при открытии
+        // страницы: токен живёт минуты, и полученный заранее успел бы протухнуть.
+        // Обычный посетитель ничего не видит и ничего не нажимает.
+        const turnstileToken = await getTurnstileToken();
+        if (!turnstileToken) {
+          setVerificationFailed(true);
+          return;
+        }
+        setVerificationFailed(false);
+
+        const eventId = crypto.randomUUID();
+        const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
+        const analyticsClientIds = await getAnalyticsClientIds();
+        const fullPhone = buildFullPhone(phoneCode, formData.phone);
+        leadPayload = {
+          ...metaBrowserContext,
+          ...analyticsClientIds,
+          name: formData.name,
+          email: formData.email,
+          phone: fullPhone,
+          budget: formData.budget,
+          message: formData.message,
+          contactMethod: contactMethod,
+          telegramUsername: contactMethod === 'telegram' ? telegramUsername : undefined,
+          service: 'WhaleWzrd main landing',
+          service_slug: 'home',
+          form_id: 'home_contact_form',
+          form_variant: 'home_contact_v1',
+          lead_source_page: window.location.pathname,
+          event_id: eventId,
+          hp_trap: hpTrap,
+          turnstile_token: turnstileToken,
+          page_url: window.location.href,
+          referrer: document.referrer || undefined,
+        };
+
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -289,20 +289,27 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         }
 
         setIsSubmitted(true);
-        await rememberMetaLeadIdentifiers({ email: formData.email, phone: fullPhone, name: formData.name });
+        // The server already accepted the lead. A browser analytics failure
+        // must not turn it into a failed submission or another queued lead.
+        await rememberMetaLeadIdentifiers({ email: formData.email, phone: fullPhone, name: formData.name })
+          .catch(() => console.warn('[Lead] Could not remember browser match keys'));
         setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
         setTelegramUsername('');
         setHpTrap('');
         setContactMethod('telegram');
         setAgreed(false);
-        trackLead(eventId, {
-          ...metaBrowserContext,
-          contact_method: contactMethod,
-          service: 'WhaleWzrd main landing',
-          service_slug: 'home',
-          form_id: 'home_contact_form',
-          form_variant: 'home_contact_v1',
-        });
+        try {
+          trackLead(eventId, {
+            ...metaBrowserContext,
+            contact_method: contactMethod,
+            service: 'WhaleWzrd main landing',
+            service_slug: 'home',
+            form_id: 'home_contact_form',
+            form_variant: 'home_contact_v1',
+          });
+        } catch {
+          console.warn('[Lead] Browser conversion tracking failed');
+        }
 
         // Слепок для страницы благодарности: она одна на весь сайт и без него
         // не знает ни имени, ни канала связи. См. utils/leadContext.
@@ -326,10 +333,9 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         console.error(error);
         const retryable = error instanceof TypeError
           || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true);
-        if (retryable) {
+        if (retryable && leadPayload && queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
           // fetch не смог достучаться до сервера (нет сети/офлайн) — не потеряем заявку,
           // сохраним и отправим автоматически при восстановлении связи.
-          queueLeadForRetry(API_ROUTES.lead, leadPayload);
           setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
           setTelegramUsername('');
           setHpTrap('');
@@ -344,14 +350,16 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           setNotice({
             tone: 'error',
             title: 'Заявка не отправилась',
-            text: error instanceof Error ? error.message : 'Попробуйте ещё раз или напишите в Telegram.',
+            text: retryable
+              ? 'Не удалось отправить или сохранить заявку в браузере. Данные остались в форме — попробуйте ещё раз или напишите в Telegram.'
+              : error instanceof Error ? error.message : 'Попробуйте ещё раз или напишите в Telegram.',
           });
         }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap, phoneCode],
+    [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap, phoneCode, getTurnstileToken],
   );
 
   const handleSetTelegramUsername = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

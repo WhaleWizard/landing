@@ -491,9 +491,9 @@ export default function CasesPage() {
     const nextUrl = `/cases${search ? `?${search}` : ''}`;
     if (`${location.pathname}${location.search}` !== nextUrl) {
       internalSearchRef.current = nextSearch;
-      navigate(nextUrl, { replace: true });
+      navigate(nextUrl, { replace: true, preventScrollReset: true, state: location.state });
     }
-  }, [entry, goals, location.pathname, location.search, navigate, niches, origin, sort, sources, urlReady, urlSyncRevision]);
+  }, [entry, goals, location.pathname, location.search, location.state, navigate, niches, origin, sort, sources, urlReady, urlSyncRevision]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ru');

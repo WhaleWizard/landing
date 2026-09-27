@@ -431,9 +431,11 @@ test('consultation image preloads match the responsive desk actually rendered by
     assert.ok(existsSync(join(DIST, href.slice(1))), `missing built scene object ${href}`);
   }
   const fontPreloads = links(head, 'preload').filter((tag) => attribute(tag, 'as') === 'font').map((tag) => attribute(tag, 'href'));
-  for (const weight of [300, 400, 600]) {
-    assert.ok(fontPreloads.includes(`/fonts/hero/commissioner-${weight}-normal-cyrillic.woff2`), `consult must preload Commissioner ${weight} cyrillic used above the fold`);
-  }
+  assert.deepEqual(
+    fontPreloads.filter((href) => href.includes('/commissioner-')),
+    ['/fonts/hero/commissioner-400-normal-cyrillic.woff2'],
+    'consult must preload identical Commissioner weight files once',
+  );
   assert.ok(
     images.every((tag) => !attribute(tag, 'href')?.includes('/workspace-')),
     'the retired workspace photo must not compete with the live desk on the network',

@@ -30,6 +30,9 @@ export const FONT_LIBRARY = [
   {
     id: 'commissioner', family: 'Commissioner', dir: 'hero', category: 'sans', bodySafe: true,
     weights: [300, 400, 500, 600, 700],
+    // The weight aliases contain identical variable-font bytes per subset.
+    // CSS and preloads share one URL; the old files stay publicly available.
+    fileWeight: 400,
     description: 'Гибкий деловой гротеск с хорошей кириллицей.',
   },
   {

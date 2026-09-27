@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { FONT_LIBRARY, FONT_SUBSETS } from './font-library.manifest.js';
 
 /**
  * Библиотека шрифтов живёт в четырёх местах: файлы в public/fonts, @font-face
@@ -92,6 +93,30 @@ test('каждый @font-face ссылается на существующий �
       );
     }
   }
+});
+
+test('общие URL начертаний разрешены только для побайтово одинаковых шрифтов', () => {
+  for (const font of FONT_LIBRARY.filter((entry) => entry.fileWeight != null)) {
+    const folder = font.dir === 'hero' ? 'hero' : 'library';
+    const byWeight = faces.get(`WW ${font.family}`);
+    for (const subset of FONT_SUBSETS) {
+      const canonical = `/fonts/${folder}/${font.id}-${font.fileWeight}-normal-${subset}.woff2`;
+      const bytes = readFileSync(join(ROOT, 'public', canonical));
+      for (const weight of font.weights) {
+        const alias = `/fonts/${folder}/${font.id}-${weight}-normal-${subset}.woff2`;
+        assert.ok(bytes.equals(readFileSync(join(ROOT, 'public', alias))),
+          `${alias} изменился: общий URL больше не сохраняет это начертание`);
+        assert.ok(byWeight.get(weight).includes(canonical),
+          `${font.id} ${weight} должен использовать общий URL ${subset}`);
+      }
+    }
+  }
+  const heroCss = readFileSync(join(ROOT, 'src/app/components/service-heroes/consult-studio-hero.css'), 'utf8');
+  const heroUrls = [...heroCss.matchAll(/url\('([^']+\.woff2)'\)/g)].map((match) => match[1]);
+  assert.deepEqual([...new Set(heroUrls)].sort(), [
+    '/fonts/hero/commissioner-400-normal-cyrillic.woff2',
+    '/fonts/hero/commissioner-400-normal-latin.woff2',
+  ], 'хиро и динамический каталог должны обращаться к одинаковым файлам Commissioner');
 });
 
 test('серверный белый список совпадает с каталогом', () => {

@@ -180,6 +180,9 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
     const mouse = { x: -9999, y: -9999 };
     let lastMouseAt = -1e9;
     const handleMove = (event: MouseEvent) => {
+      // Every mounted section receives the window event. Off-screen networks
+      // must not force layout just because the visitor moved the pointer.
+      if (!inViewRef.current || document.hidden || isScrollActivityActive()) return;
       const now = performance.now();
       // Геометрию canvas измеряем максимум раз в 120 мс, а не на каждое
       // системное mousemove-событие. Между измерениями координаты стабильны.

@@ -626,7 +626,7 @@ export default function FAQPage() {
         url="/faq"
       />
 
-      <section className="marketing-typography min-h-screen bg-background px-4 pb-16 pt-24 sm:px-6 md:pb-24 md:pt-32">
+      <main className="marketing-typography min-h-screen bg-background px-4 pb-16 pt-24 sm:px-6 md:pb-24 md:pt-32">
         <div className="max-w-5xl mx-auto">
           <PageNav
             crumbs={[
@@ -821,7 +821,7 @@ export default function FAQPage() {
             </div>
           </m.div>
         </div>
-      </section>
+      </main>
       <Suspense fallback={null}>
         <Footer />
       </Suspense>

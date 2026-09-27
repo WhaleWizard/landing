@@ -213,14 +213,15 @@ function isZipDownloadLink(href = '') {
 }
 
 function getDownloadFileName(href = '') {
+  let pathname = 'archive.zip';
   try {
     const url = new URL(href, window.location.href);
-    const pathname = url.pathname.split('/').filter(Boolean).pop() || 'archive.zip';
-    return decodeURIComponent(pathname);
+    pathname = url.pathname.split('/').filter(Boolean).pop() || pathname;
   } catch {
-    const pathname = String(href).split('?')[0].split('#')[0].split('/').filter(Boolean).pop() || 'archive.zip';
-    return decodeURIComponent(pathname);
+    pathname = String(href).split('?')[0].split('#')[0].split('/').filter(Boolean).pop() || pathname;
   }
+  // A literal percent sign in a valid file URL must not break the dialog.
+  try { return decodeURIComponent(pathname); } catch { return pathname; }
 }
 
 function extractRelatedArticles(allArticles: Article[], currentArticle: Article | null | undefined) {
@@ -230,20 +231,33 @@ function extractRelatedArticles(allArticles: Article[], currentArticle: Article 
 
   return allArticles
     .filter((article) => article.slug !== currentArticle.slug)
-    .sort((a, b) => {
-      const score = (article: Article) => {
-        const sameCategory = Number(article.category === currentArticle.category) * 3;
-        const tagsScore = (article.tags || []).reduce((acc, tag) => acc + Number(currentTags.has(String(tag).toLowerCase())), 0);
-        const articleTokens = normalizeTokens(`${article.title} ${article.description}`);
-        const tokenScore = articleTokens.reduce((acc, token) => acc + Number(currentTokens.has(token)), 0);
-        return sameCategory + tagsScore * 2 + tokenScore;
-      };
-
-      const byCategory = score(b) - score(a);
-      if (byCategory !== 0) return byCategory;
-      return a.title.localeCompare(b.title);
+    .map((article) => {
+      const sameCategory = Number(article.category === currentArticle.category) * 3;
+      const tagsScore = (article.tags || []).reduce((acc, tag) => acc + Number(currentTags.has(String(tag).toLowerCase())), 0);
+      const articleTokens = normalizeTokens(`${article.title} ${article.description}`);
+      const tokenScore = articleTokens.reduce((acc, token) => acc + Number(currentTokens.has(token)), 0);
+      return { article, score: sameCategory + tagsScore * 2 + tokenScore };
     })
-    .slice(0, 3);
+    .sort((a, b) => {
+      const byCategory = b.score - a.score;
+      if (byCategory !== 0) return byCategory;
+      return a.article.title.localeCompare(b.article.title);
+    })
+    .slice(0, 3)
+    .map(({ article }) => article);
+}
+
+function ArticleReadingProgress({ isCase = false }: { isCase?: boolean }) {
+  const { scrollYProgress } = useScroll();
+  const reducedMotion = useReducedMotion();
+  const springProgress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.4 });
+  return (
+    <m.div
+      aria-hidden="true"
+      className={`fixed top-0 left-0 right-0 ${isCase ? 'z-[70]' : 'z-[60]'} h-1 origin-left bg-gradient-to-r from-primary via-accent to-secondary`}
+      style={{ scaleX: reducedMotion ? scrollYProgress : springProgress }}
+    />
+  );
 }
 
 function toIsoDate(value?: string): string | undefined {
@@ -458,9 +472,15 @@ function BlogPageComponent() {
     };
   });
   const [showAllTopics, setShowAllTopics] = useState(false);
+  const internalSearchRef = useRef<string | null>(null);
+  const hydratedSearchRef = useRef(location.search);
+  const skipUrlWriteRef = useRef(false);
+  const [urlSyncRevision, setUrlSyncRevision] = useState(0);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [pendingZipDownload, setPendingZipDownload] = useState<{ href: string; target: string; fileName: string } | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  // The case view is lazy: its DOM can arrive after this page's first effect.
+  // A callback ref lets the link handler attach when that content really mounts.
+  const [contentNode, contentRef] = useState<HTMLDivElement | null>(null);
   const articleTitleRef = useRef<HTMLHeadingElement | null>(null);
   const articleTitleFit = useManagedTitleFit<HTMLHeadingElement>(ARTICLE_TITLE_LINES, { minFontSize: 19 });
   // Тот же элемент нужен и для подгонки кегля, и для переноса фокуса на
@@ -470,12 +490,6 @@ function BlogPageComponent() {
     articleTitleFit(node);
   }, [articleTitleFit]);
   const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
-  // Прогресс чтения статьи — тонкая полоса под шапкой
-  const { scrollYProgress } = useScroll();
-  const reducedMotion = useReducedMotion();
-  const springReadingProgress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.4 });
-  const readingProgress = reducedMotion ? scrollYProgress : springReadingProgress;
-
   // Санитизация + оглавление: проставляем id всем h2, чтобы работали якоря
   const { articleHtml, toc } = useMemo(() => {
     if (!selectedArticle) return { articleHtml: '', toc: [] };
@@ -534,7 +548,7 @@ function BlogPageComponent() {
   useEffect(() => {
     if (!selectedArticle) return;
     articleTitleRef.current?.focus({ preventScroll: true });
-  }, [selectedArticle]);
+  }, [contentNode, selectedArticle]);
 
   useEffect(() => {
     const ids = ['ld-article', 'ld-breadcrumbs', 'ld-faq-page'] as const;
@@ -572,7 +586,7 @@ function BlogPageComponent() {
   useEffect(() => {
     // Узел запоминается сразу: к моменту уборки ссылка в ref может быть уже
     // пустой, и слушатель снимался бы не с того элемента.
-    const content = contentRef.current;
+    const content = contentNode;
     if (!content || !selectedArticle) return;
 
     const handler = (event: MouseEvent) => {
@@ -600,7 +614,7 @@ function BlogPageComponent() {
 
     content.addEventListener('click', handler);
     return () => content.removeEventListener('click', handler);
-  }, [selectedArticle, navigate]);
+  }, [contentNode, selectedArticle, navigate]);
 
   const goToBlogList = useCallback(() => returnTo.goBack(), [returnTo.goBack]);
 
@@ -641,8 +655,9 @@ function BlogPageComponent() {
   );
   const topics = useMemo(() => buildBlogTopics(scopedArticles), [scopedArticles]);
   const activeTopicRule = topics.find((topic) => topic.id === activeTopic) ?? null;
-  const normalizedQueryTokens = normalizeTokens(searchQuery);
-  const filteredArticles = scopedArticles
+  const filteredArticles = useMemo(() => {
+    const normalizedQueryTokens = normalizeTokens(searchQuery);
+    return scopedArticles
     .filter((article) => {
       if (activeTopicRule && topicIdOf(article) !== activeTopicRule.id) return false;
       if (normalizedQueryTokens.length === 0) return true;
@@ -663,6 +678,11 @@ function BlogPageComponent() {
       const difference = articleTimestamp(a) - articleTimestamp(b);
       return sort === 'old' ? difference : -difference;
     });
+  }, [activeTopicRule, scopedArticles, searchQuery, sort]);
+  const relatedArticles = useMemo(
+    () => extractRelatedArticles(scopedArticles, selectedArticle),
+    [scopedArticles, selectedArticle],
+  );
   const featuredArticle = !isCasesRoute ? filteredArticles[0] ?? null : null;
   const feedArticles = !isCasesRoute ? filteredArticles.slice(1) : filteredArticles;
   const filterKey = `${activeTopic}|${sort}|${searchQuery.trim()}`;
@@ -673,10 +693,38 @@ function BlogPageComponent() {
   const hiddenFeedCount = feedArticles.length - visibleFeedArticles.length;
   const showMoreArticles = () => setPageState({ key: filterKey, page: listPage + 1 });
 
+  // Browser history and links can change only the query string without
+  // remounting this page. Read those external changes before writing local
+  // filters back, while preserving untrimmed text during the user's typing.
+  useEffect(() => {
+    if (slug || isCasesRoute || hydratedSearchRef.current === location.search) return;
+    hydratedSearchRef.current = location.search;
+    if (internalSearchRef.current === location.search) {
+      internalSearchRef.current = null;
+      return;
+    }
+    internalSearchRef.current = null;
+    skipUrlWriteRef.current = true;
+    const params = new URLSearchParams(location.search);
+    const nextQuery = params.get('search') || '';
+    const nextTopic = normalizeTopicId(params.get('topic'));
+    const requestedSort = params.get('sort');
+    const nextSort: BlogSort = BLOG_SORTS.some((item) => item.id === requestedSort) ? requestedSort as BlogSort : 'new';
+    setSearchQuery(nextQuery);
+    setActiveTopic(nextTopic);
+    setSort(nextSort);
+    setPageState({ key: `${nextTopic}|${nextSort}|${nextQuery.trim()}`, page: parseBlogPage(params.get('page')) });
+  }, [isCasesRoute, location.search, slug]);
+
   // Тема, сортировка и поиск живут в адресе: такую ссылку можно отправить,
   // и она откроется с тем же набором статей. Чужие параметры (utm и прочие)
   // остаются нетронутыми.
   useEffect(() => {
+    if (skipUrlWriteRef.current) {
+      skipUrlWriteRef.current = false;
+      setUrlSyncRevision((revision) => revision + 1);
+      return;
+    }
     if (slug || isCasesRoute || loading) return;
 
     const params = new URLSearchParams(location.search);
@@ -693,9 +741,10 @@ function BlogPageComponent() {
     const query = params.toString();
     const nextUrl = `/blog${query ? `?${query}` : ''}`;
     if (`${location.pathname}${location.search}` !== nextUrl) {
-      navigate(nextUrl, { replace: true });
+      internalSearchRef.current = query ? `?${query}` : '';
+      navigate(nextUrl, { replace: true, preventScrollReset: true, state: location.state });
     }
-  }, [activeTopic, activeTopicRule, isCasesRoute, listPage, loading, location.pathname, location.search, navigate, searchQuery, slug, sort]);
+  }, [activeTopic, activeTopicRule, isCasesRoute, listPage, loading, location.pathname, location.search, location.state, navigate, searchQuery, slug, sort, urlSyncRevision]);
 
   if (loading) return <RouteSkeleton />;
 
@@ -707,10 +756,6 @@ function BlogPageComponent() {
   }
 
   if (selectedArticle) {
-    const relatedArticles = extractRelatedArticles(
-      allArticles.filter((article) => (isCasesRoute ? isCaseArticle(article) : !isCaseArticle(article))),
-      selectedArticle,
-    );
     const seoTitle = buildArticleSeoTitle(selectedArticle);
     const seoDescription = buildArticleSeoDescription(selectedArticle);
 
@@ -726,11 +771,7 @@ function BlogPageComponent() {
             articleModifiedTime={toIsoDate(selectedArticle.updatedAt) || toIsoDate(selectedArticle.publishedAt) || toIsoDate(selectedArticle.date)}
             articleSection={selectedArticle.category}
           />
-          <m.div
-            aria-hidden="true"
-            className="fixed left-0 right-0 top-0 z-[70] h-1 origin-left bg-gradient-to-r from-primary via-accent to-secondary"
-            style={{ scaleX: readingProgress }}
-          />
+          <ArticleReadingProgress isCase />
           <Suspense fallback={<RouteSkeleton />}>
             <CaseArticleView
               article={selectedArticle}
@@ -770,12 +811,8 @@ function BlogPageComponent() {
           articleSection={selectedArticle.category}
         />
         {/* Прогресс чтения — поверх всего, тонкая градиентная полоса */}
-        <m.div
-          aria-hidden="true"
-          className="fixed top-0 left-0 right-0 z-[60] h-1 origin-left bg-gradient-to-r from-primary via-accent to-secondary"
-          style={{ scaleX: readingProgress }}
-        />
-        <section
+        <ArticleReadingProgress />
+        <main
           data-blog-ui="true"
           className="marketing-typography blog-page blog-page--article min-h-screen bg-background"
           style={{ contain: 'layout style paint' }}
@@ -839,7 +876,7 @@ function BlogPageComponent() {
           )}
           <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap mx-auto max-w-6xl px-4 pb-20 sm:px-6">
             <div className="lg:grid lg:grid-cols-[minmax(0,760px)_minmax(230px,290px)] lg:items-start lg:justify-between lg:gap-12">
-              <main className="min-w-0">
+              <article className="min-w-0">
             {toc.length >= 3 && (
               <details className="blog-toc group mb-8 rounded-2xl border border-border bg-card/40 open:bg-card/60 transition-colors lg:hidden">
                 <summary className="blog-touch-target flex cursor-pointer list-none items-center gap-2 px-5 py-4 font-semibold text-foreground">
@@ -951,7 +988,7 @@ function BlogPageComponent() {
                 </button>
               </div>
             </div>
-              </main>
+              </article>
 
               {toc.length >= 3 && (
                 <aside className="sticky top-24 hidden rounded-2xl border border-border/70 bg-card/35 p-4 lg:block">
@@ -978,7 +1015,7 @@ function BlogPageComponent() {
               )}
             </div>
           </m.div>
-        </section>
+        </main>
         <Suspense fallback={null}>
           <Footer />
         </Suspense>
@@ -1073,7 +1110,7 @@ function BlogPageComponent() {
         description={isCasesRoute ? 'Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения.' : 'Статьи о рекламе в Instagram, Facebook и Google Ads: запуск, снижение цены заявки, аналитика, продвижение мобильных приложений. Практика без воды и обещаний.'}
         url={routeBase}
       />
-      <section
+      <main
         data-blog-ui="true"
         className="marketing-typography blog-page blog-page--list relative min-h-screen overflow-hidden bg-background px-4 pb-16 pt-28 sm:px-6 md:pb-20 md:pt-32"
         style={{ contain: 'layout style paint' }}
@@ -1398,7 +1435,7 @@ function BlogPageComponent() {
             </div>
           </section>
         </div>
-      </section>
+      </main>
       <Suspense fallback={null}>
         <Footer />
       </Suspense>

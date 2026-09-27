@@ -243,51 +243,51 @@ function LandingForm({
       }
       setIsSubmitting(true);
 
-      // Проверка «человек или бот» — в момент отправки, а не при открытии
-      // страницы: токен живёт минуты и успел бы протухнуть.
-      const turnstileToken = await getTurnstileToken();
-      if (!turnstileToken) {
-        setIsSubmitting(false);
-        setVerificationFailed(true);
-        return;
-      }
-      setVerificationFailed(false);
-
-      const eventId = crypto.randomUUID();
-      const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
-      const analyticsClientIds = await getAnalyticsClientIds();
-      const contactPayload = normalizeContactForLead(formData.contact);
-      const email = formData.email.trim();
-      const phone = buildFullPhone(phoneCode, formData.phone);
-      const websiteDomain = extractWebsiteDomain(formData.website);
-      const leadPayload = {
-        ...metaBrowserContext,
-        ...analyticsClientIds,
-        ...contactPayload,
-        email,
-        phone,
-        name: formData.name,
-        message: service === 'consult'
-          ? `Опыт: ${formData.experience}\nПроблема: ${formData.problem}`
-          : `Сайт: ${formData.website}\nБюджет: ${formData.budget}`,
-        budget: formData.budget,
-        website: formData.website,
-        website_domain: websiteDomain,
-        experience: formData.experience,
-        problem: formData.problem,
-        service: serviceLabels[service],
-        service_slug: service,
-        form_id: 'service_landing_form',
-        form_variant: 'service_landing_v1',
-        lead_source_page: window.location.pathname,
-        event_id: eventId,
-        hp_trap: hpTrap,
-        turnstile_token: turnstileToken,
-        page_url: window.location.href,
-        referrer: document.referrer || undefined,
-      };
-
+      let leadPayload: Record<string, unknown> | undefined;
       try {
+        // Проверка «человек или бот» — в момент отправки, а не при открытии
+        // страницы: токен живёт минуты и успел бы протухнуть.
+        const turnstileToken = await getTurnstileToken();
+        if (!turnstileToken) {
+          setVerificationFailed(true);
+          return;
+        }
+        setVerificationFailed(false);
+
+        const eventId = crypto.randomUUID();
+        const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
+        const analyticsClientIds = await getAnalyticsClientIds();
+        const contactPayload = normalizeContactForLead(formData.contact);
+        const email = formData.email.trim();
+        const phone = buildFullPhone(phoneCode, formData.phone);
+        const websiteDomain = extractWebsiteDomain(formData.website);
+        leadPayload = {
+          ...metaBrowserContext,
+          ...analyticsClientIds,
+          ...contactPayload,
+          email,
+          phone,
+          name: formData.name,
+          message: service === 'consult'
+            ? `Опыт: ${formData.experience}\nПроблема: ${formData.problem}`
+            : `Сайт: ${formData.website}\nБюджет: ${formData.budget}`,
+          budget: formData.budget,
+          website: formData.website,
+          website_domain: websiteDomain,
+          experience: formData.experience,
+          problem: formData.problem,
+          service: serviceLabels[service],
+          service_slug: service,
+          form_id: 'service_landing_form',
+          form_variant: 'service_landing_v1',
+          lead_source_page: window.location.pathname,
+          event_id: eventId,
+          hp_trap: hpTrap,
+          turnstile_token: turnstileToken,
+          page_url: window.location.href,
+          referrer: document.referrer || undefined,
+        };
+
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -301,20 +301,27 @@ function LandingForm({
         }
 
         setIsSubmitted(true);
-        await rememberMetaLeadIdentifiers({ email, phone, name: formData.name });
+        // A confirmed server submission stays successful even if an optional
+        // browser analytics API fails afterwards.
+        await rememberMetaLeadIdentifiers({ email, phone, name: formData.name })
+          .catch(() => console.warn('[Lead] Could not remember browser match keys'));
         setFormData({ name: '', email: '', phone: '', contact: '', website: '', budget: '', experience: '', problem: '' });
         setHpTrap('');
         setAgreed(false);
-        trackLead(eventId, {
-          ...metaBrowserContext,
-          contact_method: contactPayload.contactMethod,
-          phone_collected: Boolean(phone),
-          service: serviceLabels[service],
-          service_slug: service,
-          form_id: 'service_landing_form',
-          form_variant: 'service_landing_v1',
-          website_domain: websiteDomain,
-        });
+        try {
+          trackLead(eventId, {
+            ...metaBrowserContext,
+            contact_method: contactPayload.contactMethod,
+            phone_collected: Boolean(phone),
+            service: serviceLabels[service],
+            service_slug: service,
+            form_id: 'service_landing_form',
+            form_variant: 'service_landing_v1',
+            website_domain: websiteDomain,
+          });
+        } catch {
+          console.warn('[Lead] Browser conversion tracking failed');
+        }
 
         // Страница благодарности одна на весь сайт — без этого слепка она не
         // знает ни имени, ни услуги, ни канала связи. В заявку и в трекинг
@@ -339,8 +346,7 @@ function LandingForm({
         console.error(error);
         const retryable = error instanceof TypeError
           || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true);
-        if (retryable) {
-          queueLeadForRetry(API_ROUTES.lead, leadPayload);
+        if (retryable && leadPayload && queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
           setFormData({ name: '', email: '', phone: '', contact: '', website: '', budget: '', experience: '', problem: '' });
           setHpTrap('');
           setAgreed(false);
@@ -353,14 +359,16 @@ function LandingForm({
           setNotice({
             tone: 'error',
             title: 'Заявка не отправилась',
-            text: error instanceof Error ? error.message : 'Попробуйте ещё раз или напишите в Telegram.',
+            text: retryable
+              ? 'Не удалось отправить или сохранить заявку в браузере. Данные остались в форме — попробуйте ещё раз или напишите в Telegram.'
+              : error instanceof Error ? error.message : 'Попробуйте ещё раз или напишите в Telegram.',
           });
         }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [formData, navigate, agreed, service, hpTrap, phoneCode],
+    [formData, navigate, agreed, service, hpTrap, phoneCode, getTurnstileToken],
   );
 
   const renderField = (

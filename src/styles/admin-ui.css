@@ -1865,6 +1865,7 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     padding-bottom: max(16px, env(safe-area-inset-bottom));
     padding-left: max(16px, env(safe-area-inset-left));
     transform: none !important;
+    translate: none !important;
     border: 0;
     border-radius: 0;
   }
@@ -2018,8 +2019,10 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   color: var(--adm-primary);
 }
 
-.admin-root .admin-site-preview__stage {
+.admin-root .admin-site-preview__stage,
+.admin-site-preview-dialog .admin-site-preview__stage {
   position: relative;
+  visibility: var(--adm-preview-visibility, hidden);
   display: flex;
   width: 100%;
   min-width: 0;
@@ -2034,17 +2037,20 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   box-shadow: inset 0 1px 20px rgba(0, 0, 0, 0.28);
 }
 
-.admin-root .admin-site-preview__stage.is-actual {
+.admin-root .admin-site-preview__stage.is-actual,
+.admin-site-preview-dialog .admin-site-preview__stage.is-actual {
   justify-content: flex-start;
 }
 
-.admin-root .admin-site-preview__scaled-frame {
+.admin-root .admin-site-preview__scaled-frame,
+.admin-site-preview-dialog .admin-site-preview__scaled-frame {
   position: relative;
   flex: none;
   overflow: visible;
 }
 
-.admin-root .admin-site-preview__iframe {
+.admin-root .admin-site-preview__iframe,
+.admin-site-preview-dialog .admin-site-preview__iframe {
   position: absolute;
   inset: 0 auto auto 0;
   display: block;
@@ -2123,7 +2129,8 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     min-width: 100px;
   }
 
-  .admin-root .admin-site-preview__stage {
+  .admin-root .admin-site-preview__stage,
+  .admin-site-preview-dialog .admin-site-preview__stage {
     padding: 10px;
   }
 
@@ -2138,6 +2145,7 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
     padding-left: max(14px, env(safe-area-inset-left)) !important;
     transform: none !important;
+    translate: none !important;
     border: 0 !important;
     border-radius: 0 !important;
   }
@@ -15517,5 +15525,13 @@ body[data-admin-theme] .planner-weekpick {
   .admin-root .case-builder__foot .admin-button {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* Keep focus from zooming phone/tablet pages, including landscape and portals. */
+@media (max-width: 767px), (pointer: coarse) {
+  body[data-admin-theme] :is(.admin-root, [data-slot='dialog-content'])
+    :is(input, textarea, select):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']) {
+    font-size: 16px !important;
   }
 }

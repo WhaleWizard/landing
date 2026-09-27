@@ -47,7 +47,7 @@ function fontDir(entry) {
 
 function publicPath(entry, weight, subset) {
   const folder = entry.dir === 'hero' ? 'hero' : 'library';
-  return `/fonts/${folder}/${fileName(entry.id, weight, subset)}`;
+  return `/fonts/${folder}/${fileName(entry.id, entry.fileWeight ?? weight, subset)}`;
 }
 
 async function fetchGoogleCss(family, weight) {

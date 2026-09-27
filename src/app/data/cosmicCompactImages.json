@@ -1,0 +1,12 @@
+{
+  "maxViewportWidth": 900,
+  "quality": 90,
+  "widths": {
+    "moon1": 222,
+    "moon2": 162,
+    "moon3": 102,
+    "shard1": 156,
+    "shard3": 120,
+    "shard5": 90
+  }
+}

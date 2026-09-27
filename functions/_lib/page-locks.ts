@@ -456,12 +456,20 @@ export async function readPageLockSnapshot(
     return cached;
   }
 
+  // Cache API can fail independently of D1. An expired memory entry is still
+  // the last successful snapshot; do not reopen locked pages merely because
+  // the second cache layer failed while the database was unavailable too.
+  const remembered = memory && (memory.source === 'db' || memory.source === 'cache' || memory.source === 'stale')
+    ? memory
+    : null;
+  const lastKnown = cached && (!remembered || cached.savedAt >= remembered.savedAt) ? cached : remembered;
+
   if (!env.DB) {
     const snapshot: PageLockSnapshot = {
-      locks: cached?.locks || [],
-      savedAt: now,
+      locks: lastKnown?.locks || [],
+      savedAt: lastKnown?.savedAt || now,
       expiresAt: now + MEMORY_TTL_MS,
-      source: cached ? 'stale' : 'no-db',
+      source: lastKnown ? 'stale' : 'no-db',
     };
     memory = snapshot;
     return snapshot;
@@ -491,10 +499,10 @@ export async function readPageLockSnapshot(
     // Настоящий сбой базы: держим последнюю известную копию и пробуем снова
     // через несколько секунд, но сайт не гасим.
     const snapshot: PageLockSnapshot = {
-      locks: cached?.locks || [],
-      savedAt: cached?.savedAt || now,
+      locks: lastKnown?.locks || [],
+      savedAt: lastKnown?.savedAt || now,
       expiresAt: now + DEGRADED_TTL_MS,
-      source: cached ? 'stale' : 'empty',
+      source: lastKnown ? 'stale' : 'empty',
     };
     memory = snapshot;
     return snapshot;

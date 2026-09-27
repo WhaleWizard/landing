@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'WW Commissioner';
-  src: url('/fonts/hero/commissioner-300-normal-cyrillic.woff2') format('woff2');
+  src: url('/fonts/hero/commissioner-400-normal-cyrillic.woff2') format('woff2');
   font-style: normal;
   font-weight: 300;
   font-display: swap;
@@ -9,7 +9,7 @@
 
 @font-face {
   font-family: 'WW Commissioner';
-  src: url('/fonts/hero/commissioner-300-normal-latin.woff2') format('woff2');
+  src: url('/fonts/hero/commissioner-400-normal-latin.woff2') format('woff2');
   font-style: normal;
   font-weight: 300;
   font-display: swap;
@@ -36,7 +36,7 @@
 
 @font-face {
   font-family: 'WW Commissioner';
-  src: url('/fonts/hero/commissioner-500-normal-cyrillic.woff2') format('woff2');
+  src: url('/fonts/hero/commissioner-400-normal-cyrillic.woff2') format('woff2');
   font-style: normal;
   font-weight: 500;
   font-display: swap;
@@ -45,7 +45,7 @@
 
 @font-face {
   font-family: 'WW Commissioner';
-  src: url('/fonts/hero/commissioner-500-normal-latin.woff2') format('woff2');
+  src: url('/fonts/hero/commissioner-400-normal-latin.woff2') format('woff2');
   font-style: normal;
   font-weight: 500;
   font-display: swap;
@@ -54,7 +54,7 @@
 
 @font-face {
   font-family: 'WW Commissioner';
-  src: url('/fonts/hero/commissioner-600-normal-cyrillic.woff2') format('woff2');
+  src: url('/fonts/hero/commissioner-400-normal-cyrillic.woff2') format('woff2');
   font-style: normal;
   font-weight: 600;
   font-display: swap;
@@ -63,7 +63,7 @@
 
 @font-face {
   font-family: 'WW Commissioner';
-  src: url('/fonts/hero/commissioner-600-normal-latin.woff2') format('woff2');
+  src: url('/fonts/hero/commissioner-400-normal-latin.woff2') format('woff2');
   font-style: normal;
   font-weight: 600;
   font-display: swap;

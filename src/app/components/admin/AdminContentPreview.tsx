@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type RefObject,
 } from 'react';
 import {
   ChevronDown,
@@ -32,6 +31,7 @@ import {
   type ContentPreviewReport,
 } from '../../content/contentPreviewProtocol';
 import type { EditableContent, EditorPage, EditorSection } from './AdminContentControl';
+import { observePreviewViewport } from './previewViewportSizing';
 
 type PreviewPresetId = 'desktop' | 'laptop' | 'tablet' | 'mobile-wide' | 'mobile' | 'mobile-small';
 type PreviewZoom = 'fit' | 'actual';
@@ -67,20 +67,6 @@ function useDebounced<T>(value: T, delayMs: number): T {
   return settled;
 }
 
-function useAvailableWidth(ref: RefObject<HTMLDivElement | null>) {
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const update = () => setWidth(node.clientWidth);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [ref]);
-  return width;
-}
-
 function PreviewViewport({
   payload,
   preset,
@@ -96,16 +82,19 @@ function PreviewViewport({
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const availableWidth = useAvailableWidth(hostRef);
   const [contentHeight, setContentHeight] = useState(preset.height);
-  const measured = availableWidth > 0;
-  const sidePadding = expanded ? 24 : 32;
-  const scale = zoom === 'fit'
-    ? measured ? Math.min(1, Math.max(0.1, (availableWidth - sidePadding) / preset.width)) : 1
-    : 1;
   const iframeHeight = Math.max(preset.height, Math.min(6000, contentHeight));
-  const scaledWidth = preset.width * scale;
-  const scaledHeight = iframeHeight * scale;
+
+  useLayoutEffect(() => {
+    const node = hostRef.current;
+    if (!node) return;
+    return observePreviewViewport(node, {
+      width: preset.width,
+      height: iframeHeight,
+      fit: zoom === 'fit',
+      expanded,
+    });
+  }, [preset.width, iframeHeight, zoom, expanded]);
 
   /**
    * Высота рамки сбрасывается только при смене страницы, блока или устройства.
@@ -150,19 +139,15 @@ function PreviewViewport({
     return () => window.removeEventListener('message', onMessage);
   }, [payload.revision, postPayload, onReport]);
 
-  const stageHeight = expanded
-    ? `min(${Math.max(480, scaledHeight)}px, calc(100vh - 190px))`
-    : `${Math.min(Math.max(360, scaledHeight), 680)}px`;
-
   return (
     <div
       ref={hostRef}
       className={`admin-site-preview__stage${zoom === 'actual' ? ' is-actual' : ''}`}
-      style={{ height: stageHeight, visibility: measured ? 'visible' : 'hidden' }}
+      style={{ height: 'var(--adm-preview-stage-height, 360px)' }}
     >
       <div
         className="admin-site-preview__scaled-frame"
-        style={{ width: scaledWidth, height: scaledHeight }}
+        style={{ width: 'var(--adm-preview-width)', height: 'var(--adm-preview-height)' }}
       >
         <iframe
           ref={iframeRef}
@@ -175,7 +160,7 @@ function PreviewViewport({
           style={{
             width: preset.width,
             height: iframeHeight,
-            transform: `scale(${scale})`,
+            transform: 'scale(var(--adm-preview-scale, 1))',
           }}
         />
       </div>
@@ -198,6 +183,7 @@ export default function AdminContentPreview({
   const [presetId, setPresetId] = useState<PreviewPresetId>('laptop');
   const [zoom, setZoom] = useState<PreviewZoom>('fit');
   const [expanded, setExpanded] = useState(false);
+  const expandButtonRef = useRef<HTMLButtonElement>(null);
   const preset = PREVIEW_PRESETS.find((item) => item.id === presetId) ?? PREVIEW_PRESETS[1];
   // Свёрнутое состояние переживает перезагрузку: длинные тексты правят без
   // предпросмотра, и каждый раз сворачивать его заново — лишний шаг.
@@ -259,6 +245,7 @@ export default function AdminContentPreview({
         </div>
         <div className="admin-site-preview__actions">
           <button
+            ref={expandButtonRef}
             type="button"
             className="admin-button admin-button--secondary"
             onClick={() => setExpanded(true)}
@@ -333,7 +320,13 @@ export default function AdminContentPreview({
       {!expanded && !collapsed ? <PreviewViewport payload={payload} preset={preset} zoom={zoom} onReport={handleReport} /> : null}
 
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="admin-site-preview-dialog">
+        <DialogContent
+          className="admin-site-preview-dialog"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            expandButtonRef.current?.focus({ preventScroll: true });
+          }}
+        >
           <DialogHeader className="admin-site-preview-dialog__header">
             <DialogTitle>Предпросмотр · {preset.label}</DialogTitle>
             <DialogDescription>{preset.width} × {preset.height} px · прокручивайте страницу внутри рамки</DialogDescription>

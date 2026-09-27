@@ -3,6 +3,7 @@ import { useAmbientVisibility } from '../hooks/useAmbientVisibility';
 import {
   SCROLL_ACTIVITY_END_EVENT,
   SCROLL_ACTIVITY_START_EVENT,
+  createSceneFrameClock,
   isScrollActivityActive,
 } from '../../utils/motionPerformance';
 // Стили рядом с компонентом: точный предпросмотр в админке монтирует хиро
@@ -80,8 +81,11 @@ function ConsultDeskScene() {
     const canvas = dustRef.current;
     if (!root || !canvas) return;
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduced = motionPreference.matches;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const compact = coarse || window.matchMedia('(max-width: 900px)').matches;
+    const frameClock = createSceneFrameClock(compact);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -92,6 +96,7 @@ function ConsultDeskScene() {
     });
 
     let motes: Mote[] = [];
+    let canvasDpr = 1;
     let raf = 0;
     let target = { x: 0, y: 0 };
     const current = { x: 0, y: 0 };
@@ -100,7 +105,7 @@ function ConsultDeskScene() {
     // (`inset: 0`), поэтому её контент-бокс и есть размер холста. Читать
     // clientWidth внутри наблюдателя нельзя — это пересчёт раскладки страницы.
     const build = (size?: { width: number; height: number }) => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, compact ? 1.25 : 2);
       const cssWidth = size ? size.width : canvas.clientWidth;
       const cssHeight = size ? size.height : canvas.clientHeight;
       const w = Math.round(cssWidth * dpr);
@@ -108,31 +113,44 @@ function ConsultDeskScene() {
       // Присваиваем только при реальном изменении: запись в width/height сама
       // считается изменением размера, и наблюдатель уходил бы в бесконечный
       // цикл, раздувая холст на каждом шаге.
-      if (!w || !h || (canvas.width === w && canvas.height === h)) {
-        if (motes.length) return;
-      }
+      if (!w || !h || (canvas.width === w && canvas.height === h && motes.length)) return false;
+      const previousWidth = canvas.width;
+      const previousHeight = canvas.height;
+      const previousDpr = canvasDpr;
       canvas.width = w;
       canvas.height = h;
+      canvasDpr = dpr;
 
       // Пылинки держатся у луча лампы — она в левой верхней части кадра.
       const count = cssWidth < 900 ? 26 : 54;
-      motes = Array.from({ length: count }, () => ({
+      const createMote = (): Mote => ({
         x: (0.02 + Math.random() * 0.68) * canvas.width,
         y: Math.random() * canvas.height * 0.82,
         r: (Math.random() * 1.3 + 0.4) * dpr,
         sp: (Math.random() * 0.16 + 0.03) * dpr,
         drift: (Math.random() - 0.5) * 0.08 * dpr,
         ph: Math.random() * Math.PI * 2,
-      }));
+      });
+      if (motes.length && previousWidth && previousHeight) {
+        motes = motes.slice(0, count).map((mote) => ({
+          ...mote,
+          x: mote.x * w / previousWidth,
+          y: mote.y * h / previousHeight,
+          r: mote.r * dpr / previousDpr,
+          sp: mote.sp * dpr / previousDpr,
+          drift: mote.drift * dpr / previousDpr,
+        }));
+        while (motes.length < count) motes.push(createMote());
+      } else {
+        motes = Array.from({ length: count }, createMote);
+      }
+      return true;
     };
 
     // Скорость пылинок задана за кадр при 60 Гц; шаг считается по времени,
     // чтобы экран 120 Гц не гонял их вдвое быстрее, а пауза не давала прыжка.
-    let lastPaintT = Number.NaN;
-    const paint = (t: number) => {
+    const paint = (t: number, step = 0) => {
       if (!ctx) return;
-      const step = Number.isNaN(lastPaintT) ? 1 : Math.min(3, Math.max(0, (t - lastPaintT) / (1000 / 60)));
-      lastPaintT = t;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (const m of motes) {
         if (!reduced) {
@@ -166,8 +184,14 @@ function ConsultDeskScene() {
         return;
       }
 
-      current.x += (target.x - current.x) * 0.055;
-      current.y += (target.y - current.y) * 0.055;
+      const step = frameClock.step(t);
+      if (!step) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+      const ease = 1 - Math.pow(1 - 0.055, step);
+      current.x += (target.x - current.x) * ease;
+      current.y += (target.y - current.y) * ease;
       // Порог отсекает движение в тысячную пикселя: сближение с целью
       // асимптотическое и само по себе никогда не заканчивается.
       if (
@@ -179,12 +203,13 @@ function ConsultDeskScene() {
           el.style.transform = `translate3d(${current.x * kx}px,${current.y * ky}px,0)`;
         }
       }
-      paint(t);
+      paint(t, step);
       raf = requestAnimationFrame(loop);
     };
 
     const start = () => {
       if (raf || !shouldRun()) return;
+      frameClock.reset();
       raf = requestAnimationFrame(loop);
     };
 
@@ -199,6 +224,17 @@ function ConsultDeskScene() {
     };
     const onScrollStart = () => stop();
     const onScrollEnd = () => start();
+    const onMotionPreference = () => {
+      reduced = motionPreference.matches;
+      if (reduced) {
+        stop();
+        target = { x: 0, y: 0 };
+        current.x = current.y = 0;
+        appliedX = appliedY = Number.NaN;
+        for (const [el] of planes) el.style.transform = '';
+        paint(0);
+      } else start();
+    };
 
     // Курсор почти всё время лежит на колонке текста — левее сцены, — поэтому
     // доля считается от окна и зажимается в -1..1. Без зажима значение уходило
@@ -206,7 +242,7 @@ function ConsultDeskScene() {
     const clamp = (v: number) => (v < -1 ? -1 : v > 1 ? 1 : v);
 
     const onMove = (e: MouseEvent) => {
-      if (coarse || reduced) return;
+      if (coarse || !shouldRun()) return;
       target = {
         x: clamp((e.clientX / window.innerWidth) * 2 - 1),
         y: clamp((e.clientY / window.innerHeight) * 2 - 1),
@@ -219,9 +255,9 @@ function ConsultDeskScene() {
     // без наблюдателя пылинки оставались бы в углу.
     const handleResize = (entries: ResizeObserverEntry[]) => {
       const box = entries[0]?.contentRect;
-      build(box ? { width: box.width, height: box.height } : undefined);
+      if (box && build({ width: box.width, height: box.height })) paint(performance.now());
     };
-    const handleWindowResize = () => build();
+    const handleWindowResize = () => { if (build()) paint(performance.now()); };
     const observer = typeof ResizeObserver === 'undefined'
       ? null
       : new ResizeObserver(handleResize);
@@ -239,15 +275,18 @@ function ConsultDeskScene() {
       }, { rootMargin: '120px 0px', threshold: 0 });
     visibility?.observe(root);
 
-    if (reduced) paint(0);
-    else start();
-    window.addEventListener('mousemove', onMove, { passive: true });
+    paint(0);
+    start();
+    if (!coarse) window.addEventListener('mousemove', onMove, { passive: true });
+    motionPreference.addEventListener('change', onMotionPreference);
     document.addEventListener('visibilitychange', onVisibility);
     document.addEventListener(SCROLL_ACTIVITY_START_EVENT, onScrollStart);
     document.addEventListener(SCROLL_ACTIVITY_END_EVENT, onScrollEnd);
 
     return () => {
       stop();
+      for (const [el] of planes) el.style.transform = '';
+      motionPreference.removeEventListener('change', onMotionPreference);
       observer?.disconnect();
       if (!observer) window.removeEventListener('resize', handleWindowResize);
       visibility?.disconnect();

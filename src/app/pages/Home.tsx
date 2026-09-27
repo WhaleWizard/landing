@@ -16,6 +16,7 @@ import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { alignDeferredAnchor, precedesDeferredHashTarget } from '../utils/deferredAnchor';
 import { memoizedImport } from '../utils/memoizedImport';
 import { useWarmSections } from '../utils/sectionWarmup';
+import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 // The mobile cosmic stage participates in document flow. Load its geometry
 // with the Home route (rather than the nested lazy scene) so Suspense reserves
 // 320–430px immediately without making non-cosmic service heroes download it.
@@ -173,6 +174,7 @@ function DeferredSection({
 }
 
 export default function Home() {
+  const location = useLocation();
   const seo = useSiteSection('site:home', 'seo', defaultHomeSeo);
   // Закрытый раздел не должен зазывать себя с главной: блок с карточками
   // вёл бы на заглушку.
@@ -187,7 +189,7 @@ export default function Home() {
         url="/"
       />
       <Navbar />
-      <Hero contentKey="site:home" visual="cosmic" />
+      <Hero contentKey="site:home" visual="cosmic" settledEntrance={hasGeneratedFirstScreen(location.pathname, location.key)} />
 
       <DeferredSection anchorId="services" heights={{ mobile: 1000, tablet: 1674, desktop: 1596 }}>
         <Services contentKey="site:home" />

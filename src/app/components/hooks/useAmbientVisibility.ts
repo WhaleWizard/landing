@@ -35,28 +35,33 @@ export function useAmbientVisibility(
     const element = ref.current;
     if (!element) return undefined;
 
-    if (typeof IntersectionObserver === 'undefined') {
-      element.setAttribute(AMBIENT_ATTRIBUTE, 'on');
-      if (visibilityRef) visibilityRef.current = true;
-      onFirstVisible?.();
-      return undefined;
-    }
-
     // Атрибут появляется только после первого ответа наблюдателя. Поставить
     // его заранее нельзя: секция первого экрана моргнула бы паузой.
     let announced = false;
-    const observer = new IntersectionObserver(([entry]) => {
-      const visible = Boolean(entry?.isIntersecting);
+    let inView = typeof IntersectionObserver === 'undefined';
+    const sync = () => {
+      const visible = inView && !document.hidden;
       element.setAttribute(AMBIENT_ATTRIBUTE, visible ? 'on' : 'off');
       if (visibilityRef) visibilityRef.current = visible;
       if (visible && !announced) {
         announced = true;
         onFirstVisible?.();
       }
-    }, { rootMargin, threshold: 0 });
+    };
+    const observer = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver(([entry]) => {
+        inView = Boolean(entry?.isIntersecting);
+        sync();
+      }, { rootMargin, threshold: 0 });
 
-    observer.observe(element);
-    return () => observer.disconnect();
+    observer?.observe(element);
+    if (!observer || document.hidden) sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+    };
   }, [ref, rootMargin, onFirstVisible, visibilityRef]);
 }
 

@@ -52,7 +52,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     );
   }
 
-  const cacheKey = new Request(request.url, { method: 'GET' });
+  // Ignore parameters that do not change the response. Otherwise each UTM or
+  // unauthenticated `?_=...` creates another D1 read and a cache entry that
+  // the canonical URLs in buildSeoCacheTargets cannot invalidate.
+  const cacheUrl = new URL(url.pathname, url.origin);
+  if (requestedSlug) cacheUrl.searchParams.set('slug', requestedSlug);
+  else if (summaryView) cacheUrl.searchParams.set('view', 'summary');
+  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+  const responseCacheControl = bypassCache ? CACHE_CONTROL.noStore : CACHE_CONTROL.apiArticles;
   if (!bypassCache) {
     try {
       const cached = await matchCache(cacheKey);
@@ -86,7 +93,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
       const response = json(
         { article },
-        { headers: { 'Cache-Control': CACHE_CONTROL.apiArticles } },
+        { headers: { 'Cache-Control': responseCacheControl } },
       );
       if (!bypassCache) {
         waitUntil(putCache(cacheKey, response).catch(() => undefined));
@@ -102,7 +109,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       { articles: responseArticles },
       {
         headers: {
-          'Cache-Control': isEmpty ? CACHE_CONTROL.noStore : CACHE_CONTROL.apiArticles,
+          'Cache-Control': isEmpty ? CACHE_CONTROL.noStore : responseCacheControl,
         },
       },
     );

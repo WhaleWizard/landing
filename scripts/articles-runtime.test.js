@@ -443,6 +443,78 @@ test('public detail API does not turn a shortened slug into a prefix match', { c
   assert.equal(networkCalls.length, 0);
 });
 
+test('public API shares canonical cache entries despite ignored query parameters', { concurrency: false }, async (t) => {
+  blockNetwork(t);
+  const originalCaches = globalThis.caches;
+  const matches = [];
+  const writes = [];
+  const entries = new Map();
+  globalThis.caches = { default: {
+    match: async (key) => {
+      matches.push(key.url);
+      return entries.get(key.url)?.clone();
+    },
+    put: async (key, response) => {
+      writes.push(key.url);
+      entries.set(key.url, response.clone());
+    },
+  } };
+  t.after(() => { globalThis.caches = originalCaches; });
+  const db = new FakeD1([d1Row('cached-article')]);
+  const background = makeWaitUntil();
+  const env = makeEnv({ db });
+  const origin = 'https://www.whalewzrd.com';
+  const read = async (query) => {
+    const response = await getPublicArticles({
+      request: new Request(`${origin}/api/articles${query}`),
+      env,
+      waitUntil: background.waitUntil,
+    });
+    assert.equal(response.status, 200);
+    await background.flush();
+    return response.json();
+  };
+
+  const first = await read('?view=summary&_=1&utm_source=test');
+  const second = await read('?_=2&view=summary');
+  assert.deepEqual(second, first);
+  assert.equal(first.articles[0]._summary, true);
+  assert.equal(db.queries.length, 1, 'ignored parameters must not force another D1 read');
+  assert.deepEqual(matches, Array(2).fill(`${origin}/api/articles?view=summary`));
+  assert.deepEqual(writes, [`${origin}/api/articles?view=summary`]);
+
+  const detail = await read('?view=summary&slug=cached-article&_=3');
+  const sameDetail = await read('?slug=cached-article&utm_campaign=another');
+  assert.deepEqual(sameDetail, detail);
+  assert.equal(detail.article.content, '<p>cached-article</p>');
+  assert.equal(db.queries.length, 2, 'detail view ignores summary and reuses its canonical entry');
+  assert.equal(writes.at(-1), `${origin}/api/articles?slug=cached-article`);
+});
+
+test('fresh build and authenticated admin API reads remain private from intermediary caches', { concurrency: false }, async (t) => {
+  blockNetwork(t);
+  const originalCaches = globalThis.caches;
+  globalThis.caches = { default: {
+    match: async () => { assert.fail('fresh reads must skip Cache API lookup'); },
+    put: async () => { assert.fail('fresh reads must skip Cache API writes'); },
+  } };
+  t.after(() => { globalThis.caches = originalCaches; });
+  const env = makeEnv({ db: new FakeD1([d1Row('fresh-article')]) });
+  const background = makeWaitUntil();
+  for (const query of ['?cache=no-store', '?cache=no-store&slug=fresh-article', '?_=refresh']) {
+    const response = await getPublicArticles({
+      request: new Request(`https://www.whalewzrd.com/api/articles${query}`, {
+        headers: { 'X-Admin-Password': env.ADMIN_PASSWORD },
+      }),
+      env,
+      waitUntil: background.waitUntil,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    await background.flush();
+  }
+});
+
 test('an empty exact detail query is authoritative and does not revive a prefix or snapshot match', { concurrency: false }, async (t) => {
   const networkCalls = blockNetwork(t);
   const db = new FakeD1([
@@ -676,6 +748,78 @@ test('article canonical redirects preserve the original query string', { concurr
     prefix.headers.get('location'),
     'https://www.whalewzrd.com/blog/short-full-slug?utm_campaign=launch&fbclid=abc',
   );
+});
+
+test('article HTML preserves asset errors and never turns a broken build into a 200', { concurrency: false }, async () => {
+  for (const status of [500, 503]) {
+    const response = await runArticleHandler({
+      slug: 'available-in-cms',
+      url: 'https://www.whalewzrd.com/blog/available-in-cms',
+      db: new FakeD1([d1Row('available-in-cms')]),
+      next: async () => new Response('<html><body>Asset service unavailable</body></html>', {
+        status, headers: { 'content-type': 'text/html' },
+      }),
+    });
+    assert.equal(response.status, status);
+    assert.doesNotMatch(await response.text(), /ww-article-seed/);
+  }
+});
+
+test('a known CMS article with missing article and section assets reports a temporary failure', { concurrency: false }, async () => {
+  const response = await runArticleHandler({
+    slug: 'available-in-cms',
+    url: 'https://www.whalewzrd.com/blog/available-in-cms',
+    db: new FakeD1([d1Row('available-in-cms')]),
+    next: async () => new Response('<html><body>Missing asset</body></html>', {
+      status: 404, headers: { 'content-type': 'text/html' },
+    }),
+  });
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(response.headers.get('Retry-After'), '60');
+  assert.doesNotMatch(await response.text(), /ww-article-seed/);
+});
+
+test('wrong MIME on an article or fallback shell is temporary failure, never false 404 or successful text', { concurrency: false }, async () => {
+  for (const articleMissing of [false, true]) {
+    const response = await runArticleHandler({
+      slug: 'available-in-cms',
+      url: 'https://www.whalewzrd.com/blog/available-in-cms',
+      db: new FakeD1([d1Row('available-in-cms')]),
+      next: async (asset) => new Response('Invalid build asset', {
+        status: articleMissing && new URL(asset.url).pathname.includes('/available-in-cms/') ? 404 : 200,
+        headers: { 'content-type': 'text/plain' },
+      }),
+    });
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.equal(response.headers.get('Retry-After'), '60');
+  }
+});
+
+test('bot article read survives Cache API outages and caches only the canonical URL', { concurrency: false }, async (t) => {
+  blockNetwork(t);
+  const originalCaches = globalThis.caches;
+  const cacheKeys = [];
+  globalThis.caches = { default: {
+    match: async (key) => { cacheKeys.push(key.url); throw new Error('cache unavailable'); },
+    put: async (key) => { cacheKeys.push(key.url); throw new Error('cache unavailable'); },
+  } };
+  t.after(() => { globalThis.caches = originalCaches; });
+  const background = makeWaitUntil();
+  const response = await createArticlePageHandler('/blog')({
+    request: new Request('https://www.whalewzrd.com/blog/live-article?utm_source=search', {
+      headers: { 'User-Agent': 'Googlebot' },
+    }),
+    params: { slug: 'live-article' },
+    env: makeEnv({ db: new FakeD1([d1Row('live-article')]) }),
+    next: async () => { throw new Error('bot HTML must come from the live article'); },
+    waitUntil: background.waitUntil,
+  });
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /<p>live-article<\/p>/);
+  await background.flush();
+  assert.deepEqual(cacheKeys, Array(2).fill('https://www.whalewzrd.com/blog/live-article'));
 });
 
 test('дата публикации из админки применяется, а нетронутая сохраняется', async () => {

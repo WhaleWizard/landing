@@ -125,6 +125,140 @@ async function bundleTypeScript(path) {
 
 const TRASH_ENV_PASSWORD = 'trash-test-password';
 
+// Execute the actual submit callback with browser dependencies replaced. This
+// isolates failure handling from animation/layout and sends no live lead.
+async function makeBrowserFormSubmit(file, overrides = {}) {
+  const source = readFileSync(file, 'utf8');
+  const start = source.indexOf('  const handleSubmit = useCallback(');
+  const end = source.indexOf('\n  const ', start + 1);
+  assert.ok(start >= 0 && end > start, 'the form submit callback must be present');
+  const calls = { submitting: [], notices: [], formResets: [], queued: [], tracked: [], timers: [] };
+  const dependencies = {
+    useCallback: (callback) => callback,
+    setNotice: (notice) => calls.notices.push(notice),
+    agreed: true,
+    document: { getElementById: () => null, referrer: '' },
+    window: {
+      location: { pathname: '/meta-ads', href: 'https://www.whalewzrd.com/meta-ads' },
+      setTimeout: (callback) => { calls.timers.push(callback); return calls.timers.length; },
+    },
+    crypto: { randomUUID: () => 'form-event-id' },
+    console: { error: () => {}, warn: () => {} },
+    setIsSubmitting: (value) => calls.submitting.push(value),
+    getTurnstileToken: async () => 'test-token',
+    setVerificationFailed: () => {},
+    getMetaBrowserContext: () => ({ marketing_consent: true }),
+    getAnalyticsClientIds: async () => ({}),
+    buildFullPhone: () => '+998901234567',
+    phoneCode: '+998',
+    formData: { name: 'Test', email: 'test@example.com', phone: '901234567', budget: '', message: '', contact: '@test', website: '', experience: '', problem: '' },
+    contactMethod: 'telegram',
+    telegramUsername: '@test',
+    hpTrap: '',
+    service: 'meta-ads',
+    serviceLabels: { 'meta-ads': 'Meta Ads' },
+    normalizeContactForLead: () => ({ contactMethod: 'telegram', telegramUsername: '@test' }),
+    extractWebsiteDomain: () => '',
+    fetch: async () => new Response('{}'),
+    API_ROUTES: { lead: '/api/lead' },
+    setIsSubmitted: () => {},
+    rememberMetaLeadIdentifiers: async () => {},
+    setFormData: (data) => calls.formResets.push(data),
+    setTelegramUsername: () => {},
+    setHpTrap: () => {},
+    setContactMethod: () => {},
+    setAgreed: () => {},
+    trackLead: (...args) => calls.tracked.push(args),
+    saveLeadContext: () => {},
+    resetTimerRef: {},
+    redirectTimerRef: {},
+    navigate: () => {},
+    isRetryableLeadStatus: (status) => status === 408 || status === 429 || status >= 500,
+    queueLeadForRetry: (...args) => { calls.queued.push(args); return true; },
+    ...overrides,
+  };
+  const compiled = await transform(
+    `export function create(dependencies) {
+      const { ${Object.keys(dependencies).join(', ')} } = dependencies;
+      ${source.slice(start, end)}
+      return handleSubmit;
+    }`,
+    { loader: 'tsx', format: 'esm', target: 'es2022' },
+  );
+  const module = await import(`data:text/javascript;base64,${Buffer.from(compiled.code).toString('base64')}`);
+  return { submit: module.create(dependencies), calls };
+}
+
+for (const form of ['ContactForm', 'LandingForm']) {
+  const file = `src/app/components/${form}.tsx`;
+
+  test(`${form}: preparation failure unlocks submission and preserves entered fields`, async () => {
+    const { submit, calls } = await makeBrowserFormSubmit(file, {
+      getTurnstileToken: async () => { throw new TypeError('script blocked'); },
+    });
+    await submit({ preventDefault() {} });
+    assert.equal(calls.submitting.at(-1), false);
+    assert.equal(calls.formResets.length, 0);
+    assert.equal(calls.queued.length, 0, 'an incomplete, unverified payload must not enter the queue');
+    assert.equal(calls.notices.at(-1)?.tone, 'error');
+  });
+
+  test(`${form}: failed local persistence retains the form instead of claiming the lead was saved`, async () => {
+    const { submit, calls } = await makeBrowserFormSubmit(file, {
+      fetch: async () => { throw new TypeError('offline'); },
+      queueLeadForRetry: () => false,
+    });
+    await submit({ preventDefault() {} });
+    assert.equal(calls.submitting.at(-1), false);
+    assert.equal(calls.formResets.length, 0);
+    assert.equal(calls.notices.at(-1)?.tone, 'error');
+    assert.match(calls.notices.at(-1)?.text, /Данные остались в форме/);
+  });
+
+  test(`${form}: durable offline queue preserves the event id and confirms local saving`, async () => {
+    const { submit, calls } = await makeBrowserFormSubmit(file, {
+      fetch: async () => { throw new TypeError('offline'); },
+    });
+    await submit({ preventDefault() {} });
+    assert.equal(calls.queued.length, 1);
+    assert.equal(calls.queued[0][1].event_id, 'form-event-id');
+    assert.equal(calls.queued[0][1].marketing_consent, true);
+    assert.equal(calls.formResets.length, 1);
+    assert.equal(calls.notices.at(-1)?.tone, 'info');
+    assert.equal(calls.submitting.at(-1), false);
+  });
+
+  test(`${form}: browser analytics errors never requeue a server-confirmed lead`, async () => {
+    const { submit, calls } = await makeBrowserFormSubmit(file, {
+      rememberMetaLeadIdentifiers: async () => { throw new TypeError('crypto unavailable'); },
+      trackLead: () => { throw new TypeError('third-party SDK failure'); },
+    });
+    await submit({ preventDefault() {} });
+    assert.equal(calls.queued.length, 0);
+    assert.equal(calls.formResets.length, 1);
+    assert.equal(calls.timers.length, 2, 'success reset and thank-you navigation still run');
+    assert.equal(calls.notices.filter(Boolean).length, 0);
+    assert.equal(calls.submitting.at(-1), false);
+  });
+}
+
+test('browser retry queue reports failed storage and confirms only a persisted payload', async (t) => {
+  const { queueLeadForRetry } = await bundleTypeScript('src/app/utils/leadRetryQueue.ts');
+  const originalStorage = globalThis.localStorage;
+  const stored = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => stored.get(key) ?? null,
+    setItem: () => { throw new DOMException('Storage full', 'QuotaExceededError'); },
+  };
+  t.after(() => { globalThis.localStorage = originalStorage; });
+  assert.equal(queueLeadForRetry('/api/lead', { event_id: 'queued-lead' }), false);
+  assert.equal(stored.size, 0);
+  globalThis.localStorage.setItem = (key, value) => stored.set(key, value);
+  assert.equal(queueLeadForRetry('/api/lead', { event_id: 'queued-lead' }), true);
+  const [record] = JSON.parse(stored.get('ww_lead_retry_queue_v1'));
+  assert.equal(record.payload.event_id, 'queued-lead');
+});
+
 function trashRequest(body) {
   return new Request('https://example.com/api/admin/lead-trash', {
     method: 'POST',
