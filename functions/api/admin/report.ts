@@ -215,6 +215,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return json({
       success: true,
       period,
+      // Местный день владельца: по нему интерфейс запирает «›» в будущее.
+      today,
       isCurrentMonth: today.slice(0, 7) === period,
       currency,
       current,

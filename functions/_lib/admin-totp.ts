@@ -174,7 +174,15 @@ export function generateBackupCodes(): string[] {
   });
 }
 
+/**
+ * Каноническая форма резервного кода — `xxxxx-xxxxx`, как его выдал
+ * `generateBackupCodes` и как посчитаны сохранённые хеши. Код, набранный без
+ * дефиса или с пробелами, приводится к той же форме; всё остальное — как
+ * раньше, без пробелов, чтобы хеш явно не совпал.
+ */
 export function normalizeBackupCode(code: string): string {
+  const compact = String(code || '').trim().toLowerCase().replace(/[\s-]+/g, '');
+  if (/^[0-9a-f]{10}$/.test(compact)) return `${compact.slice(0, 5)}-${compact.slice(5)}`;
   return String(code || '').trim().toLowerCase().replace(/\s+/g, '');
 }
 

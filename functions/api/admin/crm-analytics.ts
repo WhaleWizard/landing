@@ -145,11 +145,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
             THEN COALESCE(NULLIF(TRIM(service), ''), 'Без источника')
             ELSE LOWER(TRIM(${columns.has('utm_source') ? 'utm_source' : "''"})) END AS source,
           COUNT(*) AS deals,
-          SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value
+          SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value,
+          SUM(CASE WHEN deal_value IS NOT NULL AND deal_value > 0 AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency
         FROM leads
         WHERE ${activeCond} AND pipeline_stage = 'won'
         GROUP BY source ORDER BY value DESC, deals DESC LIMIT 8
-      `).bind(currency).all<{ source: string; deals: number; value: number }>(),
+      `).bind(currency, currency).all<{ source: string; deals: number; value: number; other_currency: number }>(),
 
       hasFirstResponse
         ? db.prepare(`
@@ -262,6 +263,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         source: String(row.source || 'Без источника'),
         deals: number(row.deals),
         value: round(number(row.value)),
+        // Сделки с суммой в другой валюте: в `value` их нет, курсов в системе нет.
+        otherCurrencyDeals: number(row.other_currency),
       })),
       notes: [
         `Деньги показаны в ${currency}. Сделки в других валютах не приводятся к ней — курсов в системе нет.`,

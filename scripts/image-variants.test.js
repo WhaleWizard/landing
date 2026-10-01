@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { build } from 'esbuild';
+import { D1Database, freshDatabase } from './test-helpers/d1-memory.js';
 import {
   ARTICLE_IMAGE_WIDTHS,
   collectArticleImageUrls,
@@ -98,7 +99,12 @@ class FakeBucket {
   }
 }
 
-const envWith = (bucket) => ({ ADMIN_PASSWORD: PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: HOST });
+// База статей в форме прода: после F-009 медиатека без неё честно отказывает
+// удалять и переносить файлы, а не гадает, используются ли они.
+const envWith = (bucket) => ({
+  ADMIN_PASSWORD: PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: HOST,
+  DB: new D1Database(freshDatabase()), USE_D1_ARTICLES: 'true',
+});
 
 function webp(bytes = 32) {
   return new Uint8Array(bytes).fill(7);

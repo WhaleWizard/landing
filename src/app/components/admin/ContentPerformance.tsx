@@ -6,10 +6,13 @@ import type { Article } from '../hooks/useArticlesApi';
 
 interface PageRow {
   path: string;
-  views: number;
+  /** null — заявки есть, а просмотров в статистике нет: пробел в данных, не ноль. */
+  views: number | null;
   leads: number;
   conversion: number | null;
 }
+
+const NO_VIEWS_HINT = 'нет данных: просмотры считаются только у посетителей, разрешивших маркетинговые cookie';
 
 interface StatsResponse {
   success?: boolean;
@@ -70,17 +73,20 @@ export default function ContentPerformance({
         const stats = byPath.get(articlePath(article));
         return {
           article,
-          views: stats?.views || 0,
+          // Строки нет — просмотров ноль; строка есть, а просмотров null —
+          // «нет данных», и нулём это не рисуется.
+          views: stats ? stats.views : 0,
           leads: stats?.leads || 0,
           conversion: stats?.conversion ?? null,
         };
       })
-      .filter((row) => row.views > 0 || row.leads > 0)
-      .sort((a, b) => b.leads - a.leads || b.views - a.views);
+      .filter((row) => (row.views ?? 0) > 0 || row.leads > 0)
+      // Без данных — в конец среди равных по заявкам.
+      .sort((a, b) => b.leads - a.leads || (b.views ?? -1) - (a.views ?? -1));
   }, [articles, data]);
 
   const totals = useMemo(() => rows.reduce(
-    (accumulator, row) => ({ views: accumulator.views + row.views, leads: accumulator.leads + row.leads }),
+    (accumulator, row) => ({ views: accumulator.views + (row.views ?? 0), leads: accumulator.leads + row.leads }),
     { views: 0, leads: 0 },
   ), [rows]);
 
@@ -120,11 +126,11 @@ export default function ContentPerformance({
                 <button type="button" onClick={() => onOpen(row.article)} title={`Открыть «${row.article.title}»`}>
                   <span className="content-perf__title">{row.article.title || row.article.slug}</span>
                   <span className="content-perf__numbers">
-                    <span title="Просмотры"><Eye aria-hidden="true" /> {formatNumber(row.views)}</span>
+                    <span title={row.views === null ? `Просмотры — ${NO_VIEWS_HINT}` : 'Просмотры'}><Eye aria-hidden="true" /> {formatNumber(row.views)}</span>
                     <span title="Заявки со страницы" className={row.leads > 0 ? 'is-good' : ''}>
                       <Inbox aria-hidden="true" /> {formatNumber(row.leads)}
                     </span>
-                    <span title="Конверсия из просмотра в заявку">{formatPercent(row.conversion)}</span>
+                    <span title={row.conversion === null ? `Конверсия — ${NO_VIEWS_HINT}` : 'Конверсия из просмотра в заявку'}>{formatPercent(row.conversion)}</span>
                   </span>
                   <ArrowUpRight aria-hidden="true" />
                 </button>
@@ -142,6 +148,18 @@ export default function ContentPerformance({
             <Info aria-hidden="true" />
             Свежая статья выглядит скромнее старой просто из-за возраста: период у всех одинаковый.
           </p>
+          {rows.some((row) => row.views === null) ? (
+            <p className="content-perf__note">
+              <Info aria-hidden="true" />
+              «—» вместо просмотров и конверсии — {NO_VIEWS_HINT}; заявки при этом считаются у всех.
+            </p>
+          ) : null}
+          {(data?.notes || []).map((note) => (
+            <p className="content-perf__note" key={note}>
+              <Info aria-hidden="true" />
+              {note}
+            </p>
+          ))}
         </>
       )}
     </section>

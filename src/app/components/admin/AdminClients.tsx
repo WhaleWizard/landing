@@ -754,7 +754,8 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
                     if (presetBusy) return;
                     setPresetBusy(true);
                     try {
-                      for (const name of ACCESS_PRESET) await request({ action: 'set_access', id: draft.id, name, status: 'waiting' });
+                      // Один запрос: сервер вставляет только те доступы, которых у клиента ещё нет.
+                      await request({ action: 'seed_access', id: draft.id, names: ACCESS_PRESET });
                       await refreshDetails(draft.id);
                     } catch (presetError) {
                       notify.error('Не удалось добавить', presetError instanceof Error ? presetError.message : undefined);

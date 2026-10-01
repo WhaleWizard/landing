@@ -14,6 +14,7 @@ import {
   reKeyToFolder,
 } from '../../_lib/media-folders';
 import { isImageVariantKey, variantKeysFor } from '../../_lib/image-variants';
+import { fetchArticlesWithFallback, shouldUseD1Articles } from '../../_lib/articles';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -29,7 +30,8 @@ const MAX_BULK_KEYS = 50;
  * сразу, поэтому пачка режется заранее по стоимости, а не по числу ключей:
  * две картинки с полным набором копий или около восьми документов. Остаток
  * возвращается в `skipped` — клиент шлёт его следующим запросом. Запас до 50
- * оставлен ограничителю частоты (Cache API) и самому ответу.
+ * оставлен ограничителю частоты (Cache API), одному запросу к статьям
+ * (проверка «файл используется», `readUsageSources`) и самому ответу.
  */
 const MOVE_BUDGET = 42;
 
@@ -49,6 +51,12 @@ interface MediaFile {
   name: string;
   folder: string;
   alt: string;
+  /**
+   * Заголовки публикаций, где файл используется. Считает сервер по полным
+   * текстам; поля нет вовсе, если статьи прочитать не удалось — клиент верит
+   * даже пустому списку, и `[]` сделало бы все файлы кандидатами на удаление.
+   */
+  usage?: string[];
 }
 
 const ALT_MIGRATION = '0031_media_alt.sql';
@@ -84,6 +92,143 @@ function getPublicHost(env: Env): string {
  */
 function isManagedKey(key: string): boolean {
   return isSafeUploadKey(key) && !isFolderMarker(key) && !isImageVariantKey(key);
+}
+
+/**
+ * Где используется файл — считает сервер, а не интерфейс.
+ *
+ * Список статей в админке приходит без текстов (под шестьсот статей), и по
+ * нему видно только обложки: картинка из тела статьи считалась свободной, и
+ * медиатека разрешала её удалить. Поэтому источник правды здесь: полные
+ * тексты, обложки и цифры кейсов всех публикаций — опубликованных,
+ * черновиков, запланированных — одним запросом `SELECT … FROM articles`.
+ * Ссылки ищутся и по публичному адресу (`publicUploadUrl`), и по самому
+ * ключу; уменьшенная копия (`…--<Ш>x<В>-<ширина>.webp`) засчитывается
+ * оригиналу, потому что в медиатеке живёт только он.
+ *
+ * Разбор делается в коде, а не `LIKE` в SQL: в ключах бывают `_` и `%`, а
+ * один проход по текстам дешевле запроса на каждый файл.
+ */
+interface UsageSource {
+  title: string;
+  /** Всё, где может лежать адрес файла: обложка, текст, цифры кейса. */
+  haystack: string;
+}
+
+type UsageIndex = Map<string, Set<string>>;
+
+const UPLOAD_REFERENCE = /uploads\/[^\s"'<>()\\]+/g;
+
+async function readArticleUsageRows(db: D1Database): Promise<Array<{ slug: string; title: string | null; image: string | null; content: string | null; case_data_json?: string | null }>> {
+  try {
+    const rows = await db.prepare('SELECT slug, title, image, content, case_data_json FROM articles').all<{ slug: string; title: string | null; image: string | null; content: string | null; case_data_json: string | null }>();
+    return rows.results || [];
+  } catch (error) {
+    // До миграции 0007 колонки цифр кейса нет — обложки и тексты есть всегда.
+    if (!/no such column/i.test(error instanceof Error ? error.message : String(error))) throw error;
+    const rows = await db.prepare('SELECT slug, title, image, content FROM articles').all<{ slug: string; title: string | null; image: string | null; content: string | null }>();
+    return rows.results || [];
+  }
+}
+
+/**
+ * Публикации для проверки использования. `null` — проверить не удалось:
+ * база статей недоступна или запрос упал. Это не «ничего не используется».
+ */
+async function readUsageSources(env: Env, request: Request): Promise<UsageSource[] | null> {
+  try {
+    if (shouldUseD1Articles(env)) {
+      if (!env.DB) return null;
+      const rows = await readArticleUsageRows(env.DB);
+      return rows.map((row) => ({
+        title: String(row.title || row.slug || ''),
+        haystack: [row.image, row.content, row.case_data_json].filter(Boolean).join('\n'),
+      }));
+    }
+    // Статьи живут в JSONBin: читаем тем же путём, что публичный сайт. Пустой
+    // список здесь означает, что ни один источник не ответил (JSONBin пустой
+    // продолжает цепочку, а недоступный seed даёт пусто), а не «статей нет».
+    const articles = await fetchArticlesWithFallback(env, request);
+    if (articles.length === 0) return null;
+    return articles.map((article) => ({
+      title: String(article.title || article.slug || ''),
+      haystack: [article.image, article.content, article.caseData ? JSON.stringify(article.caseData) : ''].filter(Boolean).join('\n'),
+    }));
+  } catch (error) {
+    console.error('[media] usage check failed', error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/** Варианты записи одной ссылки: как есть, раскодированная, без хвостовой пунктуации из текста. */
+function referenceKeys(token: string): string[] {
+  const keys = new Set<string>([token]);
+  try { keys.add(decodeURIComponent(token)); } catch { /* ссылка не в URL-кодировке */ }
+  for (const key of [...keys]) {
+    const trimmed = key.replace(/[.,;:!?]+$/, '');
+    if (trimmed) keys.add(trimmed);
+  }
+  return [...keys];
+}
+
+function buildUsageIndex(sources: UsageSource[]): UsageIndex {
+  const index: UsageIndex = new Map();
+  for (const source of sources) {
+    for (const match of source.haystack.matchAll(UPLOAD_REFERENCE)) {
+      for (const key of referenceKeys(match[0])) {
+        const titles = index.get(key) || new Set<string>();
+        titles.add(source.title);
+        index.set(key, titles);
+      }
+    }
+  }
+  return index;
+}
+
+/** Заголовки публикаций, где встречается файл или любая из его копий. */
+function usageFor(index: UsageIndex, key: string): string[] {
+  const titles = new Set<string>();
+  for (const candidate of [key, ...variantKeysFor(key)]) {
+    for (const title of index.get(candidate) || []) titles.add(title);
+  }
+  return [...titles];
+}
+
+/**
+ * Заслон перед удалением и переносом: ни одно действие не выполняется, если
+ * хоть один файл пачки используется (409) или проверить это нечем (503).
+ * Перенос меняет публичную ссылку, удаление — тем более: картинка в статье
+ * превратилась бы в пустое место, и узнать об этом владелец мог бы только с
+ * сайта.
+ */
+async function refuseIfUsed(env: Env, request: Request, keys: string[], action: 'delete' | 'move'): Promise<Response | null> {
+  const sources = await readUsageSources(env, request);
+  if (!sources) {
+    return json({
+      success: false,
+      code: 'USAGE_UNAVAILABLE',
+      error: 'Не удалось проверить, используются ли файлы в публикациях: база статей недоступна. '
+        + (action === 'delete' ? 'Удаление' : 'Перенос')
+        + ' отложен — вслепую ссылки из статей ломать нельзя, попробуйте позже.',
+    }, { status: 503, headers: noStore });
+  }
+  const index = buildUsageIndex(sources);
+  const blocked = keys
+    .map((key) => ({ key, usage: usageFor(index, key) }))
+    .filter((entry) => entry.usage.length > 0);
+  if (blocked.length === 0) return null;
+  const usage = [...new Set(blocked.flatMap((entry) => entry.usage))];
+  const names = blocked.slice(0, 3).map((entry) => `«${entry.key.split('/').pop()}»`).join(', ') + (blocked.length > 3 ? '…' : '');
+  const titles = usage.slice(0, 3).map((title) => `«${title}»`).join(', ') + (usage.length > 3 ? ` и ещё ${usage.length - 3}` : '');
+  return json({
+    success: false,
+    code: 'MEDIA_IN_USE',
+    usage,
+    files: blocked,
+    error: `${blocked.length > 1 ? 'Файлы' : 'Файл'} ${names} использу${blocked.length > 1 ? 'ются' : 'ется'} в публикациях: ${titles}. `
+      + (action === 'delete' ? 'Ничего не удалено' : 'Ничего не перенесено')
+      + ' — сначала замените картинку в самой публикации.',
+  }, { status: 409, headers: noStore });
 }
 
 function getPassword(request: Request, body?: { password?: string }): string {
@@ -209,10 +354,25 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const { files, markedFolders } = await listUploads(env);
-    const { map: altTexts, migration: altMigration } = await readAltTexts(env);
-    for (const file of files) file.alt = altTexts.get(file.key) || '';
+    const [{ map: altTexts, migration: altMigration }, usageSources] = await Promise.all([
+      readAltTexts(env),
+      readUsageSources(env, request),
+    ]);
+    const usageIndex = usageSources ? buildUsageIndex(usageSources) : null;
+    for (const file of files) {
+      file.alt = altTexts.get(file.key) || '';
+      if (usageIndex) file.usage = usageFor(usageIndex, file.key);
+    }
     return json(
-      { success: true, files, folders: collectFolders(files, markedFolders), altMigration },
+      {
+        success: true,
+        files,
+        folders: collectFolders(files, markedFolders),
+        altMigration,
+        // false — статьи прочитать не удалось, у файлов нет `usage`, и клиент
+        // считает использование сам по списку статей (видны только обложки).
+        usageChecked: usageIndex !== null,
+      },
       { headers: noStore },
     );
   } catch (error) {
@@ -222,9 +382,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 /**
  * Действия медиатеки: удаление файлов, создание и удаление папок, перенос
- * файла между папками. Перенос меняет публичную ссылку, поэтому вызывать его
- * можно только для файлов, которые нигде не используются, — это проверяет
- * интерфейс, а сервер дополнительно ограничивает область префиксом uploads/.
+ * файла между папками. Перенос меняет публичную ссылку, а удаление ломает её
+ * совсем, поэтому оба разрешены только файлам, которых нет ни в одной
+ * публикации, — это проверяет сам сервер по полным текстам статей
+ * (`refuseIfUsed`), интерфейсу тут верить нельзя: его список статей без
+ * текстов. Область действий ограничена префиксом uploads/.
  */
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // Профиль `admin_media` (rate-limit.ts): перенос сорока файлов по одному
@@ -253,6 +415,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         .filter(isManagedKey)
         .slice(0, MAX_BULK_KEYS);
       if (!keys.length) return json({ success: false, error: 'Не указан ни один корректный файл' }, { status: 400, headers: noStore });
+      const refused = await refuseIfUsed(env, request, keys, 'delete');
+      if (refused) return refused;
       for (const key of keys) {
         // Копии удаляются вместе с оригиналом, иначе остались бы сиротами.
         for (const variant of variantKeysFor(key)) await bucket.delete(variant);
@@ -343,6 +507,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (Array.isArray(body.keys)) {
         const keys = body.keys.map((key) => String(key || '')).filter(Boolean).slice(0, MAX_BULK_KEYS);
         if (!keys.length) return json({ success: false, error: 'Не указан ни один файл' }, { status: 400, headers: noStore });
+        const refused = await refuseIfUsed(env, request, keys, 'move');
+        if (refused) return refused;
         const moved: Array<{ key: string; previousKey: string; moved: boolean }> = [];
         const failed: Array<{ key: string; error: string }> = [];
         // Не тронутые этим запросом: не уместились в бюджет или идут после
@@ -386,7 +552,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         }, { headers: noStore });
       }
 
-      const outcome = await moveUpload(env, bucket, String(body.key || ''), folder);
+      const singleKey = String(body.key || '');
+      const refused = await refuseIfUsed(env, request, [singleKey], 'move');
+      if (refused) return refused;
+      const outcome = await moveUpload(env, bucket, singleKey, folder);
       if (!outcome.ok) return json({ success: false, error: outcome.error }, { status: outcome.status, headers: noStore });
       return json({ success: true, key: outcome.key, previousKey: outcome.previousKey, moved: outcome.moved }, { headers: noStore });
     }

@@ -908,7 +908,7 @@ async function callUpload(bucket, form) {
       headers: { 'X-Admin-Password': ADMIN_PASSWORD, 'CF-Connecting-IP': '203.0.113.11' },
       body: form,
     }),
-    env: { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST },
+    env: { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: new D1Database(freshDatabase()), USE_D1_ARTICLES: 'true' },
   });
   return { status: response.status, payload: await response.json() };
 }
@@ -969,7 +969,7 @@ test('F-111: медиатека переносит пачку файлов од�
         headers: { 'X-Admin-Password': ADMIN_PASSWORD, 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.12' },
         body: JSON.stringify(body),
       }),
-      env: { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST },
+      env: { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: new D1Database(freshDatabase()), USE_D1_ARTICLES: 'true' },
     });
     return { status: response.status, payload: await response.json() };
   };
@@ -1020,7 +1020,7 @@ async function postMedia(bucket, body, ip) {
       headers: { 'X-Admin-Password': ADMIN_PASSWORD, 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
       body: JSON.stringify(body),
     }),
-    env: { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST },
+    env: { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: new D1Database(freshDatabase()), USE_D1_ARTICLES: 'true' },
   });
   return { status: response.status, payload: await response.json() };
 }
@@ -1274,4 +1274,198 @@ test('F-111: у медиатеки свой лимит — 240 запросов 
   assert.equal((await limited.json()).retryable, true);
   // Пачка в медиатеке не съедает лимит остальной админки: ключ счётчика — по области.
   assert.equal(await enforceRateLimit(request(), 'admin'), null);
+});
+
+// ─── Стыки волны 02.10: медиатека, закрепление, резервный код, расписание ─────
+
+/** Статья в D1 для проверки «файл используется»: тексты и обложки читает сервер. */
+function insertArticleRow(sqlite, { id, slug, title, content = '<p>Текст.</p>', image = '/og-image.jpg', status = 'published', caseDataJson = null }) {
+  sqlite.prepare(
+    `INSERT INTO articles (id, slug, title, category, date, description, content, image, status, case_data_json)
+     VALUES (?, ?, ?, 'Блог', 'сентябрь 2026', 'Описание.', ?, ?, ?, ?)`,
+  ).run(id, slug, title, content, image, status, caseDataJson);
+}
+
+async function mediaCall(env, { method = 'POST', body } = {}) {
+  const media = await loadModule('functions/api/admin/media.ts');
+  const request = new Request('https://example.test/api/admin/media', {
+    method,
+    headers: { 'X-Admin-Password': ADMIN_PASSWORD, 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.19' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const response = await (method === 'GET' ? media.onRequestGet : media.onRequestPost)({ request, env });
+  return { status: response.status, payload: await response.json() };
+}
+
+test('F-009: медиатека считает использование по полным текстам всех публикаций и не даёт удалить или перенести занятый файл', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const bucket = new FakeBucket();
+  const variants = await loadModule('functions/_lib/image-variants.ts');
+  const { publicUploadUrl } = await loadModule('functions/_lib/media-folders.ts');
+  const cover = 'uploads/covers/2026-09-23/cover--1200x800.webp';
+  const doc = 'uploads/2026-09-23/price_100%.pdf';
+  const free = 'uploads/2026-09-23/free.webp';
+  for (const key of [cover, doc, free, ...variants.variantKeysFor(cover)]) {
+    await bucket.put(key, new Uint8Array(3), { httpMetadata: { contentType: 'image/webp' }, customMetadata: { originalName: key.split('/').pop() } });
+  }
+  // Черновик ссылается на уменьшенную копию обложки из текста (srcset), кейс —
+  // на документ по публичному адресу (в ключе `_` и `%`), обложка статьи — по ключу.
+  const variantUrl = publicUploadUrl(R2_HOST, variants.variantKeysFor(cover)[0]);
+  insertArticleRow(sqlite, { id: 1, slug: 'draft', title: 'Черновик', status: 'draft', content: `<p><img srcset="${variantUrl} 480w"></p>` });
+  insertArticleRow(sqlite, { id: 2, slug: 'case', title: 'Кейс', content: `<p>Прайс: <a href="${publicUploadUrl(R2_HOST, doc)}">скачать</a>.</p>` });
+  insertArticleRow(sqlite, { id: 3, slug: 'post', title: 'Статья', image: cover });
+  const env = { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: new D1Database(sqlite), USE_D1_ARTICLES: 'true' };
+
+  const list = await mediaCall(env, { method: 'GET' });
+  assert.equal(list.status, 200, JSON.stringify(list.payload));
+  assert.equal(list.payload.usageChecked, true);
+  const usage = new Map(list.payload.files.map((file) => [file.key, file.usage]));
+  assert.deepEqual([...usage.get(cover)].sort(), ['Статья', 'Черновик'], 'обложка: и по ключу, и по копии из текста черновика');
+  assert.deepEqual(usage.get(doc), ['Кейс'], 'документ с `_` и `%` найден по публичному адресу');
+  assert.deepEqual(usage.get(free), [], 'свободный файл — пустой список, а не отсутствие поля');
+
+  const remove = await mediaCall(env, { body: { action: 'delete', keys: [free, cover] } });
+  assert.equal(remove.status, 409);
+  assert.equal(remove.payload.code, 'MEDIA_IN_USE');
+  assert.deepEqual([...remove.payload.usage].sort(), ['Статья', 'Черновик']);
+  assert.ok(/Статья/.test(remove.payload.error), 'в тексте ошибки — заголовки публикаций');
+  assert.ok(bucket.objects.has(cover) && bucket.objects.has(free), 'ничего не удалено, даже свободный файл из той же пачки');
+
+  const move = await mediaCall(env, { body: { action: 'move', key: doc, folder: 'docs' } });
+  assert.equal(move.status, 409);
+  assert.ok(bucket.objects.has(doc), 'занятый документ остался на месте');
+  const bulkMove = await mediaCall(env, { body: { action: 'move', keys: [free, doc], folder: 'docs' } });
+  assert.equal(bulkMove.status, 409);
+  assert.ok(bucket.objects.has(free), 'пачка с занятым файлом не переносится целиком');
+
+  const freed = await mediaCall(env, { body: { action: 'delete', keys: [free] } });
+  assert.equal(freed.status, 200, JSON.stringify(freed.payload));
+  assert.ok(!bucket.objects.has(free));
+});
+
+test('F-009: без базы статей медиатека не гадает — поля usage нет, удаление и перенос отложены', async (t) => {
+  t.after(installMemoryCache());
+  const bucket = new FakeBucket();
+  await bucket.put('uploads/2026-09-23/a.webp', new Uint8Array(2), { httpMetadata: { contentType: 'image/webp' } });
+  const brokenDb = { prepare: () => ({ bind() { return this; }, all: async () => { throw new Error('D1_ERROR: storage unavailable'); }, first: async () => { throw new Error('D1_ERROR'); }, run: async () => { throw new Error('D1_ERROR'); } }) };
+  const env = { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: brokenDb, USE_D1_ARTICLES: 'true' };
+
+  const list = await mediaCall(env, { method: 'GET' });
+  assert.equal(list.status, 200, JSON.stringify(list.payload));
+  assert.equal(list.payload.usageChecked, false);
+  assert.ok(!('usage' in list.payload.files[0]), '`[]` пометило бы все файлы кандидатами на удаление');
+
+  const remove = await mediaCall(env, { body: { action: 'delete', keys: ['uploads/2026-09-23/a.webp'] } });
+  assert.equal(remove.status, 503);
+  assert.ok(/недоступна/.test(remove.payload.error));
+  assert.ok(bucket.objects.has('uploads/2026-09-23/a.webp'));
+  const move = await mediaCall(env, { body: { action: 'move', key: 'uploads/2026-09-23/a.webp', folder: 'x' } });
+  assert.equal(move.status, 503);
+
+  // Режим D1 без биндинга — та же честность.
+  const noDb = await mediaCall({ ...env, DB: undefined }, { body: { action: 'delete', keys: ['uploads/2026-09-23/a.webp'] } });
+  assert.equal(noDb.status, 503);
+});
+
+test('F-061: закрепление на главной не меняется обычным сохранением статьи — ни в D1, ни в JSONBin', async (t) => {
+  t.after(installMemoryCache());
+  const d1 = await articlesHarness();
+  assert.equal((await d1.patch(sampleArticle({ slug: 'pinned' }))).status, 200);
+  d1.sqlite.prepare('UPDATE articles SET featured_order = 3 WHERE slug = ?').run('pinned');
+  assert.equal((await d1.patch(sampleArticle({ slug: 'pinned', featuredOrder: 9 }))).status, 200);
+  assert.equal(d1.row('pinned').featured_order, 3, 'значение из тела не принимается');
+  assert.equal((await d1.patch(sampleArticle({ slug: 'pinned', featuredOrder: null }))).status, 200);
+  assert.equal(d1.row('pinned').featured_order, 3, 'null из тела не снимает закрепление');
+
+  const writes = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url === 'https://api.jsonbin.io/v3/b/bin-1/latest') {
+      return new Response(JSON.stringify({ record: [sampleArticle({ id: 1, slug: 'pinned', featuredOrder: 2 })] }));
+    }
+    if (url === 'https://api.jsonbin.io/v3/b/bin-1' && init.method === 'PUT') {
+      writes.push(JSON.parse(String(init.body)));
+      return new Response('{}');
+    }
+    throw new Error(`Неожиданный внешний запрос в тесте: ${url}`);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const endpoint = await loadModule('functions/api/admin/articles.ts');
+  const response = await endpoint.onRequestPatch({
+    request: new Request('https://example.test/api/admin/articles', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': ADMIN_PASSWORD },
+      body: JSON.stringify({ article: sampleArticle({ id: 1, slug: 'pinned', featuredOrder: 7 }) }),
+    }),
+    env: { ADMIN_PASSWORD, JSONBIN_BIN_ID: 'bin-1', JSONBIN_MASTER_KEY: 'key', SITE_URL: 'https://example.test' },
+    waitUntil: () => {},
+  });
+  assert.equal(response.status, 200, await response.text());
+  assert.equal(writes.length, 1);
+  const written = writes[0].find((article) => article.slug === 'pinned');
+  assert.equal(written.featuredOrder, 2, 'JSONBin заменяет статью целиком — старый порядок сохранён');
+});
+
+test('F-103: резервный код принимается без дефиса и с пробелами, хеши прежние', async () => {
+  const totp = await loadModule('functions/_lib/admin-totp.ts');
+  assert.equal(totp.normalizeBackupCode('7cd5ca5978'), '7cd5c-a5978');
+  assert.equal(totp.normalizeBackupCode(' 7CD5C A5978 '), '7cd5c-a5978');
+  assert.equal(await totp.hashBackupCode('7cd5ca5978'), await totp.hashBackupCode('7cd5c-a5978'));
+  for (const code of totp.generateBackupCodes()) assert.equal(totp.normalizeBackupCode(code), code, 'выданный код — уже каноничен');
+  assert.equal(totp.normalizeBackupCode('abc-def'), 'abc-def', 'не похожее на код остаётся как раньше');
+  assert.notEqual(await totp.hashBackupCode('7cd5ca5978'), await totp.hashBackupCode('7cd5ca5979'));
+});
+
+test('F-133: дата в прошлом не планируется и возвращается в skippedPast — и в D1, и в JSONBin', async (t) => {
+  t.after(installMemoryCache());
+  const schedule = await loadModule('functions/api/admin/articles-schedule.ts');
+  const past = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const recent = new Date(Date.now() - 20 * 1000).toISOString();
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const items = [{ slug: 'old', publishedAt: past }, { slug: 'soon', publishedAt: recent }, { slug: 'next', publishedAt: future }];
+  const put = (env) => schedule.onRequestPut({
+    request: new Request('https://example.test/api/admin/articles-schedule', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': ADMIN_PASSWORD, 'CF-Connecting-IP': '203.0.113.21' },
+      body: JSON.stringify({ items }),
+    }),
+    env,
+    waitUntil: () => {},
+  });
+
+  const sqlite = freshDatabase();
+  for (const [id, slug] of [[1, 'old'], [2, 'soon'], [3, 'next']]) insertArticleRow(sqlite, { id, slug, title: slug, status: 'draft' });
+  const d1 = await put({ ADMIN_PASSWORD, DB: new D1Database(sqlite), USE_D1_ARTICLES: 'true', SITE_URL: 'https://example.test' });
+  const d1Payload = await d1.json();
+  assert.equal(d1.status, 200, JSON.stringify(d1Payload));
+  assert.deepEqual(d1Payload.skippedPast, ['old']);
+  assert.ok(d1Payload.skipped.includes('old'), 'прошлое и в общем списке пропущенных');
+  assert.deepEqual(d1Payload.scheduled.sort(), ['next', 'soon'], 'минута допуска на рассинхрон часов');
+  const row = (slug) => sqlite.prepare('SELECT status, published_at FROM articles WHERE slug = ?').get(slug);
+  assert.deepEqual({ ...row('old') }, { status: 'draft', published_at: null }, 'статья задним числом не вышла');
+  assert.equal(row('next').status, 'published');
+
+  const writes = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url === 'https://api.jsonbin.io/v3/b/bin-1/latest') {
+      return new Response(JSON.stringify({ record: items.map((item, index) => sampleArticle({ id: index + 1, slug: item.slug, status: 'draft' })) }));
+    }
+    if (url === 'https://api.jsonbin.io/v3/b/bin-1' && init.method === 'PUT') {
+      writes.push(JSON.parse(String(init.body)));
+      return new Response('{}');
+    }
+    throw new Error(`Неожиданный внешний запрос в тесте: ${url}`);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const jsonbin = await put({ ADMIN_PASSWORD, JSONBIN_BIN_ID: 'bin-1', JSONBIN_MASTER_KEY: 'key', SITE_URL: 'https://example.test' });
+  const jsonbinPayload = await jsonbin.json();
+  assert.equal(jsonbin.status, 200, JSON.stringify(jsonbinPayload));
+  assert.deepEqual(jsonbinPayload.skippedPast, ['old']);
+  assert.deepEqual(jsonbinPayload.scheduled.sort(), ['next', 'soon']);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].find((article) => article.slug === 'old').status, 'draft');
 });

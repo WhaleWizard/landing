@@ -100,15 +100,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     if (action === 'seed') {
-      const existing = await listTemplates(db);
-      if (existing.length > 0) {
-        return json({ success: true, templates: existing, seeded: 0 }, { headers: noStore });
-      }
-      const statements = STARTER_TEMPLATES.map((template, index) => db.prepare(
-        'INSERT INTO crm_templates (title, body, sort_order) VALUES (?, ?, ?)',
-      ).bind(template.title, template.body, index));
-      await db.batch(statements);
-      return json({ success: true, templates: await listTemplates(db), seeded: statements.length }, { headers: noStore });
+      // Один batch: стандартный шаблон вставляется, только если шаблона с таким
+      // названием ещё нет. Проверка «таблица пуста» отдельным запросом
+      // пропускала два быстрых нажатия — получалось восемь шаблонов.
+      const results = await db.batch(STARTER_TEMPLATES.map((template, index) => db.prepare(
+        `INSERT INTO crm_templates (title, body, sort_order)
+         SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM crm_templates WHERE title = ?)`,
+      ).bind(template.title, template.body, index, template.title)));
+      const seeded = results.reduce((sum, result) => sum + Number(result.meta?.changes || 0), 0);
+      return json({ success: true, templates: await listTemplates(db), seeded }, { headers: noStore });
     }
 
     if (action === 'save') {

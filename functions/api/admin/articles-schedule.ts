@@ -22,6 +22,12 @@ import type { Env } from '../../_lib/types';
  * уже вышедшей — это дата её первой публикации, и сдвигать её нельзя.
  */
 const MAX_ITEMS = 200;
+/**
+ * Дата в прошлом не планируется: статья вышла бы задним числом. Допуск в
+ * минуту — на рассинхрон часов браузера и сервера, чтобы слот «через
+ * полминуты» не отбрасывался.
+ */
+const PAST_TOLERANCE_MS = 60_000;
 const PROTECTED_ARTICLE_SLUG = 'kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh';
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
@@ -73,17 +79,26 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
     );
   }
 
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  // Панель проверяет слоты при сборке плана, а не при сохранении: план,
+  // подтверждённый через полчаса, или ручной запрос обошли бы эту проверку.
+  const skippedPast = items
+    .filter((item) => Date.parse(item.publishedAt) < nowMs - PAST_TOLERANCE_MS)
+    .map((item) => item.slug);
+  const future = items.filter((item) => !skippedPast.includes(item.slug));
   try {
     let scheduled: string[] = [];
     let skipped: string[] = [];
 
-    if (shouldUseD1Articles(env)) {
-      ({ scheduled, skipped } = await writeScheduleToD1(env, items, nowIso, PROTECTED_ARTICLE_SLUG));
+    if (future.length === 0) {
+      // Всё в прошлом — писать нечего, но и падать не из-за чего.
+    } else if (shouldUseD1Articles(env)) {
+      ({ scheduled, skipped } = await writeScheduleToD1(env, future, nowIso, PROTECTED_ARTICLE_SLUG));
       if (scheduled.length > 0) waitUntil(persistD1ArticlesSnapshot(env));
     } else {
       const all = await fetchArticlesFromJsonBin(env);
-      const bySlug = new Map(items.map((item) => [item.slug, item.publishedAt]));
+      const bySlug = new Map(future.map((item) => [item.slug, item.publishedAt]));
       const next = all.map((article) => {
         const at = bySlug.get(article.slug);
         const reschedulable = article.slug !== PROTECTED_ARTICLE_SLUG
@@ -92,9 +107,10 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
         scheduled.push(article.slug);
         return { ...article, status: 'published' as const, publishedAt: at };
       });
-      skipped = items.map((item) => item.slug).filter((slug) => !scheduled.includes(slug));
+      skipped = future.map((item) => item.slug).filter((slug) => !scheduled.includes(slug));
       if (scheduled.length > 0) await writeArticlesToJsonBin(env, next, all);
     }
+    skipped = [...skipped, ...skippedPast];
 
     if (scheduled.length > 0) {
       const siteUrl = getSiteUrl(env, request);
@@ -103,7 +119,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
       waitUntil(purgeCloudflareEdgeCache(env, targets).then(() => undefined));
     }
 
-    return json({ success: true, scheduled, skipped }, { headers: noStore });
+    return json({ success: true, scheduled, skipped, skippedPast }, { headers: noStore });
   } catch (error) {
     return json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to save schedule' },

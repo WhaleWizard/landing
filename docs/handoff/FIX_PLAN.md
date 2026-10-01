@@ -37,12 +37,12 @@
 - [x] **F-111** (низкая) Загрузка или перенос больше ~30 файлов за раз в медиатеке обрывается на «Too many requests» — `functions/api/admin/upload.ts:108`
 - [x] **F-129** (низкая) У запланированной статьи, которую правили до выхода, dateModified и lastmod оказываются раньше даты публикации — `functions/_lib/jsonbin.ts:253`
 
-## 2. admin-shell — Оболочка админки, статьи, редактор сайта, медиатека (15, открыто 1 — F-009 ждёт стыка в `media.ts`; 14 исправлены 02.10)
+## 2. admin-shell — Оболочка админки, статьи, редактор сайта, медиатека (15, открыто 0 — все исправлены 02.10; F-009 закрыт стыком в `media.ts`)
 
 Файлы группы: src/app/pages/Admin.tsx; src/app/components/admin/AdminFaqControl.tsx, AdminContentControl.tsx, SeoAssistant.tsx, ArticleCalendar.tsx, AdminMedia.tsx, PublishSchedulePanel.tsx, AdminCommandPalette.tsx, AdminSecurity.tsx; src/app/utils/publishSchedule.ts, prepareImageUpload.ts
 
 - [x] **F-007** (высокая) Переход к другой статье без сохранения молча стирает правки, автосохранение затирается следующей статьёй — `src/app/pages/Admin.tsx:1173`
-- [ ] **F-009** (высокая) Регрессия: медиатека считает картинки из текста статей неиспользуемыми и разрешает их удалить или перенести — `src/app/components/admin/AdminMedia.tsx:146` — **needs-cross-group**: клиентская половина сделана 02.10, регрессия закрывается в `functions/api/admin/media.ts` (см. «Стыки»)
+- [x] **F-009** (высокая) Регрессия: медиатека считает картинки из текста статей неиспользуемыми и разрешает их удалить или перенести — `src/app/components/admin/AdminMedia.tsx:146` — закрыто 02.10: сервер считает `usage` по полным текстам статей, 409 перед удалением и переносом (`functions/api/admin/media.ts`)
 - [x] **F-074** (высокая) «Редактор сайта»: переход в другой раздел админки молча стирает несохранённые правки — `src/app/pages/Admin.tsx:1335`
 - [x] **F-021** (средняя) Загрузка обложки откатывает всё, что владелец изменил, пока файл загружался — `src/app/pages/Admin.tsx:2033`
 - [x] **F-025** (средняя) При 600 статьях каждое нажатие клавиши в редакторе и в поиске перерисовывает весь список (+15–20 мс на символ) — `src/app/pages/Admin.tsx:700`
@@ -255,6 +255,10 @@
 - seo-build, `scripts/generate-pages.js` ~178 (**F-108**, это же **F-047**): отбор и сортировку материалов привести к ключу публикации `renderFeedXml` (publishedAt → date → updatedAt), чтобы лента и блог отбирали одинаково.
 - Существующие тесты: `scripts/generated-seo.test.js` — в `mustMatch` теста 'crawlers that verify indexing are recognised as bots' добавить `'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)'` (**F-109**); строковая проверка `/status: 404/` в 'article routes are served with their own meta' проходит, поведенческая версия живёт в `scripts/audit-server-public.test.js` (**F-113**) — можно заменить.
 - Мелочь из ревью в файле группы: `functions/_lib/meta-request.ts` — JSDoc про запасной источник из `request.cf` стоит над `cfText`, а не над `extractRequestContext`; перенести объявление `cfText` выше комментария.
+
+### Стыки второй волны закрыты 02.10 (вечер)
+
+Отдельным исполнителем, журнал `docs/handoff/work/fix-cross-group-2.md`: F-009 (`media.ts`), F-061 (`articles.ts` PATCH + dev-заглушка), F-103 (`admin-totp.ts`), F-133 (`articles-schedule.ts`), F-026 (`finance.ts`), F-030 (`crm-analytics.ts`), F-070 (`clients.ts` seed_access, `crm-templates.ts`, `CrmQuickActions.tsx`), F-068 (`report.ts` today, `clients.ts`), F-031 (`CaseBuilderDialog.tsx`), F-089 (`ContentPerformance.tsx`; `AdminToday.tsx` уже содержал оговорку, в `AdminReport.tsx` формулировки «без cookies» нет). Не сделано намеренно: F-069 (необязательное усиление планера), F-033 (решение владельца). Тесты: audit-admin-api-core 30, audit-admin-api-money 25.
 
 ### Итоги 02.10: группы admin-shell, admin-crm-ui, editor
 

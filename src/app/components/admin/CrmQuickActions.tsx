@@ -105,6 +105,9 @@ export default function CrmQuickActions({
   const [copied, setCopied] = useState(0);
   const [migration, setMigration] = useState('');
   const [draft, setDraft] = useState<{ id: number; title: string; body: string } | null>(null);
+  // Запись идёт: «Создать стандартные» и «Сохранить» заперты до ответа —
+  // второе нажатие удваивало шаблоны.
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -128,6 +131,7 @@ export default function CrmQuickActions({
   useEffect(() => { if (open) void load(); }, [load, open]);
 
   const post = async (body: Record<string, unknown>): Promise<boolean> => {
+    setSaving(true);
     try {
       const response = await fetch('/api/admin/crm-templates', {
         method: 'POST',
@@ -145,6 +149,8 @@ export default function CrmQuickActions({
     } catch (error) {
       notify.error('Шаблон не сохранился', error instanceof Error ? error.message : undefined);
       return false;
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -209,7 +215,7 @@ export default function CrmQuickActions({
           {!migration && templates.length === 0 && (
             <div className="crm-quick__empty">
               <p>Готовых ответов пока нет. Можно начать с четырёх стандартных — приветствие, запрос вводных, отправка предложения и напоминание.</p>
-              <button type="button" className="admin-button admin-button--primary" onClick={() => void post({ action: 'seed' })}>
+              <button type="button" className="admin-button admin-button--primary" disabled={saving} onClick={() => void post({ action: 'seed' })}>
                 Создать стандартные
               </button>
             </div>
@@ -287,7 +293,7 @@ export default function CrmQuickActions({
               </label>
               {preview ? <p className="crm-quick__preview"><span>Как увидит клиент:</span> {preview}</p> : null}
               <div className="crm-quick__form-actions">
-                <button type="submit" className="admin-button admin-button--primary">Сохранить</button>
+                <button type="submit" className="admin-button admin-button--primary" disabled={saving}>Сохранить</button>
                 <button type="button" className="admin-button admin-button--quiet" onClick={() => setDraft(null)}>Отмена</button>
               </div>
             </form>

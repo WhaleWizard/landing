@@ -383,13 +383,15 @@ async function getClient(env: Env, id: number, todayIso: string): Promise<Respon
  * перевода в «Завершён» — и не сдвигается при каждом сохранении карточки,
  * поэтому обработчики пишут её сами (см. `finishedAtValue`).
  */
-function clientFields(body: Record<string, unknown>): { columns: string[]; values: unknown[]; status: ClientStatus; finishedAt: string | null } {
+function clientFields(body: Record<string, unknown>, todayIso: string): { columns: string[]; values: unknown[]; status: ClientStatus; finishedAt: string | null } {
   const status = cleanStatus(body.status);
   const map: Array<[string, unknown]> = [
     ['name', cleanLine(body.name, LIMITS.name)],
     ['company', cleanLine(body.company, LIMITS.company)],
     ['status', status],
-    ['started_at', cleanDate(body.started_at) || new Date().toISOString().slice(0, 10)],
+    // Запасная дата начала — местный день владельца, а не Гринвич: до пяти
+    // утра клиент заводился вчерашним числом.
+    ['started_at', cleanDate(body.started_at) || todayIso],
     ['paused_until', cleanDate(body.paused_until)],
     ['finish_reason', cleanText(body.finish_reason, LIMITS.text)],
     ['contact_method', cleanLine(body.contact_method, 40)],
@@ -496,7 +498,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     if (action === 'create') {
-      const { columns, values, status, finishedAt } = clientFields(body);
+      const { columns, values, status, finishedAt } = clientFields(body, localTodayIso(request));
       const leadId = Number(body.lead_id || 0) || null;
       if (!String(values[0] || '').trim()) {
         return json({ success: false, error: 'Без имени клиента карточка бессмысленна' }, { status: 400, headers: noStore });
@@ -517,7 +519,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!id) return json({ success: false, error: 'Нужен id клиента' }, { status: 400, headers: noStore });
 
     if (action === 'update') {
-      const { columns, values, status, finishedAt } = clientFields(body);
+      const { columns, values, status, finishedAt } = clientFields(body, localTodayIso(request));
       // Дата завершения ставится один раз: уже сохранённая не теряется из-за
       // пустого поля в теле запроса, первая отметка «Завершён» без даты
       // получает сегодняшний день, а возврат в работу или на паузу её очищает.
@@ -566,6 +568,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!month) return json({ success: false, error: 'Нужен месяц' }, { status: 400, headers: noStore });
       await db.prepare('DELETE FROM client_months WHERE client_id = ? AND month = ?').bind(id, month).run();
       return json({ success: true }, { headers: noStore });
+    }
+
+    if (action === 'seed_access') {
+      // Типовой набор доступов одним batch: каждая строка вставляется, только
+      // если доступа с таким названием у клиента ещё нет. Семь запросов по
+      // одному давали четырнадцать строк при втором нажатии.
+      const names = [...new Set((Array.isArray(body.names) ? body.names : [])
+        .map((name) => cleanLine(name, 120))
+        .filter(Boolean))].slice(0, 20);
+      if (!names.length) return json({ success: false, error: 'Нужен список доступов' }, { status: 400, headers: noStore });
+      const results = await db.batch(names.map((name) => db.prepare(
+        `INSERT INTO client_access (client_id, name, status)
+         SELECT ?, ?, 'waiting' WHERE NOT EXISTS (SELECT 1 FROM client_access WHERE client_id = ? AND name = ?)`,
+      ).bind(id, name, id, name)));
+      const added = results.reduce((sum, result) => sum + Number(result.meta?.changes || 0), 0);
+      return json({ success: true, added, skipped: names.length - added }, { headers: noStore });
     }
 
     if (action === 'set_access') {

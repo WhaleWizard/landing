@@ -461,6 +461,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
         slug,
         id: existing?.id ?? await nextArticleIdFromD1(env),
         status: incoming.status || 'published',
+        // Закреплением на главной управляет только PUT articles-featured:
+        // значение из тела не принимается, остаётся сохранённое.
+        featuredOrder: existing?.featuredOrder ?? undefined,
       };
       saved = await writeArticleToD1(env, article, existing);
       waitUntil(persistD1ArticlesSnapshot(env));
@@ -477,6 +480,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
         slug,
         id: existing?.id ?? Math.max(0, ...all.map((item) => Number(item.id) || 0)) + 1,
         status: incoming.status || 'published',
+        // JSONBin заменяет статью целиком — без этого старый порядок на
+        // главной терялся при любом сохранении текста.
+        featuredOrder: existing?.featuredOrder ?? undefined,
       };
       const next = existing ? all.map((item) => (item.slug === slug ? article : item)) : [...all, article];
       const updated = await writeArticlesToJsonBin(env, next, all);

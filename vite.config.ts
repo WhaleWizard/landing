@@ -245,7 +245,8 @@ function localArticlesApi() {
               sendJson(res, 409, { success: false, error: `Protected article "${protectedArticleSlug}" cannot be changed through admin updates` })
               return
             }
-            const merged = { ...incoming, featuredOrder: incoming.featuredOrder ?? existing?.featuredOrder }
+            // Закрепление на главной меняет только PUT articles-featured — как на сервере.
+            const merged = { ...incoming, featuredOrder: existing?.featuredOrder }
             const next = existing
               ? current.map((article) => (article?.slug === incoming.slug ? merged : article))
               : [...current, merged]

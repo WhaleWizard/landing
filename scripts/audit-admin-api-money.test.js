@@ -836,3 +836,98 @@ test('F-089: у публикации с заявками без строки п�
   const funnel = (await attribution.get({ days: 30 })).payload;
   assert.ok(funnel.limitations.some((note) => note.startsWith('Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie')), 'оговорка в воронке');
 });
+
+// ─── Стыки волны 02.10: счета, источники, типовые наборы, местный день ────────
+
+test('F-026: дата оплаты есть только у оплаченного счёта — выставленный её не получает, оплаченный без даты берёт день выставления или сегодня', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  const paidAt = () => finance.sqlite.prepare('SELECT paid_at, status FROM invoices ORDER BY id DESC LIMIT 1').get();
+
+  let saved = await finance.post({ action: 'save_invoice', amount: 100, status: 'paid', issued_at: '2026-09-01' }, { timezone_offset: 0 });
+  assert.equal(saved.status, 200, JSON.stringify(saved.payload));
+  assert.deepEqual({ ...paidAt() }, { paid_at: '2026-09-01', status: 'paid' }, 'оплачен без даты оплаты — день выставления');
+
+  saved = await finance.post({ action: 'save_invoice', amount: 100, status: 'paid' }, { timezone_offset: 0 });
+  assert.equal(saved.status, 200);
+  assert.deepEqual({ ...paidAt() }, { paid_at: sqlDate(new Date()), status: 'paid' }, 'ни даты оплаты, ни выставления — сегодня');
+
+  saved = await finance.post({ action: 'save_invoice', amount: 100, status: 'paid', issued_at: '2026-09-01', paid_at: '2026-09-05' }, { timezone_offset: 0 });
+  assert.equal(saved.status, 200);
+  assert.equal(paidAt().paid_at, '2026-09-05', 'явная дата владельца главнее');
+
+  saved = await finance.post({ action: 'save_invoice', amount: 100, status: 'issued', paid_at: '2026-09-05' }, { timezone_offset: 0 });
+  assert.equal(saved.status, 200);
+  assert.deepEqual({ ...paidAt() }, { paid_at: null, status: 'issued' }, 'у выставленного счёта даты оплаты быть не может');
+});
+
+test('F-030: по источникам считаются выигранные сделки в другой валюте — их сумма в итог не входит', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const won = (fields) => insertLead(sqlite, { pipeline_stage: 'won', closed_at: sqlDateTime(new Date()), utm_source: 'google', ...fields });
+  won({ name: 'A', deal_value: 50, deal_currency: 'USD' });
+  won({ name: 'B', deal_value: 1000, deal_currency: 'EUR' });
+  won({ name: 'C', deal_value: null, deal_currency: 'EUR' });
+  const analytics = await harness('functions/api/admin/crm-analytics.ts', { sqlite });
+  const { status, payload } = await analytics.get({ timezone_offset: 0 });
+  assert.equal(status, 200, JSON.stringify(payload));
+  const google = payload.wonBySource.find((row) => row.source === 'google');
+  assert.deepEqual(google, { source: 'google', deals: 3, value: 50, otherCurrencyDeals: 1 },
+    'евро не складываются с долларами и не пропадают молча; сделка без суммы — не «другая валюта»');
+});
+
+test('F-070: типовые доступы и стандартные шаблоны вставляются одним batch и не удваиваются при повторном нажатии', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const created = await clients.post({ action: 'create', name: 'Клиент' }, { timezone_offset: 0 });
+  assert.equal(created.status, 200, JSON.stringify(created.payload));
+  const id = created.payload.id;
+  const names = ['Рекламный кабинет Meta', 'Google Ads', 'Google Ads', ' CRM клиента '];
+  const accessCount = () => clients.sqlite.prepare('SELECT COUNT(*) AS n FROM client_access WHERE client_id = ?').get(id).n;
+
+  let seeded = await clients.post({ action: 'seed_access', id, names }, { timezone_offset: 0 });
+  assert.equal(seeded.status, 200, JSON.stringify(seeded.payload));
+  assert.equal(seeded.payload.added, 3, 'дубль и пробелы в самом списке схлопываются');
+  assert.equal(accessCount(), 3);
+  seeded = await clients.post({ action: 'seed_access', id, names }, { timezone_offset: 0 });
+  assert.deepEqual({ added: seeded.payload.added, skipped: seeded.payload.skipped }, { added: 0, skipped: 3 });
+  assert.equal(accessCount(), 3, 'второе нажатие ничего не добавило');
+  assert.equal((await clients.post({ action: 'seed_access', id, names: [] }, { timezone_offset: 0 })).status, 400);
+
+  const templates = await harness('functions/api/admin/crm-templates.ts');
+  const templateCount = () => templates.sqlite.prepare('SELECT COUNT(*) AS n FROM crm_templates').get().n;
+  const first = await templates.post({ action: 'seed' });
+  assert.equal(first.status, 200, JSON.stringify(first.payload));
+  assert.ok(first.payload.seeded > 0);
+  const after = templateCount();
+  assert.equal(after, first.payload.seeded);
+  // Один свой шаблон между нажатиями: таблица уже не пуста, но стандартных нет — старая проверка «таблица пуста» их бы не добавила.
+  templates.sqlite.prepare("DELETE FROM crm_templates WHERE title = (SELECT title FROM crm_templates ORDER BY id LIMIT 1)").run();
+  const second = await templates.post({ action: 'seed' });
+  assert.equal(second.payload.seeded, 1, 'вернулся только отсутствующий стандартный шаблон');
+  assert.equal(templateCount(), after);
+  const third = await templates.post({ action: 'seed' });
+  assert.equal(third.payload.seeded, 0);
+  assert.equal(templateCount(), after, 'повторное нажатие не удваивает');
+});
+
+test('F-068: отчёт отдаёт местный «сегодня», а клиент без даты начала заводится местным днём, не по Гринвичу', async (t) => {
+  t.after(installMemoryCache());
+  // Пояс, в котором местная дата отличается от UTC прямо сейчас: UTC+14 до
+  // десяти утра по Гринвичу, UTC−14 после.
+  const utcToday = new Date().toISOString().slice(0, 10);
+  const offset = [-840, 840].find((candidate) => new Date(Date.now() - candidate * 60_000).toISOString().slice(0, 10) !== utcToday);
+  const localToday = new Date(Date.now() - offset * 60_000).toISOString().slice(0, 10);
+
+  const report = await harness('functions/api/admin/report.ts');
+  const { status, payload } = await report.get({ timezone_offset: offset });
+  assert.equal(status, 200, JSON.stringify(payload));
+  assert.equal(payload.today, localToday);
+
+  const clients = await harness('functions/api/admin/clients.ts');
+  const created = await clients.post({ action: 'create', name: 'Новый' }, { timezone_offset: offset });
+  assert.equal(created.status, 200, JSON.stringify(created.payload));
+  const startedAt = clients.sqlite.prepare('SELECT started_at FROM clients WHERE id = ?').get(created.payload.id).started_at;
+  assert.equal(startedAt, localToday);
+  assert.notEqual(startedAt, utcToday);
+});

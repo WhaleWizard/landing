@@ -12,7 +12,7 @@
 - Если в `git log main` последний коммит ещё «wip(audit)…» или «fix(audit): стыки серверных групп» —
   значит вторая выкладка не дошла: взять ветку, прогнать `npm run check`, и `git push origin <sha>:main`.
 
-## 2. Третья волна: группы routing, blog, forms, seo-build (46 открытых находок)
+## 2. Третья волна: группы routing, blog, forms, seo-build (46 открытых находок — всё, что осталось)
 
 Команда (один запуск = одна волна; группы можно давать по одной, так дешевле и безопаснее при обрыве):
 
@@ -35,29 +35,12 @@ Workflow({ name: 'audit-fix', args: { groups: ['forms', 'seo-build'], waveSize: 
 4. Стыки, которые волна записала в `docs/handoff/FIX_PLAN.md` → «Стыки между группами», закрыть отдельным
    исполнителем (как сделано 02.10 для серверных стыков: `docs/handoff/work/fix-cross-group.md`).
 
-## 3. Стыки после второй волны (ещё не сделаны)
+## 3. Стыки после второй волны — сделаны
 
-Подробные инструкции — `docs/handoff/FIX_PLAN.md`, разделы «Из admin-shell → другие группы», «Из admin-crm-ui →
-другие группы», «Из editor → другие группы». Коротко, что где:
-
-- **F-009** `functions/api/admin/media.ts`: `usage` для каждого файла по полным текстам статей из D1 (включая
-  черновики и кейсы, копии картинок — по оригиналу), 409 со списком статей перед удалением и переносом.
-  Без этого картинки из текста статей числятся неиспользуемыми, и их можно удалить. Единственная открытая
-  находка группы admin-shell.
-- **F-061** `functions/api/admin/articles.ts` (PATCH): `featuredOrder` не брать из тела — закреплением управляет
-  только `articles-featured`; то же в dev-заглушке `vite.config.ts`.
-- **F-103** `functions/_lib/admin-totp.ts`: `normalizeBackupCode` принимает код без дефиса и пробелов.
-- **F-133** `functions/api/admin/articles-schedule.ts`: дата выхода в прошлом → `skipped`, а не публикация задним числом.
-- **F-026** `functions/api/admin/finance.ts`: `paid_at` только у оплаченного счёта.
-- **F-030** `functions/api/admin/crm-analytics.ts`: счётчик сделок в другой валюте по источникам.
-- **F-031** `src/app/components/admin/CaseBuilderDialog.tsx`: показать `ratioGaps` рядом с «Пропущено без цифр».
-- **F-070** `functions/api/admin/clients.ts`, `crm-templates.ts`, `src/app/components/admin/CrmQuickActions.tsx`:
-  `seed_access` одной пачкой без дублей.
-- **F-068** `functions/api/admin/report.ts` (поле `today`), `clients.ts`.
-- **F-069** `functions/api/admin/planner.ts`: `expectedUpdatedAt` против затирания чужой правки (необязательно).
-- **F-089** интерфейс: `ContentPerformance.tsx` — `views: null` рисовать прочерком с объяснением, `conversion: null`
-  — прочерк, не «0 %», `notes` под таблицей; `AdminToday.tsx` (~352, ~675) и `AdminReport.tsx` — к «без cookies»
-  добавить «только посетители, давшие согласие на маркетинговые cookie». Сервер уже отдаёт `null` и оговорку.
+Закрыты 02.10 вечером отдельным исполнителем (`docs/handoff/work/fix-cross-group-2.md`): F-009, F-061, F-103, F-133,
+F-026, F-030, F-070, F-068, F-031, F-089 (интерфейс). Осталось только то, что требует владельца: F-033 (поле
+«Закончили»), и необязательное F-069 (`planner.ts`: `expectedUpdatedAt` против затирания чужой правки).
+Открытых находок по группам первой и второй волны нет; всё, что открыто, — третья волна (раздел 2).
 
 ## 4. Остаток по скорости (`docs/handoff/SPEED_PLAN.md`)
 

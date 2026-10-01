@@ -181,6 +181,24 @@ export default function CaseBuilderDialog({ clientNiche, months, onClose, onCrea
                   Пропущено без цифр: {result.skipped.join(', ')}. Эти месяцы не считаются нулями и в кейс не попадут.
                 </p>
               ) : null}
+              {result.ratioGaps.cpl.length ? (
+                <p className="case-builder__skipped">
+                  <Info aria-hidden="true" />
+                  Цена заявки посчитана без {result.ratioGaps.cpl.join(', ')}: нет пары расход+заявки.
+                </p>
+              ) : null}
+              {result.ratioGaps.romi.length ? (
+                <p className="case-builder__skipped">
+                  <Info aria-hidden="true" />
+                  ROMI посчитан без {result.ratioGaps.romi.join(', ')}: нет пары расход+выручка.
+                </p>
+              ) : null}
+              {result.ratioGaps.conversion.length ? (
+                <p className="case-builder__skipped">
+                  <Info aria-hidden="true" />
+                  Конверсия посчитана без {result.ratioGaps.conversion.join(', ')}: нет пары продажи+заявки.
+                </p>
+              ) : null}
 
               <div className="case-builder__fields">
                 <label>

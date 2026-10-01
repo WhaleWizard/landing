@@ -209,6 +209,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (action === 'save_invoice') {
       const clientId = Number(body.client_id || 0) || null;
+      const status = cleanInvoiceStatus(body.status);
+      // Дата оплаты есть только у оплаченного счёта: без неё «оплачен» не
+      // попадал в «Получено» и «Прибыль», а у выставленного она была бы ложью.
+      const paidAt = status === 'paid'
+        ? (cleanDate(body.paid_at) || cleanDate(body.issued_at) || localTodayIso(request))
+        : null;
       const values = [
         clientId,
         cleanText(body.number, 60),
@@ -217,8 +223,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         ACCOUNTING_CURRENCY,
         cleanDate(body.issued_at),
         cleanDate(body.due_at),
-        cleanDate(body.paid_at),
-        cleanInvoiceStatus(body.status),
+        paidAt,
+        status,
         cleanText(body.note, 500),
       ];
       // «За что» и «кто заплатил» пишутся только когда колонки существуют:
