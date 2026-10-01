@@ -37,36 +37,36 @@
 - [x] **F-111** (низкая) Загрузка или перенос больше ~30 файлов за раз в медиатеке обрывается на «Too many requests» — `functions/api/admin/upload.ts:108`
 - [x] **F-129** (низкая) У запланированной статьи, которую правили до выхода, dateModified и lastmod оказываются раньше даты публикации — `functions/_lib/jsonbin.ts:253`
 
-## 2. admin-shell — Оболочка админки, статьи, редактор сайта, медиатека (15, открыто 15)
+## 2. admin-shell — Оболочка админки, статьи, редактор сайта, медиатека (15, открыто 1 — F-009 ждёт стыка в `media.ts`; 14 исправлены 02.10)
 
 Файлы группы: src/app/pages/Admin.tsx; src/app/components/admin/AdminFaqControl.tsx, AdminContentControl.tsx, SeoAssistant.tsx, ArticleCalendar.tsx, AdminMedia.tsx, PublishSchedulePanel.tsx, AdminCommandPalette.tsx, AdminSecurity.tsx; src/app/utils/publishSchedule.ts, prepareImageUpload.ts
 
-- [ ] **F-007** (высокая) Переход к другой статье без сохранения молча стирает правки, автосохранение затирается следующей статьёй — `src/app/pages/Admin.tsx:1173`
-- [ ] **F-009** (высокая) Регрессия: медиатека считает картинки из текста статей неиспользуемыми и разрешает их удалить или перенести — `src/app/components/admin/AdminMedia.tsx:146`
-- [ ] **F-074** (высокая) «Редактор сайта»: переход в другой раздел админки молча стирает несохранённые правки — `src/app/pages/Admin.tsx:1335`
-- [ ] **F-021** (средняя) Загрузка обложки откатывает всё, что владелец изменил, пока файл загружался — `src/app/pages/Admin.tsx:2033`
-- [ ] **F-025** (средняя) При 600 статьях каждое нажатие клавиши в редакторе и в поиске перерисовывает весь список (+15–20 мс на символ) — `src/app/pages/Admin.tsx:700`
-- [ ] **F-077** (средняя) Редактор FAQ не знает о несохранённом: «Обновить», восстановление версии и переключение на «Страницы» стирают правки без вопроса — `src/app/components/admin/AdminFaqControl.tsx:212`
-- [ ] **F-078** (средняя) После 12 часов сессии админка не предлагает войти заново: разделы показывают «session_required» или «Unauthorized» — `src/app/pages/Admin.tsx:959`
-- [ ] **F-079** (средняя) Вход через форму не проходит, если список статей не загрузился: «Ошибка сети», хотя пароль и код приняты — `src/app/pages/Admin.tsx:1007`
-- [ ] **F-058** (низкая) Палитра Ctrl+K ищет только по 60 самым старым публикациям — `src/app/pages/Admin.tsx:1436`
-- [ ] **F-060** (низкая) В поле slug нельзя набрать дефис: он стирается на каждом нажатии — `src/app/pages/Admin.tsx:1036`
-- [ ] **F-061** (низкая) Сохранение статьи возвращает старое закрепление на главной — `src/app/pages/Admin.tsx:1088`
-- [ ] **F-062** (низкая) Проверка «Ссылки на свои страницы» не видит ссылок на страницы услуг — `src/app/components/admin/SeoAssistant.tsx:70`
-- [ ] **F-063** (низкая) Календарь публикаций показывает черновики как вышедшие — `src/app/components/admin/ArticleCalendar.tsx:45`
-- [ ] **F-103** (низкая) Резервный код 2FA не набрать на iPhone: поле открывает цифровую клавиатуру, а код из букв и дефиса — `src/app/pages/Admin.tsx:1503`
-- [ ] **F-133** (низкая) Расписание с датой начала «сегодня» или в прошлом публикует статьи сразу и задним числом — `src/app/utils/publishSchedule.ts:117`
+- [x] **F-007** (высокая) Переход к другой статье без сохранения молча стирает правки, автосохранение затирается следующей статьёй — `src/app/pages/Admin.tsx:1173`
+- [ ] **F-009** (высокая) Регрессия: медиатека считает картинки из текста статей неиспользуемыми и разрешает их удалить или перенести — `src/app/components/admin/AdminMedia.tsx:146` — **needs-cross-group**: клиентская половина сделана 02.10, регрессия закрывается в `functions/api/admin/media.ts` (см. «Стыки»)
+- [x] **F-074** (высокая) «Редактор сайта»: переход в другой раздел админки молча стирает несохранённые правки — `src/app/pages/Admin.tsx:1335`
+- [x] **F-021** (средняя) Загрузка обложки откатывает всё, что владелец изменил, пока файл загружался — `src/app/pages/Admin.tsx:2033`
+- [x] **F-025** (средняя) При 600 статьях каждое нажатие клавиши в редакторе и в поиске перерисовывает весь список (+15–20 мс на символ) — `src/app/pages/Admin.tsx:700`
+- [x] **F-077** (средняя) Редактор FAQ не знает о несохранённом: «Обновить», восстановление версии и переключение на «Страницы» стирают правки без вопроса — `src/app/components/admin/AdminFaqControl.tsx:212`
+- [x] **F-078** (средняя) После 12 часов сессии админка не предлагает войти заново: разделы показывают «session_required» или «Unauthorized» — `src/app/pages/Admin.tsx:959`
+- [x] **F-079** (средняя) Вход через форму не проходит, если список статей не загрузился: «Ошибка сети», хотя пароль и код приняты — `src/app/pages/Admin.tsx:1007`
+- [x] **F-058** (низкая) Палитра Ctrl+K ищет только по 60 самым старым публикациям — `src/app/pages/Admin.tsx:1436`
+- [x] **F-060** (низкая) В поле slug нельзя набрать дефис: он стирается на каждом нажатии — `src/app/pages/Admin.tsx:1036`
+- [x] **F-061** (низкая) Сохранение статьи возвращает старое закрепление на главной — `src/app/pages/Admin.tsx:1088`
+- [x] **F-062** (низкая) Проверка «Ссылки на свои страницы» не видит ссылок на страницы услуг — `src/app/components/admin/SeoAssistant.tsx:70`
+- [x] **F-063** (низкая) Календарь публикаций показывает черновики как вышедшие — `src/app/components/admin/ArticleCalendar.tsx:45`
+- [x] **F-103** (низкая) Резервный код 2FA не набрать на iPhone: поле открывает цифровую клавиатуру, а код из букв и дефиса — `src/app/pages/Admin.tsx:1503`
+- [x] **F-133** (низкая) Расписание с датой начала «сегодня» или в прошлом публикует статьи сразу и задним числом — `src/app/utils/publishSchedule.ts:117`
 
-## 3. editor — Блочный редактор статей (6, открыто 6)
+## 3. editor — Блочный редактор статей (6, открыто 0 — все исправлены 02.10)
 
 Файлы группы: src/app/components/ArticleEditor.tsx, CaseFieldsEditor.tsx
 
-- [ ] **F-006** (высокая) Любая правка статьи в редакторе вырезает из текста ссылки, жирный и курсив — `src/app/components/ArticleEditor.tsx:255`
-- [ ] **F-008** (высокая) Текст, набранный в режиме Markdown, не попадает в сохранение — редактор закрывается, текст пропадает — `src/app/components/ArticleEditor.tsx:693`
-- [ ] **F-022** (средняя) Вставка текста в блок всегда уходит в конец абзаца, а текст с картинкой из буфера не вставляется вовсе — `src/app/components/ArticleEditor.tsx:414`
-- [ ] **F-023** (средняя) Режим Markdown переживает переход к другой статье: «Визуальный» перезаписывает её текстом предыдущей — `src/app/components/ArticleEditor.tsx:650`
-- [ ] **F-059** (низкая) Метрики кейса «прыгают» между полями, если заполнять не по порядку — `src/app/components/CaseFieldsEditor.tsx:37`
-- [ ] **F-064** (низкая) Подсказка редактора обещает горячие клавиши, которых нет — `src/app/components/ArticleEditor.tsx:858`
+- [x] **F-006** (высокая) Любая правка статьи в редакторе вырезает из текста ссылки, жирный и курсив — `src/app/components/ArticleEditor.tsx:255`
+- [x] **F-008** (высокая) Текст, набранный в режиме Markdown, не попадает в сохранение — редактор закрывается, текст пропадает — `src/app/components/ArticleEditor.tsx:693`
+- [x] **F-022** (средняя) Вставка текста в блок всегда уходит в конец абзаца, а текст с картинкой из буфера не вставляется вовсе — `src/app/components/ArticleEditor.tsx:414`
+- [x] **F-023** (средняя) Режим Markdown переживает переход к другой статье: «Визуальный» перезаписывает её текстом предыдущей — `src/app/components/ArticleEditor.tsx:650`
+- [x] **F-059** (низкая) Метрики кейса «прыгают» между полями, если заполнять не по порядку — `src/app/components/CaseFieldsEditor.tsx:37`
+- [x] **F-064** (низкая) Подсказка редактора обещает горячие клавиши, которых нет — `src/app/components/ArticleEditor.tsx:858`
 
 ## 4. routing — Загрузка страниц, маршруты, навигация (4, открыто 4)
 
@@ -176,27 +176,27 @@
 - [x] **F-127** (низкая) «Фокус дня»: из новых заявок попадают пять самых свежих, а те, что ждут ответа дольше всех, выпадают — `functions/api/admin/today.ts:409`
 - [x] **F-132** (низкая) История PageSpeed пишет день по Гринвичу: ночной замер затирает вечерний и попадает во вчерашнюю точку — `functions/api/admin/performance.ts:327`
 
-## 10. admin-crm-ui — Интерфейс админки: заявки, клиенты, финансы, планер (17, открыто 17)
+## 10. admin-crm-ui — Интерфейс админки: заявки, клиенты, финансы, планер (17, открыто 0 — все исправлены 02.10)
 
 Файлы группы: src/app/components/admin/AdminLeads.tsx, CrmAnalytics.tsx, CrmBoard.tsx, AdminFinance.tsx, caseFromClient.ts, AdminClients.tsx, AdminPlanner.tsx, TodayPlan.tsx, TodayNote.tsx, AdminAdSpend.tsx, AdminGoals.tsx, AdminReport.tsx, AdminToday.tsx, AdminAttribution.tsx
 
-- [ ] **F-026** (средняя) Счёт, отмеченный «оплачен» в форме, не попадает в «Получено», «Прибыль» и «По месяцам» — `src/app/components/admin/AdminFinance.tsx:605`
-- [ ] **F-027** (средняя) Сумма сделки в формате «1,234.56» или «1.500,50» молча стирается при сохранении — `src/app/components/admin/AdminLeads.tsx:842`
-- [ ] **F-030** (средняя) «Откуда выигранные сделки» показывает число сделок как деньги — `src/app/components/admin/CrmAnalytics.tsx:323`
-- [ ] **F-031** (средняя) «Собрать кейс» считает цену заявки, ROMI и конверсию по месяцам, у которых нет пары — `src/app/components/admin/caseFromClient.ts:160`
-- [ ] **F-035** (средняя) «Отправил КП» не переводит сделку в «Предложение», если она уже не «Новая» — `src/app/components/admin/AdminLeads.tsx:711`
-- [ ] **F-037** (средняя) «Финансы → По месяцам»: у месяца, где были только расходы, прибыль показана «—» — `src/app/components/admin/AdminFinance.tsx:771`
-- [ ] **F-039** (средняя) Перенос задач с воскресенья может записать содержимое другой недели поверх текущей — `src/app/components/admin/AdminPlanner.tsx:999`
-- [ ] **F-040** (средняя) Доска CRM молча показывает не больше 300 сделок — `src/app/components/admin/CrmBoard.tsx:276`
-- [ ] **F-041** (средняя) Правка месяца клиента со сменой месяца создаёт дубль, а удалить месяц в интерфейсе нельзя — `src/app/components/admin/AdminClients.tsx:588`
-- [ ] **F-065** (низкая) «Рекламные расходы»: при ошибке сервера введённая сумма и вставленный CSV стираются — `src/app/components/admin/AdminAdSpend.tsx:128`
-- [ ] **F-066** (низкая) Плитки «Просрочено / На сегодня / Без следующего шага» не работают в режиме доски, который открывается по умолчанию — `src/app/components/admin/AdminLeads.tsx:1464`
-- [ ] **F-067** (низкая) «Связаться сегодня» не переносит просроченный срок на сегодня — `src/app/components/admin/AdminLeads.tsx:611`
-- [ ] **F-068** (низкая) Даты по умолчанию берутся по UTC: с 00:00 до 05:00 по местному времени это «вчера» — `src/app/components/admin/AdminAdSpend.tsx:30`
-- [ ] **F-069** (низкая) План и заметка дня на «Сегодня» перезаписывают неделю планера целиком, параллельные правки теряются — `src/app/components/admin/TodayPlan.tsx:61`
-- [ ] **F-070** (низкая) Повторное нажатие создаёт дубли доступов клиента и шаблонов ответов — `src/app/components/admin/AdminClients.tsx:669`
-- [ ] **F-071** (низкая) Подставленный шаблон недели пропадает после перелистывания — `src/app/components/admin/AdminPlanner.tsx:1088`
-- [ ] **F-072** (низкая) Серия выполненных дней на «Сегодня» пишется с ошибкой: «21 дней подряд» — `src/app/components/admin/TodayPlan.tsx:128`
+- [x] **F-026** (средняя) Счёт, отмеченный «оплачен» в форме, не попадает в «Получено», «Прибыль» и «По месяцам» — `src/app/components/admin/AdminFinance.tsx:605`
+- [x] **F-027** (средняя) Сумма сделки в формате «1,234.56» или «1.500,50» молча стирается при сохранении — `src/app/components/admin/AdminLeads.tsx:842`
+- [x] **F-030** (средняя) «Откуда выигранные сделки» показывает число сделок как деньги — `src/app/components/admin/CrmAnalytics.tsx:323`
+- [x] **F-031** (средняя) «Собрать кейс» считает цену заявки, ROMI и конверсию по месяцам, у которых нет пары — `src/app/components/admin/caseFromClient.ts:160`
+- [x] **F-035** (средняя) «Отправил КП» не переводит сделку в «Предложение», если она уже не «Новая» — `src/app/components/admin/AdminLeads.tsx:711`
+- [x] **F-037** (средняя) «Финансы → По месяцам»: у месяца, где были только расходы, прибыль показана «—» — `src/app/components/admin/AdminFinance.tsx:771`
+- [x] **F-039** (средняя) Перенос задач с воскресенья может записать содержимое другой недели поверх текущей — `src/app/components/admin/AdminPlanner.tsx:999`
+- [x] **F-040** (средняя) Доска CRM молча показывает не больше 300 сделок — `src/app/components/admin/CrmBoard.tsx:276`
+- [x] **F-041** (средняя) Правка месяца клиента со сменой месяца создаёт дубль, а удалить месяц в интерфейсе нельзя — `src/app/components/admin/AdminClients.tsx:588`
+- [x] **F-065** (низкая) «Рекламные расходы»: при ошибке сервера введённая сумма и вставленный CSV стираются — `src/app/components/admin/AdminAdSpend.tsx:128`
+- [x] **F-066** (низкая) Плитки «Просрочено / На сегодня / Без следующего шага» не работают в режиме доски, который открывается по умолчанию — `src/app/components/admin/AdminLeads.tsx:1464`
+- [x] **F-067** (низкая) «Связаться сегодня» не переносит просроченный срок на сегодня — `src/app/components/admin/AdminLeads.tsx:611`
+- [x] **F-068** (низкая) Даты по умолчанию берутся по UTC: с 00:00 до 05:00 по местному времени это «вчера» — `src/app/components/admin/AdminAdSpend.tsx:30`
+- [x] **F-069** (низкая) План и заметка дня на «Сегодня» перезаписывают неделю планера целиком, параллельные правки теряются — `src/app/components/admin/TodayPlan.tsx:61`
+- [x] **F-070** (низкая) Повторное нажатие создаёт дубли доступов клиента и шаблонов ответов — `src/app/components/admin/AdminClients.tsx:669`
+- [x] **F-071** (низкая) Подставленный шаблон недели пропадает после перелистывания — `src/app/components/admin/AdminPlanner.tsx:1088`
+- [x] **F-072** (низкая) Серия выполненных дней на «Сегодня» пишется с ошибкой: «21 дней подряд» — `src/app/components/admin/TodayPlan.tsx:128`
 
 ## Стыки между группами
 
@@ -225,7 +225,7 @@
 - server-public / seo-build / blog (**F-129**): страховка для уже записанных данных — `dateModified`/`lastmod`/сортировка RSS = `max(updatedAt, publishedAt)`: `functions/_lib/seo.ts` (~143, 236, 249, 375), `functions/sitemap.xml.ts:27`, `scripts/generate-pages.js` (~185, 666, 1874), `src/app/pages/BlogPage.tsx` (~276, 726, 769).
 - admin-shell, `src/app/components/admin/AdminPageLocks.tsx` (**F-081/F-091**): в `load()` и `post()` ставить `setMigration` только при `payload?.code === 'MIGRATION_REQUIRED'` (иначе `''`), в тип ответа `post` добавить `code`; на экран миграции — кнопка «Проверить снова» (`load()`). Сервер при сбое базы теперь отвечает 503 `{ code: 'DB_ERROR', error }` без поля `migration`, так что ложный экран миграции уже исчез.
 - CLAUDE.md, AGENTS.md (**F-084**): строка «Допуск двойной» у `POST /api/meta-test-event` → тройной: секрет `META_CAPI_DEBUG_SECRET`, действующая сессия админки (cookie), пароль в `X-Admin-Password` только при выключенной двухфакторной защите. По желанию в `AdminMetaCenter.tsx` переводить 403 во фразу «сессия админки не принята — выйдите и войдите заново».
-- admin-shell, `src/app/pages/Admin.tsx` (**F-095**, это же **F-078**): общий обработчик ответа 401 с `code: 'SESSION_EXPIRED'` (и `Unauthorized` без пароля в памяти): форма входа модальным окном поверх раздела без `setIsAuthenticated(false)`, чтобы не терять несохранённые правки; `checkAdminSession()` на `visibilitychange`/`focus` и раз в 5 минут. Окно из AdminFeedback/AdminUI, обе темы, 320 px.
+- admin-shell, `src/app/pages/Admin.tsx` (**F-095**, это же **F-078**): общий обработчик ответа 401 с `code: 'SESSION_EXPIRED'` (и `Unauthorized` без пароля в памяти): форма входа модальным окном поверх раздела без `setIsAuthenticated(false)`, чтобы не терять несохранённые правки; `checkAdminSession()` на `visibilitychange`/`focus` и раз в 5 минут. Окно из AdminFeedback/AdminUI, обе темы, 320 px. — **сделано 02.10** в рамках F-078 (окно поверх раздела, проверка статуса на `visibilitychange`; таймера раз в 5 минут нет намеренно — сессия сама не продлевается).
 - вне групп, `functions/_lib/rate-limit.ts` (**F-111**): профиль `admin_media: { windowSeconds: 60, maxRequests: 240 }` с комментарием (загрузка и перенос пачки файлов в медиатеке; сорок картинок с копиями — двадцать запросов переноса подряд). `upload.ts` и `media.ts` уже используют scope `'admin_media'`; без профиля действует default 30/мин.
 - admin-shell, `src/app/components/admin/AdminMedia.tsx` (**F-111**): перенос выделенных одним `post({ action: 'move', keys, folder })` до 50 ключей; сервер сам режет пачку по бюджету подзапросов и отвечает `{ moved, failed, skipped, error }` — повторять запрос с `keys = skipped`, пока не пуст (картинки с копиями едут по две за запрос); при непустом `failed` остановиться, показать `error` и обязательно `await load()` в `finally` — файл мог остаться в обеих папках. Проверку `mediaUsage` делать до отправки и называть пропущенные. `uploadFiles`: при 429 ждать `retry_after`/`Retry-After` и повторять файл; сообщение «Загружено N из M, сервер просит подождать минуту» вместо сырого Too many requests.
 - Существующие тесты (не обязательно): `scripts/migration-guard.test.js` — проверка исходника `functions/api/admin/page-locks.ts`: каждый `migrationRequiredResponse(` под `isMissingSchemaError(` (по образцу строк 182–183; сейчас закреплено поведенческим тестом группы); `scripts/meta-capi-smoke-tests.js` — по желанию добавить `'hasValidAdminSession'` и `'isAdmin2faEnabled'` в `mustContain` для `files.metaTestEvent`.
@@ -235,19 +235,19 @@
 - Новая миграция `migrations/0043_admin_alerts_dismissed.sql` (**F-036**): `ALTER TABLE admin_alerts ADD COLUMN dismissed_at TEXT;` затем `npm run build:migration-map` (сгенерированные `_lib/migration-tables.ts`, `_lib/migration-signatures.ts`) и строка «0043 | скрытие уведомления не возвращается, пока повод тот же» в таблице миграций CLAUDE.md и AGENTS.md. Файл миграции не создан намеренно: без регенерации карты упал бы `test:migration-map`.
 - `functions/api/admin/alerts.ts` (**F-036**): в `action=dismiss` заменить прямой UPDATE на `await dismissAlert(env.DB, id)` из `../../_lib/admin-alerts` (ставит resolved_at, dismissed_at и notified_at=COALESCE(notified_at, now) при наличии колонки; без колонки — прежний UPDATE).
 - `functions/api/admin/health.ts` ~390 (**F-085/F-099**): `created_at >= datetime('now', '-1 day')` → `created_at >= ?` с `.bind(isoSince(1))` (импорт `isoSince` из `../../_lib/local-day`); фильтр по `service` оставить. `meta-center.ts` может заменить свой локальный `isoSince` на общий.
-- admin-crm-ui, `src/app/components/admin/CrmAnalytics.tsx` (**F-029**): тип `totals`: `openValue` и `wonValue` → `number | null`; в подписях плиток использовать `wonPriced`/`wonWithoutValue`/`openPriced`/`openWithoutValue` («По N сделкам с суммой; у M сумма не заполнена»). `formatMoney` уже выводит «—» для null, без правки ничего не ломается.
-- admin-crm-ui, `CrmBoard.tsx` ~117 и `AdminLeads.tsx` ~1624 (**F-034**): «просрочено» только для открытых этапов — `!['won','lost','archived'].includes(lead.pipeline_stage) && isOverdue(lead.next_action_at)`, чтобы закрытая карточка не горела красным.
-- admin-crm-ui, `AdminAdSpend.tsx` ~134 (**F-100**): к уведомлению дописать `, объединено: ${payload.merged}`, если `payload.merged > 0` (поле приходит с сервера).
+- admin-crm-ui, `src/app/components/admin/CrmAnalytics.tsx` (**F-029**): тип `totals`: `openValue` и `wonValue` → `number | null`; в подписях плиток использовать `wonPriced`/`wonWithoutValue`/`openPriced`/`openWithoutValue` («По N сделкам с суммой; у M сумма не заполнена»). `formatMoney` уже выводит «—» для null, без правки ничего не ломается. — **сделано 02.10** (`valueCoverage`).
+- admin-crm-ui, `CrmBoard.tsx` ~117 и `AdminLeads.tsx` ~1624 (**F-034**): «просрочено» только для открытых этапов — `!['won','lost','archived'].includes(lead.pipeline_stage) && isOverdue(lead.next_action_at)`, чтобы закрытая карточка не горела красным. — **сделано 02.10** (`isOverdue(raw, stage)`, `isOpenStage()`).
+- admin-crm-ui, `AdminAdSpend.tsx` ~134 (**F-100**): к уведомлению дописать `, объединено: ${payload.merged}`, если `payload.merged > 0` (поле приходит с сервера) — **сделано 02.10**..
 - вне групп, `src/app/components/admin/AdminPerformance.tsx` (**F-132**): в функции `audit` (~489–492) `endpoint.searchParams.set('timezone_offset', String(new Date().getTimezoneOffset()))`; в подписи оси (~739) `timeZone: 'UTC'` в опциях `toLocaleDateString`. Без первого пункта день истории остаётся по UTC.
-- admin-crm-ui, `AdminClients.tsx` ~222 (**F-033**): POST `/api/admin/clients` не передаёт `timezone_offset` — добавить `?timezone_offset=${new Date().getTimezoneOffset()}`, иначе дата завершения ставится по UTC. Поле «Закончили» — см. «Владельцу».
+- admin-crm-ui, `AdminClients.tsx` ~222 (**F-033**): POST `/api/admin/clients` не передаёт `timezone_offset` — добавить `?timezone_offset=${new Date().getTimezoneOffset()}`, иначе дата завершения ставится по UTC. Поле «Закончили» — см. «Владельцу». — **сделано 02.10** (timezone_offset; поле «Закончили» не делалось).
 - Мелочи из ревью в файлах самой группы (не блокируют): `functions/_lib/admin-crm.ts` — добавить пары `ЎҒҚҲ` → `ўғқҳ` в `CYRILLIC_UPPER`/`CYRILLIC_LOWER` и проверку «ғафур» находит «Ғафур Алиев» в тест F-093; `functions/api/admin/ad-spend.ts` — при переполнении `MAX_AMOUNT` после сложения отбрасывать слот целиком (`bySlot.delete(key)`) или писать в ошибке, что в базу ушла только часть суммы.
 
 #### Из server-public → другие группы
 
 - admin-api-core, `functions/api/meta-test-event.ts` (**F-086**): `getRequestGeo` заменить на `extractRequestContext` из `_lib/meta-request` (регион как `regionCode || region`, как в `lead.ts`), чтобы «Тестовое событие» показывало те же ct/st, что настоящие события.
 - admin-api-money, `functions/api/admin/attribution.ts` (**F-089**): в массив `limitations` добавить: «Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie. Посетители из ЕС/UK/CH, которые отказались или не ответили на баннер, в знаменатель не попадают, заявки же считаются у всех. Поэтому конверсия страниц может быть завышена».
-- `functions/api/admin/content-stats.ts` + `src/app/components/admin/ContentPerformance.tsx` (**F-089**): та же оговорка; для страницы, где есть заявки и нет просмотров, отдавать «нет данных» (`null`), а не `views: pageViews || 0`; UI рисует прочерк с объяснением.
-- admin-crm-ui, `AdminToday.tsx` (~352, ~675) и `AdminReport.tsx` (**F-089**): к формулировке «без cookies» добавить «только посетители, давшие согласие на маркетинговые cookie».
+- `functions/api/admin/content-stats.ts` + `src/app/components/admin/ContentPerformance.tsx` (**F-089**): та же оговорка; для страницы, где есть заявки и нет просмотров, отдавать «нет данных» (`null`), а не `views: pageViews || 0`; UI рисует прочерк с объяснением. — сервер `content-stats.ts` сделан 01.10 (журнал `work/fix-cross-group.md`), **`ContentPerformance.tsx` ещё нет**: `views: number | null` → прочерк с подсказкой, `conversion` null → прочерк, не суммировать null, null в конец при сортировке, вывести `payload.notes`.
+- admin-crm-ui, `AdminToday.tsx` (~352, ~675) и `AdminReport.tsx` (**F-089**): к формулировке «без cookies» добавить «только посетители, давшие согласие на маркетинговые cookie». — **сделано 02.10** в `AdminToday.tsx` (плитка и примечание); в `AdminReport.tsx` такой формулировки нет.
 - `docs/ADMIN_SETUP_V2.md`, CLAUDE.md/AGENTS.md раздел «Заявки и первичная статистика» (**F-089**): строка про `/api/pageview` — оговорка, что просмотры и посетители считаются только у согласившихся на маркетинговые cookie.
 - `functions/api/admin/health.ts` (**F-104**, без этого находка не закрыта): ветка `monitor` (~288–300) — `tracking_signature_daily` теперь содержит только попытки с подписью, поэтому «lead: N, meta-event: N, pageview: N» больше не объём трафика. Заменить строку traffic текстом «неподписанные запросы (все с настоящего сайта) не журналируются, чтобы не тратить лимит записей D1; подписанных попыток за сутки: валидных X, невалидных Y», объём трафика брать из `page_stats_daily` (SUM(views) за сутки, как в проверке `stats`); не показывать «lead: 0, meta-event: 0, pageview: 0» как данные. Если `audit.disabled > 0` (строка с `reason = AUDIT_BUDGET_EXHAUSTED_REASON` из `_lib/tracking-signature.ts`, экспортируется) — «невалидных: не меньше Y — суточный бюджет 200 записей аудита исчерпан, день неполный». SQL агрегата менять не нужно: отметка лежит под `endpoint = AUDIT_BUDGET_MARKER_ENDPOINT` (`'all'`) и в суммы по точкам/valid/invalid не попадает; строку `updated_at >= strftime('%s','now','-1 day')` оставить — её требует `scripts/meta-capi-smoke-tests.js:435`. Ветка `enforce` (valid === 0 && invalid > 0 → fail) остаётся верной.
 - `docs/CLOUDFLARE_LIMITS.md`, `docs/SECURITY.md` ~156 (**F-104**): убрать `tracking_signature_daily` из расчёта записей D1 на визит (для неподписанных запросов теперь 0); в SECURITY.md отметить: журналируются только попытки с подписью, суточный бюджет 200 записей на дата-центр, при исчерпании — одна отметка `disabled`/`audit_budget_exhausted` под endpoint `'all'`.
@@ -255,3 +255,44 @@
 - seo-build, `scripts/generate-pages.js` ~178 (**F-108**, это же **F-047**): отбор и сортировку материалов привести к ключу публикации `renderFeedXml` (publishedAt → date → updatedAt), чтобы лента и блог отбирали одинаково.
 - Существующие тесты: `scripts/generated-seo.test.js` — в `mustMatch` теста 'crawlers that verify indexing are recognised as bots' добавить `'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)'` (**F-109**); строковая проверка `/status: 404/` в 'article routes are served with their own meta' проходит, поведенческая версия живёт в `scripts/audit-server-public.test.js` (**F-113**) — можно заменить.
 - Мелочь из ревью в файле группы: `functions/_lib/meta-request.ts` — JSDoc про запасной источник из `request.cf` стоит над `cfText`, а не над `extractRequestContext`; перенести объявление `cfText` выше комментария.
+
+### Итоги 02.10: группы admin-shell, admin-crm-ui, editor
+
+Тесты групп: `scripts/audit-admin-shell.test.js` (19), `scripts/audit-admin-crm-ui.test.js` (26, собирает ESM-бандлы в gitignored `tmp/`), `scripts/audit-editor.test.js` (15) — все зелёные; скрипты `test:audit-admin-shell`, `test:audit-admin-crm-ui`, `test:audit-editor` добавлены в `package.json` и в цепочку `check` перед `npm run build`. Полный `npm run check` после этой волны ещё не прогонялся. В таблицу тестов CLAUDE.md/AGENTS.md дописать три строки (ниже, по группам).
+
+Исправлено 37 из 38: admin-shell 14/15 (**F-009** — needs-cross-group), admin-crm-ui 17/17, editor 6/6. Попутно в файлах admin-crm-ui закрыты стыки прошлой волны: F-029, F-033 (timezone_offset), F-034, F-089 (`AdminToday.tsx`), F-100; стык F-095 закрыт в F-078. У F-061, F-078, F-103, F-133 (admin-shell) и F-026, F-030, F-031, F-070 (admin-crm-ui) клиентская половина полная, серверная — ниже.
+
+#### Владельцу (руками)
+
+- **F-026**, консоль D1, одной командой — после выкладки правки `finance.ts` (ниже), чтобы старые счета «оплачен» без даты попали в «Получено» и «Прибыль»: `UPDATE invoices SET paid_at = COALESCE(issued_at, date(created_at)) WHERE status = 'paid' AND paid_at IS NULL;`
+- **F-133**, до серверного заслона (ниже): собирать расписание непосредственно перед «Запланировать» — план, собранный заранее и подтверждённый через полчаса, уведёт первую статью задним числом (панель проверяет слоты при сборке, а не при сохранении).
+
+#### Из admin-shell → другие группы
+
+- admin-api-core, `functions/api/admin/media.ts` (**F-009**, без этого находка не закрыта): сервер — единственный источник правды об использовании файла. В GET `/api/admin/media` отдавать каждому файлу `usage: string[]` (заголовки статей), посчитанный одним запросом `SELECT slug, title, image, content` (и `case_data_json`, если колонка есть) `FROM articles` по публичному адресу `publicUploadUrl(host, key)` и по самому `key`; включать черновики, запланированные и кейсы; копии `-<ширина>.webp` считать по оригиналу. Перед `delete` и `move` проверять каждый ключ тем же способом (`instr` или `LIKE` с `ESCAPE`, не голый `LIKE`: в ключах бывают `_` и `%`) и отвечать 409 с перечнем заголовков, ничего не удаляя и не перенося; без D1 — `fetchArticlesWithFallback` по полному `content`; если проверка не удалась (D1 недоступна) — отказывать, а не пропускать. **Если D1 недоступна или запрос по статьям упал, в GET поле `usage` не отдавать вовсе (`undefined`), а не `[]`** — клиент верит `usage` даже пустому, и `[]` пометило бы все файлы кандидатами на удаление; без поля он уходит в запасной разбор по списку. Поправить комментарий «это проверяет интерфейс». Клиент (`AdminMedia.tsx`) уже читает `file.usage` и показывает 409 через `setError`.
+- admin-api-core, `functions/api/admin/articles.ts` (**F-061**): `onRequestPatch`, обе ветки при сборке `article`: `featuredOrder: existing?.featuredOrder ?? undefined` вместо значения из тела — закреплением управляет только `PUT articles-featured`; без этого JSONBin-ветка заменяет статью целиком вместе со старым порядком. Тот же принцип в dev-заглушке `vite.config.ts:248` (`incoming.featuredOrder ?? existing?.featuredOrder` → `existing?.featuredOrder`). Клиент уже отправляет `featuredOrder: undefined`.
+- admin-api-core, `functions/_lib/admin-totp.ts` (**F-103**): `normalizeBackupCode` — после trim/toLowerCase удалить пробелы и дефисы, и если получилось ровно 10 символов `[0-9a-f]`, вернуть `${s.slice(0,5)}-${s.slice(5)}`, иначе строку как раньше. Форма совпадает с уже сохранёнными хешами (посчитаны от кода с дефисом), а код «без дефиса» и «с пробелом» принимается. `generateBackupCodes`/`hashBackupCode` и одноразовость в `consumeBackupCode` не меняются. Проверка: `hashBackupCode('7cd5ca5978') === hashBackupCode('7cd5c-a5978')`.
+- admin-api-core, `functions/api/admin/articles-schedule.ts` (**F-133**): в `parseItems` или перед `writeScheduleToD1` (и в JSONBin-ветке) элементы с `publishedAt <= nowIso` (допуск около минуты на рассинхрон часов) не записывать, а класть в `skipped` и отдельно в `skippedPast: string[]` — иначе старый клиент или ручной запрос обходят клиентскую проверку. Панель может потом разделить текст «пропущены» по причинам.
+- CLAUDE.md/AGENTS.md, таблица тестов: `test:audit-admin-shell — находки аудита по оболочке админки: уход из редактора статьи и редактора сайта с вопросом, FAQ знает о несохранённом, окно повторного входа, палитра по всем публикациям, slug с дефисом, календарь без черновиков, расписание не в прошлое`.
+- Существующие тесты (не обязательно): `scripts/publish-schedule.test.js` — сейчас не ломается, проверка «сейчас» включается только при переданном `now`; если сделать `now = Date.now()` по умолчанию, в `base` передавать фиксированный `now` (например `Date.UTC(2026, 8, 20)`), иначе `startDate 2026-10-01` станет «прошлой».
+- Мелочи из ревью в файлах группы (не блокируют): `AdminFaqControl.tsx` (**F-077**) — сразу после успешного ответа `save()` ставить `setBaseline(faqSignature(savedItems, seo))`, не дожидаясь `load(true)`; `PublishSchedulePanel.tsx` (**F-133**) — в `savePlan` перед `confirmDialog` проверить `Date.parse(first.publishedAt) <= Date.now()` и вместо отправки `notify.error('Расписание устарело', …)` + `resetPlan()`; `Admin.tsx` (**F-007**) — в `openArticleFromPalette` перед `setAdminSectionFilter` та же проверка `confirmLeaveEditor`, что в `openArticleForEdit`; `AdminContentControl.tsx` (**F-074**) — при несохранённом в обеих вкладках один вопрос вместо двух подряд.
+
+#### Из admin-crm-ui → другие группы
+
+- admin-api-money, `functions/api/admin/finance.ts` save_invoice (~206–219) (**F-026**): `const status = cleanInvoiceStatus(body.status); const paidAt = status === 'paid' ? (cleanDate(body.paid_at) || cleanDate(body.issued_at) || localTodayIso(request)) : null;` подставить `paidAt` и `status` в values. Разовый SQL владельцу — см. «Владельцу».
+- admin-api-money, `functions/api/admin/crm-analytics.ts` (**F-030**): в `sourceRows` (~129–139) добавить `SUM(CASE WHEN deal_value > 0 AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency` (по образцу запроса этапов) и отдавать `otherCurrencyDeals: number(row.other_currency)` в `wonBySource` — UI уже показывает «сумма в другой валюте» по этому полю.
+- вне групп, `src/app/components/admin/CaseBuilderDialog.tsx` (**F-031**): рядом с абзацем «Пропущено без цифр» (~178) вывести `result.ratioGaps`: «Цена заявки посчитана без {cpl.join(', ')}: нет пары расход+заявки», то же для `romi` (расход+выручка) и `conversion` (продажи+заявки), только если список непуст.
+- admin-api-money, `functions/api/admin/planner.ts` (**F-069**, по желанию): принимать `expectedUpdatedAt`; при его наличии `UPDATE planner_weeks … WHERE week_start=? AND updated_at=?` (INSERT только при отсутствии строки), 0 изменённых строк → 409; `TodayPlan`/`TodayNote` при 409 повторяют цикл один раз. Проверка должна остаться необязательной (автосохранение AdminPlanner и `sendBeacon`).
+- admin-api-money, `functions/api/admin/clients.ts` и `functions/api/admin/crm-templates.ts`; вне групп `src/app/components/admin/CrmQuickActions.tsx` (**F-070**): `clients.ts` — действие `seed_access` одним `db.batch` с `INSERT INTO client_access (client_id, name, status) SELECT ?, ?, 'waiting' WHERE NOT EXISTS (SELECT 1 FROM client_access WHERE client_id = ? AND name = ?)`; `crm-templates.ts` seed — `INSERT … SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM crm_templates WHERE title = ?)` внутри одного batch (не проверять пустоту всей таблицы); `CrmQuickActions.tsx` — флаг `saving`, `disabled` на «Создать стандартные» и «Сохранить», сброс в `finally`.
+- admin-api-money, `functions/api/admin/report.ts` и `clients.ts` ~374 (**F-068**): `report.ts` — `today: localTodayIso(request)` в ответе (UI сможет блокировать «›» по нему, как в «Целях»); `clients.ts` — запасное `started_at` через `localTodayIso(request)`, а не `new Date()` по UTC.
+- CLAUDE.md/AGENTS.md, таблица тестов: `test:audit-admin-crm-ui — находки аудита по интерфейсу админки: заявки, клиенты, финансы, планер, «Сегодня»`. Тесту нужен каталог `tmp/` (gitignored) для ESM-бандлов (react-dnd — ESM-only).
+- Решение владельца (**F-033**): поле «Закончили» в форме клиента — уже в «Владельцу» итогов 01.10; не делалось.
+- Мелочи из ревью в файлах группы (не блокируют): `AdminPlanner.tsx` (**F-039**) — хранить промис идущего `flush()` и перед `rewriteWeek` ждать его, чтобы GET недели читал её после последней записи; в `catch` различать «W+1 не записана» и «записана, но не убрана из исходной» — во втором случае сказать, что задачи уже в понедельнике следующей недели и остались в воскресенье; `scripts/audit-admin-crm-ui.test.js` (**F-068**) — проверки «Цели/Отчёт на местном месяце» закрепить на границе месяца (подменить время так, чтобы UTC-месяц и местный расходились), тест F-039 перевести с реальных таймеров на промисы.
+
+#### Из editor → другие группы
+
+- editor, `scripts/audit-editor.test.js:141` (**F-006**, **важно для `check`**): `readFileSync('../data/articles.build.json')` на верхнем уровне модуля без запасного источника; файл в `.gitignore` и появляется только после `fetch:articles`/сборки, а `test:audit-editor` в `check` стоит раньше `build` — на свежем клоне падает весь набор до первой проверки, и с ним `npm run check`. Повторить цепочку соседей (`scripts/blog-sections.test.js:66`): `['data/articles.build.json', 'public/articles.seed.json', 'data/articles.local.json'].find(existsSync)` внутри проверки «на живых статьях», остальные 14 проверок от снимка не зависят.
+- admin-shell, `src/app/pages/Admin.tsx` (**F-006**, по желанию): обернуть `handleContentChange` (~1343) в `useCallback([])` — он пишет через функциональный `setEditingArticle`; с флагом `blocksTouchedRef` для корректности уже не требуется, но убирает лишние перезапуски эффекта onChange при каждом рендере Admin.
+- admin-shell, `src/app/pages/Admin.tsx` (**F-059**, по желанию, аккуратнее для D1): в `handleSave` пропустить `caseData.metrics` через `.filter((m) => m.value.trim() && m.label.trim())`, пустой массив → `undefined`; либо вызвать `normalizeCaseData` на запись в `functions/api/admin/articles.ts` рядом с проверкой размера (~105). Сервер уже отбрасывает неполные метрики при чтении.
+- **F-008**: ранее предложенный стык «`flush()` через ref для `handleSave`» снят — HTML из Markdown уходит в `setEditingArticle` синхронно внутри события, `handleSave` читает актуальный `editingArticle.content`.
+- CLAUDE.md/AGENTS.md, таблица тестов: `test:audit-editor — находки аудита по блочному редактору: ссылки и жирный переживают круг HTML → блоки → HTML, текст из Markdown доходит до сохранения, вставка по курсору, смена статьи закрывает Markdown, метрики кейса, горячие клавиши`.

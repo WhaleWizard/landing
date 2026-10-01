@@ -66,8 +66,8 @@ async function bundle(contents) {
   return import(file);
 }
 
-const { createElement, act, createRoot } = await bundle(`
-  export { createElement, act } from 'react';
+const { createElement, act, useState, createRoot } = await bundle(`
+  export { createElement, act, useState } from 'react';
   export { createRoot } from 'react-dom/client';
 `);
 
@@ -107,6 +107,15 @@ async function type(input, value) {
 async function wait(ms) {
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+}
+
+/**
+ * Только микрозадачи: ни одна макрозадача — setTimeout, setImmediate, MessageChannel
+ * планировщика React — за это время не выполнится. Столько проходит между слушателями
+ * одного тапа на телефоне: mousedown (blur), mouseup и click идут в одной задаче.
+ */
+async function microtasks(rounds = 5) {
+  for (let i = 0; i < rounds; i += 1) await Promise.resolve();
 }
 
 /** Нажатие клавиши: `code` — физическая клавиша, как и в редакторе (русская раскладка даёт другой `key`). */
@@ -250,6 +259,84 @@ test('F-008: потеря фокуса полем Markdown применяет т
   await act(async () => { field.blur(); });
   assert.ok(onChange.calls.length >= 1, 'blur применил Markdown без ожидания');
   assert.ok(onChange.last.includes('Строка перед самым сохранением.'));
+  await view.unmount();
+});
+
+test('F-008: тап на телефоне — blur и click в одной задаче: «Сохранить» и «Отмена» родителя видят набранное в Markdown', async () => {
+  // Родитель как Admin.tsx: content в useState, onChange — новая функция на каждый рендер,
+  // кнопки читают content из замыкания. Ровно так handleSave берёт editingArticle.content,
+  // а closeArticleEditor — hasUnsavedChanges.
+  const seen = { saved: [], unsaved: [] };
+  function Parent() {
+    const [content, setContent] = useState(ACCENT_ARTICLE);
+    return createElement('div', null,
+      createElement(editor.ArticleEditor, { content, onChange: (html) => setContent(html) }),
+      createElement('button', { type: 'button', onClick: () => { seen.saved.push(content); } }, 'Сохранить'),
+      createElement('button', { type: 'button', onClick: () => { seen.unsaved.push(content !== ACCENT_ARTICLE); } }, 'Отмена'),
+    );
+  }
+  const view = await mount(Parent, {});
+  await click(buttonByText(view.container, 'Markdown'));
+  const field = mdField(view.container);
+  await act(async () => { field.focus(); });
+  await type(field, `${field.value}\n\nСтрока перед самым сохранением.`);
+  const save = buttonByText(view.container, 'Сохранить');
+  const cancel = buttonByText(view.container, 'Отмена');
+
+  // Дальше без act(): act дожидался бы и макрозадач, а у настоящего тапа их между
+  // blur и click нет. Обновление родителя из пассивного эффекта React понижает до
+  // Default-приоритета и выполняет задачей планировщика — click его не дождётся.
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  try {
+    field.blur();
+    await microtasks();
+    save.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    cancel.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  } finally {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  }
+  assert.equal(seen.saved.length, 1, '«Сохранить» нажата один раз');
+  assert.ok(seen.saved[0].includes('Строка перед самым сохранением.'), '«Сохранить» получил набранный текст, а не старый content');
+  assert.ok(seen.saved[0].includes('Акцентный заголовок'), 'остальная статья на месте');
+  assert.deepEqual(seen.unsaved, [true], '«Отмена» видит несохранённые изменения — спросит подтверждение, а не закроет молча');
+  await wait(300);
+
+  // Выход из Markdown кнопкой — тот же путь applyMarkdown: режим после blur ещё открыт,
+  // поле уже не в фокусе (blur не повторится), «Визуальный» и «Сохранить» нажаты в одной задаче.
+  const again = mdField(view.container);
+  assert.ok(again, 'после blur режим Markdown остаётся открытым');
+  await type(again, `${again.value}\n\nВторая строка перед сохранением.`);
+  const visual = buttonByText(view.container, 'Визуальный');
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  try {
+    visual.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    await microtasks();
+    save.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  } finally {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  }
+  assert.equal(seen.saved.length, 2);
+  assert.ok(seen.saved[1].includes('Вторая строка перед сохранением.'), 'выход из Markdown кнопкой тоже отдаёт текст до клика по «Сохранить»');
+  assert.ok(seen.saved[1].includes('Строка перед самым сохранением.'), 'первая правка не потерялась');
+  await wait(300);
+  await view.unmount();
+});
+
+test('F-008: синхронное применение по blur отдаёт родителю HTML один раз — эффект его не повторяет', async () => {
+  const onChange = changeSpy();
+  const view = await mount(editor.ArticleEditor, { content: ACCENT_ARTICLE, onChange });
+  await click(buttonByText(view.container, 'Markdown'));
+  const field = mdField(view.container);
+  await act(async () => { field.focus(); });
+  await type(field, `${field.value}\n\nЕщё одна строка.`);
+  await act(async () => { field.blur(); });
+  await wait(300);
+  assert.equal(onChange.calls.length, 1, 'одна правка — один onChange, даже если родитель ещё не вернул content');
+  assert.ok(onChange.last.includes('Ещё одна строка.'));
+  // Кнопка «Визуальный» применяет тот же текст повторно — это не правка.
+  await click(buttonByText(view.container, 'Визуальный'));
+  await wait(300);
+  assert.equal(onChange.calls.length, 1, 'выход из Markdown без новых правок родителя не дёргает');
   await view.unmount();
 });
 

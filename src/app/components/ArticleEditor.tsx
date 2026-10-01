@@ -677,6 +677,9 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
   // абзацев появляются встроенные стили, а разметка внутри узлов раньше
   // терялась), и одна только перерисовка родителя переписывала статью.
   const blocksTouchedRef = useRef(false);
+  // HTML, который applyMarkdown уже отдал родителю синхронно: эффекту ниже его
+  // повторять не нужно, даже если родитель ещё не вернул его через `content`.
+  const mdHandedHtmlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLocalSyncRef.current) { isLocalSyncRef.current = false; return; }
@@ -686,6 +689,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     const nextBlocks = parseHtmlToBlocks(content);
     isExternalSyncRef.current = true;
     blocksTouchedRef.current = false;
+    mdHandedHtmlRef.current = null;
     setBlocks(nextBlocks);
     setHtmlOutput(serializeBlocks(nextBlocks));
     setHistory({ past: [], future: [] });
@@ -722,7 +726,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
       isExternalSyncRef.current = false;
       return;
     }
-    if (!blocksTouchedRef.current || htmlOutput === content) return;
+    if (!blocksTouchedRef.current || htmlOutput === content || htmlOutput === mdHandedHtmlRef.current) return;
     isLocalSyncRef.current = true;
     onChange(htmlOutput);
   }, [htmlOutput, content, onChange, readOnly]);
@@ -757,17 +761,29 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     // Текст вернули к исходному — возвращаются и исходные блоки, без потерь.
     const next = md === mdBaselineRef.current ? mdEntryBlocksRef.current : markdownToBlocks(md);
     setBlocksWithHistory(next);
-    // HTML собирается сразу, не дожидаясь задержки: после «Применить разметку»
-    // или потери фокуса родитель получает текст до того, как нажмут «Сохранить».
-    setHtmlOutput(serializeBlocks(next));
-  }, [setBlocksWithHistory]);
+    const html = serializeBlocks(next);
+    setHtmlOutput(html);
+    // Родитель получает HTML здесь же, внутри события, а не из эффекта ниже.
+    // Обновление, запущенное из пассивного эффекта, React понижает до обычного
+    // приоритета и выполняет отдельной задачей планировщика, а тап на телефоне
+    // отдаёт blur поля, mouseup и click по «Сохранить» в одной задаче: между ними
+    // успевают только микрозадачи, и кнопка читала старый content — «Опубликовано»,
+    // а на сайте прежний текст; «Отмена» закрывала редактор без вопроса. Из
+    // обработчика события обновление родителя идёт с приоритетом самого события
+    // и завершается до следующего слушателя.
+    if (html !== content) {
+      mdHandedHtmlRef.current = html;
+      isLocalSyncRef.current = true;
+      onChange(html);
+    }
+  }, [content, onChange, setBlocksWithHistory]);
 
   // Пока режим Markdown открыт, источник правды — текст в поле: он с той же
-  // задержкой превращается в блоки, и дальше работает обычная цепочка
-  // «блоки → HTML → onChange» — метка «есть изменения», резервная копия,
-  // предупреждение при закрытии и сохранение. Раньше набранное в Markdown
-  // попадало в статью только по кнопке «Применить разметку», и «Сохранить»
-  // уносил старый текст, а набранное пропадало вместе с закрытым редактором.
+  // задержкой превращается в блоки и HTML и уходит родителю — дальше обычная
+  // цепочка: метка «есть изменения», резервная копия, предупреждение при
+  // закрытии и сохранение. Раньше набранное в Markdown попадало в статью только
+  // по кнопке «Применить разметку», и «Сохранить» уносил старый текст, а
+  // набранное пропадало вместе с закрытым редактором.
   useEffect(() => {
     if (!markdownMode || mdText === mdAppliedRef.current) return;
     const timer = window.setTimeout(() => applyMarkdown(mdText), OUTPUT_SYNC_DELAY_MS);
@@ -965,6 +981,10 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
 
         {markdownMode ? (
           <div className="admin-panel p-4">
+            {/* Клик по «Сохранить» или «Отмена» сначала снимает фокус с поля: по
+                blur текст применяется и уходит родителю прямо в событии, не
+                дожидаясь задержки и не завися от того, успеет ли между blur и
+                click пройти задача планировщика. */}
             <textarea
               aria-label="Markdown-разметка статьи"
               value={mdText}
