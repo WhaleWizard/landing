@@ -183,7 +183,8 @@ export default function AdminSecurity() {
           </div>
           <div className="admin-field">
             <label htmlFor="sec-code" className="admin-label">Код из приложения или резервный код</label>
-            <input id="sec-code" type="text" inputMode="numeric" autoComplete="one-time-code" className="admin-input" value={code} onChange={(e) => setCode(e.target.value)} />
+            {/* Не numeric: резервный код из букв и дефиса на цифровой клавиатуре iPhone не набрать. */}
+            <input id="sec-code" type="text" inputMode="text" autoComplete="one-time-code" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="admin-input" value={code} onChange={(e) => setCode(e.target.value)} />
           </div>
           <AdminButton tone="danger" disabled={busy} onClick={() => { void disable(); }}>
             <ShieldOff aria-hidden="true" /> Выключить защиту

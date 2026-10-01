@@ -21,6 +21,24 @@ interface MediaFile {
   name: string;
   folder: string;
   alt?: string;
+  /** Заголовки публикаций, где файл используется — считает сервер по полным текстам. */
+  usage?: string[];
+}
+
+/**
+ * Где используется файл. Источник правды — сервер (`usage`, посчитано по
+ * полным текстам статей в D1). Список статей в админке приходит без текстов
+ * (под 600 статей), и по нему видно только обложки: картинка из текста
+ * статьи считалась неиспользуемой, и медиатека разрешала её удалить. Разбор
+ * по списку остаётся запасным вариантом, пока сервер поле не отдаёт.
+ */
+export function referencesForFile(file: Pick<MediaFile, 'key' | 'url' | 'usage'>, articles: Article[]): string[] {
+  if (Array.isArray(file.usage)) return file.usage;
+  return articles
+    .filter((article) => String(article.image || '').trim() === file.url
+      || String(article.content || '').includes(file.url)
+      || String(article.content || '').includes(file.key))
+    .map((article) => article.title || article.slug);
 }
 
 interface MediaFolder {
@@ -145,14 +163,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
 
   const mediaUsage = useMemo(() => {
     const usage = new Map<string, string[]>();
-    files.forEach((file) => {
-      const references = articles
-        .filter((article) => String(article.image || '').trim() === file.url
-          || String(article.content || '').includes(file.url)
-          || String(article.content || '').includes(file.key))
-        .map((article) => article.title || article.slug);
-      usage.set(file.key, references);
-    });
+    files.forEach((file) => usage.set(file.key, referencesForFile(file, articles)));
     return usage;
   }, [articles, files]);
 

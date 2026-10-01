@@ -23,7 +23,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { AdminSelect } from './AdminUI';
+import { AdminSelect, parseDecimalInput } from './AdminUI';
+import { toIsoDate } from './plannerModel';
 import { suggestLeadScore } from './leadScore';
 import CrmBoard from './CrmBoard';
 import CrmAnalytics from './CrmAnalytics';
@@ -291,6 +292,85 @@ function isOverdue(raw?: string | null): boolean {
   return Boolean(raw && new Date(raw).getTime() < Date.now());
 }
 
+/** Закрытая сделка не «просрочена»: срок шага у неё — история, как и в счётчиках сервера. */
+function isOpenStage(stage: PipelineStage): boolean {
+  return !['won', 'lost', 'archived'].includes(stage);
+}
+
+/**
+ * Сумма сделки из поля карточки. Поле принимает «1,234.56», «1.500,50» и
+ * «1 500» тем же правилом, что остальные денежные поля админки
+ * (`parseDecimalInput`): последний разделитель — десятичный. Пустое поле —
+ * «суммы нет», а не ноль. Нечитаемая строка — отказ, а не NULL: раньше
+ * `Number('1,234.56')` давал NaN, сервер писал NULL, и прежняя сумма молча
+ * пропадала с доски, из плитки «В работе» и из выручки.
+ */
+export function parseDealValue(raw: string): { ok: boolean; value: number | null } {
+  if (String(raw ?? '').trim() === '') return { ok: true, value: null };
+  const value = parseDecimalInput(raw);
+  return value === null ? { ok: false, value: null } : { ok: true, value };
+}
+
+const DEAL_VALUE_ERROR = 'Не удалось разобрать сумму сделки — введите, например, 1234.56';
+
+/** Порядок открытых этапов: быстрые действия двигают сделку только вперёд. */
+const OPEN_STAGE_RANK: Partial<Record<PipelineStage, number>> = { new: 0, contacted: 1, discovery: 2, proposal: 3 };
+
+/**
+ * Этап после быстрого действия. «Отправил КП» переводит в «Предложение» из
+ * любого открытого этапа раньше него, а «Позвонил» не откатывает сделку из
+ * «Обсуждения» в «Связались». Закрытые сделки (won/lost/archived) в порядке
+ * не участвуют и остаются как были. Раньше этап менялся только у «Новой»,
+ * и КП, отправленное из «Обсуждения», на доске и в аналитике не появлялось.
+ */
+export function advanceStage(current: PipelineStage, target: PipelineStage | null | undefined): PipelineStage {
+  if (!target) return current;
+  const currentRank = OPEN_STAGE_RANK[current];
+  const targetRank = OPEN_STAGE_RANK[target];
+  return currentRank !== undefined && targetRank !== undefined && targetRank > currentRank ? target : current;
+}
+
+const pad2 = (value: number) => String(value).padStart(2, '0');
+
+/**
+ * Сегодняшний срок в формате поля datetime-local: `hour`:00 по местному
+ * времени, а если этот час уже прошёл — ближайший круглый час, но не позже
+ * 23:59 сегодня. Иначе кнопка «Связаться сегодня», нажатая вечером, ставила
+ * бы срок в прошлом, и сделка тут же становилась просроченной.
+ */
+function todaySlot(now: Date, hour: number): string {
+  const slot = new Date(now);
+  slot.setHours(hour, 0, 0, 0);
+  if (slot.getTime() <= now.getTime()) {
+    slot.setTime(now.getTime());
+    slot.setMinutes(0, 0, 0);
+    slot.setHours(slot.getHours() + 1);
+    if (toIsoDate(slot) !== toIsoDate(now)) {
+      slot.setTime(now.getTime());
+      slot.setHours(23, 59, 0, 0);
+    }
+  }
+  return `${toIsoDate(slot)}T${pad2(slot.getHours())}:${pad2(slot.getMinutes())}`;
+}
+
+/**
+ * Срок следующего шага для быстрых действий карточки.
+ *
+ * «Связаться сегодня» обещает сегодня: пустой, прошедший или назначенный на
+ * другой день срок переносится на сегодня (18:00), а назначенный на сегодня
+ * и ещё не наступивший остаётся. «Подготовить предложение» срок впереди не
+ * трогает, но пустой или просроченный тоже заменяет сегодняшним (12:00).
+ * Раньше обе кнопки оставляли просроченную дату как есть, и после «Связаться
+ * сегодня» сделка по-прежнему горела «Просрочено».
+ */
+export function quickActionDue(current: string, kind: 'today' | 'proposal', now: Date = new Date()): string {
+  const existing = current ? new Date(current) : null;
+  const valid = existing !== null && !Number.isNaN(existing.getTime());
+  const inFuture = valid && existing.getTime() > now.getTime();
+  if (kind === 'proposal') return inFuture ? current : todaySlot(now, 12);
+  return inFuture && toIsoDate(existing) === toIsoDate(now) ? current : todaySlot(now, 18);
+}
+
 const LEAD_QUALITY_CONSENT_MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000;
 
 // Сырые коды из серверной диагностики → понятное объяснение для администратора.
@@ -535,6 +615,13 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
    * клиент, который платит, по определению выигранная сделка.
    */
   const convertToClient = async () => {
+    // Сумма сделки уйдёт в «Выиграны» вместе с клиентом: нечитаемую строку
+    // лучше отклонить до того, как карточка клиента уже заведена.
+    const dealValue = draft ? parseDealValue(draft.deal_value) : { ok: true, value: null };
+    if (!dealValue.ok) {
+      notify.error('Сумма сделки не разобрана', DEAL_VALUE_ERROR);
+      return;
+    }
     const confirmed = await confirmAsk({
       title: `Завести клиента из сделки «${lead.name || 'без имени'}»?`,
       description: 'Создам карточку в разделе «Клиенты», перенесу имя и контакт. Сделка перейдёт в «Выиграны». Чек и договор заполните в карточке — их из заявки не угадать.',
@@ -555,7 +642,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
           contact_method: lead.telegram_username ? 'telegram' : lead.phone ? 'телефон' : 'почта',
           contact_value: lead.telegram_username || lead.phone || lead.email || '',
           retainer_currency: lead.deal_currency || 'USD',
-          started_at: new Date().toISOString().slice(0, 10),
+          started_at: toIsoDate(new Date()),
         }),
       });
       const payload = await response.json().catch(() => null) as { success?: boolean; id?: number; clientId?: number; error?: string } | null;
@@ -574,7 +661,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
           action: 'update_lead', action_id: crypto.randomUUID(), expected_revision: draft.crm_revision,
           pipeline_stage: 'won', priority: draft.priority, lead_score: draft.lead_score,
           next_action_at: toUtcIso(draft.next_action_at), next_action_text: draft.next_action_text,
-          deal_value: draft.deal_value === '' ? null : Number(draft.deal_value), deal_currency: draft.deal_currency,
+          deal_value: dealValue.value, deal_currency: draft.deal_currency,
           loss_reason: draft.loss_reason, notes: draft.notes,
         }, 'Сделка переведена в «Выиграны».');
       }
@@ -589,13 +676,19 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
 
   const saveLead = async () => {
     if (!draft) return;
+    const dealValue = parseDealValue(draft.deal_value);
+    if (!dealValue.ok) {
+      // Запрос не отправляется: прежняя сумма в базе остаётся нетронутой.
+      setError(DEAL_VALUE_ERROR);
+      return;
+    }
     const actionId = leadActionId || crypto.randomUUID();
     setLeadActionId(actionId);
     const ok = await post({
       action: 'update_lead', action_id: actionId, expected_revision: draft.crm_revision,
       pipeline_stage: draft.pipeline_stage, priority: draft.priority, lead_score: draft.lead_score,
       next_action_at: toUtcIso(draft.next_action_at), next_action_text: draft.next_action_text,
-      deal_value: draft.deal_value === '' ? null : Number(draft.deal_value), deal_currency: draft.deal_currency,
+      deal_value: dealValue.value, deal_currency: draft.deal_currency,
       loss_reason: draft.loss_reason, notes: draft.notes,
     }, 'Карточка сделки сохранена.');
     if (ok) setLeadActionId('');
@@ -603,13 +696,11 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
 
   const prepareQuickAction = (kind: 'start' | 'today' | 'proposal') => {
     if (!draft) return;
-    const date = new Date();
-    const localToday = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${kind === 'today' ? '18:00' : '12:00'}`;
     const preset = kind === 'start'
       ? { pipeline_stage: draft.pipeline_stage === 'new' ? 'contacted' as PipelineStage : draft.pipeline_stage, next_action_text: draft.next_action_text || 'Связаться с клиентом и уточнить задачу' }
       : kind === 'today'
-        ? { next_action_at: draft.next_action_at || localToday, next_action_text: draft.next_action_text || 'Связаться с клиентом сегодня' }
-        : { pipeline_stage: 'proposal' as PipelineStage, next_action_at: draft.next_action_at || localToday, next_action_text: draft.next_action_text || 'Подготовить и отправить предложение' };
+        ? { next_action_at: quickActionDue(draft.next_action_at, 'today'), next_action_text: draft.next_action_text || 'Связаться с клиентом сегодня' }
+        : { pipeline_stage: 'proposal' as PipelineStage, next_action_at: quickActionDue(draft.next_action_at, 'proposal'), next_action_text: draft.next_action_text || 'Подготовить и отправить предложение' };
     setDraft({ ...draft, ...preset });
     setNotice('Быстрое действие подготовлено. Проверьте карточку и сохраните сделку.');
   };
@@ -708,7 +799,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
       action: 'update_lead',
       action_id: crypto.randomUUID(),
       expected_revision: draft.crm_revision,
-      pipeline_stage: plan.stage && draft.pipeline_stage === 'new' ? plan.stage : draft.pipeline_stage,
+      pipeline_stage: advanceStage(draft.pipeline_stage, plan.stage),
       next_action_at: next.toISOString(),
       next_action_text: plan.nextText,
     }, plan.success);
@@ -839,7 +930,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
         </label>
         <label className="admin-field"><span className="admin-label">Следующее действие · дата</span><input className="admin-input" type="datetime-local" value={draft.next_action_at} onChange={(event) => setDraft({ ...draft, next_action_at: event.target.value })} /></label>
         <label className="admin-field admin-field--wide"><span className="admin-label">Что сделать следующим</span><input className="admin-input" maxLength={240} value={draft.next_action_text} onChange={(event) => setDraft({ ...draft, next_action_text: event.target.value })} placeholder="Например: отправить медиаплан и согласовать созвон" /></label>
-        <label className="admin-field"><span className="admin-label">Сумма сделки, $</span><input className="admin-input" inputMode="decimal" value={draft.deal_value} onChange={(event) => setDraft({ ...draft, deal_value: event.target.value.replace(/[^\d.,]/g, '').replace(',', '.') })} placeholder="0" /></label>
+        <label className="admin-field"><span className="admin-label">Сумма сделки, $</span><input className="admin-input" inputMode="decimal" value={draft.deal_value} onChange={(event) => setDraft({ ...draft, deal_value: event.target.value.replace(/[^\d.,]/g, '') })} placeholder="0" /></label>
         {(draft.pipeline_stage === 'lost' || draft.loss_reason) ? (
           <div className="admin-field admin-field--wide">
             <span className="admin-label">Причина проигрыша</span>
@@ -1461,9 +1552,12 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
       {!editingReady ? <div className="admin-notice admin-notice--warning" role="status"><strong>Редактирование временно заблокировано.</strong> Просмотр CRM доступен, но для безопасного сохранения без дублей и потери изменений нужно применить миграцию <code>{correctnessMigration || '0017_crm_correctness.sql'}</code>.</div> : null}
 
       <div className="admin-crm-summary">
-        <button type="button" onClick={() => setDue('overdue')} className={Number(reminders.overdue || 0) ? 'is-warning' : ''}><AlertTriangle aria-hidden="true" /><span>Просрочено</span><strong>{reminders.overdue || 0}</strong></button>
-        <button type="button" onClick={() => setDue('today')}><CalendarClock aria-hidden="true" /><span>На сегодня</span><strong>{reminders.today || 0}</strong></button>
-        <button type="button" onClick={() => setDue('none')}><Clock3 aria-hidden="true" /><span>Без следующего шага</span><strong>{reminders.without_next_action || 0}</strong></button>
+        {/* Плитки — это фильтр списка. Доска показывает этапы целиком, поэтому
+            нажатие переключает в «Список»: раньше с доски фильтр включался
+            молча и обнаруживался позже, уже в другом режиме. */}
+        <button type="button" onClick={() => { setDue('overdue'); setView('list'); }} className={Number(reminders.overdue || 0) ? 'is-warning' : ''}><AlertTriangle aria-hidden="true" /><span>Просрочено</span><strong>{reminders.overdue || 0}</strong></button>
+        <button type="button" onClick={() => { setDue('today'); setView('list'); }}><CalendarClock aria-hidden="true" /><span>На сегодня</span><strong>{reminders.today || 0}</strong></button>
+        <button type="button" onClick={() => { setDue('none'); setView('list'); }}><Clock3 aria-hidden="true" /><span>Без следующего шага</span><strong>{reminders.without_next_action || 0}</strong></button>
         <div><CheckCircle2 aria-hidden="true" /><span>Открытые задачи</span><strong>{taskSummary.open || 0}</strong></div>
         <div><CircleDollarSign aria-hidden="true" /><span>В работе</span><strong>{openValues.length ? openValues.map((item) => `${Number(item.open_value).toLocaleString('ru-RU')} ${item.deal_currency}`).join(' · ') : '—'}</strong></div>
       </div>
@@ -1621,7 +1715,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
           ) : null}
           <div className="admin-crm-list__items">
             {leads.length ? leads.map((lead) => {
-              const overdue = isOverdue(lead.next_action_at);
+              const overdue = isOpenStage(lead.pipeline_stage) && isOverdue(lead.next_action_at);
               const checked = checkedIds.includes(lead.id);
               return <div className="admin-crm-lead-row" key={lead.id}>
                 <label className="admin-crm-lead__check" title="Выбрать для удаления">

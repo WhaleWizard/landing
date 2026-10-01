@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import type { Article } from '../hooks/useArticlesApi';
 import { AdminButton, AdminSelect } from './AdminUI';
 import { notify, useConfirm } from './AdminFeedback';
-import { ownerTomorrow, planSchedule, type ScheduledItem } from '../../utils/publishSchedule';
+import { ownerToday, ownerTomorrow, planSchedule, type ScheduledItem } from '../../utils/publishSchedule';
 import { plural, withPlural } from '../../utils/plural';
 
 /**
@@ -40,7 +40,7 @@ function describeState(article: Article): string {
     : 'запланирована';
 }
 
-export default function PublishSchedulePanel({
+function PublishSchedulePanel({
   articles,
   onSchedule,
 }: {
@@ -78,7 +78,9 @@ export default function PublishSchedulePanel({
   };
 
   const buildPlan = () => {
-    const result = planSchedule(selected.map((article) => article.slug), { startDate, days, perDay, fromHour, toHour, shuffle });
+    // `now` обязателен: без него слоты сегодняшнего дня раньше текущего
+    // времени выпускали бы статьи сразу и задним числом.
+    const result = planSchedule(selected.map((article) => article.slug), { startDate, days, perDay, fromHour, toHour, shuffle, now: Date.now() });
     if (result.error) {
       notify.error('Расписание не собрать', result.error);
       resetPlan();
@@ -165,7 +167,7 @@ export default function PublishSchedulePanel({
       <div className="admin-form-grid">
         <label className="admin-field">
           <span className="admin-label">Начать с</span>
-          <input className="admin-input" type="date" value={startDate} onChange={(event) => { setStartDate(event.target.value); resetPlan(); }} />
+          <input className="admin-input" type="date" min={ownerToday()} value={startDate} onChange={(event) => { setStartDate(event.target.value); resetPlan(); }} />
         </label>
         <label className="admin-field">
           <span className="admin-label">Дней</span>
@@ -212,3 +214,7 @@ export default function PublishSchedulePanel({
     </div>
   );
 }
+
+// memo: панель получает список и стабильный обработчик — без memo она
+// перерисовывалась на каждую букву в редакторе статьи.
+export default memo(PublishSchedulePanel);

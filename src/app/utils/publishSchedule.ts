@@ -14,6 +14,12 @@
 export const OWNER_UTC_OFFSET_MINUTES = 5 * 60;
 /** Меньше этого между двумя статьями одного дня — выглядит как выгрузка пачкой. */
 export const MIN_GAP_MINUTES = 45;
+/**
+ * Самый ранний слот сегодняшнего дня — не раньше, чем через столько минут от
+ * «сейчас»: часы сервера и браузера расходятся, а слот в прошлом выпустил бы
+ * статью сразу и задним числом.
+ */
+export const START_LEAD_MINUTES = 15;
 
 export interface ScheduleOptions {
   /** Первый день в формате YYYY-MM-DD, по поясу владельца. */
@@ -28,6 +34,14 @@ export interface ScheduleOptions {
   /** Источник случайности; в тестах — детерминированный. */
   random?: () => number;
   offsetMinutes?: number;
+  /**
+   * Текущий момент (мс UTC). С ним дата начала в прошлом — ошибка, а у
+   * сегодняшнего дня окно начинается не раньше `now + START_LEAD_MINUTES`:
+   * иначе «начать сегодня» в 20:00 выпускало обе статьи сразу и задним
+   * числом. Панель передаёт `Date.now()`; без него расчёт остаётся чистой
+   * функцией от входных данных (так его проверяют тесты).
+   */
+  now?: number;
 }
 
 export interface ScheduledItem {
@@ -122,14 +136,34 @@ export function planSchedule(slugs: string[], options: ScheduleOptions): Schedul
     return { items: [], overflow: slugs, error: `В окно не помещается ${perDay} статей с перерывом ${MIN_GAP_MINUTES} минут — расширьте окно или уменьшите число в день` };
   }
 
+  // Начало окна первого дня: обычно «с», а если первый день — сегодня, то не
+  // раньше ближайших минут. Прошлая дата отклоняется целиком: пачка с
+  // прошлыми датами вышла бы на сайт одним залпом — тем самым всплеском, от
+  // которого расписание и защищает.
+  let firstDayFrom = fromMinutes;
+  if (options.now !== undefined) {
+    const nowLocal = new Date(options.now + offset * 60_000);
+    const todayStart = Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), nowLocal.getUTCDate());
+    const startMs = Date.UTC(start.year, start.month - 1, start.day);
+    if (startMs < todayStart) return { items: [], overflow: slugs, error: 'Дата начала уже прошла — выберите сегодня или позже' };
+    if (startMs === todayStart) {
+      firstDayFrom = Math.max(fromMinutes, nowLocal.getUTCHours() * 60 + nowLocal.getUTCMinutes() + START_LEAD_MINUTES);
+    }
+  }
+
   const order = options.shuffle ? shuffled(slugs, random) : [...slugs];
   const counts = dailyCounts(order.length, days, perDay);
   const items: ScheduledItem[] = [];
   let cursor = 0;
 
   for (let dayIndex = 0; dayIndex < days && cursor < order.length; dayIndex += 1) {
-    const minutes = pickMinutes(counts[dayIndex], fromMinutes, toMinutes, random);
-    if (!minutes) continue;
+    const minutes = pickMinutes(counts[dayIndex], dayIndex === 0 ? firstDayFrom : fromMinutes, toMinutes, random);
+    if (!minutes) {
+      if (dayIndex === 0 && firstDayFrom > fromMinutes) {
+        return { items: [], overflow: slugs, error: 'Сегодня в окне не осталось времени — начните с завтра или расширьте окно «до»' };
+      }
+      continue;
+    }
     for (const minuteOfDay of minutes) {
       const localMs = Date.UTC(start.year, start.month - 1, start.day + dayIndex) + minuteOfDay * 60_000;
       const local = new Date(localMs);
@@ -146,8 +180,17 @@ export function planSchedule(slugs: string[], options: ScheduleOptions): Schedul
   return { items, overflow: order.slice(cursor) };
 }
 
+function ownerDay(ms: number): string {
+  const local = new Date(ms);
+  return `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`;
+}
+
+/** Сегодня по поясу владельца, YYYY-MM-DD — раньше этого дня начинать нельзя. */
+export function ownerToday(now = Date.now(), offsetMinutes = OWNER_UTC_OFFSET_MINUTES): string {
+  return ownerDay(now + offsetMinutes * 60_000);
+}
+
 /** Завтра по поясу владельца, YYYY-MM-DD — разумное начало по умолчанию. */
 export function ownerTomorrow(now = Date.now(), offsetMinutes = OWNER_UTC_OFFSET_MINUTES): string {
-  const local = new Date(now + offsetMinutes * 60_000 + 24 * 60 * 60_000);
-  return `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`;
+  return ownerDay(now + offsetMinutes * 60_000 + 24 * 60 * 60_000);
 }

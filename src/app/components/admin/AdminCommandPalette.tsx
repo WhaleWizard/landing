@@ -27,6 +27,13 @@ export interface AdminCommand {
 export interface AdminCommandGroup {
   heading: string;
   items: AdminCommand[];
+  /**
+   * Сколько пунктов показывать, пока запрос пуст. Лимит считается от
+   * запроса, а не режет данные заранее: раньше в палитру попадали первые 60
+   * публикаций из списка — самые старые, — и свежая статья не находилась
+   * вовсе. С запросом ищется по всем пунктам группы.
+   */
+  emptyQueryLimit?: number;
 }
 
 interface AdminCommandPaletteProps {
@@ -66,7 +73,12 @@ export default function AdminCommandPalette({ open, onOpenChange, groups }: Admi
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }, [open]);
 
-  const visibleGroups = groups.filter((group) => group.items.length > 0);
+  const hasQuery = search.trim() !== '';
+  const visibleGroups = groups
+    .map((group) => (
+      !hasQuery && group.emptyQueryLimit ? { ...group, items: group.items.slice(0, group.emptyQueryLimit) } : group
+    ))
+    .filter((group) => group.items.length > 0);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>

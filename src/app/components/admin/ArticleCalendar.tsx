@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import type { Article } from '../hooks/useArticlesApi';
 
@@ -10,6 +10,10 @@ import type { Article } from '../hooks/useArticlesApi';
  * В сетку попадают только материалы с точной датой публикации (`publishedAt`).
  * Поле `date` — человеческая подпись вида «август 2026», дня в ней нет,
  * и ставить такие статьи в конкретную клетку было бы выдумкой.
+ *
+ * Черновики в сетку не попадают: на сайте их нет, и точка «вышедшая» у
+ * шестисот импортированных черновиков прятала бы настоящие дыры в графике.
+ * Сколько их осталось за сеткой, написано под календарём.
  */
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
@@ -30,7 +34,11 @@ function localDayKey(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-export default function ArticleCalendar({
+function hasExactDate(article: Article): boolean {
+  return Boolean(article.publishedAt) && !Number.isNaN(new Date(article.publishedAt || '').getTime());
+}
+
+function ArticleCalendar({
   articles,
   onOpen,
 }: {
@@ -43,10 +51,9 @@ export default function ArticleCalendar({
   const byDay = useMemo(() => {
     const map = new Map<string, Article[]>();
     articles.forEach((article) => {
-      if (!article.publishedAt) return;
-      const parsed = new Date(article.publishedAt);
-      if (Number.isNaN(parsed.getTime())) return;
-      const key = localDayKey(parsed);
+      // Черновик с датой — это не публикация в этот день, а заготовка.
+      if (article.status === 'draft' || !hasExactDate(article)) return;
+      const key = localDayKey(new Date(article.publishedAt || ''));
       const list = map.get(key);
       if (list) list.push(article);
       else map.set(key, [article]);
@@ -54,10 +61,16 @@ export default function ArticleCalendar({
     return map;
   }, [articles]);
 
+  const drafts = useMemo(() => articles.filter((article) => article.status === 'draft').length, [articles]);
+  // Опубликованные без точной даты — отдельная цифра: черновики в неё не входят.
   const withoutDate = useMemo(
-    () => articles.filter((article) => !article.publishedAt || Number.isNaN(new Date(article.publishedAt).getTime())).length,
+    () => articles.filter((article) => article.status !== 'draft' && !hasExactDate(article)).length,
     [articles],
   );
+  const outsideNote = [
+    withoutDate > 0 ? `Без точной даты публикации: ${withoutDate}. Такие материалы в сетку не попадают.` : '',
+    drafts > 0 ? `Черновиков вне сетки: ${drafts} — они ещё не вышли.` : '',
+  ].filter(Boolean).join(' ');
 
   // Сетка начинается с понедельника той недели, в которую попало первое число.
   const cells = useMemo(() => {
@@ -149,10 +162,12 @@ export default function ArticleCalendar({
 
       <p className="article-calendar__note">
         <CalendarDays aria-hidden="true" />
-        {withoutDate > 0
-          ? `Без точной даты публикации: ${withoutDate}. Такие материалы в сетку не попадают.`
-          : 'Точка — вышедшая публикация, светлая точка — запланированная.'}
+        {outsideNote || 'Точка — вышедшая публикация, светлая точка — запланированная.'}
       </p>
     </section>
   );
 }
+
+// memo: список статей меняется редко, а обработчик открытия приходит
+// стабильным — иначе календарь перерисовывался на каждую букву в редакторе.
+export default memo(ArticleCalendar);

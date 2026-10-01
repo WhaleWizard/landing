@@ -136,6 +136,44 @@ function currentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/**
+ * Прибыль и налог по валютам — одна формула для плитки «в этом месяце» и
+ * таблицы «По месяцам». Две копии уже расходились: таблица перебирала только
+ * приходы, и месяц, где в валюте были одни расходы, показывал «—» вместо
+ * минуса, хотя плитка за тот же месяц показывала минус.
+ *
+ * Валюта попадает в расчёт, если в ней было хоть что-то — приход или расход.
+ * Налог считается только там, где был приход: облагать нечего — нечего и
+ * писать. Валюты между собой не складываются: курсов в системе нет.
+ */
+export function profitByCurrency(received: Money, spent: Money, taxRate: number): { profit: Money; tax: Money } {
+  const profit: Money = new Map();
+  const tax: Money = new Map();
+  const rate = Number(taxRate) || 0;
+  const currencies = new Set<string>([...received.keys(), ...spent.keys()]);
+  currencies.forEach((currency) => {
+    const income = received.get(currency) || 0;
+    const taxAmount = income * rate / 100;
+    if (received.has(currency)) tax.set(currency, taxAmount);
+    profit.set(currency, income - taxAmount - (spent.get(currency) || 0));
+  });
+  return { profit, tax };
+}
+
+/**
+ * Смена статуса счёта в форме. «Оплачен» без даты оплаты сводки не видят:
+ * «Получено», «Прибыль» и «По месяцам» считают по `paid_at`, и счёт, который
+ * отметили оплаченным в форме, из них выпадал. Поэтому при переключении на
+ * «оплачен» дата подставляется сегодняшней и показывается в форме: счёт из
+ * прошлого месяца владелец относит к его месяцу сам, а не получает молча
+ * текущий. Для любого другого статуса дата оплаты снимается — иначе
+ * «оплачен → выставлен → оплачен» принёс бы старую дату, а не настоящую.
+ */
+export function withInvoiceStatus(invoice: Invoice, status: InvoiceStatus, today: string): Invoice {
+  if (status !== 'paid') return { ...invoice, status, paid_at: null };
+  return { ...invoice, status, paid_at: invoice.paid_at || today };
+}
+
 function formatMonthLabel(month: string): string {
   const [year, monthPart] = month.split('-').map(Number);
   if (!year || !monthPart) return month;
@@ -265,24 +303,9 @@ export default function AdminFinance({ password }: { password: string }) {
     });
 
     // Прибыль считается по каждой валюте отдельно: вычитать рублёвые расходы
-    // из долларов нельзя, курсов в системе нет.
-    //
-    // Валюта попадает в расчёт, если в ней было хоть что-то — приход или
-    // расход. Раньше перебирались только приходы, и месяц, где в валюте были
-    // одни траты, показывал по ней пустоту вместо минуса: расход существовал,
-    // но в итогах не появлялся нигде.
-    const profit: Money = new Map();
-    const currencies = new Set<string>([...receivedThisMonth.keys(), ...spentThisMonth.keys()]);
-    currencies.forEach((currency) => {
-      const received = receivedThisMonth.get(currency) || 0;
-      const tax = received * (Number(settings.tax_rate) || 0) / 100;
-      profit.set(currency, received - tax - (spentThisMonth.get(currency) || 0));
-    });
-
-    const tax: Money = new Map();
-    receivedThisMonth.forEach((amount, currency) => {
-      tax.set(currency, amount * (Number(settings.tax_rate) || 0) / 100);
-    });
+    // из долларов нельзя, курсов в системе нет. Формула общая с таблицей
+    // «По месяцам» — см. profitByCurrency.
+    const { profit, tax } = profitByCurrency(receivedThisMonth, spentThisMonth, Number(settings.tax_rate) || 0);
 
     return { outstanding, overdue, receivedThisMonth, spentThisMonth, profit, tax };
   }, [expenses, invoices, settings.tax_rate, today]);
@@ -603,7 +626,12 @@ export default function AdminFinance({ password }: { password: string }) {
                   <input className="admin-input" type="date" value={invoiceDraft.due_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, due_at: e.target.value || null })} />
                 </label>
                 <AdminSelect label="Статус" value={invoiceDraft.status} options={STATUS_OPTIONS}
-                  onValueChange={(value) => setInvoiceDraft({ ...invoiceDraft, status: value as InvoiceStatus })} />
+                  onValueChange={(value) => setInvoiceDraft(withInvoiceStatus(invoiceDraft, value as InvoiceStatus, today))} />
+                {invoiceDraft.status === 'paid' && (
+                  <label className="admin-field"><span className="admin-label">Оплачен</span>
+                    <input className="admin-input" type="date" value={invoiceDraft.paid_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, paid_at: e.target.value || null })} />
+                  </label>
+                )}
                 <label className="admin-field"><span className="admin-label">Номер</span>
                   <input className="admin-input" maxLength={60} value={invoiceDraft.number} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, number: e.target.value })} />
                 </label>
@@ -766,13 +794,7 @@ export default function AdminFinance({ password }: { password: string }) {
                   <thead><tr><th>Месяц</th><th>Получено</th><th>Расходы</th><th>Налог</th><th>Прибыль</th></tr></thead>
                   <tbody>
                     {byMonth.map(([month, data]) => {
-                      const tax: Money = new Map();
-                      const profit: Money = new Map();
-                      data.received.forEach((amount, currency) => {
-                        const taxAmount = amount * (Number(settings.tax_rate) || 0) / 100;
-                        tax.set(currency, taxAmount);
-                        profit.set(currency, amount - taxAmount - (data.spent.get(currency) || 0));
-                      });
+                      const { profit, tax } = profitByCurrency(data.received, data.spent, Number(settings.tax_rate) || 0);
                       return (
                         <tr key={month}>
                           <td>{formatMonthLabel(month)}</td>

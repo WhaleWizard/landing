@@ -23,7 +23,11 @@ interface AnalyticsResponse {
   stages?: StageRow[];
   totals?: {
     leads: number; open: number; won: number; lost: number;
-    winRate: number | null; openValue: number; wonValue: number; averageDeal: number | null;
+    winRate: number | null;
+    /** null, когда ни у одной сделки нет суммы в валюте отчёта: «—», а не ноль. */
+    openValue: number | null; wonValue: number | null; averageDeal: number | null;
+    /** Сколько сделок вошло в сумму и у скольких сумма не заполнена — для подписей плиток. */
+    wonPriced?: number; wonWithoutValue?: number; openPriced?: number; openWithoutValue?: number;
   };
   health?: { overdue: number; today: number; withoutNextAction: number; stale: number | null; staleDays: number };
   tasks?: { open: number; overdue: number; completed30d: number };
@@ -32,7 +36,8 @@ interface AnalyticsResponse {
   quality?: { target: number; nontarget: number; unrated: number } | null;
   revenueByMonth?: Array<{ month: string; deals: number; value: number }>;
   lossReasons?: Array<{ reason: string; count: number }>;
-  wonBySource?: Array<{ source: string; deals: number; value: number }>;
+  /** otherCurrencyDeals приходит, когда сервер считает сделки в другой валюте по источникам. */
+  wonBySource?: Array<{ source: string; deals: number; value: number; otherCurrencyDeals?: number }>;
   notes?: string[];
 }
 
@@ -46,6 +51,19 @@ const STAGE_LABELS: Record<string, string> = {
   archived: 'Архив',
 };
 
+/**
+ * Подпись плитки с деньгами: по скольким сделкам посчитана сумма и у скольких
+ * её нет. Без этого «Выиграно: 5 000 USD» при трёх сделках без суммы читается
+ * как итог по всем пяти.
+ */
+function valueCoverage(priced?: number, withoutValue?: number): string {
+  if (priced === undefined || withoutValue === undefined) return '';
+  if (!priced && !withoutValue) return '';
+  if (!withoutValue) return ` Сумма — по ${withPlural(priced, ['сделке', 'сделкам', 'сделкам'])}.`;
+  if (!priced) return ` Сумма не заполнена ни у одной (${withoutValue}).`;
+  return ` Сумма — по ${withPlural(priced, ['сделке', 'сделкам', 'сделкам'])}; у ${withoutValue} сумма не заполнена.`;
+}
+
 function monthLabel(month: string): string {
   const parsed = new Date(`${month}-01T00:00:00Z`);
   return Number.isNaN(parsed.getTime())
@@ -53,14 +71,19 @@ function monthLabel(month: string): string {
     : parsed.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit', timeZone: 'UTC' });
 }
 
-/** Ранжированные полосы: одна шкала, один тон, значение подписано у каждой строки. */
+/**
+ * Ранжированные полосы: одна шкала, один тон, значение подписано у каждой
+ * строки. `display` заменяет подпись значения словами — для строк, у которых
+ * числа нет («сумма не указана»): показать там «0 USD» значило бы выдать
+ * отсутствие данных за ноль.
+ */
 function RankedBars({
   items,
   slot,
   emptyText,
   formatValue,
 }: {
-  items: Array<{ key: string; value: number; note?: string }>;
+  items: Array<{ key: string; value: number; note?: string; display?: string }>;
   slot: number;
   emptyText: string;
   formatValue: (value: number) => string;
@@ -76,7 +99,7 @@ function RankedBars({
             <span className="crm-ranked__fill" style={{ width: `${Math.max((item.value / max) * 100, 2)}%` }} />
           </span>
           <span className="crm-ranked__value">
-            {formatValue(item.value)}
+            {item.display ?? formatValue(item.value)}
             {item.note ? <em>{item.note}</em> : null}
           </span>
         </li>
@@ -203,13 +226,13 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
           icon={<CircleDollarSign aria-hidden="true" />}
           title="В работе"
           value={formatMoney(totals?.openValue ?? null, currency)}
-          detail={`${formatNumber(totals?.open ?? null)} открытых сделок в активных этапах.`}
+          detail={`${formatNumber(totals?.open ?? null)} открытых сделок в активных этапах.${valueCoverage(totals?.openPriced, totals?.openWithoutValue)}`}
         />
         <StatTile
           icon={<Trophy aria-hidden="true" />}
           title="Выиграно"
           value={formatMoney(totals?.wonValue ?? null, currency)}
-          detail={`${formatNumber(totals?.won ?? null)} сделок закрыто в плюс.`}
+          detail={`${formatNumber(totals?.won ?? null)} сделок закрыто в плюс.${valueCoverage(totals?.wonPriced, totals?.wonWithoutValue)}`}
         />
         <StatTile
           icon={<TrendingUp aria-hidden="true" />}
@@ -316,12 +339,21 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
             <h3 className="admin-card-title">Откуда выигранные сделки</h3>
             <p className="admin-hint">Источник заявки, а если его нет — услуга.</p>
           </header>
+          {/*
+            Шкала денежная, поэтому число сделок в неё не подставляется: раньше
+            источник с тремя сделками без суммы рисовался как «3 USD» рядом с
+            настоящими деньгами соседей. Строка без суммы подписывается словами
+            и остаётся на минимальной полосе.
+          */}
           <RankedBars
             slot={2}
             items={(data.wonBySource || []).map((row) => ({
               key: row.source,
-              value: row.value > 0 ? row.value : row.deals,
+              value: row.value,
               note: `${row.deals} сд.`,
+              display: row.value > 0
+                ? undefined
+                : (row.otherCurrencyDeals || 0) > 0 ? 'сумма в другой валюте' : 'сумма не указана',
             }))}
             emptyText="Выигранных сделок пока нет."
             formatValue={(value) => formatMoney(value, currency)}

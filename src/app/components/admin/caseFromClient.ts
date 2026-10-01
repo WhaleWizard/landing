@@ -64,6 +64,13 @@ export interface CaseBuildResult {
   period: string;
   /** Цена заявки в первом и последнем месяце, если считается в обоих. */
   cplTrend: { from: number; to: number; changePercent: number } | null;
+  /**
+   * Месяцы (подписи), не вошедшие в отношения, потому что одной из двух
+   * величин в них нет: цена заявки — расход и заявки, ROMI — расход и
+   * выручка, конверсия — продажи и заявки. Чтобы окно могло сказать
+   * «цена заявки посчитана без января: нет расхода».
+   */
+  ratioGaps: { cpl: string[]; romi: string[]; conversion: string[] };
 }
 
 const MONTH_NAMES = [
@@ -110,6 +117,7 @@ export function buildCaseFromMonths(input: ClientMonthInput[]): CaseBuildResult 
     currency: '',
     period: '',
     cplTrend: null,
+    ratioGaps: { cpl: [], romi: [], conversion: [] },
   };
 
   const all = [...(input || [])].sort((left, right) => left.month.localeCompare(right.month));
@@ -147,17 +155,33 @@ export function buildCaseFromMonths(input: ClientMonthInput[]): CaseBuildResult 
   const sales = sum(used, (month) => month.sales);
   const revenue = sum(used, (month) => month.revenue);
 
+  // Каждое отношение считается только по месяцам, где заполнены обе его
+  // величины. Итоговые суммы по колонкам при этом честные, но делить сумму
+  // расходов за четыре месяца на заявки за три нельзя: месяц без расхода
+  // занижал цену заявки, а месяц без выручки — завышал ROMI в заголовке
+  // публичного кейса. Месяцы, оставшиеся за бортом, называются по именам.
+  const paired = (left: keyof ClientMonthInput, right: keyof ClientMonthInput) => {
+    const pairs = used.filter((month) => isNumber(month[left]) && isNumber(month[right]));
+    const gaps = used.filter((month) => !pairs.includes(month)).map((month) => monthLabel(month.month));
+    return { pairs, gaps };
+  };
+  const cplPairs = paired('spend', 'leads');
+  const romiPairs = paired('spend', 'revenue');
+  const conversionPairs = paired('sales', 'leads');
+
   // ROMI считается только когда известны обе стороны. Выручка без расхода
   // говорит лишь о том, что деньги были, но не о том, окупились ли они.
-  const profitShare = divide(isNumber(spend) && isNumber(revenue) ? revenue - spend : null, spend);
-  const salesShare = divide(sales, leads);
+  const romiSpend = sum(romiPairs.pairs, (month) => month.spend);
+  const romiRevenue = sum(romiPairs.pairs, (month) => month.revenue);
+  const profitShare = divide(isNumber(romiSpend) && isNumber(romiRevenue) ? romiRevenue - romiSpend : null, romiSpend);
+  const salesShare = divide(sum(conversionPairs.pairs, (month) => month.sales), sum(conversionPairs.pairs, (month) => month.leads));
 
   const totals: CaseDraftTotals = {
     spend,
     leads,
     sales,
     revenue,
-    cpl: divide(spend, leads),
+    cpl: divide(sum(cplPairs.pairs, (month) => month.spend), sum(cplPairs.pairs, (month) => month.leads)),
     romi: profitShare === null ? null : profitShare * 100,
     conversion: salesShare === null ? null : salesShare * 100,
   };
@@ -183,6 +207,7 @@ export function buildCaseFromMonths(input: ClientMonthInput[]): CaseBuildResult 
     currency: currencies[0] || 'USD',
     period,
     cplTrend,
+    ratioGaps: { cpl: cplPairs.gaps, romi: romiPairs.gaps, conversion: conversionPairs.gaps },
   };
 }
 

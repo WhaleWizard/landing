@@ -12,7 +12,7 @@ import '../../styles/admin-tailwind.css';
 import '../../styles/admin-ui.css';
 // Строго после admin-ui.css: слой темы переопределяет её поверхности.
 import '../../styles/admin-theme.css';
-import { lazy, Suspense, useEffect, useState, useMemo, useCallback, createContext, useContext } from 'react';
+import { lazy, memo, Suspense, useEffect, useState, useMemo, useCallback, useDeferredValue, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { m, useReducedMotion } from 'motion/react';
 import {
@@ -33,6 +33,7 @@ import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
 import { AdminPromptProvider } from '../components/admin/AdminPrompt';
+import { useDialogFocus, useDialogScrollLock } from '../components/hooks/useDialogFocus';
 import AdminCommandPalette, { type AdminCommandGroup } from '../components/admin/AdminCommandPalette';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
@@ -94,7 +95,12 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
   }
 }
 
-function transliterate(text: string): string {
+/**
+ * Адрес в процессе набора. Дефис в конце остаётся: иначе он стирался на
+ * каждом нажатии, и «plan-zapuska» получался «planzapuska». Крайний дефис
+ * срезает `transliterate` — при уходе из поля и при сохранении.
+ */
+export function slugDraft(text: string): string {
   const map: Record<string, string> = {
     'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
     'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
@@ -103,7 +109,12 @@ function transliterate(text: string): string {
     'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya', ' ': '-'
   };
   return text.toLowerCase().split('').map(ch => map[ch] || ch).join('')
-    .replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    .replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-/, '');
+}
+
+/** Готовый адрес: такой же, как черновик, но без дефиса в конце — сервер его не примет. */
+export function transliterate(text: string): string {
+  return slugDraft(text).replace(/-$/, '');
 }
 
 interface AdminLoginResult {
@@ -164,8 +175,12 @@ function toDateTimeLocalValue(iso?: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-/** Жива ли сессия с прошлого раза — проверяется один раз при открытии. */
-async function checkAdminSession(): Promise<boolean> {
+/**
+ * Состояние сессии: жива, кончилась или сервер не ответил по существу (сеть,
+ * 5xx). Третий исход отличается от второго нарочно: по обрыву сети окно
+ * повторного входа показывать нельзя.
+ */
+async function fetchAdminSessionStatus(): Promise<'alive' | 'expired' | 'unknown'> {
   try {
     const res = await fetch('/api/admin/auth', {
       method: 'POST',
@@ -173,12 +188,161 @@ async function checkAdminSession(): Promise<boolean> {
       credentials: 'same-origin',
       body: JSON.stringify({ action: 'status' }),
     });
-    if (!res.ok) return false;
+    if (!res.ok) return 'unknown';
     const payload = await res.json().catch(() => null) as { authenticated?: boolean } | null;
-    return payload?.authenticated === true;
+    if (!payload) return 'unknown';
+    return payload.authenticated === true ? 'alive' : 'expired';
   } catch {
-    return false;
+    return 'unknown';
   }
+}
+
+/** Жива ли сессия с прошлого раза — проверяется один раз при открытии. */
+async function checkAdminSession(): Promise<boolean> {
+  return (await fetchAdminSessionStatus()) === 'alive';
+}
+
+/**
+ * Ответ сервера админки, за которым стоит потерянная сессия, а не ошибка
+ * действия. `SESSION_EXPIRED` ставит `api/admin/_middleware.ts` при включённой
+ * двухфакторной защите; без неё разделы отвечают голым `Unauthorized`, и это
+ * значит «сессии нет» только когда пароля нет и в памяти вкладки — после
+ * перезагрузки. Сам вход (`/api/admin/auth`) не трогается: его 401 — это
+ * неверный пароль.
+ */
+export function isLostAdminSession(
+  url: string,
+  status: number,
+  payload: { code?: unknown; error?: unknown } | null,
+  hasPassword: boolean,
+): boolean {
+  if (status !== 401) return false;
+  let pathname = url;
+  try {
+    pathname = new URL(url, 'http://localhost').pathname;
+  } catch {
+    // относительный адрес без схемы — сравниваем как есть
+  }
+  if (!pathname.startsWith('/api/admin/') || pathname === '/api/admin/auth') return false;
+  if (payload?.code === 'SESSION_EXPIRED') return true;
+  return !hasPassword && payload?.error === 'Unauthorized';
+}
+
+/**
+ * Повторный вход поверх раздела. Сессия живёт 12 часов и не продлевается
+ * (docs/SECURITY.md); когда она кончается посреди работы, разделы отвечают
+ * «Сессия истекла», а экран входа заменил бы раздел целиком — вместе с
+ * несохранёнными правками. Окно рисуется теми же классами, что диалог
+ * подтверждения, и ничего под собой не размонтирует. Сессия не продлевается
+ * сама и пароль в заголовке второй фактор не обходит — это модель защиты
+ * владельца, а не упущение.
+ */
+function AdminSessionDialog({ open, initialPassword, onClose, onRestored }: {
+  open: boolean;
+  initialPassword: string;
+  onClose: () => void;
+  onRestored: (password: string) => void;
+}) {
+  const [password, setPassword] = useState(initialPassword);
+  const [code, setCode] = useState('');
+  const [codeRequired, setCodeRequired] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const dialogRef = useDialogFocus<HTMLDivElement>(open, onClose);
+  useDialogScrollLock(open);
+
+  // Каждое открытие начинается с чистого листа: старый код уже не подойдёт.
+  useEffect(() => {
+    if (!open) return;
+    setPassword(initialPassword);
+    setCode('');
+    setCodeRequired(false);
+    setError('');
+  }, [initialPassword, open]);
+
+  if (!open) return null;
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!password.trim()) {
+      setError('Введите пароль');
+      return;
+    }
+    if (codeRequired && !code.trim()) {
+      setError('Введите код из приложения');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await adminLogin(password, code.trim());
+      if (result.ok) {
+        onRestored(password);
+      } else if (result.codeRequired) {
+        setCodeRequired(true);
+        setError('');
+      } else {
+        setCode('');
+        setError(result.error || 'Не удалось войти');
+      }
+    } catch {
+      setError('Ошибка сети. Попробуйте еще раз.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="admin-confirm" role="dialog" aria-modal="true" aria-label="Сессия истекла">
+      <div ref={dialogRef} tabIndex={-1} className="admin-confirm__card">
+        <div className="admin-confirm__head">
+          <span className="admin-confirm__icon" aria-hidden="true"><LogIn /></span>
+          <div>
+            <h2 className="admin-confirm__title">Сессия истекла — войдите снова</h2>
+            <p className="admin-confirm__text">Раздел и несохранённые правки остаются на месте. После входа повторите последнее действие.</p>
+          </div>
+        </div>
+        <form onSubmit={submit} className="admin-stack">
+          <div className="admin-field">
+            <label htmlFor="admin-session-password" className="admin-label">Пароль</label>
+            <input
+              id="admin-session-password"
+              type="password"
+              autoComplete="current-password"
+              className="admin-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          {codeRequired && (
+            <div className="admin-field">
+              <label htmlFor="admin-session-code" className="admin-label">Код из приложения</label>
+              <input
+                id="admin-session-code"
+                type="text"
+                inputMode="text"
+                autoComplete="one-time-code"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="6 цифр или резервный код"
+                className="admin-input"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                autoFocus
+              />
+            </div>
+          )}
+          {error && <p className="admin-login__error" role="alert">{error}</p>}
+          <div className="admin-confirm__actions">
+            <button type="button" className="admin-button admin-button--quiet" onClick={onClose} disabled={busy}>Позже</button>
+            <button type="submit" className="admin-button admin-button--primary" disabled={busy}>
+              <LogIn aria-hidden="true" /> {busy ? 'Проверяю' : 'Войти'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 const PROTECTED_ARTICLE_SLUG = 'kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh';
@@ -243,20 +407,62 @@ function snapshotArticle(article: Article | null): string {
 }
 
 // Автосохранение черновика: страховка от закрытия вкладки/падения браузера.
-const EDITOR_BACKUP_KEY = 'ww-admin-editor-backup-v1';
+// Копия хранится по ключу статьи, а не одним общим ключом: иначе открытие
+// другой статьи затирало копию первой, как только владелец трогал вторую.
+const EDITOR_BACKUP_LEGACY_KEY = 'ww-admin-editor-backup-v1';
+const EDITOR_BACKUP_PREFIX = 'ww-admin-editor-backup-v2:';
 
-type EditorBackup = { article: Article; savedAt: number };
+type EditorBackup = { key: string; article: Article; savedAt: number };
 
-function readEditorBackup(): EditorBackup | null {
+type EditorBackupStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'>;
+
+/** Ключ копии: сохранённая статья — по id (адрес менять нельзя), новая — одна на всех. */
+export function editorBackupKey(article: Pick<Article, 'id'>): string {
+  return `${EDITOR_BACKUP_PREFIX}${Number(article.id) > 0 ? `id-${Number(article.id)}` : 'new'}`;
+}
+
+function parseEditorBackup(key: string, raw: string | null): EditorBackup | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(EDITOR_BACKUP_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as EditorBackup;
+    const parsed = JSON.parse(raw) as Partial<EditorBackup> | null;
     if (!parsed?.article || typeof parsed.article !== 'object' || !parsed.savedAt) return null;
-    return parsed;
+    return { key, article: parsed.article as Article, savedAt: Number(parsed.savedAt) };
   } catch {
     return null;
   }
+}
+
+/**
+ * Все копии, свежие сверху. Копия старого формата (один общий ключ)
+ * переезжает под ключ своей статьи, чтобы не пропасть при выкладке.
+ */
+export function readEditorBackups(storage?: EditorBackupStorage): EditorBackup[] {
+  const backups: EditorBackup[] = [];
+  try {
+    const store = storage ?? localStorage;
+    const legacy = parseEditorBackup(EDITOR_BACKUP_LEGACY_KEY, store.getItem(EDITOR_BACKUP_LEGACY_KEY));
+    if (legacy) {
+      const key = editorBackupKey({ id: Number(legacy.article.id) || 0 });
+      if (!store.getItem(key)) store.setItem(key, JSON.stringify({ article: legacy.article, savedAt: legacy.savedAt }));
+      store.removeItem(EDITOR_BACKUP_LEGACY_KEY);
+    }
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+      if (!key || !key.startsWith(EDITOR_BACKUP_PREFIX)) continue;
+      const backup = parseEditorBackup(key, store.getItem(key));
+      if (backup) backups.push(backup);
+    }
+  } catch {
+    // Хранилище недоступно (приватный режим) — копий просто нет.
+  }
+  return backups.sort((a, b) => b.savedAt - a.savedAt);
+}
+
+/** Та же статья, что уже открыта: сохранённые сравниваются по id, остальные — по адресу. */
+export function isSameArticle(current: Pick<Article, 'id' | 'slug'> | null, article: Pick<Article, 'id' | 'slug'>): boolean {
+  if (!current) return false;
+  if (Number(current.id) > 0 && Number(article.id) > 0) return Number(current.id) === Number(article.id);
+  return Boolean(current.slug) && current.slug === article.slug;
 }
 
 function formatVersionDate(raw: string): string {
@@ -674,6 +880,16 @@ function daysSinceUpdate(article: Article): number | null {
   return Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 86_400_000));
 }
 
+/**
+ * Порядок публикаций для палитры Ctrl+K: от свежих к старым. Список в
+ * админке идёт по id — это порядок создания, и первыми шли самые старые.
+ * Без запроса владелец видит то, над чем работал вчера; поиск идёт по всем.
+ */
+export function sortArticlesForPalette(articles: Article[]): Article[] {
+  const stamp = (article: Article) => Date.parse(article.updatedAt || article.publishedAt || '') || 0;
+  return [...articles].sort((a, b) => (stamp(b) - stamp(a)) || ((b.id || 0) - (a.id || 0)));
+}
+
 function formatStaleAge(days: number): string {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months} мес.`;
@@ -697,7 +913,11 @@ interface AdminArticleItemProps {
 }
 
 
-function AdminArticleItem({ article, featuredIndex, featuredCount, canFeature, onEdit, onDuplicate, onDelete, onToggleFeatured, onMoveFeatured, locked }: AdminArticleItemProps) {
+// memo: при 600 статьях каждое нажатие клавиши в редакторе перерисовывало
+// весь список. Обработчики строк приходят стабильными (useCallback), статья
+// меняется только вместе со списком — строка перерисовывается лишь тогда,
+// когда изменилась она сама.
+const AdminArticleItem = memo(function AdminArticleItem({ article, featuredIndex, featuredCount, canFeature, onEdit, onDuplicate, onDelete, onToggleFeatured, onMoveFeatured, locked }: AdminArticleItemProps) {
   const staleDays = daysSinceUpdate(article);
   const isFeatured = featuredIndex !== null;
 
@@ -793,18 +1013,21 @@ function AdminArticleItem({ article, featuredIndex, featuredCount, canFeature, o
       </div>
     </m.div>
   );
-}
+});
 
 function useFilteredArticles(articles: Article[]) {
   const [query, setQuery] = useState('');
+  // Поле откликается сразу, список догоняет: фильтр по сотням статей не
+  // должен задерживать букву в поле.
+  const deferredQuery = useDeferredValue(query);
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     if (!q) return articles;
     return articles.filter(a =>
       a.title.toLowerCase().includes(q) ||
       a.slug.toLowerCase().includes(q)
     );
-  }, [articles, query]);
+  }, [articles, deferredQuery]);
   return { query, setQuery, filtered };
 }
 
@@ -840,6 +1063,12 @@ export default function Admin() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const currentArticleSnapshot = useMemo(() => snapshotArticle(editingArticle), [editingArticle]);
   const hasUnsavedChanges = Boolean(editingArticle && currentArticleSnapshot !== savedArticleSnapshot);
+  // Через ref читают обработчики списка: так они остаются стабильными и не
+  // перерисовывают 600 строк на каждое нажатие клавиши в редакторе.
+  const hasUnsavedChangesRef = useRef(false);
+  hasUnsavedChangesRef.current = hasUnsavedChanges;
+  const editingArticleRef = useRef<Article | null>(null);
+  editingArticleRef.current = editingArticle;
 
   // Ниши для подсказки в редакторе кейса: собираются из уже существующих кейсов,
   // новую нишу можно просто вписать — она появится в списке после сохранения.
@@ -886,32 +1115,41 @@ export default function Admin() {
     };
   }, [editingArticle?.content, editingArticle?.description, editingArticle?.seoDescription, editingArticle?.seoTitle]);
 
+  // Номер «сеанса» редактора: растёт при каждом открытии и закрытии. Долгие
+  // операции (загрузка обложки) запоминают его и применяют результат только
+  // к той статье, с которой начинались, — иначе обложка одной статьи
+  // прилетала в другую.
+  const editorSessionRef = useRef(0);
+
   const openArticleEditor = useCallback((article: Article, options?: { dirty?: boolean; slugEdited?: boolean }) => {
+    editorSessionRef.current += 1;
     const draft = { ...article };
     setEditingArticle(draft);
     setSavedArticleSnapshot(options?.dirty ? '' : snapshotArticle(draft));
     setSlugManuallyEdited(Boolean(options?.slugEdited));
   }, []);
 
-  const [editorBackup, setEditorBackup] = useState<EditorBackup | null>(() => readEditorBackup());
+  const [editorBackups, setEditorBackups] = useState<EditorBackup[]>(() => readEditorBackups());
 
-  const clearEditorBackup = useCallback(() => {
+  /** Удаляет копию одной статьи — только её, а не копии соседей. */
+  const clearEditorBackup = useCallback((key: string) => {
     try {
-      localStorage.removeItem(EDITOR_BACKUP_KEY);
+      localStorage.removeItem(key);
     } catch {
       // storage может быть недоступен — не критично
     }
-    setEditorBackup(null);
+    setEditorBackups((current) => current.filter((backup) => backup.key !== key));
   }, []);
 
   // Автосохранение открытого черновика раз в ~800мс после изменений
   useEffect(() => {
     if (!editingArticle || !hasUnsavedChanges || isEditingProtected) return;
     const timer = window.setTimeout(() => {
+      const key = editorBackupKey(editingArticle);
       try {
-        const backup: EditorBackup = { article: editingArticle, savedAt: Date.now() };
-        localStorage.setItem(EDITOR_BACKUP_KEY, JSON.stringify(backup));
-        setEditorBackup(backup);
+        const backup: EditorBackup = { key, article: editingArticle, savedAt: Date.now() };
+        localStorage.setItem(key, JSON.stringify({ article: backup.article, savedAt: backup.savedAt }));
+        setEditorBackups((current) => [backup, ...current.filter((item) => item.key !== key)]);
       } catch {
         // например, переполнен localStorage — просто пропускаем
       }
@@ -929,20 +1167,37 @@ export default function Admin() {
       });
       if (!confirmed) return;
     }
+    editorSessionRef.current += 1;
+    const closing = editingArticleRef.current;
     setEditingArticle(null);
     setSavedArticleSnapshot('');
     setSlugManuallyEdited(false);
-    clearEditorBackup();
+    if (closing) clearEditorBackup(editorBackupKey(closing));
   }, [confirmDialog, hasUnsavedChanges, clearEditorBackup]);
 
-  const refreshHealth = async () => {
+  /**
+   * Страж несохранённого: тот же вопрос, что у «Отмены», но перед открытием
+   * другой статьи. Раньше клик по соседней статье в списке или в календаре
+   * молча стирал полчаса правок. Состояние читается через ref, поэтому страж
+   * сам не меняется и не тянет перерисовку списка.
+   */
+  const confirmLeaveEditor = useCallback(async () => (
+    !hasUnsavedChangesRef.current || confirmDialog({
+      title: 'Перейти без сохранения?',
+      description: 'Есть несохранённые изменения — они пропадут.',
+      confirmLabel: 'Перейти без сохранения',
+      tone: 'danger',
+    })
+  ), [confirmDialog]);
+
+  const refreshHealth = useCallback(async () => {
     try {
       const res = await fetch(`/api/health/content?_=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return;
       const payload = await res.json().catch(() => null) as { source?: string } | null;
       if (payload?.source) setSourceLabel(payload.source);
     } catch { /* noop */ }
-  };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -955,6 +1210,47 @@ export default function Admin() {
     if (!isAuthenticated) return;
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [adminView, isAuthenticated]);
+
+  // Сессия кончилась посреди работы (12 часов, не продлевается). Раньше
+  // разделы сыпали «session_required», формы входа не было, а перезагрузка
+  // теряла несохранённые правки. Перехват смотрит только на /api/admin/*.
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const passwordRef = useRef(password);
+  passwordRef.current = password;
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const original = window.fetch;
+    const wrapped: typeof window.fetch = async (input, init) => {
+      const response = await original.call(window, input, init);
+      if (response.status === 401) {
+        const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+        const payload = await response.clone().json().catch(() => null) as { code?: unknown; error?: unknown } | null;
+        if (isLostAdminSession(url, response.status, payload, Boolean(passwordRef.current))) setSessionExpired(true);
+      }
+      return response;
+    };
+    window.fetch = wrapped;
+    return () => {
+      if (window.fetch === wrapped) window.fetch = original;
+    };
+  }, [isAuthenticated]);
+
+  // Возврат на вкладку: если сессии уже нет, а пароля в памяти тоже нет
+  // (вкладку перезагружали), окно входа показывается заранее, а не после
+  // первого отказа. С паролем в памяти решает перехват выше: без второго
+  // фактора разделы работают по заголовку, и спрашивать нечего.
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const check = () => {
+      if (document.visibilityState !== 'visible' || passwordRef.current) return;
+      void fetchAdminSessionStatus().then((status) => {
+        if (status === 'expired') setSessionExpired(true);
+      });
+    };
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, [isAuthenticated]);
 
   // Сессия с прошлого визита восстанавливается при открытии страницы.
   useEffect(() => {
@@ -1004,10 +1300,18 @@ export default function Admin() {
       const result = await adminLogin(password, twoFactorCode.trim());
       if (result.ok) {
         void preloadAdminSection('dashboard');
-        await forceRefreshAdminArticles(password);
+        // Вход не зависит от списка публикаций. Раньше ожидание списка стояло
+        // до входа: хранилище статей не ответило — и экран писал «Ошибка
+        // сети», хотя сервер пароль и код уже принял, а повтор с тем же кодом
+        // упирался в «Этим кодом уже входили». Список грузится так же, как
+        // при восстановлении сессии, а отказ слышен тостом.
         setIsAuthenticated(true);
         setTwoFactorCode('');
         setError('');
+        forceRefreshAdminArticles(password).catch((requestError) => {
+          const message = requestError instanceof Error ? requestError.message : 'неизвестная причина';
+          notify.error('Не удалось загрузить публикации', message);
+        });
       } else if (result.codeRequired) {
         // Пароль принят, остался второй шаг.
         setCodeRequired(true);
@@ -1033,7 +1337,7 @@ export default function Admin() {
   const handleSlugChange = (slug: string) => {
     if (!editingArticle) return;
     setSlugManuallyEdited(true);
-    setEditingArticle({ ...editingArticle, slug: transliterate(slug) });
+    setEditingArticle({ ...editingArticle, slug: slugDraft(slug) });
   };
 
   const handleContentChange = (html: string) => {
@@ -1076,7 +1380,10 @@ export default function Admin() {
       notify.error('Нужен заголовок', 'Без него статью нельзя сохранить.');
       return;
     }
-    if (!editingArticle.slug.trim()) {
+    // Сохранить можно и не уходя из поля адреса: дефис в конце, который
+    // остаётся на время набора, здесь срезается — сервер такой адрес не примет.
+    const slug = transliterate(editingArticle.slug);
+    if (!slug) {
       notify.error('Нужен адрес страницы', 'Заполните поле slug — это часть ссылки на статью.');
       return;
     }
@@ -1089,7 +1396,7 @@ export default function Admin() {
       ...editingArticle,
       status,
       title: editingArticle.title.trim(),
-      slug: editingArticle.slug.trim(),
+      slug,
       description: editingArticle.description?.trim() || '',
       seoTitle: editingArticle.seoTitle?.trim() || undefined,
       seoDescription: editingArticle.seoDescription?.trim() || undefined,
@@ -1099,6 +1406,11 @@ export default function Admin() {
       faq: (editingArticle.faq || [])
         .map((item) => ({ question: item.question.trim(), answer: item.answer.trim() }))
         .filter((item) => item.question && item.answer),
+      // Закреплением на главной управляет только булавка в списке (свой
+      // эндпоинт). Статья открыта давно, и её копия помнит старый порядок:
+      // отправить его — значит вернуть снятую с главной статью обратно.
+      // JSON.stringify поле без значения не отправляет.
+      featuredOrder: undefined,
     };
 
     // Адрес занят другой статьёй — сервер ответил бы тем же, но лучше сказать
@@ -1128,10 +1440,11 @@ export default function Admin() {
           }).catch(() => {});
         }
         notify.success(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
+        editorSessionRef.current += 1;
         setEditingArticle(null);
         setSavedArticleSnapshot('');
         setSlugManuallyEdited(false);
-        clearEditorBackup();
+        clearEditorBackup(editorBackupKey(editingArticle));
         await forceRefreshAdminArticles(password);
         await refreshHealth();
       } else {
@@ -1144,7 +1457,7 @@ export default function Admin() {
     }
   };
 
-  const handleDelete = async (slug: string) => {
+  const handleDelete = useCallback(async (slug: string) => {
     if (slug === PROTECTED_ARTICLE_SLUG) {
       notify.error('Статья защищена от удаления');
       return;
@@ -1160,17 +1473,21 @@ export default function Admin() {
       // Удаляется одна статья, а не переотправляется весь список: список в
       // памяти без текстов, и отправка его целиком затёрла бы тела соседей.
       await removeArticle(slug, password);
-      if (editingArticle?.slug === slug) setEditingArticle(null);
+      setEditingArticle((current) => (current?.slug === slug ? null : current));
       notify.success('Статья удалена');
       await refreshHealth();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       notify.error('Ошибка при удалении', message);
     }
-  };
+  }, [confirmDialog, password, refreshHealth, removeArticle]);
 
   // Список приходит без текстов: перед редактором статья догружается целиком.
   const openArticleForEdit = useCallback(async (article: Article) => {
+    // Повторный клик по уже открытой статье не перечитывает её с сервера:
+    // свежая копия затёрла бы правки.
+    if (isSameArticle(editingArticleRef.current, article)) return;
+    if (!(await confirmLeaveEditor())) return;
     const hasBody = !article._summary && Boolean(article.content);
     if (!article.slug || article.id === 0 || hasBody) {
       openArticleEditor(article);
@@ -1182,13 +1499,14 @@ export default function Admin() {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       notify.error('Не удалось открыть статью', message);
     }
-  }, [loadAdminArticle, openArticleEditor, password]);
+  }, [confirmLeaveEditor, loadAdminArticle, openArticleEditor, password]);
 
-  const duplicateArticle = async (article: Article) => {
+  const duplicateArticle = useCallback(async (article: Article) => {
     if (isProtectedArticle(article)) {
       notify.error('Защищённую статью нельзя дублировать');
       return;
     }
+    if (!(await confirmLeaveEditor())) return;
     let source = article;
     if (article._summary || !article.content) {
       try {
@@ -1213,7 +1531,7 @@ export default function Admin() {
       _summary: false,
       date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
     }, { dirty: true, slugEdited: true });
-  };
+  }, [confirmLeaveEditor, loadAdminArticle, openArticleEditor, password]);
 
   // Закреплённые на главной — в порядке владельца. Кейсы не закрепляются:
   // у них своя витрина, а карусель главной показывает только статьи.
@@ -1228,7 +1546,7 @@ export default function Admin() {
       .map((article) => article.slug)
   ), [articles]);
 
-  const applyFeatured = async (slugs: string[], successMessage: string) => {
+  const applyFeatured = useCallback(async (slugs: string[], successMessage: string) => {
     try {
       await setFeaturedArticles(slugs, password);
       notify.success(successMessage);
@@ -1236,9 +1554,9 @@ export default function Admin() {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       notify.error('Не удалось сохранить закрепление', message);
     }
-  };
+  }, [password, setFeaturedArticles]);
 
-  const toggleFeatured = (article: Article) => {
+  const toggleFeatured = useCallback((article: Article) => {
     if (article.category === CASES_CATEGORY) {
       notify.error('Кейсы на главную не закрепляются', 'У них своя витрина на главной.');
       return;
@@ -1252,16 +1570,21 @@ export default function Admin() {
       return;
     }
     void applyFeatured([...featuredSlugs, article.slug], 'Закреплено на главной');
-  };
+  }, [applyFeatured, featuredSlugs]);
 
-  const moveFeatured = (article: Article, direction: -1 | 1) => {
+  const moveFeatured = useCallback((article: Article, direction: -1 | 1) => {
     const index = featuredSlugs.indexOf(article.slug);
     const target = index + direction;
     if (index < 0 || target < 0 || target >= featuredSlugs.length) return;
     const next = [...featuredSlugs];
     [next[index], next[target]] = [next[target], next[index]];
     void applyFeatured(next, 'Порядок на главной обновлён');
-  };
+  }, [applyFeatured, featuredSlugs]);
+
+  const schedulePlan = useCallback(
+    (items: Array<{ slug: string; publishedAt: string }>) => scheduleArticles(items, password),
+    [password, scheduleArticles],
+  );
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -1332,8 +1655,29 @@ export default function Admin() {
   const topbarRef = useTopbarHeight();
 
   const adminNavigation = adminNavGroups.flatMap((group) => group.items);
-  const navigateToAdminSection = (destination: AdminNavKey) => {
+
+  /**
+   * Страж несохранённого в разделе. Раздел регистрирует функцию, которая
+   * спрашивает подтверждение (или сразу отвечает «можно»), а оболочка зовёт
+   * её перед любым уходом: меню, палитра, «Сегодня», «На сайт». Так «Редактор
+   * сайта» не теряет правки при переходе — раньше вопроса не было, а раздел
+   * размонтировался вместе с черновиком. Разделы при этом не держатся
+   * смонтированными: это сломало бы анимацию появления (key по разделу).
+   */
+  const leaveGuardRef = useRef<(() => Promise<boolean>) | null>(null);
+  const registerLeaveGuard = useCallback((guard: (() => Promise<boolean>) | null) => {
+    leaveGuardRef.current = guard;
+  }, []);
+  const confirmLeaveSection = useCallback(async () => (
+    leaveGuardRef.current ? leaveGuardRef.current() : true
+  ), []);
+
+  const navigateToAdminSection = async (destination: AdminNavKey) => {
     void preloadAdminSection(destination);
+    // Клик по уже открытому разделу уходом не считается. У мобильного
+    // AdminSelect значение привязано к currentNavKey, поэтому при отказе оно
+    // само возвращается на прежний раздел.
+    if (destination !== currentNavKey && !(await confirmLeaveSection())) return;
     if (destination === 'articles' || destination === 'cases') {
       setAdminSectionFilter(destination === 'cases' ? 'cases' : 'blog');
       setAdminView('articles');
@@ -1342,12 +1686,15 @@ export default function Admin() {
     setAdminView(destination);
   };
 
-  const createArticleDraft = (category: string) => openArticleEditor({
-    id: 0, slug: '', title: '', category, readTime: '5 мин',
-    date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
-    description: '', summary: '', keyTakeaways: [], faq: [], tags: [], content: '', image: '',
-    status: 'published',
-  }, { dirty: true });
+  const createArticleDraft = useCallback(async (category: string) => {
+    if (!(await confirmLeaveEditor())) return;
+    openArticleEditor({
+      id: 0, slug: '', title: '', category, readTime: '5 мин',
+      date: new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }),
+      description: '', summary: '', keyTakeaways: [], faq: [], tags: [], content: '', image: '',
+      status: 'published',
+    }, { dirty: true });
+  }, [confirmLeaveEditor, openArticleEditor]);
 
   /**
    * Черновик кейса, собранный из помесячных результатов клиента.
@@ -1356,7 +1703,8 @@ export default function Admin() {
    * здесь эти два места встречаются. Публикация не происходит: создаётся
    * черновик, который владелец дописывает своими словами и публикует сам.
    */
-  const createCaseFromClient = (payload: { caseData: CaseData; outline: string; title: string }) => {
+  const createCaseFromClient = async (payload: { caseData: CaseData; outline: string; title: string }) => {
+    if (!(await confirmLeaveEditor())) return;
     setAdminSectionFilter('cases');
     setAdminView('articles');
     openArticleEditor({
@@ -1381,11 +1729,31 @@ export default function Admin() {
     notify.success('Черновик кейса собран', 'Цифры подставлены — допишите историю и опубликуйте');
   };
 
-  const openArticleFromPalette = (article: Article) => {
+  const openArticleFromPalette = useCallback(async (article: Article) => {
+    if (!(await confirmLeaveSection())) return;
     setAdminSectionFilter('all');
     setAdminView('articles');
     void openArticleForEdit(article);
+  }, [confirmLeaveSection, openArticleForEdit]);
+
+  /** Уход на публичный сайт — тоже уход из раздела. */
+  const openSite = () => {
+    void (async () => {
+      if (await confirmLeaveSection()) navigate('/');
+    })();
   };
+
+  // Пункты палитры собираются один раз на список, а не на каждое нажатие
+  // клавиши в редакторе: при 600 статьях это 600 объектов за рендер.
+  const paletteItems = useMemo(() => sortArticlesForPalette(articles).map((article) => ({
+    id: `article-${article.slug}`,
+    label: article.title || 'Без названия',
+    // Slug уникален — он же не даёт совпасть двум одинаковым заголовкам.
+    searchText: `${article.title} ${article.slug}`,
+    hint: article.category === CASES_CATEGORY ? 'кейс' : 'статья',
+    icon: article.category === CASES_CATEGORY ? <Briefcase /> : <Newspaper />,
+    run: () => { void openArticleFromPalette(article); },
+  })), [articles, openArticleFromPalette]);
 
   const commandGroups: AdminCommandGroup[] = [
     {
@@ -1395,7 +1763,7 @@ export default function Admin() {
         label: item.label,
         keywords: ADMIN_NAV_KEYWORDS[item.key],
         icon: <item.icon />,
-        run: () => navigateToAdminSection(item.key),
+        run: () => { void navigateToAdminSection(item.key); },
       })),
     },
     {
@@ -1406,14 +1774,28 @@ export default function Admin() {
           label: 'Написать статью',
           keywords: ['новая', 'создать', 'пост', 'блог'],
           icon: <Plus />,
-          run: () => { setAdminSectionFilter('blog'); setAdminView('articles'); createArticleDraft(''); },
+          run: () => {
+            void (async () => {
+              if (!(await confirmLeaveSection())) return;
+              setAdminSectionFilter('blog');
+              setAdminView('articles');
+              void createArticleDraft('');
+            })();
+          },
         },
         {
           id: 'new-case',
           label: 'Добавить кейс',
           keywords: ['новый', 'создать', 'портфолио'],
           icon: <Briefcase />,
-          run: () => { setAdminSectionFilter('cases'); setAdminView('articles'); createArticleDraft(CASES_CATEGORY); },
+          run: () => {
+            void (async () => {
+              if (!(await confirmLeaveSection())) return;
+              setAdminSectionFilter('cases');
+              setAdminView('articles');
+              void createArticleDraft(CASES_CATEGORY);
+            })();
+          },
         },
         {
           id: 'refresh',
@@ -1427,21 +1809,16 @@ export default function Admin() {
           label: 'Открыть сайт',
           keywords: ['сайт', 'главная', 'публичная'],
           icon: <ExternalLink />,
-          run: () => navigate('/'),
+          run: openSite,
         },
       ],
     },
     {
       heading: 'Публикации',
-      items: articles.slice(0, 60).map((article) => ({
-        id: `article-${article.slug}`,
-        label: article.title || 'Без названия',
-        // Slug уникален — он же не даёт совпасть двум одинаковым заголовкам.
-        searchText: `${article.title} ${article.slug}`,
-        hint: article.category === CASES_CATEGORY ? 'кейс' : 'статья',
-        icon: article.category === CASES_CATEGORY ? <Briefcase /> : <Newspaper />,
-        run: () => openArticleFromPalette(article),
-      })),
+      // Все публикации, а не первые 60: cmdk фильтрует сам, и 600 строк для
+      // него немного. Без запроса палитра показывает 60 самых свежих.
+      items: paletteItems,
+      emptyQueryLimit: 60,
     },
   ];
 
@@ -1500,8 +1877,14 @@ export default function Admin() {
                     id="admin-2fa-code"
                     name="one-time-code"
                     type="text"
-                    inputMode="numeric"
+                    // Не numeric: резервный код состоит из букв и дефиса, а
+                    // цифровая клавиатура iPhone их не набирает. Автозамена
+                    // выключена, чтобы телефон не правил hex-код на слова.
+                    inputMode="text"
                     autoComplete="one-time-code"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     // Резервный код длиннее шести цифр, поэтому жёсткого
                     // ограничения по длине здесь нет.
                     placeholder="6 цифр или резервный код"
@@ -1528,6 +1911,16 @@ export default function Admin() {
     <AdminThemeProvider>
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
       <AdminCommandHost open={paletteOpen} onOpenChange={setPaletteOpen} groups={commandGroups} />
+      <AdminSessionDialog
+        open={sessionExpired}
+        initialPassword={password}
+        onClose={() => setSessionExpired(false)}
+        onRestored={(restored) => {
+          setPassword(restored);
+          setSessionExpired(false);
+          notify.success('Вход восстановлен', 'Повторите последнее действие');
+        }}
+      />
       {/* data-section красит обложку раздела и активный пункт меню: пара тонов
           задана в admin-theme.css, а не здесь, поэтому цвет и разметка не
           расходятся при добавлении раздела. */}
@@ -1554,7 +1947,7 @@ export default function Admin() {
                 ariaLabel="Раздел админки"
                 value={currentNavKey}
                 options={adminNavigation.map((item) => ({ value: item.key, label: item.label }))}
-                onValueChange={(value) => navigateToAdminSection(value as AdminNavKey)}
+                onValueChange={(value) => { void navigateToAdminSection(value as AdminNavKey); }}
               />
             </div>
 
@@ -1579,7 +1972,7 @@ export default function Admin() {
                 <RefreshCw aria-hidden="true" /> <span className="admin-topbar__label">Обновить данные</span>
               </button>
               <AdminThemeToggleButton />
-              <button type="button" onClick={() => navigate('/')} className="admin-button admin-button--quiet" title="Открыть сайт">
+              <button type="button" onClick={openSite} className="admin-button admin-button--quiet" title="Открыть сайт">
                 <ExternalLink aria-hidden="true" /> <span className="admin-topbar__label">На сайт</span>
               </button>
             </div>
@@ -1596,7 +1989,7 @@ export default function Admin() {
                     <button
                       type="button"
                       key={item.key}
-                      onClick={() => navigateToAdminSection(item.key)}
+                      onClick={() => { void navigateToAdminSection(item.key); }}
                       onPointerEnter={() => { void preloadAdminSection(item.key); }}
                       onFocus={() => { void preloadAdminSection(item.key); }}
                       aria-current={currentNavKey === item.key ? 'page' : undefined}
@@ -1639,12 +2032,15 @@ export default function Admin() {
                 <AdminToday
                   password={password}
                   onNavigate={(destination) => {
-                    if (destination === 'articles') {
-                      setAdminSectionFilter('all');
-                      setAdminView('articles');
-                    } else {
-                      setAdminView(destination);
-                    }
+                    void (async () => {
+                      if (!(await confirmLeaveSection())) return;
+                      if (destination === 'articles') {
+                        setAdminSectionFilter('all');
+                        setAdminView('articles');
+                      } else {
+                        setAdminView(destination);
+                      }
+                    })();
                   }}
                 />
               )}
@@ -1654,7 +2050,7 @@ export default function Admin() {
               {adminView === 'attribution' && <AdminAttribution password={password} />}
               {adminView === 'meta' && <AdminMetaCenter password={password} />}
               {adminView === 'performance' && <AdminPerformance password={password} />}
-              {adminView === 'content' && <AdminContentControl password={password} />}
+              {adminView === 'content' && <AdminContentControl password={password} onRegisterLeaveGuard={registerLeaveGuard} />}
               {adminView === 'leads' && <AdminLeads password={password} onOpenClients={() => setAdminView('clients')} />}
               {adminView === 'clients' && (
                 <AdminClients
@@ -1688,7 +2084,7 @@ export default function Admin() {
                 <button onClick={() => {
                   // Раздел новой статьи подстраивается под активный фильтр:
                   // включён фильтр «Кейсы» — сразу создаём кейс
-                  createArticleDraft(adminSectionFilter === 'cases' ? CASES_CATEGORY : '');
+                  void createArticleDraft(adminSectionFilter === 'cases' ? CASES_CATEGORY : '');
                 }} className="admin-button h-10 w-10 p-0 text-[var(--adm-primary)]" aria-label="Создать публикацию" title="Создать публикацию">
                   <Plus className="w-4 h-4" />
                 </button>
@@ -1745,8 +2141,8 @@ export default function Admin() {
                           featuredIndex={featuredIndex >= 0 ? featuredIndex : null}
                           featuredCount={featuredSlugs.length}
                           canFeature={article.category !== CASES_CATEGORY}
-                          onEdit={(item) => void openArticleForEdit(item)}
-                          onDuplicate={(item) => void duplicateArticle(item)}
+                          onEdit={openArticleForEdit}
+                          onDuplicate={duplicateArticle}
                           onDelete={handleDelete}
                           onToggleFeatured={toggleFeatured}
                           onMoveFeatured={moveFeatured}
@@ -1769,7 +2165,7 @@ export default function Admin() {
                   <ContentPerformance
                     password={password}
                     articles={articles}
-                    onOpen={(article) => void openArticleForEdit(article)}
+                    onOpen={openArticleForEdit}
                   />
                 </div>
               </details>
@@ -1782,7 +2178,7 @@ export default function Admin() {
                 <div className="px-3.5 pb-3.5">
                   <ArticleCalendar
                     articles={articles}
-                    onOpen={(article) => void openArticleForEdit(article)}
+                    onOpen={openArticleForEdit}
                   />
                 </div>
               </details>
@@ -1798,7 +2194,7 @@ export default function Admin() {
                   <Suspense fallback={<AdminSectionSkeleton tiles={0} rows={3} />}>
                     <PublishSchedulePanel
                       articles={articles}
-                      onSchedule={(items) => scheduleArticles(items, password)}
+                      onSchedule={schedulePlan}
                     />
                   </Suspense>
                 </div>
@@ -2028,9 +2424,21 @@ export default function Admin() {
                           className="hidden"
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
+                            // Сброс позволяет выбрать тот же файл повторно.
+                            e.target.value = '';
                             if (!file) return;
+                            const session = editorSessionRef.current;
                             const url = await uploadFile(file);
-                            if (url) setEditingArticle({ ...editingArticle, image: url });
+                            // Обложка пишется поверх текущего состояния, а не
+                            // копии из замыкания: пока файл грузился, владелец
+                            // мог править заголовок и текст, и копия откатила
+                            // бы их. Другая статья за это время — результат
+                            // отбрасывается.
+                            if (url) {
+                              setEditingArticle((current) => (
+                                current && editorSessionRef.current === session ? { ...current, image: url } : current
+                              ));
+                            }
                           }}
                         />
                       </label>
@@ -2039,7 +2447,7 @@ export default function Admin() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Slug (URL-адрес статьи)</label>
-                    <input aria-label="Slug публикации" type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                    <input aria-label="Slug публикации" type="text" value={editingArticle.slug} onChange={(e) => handleSlugChange(e.target.value)} onBlur={() => setEditingArticle((current) => current ? { ...current, slug: transliterate(current.slug) } : current)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                     <p className="text-xs text-[var(--adm-fg)]/50 mt-1">Автоматически из заголовка (если не трогать вручную). Только латиница и дефисы.</p>
                   </div>
                   </section>
@@ -2075,27 +2483,28 @@ export default function Admin() {
                 </div>
               ) : (
                 <div className="space-y-6 py-6">
-                  {editorBackup && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+                  {/* Копий может быть несколько — по одной на статью, свежие сверху. */}
+                  {editorBackups.map((backup) => (
+                    <div key={backup.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
                       <div className="text-sm text-[var(--adm-fg)]/85">
-                        Найден автосохранённый черновик «{editorBackup.article.title || 'Без названия'}» от {new Date(editorBackup.savedAt).toLocaleString('ru-RU')}
+                        Найден автосохранённый черновик «{backup.article.title || 'Без названия'}» от {new Date(backup.savedAt).toLocaleString('ru-RU')}
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => openArticleEditor(editorBackup.article, { dirty: true, slugEdited: true })}
+                          onClick={() => openArticleEditor(backup.article, { dirty: true, slugEdited: true })}
                           className="rounded-lg bg-[var(--adm-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         >
                           Восстановить
                         </button>
                         <button
-                          onClick={() => { void confirmDialog({ title: 'Удалить автосохранённый черновик?', description: 'Восстановить его после этого будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' }).then((ok) => { if (ok) clearEditorBackup(); }); }}
+                          onClick={() => { void confirmDialog({ title: 'Удалить автосохранённый черновик?', description: 'Восстановить его после этого будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' }).then((ok) => { if (ok) clearEditorBackup(backup.key); }); }}
                           className="rounded-lg border border-[var(--adm-border)] px-4 py-2 text-sm text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50 transition-colors"
                         >
                           Удалить
                         </button>
                       </div>
                     </div>
-                  )}
+                  ))}
                   <div className="text-center py-6 text-[var(--adm-fg)]/60">Выберите статью из списка или создайте новую</div>
                 </div>
               )}

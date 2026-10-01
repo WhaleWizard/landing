@@ -57,17 +57,43 @@ function rangeCheck(
   return { id, label, detail: `${measured} — в норме`, level: 'ok' };
 }
 
+/** Путь внутри сайта или null, если ссылка ведёт наружу, на якорь, mailto: и т. п. */
+function internalPath(href: string): string | null {
+  const own = /^https?:\/\/(?:www\.)?whalewzrd\.com(\/.*)?$/i.exec(href);
+  if (own) return own[1] || '/';
+  // Одна косая черта в начале — свой адрес; две — чужой домен без схемы.
+  return /^\/(?!\/)/.test(href) ? href : null;
+}
+
+/**
+ * Ссылки на свои страницы: любой `href` с одной косой черты (кроме служебных
+ * /api/ и /admin) и абсолютные адреса whalewzrd.com. Раньше считались только
+ * /blog, /cases и несуществующий /services — ссылка на услугу (/meta-ads,
+ * /google-ads, /consult), которую требует docs/SEO_STRATEGY.md, в счёт не
+ * шла, и проверка советовала её убрать.
+ */
+export function countInternalLinks(content = ''): number {
+  let count = 0;
+  for (const match of String(content).matchAll(/href\s*=\s*["']([^"']+)["']/gi)) {
+    const path = internalPath(match[1].trim());
+    if (!path) continue;
+    if (/^\/api\//i.test(path) || /^\/admin(?:[/?#]|$)/i.test(path)) continue;
+    count += 1;
+  }
+  return count;
+}
+
 /**
  * Проверки перед публикацией. Раньше в редакторе был короткий список
  * «чего не хватает», но без чисел и без объяснения, почему это важно —
  * по нему нельзя было понять, что именно исправлять.
  */
-function runChecks(article: ArticleLike): CheckResult[] {
+export function runChecks(article: ArticleLike): CheckResult[] {
   const text = stripHtml(article.content || '');
   const words = countWords(text);
   const title = (article.seoTitle || article.title || '').trim();
   const description = (article.seoDescription || article.description || '').trim();
-  const internalLinks = (String(article.content || '').match(/href="\/(blog|cases|services)/g) || []).length;
+  const internalLinks = countInternalLinks(article.content);
   const headings = (String(article.content || '').match(/<h2/gi) || []).length;
 
   const checks: CheckResult[] = [

@@ -3,10 +3,22 @@ import { ExternalLink, Plus, RefreshCw, RotateCcw, Save, Send, Trash2 } from 'lu
 import { FAQ_CATEGORIES, FAQ_SEO, faqs, type FaqItem } from '../../pages/FAQPage';
 import { AdminSelect } from './AdminUI';
 import AdminDisclosure from './AdminDisclosure';
+import { confirmAsk } from './AdminFeedback';
 
 type VersionRow = { id: number; source: 'draft' | 'published'; created_at: string };
 type FaqSeo = { title: string; description: string };
 const CATEGORIES: FaqItem['category'][] = [...FAQ_CATEGORIES];
+const DEFAULT_SEO: FaqSeo = { title: FAQ_SEO.title, description: FAQ_SEO.description };
+
+/**
+ * Подпись сохранённого состояния. По ней считается «есть несохранённое»:
+ * раньше редактор FAQ этого не знал, и «Обновить», восстановление версии и
+ * переключение на «Страницы» молча стирали набранные ответы. SEO входит в
+ * подпись вместе с вопросами — его тоже присылает сервер.
+ */
+function faqSignature(items: FaqItem[], seo: FaqSeo): string {
+  return JSON.stringify({ items, seo });
+}
 
 function cloneItems(items: FaqItem[]): FaqItem[] {
   return items.map((item) => ({
@@ -17,19 +29,55 @@ function cloneItems(items: FaqItem[]): FaqItem[] {
   }));
 }
 
-export default function AdminFaqControl({ password }: { password: string }) {
+export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
+  password: string;
+  /** Страж для оболочки: спрашивает про несохранённое перед уходом из FAQ. */
+  onRegisterLeaveGuard?: (guard: (() => Promise<boolean>) | null) => void;
+}) {
   const [items, setItems] = useState<FaqItem[]>(() => cloneItems(faqs));
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [status, setStatus] = useState<'static' | 'draft' | 'published'>('static');
   const [hasPublishedVersion, setHasPublishedVersion] = useState(false);
   const [version, setVersion] = useState(0);
-  const [seo, setSeo] = useState<FaqSeo>({ title: FAQ_SEO.title, description: FAQ_SEO.description });
+  const [seo, setSeo] = useState<FaqSeo>(DEFAULT_SEO);
+  const [baseline, setBaseline] = useState(() => faqSignature(cloneItems(faqs), DEFAULT_SEO));
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [publishArmed, setPublishArmed] = useState(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
+  const isDirty = faqSignature(items, seo) !== baseline;
+
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  useEffect(() => {
+    if (!onRegisterLeaveGuard) return undefined;
+    onRegisterLeaveGuard(async () => !isDirty || confirmAsk({
+      title: 'Уйти из редактора FAQ?',
+      description: 'Несохранённые правки FAQ пропадут. Сначала сохраните черновик, если они нужны.',
+      confirmLabel: 'Перейти и потерять правки',
+      cancelLabel: 'Остаться',
+      tone: 'danger',
+    }));
+    return () => onRegisterLeaveGuard(null);
+  }, [isDirty, onRegisterLeaveGuard]);
+
+  const discardChanges = () => {
+    const saved = JSON.parse(baseline) as { items: FaqItem[]; seo: FaqSeo };
+    setItems(cloneItems(saved.items));
+    setSeo(saved.seo);
+    setPublishArmed(false);
+    setNotice('Несохранённые изменения отменены.');
+  };
 
   const load = useCallback(async (preserveNotice = false): Promise<boolean> => {
     const itemsAtRequest = JSON.stringify(itemsRef.current);
@@ -57,12 +105,15 @@ export default function AdminFaqControl({ password }: { password: string }) {
         setNotice('Данные получены, но не применены: пока шёл запрос, появились новые несохранённые изменения.');
         return false;
       }
-      setItems(payload.section?.draft?.items?.length ? cloneItems(payload.section.draft.items) : cloneItems(faqs));
+      const loadedItems = payload.section?.draft?.items?.length ? cloneItems(payload.section.draft.items) : cloneItems(faqs);
       const loadedSeo = payload.section?.draft?.seo || payload.section?.published?.seo;
-      setSeo({
+      const nextSeo: FaqSeo = {
         title: loadedSeo?.title?.trim() || FAQ_SEO.title,
         description: loadedSeo?.description?.trim() || FAQ_SEO.description,
-      });
+      };
+      setItems(loadedItems);
+      setSeo(nextSeo);
+      setBaseline(faqSignature(loadedItems, nextSeo));
       setStatus(payload.section?.status || 'static');
       setHasPublishedVersion(Boolean(payload.section?.published?.items?.length));
       setVersion(Number(payload.section?.version || 0));
@@ -162,6 +213,10 @@ export default function AdminFaqControl({ password }: { password: string }) {
   };
 
   const restore = async (versionId: number) => {
+    if (isDirty) {
+      setNotice('Сначала сохраните или отмените текущие изменения — восстановление версии заменит черновик.');
+      return;
+    }
     const itemsBeforeRestore = JSON.stringify(itemsRef.current);
     setLoading(true);
     try {
@@ -209,7 +264,10 @@ export default function AdminFaqControl({ password }: { password: string }) {
               ? `Черновик · v${version} · ${hasPublishedVersion ? 'на сайте предыдущая версия' : 'на сайте статический FAQ'}`
               : 'Статический FAQ'}
         </span>
-        <button type="button" className="admin-button admin-button--secondary" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
+        {isDirty ? <span className="admin-state admin-state--warning">Не сохранено</span> : null}
+        {/* Как в редакторе страниц: «Обновить» заменило бы набранное свежей копией с сервера. */}
+        <button type="button" className="admin-button admin-button--secondary" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
+        {isDirty ? <button type="button" className="admin-button admin-button--quiet" onClick={discardChanges}>Отменить изменения</button> : null}
         <button type="button" className="admin-button admin-button--secondary" disabled={loading || items.length >= 100} onClick={addItem}><Plus aria-hidden="true" /> Добавить вопрос</button>
       </div>
 
@@ -257,7 +315,7 @@ export default function AdminFaqControl({ password }: { password: string }) {
           </section>
           <section className="admin-card p-4 sm:p-5">
             <p className="admin-eyebrow">История</p><h3 className="admin-card-title">Последние версии</h3>
-            <div className="admin-version-list mt-3">{versions.map((row) => <div key={row.id}><div><strong>{row.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${row.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div><button type="button" className="admin-icon-button" aria-label="Восстановить версию FAQ" disabled={loading} onClick={() => void restore(row.id)}><RotateCcw aria-hidden="true" /></button></div>)}</div>
+            <div className="admin-version-list mt-3">{versions.map((row) => <div key={row.id}><div><strong>{row.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${row.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div><button type="button" className="admin-icon-button" aria-label="Восстановить версию FAQ" title={isDirty ? 'Сначала сохраните или отмените изменения' : 'Восстановить в черновик'} disabled={loading || isDirty} onClick={() => void restore(row.id)}><RotateCcw aria-hidden="true" /></button></div>)}</div>
             {versions.length === 0 && <p className="admin-muted mt-3">Версии появятся после сохранения.</p>}
           </section>
           <div className="admin-notice admin-notice--warning">Видимый FAQ получает опубликованные вопросы из D1. Статический HTML для поисковых роботов синхронизируется при следующем деплое.</div>

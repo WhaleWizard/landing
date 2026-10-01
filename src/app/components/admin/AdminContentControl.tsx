@@ -1087,7 +1087,18 @@ function HeroEffectControls({
   );
 }
 
-export default function AdminContentControl({ password }: { password: string }) {
+/** Вопрос «уйти и потерять правки?» — отвечает true, если уходить можно. */
+export type LeaveGuard = () => Promise<boolean>;
+
+export default function AdminContentControl({ password, onRegisterLeaveGuard }: {
+  password: string;
+  /**
+   * Оболочка админки зовёт зарегистрированную функцию перед сменой раздела.
+   * Без неё переход через меню или палитру молча стирал несохранённые
+   * правки: раздел размонтируется вместе с черновиком.
+   */
+  onRegisterLeaveGuard?: (guard: LeaveGuard | null) => void;
+}) {
   const [page, setPage] = useState<EditorPage>('home');
   const [content, setContent] = useState<EditableContent>(() => editableDefaults('home'));
   const [section, setSection] = useState<SectionPayload | null>(null);
@@ -1217,18 +1228,48 @@ export default function AdminContentControl({ password }: { password: string }) 
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
 
+  /** Тот же вопрос для любого ухода: на другую страницу, во вкладку FAQ, в другой раздел. */
+  const confirmDiscardPages = useCallback((title: string) => confirmAsk({
+    title,
+    description: `Несохранённые правки в блоках «${[...changedSections].map((value) => SECTION_LABELS[value]).join('», «')}» пропадут. Сначала сохраните черновик, если они нужны.`,
+    confirmLabel: 'Перейти и потерять правки',
+    cancelLabel: 'Остаться',
+    tone: 'danger',
+  }), [changedSections]);
+
+  // Несохранённое во вкладке FAQ: AdminFaqControl регистрирует свой страж,
+  // а здесь он учитывается и при переключении на «Страницы», и при уходе
+  // из раздела. Правки страниц при открытой вкладке FAQ не пропадают — они
+  // остаются в состоянии этого компонента, — но уход из раздела теряет их.
+  const faqGuardRef = useRef<LeaveGuard | null>(null);
+  const registerFaqGuard = useCallback((guard: LeaveGuard | null) => {
+    faqGuardRef.current = guard;
+  }, []);
+
+  useEffect(() => {
+    if (!onRegisterLeaveGuard) return undefined;
+    onRegisterLeaveGuard(async () => {
+      if (contentMode === 'faq' && faqGuardRef.current && !(await faqGuardRef.current())) return false;
+      if (!isDirty) return true;
+      return confirmDiscardPages('Уйти из редактора сайта?');
+    });
+    return () => onRegisterLeaveGuard(null);
+  }, [confirmDiscardPages, contentMode, isDirty, onRegisterLeaveGuard]);
+
+  const switchContentMode = async (nextMode: 'pages' | 'faq') => {
+    if (nextMode === contentMode) return;
+    // Из FAQ на «Страницы» — спрашивает страж FAQ; из страниц в FAQ правки
+    // страниц остаются в памяти, вопрос не нужен.
+    if (nextMode === 'pages' && faqGuardRef.current && !(await faqGuardRef.current())) return;
+    setContentMode(nextMode);
+  };
+
   const switchPage = async (nextPage: EditorPage) => {
     if (nextPage === page) return;
     // Раньше редактор просто отказывался переключаться и оставлял владельца
     // гадать, что делать дальше. Теперь выбор явный и остаётся в одном окне.
     if (isDirty) {
-      const discard = await confirmAsk({
-        title: `Перейти на страницу «${PAGES.find((item) => item.value === nextPage)?.label}»?`,
-        description: `Несохранённые правки в блоках «${[...changedSections].map((value) => SECTION_LABELS[value]).join('», «')}» пропадут. Сначала сохраните черновик, если они нужны.`,
-        confirmLabel: 'Перейти и потерять правки',
-        cancelLabel: 'Остаться',
-        tone: 'danger',
-      });
+      const discard = await confirmDiscardPages(`Перейти на страницу «${PAGES.find((item) => item.value === nextPage)?.label}»?`);
       if (!discard) return;
     }
     loadSequence.current += 1;
@@ -1358,12 +1399,12 @@ export default function AdminContentControl({ password }: { password: string }) 
 
   const contentModeSwitch = (
     <div className="admin-segmented admin-content-mode" role="group" aria-label="Тип контента">
-      <button type="button" aria-pressed={contentMode === 'pages'} onClick={() => setContentMode('pages')}>Страницы</button>
-      <button type="button" aria-pressed={contentMode === 'faq'} onClick={() => setContentMode('faq')}>FAQ</button>
+      <button type="button" aria-pressed={contentMode === 'pages'} onClick={() => { void switchContentMode('pages'); }}>Страницы</button>
+      <button type="button" aria-pressed={contentMode === 'faq'} onClick={() => { void switchContentMode('faq'); }}>FAQ</button>
     </div>
   );
 
-  if (contentMode === 'faq') return <div className="admin-stack admin-stack--lg">{contentModeSwitch}<AdminFaqControl password={password} /></div>;
+  if (contentMode === 'faq') return <div className="admin-stack admin-stack--lg">{contentModeSwitch}<AdminFaqControl password={password} onRegisterLeaveGuard={registerFaqGuard} /></div>;
 
   const renderTypography = (
     key: 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact',
