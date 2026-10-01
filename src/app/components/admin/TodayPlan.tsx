@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { ArrowRight, Check, Flame, ListChecks, Plus, Sparkles, X } from 'lucide-react';
 import { createId, normalizeWeekData, type PlannerWeekData } from './plannerModel';
+import { withPlural } from '../../utils/plural';
 
 export interface PlanTask {
   id: string;
@@ -12,12 +13,47 @@ const MAX_TASKS = 12;
 const MAX_TEXT = 300;
 
 /**
+ * Очередь сохранений «Сегодня»: план и заметка пишут одну и ту же неделю
+ * планера, и два цикла «прочитать → изменить → записать» рядом стирали друг
+ * друга. Следующий цикл начинается только после окончания предыдущего.
+ */
+export type PlannerSaveQueue = MutableRefObject<Promise<void>>;
+
+export async function enqueueSave(queue: PlannerSaveQueue | undefined, task: () => Promise<void>): Promise<void> {
+  if (!queue) return task();
+  const run = queue.current.then(task, task);
+  queue.current = run.catch(() => undefined);
+  return run;
+}
+
+/** Правка списка задач дня как операция — применяется к свежепрочитанному списку, а не к снимку экрана. */
+export type PlanTaskOp =
+  | { type: 'toggle'; id: string }
+  | { type: 'remove'; id: string }
+  | { type: 'add'; task: PlanTask };
+
+export function applyPlanTaskOp(tasks: PlanTask[], op: PlanTaskOp): PlanTask[] {
+  switch (op.type) {
+    case 'toggle':
+      return tasks.map((task) => (task.id === op.id ? { ...task, done: !task.done } : task));
+    case 'remove':
+      return tasks.filter((task) => task.id !== op.id);
+    case 'add':
+      return tasks.some((task) => task.id === op.task.id) ? tasks : [...tasks, op.task];
+    default:
+      return tasks;
+  }
+}
+
+/**
  * План на сегодня прямо на стартовом экране: отметить сделанное и дописать
  * задачу можно здесь, не уходя в планер.
  *
  * Планер хранит неделю одним JSON, поэтому сохранение всегда идёт по циклу
- * «перечитать неделю → изменить нужный день → записать целиком». Иначе
- * правка с этого экрана затёрла бы то, что параллельно записал сам планер.
+ * «перечитать неделю → применить правку к нужному дню → записать целиком».
+ * Применяется именно операция (отметить, убрать, добавить по id), а не снимок
+ * списка с экрана: иначе задача, добавленная параллельно в планере или с
+ * телефона, затиралась бы при первой же отметке отсюда.
  */
 export default function TodayPlan({
   password,
@@ -25,6 +61,7 @@ export default function TodayPlan({
   weekStart,
   dayIndex,
   streak = 0,
+  queue,
   onNavigate,
   onSaved,
 }: {
@@ -33,6 +70,8 @@ export default function TodayPlan({
   weekStart: string;
   dayIndex: number;
   streak?: number;
+  /** Общая очередь с заметкой дня — см. enqueueSave. */
+  queue?: PlannerSaveQueue;
   onNavigate: () => void;
   onSaved: () => void;
 }) {
@@ -44,33 +83,39 @@ export default function TodayPlan({
 
   useEffect(() => { setItems(tasks); }, [tasks]);
 
-  const persist = useCallback(async (next: PlanTask[], previous: PlanTask[]) => {
+  const persist = useCallback(async (op: PlanTaskOp, previous: PlanTask[]) => {
     setSaving(true);
     setError('');
     try {
-      const headers = { 'Content-Type': 'application/json', 'X-Admin-Password': password };
-      const readResponse = await fetch(`/api/admin/planner?week=${encodeURIComponent(weekStart)}`, {
-        headers: { 'X-Admin-Password': password },
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      const readPayload = await readResponse.json().catch(() => null) as { success?: boolean; error?: string; data?: unknown } | null;
-      if (!readResponse.ok || !readPayload?.success) throw new Error(readPayload?.error || `HTTP ${readResponse.status}`);
+      await enqueueSave(queue, async () => {
+        const headers = { 'Content-Type': 'application/json', 'X-Admin-Password': password };
+        const readResponse = await fetch(`/api/admin/planner?week=${encodeURIComponent(weekStart)}`, {
+          headers: { 'X-Admin-Password': password },
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const readPayload = await readResponse.json().catch(() => null) as { success?: boolean; error?: string; data?: unknown } | null;
+        if (!readResponse.ok || !readPayload?.success) throw new Error(readPayload?.error || `HTTP ${readResponse.status}`);
 
-      const week: PlannerWeekData = normalizeWeekData(readPayload.data);
-      week.days[dayIndex] = {
-        ...week.days[dayIndex],
-        tasks: next.map((task) => ({ id: task.id, text: task.text, done: task.done })),
-      };
+        const week: PlannerWeekData = normalizeWeekData(readPayload.data);
+        const next = applyPlanTaskOp(week.days[dayIndex].tasks, op);
+        if (next.length > MAX_TASKS) throw new Error(`В плане уже ${MAX_TASKS} задач — новая не поместится`);
+        week.days[dayIndex] = {
+          ...week.days[dayIndex],
+          tasks: next.map((task) => ({ id: task.id, text: task.text, done: task.done })),
+        };
 
-      const saveResponse = await fetch('/api/admin/planner', {
-        method: 'POST',
-        headers,
-        credentials: 'same-origin',
-        body: JSON.stringify({ week: weekStart, data: week }),
+        const saveResponse = await fetch('/api/admin/planner', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          body: JSON.stringify({ week: weekStart, data: week }),
+        });
+        const savePayload = await saveResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
+        if (!saveResponse.ok || !savePayload?.success) throw new Error(savePayload?.error || `HTTP ${saveResponse.status}`);
+        // На экране — то, что легло в базу: вместе с задачами, добавленными в другом месте.
+        setItems(next);
       });
-      const savePayload = await saveResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
-      if (!saveResponse.ok || !savePayload?.success) throw new Error(savePayload?.error || `HTTP ${saveResponse.status}`);
       onSaved();
     } catch (saveError) {
       // Откат: на экране не должно остаться отметки, которой нет в базе.
@@ -79,20 +124,18 @@ export default function TodayPlan({
     } finally {
       setSaving(false);
     }
-  }, [dayIndex, onSaved, password, weekStart]);
+  }, [dayIndex, onSaved, password, queue, weekStart]);
 
   const toggle = (id: string) => {
     const previous = items;
-    const next = items.map((task) => (task.id === id ? { ...task, done: !task.done } : task));
-    setItems(next);
-    void persist(next, previous);
+    setItems(applyPlanTaskOp(items, { type: 'toggle', id }));
+    void persist({ type: 'toggle', id }, previous);
   };
 
   const remove = (id: string) => {
     const previous = items;
-    const next = items.filter((task) => task.id !== id);
-    setItems(next);
-    void persist(next, previous);
+    setItems(applyPlanTaskOp(items, { type: 'remove', id }));
+    void persist({ type: 'remove', id }, previous);
   };
 
   const add = (event: React.FormEvent) => {
@@ -100,10 +143,10 @@ export default function TodayPlan({
     const text = draft.trim().slice(0, MAX_TEXT);
     if (!text || items.length >= MAX_TASKS) return;
     const previous = items;
-    const next = [...items, { id: createId('task'), text, done: false }];
-    setItems(next);
+    const task = { id: createId('task'), text, done: false };
+    setItems(applyPlanTaskOp(items, { type: 'add', task }));
     setDraft('');
-    void persist(next, previous);
+    void persist({ type: 'add', task }, previous);
     inputRef.current?.focus();
   };
 
@@ -125,7 +168,7 @@ export default function TodayPlan({
               className="today-plan__streak"
               title="Дней подряд, когда план закрывался полностью. День без задач стрик не обрывает."
             >
-              <Flame aria-hidden="true" /> {streak} {streak < 5 ? 'дня' : 'дней'} подряд
+              <Flame aria-hidden="true" /> {withPlural(streak, ['день', 'дня', 'дней'])} подряд
             </span>
           )}
           <button type="button" className="admin-button admin-button--quiet" onClick={onNavigate}>

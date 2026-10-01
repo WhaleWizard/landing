@@ -49,8 +49,28 @@ function formatDate(raw?: string | null): string {
     : date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-function isOverdue(raw?: string | null): boolean {
-  return Boolean(raw && new Date(raw).getTime() < Date.now());
+const OPEN_STAGES: PipelineStage[] = ['new', 'contacted', 'discovery', 'proposal'];
+const CLOSED_STAGES: PipelineStage[] = ['won', 'lost', 'archived'];
+/** Страница сервера (MAX_LIMIT в crm-leads) и предохранитель от бесконечной догрузки. */
+const PAGE_SIZE = 300;
+const MAX_PAGES = 20;
+
+/** Просрочено — только у открытой сделки: у закрытой срок шага остаётся историей, как и в счётчиках сервера. */
+function isOverdue(raw: string | null | undefined, stage: PipelineStage): boolean {
+  return Boolean(raw && OPEN_STAGES.includes(stage) && new Date(raw).getTime() < Date.now());
+}
+
+interface BoardSummary {
+  stages?: Record<string, number>;
+  values_by_currency?: Array<{ deal_currency: string; open_value: number; won_value: number }>;
+}
+
+interface BoardPage<T> {
+  success?: boolean;
+  error?: string;
+  leads?: T[];
+  pagination?: { total?: number; returned?: number };
+  summary?: BoardSummary;
 }
 
 function money(value: number | null | undefined, currency: string | undefined): string {
@@ -80,6 +100,16 @@ function columnTotals<T extends BoardLead>(leads: T[], primary: string): string 
   return [...totals.entries()]
     .sort((a, b) => (a[0] === primary ? -1 : b[0] === primary ? 1 : b[1] - a[1]))
     .map(([code, value]) => money(value, code))
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** Сумма выигранных по каждой валюте — с сервера, по всем сделкам, а не по загруженным. */
+function wonTotals(summary: BoardSummary | null, primary: string): string {
+  return (summary?.values_by_currency || [])
+    .filter((row) => Number(row.won_value) > 0)
+    .sort((a, b) => (a.deal_currency === primary ? -1 : b.deal_currency === primary ? 1 : Number(b.won_value) - Number(a.won_value)))
+    .map((row) => money(Number(row.won_value), row.deal_currency || primary))
     .filter(Boolean)
     .join(' · ');
 }
@@ -114,7 +144,7 @@ function BoardCard<T extends BoardLead>({
   const index = stageIndex(lead.pipeline_stage);
   const previous = index > 0 ? BOARD_STAGES[index - 1] : null;
   const next = index >= 0 && index < BOARD_STAGES.length - 1 ? BOARD_STAGES[index + 1] : null;
-  const overdue = isOverdue(lead.next_action_at);
+  const overdue = isOverdue(lead.next_action_at, lead.pipeline_stage);
   const amount = money(lead.deal_value, lead.deal_currency);
 
   return (
@@ -180,17 +210,21 @@ function BoardCard<T extends BoardLead>({
 function BoardColumn<T extends BoardLead>({
   stage,
   leads,
+  total,
+  value,
   selectedId,
   disabled,
-  currency,
   onOpen,
   onMove,
 }: {
   stage: typeof BOARD_STAGES[number];
   leads: T[];
+  /** Сколько сделок на этапе по данным сервера — может быть больше, чем загружено. */
+  total: number;
+  /** Подпись суммы колонки; пустая — суммы нет или она была бы неполной. */
+  value: string;
   selectedId: number | null;
   disabled: boolean;
-  currency: string;
   onOpen: (lead: T) => void;
   onMove: (lead: T, stage: PipelineStage) => void;
 }) {
@@ -203,21 +237,19 @@ function BoardColumn<T extends BoardLead>({
   }), [disabled, onMove, stage.value]);
   drop(ref);
 
-  const total = columnTotals(leads, currency);
-
   return (
     <section
       ref={ref}
       className={`crm-column${isOver && canDrop ? ' is-over' : ''}`}
-      aria-label={`${stage.label}: ${leads.length} сделок`}
+      aria-label={`${stage.label}: ${total} сделок`}
     >
       <header className="crm-column__head">
         <div className="crm-column__title">
           <span className={`crm-column__dot is-${stage.value}`} aria-hidden="true" />
           <h3>{stage.label}</h3>
-          <span className="crm-column__count">{leads.length}</span>
+          <span className="crm-column__count">{total}</span>
         </div>
-        {total ? <span className="crm-column__value">{total}</span> : null}
+        {value ? <span className="crm-column__value">{value}</span> : null}
       </header>
       <div className="crm-column__body">
         {leads.length === 0 ? (
@@ -232,6 +264,9 @@ function BoardColumn<T extends BoardLead>({
             onMove={onMove}
           />
         ))}
+        {leads.length > 0 && leads.length < total ? (
+          <p className="crm-column__empty">Показаны последние {leads.length} из {total}.</p>
+        ) : null}
       </div>
     </section>
   );
@@ -261,6 +296,9 @@ export default function CrmBoard<T extends BoardLead>({
   refreshToken: number;
 }) {
   const [leads, setLeads] = useState<T[]>([]);
+  // Счётчики этапов и суммы выигранных — с сервера: по всем сделкам, а не
+  // по тем, что поместились в загрузку.
+  const [summary, setSummary] = useState<BoardSummary | null>(null);
   // Через ссылку, а не через зависимости `load`: иначе новая функция на каждый
   // рендер родителя перезапускала бы загрузку доски по кругу.
   const refreshedRef = useRef(onLeadsRefreshed);
@@ -269,18 +307,40 @@ export default function CrmBoard<T extends BoardLead>({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const fetchPage = useCallback(async (stages: PipelineStage[], sort: string, offset: number): Promise<BoardPage<T>> => {
+    const response = await fetch(
+      `/api/admin/crm-leads?pipeline_stage=${stages.join(',')}&sort=${sort}&limit=${PAGE_SIZE}&offset=${offset}`,
+      { headers: { 'X-Admin-Password': password }, credentials: 'same-origin', cache: 'no-store' },
+    );
+    const payload = await response.json().catch(() => null) as BoardPage<T> | null;
+    if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+    return payload;
+  }, [password]);
+
+  /**
+   * Открытые этапы грузятся целиком, страницами по 300, пока не набран total:
+   * одна страница на всё молча теряла старые открытые сделки, как только
+   * заявок вместе с архивом становилось больше трёхсот. Закрытые этапы —
+   * только последние 300: их на доске листают редко, а счётчик берётся с
+   * сервера и честно пишет «показаны последние K из M».
+   */
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/crm-leads?limit=300&offset=0&sort=priority', {
-        headers: { 'X-Admin-Password': password },
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; leads?: T[] } | null;
-      if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-      const rows = payload.leads || [];
+      const open: T[] = [];
+      let first: BoardPage<T> | null = null;
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        const payload = await fetchPage(OPEN_STAGES, 'priority', page * PAGE_SIZE);
+        first = first || payload;
+        const rows = payload.leads || [];
+        open.push(...rows);
+        const total = Number(payload.pagination?.total ?? open.length);
+        if (rows.length < PAGE_SIZE || open.length >= total) break;
+      }
+      const closed = await fetchPage(CLOSED_STAGES, 'recent', 0);
+      const rows = [...open, ...(closed.leads || [])];
+      setSummary(closed.summary || first?.summary || null);
       setLeads(rows);
       refreshedRef.current?.(rows);
     } catch (loadError) {
@@ -288,7 +348,7 @@ export default function CrmBoard<T extends BoardLead>({
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, [password]);
+  }, [fetchPage]);
 
   useEffect(() => { void load(); }, [load, refreshToken]);
 
@@ -354,6 +414,13 @@ export default function CrmBoard<T extends BoardLead>({
     return map;
   }, [leads]);
 
+  // Сколько сделок на этапе по серверу; загруженных меньше быть не может.
+  const stageTotal = (stage: PipelineStage, loaded: number): number => {
+    const known = summary?.stages?.[stage];
+    return known === undefined ? loaded : Math.max(Number(known) || 0, loaded);
+  };
+  const boardTotal = BOARD_STAGES.reduce((sum, stage) => sum + stageTotal(stage.value, byStage.get(stage.value)?.length || 0), 0);
+
   if (loading && !leads.length) return <div className="admin-panel p-6" role="status">Загружаю доску…</div>;
 
   return (
@@ -365,25 +432,36 @@ export default function CrmBoard<T extends BoardLead>({
         </div>
       ) : null}
       <div className="crm-board__toolbar">
-        <span className="admin-meta">Сделок на доске: {leads.length}. Перетащи карточку мышью или переставь стрелками.</span>
+        <span className="admin-meta">Сделок на доске: {leads.length < boardTotal ? `${leads.length} из ${boardTotal}` : leads.length}. Перетащи карточку мышью или переставь стрелками.</span>
         <button type="button" className="admin-button admin-button--quiet" onClick={() => void load()} disabled={loading || busy}>
           <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить
         </button>
       </div>
       <DndProvider backend={HTML5Backend}>
         <div className="crm-board" role="list">
-          {BOARD_STAGES.map((stage) => (
-            <BoardColumn
-              key={stage.value}
-              stage={stage}
-              leads={byStage.get(stage.value) || []}
-              selectedId={selectedId}
-              disabled={!editingReady || busy}
-              currency={currency}
-              onOpen={onOpenLead}
-              onMove={move}
-            />
-          ))}
+          {BOARD_STAGES.map((stage) => {
+            const column = byStage.get(stage.value) || [];
+            const total = stageTotal(stage.value, column.length);
+            // Сумма колонки — только когда она посчитана по всем сделкам этапа:
+            // у «Выиграны» это итог сервера, у остальных — сумма загруженных,
+            // если загружены все. Неполная сумма хуже отсутствующей.
+            const value = stage.value === 'won' && summary
+              ? wonTotals(summary, currency)
+              : column.length >= total ? columnTotals(column, currency) : '';
+            return (
+              <BoardColumn
+                key={stage.value}
+                stage={stage}
+                leads={column}
+                total={total}
+                value={value}
+                selectedId={selectedId}
+                disabled={!editingReady || busy}
+                onOpen={onOpenLead}
+                onMove={move}
+              />
+            );
+          })}
         </div>
       </DndProvider>
     </div>

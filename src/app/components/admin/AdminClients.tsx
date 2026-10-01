@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { AdminDecimalInput, AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
+import { toIsoDate } from './plannerModel';
 import { CountUpValue } from './AttributionCharts';
 import CaseBuilderDialog from './CaseBuilderDialog';
 import type { CaseDataDraft } from './caseFromClient';
@@ -138,9 +139,10 @@ function formatMonth(month: string): string {
     .toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
+/** Текущий месяц по календарю владельца: по Гринвичу до пяти утра первого числа это ещё прошлый месяц. */
 function currentMonth(): string {
   const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 /** Который час у клиента: одна строка, которая спасает от звонка в 7 утра. */
@@ -155,7 +157,7 @@ function clientLocalTime(offsetMinutes: number | null): string {
 function emptyClient(): Client {
   return {
     id: 0, lead_id: null, name: '', company: '', status: 'active',
-    started_at: new Date().toISOString().slice(0, 10),
+    started_at: toIsoDate(new Date()),
     paused_until: null, finished_at: null, finish_reason: '',
     contact_method: 'telegram', contact_value: '', timezone_offset: null,
     services: [], retainer_amount: 0, retainer_currency: 'USD', billing_day: null,
@@ -188,6 +190,11 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
   const [noteDraft, setNoteDraft] = useState('');
   const [accessDraft, setAccessDraft] = useState('');
   const [monthDraft, setMonthDraft] = useState<ClientMonth | null>(null);
+  // Месяц строки, которую сейчас правят; null — новая строка. Сервер хранит
+  // месяцы по ключу (клиент, месяц), поэтому смена месяца в правке давала бы
+  // не перенос, а вторую строку с теми же цифрами.
+  const [monthOrigin, setMonthOrigin] = useState<string | null>(null);
+  const [presetBusy, setPresetBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   /**
@@ -219,7 +226,9 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
   }, [password]);
 
   const request = useCallback(async (payload: Record<string, unknown>): Promise<Record<string, unknown> | null> => {
-    const response = await fetch('/api/admin/clients', {
+    // Смещение пояса — чтобы «работает с» и дата завершения ставились по
+    // календарю владельца, как и в чтении списка.
+    const response = await fetch(`/api/admin/clients?timezone_offset=${new Date().getTimezoneOffset()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
       credentials: 'same-origin',
@@ -363,16 +372,73 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
     }
   };
 
+  /** Открыть форму месяца: существующую строку — на правку, новую — с месяцем, которого ещё нет. */
+  const openMonth = (month: ClientMonth | null) => {
+    setMonthOrigin(month ? month.month : null);
+    setMonthDraft(month || {
+      client_id: draft?.id || 0, month: currentMonth(), report_sent_at: null, report_url: '',
+      spend: null, spend_currency: draft?.retainer_currency || 'USD', leads: null, sales: null, revenue: null, note: '',
+    });
+  };
+
+  /**
+   * «Добавить месяц» для месяца, который уже есть, открывает его строку:
+   * иначе пустая форма сохранялась бы поверх и стирала отметку об отчёте
+   * и цифры — клиент снова загорался красным.
+   */
+  const addMonth = () => {
+    const existing = months.find((month) => month.month === currentMonth());
+    if (existing) {
+      notify.info(`${formatMonth(existing.month)} уже есть — открыт для правки`);
+      openMonth(existing);
+      return;
+    }
+    openMonth(null);
+  };
+
   const saveMonth = async (month: ClientMonth) => {
     if (!draft?.id) return;
+    if (monthOrigin === null && months.some((item) => item.month === month.month)) {
+      const confirmed = await confirmAsk({
+        title: `${formatMonth(month.month)} уже есть`,
+        description: 'Сохранить поверх? Отметка об отчёте и цифры этого месяца будут заменены тем, что в форме.',
+        confirmLabel: 'Заменить',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    }
     try {
       await request({ ...month, action: 'set_month', id: draft.id });
       setMonthDraft(null);
+      setMonthOrigin(null);
       await refreshDetails(draft.id);
       await load();
       notify.success(`Месяц ${formatMonth(month.month)} сохранён`);
     } catch (monthError) {
       notify.error('Не удалось сохранить месяц', monthError instanceof Error ? monthError.message : undefined);
+    }
+  };
+
+  const deleteMonth = async (month: ClientMonth) => {
+    if (!draft?.id) return;
+    const confirmed = await confirmAsk({
+      title: `Удалить ${formatMonth(month.month)}?`,
+      description: 'Цифры и отметка об отчёте за этот месяц пропадут из карточки, светофора и сборки кейса.',
+      confirmLabel: 'Удалить',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      await request({ action: 'delete_month', id: draft.id, month: month.month });
+      if (monthOrigin === month.month) {
+        setMonthDraft(null);
+        setMonthOrigin(null);
+      }
+      await refreshDetails(draft.id);
+      await load();
+      notify.success(`Месяц ${formatMonth(month.month)} удалён`);
+    } catch (monthError) {
+      notify.error('Не удалось удалить месяц', monthError instanceof Error ? monthError.message : undefined);
     }
   };
 
@@ -573,10 +639,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
                   <h3 className="admin-card-title"><CalendarClock aria-hidden="true" /> Отчёты и результаты по месяцам</h3>
                   <p className="admin-hint">Цифры, которые вы и так собираете для отчёта. Отсюда же соберётся кейс.</p>
                 </div>
-                <button type="button" className="admin-button admin-button--compact" onClick={() => setMonthDraft({
-                  client_id: draft.id, month: currentMonth(), report_sent_at: null, report_url: '',
-                  spend: null, spend_currency: draft.retainer_currency, leads: null, sales: null, revenue: null, note: '',
-                })}>
+                <button type="button" className="admin-button admin-button--compact" onClick={addMonth}>
                   <Plus aria-hidden="true" /> Добавить месяц
                 </button>
               </header>
@@ -585,7 +648,14 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
                 <div className="clients__month-form">
                   <div className="admin-crm-form-grid">
                     <label className="admin-field"><span className="admin-label">Месяц</span>
-                      <input className="admin-input" type="month" value={monthDraft.month} onChange={(e) => setMonthDraft({ ...monthDraft, month: e.target.value })} />
+                      <input
+                        className="admin-input"
+                        type="month"
+                        value={monthDraft.month}
+                        readOnly={monthOrigin !== null}
+                        title={monthOrigin !== null ? 'Месяц записи не меняется: чтобы перенести цифры, удалите строку и добавьте месяц заново.' : undefined}
+                        onChange={(e) => { if (monthOrigin === null) setMonthDraft({ ...monthDraft, month: e.target.value }); }}
+                      />
                     </label>
                     <label className="admin-field"><span className="admin-label">Отчёт отправлен</span>
                       <input className="admin-input" type="date" value={monthDraft.report_sent_at || ''} onChange={(e) => setMonthDraft({ ...monthDraft, report_sent_at: e.target.value || null })} />
@@ -608,7 +678,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
                   </div>
                   <div className="clients__month-actions">
                     <button type="button" className="admin-button admin-button--primary" onClick={() => void saveMonth(monthDraft)}>Сохранить месяц</button>
-                    <button type="button" className="admin-button admin-button--quiet" onClick={() => setMonthDraft(null)}>Отмена</button>
+                    <button type="button" className="admin-button admin-button--quiet" onClick={() => { setMonthDraft(null); setMonthOrigin(null); }}>Отмена</button>
                   </div>
                 </div>
               )}
@@ -644,8 +714,11 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
                             <td className="is-numeric">{month.sales ?? '—'}</td>
                             <td className="is-numeric">{month.revenue !== null ? formatMoney(month.revenue, month.spend_currency || '') : '—'}</td>
                             <td>
-                              <button type="button" className="admin-icon-button" aria-label={`Изменить ${month.month}`} onClick={() => setMonthDraft(month)}>
+                              <button type="button" className="admin-icon-button" aria-label={`Изменить ${month.month}`} onClick={() => openMonth(month)}>
                                 <RefreshCw aria-hidden="true" />
+                              </button>
+                              <button type="button" className="admin-icon-button admin-icon-button--danger" aria-label={`Удалить ${month.month}`} onClick={() => void deleteMonth(month)}>
+                                <X aria-hidden="true" />
                               </button>
                             </td>
                           </tr>
@@ -666,14 +739,20 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
               {access.length === 0 && (
                 <div className="clients__access-preset">
                   <span className="admin-hint">Добавить типовой набор:</span>
-                  <button type="button" className="admin-button admin-button--compact" onClick={async () => {
+                  <button type="button" className="admin-button admin-button--compact" disabled={presetBusy} onClick={async () => {
+                    // Кнопка заперта на время запросов: второе нажатие давало
+                    // четырнадцать строк доступов вместо семи.
+                    if (presetBusy) return;
+                    setPresetBusy(true);
                     try {
                       for (const name of ACCESS_PRESET) await request({ action: 'set_access', id: draft.id, name, status: 'waiting' });
                       await refreshDetails(draft.id);
                     } catch (presetError) {
                       notify.error('Не удалось добавить', presetError instanceof Error ? presetError.message : undefined);
+                    } finally {
+                      setPresetBusy(false);
                     }
-                  }}>Создать чек-лист</button>
+                  }}>{presetBusy ? 'Создаю…' : 'Создать чек-лист'}</button>
                 </div>
               )}
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleDollarSign, FileUp, Plus, RefreshCw, Trash2, Wallet } from 'lucide-react';
 import { formatMoney } from './AttributionCharts';
 import { confirmAsk, notify } from './AdminFeedback';
+import { toIsoDate } from './plannerModel';
 
 interface SpendEntry {
   id: number;
@@ -23,11 +24,13 @@ interface SpendResponse {
   knownSources?: string[];
   saved?: number;
   skipped?: number;
+  /** Сколько строк CSV с одинаковым ключом сложено в одну (import_csv). */
+  merged?: number;
 }
 
-
+/** Сегодня по календарю владельца: по Гринвичу до пяти утра это ещё «вчера», и сегодняшний расход было не ввести. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toIsoDate(new Date());
 }
 
 function formatDay(day: string): string {
@@ -93,7 +96,8 @@ export default function AdminAdSpend({
     if (open) void load();
   }, [load, open]);
 
-  const post = useCallback(async (body: Record<string, unknown>, success: (payload: SpendResponse) => string) => {
+  /** true — сохранилось; false — ошибка показана, введённое остаётся в полях. */
+  const post = useCallback(async (body: Record<string, unknown>, success: (payload: SpendResponse) => string): Promise<boolean> => {
     setSaving(true);
     setError('');
     setNotice('');
@@ -113,28 +117,36 @@ export default function AdminAdSpend({
       notify.success(success(payload));
       onSaved();
       await load();
+      return true;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить расход');
+      return false;
     } finally {
       setSaving(false);
     }
   }, [days, load, onSaved, password]);
 
+  // Поля очищаются только после удачного ответа: при ошибке сервера сумма и
+  // вставленная выгрузка остаются на месте, чтобы поправить и отправить снова.
   const submitDraft = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!draft.source.trim()) { setError('Укажите источник — он должен совпадать с utm_source заявок'); return; }
     if (!draft.amount.trim()) { setError('Укажите сумму расхода'); return; }
-    await post({ action: 'upsert', entries: [draft] }, () => `Расход за ${formatDay(draft.day)} сохранён`);
-    setDraft((current) => ({ ...current, amount: '', note: '' }));
+    const ok = await post({ action: 'upsert', entries: [draft] }, () => `Расход за ${formatDay(draft.day)} сохранён`);
+    if (ok) setDraft((current) => ({ ...current, amount: '', note: '' }));
   };
 
   const importCsv = async () => {
     if (!csv.trim()) { setError('Вставьте содержимое CSV или выберите файл'); return; }
-    await post({ action: 'import_csv', csv }, (payload) => (
-      `Загружено строк: ${payload.saved || 0}${payload.skipped ? `, пропущено: ${payload.skipped}` : ''}`
+    const ok = await post({ action: 'import_csv', csv }, (payload) => (
+      `Загружено строк: ${payload.saved || 0}`
+      + `${payload.skipped ? `, пропущено: ${payload.skipped}` : ''}`
+      + `${payload.merged ? `, объединено: ${payload.merged}` : ''}`
     ));
-    setCsv('');
-    setCsvOpen(false);
+    if (ok) {
+      setCsv('');
+      setCsvOpen(false);
+    }
   };
 
   const readFile = async (file: File | null | undefined) => {

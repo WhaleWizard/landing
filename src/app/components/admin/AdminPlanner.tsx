@@ -784,9 +784,22 @@ export default function AdminPlanner({ password }: { password: string }) {
   const localModeRef = useRef(false);
   const passwordRef = useRef(password);
   const dataRef = useRef(data);
+  // Неделя, к которой относится dataRef. После «›» она отстаёт от weekStart,
+  // пока не пришёл ответ, и правка обязана сохраняться под своей неделей, а не
+  // под той, что уже выбрана в шапке: иначе данные одной недели ложились
+  // поверх другой.
+  const dataWeekRef = useRef(weekStart);
+  const weekStartRef = useRef(weekStart);
+  // Номер последнего запроса недели: поздний ответ прошлой недели не должен
+  // перезаписать уже открытую.
+  const loadSequenceRef = useRef(0);
+  // Неделя, чьи данные сейчас загружены, — для автоподстановки шаблона.
+  const loadedWeekRef = useRef<string | null>(null);
+  const loadRef = useRef<(week: string) => Promise<void>>(async () => {});
   passwordRef.current = password;
   localModeRef.current = localMode;
   dataRef.current = data;
+  weekStartRef.current = weekStart;
 
   const dates = useMemo(() => weekDates(weekStart), [weekStart]);
   const stats = useMemo(() => computeStats(data), [data]);
@@ -845,8 +858,34 @@ export default function AdminPlanner({ password }: { password: string }) {
     if (next === dataRef.current) return;
     dataRef.current = next;
     setData(next);
-    scheduleSave(weekStart, next);
-  }, [scheduleSave, weekStart]);
+    scheduleSave(dataWeekRef.current, next);
+  }, [scheduleSave]);
+
+  /**
+   * Перечитать неделю, изменить и записать, не трогая то, что на экране.
+   * Нужно, когда неделя, которую надо поправить, уже не открыта.
+   */
+  const rewriteWeek = useCallback(async (week: string, apply: (current: PlannerWeekData) => PlannerWeekData) => {
+    if (localModeRef.current) {
+      writeLocalWeek(week, apply(normalizeWeekData(readLocalWeeks()[week])));
+      return;
+    }
+    const response = await fetch(`/api/admin/planner?week=${encodeURIComponent(week)}`, {
+      headers: { 'X-Admin-Password': passwordRef.current },
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => null) as { success?: boolean; data?: unknown; error?: string } | null;
+    if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+    const saved = await fetch('/api/admin/planner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
+      credentials: 'same-origin',
+      body: JSON.stringify({ password: passwordRef.current, week, data: apply(normalizeWeekData(payload.data)) }),
+    });
+    const savedPayload = await saved.json().catch(() => null) as { success?: boolean; error?: string } | null;
+    if (!saved.ok || !savedPayload?.success) throw new Error(savedPayload?.error || `HTTP ${saved.status}`);
+  }, []);
 
   const [template, setTemplate] = useState<PlannerTemplate | null>(null);
   const [templateMigration, setTemplateMigration] = useState('');
@@ -955,7 +994,10 @@ export default function AdminPlanner({ password }: { password: string }) {
       return;
     }
 
-    const nextWeek = shiftWeek(weekStart, 1);
+    // Переносим из той недели, чьи данные на экране: после «›» weekStart уже
+    // следующий, а задачи ещё прежние.
+    const sourceWeek = dataWeekRef.current;
+    const nextWeek = shiftWeek(sourceWeek, 1);
     setCarryingDay(index);
     try {
       let targetData: PlannerWeekData;
@@ -996,17 +1038,47 @@ export default function AdminPlanner({ password }: { password: string }) {
         if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       }
 
-      update((current) => ({
-        ...current,
-        days: current.days.map((day, dayIndex) => (dayIndex === index ? withoutCarried(day, carried) : day)),
-      }));
+      // Пока шли запросы, владелец мог нажать «›»: на экране уже следующая
+      // неделя. Перенесённое убирается из той недели, откуда переносили, и
+      // ровно там, где она сейчас живёт — на экране, в очереди на сохранение
+      // или уже только на сервере. Раньше здесь был update() по текущим
+      // данным, и содержимое следующей недели записывалось поверх исходной.
+      const withoutCarriedWeek = (week: PlannerWeekData): PlannerWeekData => ({
+        ...week,
+        days: week.days.map((day, dayIndex) => (dayIndex === index ? withoutCarried(day, carried) : day)),
+      });
+      if (dataWeekRef.current === sourceWeek) {
+        update(withoutCarriedWeek);
+      } else if (pendingRef.current?.week === sourceWeek) {
+        pendingRef.current = { week: sourceWeek, data: withoutCarriedWeek(pendingRef.current.data) };
+      } else {
+        await rewriteWeek(sourceWeek, withoutCarriedWeek);
+      }
+
+      // Если следующая неделя уже открыта или открывается, её прочитали до
+      // нашей записи — без перенесённых задач, и первая же правка сохранила
+      // бы её без них. Добавляем их в понедельник, пропуская уже имеющиеся,
+      // а незавершённую загрузку перечитываем заново.
+      const withCarriedWeek = (week: PlannerWeekData): PlannerWeekData => ({
+        ...week,
+        days: week.days.map((day, dayIndex) => (dayIndex === 0
+          ? { ...day, tasks: [...day.tasks, ...carried.filter((task) => !day.tasks.some((item) => item.id === task.id))] }
+          : day)),
+      });
+      if (dataWeekRef.current === nextWeek) {
+        update(withCarriedWeek);
+      } else if (pendingRef.current?.week === nextWeek) {
+        pendingRef.current = { week: nextWeek, data: withCarriedWeek(pendingRef.current.data) };
+      } else if (weekStartRef.current === nextWeek) {
+        void loadRef.current(nextWeek);
+      }
       notify.success(`Перенесено задач: ${carried.length}`, 'Они ждут в понедельник следующей недели.');
     } catch (error) {
       notify.error('Не удалось перенести', error instanceof Error ? error.message : undefined);
     } finally {
       setCarryingDay(null);
     }
-  }, [carryingDay, update, weekStart]);
+  }, [carryingDay, rewriteWeek, update]);
 
   const saveWeekAsTemplate = useCallback(async () => {
     const next = templateFromWeek(dataRef.current);
@@ -1033,9 +1105,14 @@ export default function AdminPlanner({ password }: { password: string }) {
   }, [persistTemplate]);
 
   const load = useCallback(async (week: string) => {
+    const requestId = ++loadSequenceRef.current;
     setLoading(true);
     setLoadError('');
     setTemplateApplied(false);
+    // Автоподстановку шаблона не сохраняли, поэтому при возврате на неделю её
+    // нужно повторить; до ответа данные принадлежат ещё прошлой неделе.
+    loadedWeekRef.current = null;
+    appliedWeekRef.current = null;
     try {
       const response = await fetch(`/api/admin/planner?week=${encodeURIComponent(week)}`, {
         headers: { 'X-Admin-Password': passwordRef.current },
@@ -1048,6 +1125,9 @@ export default function AdminPlanner({ password }: { password: string }) {
         data?: unknown;
         updatedAt?: string | null;
       } | null;
+      // Пока ждали, открыли другую неделю (или перечитали эту же): поздний
+      // ответ выбрасывается, иначе он лёг бы поверх свежего.
+      if (requestId !== loadSequenceRef.current) return;
 
       if (!response.ok || !payload?.success) {
         // На localhost базы D1 нет — планер продолжает работать в этом браузере,
@@ -1056,6 +1136,8 @@ export default function AdminPlanner({ password }: { password: string }) {
           setLocalMode(true);
           localModeRef.current = true;
           dataRef.current = normalizeWeekData(readLocalWeeks()[week]);
+          dataWeekRef.current = week;
+          loadedWeekRef.current = week;
           setData(dataRef.current);
           setSavedAt(null);
           setSaveState('idle');
@@ -1067,15 +1149,20 @@ export default function AdminPlanner({ password }: { password: string }) {
       setLocalMode(false);
       localModeRef.current = false;
       dataRef.current = normalizeWeekData(payload.data);
+      dataWeekRef.current = week;
+      loadedWeekRef.current = week;
       setData(dataRef.current);
       setSavedAt(payload.updatedAt || null);
       setSaveState('idle');
     } catch (error) {
+      if (requestId !== loadSequenceRef.current) return;
       setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить планер');
     } finally {
-      setLoading(false);
+      if (requestId === loadSequenceRef.current) setLoading(false);
     }
   }, []);
+
+  loadRef.current = load;
 
   useEffect(() => {
     void load(weekStart);
@@ -1083,9 +1170,11 @@ export default function AdminPlanner({ password }: { password: string }) {
 
   // Шаблон подставляется сам только в пустую текущую или будущую неделю и без
   // сохранения: пролистывание недель не должно плодить записи в базе. Дела
-  // сохранятся вместе с первой же настоящей правкой.
+  // сохранятся вместе с первой же настоящей правкой. Подставлять можно только
+  // в данные этой самой недели (loadedWeekRef): иначе шаблон ложился на ещё
+  // не заменённые данные прошлой недели и показывал ложный баннер.
   useEffect(() => {
-    if (loading || !template || appliedWeekRef.current === weekStart) return;
+    if (loading || !template || loadedWeekRef.current !== weekStart || appliedWeekRef.current === weekStart) return;
     if (weekStart < currentWeekStart()) return;
     if (!isWeekUntouched(dataRef.current)) return;
     appliedWeekRef.current = weekStart;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NotebookPen, Plus, X } from 'lucide-react';
 import { createId, normalizeWeekData, type PlannerWeekData } from './plannerModel';
+import { enqueueSave, type PlannerSaveQueue } from './TodayPlan';
 
 export interface DayNote {
   id: string;
@@ -10,26 +11,38 @@ export interface DayNote {
 const MAX_NOTES = 10;
 const MAX_TEXT = 500;
 
+/** Правка заметок дня как операция — применяется к свежепрочитанному списку, а не к снимку экрана. */
+export type DayNoteOp = { type: 'remove'; id: string } | { type: 'add'; note: DayNote };
+
+export function applyDayNoteOp(notes: DayNote[], op: DayNoteOp): DayNote[] {
+  if (op.type === 'remove') return notes.filter((note) => note.id !== op.id);
+  return notes.some((note) => note.id === op.note.id) ? notes : [...notes, op.note];
+}
+
 /**
  * Быстрая заметка дня: мысль, договорённость или напоминание, которые жалко
  * потерять, но заводить ради них задачу незачем.
  *
  * Отдельного хранилища у заметки нет — она пишется в заметки этого же дня в
  * планере. Значит, записанное здесь видно и там, а не живёт двумя списками.
- * Сохранение идёт тем же циклом «перечитать неделю → изменить нужный день →
- * записать целиком»: иначе правка затёрла бы то, что записал сам планер.
+ * Сохранение идёт тем же циклом «перечитать неделю → применить правку к
+ * нужному дню → записать целиком», и в одной очереди с планом дня: иначе
+ * правка затёрла бы то, что записал сам планер или соседняя карточка.
  */
 export default function TodayNote({
   password,
   notes,
   weekStart,
   dayIndex,
+  queue,
   onSaved,
 }: {
   password: string;
   notes: DayNote[];
   weekStart: string;
   dayIndex: number;
+  /** Общая очередь с планом дня — см. enqueueSave в TodayPlan. */
+  queue?: PlannerSaveQueue;
   onSaved: () => void;
 }) {
   const [items, setItems] = useState<DayNote[]>(notes);
@@ -40,32 +53,38 @@ export default function TodayNote({
 
   useEffect(() => { setItems(notes); }, [notes]);
 
-  const persist = useCallback(async (next: DayNote[], previous: DayNote[]) => {
+  const persist = useCallback(async (op: DayNoteOp, previous: DayNote[]) => {
     setSaving(true);
     setError('');
     try {
-      const readResponse = await fetch(`/api/admin/planner?week=${encodeURIComponent(weekStart)}`, {
-        headers: { 'X-Admin-Password': password },
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      const readPayload = await readResponse.json().catch(() => null) as { success?: boolean; error?: string; data?: unknown } | null;
-      if (!readResponse.ok || !readPayload?.success) throw new Error(readPayload?.error || `HTTP ${readResponse.status}`);
+      await enqueueSave(queue, async () => {
+        const readResponse = await fetch(`/api/admin/planner?week=${encodeURIComponent(weekStart)}`, {
+          headers: { 'X-Admin-Password': password },
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const readPayload = await readResponse.json().catch(() => null) as { success?: boolean; error?: string; data?: unknown } | null;
+        if (!readResponse.ok || !readPayload?.success) throw new Error(readPayload?.error || `HTTP ${readResponse.status}`);
 
-      const week: PlannerWeekData = normalizeWeekData(readPayload.data);
-      week.days[dayIndex] = {
-        ...week.days[dayIndex],
-        notes: next.map((note) => ({ id: note.id, text: note.text })),
-      };
+        const week: PlannerWeekData = normalizeWeekData(readPayload.data);
+        const next = applyDayNoteOp(week.days[dayIndex].notes, op);
+        if (next.length > MAX_NOTES) throw new Error(`В дне уже ${MAX_NOTES} заметок — новая не поместится`);
+        week.days[dayIndex] = {
+          ...week.days[dayIndex],
+          notes: next.map((note) => ({ id: note.id, text: note.text })),
+        };
 
-      const saveResponse = await fetch('/api/admin/planner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
-        credentials: 'same-origin',
-        body: JSON.stringify({ week: weekStart, data: week }),
+        const saveResponse = await fetch('/api/admin/planner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+          credentials: 'same-origin',
+          body: JSON.stringify({ week: weekStart, data: week }),
+        });
+        const savePayload = await saveResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
+        if (!saveResponse.ok || !savePayload?.success) throw new Error(savePayload?.error || `HTTP ${saveResponse.status}`);
+        // На экране — то, что легло в базу: вместе с заметками, добавленными в планере.
+        setItems(next);
       });
-      const savePayload = await saveResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
-      if (!saveResponse.ok || !savePayload?.success) throw new Error(savePayload?.error || `HTTP ${saveResponse.status}`);
       onSaved();
     } catch (saveError) {
       // Откат: на экране не должно остаться записи, которой нет в базе.
@@ -74,25 +93,24 @@ export default function TodayNote({
     } finally {
       setSaving(false);
     }
-  }, [dayIndex, onSaved, password, weekStart]);
+  }, [dayIndex, onSaved, password, queue, weekStart]);
 
   const add = (event: React.FormEvent) => {
     event.preventDefault();
     const text = draft.trim().slice(0, MAX_TEXT);
     if (!text || items.length >= MAX_NOTES) return;
     const previous = items;
-    const next = [...items, { id: createId('note'), text }];
-    setItems(next);
+    const note = { id: createId('note'), text };
+    setItems(applyDayNoteOp(items, { type: 'add', note }));
     setDraft('');
-    void persist(next, previous);
+    void persist({ type: 'add', note }, previous);
     inputRef.current?.focus();
   };
 
   const remove = (id: string) => {
     const previous = items;
-    const next = items.filter((note) => note.id !== id);
-    setItems(next);
-    void persist(next, previous);
+    setItems(applyDayNoteOp(items, { type: 'remove', id }));
+    void persist({ type: 'remove', id }, previous);
   };
 
   return (

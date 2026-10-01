@@ -16,6 +16,12 @@ import { JSDOM } from 'jsdom';
  * зависели от дня запуска.
  */
 
+// Часовой пояс выбирается так, чтобы местная дата прямо сейчас отличалась от
+// даты по Гринвичу: до полудня UTC — пояс UTC−12 (там ещё вчера), после — UTC+14
+// (там уже завтра). Так проверка «даты по местному календарю, а не по UTC»
+// (F-068) не зависит от времени запуска.
+process.env.TZ = new Date().getUTCHours() < 12 ? 'Etc/GMT+12' : 'Etc/GMT-14';
+
 const TMP_DIR = `${process.cwd()}/tmp/audit-admin-crm-ui`;
 mkdirSync(TMP_DIR, { recursive: true });
 after(() => rmSync(TMP_DIR, { recursive: true, force: true }));
@@ -127,7 +133,7 @@ function mockFetch(rules) {
     calls.push({ url: address, method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null, init });
     for (const [needle, reply] of rules) {
       if (address.includes(needle)) {
-        const result = typeof reply === 'function' ? reply(address, init, calls) : reply;
+        const result = await (typeof reply === 'function' ? reply(address, init, calls) : reply);
         const { status = 200, ...payload } = result;
         return { ok: status < 400, status, json: async () => payload, text: async () => JSON.stringify(payload) };
       }
@@ -424,4 +430,511 @@ test('F-031: когда ни у одного месяца нет пары, по�
   assert.equal(result.totals.leads, 40);
   assert.deepEqual(result.ratioGaps.cpl, ['январь 2026', 'февраль 2026']);
   assert.equal(caseModule.toCaseData(result).metrics.some((metric) => metric.label === 'цена заявки'), false);
+});
+
+/* ---------------------------------------------------------------------- */
+/* F-039 · F-071 — Планер                                                  */
+/* ---------------------------------------------------------------------- */
+
+const plannerModule = await bundle(`
+  export { default as AdminPlanner } from './src/app/components/admin/AdminPlanner';
+  export { currentWeekStart, shiftWeek, emptyWeek } from './src/app/components/admin/plannerModel';
+`);
+
+/**
+ * Поддельный сервер планера: хранит недели, пишет журнал запросов и умеет
+ * задерживать ответы. `readDelay[неделя]` — список задержек, по одной на
+ * каждое следующее чтение этой недели. Ответ на чтение берёт данные в момент
+ * запроса — как настоящий сервер, который читает базу до того, как к нему
+ * долетит чужая запись.
+ */
+function plannerServer({ weeks = {}, template = null, readDelay = {}, writeDelay = 0 } = {}) {
+  const store = new Map(Object.entries(weeks));
+  const log = [];
+  const respond = (payload) => ({ ok: true, status: 200, json: async () => payload });
+  globalThis.fetch = async (url, init = {}) => {
+    const address = String(url);
+    const method = init.method || 'GET';
+    if (address.includes('/api/admin/planner-template')) return respond({ success: true, template });
+    if (address.includes('/api/admin/planner')) {
+      if (method === 'POST') {
+        const body = JSON.parse(init.body);
+        log.push({ method, week: body.week });
+        store.set(body.week, body.data);
+        if (writeDelay) await new Promise((resolve) => setTimeout(resolve, writeDelay));
+        return respond({ success: true });
+      }
+      const week = new URL(address, 'https://www.whalewzrd.com').searchParams.get('week');
+      log.push({ method, week });
+      const snapshot = store.get(week) || null;
+      const delay = readDelay[week]?.shift();
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      return respond({ success: true, week, data: snapshot, updatedAt: null });
+    }
+    return respond({ success: true });
+  };
+  return { store, log };
+}
+
+const weekWith = (overrides) => {
+  const week = plannerModule.emptyWeek();
+  return { ...week, ...overrides };
+};
+
+test('F-039: «Перенести» с воскресенья и сразу «›» не записывает следующую неделю поверх текущей', async () => {
+  const thisWeek = plannerModule.currentWeekStart();
+  const nextWeek = plannerModule.shiftWeek(thisWeek, 1);
+  const sunday = { tasks: [{ id: 'carry-1', text: 'Позвонить Ивану', done: false }, { id: 'done-1', text: 'Сдать отчёт', done: true }], notes: [{ id: 'n1', text: 'Заметка воскресенья' }], journal: plannerModule.emptyWeek().days[0].journal };
+  const source = weekWith({ goals: [{ id: 'g1', text: 'Цель этой недели', done: false }] });
+  source.days[6] = sunday;
+  // Чтение следующей недели для переноса идёт дольше, чем для «›»: ответ на
+  // «›» приходит раньше, чем закончится перенос, — ровно та гонка из находки.
+  const server = plannerServer({ weeks: { [thisWeek]: source }, readDelay: { [nextWeek]: [120, 20] }, writeDelay: 30 });
+
+  const view = await mount(plannerModule.AdminPlanner, { password: 'x' });
+  await wait(30);
+  assert.ok(view.container.textContent.includes('Цель этой недели'), 'текущая неделя загружена');
+
+  const carry = [...view.container.querySelectorAll('.planner-day__carry')].find((node) => node.textContent.includes('Перенести на следующую неделю'));
+  await click(carry);
+  // Не дожидаясь переноса — сразу на следующую неделю, как в сценарии находки.
+  await click(buttonByAria(view.container, 'Следующая неделя'));
+  await wait(250);
+  assert.deepEqual(
+    server.log.slice(1, 4).map((entry) => `${entry.method} ${entry.week === nextWeek ? 'next' : 'this'}`),
+    ['GET next', 'GET next', 'POST next'],
+    'сценарий воспроизведён: следующая неделя открылась до того, как перенос записал её',
+  );
+  // Автосохранение отложено на 1,2 с — ждём, пока очередь дойдёт до сервера.
+  await wait(1400);
+
+  const savedSource = server.store.get(thisWeek);
+  assert.ok(savedSource, 'исходная неделя на сервере есть');
+  assert.deepEqual(savedSource.goals.map((goal) => goal.text), ['Цель этой недели'], 'цели исходной недели не затёрты содержимым следующей');
+  assert.deepEqual(savedSource.days[6].tasks.map((task) => task.id), ['done-1'], 'перенесённая задача убрана из воскресенья, выполненная осталась');
+  assert.equal(savedSource.days[6].notes.length, 1, 'заметки воскресенья на месте');
+
+  const savedNext = server.store.get(nextWeek);
+  assert.ok(savedNext, 'следующая неделя записана');
+  assert.deepEqual(savedNext.days[0].tasks.map((task) => task.id), ['carry-1'], 'задача ровно один раз в понедельнике следующей недели');
+  assert.deepEqual(savedNext.goals, [], 'следующая неделя не унаследовала цели исходной');
+
+  // На экране — следующая неделя, и перенесённая задача в ней видна: иначе
+  // первая же правка сохранила бы понедельник без неё. Задачи и цели лежат в
+  // textarea, поэтому смотрим на значения полей, а не на текст страницы.
+  const fieldValues = [...view.container.querySelectorAll('textarea, input')].map((field) => field.value);
+  assert.ok(fieldValues.includes('Позвонить Ивану'), 'перенесённая задача видна в открытой следующей неделе');
+  assert.ok(!fieldValues.includes('Цель этой недели'), 'на экране уже следующая неделя');
+  await view.unmount();
+});
+
+test('F-071: шаблон недели подставляется снова после возврата на неделю, где его не сохраняли', async () => {
+  const thisWeek = plannerModule.currentWeekStart();
+  const previousWeek = plannerModule.shiftWeek(thisWeek, -1);
+  const previous = weekWith({ goals: [{ id: 'g0', text: 'Прошлая цель', done: false }] });
+  const server = plannerServer({
+    weeks: { [previousWeek]: previous },
+    template: { days: [['Разобрать почту'], [], [], [], [], [], []], goals: ['Цель из шаблона'] },
+  });
+
+  const view = await mount(plannerModule.AdminPlanner, { password: 'x' });
+  await wait(30);
+  assert.ok(view.container.textContent.includes('Дела подставлены из шаблона'), 'в пустую текущую неделю шаблон подставлен');
+  assert.ok(view.container.textContent.includes('Разобрать почту'));
+
+  await click(buttonByAria(view.container, 'Предыдущая неделя'));
+  await wait(30);
+  assert.ok(view.container.textContent.includes('Прошлая цель'), 'открыта прошлая неделя');
+  assert.ok(!view.container.textContent.includes('Разобрать почту'), 'в заполненную прошлую неделю шаблон не лезет');
+
+  await click(buttonByAria(view.container, 'Следующая неделя'));
+  await wait(30);
+  assert.ok(view.container.textContent.includes('Разобрать почту'), 'после возврата шаблон снова на месте, а не пустая неделя');
+  assert.ok(view.container.textContent.includes('Дела подставлены из шаблона'));
+
+  await wait(1400);
+  assert.equal(server.log.filter((entry) => entry.method === 'POST').length, 0, 'пролистывание не плодит записей: подстановка не сохраняется');
+  await view.unmount();
+});
+
+/* ---------------------------------------------------------------------- */
+/* F-040 (+ стык F-034) — Доска CRM                                        */
+/* ---------------------------------------------------------------------- */
+
+const boardModule = await bundle(`
+  export { default as CrmBoard } from './src/app/components/admin/CrmBoard';
+`);
+
+const boardLead = (id, stage, overrides = {}) => ({
+  id, name: `Сделка ${id}`, email: '', phone: '', telegram_username: '', service: 'Meta Ads',
+  pipeline_stage: stage, priority: 'normal', lead_score: 10, deal_value: null, deal_currency: 'USD',
+  next_action_at: null, next_action_text: '', crm_revision: 1, ...overrides,
+});
+
+test('F-040: доска догружает открытые сделки сверх 300, а счётчики и суммы берёт с сервера', async () => {
+  const pastDue = new Date(Date.now() - 86_400_000).toISOString();
+  const open = Array.from({ length: 310 }, (_, index) => boardLead(index + 1, 'new', index === 0 ? { next_action_at: pastDue } : {}));
+  const closed = Array.from({ length: 300 }, (_, index) => boardLead(1000 + index, index === 0 ? 'lost' : 'won', index === 0 ? { next_action_at: pastDue } : {}));
+  const summary = {
+    stages: { new: 310, won: 349, lost: 1 },
+    values_by_currency: [{ deal_currency: 'USD', open_value: 0, won_value: 123456 }],
+  };
+  const calls = mockFetch([
+    ['/api/admin/crm-leads', (address) => {
+      const params = new URL(address, 'https://www.whalewzrd.com').searchParams;
+      const stages = (params.get('pipeline_stage') || '').split(',');
+      const offset = Number(params.get('offset') || 0);
+      const limit = Number(params.get('limit') || 100);
+      const pool = stages.includes('new') ? open : closed;
+      const total = stages.includes('new') ? open.length : 350;
+      return { success: true, leads: pool.slice(offset, offset + limit), pagination: { total, limit, offset }, summary };
+    }],
+  ]);
+
+  const view = await mount(boardModule.CrmBoard, {
+    password: 'x', editingReady: true, selectedId: null, onOpenLead() {}, onChanged() {}, refreshToken: 0,
+  });
+  await settle(6);
+
+  const boardCalls = calls.filter((call) => call.url.includes('/api/admin/crm-leads')).map((call) => new URL(call.url, 'https://www.whalewzrd.com').searchParams);
+  const openPages = boardCalls.filter((params) => params.get('pipeline_stage') === 'new,contacted,discovery,proposal');
+  assert.deepEqual(openPages.map((params) => params.get('offset')), ['0', '300'], 'открытые этапы догружены второй страницей');
+  assert.ok(openPages.every((params) => params.get('limit') === '300' && params.get('sort') === 'priority'));
+  const closedPages = boardCalls.filter((params) => params.get('pipeline_stage') === 'won,lost,archived');
+  assert.equal(closedPages.length, 1, 'закрытые этапы — одной страницей последних');
+  assert.equal(closedPages[0].get('sort'), 'recent');
+
+  const columnByName = (label) => [...view.container.querySelectorAll('.crm-column')].find((node) => node.querySelector('h3')?.textContent === label);
+  assert.equal(columnByName('Новые').querySelector('.crm-column__count').textContent, '310', 'все 310 открытых на доске, а не 300');
+  assert.equal(columnByName('Новые').querySelectorAll('.crm-card').length, 310);
+  assert.equal(columnByName('Выиграны').querySelector('.crm-column__count').textContent, '349', 'счётчик колонки — с сервера, а не длина загруженного');
+  assert.match(columnByName('Выиграны').querySelector('.crm-column__value').textContent, /^123.456 USD$/, 'сумма выигранных — итог сервера по всем сделкам');
+  assert.ok(columnByName('Выиграны').textContent.includes('Показаны последние 299 из 349.'), 'неполная колонка говорит об этом словами');
+  assert.ok(view.container.textContent.includes('Сделок на доске: 610 из 660'), 'шапка показывает «N из M», когда загружено не всё');
+
+  // Стык F-034: закрытая сделка с прошедшим сроком не горит «просрочено», открытая — горит.
+  const cardById = (id) => [...view.container.querySelectorAll('.crm-card')].find((node) => node.textContent.includes(`Сделка ${id}`));
+  assert.ok(cardById(1).querySelector('.is-overdue'), 'открытая сделка с прошедшим сроком помечена');
+  assert.equal(cardById(1000).querySelector('.is-overdue'), null, 'проигранная сделка с прошедшим сроком не помечена');
+  await view.unmount();
+});
+
+test('F-040: когда всё помещается, доска не пишет «из» и считает суммы по загруженным', async () => {
+  const rows = [boardLead(1, 'new', { deal_value: 1500 }), boardLead(2, 'contacted', { deal_value: 500 }), boardLead(3, 'won', { deal_value: 3000 })];
+  mockFetch([
+    ['/api/admin/crm-leads', (address) => {
+      const stages = (new URL(address, 'https://www.whalewzrd.com').searchParams.get('pipeline_stage') || '').split(',');
+      const leads = rows.filter((row) => stages.includes(row.pipeline_stage));
+      return { success: true, leads, pagination: { total: leads.length }, summary: { stages: { new: 1, contacted: 1, won: 1 }, values_by_currency: [{ deal_currency: 'USD', open_value: 2000, won_value: 3000 }] } };
+    }],
+  ]);
+  const view = await mount(boardModule.CrmBoard, { password: 'x', editingReady: true, selectedId: null, onOpenLead() {}, onChanged() {}, refreshToken: 0 });
+  await settle(6);
+  assert.ok(view.container.textContent.includes('Сделок на доске: 3.'), 'без «из», когда загружено всё');
+  assert.ok(!view.container.textContent.includes('Показаны последние'));
+  const column = [...view.container.querySelectorAll('.crm-column')].find((node) => node.querySelector('h3')?.textContent === 'Новые');
+  assert.match(column.querySelector('.crm-column__value').textContent, /^1.500 USD$/);
+  await view.unmount();
+});
+
+/* ---------------------------------------------------------------------- */
+/* F-065 · F-068 — Рекламные расходы                                       */
+/* ---------------------------------------------------------------------- */
+
+const spendModule = await bundle(`
+  export { default as AdminAdSpend } from './src/app/components/admin/AdminAdSpend';
+  export { toIsoDate } from './src/app/components/admin/plannerModel';
+`);
+
+test('F-065: при ошибке сервера введённая сумма и вставленный CSV остаются в полях', async () => {
+  let fail = true;
+  const calls = mockFetch([
+    ['/api/admin/ad-spend', (_address, init) => (init.method === 'POST' && fail
+      ? { status: 400, success: false, error: 'В файле не нашлись колонки с датой и суммой' }
+      : { success: true, entries: [], totals: [], knownSources: [], saved: 1 })],
+  ]);
+  const view = await mount(spendModule.AdminAdSpend, { password: 'x', days: 30, onSaved() {} });
+  await click(buttonByText(view.container, 'Ввести расходы'));
+  await settle();
+
+  const sourceInput = byLabel(view.container, 'Источник');
+  const amountInput = byLabel(view.container, 'Сумма, $');
+  await type(sourceInput, 'facebook');
+  await type(amountInput, '120.5');
+  await submit(view.container.querySelector('form.adm-spend__form'));
+  await settle();
+  assert.ok(view.container.textContent.includes('В файле не нашлись колонки'), 'ошибка сервера показана');
+  assert.equal(amountInput.value, '120.5', 'сумма не стёрта после ошибки');
+  assert.equal(sourceInput.value, 'facebook');
+
+  await click(buttonByText(view.container, 'Загрузить CSV'));
+  const textarea = view.container.querySelector('textarea[aria-label="Содержимое CSV"]');
+  await type(textarea, 'date,amount\n2026-07-01,120.50');
+  await click(buttonByText(view.container, 'Загрузить'));
+  await settle();
+  assert.equal(view.container.querySelector('textarea[aria-label="Содержимое CSV"]')?.value, 'date,amount\n2026-07-01,120.50', 'выгрузка не стёрта и панель не закрыта');
+
+  fail = false;
+  await click(buttonByText(view.container, 'Загрузить'));
+  await settle();
+  assert.equal(view.container.querySelector('textarea[aria-label="Содержимое CSV"]'), null, 'после удачной загрузки панель CSV закрывается');
+  await submit(view.container.querySelector('form.adm-spend__form'));
+  await settle();
+  assert.equal(amountInput.value, '', 'после удачного сохранения сумма очищается');
+  assert.ok(calls.filter((call) => call.method === 'POST').length >= 4);
+  await view.unmount();
+});
+
+test('F-068: дата расхода по умолчанию и её предел — сегодня по местному календарю, а не по Гринвичу', async () => {
+  const local = spendModule.toIsoDate(new Date());
+  const utc = new Date().toISOString().slice(0, 10);
+  assert.notEqual(local, utc, 'предусловие: в выбранном поясе местная дата сейчас отличается от UTC');
+
+  mockFetch([['/api/admin/ad-spend', { success: true, entries: [], totals: [], knownSources: [] }]]);
+  const view = await mount(spendModule.AdminAdSpend, { password: 'x', days: 30, onSaved() {} });
+  await click(buttonByText(view.container, 'Ввести расходы'));
+  await settle();
+  const dayInput = byLabel(view.container, 'Дата');
+  assert.equal(dayInput.value, local, 'по умолчанию стоит сегодняшняя местная дата');
+  assert.equal(dayInput.max, local, 'сегодняшнюю дату можно выбрать');
+  await view.unmount();
+});
+
+/* ---------------------------------------------------------------------- */
+/* F-069 · F-072 — «Сегодня»: план и заметка дня                            */
+/* ---------------------------------------------------------------------- */
+
+const todayModule = await bundle(`
+  export { default as TodayPlan, applyPlanTaskOp } from './src/app/components/admin/TodayPlan';
+  export { default as TodayNote } from './src/app/components/admin/TodayNote';
+  export { createRef } from 'react';
+`);
+
+const WEEK = '2026-09-28';
+const dayWith = (tasks, notes = []) => ({ tasks, notes, journal: { sleep: '', energy: 0, mood: 0, lesson: '', gratitude: '', thoughts: '' } });
+
+test('F-072: серия дней на «Сегодня» согласована с числом: «21 день», «2 дня», «5 дней»', async () => {
+  mockFetch([]);
+  const props = { password: 'x', tasks: [], weekStart: WEEK, dayIndex: 0, onNavigate() {}, onSaved() {} };
+  const view = await mount(todayModule.TodayPlan, { ...props, streak: 21 });
+  assert.ok(view.container.textContent.includes('21 день подряд'), 'раньше было «21 дней подряд»');
+  await view.rerender({ ...props, streak: 2 });
+  assert.ok(view.container.textContent.includes('2 дня подряд'));
+  await view.rerender({ ...props, streak: 5 });
+  assert.ok(view.container.textContent.includes('5 дней подряд'));
+  await view.rerender({ ...props, streak: 111 });
+  assert.ok(view.container.textContent.includes('111 дней подряд'));
+  await view.unmount();
+});
+
+test('F-069: отметка на «Сегодня» применяется к свежепрочитанной неделе и не стирает задачу, добавленную в планере', async () => {
+  const stored = { goals: [], habits: [], days: Array.from({ length: 7 }, () => dayWith([])) };
+  stored.days[2] = dayWith([{ id: 't1', text: 'Позвонить', done: false }, { id: 't2', text: 'Добавлено с телефона', done: false }]);
+  const calls = mockFetch([
+    ['/api/admin/planner', (_address, init) => {
+      if ((init.method || 'GET') === 'POST') { Object.assign(stored, JSON.parse(init.body).data); return { success: true }; }
+      return { success: true, data: stored };
+    }],
+  ]);
+  // На экране — снимок до того, как в планере появилась вторая задача.
+  const view = await mount(todayModule.TodayPlan, { password: 'x', tasks: [{ id: 't1', text: 'Позвонить', done: false }], weekStart: WEEK, dayIndex: 2, onNavigate() {}, onSaved() {} });
+  await click(view.container.querySelector('.today-plan__check'));
+  await settle();
+
+  const post = calls.find((call) => call.method === 'POST');
+  assert.ok(post, 'запись ушла');
+  assert.deepEqual(post.body.data.days[2].tasks, [
+    { id: 't1', text: 'Позвонить', done: true },
+    { id: 't2', text: 'Добавлено с телефона', done: false },
+  ], 'отметка легла на свежий список, чужая задача не затёрта');
+  assert.ok(view.container.textContent.includes('Добавлено с телефона'), 'после записи на экране и чужая задача');
+  assert.equal(view.container.querySelector('.today-plan__check[aria-pressed="true"]') !== null, true);
+  await view.unmount();
+});
+
+test('F-069: план и заметка дня пишут неделю по очереди, последняя запись не стирает первую', async () => {
+  const stored = { goals: [], habits: [], days: Array.from({ length: 7 }, () => dayWith([])) };
+  stored.days[0] = dayWith([{ id: 't1', text: 'Позвонить', done: false }]);
+  const calls = mockFetch([
+    ['/api/admin/planner', async (_address, init) => {
+      if ((init.method || 'GET') === 'POST') { Object.assign(stored, JSON.parse(init.body).data); return { success: true }; }
+      // Чтение медленнее записи: без очереди обе карточки прочитали бы неделю до чужой записи.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { success: true, data: JSON.parse(JSON.stringify(stored)) };
+    }],
+  ]);
+  const queue = todayModule.createRef();
+  queue.current = Promise.resolve();
+  const plan = await mount(todayModule.TodayPlan, { password: 'x', tasks: stored.days[0].tasks, weekStart: WEEK, dayIndex: 0, queue, onNavigate() {}, onSaved() {} });
+  const note = await mount(todayModule.TodayNote, { password: 'x', notes: [], weekStart: WEEK, dayIndex: 0, queue, onSaved() {} });
+
+  await click(plan.container.querySelector('.today-plan__check'));
+  await type(note.container.querySelector('input[aria-label="Новая заметка на сегодня"]'), 'Договорились на вторник');
+  await submit(note.container.querySelector('form.today-note__add'));
+  await wait(120);
+
+  assert.deepEqual(calls.map((call) => call.method), ['GET', 'POST', 'GET', 'POST'], 'второй цикл начался после окончания первого');
+  assert.equal(stored.days[0].tasks[0].done, true, 'отметка задачи сохранилась');
+  assert.deepEqual(stored.days[0].notes.map((item) => item.text), ['Договорились на вторник'], 'заметка сохранилась');
+  await plan.unmount();
+  await note.unmount();
+});
+
+test('F-069: при ошибке записи экран откатывается к прежнему списку', async () => {
+  mockFetch([
+    ['/api/admin/planner', (_address, init) => ((init.method || 'GET') === 'POST'
+      ? { status: 500, success: false, error: 'База недоступна' }
+      : { success: true, data: { goals: [], habits: [], days: Array.from({ length: 7 }, () => dayWith([{ id: 't1', text: 'Позвонить', done: false }])) } })],
+  ]);
+  const view = await mount(todayModule.TodayPlan, { password: 'x', tasks: [{ id: 't1', text: 'Позвонить', done: false }], weekStart: WEEK, dayIndex: 0, onNavigate() {}, onSaved() {} });
+  await click(view.container.querySelector('.today-plan__check'));
+  await settle();
+  assert.equal(view.container.querySelector('.today-plan__check').getAttribute('aria-pressed'), 'false', 'отметки, которой нет в базе, на экране нет');
+  assert.ok(view.container.textContent.includes('База недоступна'));
+  await view.unmount();
+});
+
+/* ---------------------------------------------------------------------- */
+/* F-041 · F-070 — Клиенты                                                  */
+/* ---------------------------------------------------------------------- */
+
+const clientsModule = await bundle(`
+  export { default as AdminClients } from './src/app/components/admin/AdminClients';
+  export { toIsoDate } from './src/app/components/admin/plannerModel';
+`);
+
+const localMonth = () => clientsModule.toIsoDate(new Date()).slice(0, 7);
+
+const clientFixture = () => ({
+  id: 1, lead_id: null, name: 'Ива Петрова', company: '', status: 'active', started_at: '2026-01-10',
+  paused_until: null, finished_at: null, finish_reason: '', contact_method: 'telegram', contact_value: '@iva',
+  timezone_offset: null, services: [], retainer_amount: 800, retainer_currency: 'USD', billing_day: 5,
+  contract_number: '', contract_signed_at: null, contract_ends_at: null, contract_auto_renew: 0, contract_file_url: '',
+  scope_included: '', scope_excluded: '', next_touch_at: null, next_touch_text: '', media_folder: '',
+  health: 'ok', healthReasons: [], lastReportMonth: null,
+});
+
+function clientsServer({ months = [], access = [], setAccessDelay = 0 } = {}) {
+  const calls = mockFetch([
+    ['/api/admin/clients', async (address, init) => {
+      if ((init.method || 'GET') === 'POST') {
+        const body = JSON.parse(init.body);
+        if (body.action === 'set_access' && setAccessDelay) await new Promise((resolve) => setTimeout(resolve, setAccessDelay));
+        return { success: true, id: 1 };
+      }
+      const params = new URL(address, 'https://www.whalewzrd.com').searchParams;
+      if (params.get('id')) return { success: true, client: clientFixture(), months, access, notes: [] };
+      return { success: true, clients: [clientFixture()], summary: { recurring: [], activeCount: 1, totalCount: 1, needAttention: 0, averageLifetimeDays: 0 } };
+    }],
+  ]);
+  return calls;
+}
+
+test('F-041: месяц существующей строки не меняется, «Добавить месяц» открывает уже заведённый, строку можно удалить', async () => {
+  window.confirm = () => true;
+  const month = localMonth();
+  const calls = clientsServer({
+    months: [{ client_id: 1, month, report_sent_at: '2026-10-01', report_url: '', spend: 100, spend_currency: 'USD', leads: 10, sales: 1, revenue: 500, note: 'важно' }],
+  });
+  const view = await mount(clientsModule.AdminClients, { password: 'x' });
+  await settle();
+  await click([...view.container.querySelectorAll('.clients__list button')].find((node) => node.textContent.includes('Ива Петрова')));
+  await settle();
+
+  await click(buttonByText(view.container, 'Добавить месяц'));
+  const monthInput = byLabel(view.container, 'Месяц');
+  assert.ok(monthInput, 'форма месяца открыта');
+  assert.equal(monthInput.value, month, 'текущий месяц уже есть — открыта его строка');
+  assert.equal(monthInput.readOnly, true, 'месяц существующей строки не меняется — иначе получался дубль');
+  assert.equal(byLabel(view.container, 'Отчёт отправлен').value, '2026-10-01', 'отметка об отчёте не стёрта пустой формой');
+  assert.equal(byLabel(view.container, 'Заявок').value, '10');
+
+  await click(buttonByText(view.container, 'Сохранить месяц'));
+  await settle();
+  const saved = calls.find((call) => call.method === 'POST' && call.body?.action === 'set_month');
+  assert.ok(saved, 'сохранение ушло');
+  assert.equal(saved.body.note, 'важно', 'заметка месяца проходит через форму, а не стирается');
+  assert.equal(saved.body.month, month);
+
+  await click(buttonByAria(view.container, `Изменить ${month}`));
+  assert.equal(byLabel(view.container, 'Месяц').readOnly, true, 'и через «Изменить» месяц тоже только для чтения');
+  await click(buttonByText(view.container, 'Отмена'));
+
+  await click(buttonByAria(view.container, `Удалить ${month}`));
+  await settle();
+  const removed = calls.find((call) => call.method === 'POST' && call.body?.action === 'delete_month');
+  assert.ok(removed, 'удаление месяца доступно из интерфейса');
+  assert.equal(removed.body.month, month);
+  assert.equal(removed.body.id, 1);
+  await view.unmount();
+});
+
+test('F-070: повторное нажатие «Создать чек-лист» не плодит дубли доступов', async () => {
+  const calls = clientsServer({ setAccessDelay: 15 });
+  const view = await mount(clientsModule.AdminClients, { password: 'x' });
+  await settle();
+  await click([...view.container.querySelectorAll('.clients__list button')].find((node) => node.textContent.includes('Ива Петрова')));
+  await settle();
+
+  const button = buttonByText(view.container, 'Создать чек-лист');
+  assert.ok(button, 'кнопка типового набора на месте');
+  await click(button);
+  assert.equal(button.disabled, true, 'на время запросов кнопка заперта');
+  assert.equal(button.textContent.trim(), 'Создаю…');
+  await click(button);
+  await wait(200);
+
+  const names = calls.filter((call) => call.method === 'POST' && call.body?.action === 'set_access').map((call) => call.body.name);
+  assert.equal(names.length, 7, 'ровно один набор из семи доступов');
+  assert.equal(new Set(names).size, names.length, 'без дублей');
+  await view.unmount();
+});
+
+/* ---------------------------------------------------------------------- */
+/* F-068 — Цели и Отчёт                                                    */
+/* ---------------------------------------------------------------------- */
+
+const periodsModule = await bundle(`
+  export { default as AdminGoals } from './src/app/components/admin/AdminGoals';
+  export { default as AdminReport } from './src/app/components/admin/AdminReport';
+`);
+
+test('F-068: «Цели» открываются на месяце по местному календарю и переходят на месяц сервера', async () => {
+  const now = new Date();
+  const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const serverNext = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const serverToday = `${serverNext.getFullYear()}-${String(serverNext.getMonth() + 1).padStart(2, '0')}-01`;
+  const calls = mockFetch([
+    ['/api/admin/goals', (address) => ({
+      success: true, today: serverToday, period: new URL(address, 'https://www.whalewzrd.com').searchParams.get('period'),
+      goal: null, hasGoal: false, fact: { leads: 0, qualified: 0, won: 0, revenue: null, spend: null },
+      forecast: { elapsedDays: 1, totalDays: 30, isCurrent: true, leads: null, qualified: null, revenue: null, spend: null },
+      history: [], notes: [],
+    })],
+  ]);
+  const view = await mount(periodsModule.AdminGoals, { password: 'x' });
+  await settle(6);
+  const periods = calls.filter((call) => call.url.includes('/api/admin/goals')).map((call) => new URL(call.url, 'https://www.whalewzrd.com').searchParams.get('period'));
+  assert.equal(periods[0], local, 'первый запрос — за месяц по местному календарю, а не по Гринвичу');
+  assert.equal(periods[1], serverToday.slice(0, 7), 'сервер считает текущим другой месяц — раздел перешёл на него');
+  assert.equal(periods.length, 2, 'переход один, по кругу не ходит');
+  await view.unmount();
+});
+
+test('F-068: «Отчёт» открывается на месяце по местному календарю', async () => {
+  const now = new Date();
+  const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const numbers = { views: null, visitors: null, leads: 0, qualified: null, won: null, revenue: null, spend: null };
+  const calls = mockFetch([
+    ['/api/admin/report', (address) => ({
+      success: true, period: new URL(address, 'https://www.whalewzrd.com').searchParams.get('period'), isCurrentMonth: true, currency: 'USD',
+      current: numbers, previous: numbers, derived: { profit: null, cpl: null, cpq: null, romi: null }, goal: null, sources: [], pages: [], publishedArticles: null, notes: [],
+    })],
+  ]);
+  const view = await mount(periodsModule.AdminReport, { password: 'x' });
+  await settle(4);
+  const period = new URL(calls.find((call) => call.url.includes('/api/admin/report')).url, 'https://www.whalewzrd.com').searchParams.get('period');
+  assert.equal(period, local);
+  assert.equal(buttonByAria(view.container, 'Следующий месяц')?.disabled, true, 'стрелка вперёд из текущего месяца заперта');
+  await view.unmount();
 });

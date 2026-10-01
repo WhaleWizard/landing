@@ -125,6 +125,23 @@ function textFromHtml(element: Element): string {
   return copy.textContent?.trim() || '';
 }
 
+/**
+ * Есть ли внутри узла разметка, которую текстовый блок не удержит: ссылки,
+ * выделения, вложенные теги. Переносы `<br>` не считаются — их текстовый блок
+ * хранит переводом строки. Раньше такой узел сводился к `textContent`, и любая
+ * правка статьи молча вырезала из текста ссылки, жирный и курсив.
+ */
+function hasInlineMarkup(element: Element): boolean {
+  return element.querySelector(':not(br)') != null;
+}
+
+/** Акцент и карточка: текст лежит прямо внутри или в единственном <p> без разметки. */
+function isPlainTextContainer(node: HTMLElement): boolean {
+  const inner = Array.from(node.children).filter((child) => child.tagName !== 'BR');
+  if (inner.length === 0) return true;
+  return inner.length === 1 && inner[0].tagName === 'P' && !hasInlineMarkup(inner[0]);
+}
+
 function listItems(value = ''): string[] {
   return value.split(/\r?\n/).map((item) => item.replace(/^\s*(?:[-–—•*]|\d+[.)])\s*/, '').trim()).filter(Boolean);
 }
@@ -212,6 +229,9 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
   if (!(node instanceof HTMLElement)) return null;
   const tag = node.tagName.toLowerCase();
   const wwType = node.getAttribute('data-ww-block');
+  // Узел с разметкой внутри сохраняется байт в байт как блок «HTML (fallback)»:
+  // там его можно править, и serializeBlocks всё равно прогонит его через sanitizeHtml.
+  const rawBlock = (): ContentBlock => ({ id: uid(), type: 'rawHtml', html: node.outerHTML });
 
   if (wwType === 'code' || tag === 'pre') {
     // Текст кода берём как есть (без trim по строкам), убираем только крайние переводы строк
@@ -219,11 +239,18 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
     const codeText = (codeEl ?? node).textContent ?? '';
     return { id: uid(), type: 'code', text: codeText.replace(/^\n+|\n+$/g, '') };
   }
-  if (wwType === 'accent') return { id: uid(), type: 'accent', text: textFromHtml(node) };
+  if (wwType === 'accent') {
+    if (!isPlainTextContainer(node)) return rawBlock();
+    return { id: uid(), type: 'accent', text: textFromHtml(node) };
+  }
   if (wwType === 'list' || tag === 'ul' || tag === 'ol') {
-    return { id: uid(), type: 'list', listStyle: tag === 'ol' || node.getAttribute('data-ww-tone') === 'numbered' ? 'numbered' : 'bulleted', text: Array.from(node.querySelectorAll(':scope > li')).map((item) => item.textContent?.trim() || '').join('\n') };
+    const items = Array.from(node.querySelectorAll(':scope > li'));
+    // Пункт с любым тегом внутри («<strong>Шаг 1:</strong> …», ссылка) текстовое поле списка не удержит.
+    if (items.some((item) => item.firstElementChild != null)) return rawBlock();
+    return { id: uid(), type: 'list', listStyle: tag === 'ol' || node.getAttribute('data-ww-tone') === 'numbered' ? 'numbered' : 'bulleted', text: items.map((item) => item.textContent?.trim() || '').join('\n') };
   }
   if (wwType === 'card') {
+    if (!isPlainTextContainer(node)) return rawBlock();
     const rawTone = node.getAttribute('data-ww-tone');
     const tone: CardTone = rawTone === 'light' || rawTone === 'accent' ? rawTone : 'dark';
     return { id: uid(), type: 'card', tone, text: textFromHtml(node) };
@@ -251,14 +278,18 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
     const caption = tag === 'figure' ? node.querySelector('figcaption') : null;
     return { id: uid(), type: 'image', imageUrl: img?.getAttribute('src') || '', imageAlt: img?.getAttribute('alt') || caption?.textContent?.trim() || '' };
   }
-  if (tag === 'h2' || tag === 'h3') return { id: uid(), type: 'heading', level: tag === 'h3' ? 3 : 2, headingTone: node.getAttribute('data-ww-tone') === 'accent' ? 'accent' : 'default', text: node.textContent?.trim() || '' };
-  if (tag === 'p') return { id: uid(), type: 'paragraph', text: textFromHtml(node) };
-  if (tag === 'blockquote') return { id: uid(), type: 'quote', text: textFromHtml(node) };
+  if (tag === 'h2' || tag === 'h3') {
+    // Поле заголовка однострочное: даже <br> внутри ему не удержать.
+    if (node.firstElementChild != null) return rawBlock();
+    return { id: uid(), type: 'heading', level: tag === 'h3' ? 3 : 2, headingTone: node.getAttribute('data-ww-tone') === 'accent' ? 'accent' : 'default', text: node.textContent?.trim() || '' };
+  }
+  if (tag === 'p') return hasInlineMarkup(node) ? rawBlock() : { id: uid(), type: 'paragraph', text: textFromHtml(node) };
+  if (tag === 'blockquote') return hasInlineMarkup(node) ? rawBlock() : { id: uid(), type: 'quote', text: textFromHtml(node) };
   if (tag === 'div' && node.style.height && !node.textContent?.trim()) {
     const height = Number.parseInt(node.style.height, 10);
     if (Number.isFinite(height)) return { id: uid(), type: 'spacer', space: height };
   }
-  return { id: uid(), type: 'rawHtml', html: node.outerHTML };
+  return rawBlock();
 }
 
 function parseHtmlToBlocks(html: string): ContentBlock[] {
@@ -411,28 +442,22 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
   drag(drop(ref));
 
+  // Обычную вставку делает сам браузер: текст встаёт на место курсора и
+  // заменяет выделение, Ctrl+Z её отменяет. Раньше обработчик перехватывал
+  // всё подряд и дописывал текст в конец абзаца, а абзац с картинкой из буфера
+  // не вставлялся вовсе. Перехватывается один случай — в буфере одна картинка
+  // и ни слова текста: тогда блок становится картинкой.
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    e.preventDefault();
     const html = e.clipboardData.getData('text/html');
-    const plain = e.clipboardData.getData('text/plain');
-    if (html) {
-      const container = document.createElement('div');
-      container.innerHTML = html;
-      const img = container.querySelector('img');
-      if (img) {
-        onUpdate(block.id, { imageUrl: img.getAttribute('src') || '', imageAlt: img.getAttribute('alt') || '' });
-        return;
-      }
-      const pastedBlocks = parseHtmlToBlocks(html);
-      if (pastedBlocks.length === 1 && pastedBlocks[0].type === 'image') {
-        onUpdate(block.id, { type: 'image', imageUrl: pastedBlocks[0].imageUrl, imageAlt: pastedBlocks[0].imageAlt });
-      } else {
-        onUpdate(block.id, { text: (block.text || '') + plain });
-      }
-    } else {
-      onUpdate(block.id, { text: (block.text || '') + plain });
-    }
-  }, [block.id, onUpdate, block.text]);
+    if (!html) return;
+    // DOMParser даёт неактивный документ: <img> из буфера не начнёт грузиться,
+    // а его обработчики не сработают (в отличие от innerHTML на живом div).
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const images = doc.querySelectorAll('img');
+    if (images.length !== 1 || doc.body.textContent?.trim()) return;
+    e.preventDefault();
+    onUpdate(block.id, { type: 'image', imageUrl: images[0].getAttribute('src') || '', imageAlt: images[0].getAttribute('alt') || '' });
+  }, [block.id, onUpdate]);
 
   return (
     <div
@@ -646,6 +671,12 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
   const [mdText, setMdText] = useState('');
   const isLocalSyncRef = useRef(false);
   const isExternalSyncRef = useRef(false);
+  // Поднимается, когда владелец сам менял блоки (правка, отмена, markdown), и
+  // сбрасывается при внешней смене содержимого. Пока флаг опущен, onChange не
+  // уходит: сборка блоков в HTML — не то же самое, что исходник статьи (у
+  // абзацев появляются встроенные стили, а разметка внутри узлов раньше
+  // терялась), и одна только перерисовка родителя переписывала статью.
+  const blocksTouchedRef = useRef(false);
 
   useEffect(() => {
     if (isLocalSyncRef.current) { isLocalSyncRef.current = false; return; }
@@ -654,9 +685,15 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     // любом повторном рендере родителя.
     const nextBlocks = parseHtmlToBlocks(content);
     isExternalSyncRef.current = true;
+    blocksTouchedRef.current = false;
     setBlocks(nextBlocks);
     setHtmlOutput(serializeBlocks(nextBlocks));
     setHistory({ past: [], future: [] });
+    // Другая статья или восстановленная версия: режим Markdown закрывается
+    // вместе с чужим текстом. Иначе «Визуальный» применял бы к новой статье
+    // markdown предыдущей и перезаписывал бы её.
+    setMarkdownMode(false);
+    setMdText('');
   }, [content]);
 
   useEffect(() => {
@@ -685,28 +722,17 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
       isExternalSyncRef.current = false;
       return;
     }
-    if (htmlOutput === content) return;
+    if (!blocksTouchedRef.current || htmlOutput === content) return;
     isLocalSyncRef.current = true;
     onChange(htmlOutput);
   }, [htmlOutput, content, onChange, readOnly]);
-
-  const toggleMarkdown = useCallback(() => {
-    if (markdownMode) {
-      const newBlocks = markdownToBlocks(mdText);
-      setBlocks(newBlocks);
-      setMarkdownMode(false);
-    } else {
-      const md = blocks.map(blockToMarkdown).join('\n\n');
-      setMdText(md);
-      setMarkdownMode(true);
-    }
-  }, [markdownMode, mdText, blocks]);
 
   const setBlocksWithHistory = useCallback((updater: ContentBlock[] | ((prev: ContentBlock[]) => ContentBlock[]), keepHistory = true) => {
     setBlocks((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       // Все реальные операции редактора возвращают новый массив, а no-op — prev.
       // Сравнение ссылок не сериализует всю статью на каждое нажатие клавиши.
+      if (next !== prev) blocksTouchedRef.current = true;
       if (keepHistory && next !== prev) {
         setHistory((current) => ({
           past: [...current.past, prev].slice(-MAX_HISTORY),
@@ -716,6 +742,51 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
       return next;
     });
   }, []);
+
+  // Markdown при входе в режим, уже применённый к блокам markdown и блоки на
+  // момент входа. Текст без правок в блоки не превращается: круг «блоки →
+  // markdown → блоки» теряет тон заголовков и размер отступов, и одно
+  // переключение туда-обратно переписывало бы статью.
+  const mdBaselineRef = useRef('');
+  const mdAppliedRef = useRef('');
+  const mdEntryBlocksRef = useRef<ContentBlock[]>([]);
+
+  const applyMarkdown = useCallback((md: string) => {
+    if (md === mdAppliedRef.current) return;
+    mdAppliedRef.current = md;
+    // Текст вернули к исходному — возвращаются и исходные блоки, без потерь.
+    const next = md === mdBaselineRef.current ? mdEntryBlocksRef.current : markdownToBlocks(md);
+    setBlocksWithHistory(next);
+    // HTML собирается сразу, не дожидаясь задержки: после «Применить разметку»
+    // или потери фокуса родитель получает текст до того, как нажмут «Сохранить».
+    setHtmlOutput(serializeBlocks(next));
+  }, [setBlocksWithHistory]);
+
+  // Пока режим Markdown открыт, источник правды — текст в поле: он с той же
+  // задержкой превращается в блоки, и дальше работает обычная цепочка
+  // «блоки → HTML → onChange» — метка «есть изменения», резервная копия,
+  // предупреждение при закрытии и сохранение. Раньше набранное в Markdown
+  // попадало в статью только по кнопке «Применить разметку», и «Сохранить»
+  // уносил старый текст, а набранное пропадало вместе с закрытым редактором.
+  useEffect(() => {
+    if (!markdownMode || mdText === mdAppliedRef.current) return;
+    const timer = window.setTimeout(() => applyMarkdown(mdText), OUTPUT_SYNC_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [markdownMode, mdText, applyMarkdown]);
+
+  const toggleMarkdown = useCallback(() => {
+    if (markdownMode) {
+      applyMarkdown(mdText);
+      setMarkdownMode(false);
+    } else {
+      const md = blocks.map(blockToMarkdown).join('\n\n');
+      mdBaselineRef.current = md;
+      mdAppliedRef.current = md;
+      mdEntryBlocksRef.current = blocks;
+      setMdText(md);
+      setMarkdownMode(true);
+    }
+  }, [markdownMode, mdText, blocks, applyMarkdown]);
 
   const addBlock = useCallback((type: BlockType) => {
     const newBlock = createBlock(type);
@@ -734,19 +805,6 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     });
     setSelectedBlockId(newBlock.id);
   }, [setBlocksWithHistory]);
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!event.ctrlKey || event.key !== 'Enter' || !target?.closest('.admin-article-editor')) return;
-      const current = blocks.find((block) => block.id === selectedBlockId);
-      if (!current) return;
-      event.preventDefault();
-      insertBlockAfter(current.id, current.type);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [blocks, insertBlockAfter, selectedBlockId]);
 
   const updateBlock = useCallback((id: string, patch: Partial<ContentBlock>) => {
     setBlocksWithHistory((prev) => {
@@ -796,6 +854,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     setHistory((current) => {
       if (current.past.length === 0) return current;
       const previous = current.past[current.past.length - 1];
+      blocksTouchedRef.current = true;
       setBlocks(() => previous);
       return {
         past: current.past.slice(0, -1),
@@ -808,6 +867,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     setHistory((current) => {
       if (current.future.length === 0) return current;
       const next = current.future[0];
+      blocksTouchedRef.current = true;
       setBlocks(() => next);
       return {
         past: [...current.past, blocks].slice(-MAX_HISTORY),
@@ -815,6 +875,45 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
       };
     });
   }, [blocks]);
+
+  // Горячие клавиши из подсказки под палитрой. Клавиши сверяются по
+  // `event.code`, а не по `event.key`: на русской раскладке Ctrl+Z даёт «я» (то
+  // же правило, что у Ctrl+K палитры команд). Отмена и возврат не перехватываются,
+  // пока курсор стоит в поле ввода, — там работает привычная отмена набора; после
+  // удаления блока фокус уходит на body, и Ctrl+Z возвращает блок, как обещано.
+  // В режиме Markdown блоков нет, и сочетания молчат.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (markdownMode) return;
+      const target = event.target as HTMLElement | null;
+      const inEditor = Boolean(target?.closest('.admin-article-editor')) || target === document.body;
+      if (!inEditor) return;
+      const inTextField = Boolean(target && (target.matches('input, textarea, select') || target.isContentEditable));
+      const withControl = event.ctrlKey || event.metaKey;
+
+      if (event.altKey && event.shiftKey && !withControl && (event.code === 'ArrowUp' || event.code === 'ArrowDown')) {
+        const index = blocks.findIndex((block) => block.id === selectedBlockId);
+        if (index < 0) return;
+        event.preventDefault();
+        moveBlockByArrow(index, event.code === 'ArrowUp' ? -1 : 1);
+        return;
+      }
+
+      if (withControl && !event.altKey && !inTextField && (event.code === 'KeyZ' || event.code === 'KeyY')) {
+        event.preventDefault();
+        if (event.code === 'KeyY' || event.shiftKey) redo(); else undo();
+        return;
+      }
+
+      if (!event.ctrlKey || event.key !== 'Enter' || !target?.closest('.admin-article-editor')) return;
+      const current = blocks.find((block) => block.id === selectedBlockId);
+      if (!current) return;
+      event.preventDefault();
+      insertBlockAfter(current.id, current.type);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [blocks, insertBlockAfter, markdownMode, moveBlockByArrow, redo, selectedBlockId, undo]);
 
   if (readOnly) {
     return (
@@ -834,8 +933,11 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm text-[var(--adm-fg)]/60">Добавить блок</span>
             <div className="inline-flex items-center gap-1">
-              <button type="button" onClick={undo} disabled={history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)" aria-label="Отменить изменение"><Undo2 className="h-4 w-4" /></button>
-              <button type="button" onClick={redo} disabled={history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)" aria-label="Повторить изменение"><Redo2 className="h-4 w-4" /></button>
+              {/* В режиме Markdown блоки спрятаны, а поле — источник правды: отмена и
+                  добавление блока меняли бы блоки в обход текста, и живая синхронизация
+                  тут же затирала бы их. */}
+              <button type="button" onClick={undo} disabled={markdownMode || history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)" aria-label="Отменить изменение"><Undo2 className="h-4 w-4" /></button>
+              <button type="button" onClick={redo} disabled={markdownMode || history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)" aria-label="Повторить изменение"><Redo2 className="h-4 w-4" /></button>
               <button type="button" onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-2 px-2 hover:bg-[var(--adm-primary)]/10">
                 {markdownMode ? 'Визуальный' : 'Markdown'}
               </button>
@@ -847,7 +949,9 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
                 key={type}
                 type="button"
                 onClick={() => addBlock(type)}
-                className="inline-flex items-center gap-1 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-sm hover:border-[var(--adm-primary)]/50 hover:bg-[var(--adm-primary)]/10 transition"
+                disabled={markdownMode}
+                title={markdownMode ? 'В режиме Markdown блоки добавляются текстом — вернитесь в «Визуальный»' : undefined}
+                className="inline-flex items-center gap-1 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-sm hover:border-[var(--adm-primary)]/50 hover:bg-[var(--adm-primary)]/10 transition disabled:opacity-40"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {getBlockLabel(type)}
@@ -855,7 +959,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
             ))}
           </div>
           <p className="admin-meta mt-2">
-            Горячие клавиши: Alt+Shift+↑/↓, Ctrl+Enter (новый блок), Ctrl+Z/Y. Markdown: нажмите кнопку для переключения.
+            Горячие клавиши: Alt+Shift+↑/↓ (переместить выбранный блок), Ctrl+Enter (новый блок после него), Ctrl+Z/Y (отменить и вернуть, когда курсор не в поле ввода). Markdown: нажмите кнопку для переключения.
           </p>
         </div>
 
@@ -865,6 +969,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
               aria-label="Markdown-разметка статьи"
               value={mdText}
               onChange={(e) => setMdText(e.target.value)}
+              onBlur={() => applyMarkdown(mdText)}
               className="w-full h-64 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm font-mono resize-y"
               placeholder="# Заголовок..."
             />
@@ -901,6 +1006,10 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
       </div>
   );
 }
+
+// Разбор и сборка статьи — для тестов (`scripts/audit-editor.test.js`): они
+// проверяют, что ссылки и выделения переживают круг «HTML → блоки → HTML».
+export { parseHtmlToBlocks, serializeBlocks, markdownToBlocks, blockToMarkdown };
 
 /**
  * Редактор сам держит контекст перетаскивания блоков. Раньше его давал

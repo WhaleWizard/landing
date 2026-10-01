@@ -32,9 +32,13 @@ export default function CaseFieldsEditor({ value, niches, onChange }: Props) {
   const set = (patch: Partial<CaseData>) => onChange({ ...data, ...patch });
 
   const metrics: CaseMetric[] = [0, 1, 2].map((i) => data.metrics?.[i] || { value: '', label: '' });
+  // Во время ввода все три слота хранятся как есть, включая пустые: раньше
+  // пустой средний слот отбрасывался на каждом символе, и значение из третьего
+  // поля перескакивало во второе. Пустые и неполные метрики отбрасывает сервер
+  // при чтении (normalizeCaseData); совсем пустой набор — это «метрик нет».
   const setMetric = (index: number, patch: Partial<CaseMetric>) => {
     const next = metrics.map((m, i) => (i === index ? { ...m, ...patch } : m));
-    set({ metrics: next.filter((m) => m.value.trim() || m.label.trim()) });
+    set({ metrics: next.some((m) => m.value.trim() || m.label.trim()) ? next : undefined });
   };
 
   const toggleSource = (key: string) => {

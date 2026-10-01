@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, CalendarCheck,
   CheckCircle2, CircleDot, Clock3, FileText, Gauge, Images, Inbox,
@@ -186,6 +186,9 @@ export default function AdminToday({
   const [loading, setLoading] = useState(true);
   const [showAllFocus, setShowAllFocus] = useState(false);
   const { articles } = useArticles();
+  // План и заметка дня пишут одну и ту же неделю планера — по очереди, иначе
+  // последний записавший стирал правку первого.
+  const plannerQueue = useRef<Promise<void>>(Promise.resolve());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -349,7 +352,7 @@ export default function AdminToday({
             icon={<Users aria-hidden="true" />}
             title="Уникальные по дням, сумма за 7 дней"
             value={<CountUpValue value={totals.uniques7} />}
-            detail="Обезличенный отпечаток дня, без cookies. Один и тот же человек за разные дни считается заново."
+            detail="Обезличенный отпечаток дня, без cookies — только посетители, давшие согласие на маркетинговые cookie. Один и тот же человек за разные дни считается заново."
             delta={<DeltaBadge current={totals.uniques7} previous={totals.uniques7Prev} label="Уникальные" />}
             spark={series.map((point) => point.visitors)}
             sparkSlot={5}
@@ -446,6 +449,7 @@ export default function AdminToday({
             weekStart={data.planner.weekStart}
             dayIndex={data.planner.dayIndex}
             streak={data.planner.streak || 0}
+            queue={plannerQueue}
             onNavigate={() => onNavigate('planner')}
             onSaved={() => void load()}
           />
@@ -457,6 +461,7 @@ export default function AdminToday({
             notes={data.planner.notes || []}
             weekStart={data.planner.weekStart}
             dayIndex={data.planner.dayIndex}
+            queue={plannerQueue}
             onSaved={() => void load()}
           />
         )}
@@ -672,7 +677,7 @@ export default function AdminToday({
       </div>
 
       <p className="admin-meta">
-        Уникальные посетители считаются по обезличенному отпечатку дня (без cookies), личные данные не сохраняются.
+        Уникальные посетители считаются по обезличенному отпечатку дня (без cookies) и только среди тех, кто дал согласие на маркетинговые cookie; личные данные не сохраняются.
       </p>
     </div>
   );

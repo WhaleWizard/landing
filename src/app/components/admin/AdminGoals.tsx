@@ -64,19 +64,16 @@ function shiftPeriod(period: string, months: number): string {
 }
 
 /**
- * Текущий месяц. Считается по UTC — так же, как его считает сервер
- * (`date('now')` в SQLite) и остальные разделы админки.
- *
- * Раньше здесь был местный календарь браузера. В часовом поясе, сдвинутом от
- * UTC, в первые часы первого числа месяцы расходились: стрелка «вперёд»
- * открывала месяц, который сервер ещё считает будущим, и раздел показывал
- * пустоту вместо цифр. Сервер присылает свою дату в ответе — если она есть,
- * берём её.
+ * Текущий месяц. Главное слово — за сервером: он присылает «сегодня» в ответе,
+ * посчитанное по тому же `timezone_offset`, что уходит в запросе
+ * (`localTodayIso`). Пока ответа нет, берётся местный календарь браузера —
+ * тот же, по которому считает сервер. Раньше запасным значением был UTC, и
+ * 1-го числа в 01:30 по Ташкенту раздел открывался на прошлом месяце.
  */
 function currentPeriod(serverToday?: string): string {
   if (serverToday && /^\d{4}-\d{2}-\d{2}$/.test(serverToday)) return serverToday.slice(0, 7);
   const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 /**
@@ -222,6 +219,12 @@ export default function AdminGoals({ password }: { password: string }) {
       setMigration('');
       setData(payload);
       setDraft(payload.goal || null);
+      // Раздел открылся на месяце по календарю браузера; если сервер считает
+      // сегодняшним другой месяц, переходим на него — один раз, пока владелец
+      // ничего не листал.
+      if (payload.today && period === currentPeriod() && currentPeriod(payload.today) !== period) {
+        setPeriod(currentPeriod(payload.today));
+      }
     } catch (loadError) {
       if (requestId !== requestSequence.current) return;
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить цели');
