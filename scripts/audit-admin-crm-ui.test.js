@@ -819,7 +819,7 @@ function clientsServer({ months = [], access = [], setAccessDelay = 0 } = {}) {
     ['/api/admin/clients', async (address, init) => {
       if ((init.method || 'GET') === 'POST') {
         const body = JSON.parse(init.body);
-        if (body.action === 'set_access' && setAccessDelay) await new Promise((resolve) => setTimeout(resolve, setAccessDelay));
+        if ((body.action === 'set_access' || body.action === 'seed_access') && setAccessDelay) await new Promise((resolve) => setTimeout(resolve, setAccessDelay));
         return { success: true, id: 1 };
       }
       const params = new URL(address, 'https://www.whalewzrd.com').searchParams;
@@ -908,9 +908,13 @@ test('F-070: повторное нажатие «Создать чек-лист�
   await click(button);
   await wait(200);
 
-  const names = calls.filter((call) => call.method === 'POST' && call.body?.action === 'set_access').map((call) => call.body.name);
+  // После стыка F-070 набор уходит одним запросом seed_access, а дубли отсекает сервер (WHERE NOT EXISTS).
+  const seeds = calls.filter((call) => call.method === 'POST' && call.body?.action === 'seed_access');
+  assert.equal(seeds.length, 1, 'ровно один запрос на типовой набор, второй клик во время первого не уходит');
+  const names = seeds[0].body.names;
   assert.equal(names.length, 7, 'ровно один набор из семи доступов');
   assert.equal(new Set(names).size, names.length, 'без дублей');
+  assert.equal(calls.filter((call) => call.method === 'POST' && call.body?.action === 'set_access').length, 0, 'по одному доступу больше не шлём');
   await view.unmount();
 });
 
