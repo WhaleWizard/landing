@@ -34,6 +34,7 @@ const ERROR_TEXT: Record<string, string> = {
   password_required: 'Введите пароль от админки',
   invalid_credentials: 'Неверный пароль',
   setup_required: 'Сначала создайте ключ',
+  disable_first: 'Защита уже включена — сначала выключите её кодом из приложения',
 };
 
 async function callAuth(body: Record<string, unknown>): Promise<{ ok: boolean; status: number; payload: Record<string, unknown> | null }> {

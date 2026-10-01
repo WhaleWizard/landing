@@ -104,6 +104,34 @@ function describeRequest(request: Request): string {
   return `${maskedIp}${country ? `, ${country}` : ''}`;
 }
 
+const LOGIN_FLOOD_ALERT_WINDOW_SECONDS = 15 * 60;
+
+/**
+ * Предупреждение о переборе — одно за окно, а не на каждый отказ.
+ *
+ * Иначе бот, долбящий вход, слал бы владельцу сотни сообщений в минуту:
+ * Telegram начал бы отвечать 429, и уведомление о настоящей заявке в это
+ * время не дошло бы. Метка общая, а не по адресу: атака с множества адресов
+ * тоже даёт одно сообщение. Кэш у каждого дата-центра свой, и проверка с
+ * записью не атомарны, поэтому при распределённой атаке сообщений может быть
+ * несколько — но единицы, а не сотни. Сбой кэша не превращается в спам:
+ * без метки молчим.
+ */
+async function shouldNotifyLoginFlood(): Promise<boolean> {
+  try {
+    const windowIndex = Math.floor(Date.now() / 1000 / LOGIN_FLOOD_ALERT_WINDOW_SECONDS);
+    const key = new Request(`https://internal-rate-limit.local/admin_login_alert/window/${windowIndex}`);
+    const cache = caches.default;
+    if (await cache.match(key)) return false;
+    await cache.put(key, new Response('1', {
+      headers: { 'Cache-Control': `max-age=${LOGIN_FLOOD_ALERT_WINDOW_SECONDS}` },
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function sessionResponse(env: Env, body: Record<string, unknown>): Promise<Response> {
   const token = await createAdminSessionToken(env);
   if (!token) {
@@ -151,7 +179,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   // Всё, что ниже, — попытка получить или изменить доступ.
   const rateLimited = await enforceRateLimit(request, 'admin_login');
   if (rateLimited) {
-    waitUntil(notifyOwner(env, `🔐 <b>Админка: много попыток входа</b>\nОткуда: ${describeRequest(request)}\nВход временно заблокирован.`));
+    if (await shouldNotifyLoginFlood()) {
+      waitUntil(notifyOwner(env, `🔐 <b>Админка: много попыток входа</b>\nОткуда: ${describeRequest(request)}\nВход временно заблокирован. Следующее такое предупреждение — не раньше чем через 15 минут.`));
+    }
     return rateLimited;
   }
 
@@ -219,8 +249,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     if (!env.DB) {
       return json({ success: false, error: 'Двухфакторная защита требует базы D1 (недоступна локально)' }, { status: 503, headers: noStore });
     }
+    // Новый ключ стирает старый секрет и резервные коды. При включённой защите
+    // это значит «снять второй фактор одним паролем» — ровно тот случай, от
+    // которого защита и нужна. Поэтому сначала «disable», а он требует код из
+    // приложения или резервный код.
+    if (state.enabled) {
+      return json({ success: false, error: 'disable_first' }, { status: 409, headers: noStore });
+    }
     const secret = generateTotpSecret();
     await storeAdmin2faSecret(env, secret);
+    waitUntil(notifyOwner(env, `🔑 <b>Создан новый ключ двухфакторной защиты</b>\nОткуда: ${describeRequest(request)}`));
     const account = 'admin@whalewzrd.com';
     return json({
       success: true,
