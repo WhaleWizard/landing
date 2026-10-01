@@ -34,6 +34,30 @@ const TELEGRAM_PATTERN = /^[a-z0-9_]{5,32}$/;
 
 type NotifyState = 'ok' | 'duplicate' | 'error' | 'email' | 'phone' | 'telegram' | 'contact' | 'limit';
 
+/**
+ * Адрес, куда вернуть человека после отправки формы.
+ *
+ * Форма стоит и на статьях закрытого раздела (`/blog/<слаг>` при закрытом
+ * `/blog` с вложенными), а почти весь поисковый трафик приходит именно на
+ * статьи. Раньше принимался только адрес из белого списка, и человека со
+ * статьи уводило на главную без сообщения, а контакт не записывался.
+ *
+ * Фактический адрес принимается, только если он действительно закрыт этим
+ * замком и выглядит как путь внутри сайта: шаблон не уже, чем кириллический
+ * слаг в виде `%D0%…`, но отсекает `//`, CR/LF и всё, что ушло бы в
+ * `Location` чужим адресом или лишним заголовком.
+ */
+const RETURN_PATH_PATTERN = /^\/(?!\/)[A-Za-z0-9\-._~%/]+$/;
+// Сегменты «.» и «..»: `/blog/../admin` начинается с `/blog/`, но ведёт в админку.
+const DOT_SEGMENT = /(?:^|\/)\.{1,2}(?:\/|$)/;
+
+function resolveReturnPath(path: string, lock: { path: string; includeChildren: boolean } | null): string {
+  const withinLock = Boolean(lock)
+    && (path === lock!.path || (lock!.includeChildren && path.startsWith(`${lock!.path}/`)));
+  if (withinLock && RETURN_PATH_PATTERN.test(path) && !DOT_SEGMENT.test(path)) return path;
+  return isLockablePath(path) ? path : '/';
+}
+
 function backTo(path: string, state: NotifyState): Response {
   return new Response(null, {
     status: 303,
@@ -116,7 +140,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const body = await readRequestText(request, MAX_BODY_BYTES);
   const form = body.ok ? new URLSearchParams(body.text) : new URLSearchParams();
   const path = normalizePagePath(form.get('path') || '/');
-  const safePath = isLockablePath(path) ? path : '/';
+
+  // Замок ищется по фактическому адресу: снимок живёт в памяти воркера и в
+  // кэше дата-центра, так что это дёшево даже для отказа по лимиту.
+  const snapshot = await readPageLockSnapshot(env, waitUntil);
+  const lock = findPageLock(snapshot.locks, path);
+  const safePath = resolveReturnPath(path, lock);
 
   if (rateLimited) return backTo(safePath, 'limit');
 
@@ -141,9 +170,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   if (rawTelegram && !telegram) return backTo(safePath, 'telegram');
 
   // Контакты собираются только на действительно закрытой странице: на открытой
-  // такой формы нет, и присылать её туда незачем.
-  const snapshot = await readPageLockSnapshot(env, waitUntil);
-  const lock = findPageLock(snapshot.locks, safePath);
+  // такой формы нет, и присылать её туда незачем. В базу, в Telegram и в
+  // событие Meta уходит адрес замка (`/blog`), а не статьи: подписка
+  // считается на раздел, и уникальность контакта не размножается по статьям.
   if (!lock || !lock.showSubscribe) return backTo(safePath, 'error');
 
   if (!env.DB) return backTo(safePath, 'error');

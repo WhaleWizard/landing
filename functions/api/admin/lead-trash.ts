@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { hasLeadSoftDelete } from '../../_lib/leads';
+import { foldSearchQuery, foldSearchSql } from '../../_lib/admin-crm';
 import { qualityEventIds } from '../../_lib/admin-lead-quality-status';
 import type { Env } from '../../_lib/types';
 
@@ -238,10 +239,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const where = ['deleted_at IS NOT NULL'];
     const values: Array<string | number> = [];
     if (query) {
-      const pattern = `%${escapeLike(query)}%`;
+      // Регистр кириллицы сводится с обеих сторон, как в поиске по CRM:
+      // иначе «анна» не находила «Анна» в корзине.
+      const pattern = `%${escapeLike(foldSearchQuery(query))}%`;
       const searchable = ['name', 'email', 'phone', 'telegram_username', 'deleted_reason']
         .concat(['service', 'message'].filter((column) => columns.has(column)));
-      where.push(`(${searchable.map((column) => `${column} LIKE ? ESCAPE '\\'`).join(' OR ')})`);
+      where.push(`(${searchable.map((column) => `${foldSearchSql(column)} LIKE ? ESCAPE '\\'`).join(' OR ')})`);
       values.push(...searchable.map(() => pattern));
     }
     const whereSql = where.join(' AND ');

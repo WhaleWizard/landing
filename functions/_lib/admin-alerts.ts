@@ -1,5 +1,5 @@
 import { getLeadsColumns, hasLeadSoftDelete } from './leads';
-import { localTodayIsoFromOffset, sqliteLocalModifier } from './local-day';
+import { isoSince, localTodayIsoFromOffset, sqliteLocalModifier } from './local-day';
 import type { Env } from './types';
 
 export const ADMIN_ALERTS_MIGRATION = '0028_admin_alerts.sql';
@@ -119,12 +119,14 @@ export async function collectAlerts(env: Env, timezoneOffsetMinutes = 0): Promis
     }
   }
 
-  // 3. Доставка событий в Meta.
+  // 3. Доставка событий в Meta. Граница окна — в ISO, как и сама колонка:
+  // `datetime('now', '-1 day')` отдаёт другой формат и считал до 48 часов,
+  // так что «за сутки» краснело на день дольше реальной проблемы.
   if (await tableExists(db, 'meta_capi_diagnostics')) {
     const row = await db.prepare(`
       SELECT SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed, COUNT(*) AS total
-      FROM meta_capi_diagnostics WHERE created_at >= datetime('now', '-1 day')
-    `).first<{ failed: number; total: number }>();
+      FROM meta_capi_diagnostics WHERE created_at >= ?
+    `).bind(isoSince(1)).first<{ failed: number; total: number }>();
     const failed = number(row?.failed);
     if (failed > 0) {
       drafts.push({
@@ -235,6 +237,35 @@ export async function collectAlerts(env: Env, timezoneOffsetMinutes = 0): Promis
 }
 
 /**
+ * Колонка `dismissed_at` отличает «скрыто владельцем» от «ситуация исчезла
+ * сама». Она появляется отдельной миграцией (ALTER TABLE admin_alerts ADD
+ * COLUMN dismissed_at TEXT); без неё скрытие работает по-старому — раздел
+ * не падает, просто скрытый повод возвращается при следующей проверке.
+ */
+async function hasDismissedAt(db: D1Database): Promise<boolean> {
+  const info = await db.prepare('PRAGMA table_info(admin_alerts)').all<{ name: string }>();
+  return (info.results || []).some((column) => column.name === 'dismissed_at');
+}
+
+/**
+ * Скрыть повод по кнопке «×». Пока ситуация остаётся, запись не оживает и
+ * в Telegram не уходит: `notified_at` ставится сразу, чтобы скрытое до
+ * отправки не улетело следующим запуском. Вернётся повод только если
+ * ситуация исчезнет и возникнет снова — ровно это обещает подсказка кнопки.
+ */
+export async function dismissAlert(db: D1Database, id: number): Promise<void> {
+  if (await hasDismissedAt(db)) {
+    await db.prepare(`
+      UPDATE admin_alerts
+      SET resolved_at = datetime('now'), dismissed_at = datetime('now'), notified_at = COALESCE(notified_at, datetime('now'))
+      WHERE id = ?
+    `).bind(id).run();
+    return;
+  }
+  await db.prepare("UPDATE admin_alerts SET resolved_at = datetime('now') WHERE id = ?").bind(id).run();
+}
+
+/**
  * Синхронизация: новые поводы создаются, исчезнувшие закрываются сами.
  * Пользователю не нужно вручную разгребать то, что уже неактуально.
  */
@@ -242,9 +273,16 @@ export async function syncAlerts(env: Env, drafts: AlertDraft[]): Promise<{ crea
   const db = env.DB;
   if (!db) return { created: 0, resolved: 0 };
 
-  const open = await db.prepare('SELECT id, fingerprint FROM admin_alerts WHERE resolved_at IS NULL')
-    .all<{ id: number; fingerprint: string }>();
+  const dismissible = await hasDismissedAt(db);
+  const [open, hidden] = await Promise.all([
+    db.prepare('SELECT id, fingerprint FROM admin_alerts WHERE resolved_at IS NULL')
+      .all<{ id: number; fingerprint: string }>(),
+    dismissible
+      ? db.prepare('SELECT fingerprint FROM admin_alerts WHERE dismissed_at IS NOT NULL').all<{ fingerprint: string }>()
+      : Promise.resolve({ results: [] as Array<{ fingerprint: string }> }),
+  ]);
   const openByFingerprint = new Map((open.results || []).map((row) => [row.fingerprint, row.id]));
+  const dismissed = new Set((hidden.results || []).map((row) => row.fingerprint));
   const active = new Set(drafts.map((draft) => draft.fingerprint));
 
   let created = 0;
@@ -253,6 +291,15 @@ export async function syncAlerts(env: Env, drafts: AlertDraft[]): Promise<{ crea
       await db.prepare(`
         UPDATE admin_alerts SET title = ?, detail = ?, severity = ?, updated_at = datetime('now')
         WHERE fingerprint = ? AND resolved_at IS NULL
+      `).bind(draft.title, draft.detail, draft.severity, draft.fingerprint).run();
+      continue;
+    }
+    if (dismissed.has(draft.fingerprint)) {
+      // Скрыто владельцем, а повод всё ещё есть: текст обновляется, запись
+      // остаётся скрытой, отметка об отправке не сбрасывается.
+      await db.prepare(`
+        UPDATE admin_alerts SET title = ?, detail = ?, severity = ?, updated_at = datetime('now')
+        WHERE fingerprint = ?
       `).bind(draft.title, draft.detail, draft.severity, draft.fingerprint).run();
       continue;
     }
@@ -267,7 +314,7 @@ export async function syncAlerts(env: Env, drafts: AlertDraft[]): Promise<{ crea
         destination = excluded.destination,
         updated_at = datetime('now'),
         resolved_at = NULL,
-        notified_at = NULL
+        notified_at = NULL${dismissible ? ',\n        dismissed_at = NULL' : ''}
     `).bind(draft.fingerprint, draft.kind, draft.severity, draft.title, draft.detail, draft.destination).run();
     created += 1;
   }
@@ -279,6 +326,13 @@ export async function syncAlerts(env: Env, drafts: AlertDraft[]): Promise<{ crea
       .bind(fingerprint)
       .run();
     resolved += 1;
+  }
+
+  // Скрытый повод, который исчез сам, перестаёт быть скрытым: когда он
+  // возникнет снова, запись оживёт и один раз уйдёт в Telegram.
+  for (const fingerprint of dismissed) {
+    if (active.has(fingerprint)) continue;
+    await db.prepare('UPDATE admin_alerts SET dismissed_at = NULL WHERE fingerprint = ?').bind(fingerprint).run();
   }
 
   return { created, resolved };

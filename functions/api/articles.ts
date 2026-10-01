@@ -7,6 +7,7 @@ import {
 } from '../_lib/articles';
 import { json } from '../_lib/http';
 import { verifyAdminPassword } from '../_lib/auth';
+import { headFromGet } from '../_lib/article-page';
 import type { Article, Env } from '../_lib/types';
 
 export type PublicArticleSummary = Article & { _summary: true };
@@ -74,11 +75,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const requestedArticle = requestedSlug
       ? await fetchArticleWithFallback(env, request, requestedSlug)
       : null;
+    // Снимок в R2 перезаписывается только по запросу админки с паролем.
+    // Открытый `?cache=no-store` и обычный промах кэша читают базу без записи:
+    // иначе любой бот с `?cache=no-store` на каждый запрос читал все статьи и
+    // переписывал многомегабайтный снимок. Свежесть снимок не теряет — его
+    // обновляет каждое сохранение, удаление, закрепление и расписание из
+    // админки (`persistD1ArticlesSnapshot`), а черновики и будущие даты
+    // отфильтровываются уже после чтения.
     const allArticles = requestedSlug
       ? requestedArticle ? [requestedArticle] : []
       : summaryView
         ? await fetchArticleSummariesWithFallback(env, request)
-        : await fetchArticlesWithFallback(env, request, waitUntil);
+        : await fetchArticlesWithFallback(env, request, adminBypass ? waitUntil : undefined);
     const visibleArticles = filterVisibleArticles(allArticles, now);
     visibleArticles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 
@@ -140,3 +148,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     );
   }
 };
+
+// HEAD отвечает тем же статусом и заголовками, что GET: без своего
+// обработчика Cloudflare Pages отдавал на HEAD /api/articles статику (404).
+export const onRequestHead: PagesFunction<Env> = headFromGet(onRequestGet);

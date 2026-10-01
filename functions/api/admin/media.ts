@@ -19,6 +19,27 @@ import type { Env } from '../../_lib/types';
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 const MAX_BULK_KEYS = 50;
 
+/**
+ * Бюджет обращений к хранилищу на один запрос переноса.
+ *
+ * Каждый вызов binding R2 и D1 — подзапрос воркера, а на бесплатном тарифе
+ * Workers их 50 на запрос. Перенос картинки с четырьмя копиями стоит ~21
+ * вызов (см. `moveCost`), документа без копий — 5. Сверх лимита R2 бросает
+ * «Too many subrequests» посреди переноса, и файл остаётся в двух папках
+ * сразу, поэтому пачка режется заранее по стоимости, а не по числу ключей:
+ * две картинки с полным набором копий или около восьми документов. Остаток
+ * возвращается в `skipped` — клиент шлёт его следующим запросом. Запас до 50
+ * оставлен ограничителю частоты (Cache API) и самому ответу.
+ */
+const MOVE_BUDGET = 42;
+
+/** Сколько вызовов хранилища стоит перенос одного файла (`moveUpload`). */
+function moveCost(key: string): number {
+  // Оригинал: get, put, head, delete; каждая копия: get, put, head, delete;
+  // плюс одна строка D1 — перенос подписи.
+  return 5 + 4 * variantKeysFor(key).length;
+}
+
 interface MediaFile {
   key: string;
   url: string;
@@ -67,6 +88,64 @@ function isManagedKey(key: string): boolean {
 
 function getPassword(request: Request, body?: { password?: string }): string {
   return request.headers.get('X-Admin-Password') || body?.password || '';
+}
+
+type MoveOutcome =
+  | { ok: true; key: string; previousKey: string; moved: boolean }
+  | { ok: false; error: string; status: number };
+
+/**
+ * Перенос одного файла в другую папку.
+ *
+ * R2 не умеет переименовывать: объект копируется с теми же заголовками, и
+ * только после подтверждённой записи удаляется исходный. Уменьшенные копии
+ * едут первыми: имя копии выводится из имени оригинала, и оригинал на новом
+ * месте без них показывал бы srcset на пустоту. Если копия не записалась,
+ * всё записанное откатывается, а файл остаётся на месте.
+ */
+async function moveUpload(env: Env, bucket: R2Bucket, key: string, folder: string): Promise<MoveOutcome> {
+  if (!isManagedKey(key)) return { ok: false, error: 'Некорректный файл', status: 400 };
+  const target = reKeyToFolder(key, folder);
+  if (!target) return { ok: false, error: 'Не удалось построить новый путь файла', status: 400 };
+  if (target === key) return { ok: true, key, previousKey: key, moved: false };
+
+  const source = await bucket.get(key);
+  if (!source) return { ok: false, error: 'Файл не найден', status: 404 };
+
+  const targetVariants = variantKeysFor(target);
+  const variantMoves = variantKeysFor(key)
+    .map((from, index) => ({ from, to: targetVariants[index] }))
+    .filter((pair): pair is { from: string; to: string } => Boolean(pair.to));
+  const writtenVariants: string[] = [];
+  for (const pair of variantMoves) {
+    const variant = await bucket.get(pair.from);
+    if (!variant) continue;
+    await bucket.put(pair.to, variant.body, { httpMetadata: variant.httpMetadata, customMetadata: { ...variant.customMetadata, variantOf: target } });
+    if (!(await bucket.head(pair.to))) {
+      for (const written of writtenVariants) await bucket.delete(written);
+      return { ok: false, error: 'Копия картинки не перенеслась, файл оставлен на месте', status: 500 };
+    }
+    writtenVariants.push(pair.to);
+  }
+
+  await bucket.put(target, source.body, {
+    httpMetadata: source.httpMetadata,
+    customMetadata: source.customMetadata,
+  });
+  const written = await bucket.head(target);
+  if (!written) {
+    for (const variant of writtenVariants) await bucket.delete(variant);
+    return { ok: false, error: 'Копия не создалась, файл оставлен на месте', status: 500 };
+  }
+  await bucket.delete(key);
+  for (const pair of variantMoves) await bucket.delete(pair.from);
+  // Подпись привязана к ключу объекта — переносим её вслед за файлом.
+  if (env.DB) {
+    try {
+      await env.DB.prepare('UPDATE media_alt SET object_key = ? WHERE object_key = ?').bind(target, key).run();
+    } catch { /* таблицы может не быть — перенос файла это не отменяет */ }
+  }
+  return { ok: true, key: target, previousKey: key, moved: true };
 }
 
 async function listUploads(env: Env): Promise<{ files: MediaFile[]; markedFolders: string[] }> {
@@ -118,7 +197,7 @@ function collectFolders(files: MediaFile[], markedFolders: string[]): Array<{ na
 
 // Список загруженных файлов и папок (новые файлы сверху)
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const rateLimited = await enforceRateLimit(request, 'admin');
+  const rateLimited = await enforceRateLimit(request, 'admin_media');
   if (rateLimited) return rateLimited;
 
   if (!verifyAdminPassword(getPassword(request), env)) {
@@ -148,7 +227,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
  * интерфейс, а сервер дополнительно ограничивает область префиксом uploads/.
  */
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const rateLimited = await enforceRateLimit(request, 'admin');
+  // Профиль `admin_media` (rate-limit.ts): перенос сорока файлов по одному
+  // запросу упирался в общие 30 запросов/мин админки. Пароль по-прежнему
+  // обязателен; без профиля действует общий лимит по умолчанию.
+  const rateLimited = await enforceRateLimit(request, 'admin_media');
   if (rateLimited) return rateLimited;
 
   const body = await readCappedJsonBody(request) as {
@@ -254,56 +336,59 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'move') {
-      const key = String(body.key || '');
-      if (!isManagedKey(key)) {
-        return json({ success: false, error: 'Некорректный файл' }, { status: 400, headers: noStore });
-      }
-      const target = reKeyToFolder(key, body.folder ?? '');
-      if (!target) return json({ success: false, error: 'Не удалось построить новый путь файла' }, { status: 400, headers: noStore });
-      if (target === key) return json({ success: true, key, moved: false }, { headers: noStore });
-
-      const source = await bucket.get(key);
-      if (!source) return json({ success: false, error: 'Файл не найден' }, { status: 404, headers: noStore });
-
-      // Уменьшенные копии едут первыми: имя копии выводится из имени
-      // оригинала, и оригинал на новом месте без них показывал бы srcset на
-      // пустоту. Если копия не записалась, всё записанное откатывается.
-      const targetVariants = variantKeysFor(target);
-      const variantMoves = variantKeysFor(key)
-        .map((from, index) => ({ from, to: targetVariants[index] }))
-        .filter((pair): pair is { from: string; to: string } => Boolean(pair.to));
-      const writtenVariants: string[] = [];
-      for (const pair of variantMoves) {
-        const variant = await bucket.get(pair.from);
-        if (!variant) continue;
-        await bucket.put(pair.to, variant.body, { httpMetadata: variant.httpMetadata, customMetadata: { ...variant.customMetadata, variantOf: target } });
-        if (!(await bucket.head(pair.to))) {
-          for (const written of writtenVariants) await bucket.delete(written);
-          return json({ success: false, error: 'Копия картинки не перенеслась, файл оставлен на месте' }, { status: 500, headers: noStore });
+      const folder = String(body.folder ?? '');
+      // Пачка ключей одним запросом: перенос сорока файлов по одному
+      // запросу на файл упирался в лимит запросов на 31-м. Один ключ
+      // (`key`) по-прежнему принимается — так ходит медиатека сейчас.
+      if (Array.isArray(body.keys)) {
+        const keys = body.keys.map((key) => String(key || '')).filter(Boolean).slice(0, MAX_BULK_KEYS);
+        if (!keys.length) return json({ success: false, error: 'Не указан ни один файл' }, { status: 400, headers: noStore });
+        const moved: Array<{ key: string; previousKey: string; moved: boolean }> = [];
+        const failed: Array<{ key: string; error: string }> = [];
+        // Не тронутые этим запросом: не уместились в бюджет или идут после
+        // прерванного переноса. Клиент шлёт их следующим запросом.
+        const skipped: string[] = [];
+        let spent = 0;
+        let interrupted = '';
+        for (const key of keys) {
+          const cost = moveCost(key);
+          if (interrupted || spent + cost > MOVE_BUDGET) {
+            skipped.push(key);
+            continue;
+          }
+          spent += cost;
+          let outcome: MoveOutcome;
+          try {
+            outcome = await moveUpload(env, bucket, key, folder);
+          } catch (error) {
+            // Бросок хранилища посреди переноса (сеть, лимит подзапросов):
+            // дальше не идём — следующий вызов упал бы так же, а этот файл
+            // мог успеть скопироваться без удаления исходника.
+            const message = error instanceof Error ? error.message : String(error);
+            failed.push({ key, error: `Перенос прерван: ${message}` });
+            interrupted = key;
+            continue;
+          }
+          if (outcome.ok) moved.push({ key: outcome.key, previousKey: outcome.previousKey, moved: outcome.moved });
+          else failed.push({ key, error: outcome.error });
         }
-        writtenVariants.push(pair.to);
+        const error = interrupted
+          ? `${failed[failed.length - 1].error}. Обновите список — «${interrupted.split('/').pop()}» мог остаться в обеих папках.`
+          : failed.length
+            ? `Не перенесено ${failed.length} из ${keys.length}: ${failed[0].error}`
+            : '';
+        return json({
+          success: failed.length === 0 || moved.length > 0,
+          moved,
+          failed,
+          skipped,
+          ...(error ? { error } : {}),
+        }, { headers: noStore });
       }
 
-      // R2 не умеет переименовывать: копируем с теми же заголовками, и только
-      // после подтверждённой записи удаляем исходный объект.
-      await bucket.put(target, source.body, {
-        httpMetadata: source.httpMetadata,
-        customMetadata: source.customMetadata,
-      });
-      const written = await bucket.head(target);
-      if (!written) {
-        for (const variant of writtenVariants) await bucket.delete(variant);
-        return json({ success: false, error: 'Копия не создалась, файл оставлен на месте' }, { status: 500, headers: noStore });
-      }
-      await bucket.delete(key);
-      for (const pair of variantMoves) await bucket.delete(pair.from);
-      // Подпись привязана к ключу объекта — переносим её вслед за файлом.
-      if (env.DB) {
-        try {
-          await env.DB.prepare('UPDATE media_alt SET object_key = ? WHERE object_key = ?').bind(target, key).run();
-        } catch { /* таблицы может не быть — перенос файла это не отменяет */ }
-      }
-      return json({ success: true, key: target, previousKey: key, moved: true }, { headers: noStore });
+      const outcome = await moveUpload(env, bucket, String(body.key || ''), folder);
+      if (!outcome.ok) return json({ success: false, error: outcome.error }, { status: outcome.status, headers: noStore });
+      return json({ success: true, key: outcome.key, previousKey: outcome.previousKey, moved: outcome.moved }, { headers: noStore });
     }
 
     return json({ success: false, error: 'Invalid action or key' }, { status: 400, headers: noStore });

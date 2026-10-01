@@ -5,7 +5,7 @@ import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoney } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
-import { localTodayIso } from '../../_lib/local-day';
+import { localTodayIso, sqliteLocalModifier, timezoneOffsetFromRequest } from '../../_lib/local-day';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 const MIGRATION = '0024_admin_goals.sql';
@@ -80,30 +80,55 @@ async function readFact(
   currency: string,
   columns: Set<string>,
   activeCond: string,
+  localModifier: string,
 ): Promise<PeriodFact> {
   const { from, to } = monthBounds(period);
   const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
   const qualified = columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : '0';
-  const won = columns.has('pipeline_stage') ? "SUM(CASE WHEN pipeline_stage = 'won' THEN 1 ELSE 0 END)" : '0';
-  const revenue = columns.has('deal_value') && columns.has('deal_currency') && columns.has('pipeline_stage')
-    ? `SUM(CASE WHEN pipeline_stage = 'won' AND deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END)`
-    : 'NULL';
+  const hasStage = columns.has('pipeline_stage');
+  const hasRevenue = hasStage && columns.has('deal_value') && columns.has('deal_currency');
 
-  const statement = db.prepare(`
-    SELECT COUNT(*) AS leads, ${qualified} AS qualified, ${won} AS won, ${revenue} AS revenue
+  const row = await db.prepare(`
+    SELECT COUNT(*) AS leads, ${qualified} AS qualified
     FROM leads
     WHERE date(${timeColumn}) >= date(?) AND date(${timeColumn}) <= date(?) AND ${activeCond}
-  `);
-  const row = revenue === 'NULL'
-    ? await statement.bind(from, to).first<{ leads: number; qualified: number; won: number; revenue: number | null }>()
-    : await statement.bind(currency, from, to).first<{ leads: number; qualified: number; won: number; revenue: number | null }>();
+  `).bind(from, to).first<{ leads: number; qualified: number }>();
 
+  // Выигранные сделки и выручка — по дате выигрыша, а не по дате заявки:
+  // иначе кольцо «Выручка» сентября не двигалось от сделки, выигранной
+  // 5 сентября по августовской заявке, а «Отчёт» за август рос задним числом.
+  // Дата закрытия хранится по Гринвичу, границы месяца — местные, отсюда
+  // модификатор. До миграции 0014 даты закрытия нет — берётся updated_at,
+  // как в CRM-аналитике.
+  let won = 0;
+  let revenue: number | null = null;
+  if (hasStage) {
+    const closedColumn = columns.has('closed_at') ? 'COALESCE(closed_at, updated_at)' : 'updated_at';
+    // Месяц без сделок — ноль выручки, а не «неизвестно»: SUM по пустой
+    // выборке дал бы NULL и прочерк там, где данные о сделках есть.
+    const statement = db.prepare(`
+      SELECT COUNT(*) AS won,
+        ${hasRevenue ? 'COALESCE(SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END), 0)' : 'NULL'} AS revenue
+      FROM leads
+      WHERE pipeline_stage = 'won' AND ${activeCond}
+        AND date(${closedColumn}, ?) >= date(?) AND date(${closedColumn}, ?) <= date(?)
+    `);
+    const wonRow = hasRevenue
+      ? await statement.bind(currency, localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>()
+      : await statement.bind(localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>();
+    won = number(wonRow?.won);
+    revenue = hasRevenue ? round(number(wonRow?.revenue)) : null;
+  }
+
+  // Ни одной строки расходов за месяц — расходы не заведены, а не равны
+  // нулю: ноль рисовал бы «Цену лида 0 USD». Строка с суммой 0, введённая
+  // владельцем, остаётся честным нулём.
   let spend: number | null = null;
   try {
     const spendRow = await db.prepare(
-      'SELECT COALESCE(SUM(amount), 0) AS total FROM ad_spend WHERE day >= date(?) AND day <= date(?) AND currency = ?',
-    ).bind(from, to, currency).first<{ total: number }>();
-    spend = round(number(spendRow?.total));
+      'SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM ad_spend WHERE day >= date(?) AND day <= date(?) AND currency = ?',
+    ).bind(from, to, currency).first<{ n: number; total: number }>();
+    spend = number(spendRow?.n) > 0 ? round(number(spendRow?.total)) : null;
   } catch (error) {
     // Расходов может ещё не быть — это не ошибка цели.
     if (!isMissingTableError(error)) throw error;
@@ -112,8 +137,8 @@ async function readFact(
   return {
     leads: number(row?.leads),
     qualified: number(row?.qualified),
-    won: number(row?.won),
-    revenue: row?.revenue === null || row?.revenue === undefined ? null : round(number(row.revenue)),
+    won,
+    revenue,
     spend,
   };
 }
@@ -187,8 +212,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const currency = goal?.currency || 'USD';
     const columns = await getLeadsColumns(db);
     const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
+    const localModifier = sqliteLocalModifier(timezoneOffsetFromRequest(request));
 
-    const fact = await readFact(db, period, currency, columns, activeCond);
+    const fact = await readFact(db, period, currency, columns, activeCond, localModifier);
 
     // История нужна, чтобы видеть не один месяц, а траекторию.
     const periods = Array.from({ length: HISTORY_MONTHS }, (_, index) => shiftPeriod(period, index - (HISTORY_MONTHS - 1)));
@@ -202,7 +228,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       history.push({
         period: item,
         goal: goalsByPeriod.get(item) || null,
-        fact: await readFact(db, item, goalsByPeriod.get(item)?.currency || currency, columns, activeCond),
+        fact: await readFact(db, item, goalsByPeriod.get(item)?.currency || currency, columns, activeCond, localModifier),
       });
     }
 
@@ -217,7 +243,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       history,
       notes: [
         'Факт по заявкам считается по дате последней заявки контакта, как и в остальной аналитике.',
-        'Выручка — суммы выигранных сделок в валюте цели; сделки в других валютах не приводятся к ней, курсов в системе нет.',
+        'Выручка и выигранные сделки считаются по дате выигрыша сделки, заявки — по дате заявки. Выручка — суммы выигранных сделок в валюте цели; сделки в других валютах не приводятся к ней, курсов в системе нет.',
         'Прогноз линейный: текущий темп, умноженный на длину месяца. Он не учитывает сезонность и выходные.',
       ],
     }, { headers: noStore });

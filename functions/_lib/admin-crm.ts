@@ -310,3 +310,29 @@ export function createCrmActivityStatement(
     JSON.stringify(input.metadata || {}),
   );
 }
+
+/**
+ * Поиск без оглядки на регистр кириллицы.
+ *
+ * `LIKE` в SQLite не различает регистр только у латиницы, а `lower()` без
+ * ICU тоже знает одну латиницу: «анна» не находила «Анна», и поломка
+ * выглядела случайной — e-mail и латинские имена находились. Колонка
+ * сводится к строчным цепочкой `replace()` по заглавным буквам кириллицы,
+ * строка поиска — `foldSearchQuery` в JS; «ё» с обеих сторон становится «е».
+ * Отдельной колонки и миграции это не требует, а заявок на D1 немного, так
+ * что полный проход по строкам ничего не стоит — `LIKE '%…%'` и так его делал.
+ */
+const CYRILLIC_UPPER = 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+const CYRILLIC_LOWER = 'абвгдежзийклмнопрстуфхцчшщъыьэюя';
+
+export function foldSearchSql(expression: string): string {
+  let sql = `lower(${expression})`;
+  for (let index = 0; index < CYRILLIC_UPPER.length; index += 1) {
+    sql = `replace(${sql}, '${CYRILLIC_UPPER[index]}', '${CYRILLIC_LOWER[index]}')`;
+  }
+  return `replace(replace(${sql}, 'Ё', 'е'), 'ё', 'е')`;
+}
+
+export function foldSearchQuery(query: string): string {
+  return query.toLowerCase().replace(/ё/g, 'е');
+}

@@ -5,7 +5,7 @@ import { sanitizeArticleHtml } from './sanitize';
 // индексирования в Search Console ходят под Google-InspectionTool, а качество
 // посадочных для Google Ads проверяет AdsBot — оба присылают Mozilla/5.0 и без
 // явного упоминания здесь считались бы обычным браузером.
-const BOT_UA_PATTERN = /(googlebot|googleother|google-extended|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|feedfetcher-google|apis-google|google-safety|google-site-verification|googleweblight|bingbot|bingpreview|msnbot|adidxbot|yandex|duckduckbot|baiduspider|petalbot|slurp|facebot|facebookexternalhit|meta-externalagent|meta-externalfetcher|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|discordbot|telegrambot|whatsapp|viber|skypeuripreview|vkshare|mail\.ru|pinterest|redditbot|tiktokspider|applebot|ia_archiver|archive\.org_bot|gptbot|chatgpt-user|oai-searchbot|ccbot|claudebot|claude-web|claude-searchbot|anthropic-ai|perplexitybot|perplexity-user|youbot|bytespider|cohere-ai|cohere-training-data-crawler|amazonbot|diffbot|timpibot|omgili|omgilibot|webzio-extended|semrushbot|ahrefsbot|mj12bot|dotbot|seekportbot|imagesiftbot|grok|xai-|mistralai-user|bravebot|bravesearch|duckassistbot|meta-webindexer)/i;
+const BOT_UA_PATTERN = /(googlebot|googleother|google-extended|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|feedfetcher-google|apis-google|google-safety|google-site-verification|googleweblight|bingbot|bingpreview|msnbot|adidxbot|yandex|duckduckbot|baiduspider|petalbot|slurp|facebot|facebookexternalhit|meta-externalagent|meta-externalfetcher|twitterbot|rogerbot|linkedinbot|embedly|quora\slink\spreview|slackbot|discordbot|telegrambot|whatsapp|viber|skypeuripreview|vkshare|mail\.ru|pinterest|redditbot|tiktokspider|applebot|ia_archiver|archive\.org_bot|gptbot|chatgpt-user|oai-searchbot|ccbot|claudebot|claude-(?:web|searchbot|user)|anthropic-ai|perplexitybot|perplexity-user|youbot|bytespider|cohere-ai|cohere-training-data-crawler|amazonbot|diffbot|timpibot|omgili|omgilibot|webzio-extended|semrushbot|ahrefsbot|mj12bot|dotbot|seekportbot|imagesiftbot|grok|xai-|mistralai-user|bravebot|bravesearch|duckassistbot|meta-webindexer)/i;
 
 // У большинства настоящих браузеров в User-Agent есть "Mozilla/5.0" — простые HTTP-клиенты,
 // SDK и многие ИИ-агенты (в т.ч. ещё не внесённые в список выше) его не подделывают.
@@ -284,7 +284,7 @@ export function renderArticleHtml(siteUrl: string, article: Article, sectionPath
 <body>
   <main>
     <nav aria-label="breadcrumb">
-      <a href="/">Главная</a> › <a href="${sectionPath}">${sectionLabel}</a> › <span>${escapeHtml(article.title)}</span>
+      <a href="/">Главная</a> › <a href="${sectionPath}/">${sectionLabel}</a> › <span>${escapeHtml(article.title)}</span>
     </nav>
     <article>
       <header>
@@ -323,7 +323,7 @@ export function renderArticleNotFoundHtml(siteUrl: string, sectionPath: '/blog' 
   <main>
     <h1>Статья не найдена</h1>
     <p>Материал недоступен или URL был изменён.</p>
-    <a href="${sectionPath}">Вернуться в ${escapeHtml(sectionLabel)}</a>
+    <a href="${sectionPath}/">Вернуться в ${escapeHtml(sectionLabel)}</a>
   </main>
 </body>
 </html>`;
@@ -370,12 +370,32 @@ export function renderSitemapXml(siteUrl: string, routes: string[], articleDates
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
 }
 
+/**
+ * Порядок ленты — по дате публикации, тем же ключом, что и `pubDate`.
+ *
+ * Раньше лента сортировалась и отбирала первые 100 по `updatedAt`: правка
+ * опечатки в апрельской статье ставила её первым элементом со старым
+ * `pubDate` (боты «пост из RSS в Telegram» публиковали её заново), а при
+ * сотне правок свежая статья по расписанию в ленту не попадала вовсе.
+ * Основной ключ — полный `publishedAt` со временем, иначе статьи одного дня
+ * вставали бы в случайном порядке; запасной — день из `resolveArticleDate`
+ * (разбирает `date` в формате ДД.ММ.ГГГГ у старых статей); при равенстве —
+ * `updatedAt`, затем id по убыванию.
+ */
+function feedPublicationTime(article: Article): number {
+  const exact = Date.parse(article.publishedAt || '');
+  if (Number.isFinite(exact)) return exact;
+  const day = resolveArticleDate(article);
+  const fallback = day ? Date.parse(`${day}T00:00:00Z`) : NaN;
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
 export function renderFeedXml(siteUrl: string, articles: Article[]): string {
-  const sorted = [...articles].sort((a, b) => {
-    const ad = new Date(a.updatedAt || a.publishedAt || 0).getTime();
-    const bd = new Date(b.updatedAt || b.publishedAt || 0).getTime();
-    return bd - ad;
-  });
+  const sorted = [...articles].sort((a, b) => (
+    feedPublicationTime(b) - feedPublicationTime(a)
+    || (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0)
+    || Number(b.id || 0) - Number(a.id || 0)
+  ));
 
   const items = sorted
     .slice(0, 100)

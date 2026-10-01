@@ -99,26 +99,109 @@ async function getArticleShell(
   }
   if (!sectionShell.headers.get('content-type')?.includes('text/html')) return unavailableArticleShell();
 
-  const source = await sectionShell.text();
-  const withoutSectionBreadcrumbs = source.replace(
-    /<script\b[^>]*\bid=(["'])ld-breadcrumbs\1[^>]*>[\s\S]*?<\/script>\s*/gi,
-    '',
-  );
-  const neutral = withoutSectionBreadcrumbs.replace(
-    /(<body\b[^>]*>)[\s\S]*?<\/body>/i,
-    '$1<div id="root"></div></body>',
-  );
   // Заголовки собираются заново, а не копируются с исходного ответа. Тело уже
   // прочитано `.text()` и переписано, поэтому старые `Content-Length` и —
   // что опаснее — `Content-Encoding: gzip` описывали бы совсем другое
   // содержимое: браузер попытался бы распаковать обычный текст.
-  return new Response(neutral, {
+  return new Response(neutralizeSectionShell(await sectionShell.text()), {
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': CACHE_CONTROL.noStore,
     },
   });
+}
+
+/**
+ * Нейтральная оболочка раздела: `${sectionPath}/index.html` без хлебных
+ * крошек списка и с пустым `<div id="root">`. Она же служит честному 404 для
+ * человека: раньше туда уходил корневой `/index.html` — с заголовком и
+ * canonical главной, preload-ами картинок хиро на 280 КБ и мельканием первого
+ * экрана главной перед тем, как SPA уведёт человека в список раздела.
+ */
+function neutralizeSectionShell(source: string): string {
+  const withoutSectionBreadcrumbs = source.replace(
+    /<script\b[^>]*\bid=(["'])ld-breadcrumbs\1[^>]*>[\s\S]*?<\/script>\s*/gi,
+    '',
+  );
+  return withoutSectionBreadcrumbs.replace(
+    /(<body\b[^>]*>)[\s\S]*?<\/body>/i,
+    '$1<div id="root"></div></body>',
+  );
+}
+
+/**
+ * 404 для человека на оболочке раздела. Разметка приводится в согласие с
+ * заголовком `X-Robots-Tag`: `robots` → `noindex, follow`, canonical и
+ * hreflang убираются — иначе ответ противоречил бы сам себе. SPA на этом
+ * адресе рисует BlogPage и уводит в список раздела; `dist/404.html` здесь не
+ * подходит: он заставил бы качать чанк и картинки экрана NotFound впустую.
+ */
+async function notFoundSectionShell(
+  request: Request,
+  next: (request?: Request) => Promise<Response>,
+  siteUrl: string,
+  sectionPath: SectionPath,
+): Promise<Response> {
+  const notFoundHeaders = {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': CACHE_CONTROL.noStore,
+    'X-Robots-Tag': 'noindex, follow',
+  };
+  const sectionShell = await next(assetRequest(request, `${sectionPath}/index.html`));
+  if (!sectionShell.ok || !sectionShell.headers.get('content-type')?.includes('text/html')) {
+    // К корневому /index.html не возвращаемся ни при каких условиях.
+    return new Response(renderArticleNotFoundHtml(siteUrl, sectionPath), { status: 404, headers: notFoundHeaders });
+  }
+
+  const neutral = new Response(neutralizeSectionShell(await sectionShell.text()), {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+  const marked = new HTMLRewriter()
+    .on('meta[name="robots"]', {
+      element(element) {
+        element.setAttribute('content', 'noindex, follow');
+      },
+    })
+    .on('link[rel="canonical"]', {
+      element(element) {
+        element.remove();
+      },
+    })
+    .on('link[rel="alternate"][hreflang]', {
+      element(element) {
+        element.remove();
+      },
+    })
+    .transform(neutral);
+  return new Response(marked.body, { status: 404, headers: notFoundHeaders });
+}
+
+/**
+ * HEAD как GET без тела.
+ *
+ * Cloudflare Pages для HEAD без своего обработчика отдаёт статику: статья
+ * уходила в 308 на адрес со слешем, а `/feed.xml` и `/api/articles` отвечали
+ * 404. SEO-сервисы, мониторинги и агрегаторы лент проверяют адреса именно
+ * HEAD-ом и видели цепочки редиректов и «битую» ленту. Заголовки копируются
+ * целиком — `Location` у 301 и `X-Robots-Tag` у 404 должны совпадать с GET.
+ * Ключи кэша внутри обработчиков строятся с `method: 'GET'`, а статика
+ * запрашивается через `assetRequest` тоже GET-ом, поэтому HEAD ничего не
+ * дублирует.
+ */
+export function headFromGet(handler: PagesFunction<Env>): PagesFunction<Env> {
+  return async (context) => {
+    const response = await handler(context);
+    // Не ждать: тело уже разветвлено `clone()`-ом для записи в кэш, а отмена
+    // одной ветки по спецификации потоков завершается только когда закрыта
+    // вторая — то есть после того, как кэш дочитает свою копию.
+    void response.body?.cancel().catch(() => undefined);
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  };
 }
 
 /**
@@ -236,23 +319,29 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
     );
 
     if (!article) {
+      // Статья переехала между блогом и кейсами (владелец сменил категорию).
+      // Старый адрес уже в индексе и в ссылках из соцсетей: 404 выбросил бы
+      // его из поиска вместе с позициями, поэтому 301 на правильный раздел —
+      // и человеку, и боту. Зацикливание невозможно: найденная статья лежит
+      // в другом разделе, иначе её нашёл бы поиск выше; черновики и будущие
+      // даты уже отфильтрованы. 301 в кэш бота не пишется (`putCache` — только
+      // для 200), query (UTM, gclid) сохраняется.
+      const moved = articles.find((item) => item.slug === slug);
+      if (moved) {
+        return articleRedirect(requestUrl, siteUrl, getArticlePath(moved));
+      }
+
       const redirectArticle = findArticleBySlugPrefix(articles, slug, sectionPath);
       if (redirectArticle) {
         return articleRedirect(requestUrl, siteUrl, getArticlePath(redirectArticle));
       }
 
       if (!isBot) {
-        // Настоящий 404 вместо страницы-копии: SPA нарисует свой экран
-        // «не найдено», а Google получит честный код ответа.
-        const shell = await next(assetRequest(request, '/index.html'));
-        return new Response(shell.body, {
-          status: 404,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': CACHE_CONTROL.noStore,
-            'X-Robots-Tag': 'noindex, follow',
-          },
-        });
+        // Честный 404 на нейтральной оболочке раздела: SPA на этом адресе
+        // перенаправляет человека в список раздела, а Google получает честный
+        // код ответа. Корневой /index.html сюда не подставляется (см.
+        // notFoundSectionShell).
+        return notFoundSectionShell(request, next, siteUrl, sectionPath);
       }
 
       return htmlResponse(renderArticleNotFoundHtml(siteUrl, sectionPath), 404, CACHE_CONTROL.noStore);

@@ -4,7 +4,7 @@ import { json } from '../../_lib/http';
 import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
-import { localTodayIso } from '../../_lib/local-day';
+import { localTodayIso, sqliteLocalModifier, timezoneOffsetFromRequest } from '../../_lib/local-day';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
@@ -59,22 +59,45 @@ async function readPeriod(
   columns: Set<string>,
   activeCond: string,
   available: { pageStats: boolean; visitors: boolean; spend: boolean },
+  localModifier: string,
 ): Promise<PeriodNumbers> {
   const { from, to } = monthBounds(period);
   const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
   const qualified = columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : 'NULL';
-  const won = columns.has('pipeline_stage') ? "SUM(CASE WHEN pipeline_stage = 'won' THEN 1 ELSE 0 END)" : 'NULL';
-  const hasRevenue = columns.has('deal_value') && columns.has('deal_currency') && columns.has('pipeline_stage');
+  const hasStage = columns.has('pipeline_stage');
+  const hasRevenue = hasStage && columns.has('deal_value') && columns.has('deal_currency');
 
-  const statement = db.prepare(`
-    SELECT COUNT(*) AS leads, ${qualified} AS qualified, ${won} AS won,
-      ${hasRevenue ? "SUM(CASE WHEN pipeline_stage = 'won' AND deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END)" : 'NULL'} AS revenue
+  const row = await db.prepare(`
+    SELECT COUNT(*) AS leads, ${qualified} AS qualified
     FROM leads
     WHERE date(${timeColumn}) >= date(?) AND date(${timeColumn}) <= date(?) AND ${activeCond}
-  `);
-  const row = hasRevenue
-    ? await statement.bind(currency, from, to).first<{ leads: number; qualified: number | null; won: number | null; revenue: number | null }>()
-    : await statement.bind(from, to).first<{ leads: number; qualified: number | null; won: number | null; revenue: number | null }>();
+  `).bind(from, to).first<{ leads: number; qualified: number | null }>();
+
+  // Выигранные сделки и выручка — по дате выигрыша, а не по дате заявки:
+  // заявка августа, выигранная в сентябре, иначе задним числом растила отчёт
+  // за август, а CRM-аналитика показывала те же деньги в сентябре. Дата
+  // закрытия хранится по Гринвичу, границы месяца — местные, отсюда
+  // модификатор. До миграции 0014 даты закрытия нет — берётся updated_at,
+  // как в CRM-аналитике.
+  let won: number | null = null;
+  let revenue: number | null = null;
+  if (hasStage) {
+    const closedColumn = columns.has('closed_at') ? 'COALESCE(closed_at, updated_at)' : 'updated_at';
+    // Месяц без сделок — это ноль выручки, а не «неизвестно»: колонки есть,
+    // считать есть по чему. SUM по пустой выборке дал бы NULL и прочерк.
+    const statement = db.prepare(`
+      SELECT COUNT(*) AS won,
+        ${hasRevenue ? 'COALESCE(SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END), 0)' : 'NULL'} AS revenue
+      FROM leads
+      WHERE pipeline_stage = 'won' AND ${activeCond}
+        AND date(${closedColumn}, ?) >= date(?) AND date(${closedColumn}, ?) <= date(?)
+    `);
+    const wonRow = hasRevenue
+      ? await statement.bind(currency, localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>()
+      : await statement.bind(localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>();
+    won = number(wonRow?.won);
+    revenue = hasRevenue ? round(number(wonRow?.revenue)) : null;
+  }
 
   let views: number | null = null;
   if (available.pageStats) {
@@ -90,11 +113,15 @@ async function readPeriod(
     visitors = number(stats?.total);
   }
 
+  // Ни одной строки расходов за месяц — расходы не заведены, а не равны нулю.
+  // Ноль здесь превращал бы «Прибыль» в выручку, а «Цену заявки» — в 0 $:
+  // выдуманные числа. Строка с суммой 0, которую владелец ввёл сам, остаётся
+  // честным нулём.
   let spend: number | null = null;
   if (available.spend) {
-    const stats = await db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM ad_spend WHERE day >= date(?) AND day <= date(?) AND currency = ?')
-      .bind(from, to, currency).first<{ total: number }>();
-    spend = round(number(stats?.total));
+    const stats = await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM ad_spend WHERE day >= date(?) AND day <= date(?) AND currency = ?')
+      .bind(from, to, currency).first<{ n: number; total: number }>();
+    spend = number(stats?.n) > 0 ? round(number(stats?.total)) : null;
   }
 
   return {
@@ -102,8 +129,8 @@ async function readPeriod(
     visitors,
     leads: number(row?.leads),
     qualified: row?.qualified === null || row?.qualified === undefined ? null : number(row.qualified),
-    won: row?.won === null || row?.won === undefined ? null : number(row.won),
-    revenue: row?.revenue === null || row?.revenue === undefined ? null : round(number(row.revenue)),
+    won,
+    revenue,
     spend,
   };
 }
@@ -146,9 +173,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       : null;
     const currency = goal?.currency || 'USD';
     const available = { pageStats: hasPageStats, visitors: hasVisitors, spend: hasSpend };
+    const localModifier = sqliteLocalModifier(timezoneOffsetFromRequest(request));
 
-    const current = await readPeriod(db, period, currency, columns, activeCond, available);
-    const previous = await readPeriod(db, previousPeriod(period), currency, columns, activeCond, available);
+    const current = await readPeriod(db, period, currency, columns, activeCond, available, localModifier);
+    const previous = await readPeriod(db, previousPeriod(period), currency, columns, activeCond, available, localModifier);
 
     const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
     const sources = columns.has('utm_source')
@@ -202,6 +230,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       publishedArticles: published ? number(published.total) : null,
       notes: [
         'Отчёт собран из тех же данных, что показывает админка: ничего не досчитывается и не округляется в свою пользу.',
+        'Выручка и выигранные сделки считаются по дате выигрыша сделки, заявки — по дате заявки; окупаемость — деньги месяца против расхода месяца.',
         current.spend === null
           ? 'Расходы за месяц не заведены, поэтому цена лида и окупаемость не рассчитаны.'
           : `Деньги считаются в ${currency}; суммы в других валютах к ней не приводятся.`,

@@ -1,7 +1,7 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json, readCappedJsonBody } from '../../_lib/http';
-import { migrationRequiredResponse } from '../../_lib/migration-guard';
+import { isMissingSchemaError, migrationRequiredResponse } from '../../_lib/migration-guard';
 import { actorHash, createPreviewToken, PREVIEW_QUERY, PREVIEW_TTL_SECONDS } from '../../_lib/page-lock-preview';
 import {
   invalidatePageLockCache,
@@ -76,6 +76,25 @@ function noDatabase(): Response {
     success: false,
     code: 'D1_NOT_BOUND',
     error: 'Доступ к страницам хранится в D1 и работает на production.',
+  }, { status: 503, headers: noStore });
+}
+
+/**
+ * Сбой базы — не «нужна миграция».
+ *
+ * Раньше любой catch отвечал «Примените миграцию 0034», и владелец шёл
+ * повторно применять уже применённую миграцию: её `CREATE UNIQUE INDEX IF NOT
+ * EXISTS` возвращал индекс, который 0035 удалила намеренно, и второй контакт
+ * с пустой почтой молча терялся. Настоящую причину (лимит записей, сетевой
+ * сбой) при этом не было видно вовсе. Миграция — только на «no such table».
+ */
+function databaseError(error: unknown): Response {
+  if (isMissingSchemaError(error)) return migrationRequiredResponse(error, MIGRATION, REASON);
+  const detail = error instanceof Error ? error.message : String(error);
+  return json({
+    success: false,
+    code: 'DB_ERROR',
+    error: `База не ответила: ${detail}. Повторите через минуту.`,
   }, { status: 503, headers: noStore });
 }
 
@@ -205,7 +224,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       listSource: snapshot.source,
     }, { headers: noStore });
   } catch (error) {
-    return migrationRequiredResponse(error, MIGRATION, REASON);
+    return databaseError(error);
   }
 };
 
@@ -262,7 +281,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'unlock_all') {
       const locked = await env.DB.prepare('SELECT path FROM page_locks WHERE locked = 1').all<{ path: string }>();
-      await env.DB.prepare("UPDATE page_locks SET locked = 0, updated_at = datetime('now') WHERE locked = 1").run();
+      // Дата закрытия обнуляется, как и при одиночном открытии: иначе при
+      // следующем закрытии страница с первой минуты числилась бы «закрыта
+      // N дней», а «Сегодня» било бы тревогу о давно закрытой странице.
+      await env.DB.prepare("UPDATE page_locks SET locked = 0, locked_at = NULL, updated_at = datetime('now') WHERE locked = 1").run();
       for (const row of locked.results || []) {
         await writeEvent(env.DB, normalizePagePath(row.path), 'unlock', hash);
       }
@@ -311,6 +333,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     // Правка текстов при неизменном доступе — это «update», а не «закрыл» или
     // «открыл»: журнал должен читаться как история доступа, а не как шум.
+    //
+    // Дата закрытия: пока страница остаётся закрытой, правка текстов её не
+    // сбрасывает; повторное закрытие открытой страницы ставит новую. Признак
+    // — прежний статус строки, а не наличие старой даты: строки, которым
+    // прошлые нажатия «Открыть все» дату не обнулили, так чинятся сами.
     const previous = await env.DB.prepare('SELECT locked FROM page_locks WHERE path = ?')
       .bind(path)
       .first<{ locked: number }>();
@@ -330,7 +357,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         show_subscribe = excluded.show_subscribe,
         cta_path = excluded.cta_path,
         locked_at = CASE
-          WHEN excluded.locked = 1 THEN COALESCE(page_locks.locked_at, excluded.locked_at)
+          WHEN excluded.locked = 1 THEN (CASE
+            WHEN page_locks.locked = 1 THEN COALESCE(page_locks.locked_at, excluded.locked_at)
+            ELSE excluded.locked_at END)
           ELSE NULL END,
         updated_at = datetime('now')`)
       .bind(
@@ -353,6 +382,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     return json({ success: true, path, locked }, { headers: noStore });
   } catch (error) {
-    return migrationRequiredResponse(error, MIGRATION, REASON);
+    return databaseError(error);
   }
 };

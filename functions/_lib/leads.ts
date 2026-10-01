@@ -1,5 +1,13 @@
 import type { Env } from './types';
 
+/**
+ * Часовой пояс владельца для дат, которые пишутся в текст (а не в колонку
+ * со временем). Совпадает с `OWNER_UTC_OFFSET_MINUTES` в
+ * `src/app/utils/publishSchedule.ts`; тянуть модуль из `src/` в Functions
+ * незачем. Workers и Node считают Intl с полным ICU.
+ */
+export const OWNER_TIME_ZONE = 'Asia/Tashkent';
+
 // Поля заявки, которые сохраняются в D1 и уходят в Telegram.
 // Это подмножество нормализованного payload из api/lead.ts.
 export interface LeadRecord {
@@ -271,7 +279,10 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     ).bind(eventId, claimToken);
 
     if (existing) {
-      const dateLabel = new Date().toLocaleDateString('ru-RU');
+      // Дата по времени владельца, а не по Гринвичу: ночью по Ташкенту
+      // «повторная заявка» иначе помечалась вчерашним числом, и этот текст
+      // оставался в карточке навсегда.
+      const dateLabel = new Date().toLocaleDateString('ru-RU', { timeZone: OWNER_TIME_ZONE });
       const addition = lead.message
         ? `— повторная заявка ${dateLabel}: ${lead.message}`
         : `— повторная заявка ${dateLabel}`;
@@ -390,15 +401,25 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
           lead.device || '', lead.device || '',
         );
       }
+      // Рекламный источник первой заявки переживает повторную без UTM: человек
+      // пришёл с рекламы, а через месяц написал напрямую — сделка не должна
+      // переезжать в «не указан» и портить цену лида по источнику. UTM
+      // обновляются только целым набором (новый visit с одним utm_source
+      // стирает и старую кампанию — склейка двух визитов хуже пустоты).
+      // Без согласия на маркетинг все пять полей по-прежнему очищаются.
       if (hasUtm) {
-        set.push('utm_source = ?', 'utm_medium = ?', 'utm_campaign = ?', 'utm_content = ?', 'utm_term = ?');
-        values.push(
-          marketingAllowed ? lead.utm_source || '' : '',
-          marketingAllowed ? lead.utm_medium || '' : '',
-          marketingAllowed ? lead.utm_campaign || '' : '',
-          marketingAllowed ? lead.utm_content || '' : '',
-          marketingAllowed ? lead.utm_term || '' : '',
-        );
+        const incomingUtm = [lead.utm_source, lead.utm_medium, lead.utm_campaign, lead.utm_content, lead.utm_term]
+          .some((value) => String(value || '').trim());
+        if (!marketingAllowed || incomingUtm) {
+          set.push('utm_source = ?', 'utm_medium = ?', 'utm_campaign = ?', 'utm_content = ?', 'utm_term = ?');
+          values.push(
+            marketingAllowed ? lead.utm_source || '' : '',
+            marketingAllowed ? lead.utm_medium || '' : '',
+            marketingAllowed ? lead.utm_campaign || '' : '',
+            marketingAllowed ? lead.utm_content || '' : '',
+            marketingAllowed ? lead.utm_term || '' : '',
+          );
+        }
       }
 
       values.push(existing.id, eventId, claimToken);
@@ -644,24 +665,62 @@ function escapeTelegramHtml(value: string): string {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/**
+ * Telegram отклоняет сообщение длиннее 4096 знаков («message is too long»),
+ * и считает он знаки уже после разбора разметки: `&amp;` — это один знак.
+ * Подробный бриф на 4 000 знаков сохранялся в базе, а уведомление о нём —
+ * обычно о самой горячей заявке — не приходило вовсе. Поэтому обрезается
+ * только само сообщение, и ровно настолько, чтобы весь текст с остальными
+ * полями поместился; полный текст остаётся в карточке заявки.
+ */
+export const TELEGRAM_MESSAGE_LIMIT = 4096;
+const TELEGRAM_MESSAGE_LABEL = 'Сообщение: ';
+const TELEGRAM_CUT_NOTE = '… (обрезано, полный текст — в карточке заявки в админке)';
+// Запас на случай, если Telegram посчитает какой-то знак иначе, чем JS.
+const TELEGRAM_LENGTH_RESERVE = 32;
+
+/** Обрезает по границе кодовой точки, чтобы не разорвать эмодзи. Длина — в единицах UTF-16, как считает Telegram. */
+function cutToUtf16Units(value: string, maxUnits: number): string {
+  if (value.length <= maxUnits) return value;
+  let result = '';
+  for (const char of value) {
+    if (result.length + char.length > maxUnits) break;
+    result += char;
+  }
+  return result;
+}
+
 export function buildLeadTelegramText(lead: LeadRecord, stored?: StoreLeadResult): string {
-  const lines = [
+  const head = [
     stored?.repeat ? `🔁 Повторная заявка (№${stored.submissionsCount} от этого контакта)` : '🚀 Новая заявка',
     `Имя: ${lead.name || 'не указано'}`,
     `Email: ${lead.email || 'не указан'}`,
     `Телефон: ${lead.phone || 'не указан'}`,
     `Бюджет: ${lead.budget || 'не указан'}`,
-    `Сообщение: ${lead.message || 'не указано'}`,
+  ];
+  const tail = [
     `Способ связи: ${lead.contactMethod === 'whatsapp' ? 'WhatsApp' : 'Telegram'}`,
   ];
   if (lead.contactMethod !== 'whatsapp' && lead.telegramUsername) {
-    lines.push(`Telegram username: ${lead.telegramUsername}`);
+    tail.push(`Telegram username: ${lead.telegramUsername}`);
   }
-  if (lead.service) lines.push(`Услуга: ${lead.service}`);
-  if (lead.page_path) lines.push(`Страница: ${lead.page_path}`);
+  if (lead.service) tail.push(`Услуга: ${lead.service}`);
+  if (lead.page_path) tail.push(`Страница: ${lead.page_path}`);
   const utm = [lead.utm_source, lead.utm_medium, lead.utm_campaign].filter(Boolean).join(' / ');
-  if (utm) lines.push(`📍 Источник: ${utm}`);
-  if (lead.utm_content) lines.push(`Объявление: ${lead.utm_content}`);
+  if (utm) tail.push(`📍 Источник: ${utm}`);
+  if (lead.utm_content) tail.push(`Объявление: ${lead.utm_content}`);
+
+  // Бюджет на сообщение считается по неэкранированному тексту — так же, как
+  // считает Telegram. Резать нужно ДО экранирования: разрез посреди `&amp;`
+  // сломал бы разметку всего сообщения.
+  const fixedLength = [...head, TELEGRAM_MESSAGE_LABEL, ...tail].join('\n').length;
+  const budget = TELEGRAM_MESSAGE_LIMIT - fixedLength - TELEGRAM_CUT_NOTE.length - TELEGRAM_LENGTH_RESERVE;
+  const message = lead.message || 'не указано';
+  const shownMessage = message.length > budget
+    ? `${cutToUtf16Units(message, Math.max(0, budget))}${TELEGRAM_CUT_NOTE}`
+    : message;
+
+  const lines = [...head, `${TELEGRAM_MESSAGE_LABEL}${shownMessage}`, ...tail];
   return lines.map(escapeTelegramHtml).join('\n');
 }
 

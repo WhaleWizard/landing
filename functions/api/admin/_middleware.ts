@@ -44,8 +44,13 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
   }
 
   if (await isAdmin2faEnabled(env)) {
+    // Сессия живёт 12 часов и не продлевается: это модель защиты из
+    // docs/SECURITY.md, скользящая сессия позволила бы украденной cookie жить
+    // сколько угодно. Поэтому через 12 часов любой раздел получает этот
+    // ответ, и он обязан быть понятным: разделы выводят `error` как есть,
+    // а `code` даёт оболочке повод предложить войти заново, не теряя правок.
     return json(
-      { success: false, error: 'session_required' },
+      { success: false, code: 'SESSION_EXPIRED', error: 'Сессия истекла — войдите в админку заново' },
       { status: 401, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }

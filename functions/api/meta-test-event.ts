@@ -3,6 +3,8 @@ import { CACHE_CONTROL } from '../_lib/cache';
 import type { Env } from '../_lib/types';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { verifyAdminPassword, verifyDebugSecret } from '../_lib/auth';
+import { hasValidAdminSession } from '../_lib/admin-session';
+import { isAdmin2faEnabled } from '../_lib/admin-2fa';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
 import { detectCountryCode, postMetaEvents, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
 import { normalizeEmail, normalizeLocation, normalizeName, normalizePhone, sha256Hex } from '../_lib/meta-pii';
@@ -241,15 +243,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
   const bySecret = verifyDebugSecret(request.headers.get('x-meta-debug-secret'), env);
 
-  // Второй допуск — пароль админки: кнопка «Отправить тестовое событие» в
-  // разделе Meta CAPI не должна требовать отдельного секрета. Права те же:
-  // владелец админки и так управляет трекингом. Событие уходит только с
-  // test_event_code, то есть в «Тестирование событий», а не в живые данные.
-  const byAdmin = verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env);
+  // Второй допуск — сессия админки: после перезагрузки /admin пароль по сети
+  // не ходит, его подставляет сервер из сессии, но этот адрес лежит вне
+  // /api/admin/ и подстановки не получает. Без сессии кнопка «Тестовое
+  // событие» на следующий день всегда отвечала 403 с текстом про секрет.
+  // Cookie выдаётся с SameSite=Strict и Path=/, так что сюда она доходит.
+  const bySession = !bySecret && await hasValidAdminSession(request, env);
 
-  if (!bySecret && !byAdmin) {
+  // Третий допуск — голый пароль админки, и только при выключенной
+  // двухфакторной защите: то же правило, что в api/admin/_middleware.ts,
+  // иначе один пароль обходил бы второй фактор целиком. При недоступной D1
+  // isAdmin2faEnabled откатывается на вход по паролю, как и сама админка.
+  // Права те же: владелец админки и так управляет трекингом. Событие уходит
+  // только с test_event_code, то есть в «Тестирование событий», а не в
+  // живые данные.
+  const byAdmin = !bySecret && !bySession
+    && verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env)
+    && !(await isAdmin2faEnabled(env));
+
+  if (!bySecret && !bySession && !byAdmin) {
     return json(
-      { success: false, error: 'META_CAPI_DEBUG_SECRET is required and must match x-meta-debug-secret' },
+      {
+        success: false,
+        code: 'FORBIDDEN',
+        error: 'Нет доступа: нужна действующая сессия админки (войдите заново), пароль админки при выключенной двухфакторной защите или секрет META_CAPI_DEBUG_SECRET в заголовке x-meta-debug-secret',
+      },
       { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }

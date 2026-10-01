@@ -69,19 +69,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const hasPipelineChangedAt = columns.has('pipeline_changed_at');
 
     const [stageRows, health, tasks, cycle, revenueRows, lossRows, sourceRows, responseRow, qualityRows] = await Promise.all([
+      // `priced` — сделки с заполненной суммой в валюте отчёта: только по ним
+      // честно считаются «Средний чек», «Выиграно» и «В работе». Сделка без
+      // суммы — это «сумма неизвестна», а не ноль.
       db.prepare(`
         SELECT pipeline_stage,
           COUNT(*) AS count,
           SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value,
-          SUM(CASE WHEN deal_value IS NOT NULL AND deal_value > 0 AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency
+          SUM(CASE WHEN deal_value IS NOT NULL AND deal_value > 0 AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency,
+          SUM(CASE WHEN deal_currency = ? AND deal_value IS NOT NULL AND deal_value > 0 THEN 1 ELSE 0 END) AS priced
         FROM leads WHERE ${activeCond}
         GROUP BY pipeline_stage
-      `).bind(currency, currency).all<{ pipeline_stage: string; count: number; value: number; other_currency: number }>(),
+      `).bind(currency, currency, currency).all<{ pipeline_stage: string; count: number; value: number; other_currency: number; priced: number }>(),
 
+      // Просрочено и «на сегодня» — только по открытым сделкам: у выигранной
+      // или проигранной срок шага остаётся как история, но вечно красным
+      // гореть не должен, а счётчик обязан совпадать с «Сегодня».
       db.prepare(`
         SELECT
-          SUM(CASE WHEN next_action_at IS NOT NULL AND datetime(next_action_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
-          SUM(CASE WHEN next_action_at IS NOT NULL AND date(next_action_at, ?) = date('now', ?) THEN 1 ELSE 0 END) AS today,
+          SUM(CASE WHEN next_action_at IS NOT NULL AND datetime(next_action_at) < datetime('now') AND pipeline_stage IN ${OPEN_STAGES} THEN 1 ELSE 0 END) AS overdue,
+          SUM(CASE WHEN next_action_at IS NOT NULL AND date(next_action_at, ?) = date('now', ?) AND pipeline_stage IN ${OPEN_STAGES} THEN 1 ELSE 0 END) AS today,
           SUM(CASE WHEN next_action_at IS NULL AND pipeline_stage IN ${OPEN_STAGES} THEN 1 ELSE 0 END) AS without_next_action,
           ${hasPipelineChangedAt
             ? `SUM(CASE WHEN pipeline_stage IN ${OPEN_STAGES} AND pipeline_changed_at IS NOT NULL AND datetime(pipeline_changed_at) < datetime('now', '-${STALE_DAYS} day') THEN 1 ELSE 0 END)`
@@ -109,15 +116,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
           `).first<{ avg_days: number | null; deals: number }>()
         : Promise.resolve(null),
 
+      // Месяц выигрыша — по местному времени владельца, как в «Целях» и
+      // «Отчёте»: дата закрытия хранится по Гринвичу, и сделка, выигранная
+      // первого числа до пяти утра, иначе уезжала в прошлый месяц.
+      // Порядок модификаторов: сначала 'start of month', потом '-11 months'.
+      // Наоборот 31-го числа «минус 11 месяцев» переезжало в следующий
+      // месяц, и самый старый из двенадцати столбиков пропадал.
       db.prepare(`
-        SELECT strftime('%Y-%m', ${hasClosedAt ? "COALESCE(closed_at, updated_at)" : 'updated_at'}) AS month,
+        SELECT strftime('%Y-%m', ${hasClosedAt ? "COALESCE(closed_at, updated_at)" : 'updated_at'}, ?) AS month,
           COUNT(*) AS deals,
           SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value
         FROM leads
         WHERE ${activeCond} AND pipeline_stage = 'won'
-          AND ${hasClosedAt ? "COALESCE(closed_at, updated_at)" : 'updated_at'} >= date('now', '-11 months', 'start of month')
+          AND date(${hasClosedAt ? "COALESCE(closed_at, updated_at)" : 'updated_at'}, ?) >= date('now', ?, 'start of month', '-11 months')
         GROUP BY month ORDER BY month ASC
-      `).bind(currency).all<{ month: string; deals: number; value: number }>(),
+      `).bind(localTimeModifier, currency, localTimeModifier, localTimeModifier).all<{ month: string; deals: number; value: number }>(),
 
       db.prepare(`
         SELECT TRIM(loss_reason) AS reason, COUNT(*) AS count
@@ -167,13 +180,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         count: number(row?.count),
         value: round(number(row?.value)),
         otherCurrencyDeals: number(row?.other_currency),
+        pricedDeals: number(row?.priced),
       };
     });
 
     const totalLeads = stages.reduce((sum, stage) => sum + stage.count, 0);
-    const wonCount = stages.find((stage) => stage.stage === 'won')?.count || 0;
+    const wonStage = stages.find((stage) => stage.stage === 'won');
+    const wonCount = wonStage?.count || 0;
     const lostCount = stages.find((stage) => stage.stage === 'lost')?.count || 0;
     const closedCount = wonCount + lostCount;
+
+    // Деньги считаются только по сделкам с суммой. Пять выигранных, из них
+    // две с суммой по 1000 $, — это средний чек 1000 $, а не 400 $; а без
+    // единой суммы «Выиграно 0 USD» было бы выдуманным числом. Сколько сделок
+    // осталось без суммы, уезжает в ответ, чтобы интерфейс назвал это словами.
+    const wonPriced = wonStage?.pricedDeals || 0;
+    const wonWithoutValue = Math.max(0, wonCount - wonPriced - (wonStage?.otherCurrencyDeals || 0));
+    const openStages = stages.filter((stage) => ['new', 'contacted', 'discovery', 'proposal'].includes(stage.stage));
+    const openCount = openStages.reduce((sum, stage) => sum + stage.count, 0);
+    const openPriced = openStages.reduce((sum, stage) => sum + stage.pricedDeals, 0);
+    const openWithoutValue = Math.max(0, openCount - openPriced - openStages.reduce((sum, stage) => sum + stage.otherCurrencyDeals, 0));
 
     return json({
       success: true,
@@ -189,11 +215,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         // Доля выигранных среди закрытых — единственная честная «конверсия»
         // без журнала переходов: открытые сделки исход ещё не определили.
         winRate: closedCount > 0 ? round((wonCount / closedCount) * 100, 1) : null,
-        openValue: stages
-          .filter((stage) => ['new', 'contacted', 'discovery', 'proposal'].includes(stage.stage))
-          .reduce((sum, stage) => sum + stage.value, 0),
-        wonValue: stages.find((stage) => stage.stage === 'won')?.value || 0,
-        averageDeal: wonCount > 0 ? round((stages.find((stage) => stage.stage === 'won')?.value || 0) / wonCount) : null,
+        openValue: openPriced > 0 ? round(openStages.reduce((sum, stage) => sum + stage.value, 0)) : null,
+        wonValue: wonPriced > 0 ? round(wonStage?.value || 0) : null,
+        averageDeal: wonPriced > 0 ? round((wonStage?.value || 0) / wonPriced) : null,
+        wonPriced,
+        wonWithoutValue,
+        openPriced,
+        openWithoutValue,
       },
       health: {
         overdue: number(health?.overdue),

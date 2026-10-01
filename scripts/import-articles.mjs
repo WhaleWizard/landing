@@ -20,12 +20,20 @@
  * Обязательны title, slug, content (HTML, как из редактора) и category —
  * один из разделов `src/app/data/blogSections.ts` или «Кейсы». Остальное
  * дозаполняется: readTime по числу слов, date, image.
- * Статус по умолчанию — draft: ничего не уходит на сайт, пока владелец не
- * решит иначе (или не передан --status published).
+ * Статус по умолчанию для НОВОЙ статьи — draft: ничего не уходит на сайт,
+ * пока владелец не решит иначе (или не передан --status published).
  *
- * Идемпотентно: PATCH делает upsert по слагу, повторный запуск обновляет
- * те же статьи. Уважает лимит админки 30 запросов в минуту: пауза между
- * запросами и повтор при 429.
+ * Повторный запуск обновляет текст и SEO-поля тех же статей (PATCH делает
+ * upsert по слагу), но не трогает то, что владелец уже сделал в админке:
+ * статус и дату выхода (вышедшая или запланированная статья не становится
+ * черновиком), обложку, цифры кейса, теги, тезисы и FAQ — если их нет в
+ * JSON, они берутся из базы. Статус меняется только явным --status; для
+ * уже вышедшей статьи `--status draft` печатает предупреждение. Ради этого
+ * перед отправкой скрипт один раз читает список статей
+ * (GET /api/admin/articles?view=summary) — без него импорт не идёт.
+ *
+ * Уважает лимит админки 30 запросов в минуту: пауза между запросами и
+ * повтор при 429.
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -45,13 +53,15 @@ const FORCE_STATUS = args.status === 'published' || args.status === 'draft' ? ar
 const ONLY = args.only ? new Set(String(args.only).split(',').map((s) => s.trim()).filter(Boolean)) : null;
 
 let client = null;
-if (!DRY_RUN) {
-  try {
-    client = createAdminClient({ envFile, code: args.code === true ? '' : args.code });
-  } catch (error) {
+try {
+  client = createAdminClient({ envFile, code: args.code === true ? '' : args.code });
+} catch (error) {
+  if (!DRY_RUN) {
     console.error(error.message);
     process.exit(2);
   }
+  // Проверка без доступа к админке: поля существующих статей сверить нельзя.
+  console.log(`Без доступа к админке (${error.message}) — что возьмётся из базы, показать нельзя`);
 }
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -67,6 +77,10 @@ if (!existsSync(dir) || !statSync(dir).isDirectory()) {
 const files = readdirSync(dir).filter((name) => name.endsWith('.json')).sort();
 const report = { created: [], updated: [], skipped: [], failed: [], dryRun: DRY_RUN, site: client ? client.siteUrl : null };
 
+// Один запрос на весь импорт, а не GET на каждую статью: при паузе 2500 мс
+// это было бы ~48 запросов в минуту при лимите админки в 30.
+const existingBySlug = client ? await loadExistingArticles() : new Map();
+
 const candidates = [];
 for (const name of files) {
   let parsed;
@@ -77,25 +91,29 @@ for (const name of files) {
     continue;
   }
   for (const raw of Array.isArray(parsed) ? parsed : [parsed]) {
-    const { article, problem } = normalize(raw, name);
+    const { article: fromFile, problem } = normalize(raw, name);
     if (problem) { report.skipped.push({ file: name, reason: problem }); continue; }
-    if (ONLY && !ONLY.has(article.slug)) continue;
-    candidates.push({ file: name, article });
+    if (ONLY && !ONLY.has(fromFile.slug)) continue;
+    const { article, kept, warning } = mergeWithExisting(fromFile, raw, existingBySlug.get(fromFile.slug));
+    candidates.push({ file: name, article, kept, warning });
   }
 }
 
 console.log(`Найдено статей: ${candidates.length} (файлов ${files.length}), пропущено ${report.skipped.length}${DRY_RUN ? ', режим проверки без отправки' : ''}`);
 
-for (const [index, { file, article }] of candidates.entries()) {
+for (const [index, { file, article, kept, warning }] of candidates.entries()) {
   const label = `${String(index + 1).padStart(3)}/${candidates.length} ${article.slug}`;
+  const keptNote = kept.length ? `; из базы: ${describeKept(article, kept)}` : '';
+  if (warning) console.log(`${label} — ВНИМАНИЕ: ${warning}`);
   if (DRY_RUN) {
-    console.log(`${label} — ок (${article.status}, ${article.readTime} мин, ${article.content.length} симв.)`);
+    const verb = existingBySlug.has(article.slug) ? 'обновит' : 'создаст';
+    console.log(`${label} — ${verb} (${article.status}, ${article.readTime} мин, ${article.content.length} симв.${keptNote})`);
     continue;
   }
   const outcome = await sendWithRetry(article);
   if (outcome.ok) {
-    (outcome.created ? report.created : report.updated).push({ file, slug: article.slug, id: outcome.id });
-    console.log(`${label} — ${outcome.created ? 'создана' : 'обновлена'} (id ${outcome.id})`);
+    (outcome.created ? report.created : report.updated).push({ file, slug: article.slug, id: outcome.id, kept });
+    console.log(`${label} — ${outcome.created ? 'создана' : 'обновлена'} (id ${outcome.id}${keptNote})`);
   } else {
     report.failed.push({ file, slug: article.slug, reason: outcome.error });
     console.log(`${label} — ОШИБКА: ${outcome.error}`);
@@ -147,8 +165,9 @@ function normalize(raw, file) {
   const description = String(raw.description || raw.summary || '').trim().slice(0, 2000);
   const status = FORCE_STATUS || (raw.status === 'published' ? 'published' : 'draft');
 
+  // id из файла не отправляется: его назначает сервер, а чужой id в файле
+  // сервер теперь считает сменой адреса сохранённой статьи и отклоняет.
   const article = {
-    id: Number(raw.id) || 0,
     slug,
     title,
     category,
@@ -170,6 +189,72 @@ function normalize(raw, file) {
   };
   if (raw.caseData && typeof raw.caseData === 'object') article.caseData = raw.caseData;
   return { article };
+}
+
+/**
+ * Статья уже есть в базе: всё, чего нет в JSON, берётся из неё.
+ *
+ * Иначе повторный импорт той же папки (например, после правки опечатки)
+ * молча снимал с публикации вышедшие и запланированные статьи, менял
+ * обложку из админки на заглушку и стирал цифры кейса. Дата выхода без
+ * значения в JSON просто не отправляется — сервер сохраняет прежнюю.
+ * Новые статьи получают прежние значения по умолчанию.
+ */
+function mergeWithExisting(article, raw, existing) {
+  if (!existing) return { article, kept: [], warning: '' };
+  const merged = { ...article };
+  const kept = [];
+  let warning = '';
+
+  const existingStatus = existing.status === 'draft' ? 'draft' : 'published';
+  if (FORCE_STATUS) {
+    if (FORCE_STATUS === 'draft' && existingStatus === 'published') {
+      warning = 'статья уже вышла или запланирована — `--status draft` снимет её с сайта';
+    }
+  } else {
+    merged.status = existingStatus;
+    kept.push('status');
+  }
+
+  const keep = (field, givenInFile, value) => {
+    if (givenInFile) return;
+    if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return;
+    merged[field] = value;
+    kept.push(field);
+  };
+  keep('image', Boolean(raw.image), existing.image);
+  keep('date', Boolean(raw.date), existing.date);
+  keep('caseData', Boolean(raw.caseData && typeof raw.caseData === 'object'), existing.caseData);
+  keep('seoTitle', Boolean(raw.seoTitle), existing.seoTitle);
+  keep('seoDescription', Boolean(raw.seoDescription), existing.seoDescription);
+  keep('tags', Array.isArray(raw.tags), existing.tags);
+  keep('keyTakeaways', Array.isArray(raw.keyTakeaways), existing.keyTakeaways);
+  keep('faq', Array.isArray(raw.faq), existing.faq);
+
+  return { article: merged, kept, warning };
+}
+
+function describeKept(article, kept) {
+  return kept.map((field) => (field === 'status' ? `статус ${article.status}` : field)).join(', ');
+}
+
+async function loadExistingArticles() {
+  try {
+    const res = await client.request('/api/admin/articles?view=summary');
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.success || !Array.isArray(payload.articles)) {
+      throw new Error(payload?.error || `HTTP ${res.status}`);
+    }
+    return new Map(payload.articles.map((item) => [String(item.slug || ''), item]));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (DRY_RUN) {
+      console.log(`Список статей не прочитан (${message}) — что возьмётся из базы, показать нельзя`);
+      return new Map();
+    }
+    console.error(`Не удалось прочитать список статей: ${message}. Без него повторный импорт снял бы с публикации уже вышедшие статьи — импорт остановлен.`);
+    process.exit(2);
+  }
 }
 
 async function sendWithRetry(article, attempt = 1) {

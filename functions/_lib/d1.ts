@@ -253,7 +253,11 @@ function bindArticleUpsert(
   // Статья уже прошла applyFreshnessMetadata, где дата публикации разрешена
   // по правилу «введённое важнее прежнего». Повторно сверяться с прежним
   // значением здесь нельзя: именно это и отменяло правку даты.
-  const publishedAt = article.publishedAt || nowIso;
+  //
+  // Черновик без даты пишется с NULL (колонка это допускает), а не с «сейчас»:
+  // иначе он выходил бы задним числом при публикации. COALESCE в upsert при
+  // этом сохраняет дату уже выходившей статьи, временно снятой в черновик.
+  const publishedAt = article.publishedAt || (normalizeArticleStatus(article.status) === 'draft' ? null : nowIso);
   const updatedAt = article.updatedAt || nowIso;
 
   const values: Array<string | number | null> = [
@@ -338,6 +342,20 @@ export async function writeArticleToD1(env: Env, rawArticle: Article, existing: 
   const context = await getArticleUpsertContext(env);
   await bindArticleUpsert(env, context, normalized, new Date().toISOString()).run();
   return fetchArticleFromD1(env, normalized.slug);
+}
+
+/**
+ * Слаг другой статьи с этим id, если такая есть. Нужен, чтобы отличить
+ * новую статью от сохранённой, у которой в редакторе поменяли адрес:
+ * upsert идёт по слагу, и смена адреса молча создала бы вторую копию.
+ */
+export async function fetchOtherSlugForArticleIdFromD1(env: Env, id: number, slug: string): Promise<string | null> {
+  if (!hasD1(env) || !Number.isInteger(id) || id <= 0) return null;
+  const row = await env.DB
+    .prepare('SELECT slug FROM articles WHERE id = ? AND slug <> ? LIMIT 1')
+    .bind(id, slug)
+    .first<{ slug: string }>();
+  return row?.slug ? String(row.slug) : null;
 }
 
 /** Следующий свободный id для новой статьи: id в базе не перенумеровываются. */

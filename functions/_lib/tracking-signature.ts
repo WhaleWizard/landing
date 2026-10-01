@@ -175,6 +175,62 @@ export async function verifyTrackingSignature(request: Request, env: Env, bodyTe
   }
 }
 
+/**
+ * Сколько строк аудита подписи позволено записать за сутки.
+ *
+ * Строку аудита может вызвать кто угодно поддельными заголовками `x-track-*`,
+ * а каждая запись в D1 на бесплатном тарифе — из общего суточного лимита, от
+ * которого зависит и приём заявок. Потолок считается в кэше дата-центра по
+ * образцу `form-guard-stats.ts`: грубо, бесплатно и без записей в базу.
+ */
+const AUDIT_DAILY_WRITE_BUDGET = 200;
+/** Отметка «день неполный»: пишется один раз, когда бюджет кончился. */
+export const AUDIT_BUDGET_EXHAUSTED_REASON = 'audit_budget_exhausted';
+/**
+ * Под каким `endpoint` лежит отметка. Бюджет общий на все три точки, поэтому
+ * записывать отметку под той точкой, чей запрос его случайно исчерпал, нельзя:
+ * раздел «Проверка» суммирует строки по `endpoint`, и отметка прибавляла бы
+ * единицу к счётчику lead/meta-event/pageview. Значение вне этих трёх
+ * CHECK-ом не ограничено (миграция 0018), и в суммы по точкам оно не попадает.
+ */
+export const AUDIT_BUDGET_MARKER_ENDPOINT = 'all';
+
+function auditBudgetKey(day: string): Request {
+  return new Request(`https://internal-tracking-signature.local/budget/${day}`);
+}
+
+async function claimAuditWriteBudget(day: string): Promise<'write' | 'mark' | 'skip'> {
+  let cache: Cache | undefined;
+  try {
+    cache = caches.default;
+  } catch {
+    cache = undefined;
+  }
+  // Без Cache API (локальный запуск) бюджет не посчитать — запись разрешена.
+  if (!cache) return 'write';
+
+  const key = auditBudgetKey(day);
+  const existing = await cache.match(key);
+  const used = existing ? Number(await existing.text()) || 0 : 0;
+  if (used > AUDIT_DAILY_WRITE_BUDGET) return 'skip';
+  await cache.put(key, new Response(String(used + 1), {
+    headers: { 'Cache-Control': 'max-age=86400' },
+  }));
+  return used === AUDIT_DAILY_WRITE_BUDGET ? 'mark' : 'write';
+}
+
+/**
+ * Суточный агрегат попыток подписи — только тех, что подпись **принесли**.
+ *
+ * Браузер подпись не ставит (ключ в браузер отдавать нельзя), поэтому раньше
+ * каждый просмотр, событие и заявка писали строку `missing_headers`: плюс
+ * одна запись D1 на каждый запрос трекинга, то есть примерно +6 на визит
+ * сверх посчитанных в `docs/CLOUDFLARE_LIMITS.md` ~20. Запас бесплатного
+ * тарифа кончался на четверть раньше памятки, а когда он кончается —
+ * перестают записываться заявки. Неподписанные запросы и выключенный режим
+ * теперь не журналируются вовсе; объём трафика по точкам виден в
+ * `page_stats_daily`. Разбор и отказ запроса от этого не зависят.
+ */
 export async function recordTrackingSignatureAudit(
   env: Env,
   input: {
@@ -184,23 +240,35 @@ export async function recordTrackingSignatureAudit(
   },
 ): Promise<void> {
   if (!env.DB) return;
-  const result = input.mode === 'off' ? 'disabled' : input.verification?.ok ? 'valid' : 'invalid';
-  let reason = 'verification_not_run';
-  if (input.mode === 'off') {
-    reason = 'signature_disabled';
-  } else if (input.verification?.ok === true) {
-    reason = `replay_protection_${input.verification.replayProtection}`;
-  } else if (input.verification?.ok === false) {
-    reason = input.verification.reason;
-  }
+  if (input.mode === 'off') return;
+  if (!input.verification) return;
+  if (input.verification.ok === false && UNSIGNED_REASONS.has(input.verification.reason)) return;
+
+  const result = input.verification.ok ? 'valid' : 'invalid';
+  const reason = input.verification.ok
+    ? `replay_protection_${input.verification.replayProtection}`
+    : input.verification.reason;
   try {
+    const day = new Date().toISOString().slice(0, 10);
+    const budget = await claimAuditWriteBudget(day);
+    if (budget === 'skip') return;
+    // Бюджет исчерпан: вместо очередной строки — одна отметка, что цифры за
+    // день неполные. Выдавать усечённый счётчик за точный нельзя. Колонка
+    // `result` ограничена CHECK-ом миграции 0018 (valid/invalid/disabled):
+    // «аудит выключен до конца дня» — это `disabled`, и в valid/invalid
+    // раздела «Проверка» отметка не попадает; `endpoint` у неё общий, чтобы
+    // не попасть и в счётчик точки. Раздел видит её как `disabled > 0` и
+    // должен писать «не меньше N», а не точное число.
+    const storedEndpoint = budget === 'mark' ? AUDIT_BUDGET_MARKER_ENDPOINT : input.endpoint;
+    const storedResult = budget === 'mark' ? 'disabled' : result;
+    const storedReason = budget === 'mark' ? AUDIT_BUDGET_EXHAUSTED_REASON : reason;
     await env.DB.prepare(
       `INSERT INTO tracking_signature_daily (day, endpoint, mode, result, reason, count, updated_at)
        VALUES (date('now'), ?, ?, ?, ?, 1, strftime('%s','now'))
        ON CONFLICT(day, endpoint, mode, result, reason) DO UPDATE SET
          count = tracking_signature_daily.count + 1,
          updated_at = excluded.updated_at`,
-    ).bind(input.endpoint, input.mode, result, reason).run();
+    ).bind(storedEndpoint, input.mode, storedResult, storedReason).run();
   } catch (error) {
     // Migration 0018 may not be applied during a rolling deploy. Signature
     // enforcement remains independent from this aggregate telemetry.

@@ -402,11 +402,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       }
 
       if (hasCreatedAt) {
+        // Сначала те, кто ждёт ответа дольше всех: отбор совпадает с итоговым
+        // порядком фокуса (по `when` по возрастанию), как у просроченных шагов
+        // и задач. С `DESC` в пять мест попадали самые свежие заявки, а те,
+        // что ждут третий день, выпадали из списка, хотя счётчик их учитывал.
         const rows = await db.prepare(
           `SELECT id, name, email, phone, telegram_username, service, ${leadTime} AS at
            FROM leads
            WHERE ${newLeadPredicate} AND ${activeCond}
-           ORDER BY datetime(${leadTime}) DESC LIMIT ${FOCUS_LIMIT_PER_KIND}`,
+           ORDER BY datetime(${leadTime}) ASC LIMIT ${FOCUS_LIMIT_PER_KIND}`,
         ).all<{ id: number; name: string; email: string; phone: string; telegram_username: string; service: string; at: string }>();
         for (const row of rows.results || []) {
           focus.push({

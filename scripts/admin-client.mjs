@@ -86,7 +86,9 @@ export function createAdminClient({ envFile, code, sessionFile } = {}) {
     let res = await run();
     if (res.status === 401) {
       const body = await res.clone().json().catch(() => ({}));
-      if (body?.error === 'session_required' || body?.error === 'Unauthorized') {
+      // Сервер отвечает `code: 'SESSION_EXPIRED'` при включённой двухфакторной
+      // защите без сессии; старые тексты оставлены на время выкладки.
+      if (body?.code === 'SESSION_EXPIRED' || body?.error === 'session_required' || body?.error === 'Unauthorized') {
         if (session) {
           session = '';
           try { unlinkSync(sessionPath); } catch { /* файла могло не быть */ }

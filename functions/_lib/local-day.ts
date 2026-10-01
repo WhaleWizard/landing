@@ -59,3 +59,19 @@ export function sqliteLocalModifier(offsetMinutes: number): string {
     : 0;
   return `${-offset >= 0 ? '+' : '-'}${Math.abs(offset)} minutes`;
 }
+
+/**
+ * Граница окна «за N суток» для колонок, записанных через
+ * `new Date().toISOString()` (диагностика Meta CAPI).
+ *
+ * Сравнивать такую колонку с `datetime('now', '-1 day')` нельзя: SQLite отдаёт
+ * `2026-09-30 12:00:00`, а в колонке лежит `2026-09-30T09:00:00.000Z`. Буква
+ * `T` больше пробела, поэтому любая строка вчерашнего дня проходит условие
+ * «за сутки», и окно растягивается до 48 часов. Граница строится тем же
+ * способом, что и значение в колонке, — форматы совпадают посимвольно, а
+ * колонка остаётся голой, и индекс по `created_at` продолжает работать
+ * (обёртка `datetime(created_at)` его бы отключила).
+ */
+export function isoSince(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}

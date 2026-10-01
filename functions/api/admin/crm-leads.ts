@@ -6,6 +6,8 @@ import {
   AdminCrmMigrationRequiredError,
   adminCrmMigrationResponse,
   assertAdminCrmSchema,
+  foldSearchQuery,
+  foldSearchSql,
 } from '../../_lib/admin-crm';
 import { attachAdminQualityDelivery } from '../../_lib/admin-lead-quality-status';
 import { json } from '../../_lib/http';
@@ -100,10 +102,14 @@ async function getSummary(db: D1Database, localTimeModifier: string, activeCond:
               SUM(CASE WHEN pipeline_stage = 'won' THEN COALESCE(deal_value, 0) ELSE 0 END) AS won_value
        FROM leads WHERE ${activeCond} GROUP BY deal_currency ORDER BY deal_currency`,
     ).all<{ deal_currency: string; open_value: number; won_value: number }>(),
+    // Просрочено и «на сегодня» — только по открытым сделкам, как и «без
+    // следующего шага»: у закрытой сделки срок остаётся историей (и нужен,
+    // если её вернут в работу), но в счётчик не попадает — иначе плитка
+    // расходилась с «Сегодня» и уведомлениями.
     db.prepare(
       `SELECT
-         SUM(CASE WHEN next_action_at IS NOT NULL AND datetime(next_action_at) < datetime('now') THEN 1 ELSE 0 END) AS overdue,
-         SUM(CASE WHEN next_action_at IS NOT NULL AND date(next_action_at, ?) = date('now', ?) THEN 1 ELSE 0 END) AS today,
+         SUM(CASE WHEN next_action_at IS NOT NULL AND datetime(next_action_at) < datetime('now') AND pipeline_stage NOT IN ('won','lost','archived') THEN 1 ELSE 0 END) AS overdue,
+         SUM(CASE WHEN next_action_at IS NOT NULL AND date(next_action_at, ?) = date('now', ?) AND pipeline_stage NOT IN ('won','lost','archived') THEN 1 ELSE 0 END) AS today,
          SUM(CASE WHEN next_action_at IS NULL AND pipeline_stage NOT IN ('won','lost','archived') THEN 1 ELSE 0 END) AS without_next_action
        FROM leads WHERE ${activeCond}`,
     ).bind(localTimeModifier, localTimeModifier).first<{ overdue: number; today: number; without_next_action: number }>(),
@@ -178,13 +184,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     const q = String(url.searchParams.get('q') || '').trim().slice(0, 120);
     if (q) {
-      const pattern = `%${escapeLike(q)}%`;
+      // Регистр кириллицы: LIKE в SQLite не различает регистр только у
+      // латиницы, поэтому «анна» не находила «Анна». Обе стороны сводятся
+      // к строчным: запрос — в JS, колонки — через foldSearchSql.
+      const pattern = `%${escapeLike(foldSearchQuery(q))}%`;
       const columns = ['name', 'email', 'phone', 'telegram_username', 'message', 'service', 'notes', 'next_action_text'];
-      const clauses = columns.map((column) => `l.${column} LIKE ? ESCAPE '\\'`);
+      const clauses = columns.map((column) => `${foldSearchSql(`l.${column}`)} LIKE ? ESCAPE '\\'`);
       values.push(...columns.map(() => pattern), pattern);
       clauses.push(`EXISTS (
         SELECT 1 FROM crm_lead_tags qlt INNER JOIN crm_tags qt ON qt.id = qlt.tag_id
-        WHERE qlt.lead_id = l.id AND qt.name LIKE ? ESCAPE '\\'
+        WHERE qlt.lead_id = l.id AND ${foldSearchSql('qt.name')} LIKE ? ESCAPE '\\'
       )`);
       where.push(`(${clauses.join(' OR ')})`);
       appliedFilters.q = q;
@@ -240,12 +249,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       if (!['overdue', 'today', 'upcoming', 'none'].includes(due)) {
         throw new Error('due must be one of: overdue, today, upcoming, none');
       }
-      if (due === 'overdue') where.push("l.next_action_at IS NOT NULL AND datetime(l.next_action_at) < datetime('now')");
+      // Те же условия, что у счётчиков в getSummary: клик по плитке
+      // «Просрочено» показывает ровно столько сделок, сколько на ней написано.
+      if (due === 'overdue') where.push("l.next_action_at IS NOT NULL AND datetime(l.next_action_at) < datetime('now') AND l.pipeline_stage NOT IN ('won','lost','archived')");
       if (due === 'today') {
-        where.push("l.next_action_at IS NOT NULL AND date(l.next_action_at, ?) = date('now', ?)");
+        where.push("l.next_action_at IS NOT NULL AND date(l.next_action_at, ?) = date('now', ?) AND l.pipeline_stage NOT IN ('won','lost','archived')");
         values.push(localTimeModifier, localTimeModifier);
       }
-      if (due === 'upcoming') where.push("l.next_action_at IS NOT NULL AND datetime(l.next_action_at) > datetime('now')");
+      if (due === 'upcoming') where.push("l.next_action_at IS NOT NULL AND datetime(l.next_action_at) > datetime('now') AND l.pipeline_stage NOT IN ('won','lost','archived')");
       if (due === 'none') where.push("l.next_action_at IS NULL AND l.pipeline_stage NOT IN ('won','lost','archived')");
       appliedFilters.due = due;
     }

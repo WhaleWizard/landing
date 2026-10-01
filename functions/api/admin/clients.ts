@@ -174,7 +174,14 @@ function computeHealth(
   // Спрашиваем именно про прошлый месяц, а не «совпадает ли он с самым свежим
   // отправленным». Отчёт за текущий месяц, отправленный вперёд, делал самый
   // свежий месяц текущим — и раздел требовал отчёт, который давно отправлен.
-  if (client.status === 'active' && dayOfMonthOf(todayIso) > 10 && !previousMonthReported) {
+  //
+  // Отчёт требуется только у того, кто в прошлом месяце уже работал: клиент,
+  // заведённый 15-го числа, иначе сразу «требовал действий» за месяц, за
+  // который отчитываться не за что. Некорректная дата начала оставляет
+  // старое поведение, чтобы не потерять тревогу у старых карточек.
+  const startedMonth = String(client.started_at || '').slice(0, 7);
+  const workedPreviousMonth = !/^\d{4}-\d{2}$/.test(startedMonth) || startedMonth <= previousMonth;
+  if (client.status === 'active' && dayOfMonthOf(todayIso) > 10 && !previousMonthReported && workedPreviousMonth) {
     reasons.push(`Отчёт за ${previousMonth} не отправлен`);
     raise('critical');
   }
@@ -307,8 +314,12 @@ async function listClients(env: Env, todayIso: string): Promise<Response> {
     recurring.set(client.retainer_currency, (recurring.get(client.retainer_currency) || 0) + client.retainer_amount);
   }
 
+  // Завершённый клиент без даты конца (карточки, закрытые до того, как
+  // дата стала ставиться сама) в срок жизни не попадает: считать его до
+  // сегодня — значит растить «Средний срок жизни» каждый день, а подставлять
+  // день правки — выдумывать число.
   const lifetimes = clients
-    .filter((client) => client.started_at)
+    .filter((client) => client.started_at && (client.status !== 'finished' || client.finished_at))
     .map((client) => {
       const start = new Date(`${client.started_at}T00:00:00Z`).getTime();
       const end = client.finished_at ? new Date(`${client.finished_at}T00:00:00Z`).getTime() : Date.now();
@@ -365,15 +376,21 @@ async function getClient(env: Env, id: number, todayIso: string): Promise<Respon
   }, { headers: noStore });
 }
 
-/** Поля карточки, которые приходят одним объектом при сохранении. */
-function clientFields(body: Record<string, unknown>): { columns: string[]; values: unknown[] } {
+/**
+ * Поля карточки, которые приходят одним объектом при сохранении.
+ *
+ * `finished_at` здесь нет: дата завершения ставится один раз — в день
+ * перевода в «Завершён» — и не сдвигается при каждом сохранении карточки,
+ * поэтому обработчики пишут её сами (см. `finishedAtValue`).
+ */
+function clientFields(body: Record<string, unknown>): { columns: string[]; values: unknown[]; status: ClientStatus; finishedAt: string | null } {
+  const status = cleanStatus(body.status);
   const map: Array<[string, unknown]> = [
     ['name', cleanLine(body.name, LIMITS.name)],
     ['company', cleanLine(body.company, LIMITS.company)],
-    ['status', cleanStatus(body.status)],
+    ['status', status],
     ['started_at', cleanDate(body.started_at) || new Date().toISOString().slice(0, 10)],
     ['paused_until', cleanDate(body.paused_until)],
-    ['finished_at', cleanDate(body.finished_at)],
     ['finish_reason', cleanText(body.finish_reason, LIMITS.text)],
     ['contact_method', cleanLine(body.contact_method, 40)],
     ['contact_value', cleanLine(body.contact_value, LIMITS.contact)],
@@ -399,7 +416,21 @@ function clientFields(body: Record<string, unknown>): { columns: string[]; value
     ['next_touch_text', cleanLine(body.next_touch_text, 240)],
     ['media_folder', cleanLine(body.media_folder, 120)],
   ];
-  return { columns: map.map(([column]) => column), values: map.map(([, value]) => value) };
+  return {
+    columns: map.map(([column]) => column),
+    values: map.map(([, value]) => value),
+    status,
+    finishedAt: cleanDate(body.finished_at),
+  };
+}
+
+/**
+ * Дата завершения при создании: «Завершён» без даты — сегодня по времени
+ * владельца; любой другой статус — пусто. Раньше её не ставил никто, и
+ * ушедший клиент считался в «Среднем сроке жизни» до сегодняшнего дня.
+ */
+function finishedAtValue(status: ClientStatus, finishedAt: string | null, todayIso: string): string | null {
+  return status === 'finished' ? finishedAt || todayIso : null;
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -461,10 +492,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const db = env.DB;
   const action = String(body.action || '');
   const id = Number(body.id || 0);
+  const todayIso = localTodayIso(request);
 
   try {
     if (action === 'create') {
-      const { columns, values } = clientFields(body);
+      const { columns, values, status, finishedAt } = clientFields(body);
       const leadId = Number(body.lead_id || 0) || null;
       if (!String(values[0] || '').trim()) {
         return json({ success: false, error: 'Без имени клиента карточка бессмысленна' }, { status: 400, headers: noStore });
@@ -475,20 +507,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           return json({ success: false, error: 'Из этой сделки клиент уже заведён', clientId: existing.id }, { status: 409, headers: noStore });
         }
       }
-      const allColumns = ['lead_id', ...columns];
+      const allColumns = ['lead_id', ...columns, 'finished_at'];
       const result = await db.prepare(
         `INSERT INTO clients (${allColumns.join(', ')}) VALUES (${allColumns.map(() => '?').join(', ')})`,
-      ).bind(leadId, ...values).run() as { meta?: { last_row_id?: number } };
+      ).bind(leadId, ...values, finishedAtValue(status, finishedAt, todayIso)).run() as { meta?: { last_row_id?: number } };
       return json({ success: true, id: result.meta?.last_row_id || 0 }, { headers: noStore });
     }
 
     if (!id) return json({ success: false, error: 'Нужен id клиента' }, { status: 400, headers: noStore });
 
     if (action === 'update') {
-      const { columns, values } = clientFields(body);
+      const { columns, values, status, finishedAt } = clientFields(body);
+      // Дата завершения ставится один раз: уже сохранённая не теряется из-за
+      // пустого поля в теле запроса, первая отметка «Завершён» без даты
+      // получает сегодняшний день, а возврат в работу или на паузу её очищает.
       await db.prepare(
-        `UPDATE clients SET ${columns.map((column) => `${column} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`,
-      ).bind(...values, id).run();
+        `UPDATE clients SET ${columns.map((column) => `${column} = ?`).join(', ')},
+           finished_at = CASE WHEN ? = 'finished' THEN COALESCE(?, finished_at, ?) ELSE NULL END,
+           updated_at = datetime('now')
+         WHERE id = ?`,
+      ).bind(...values, status, finishedAt, todayIso, id).run();
       return json({ success: true }, { headers: noStore });
     }
 

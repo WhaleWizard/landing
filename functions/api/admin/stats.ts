@@ -2,6 +2,7 @@ import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { hasLeadSoftDelete } from '../../_lib/leads';
+import { isoSince } from '../../_lib/local-day';
 import {
   MIGRATION_BY_TABLE,
   isMissingSchemaError,
@@ -120,19 +121,28 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       safeFirst<{ pending: number }>(gaps, db.prepare(
         "SELECT COUNT(*) AS pending FROM meta_outbox WHERE status = 'pending'"
       ).first()),
-      // события CAPI за сутки: отправлено/ошибки
+      // события CAPI за сутки: отправлено/ошибки. Граница — в ISO, как и сама
+      // колонка: `datetime('now', '-1 day')` отдаёт другой формат и считал
+      // до 48 часов (см. isoSince).
       safeFirst<{ sent: number; failed: number }>(gaps, db.prepare(
         `SELECT SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
                 SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed
-         FROM meta_capi_diagnostics WHERE created_at >= datetime('now', '-1 day')`
-      ).first()),
+         FROM meta_capi_diagnostics WHERE created_at >= ?`
+      ).bind(isoSince(1)).first()),
     ]);
 
     // Заявки по дням нужны графику на экране «Сегодня»: без них пришлось бы
     // сравнивать трафик и заявки на глаз по разным экранам.
+    //
+    // Граница — начало суток (`date(...)`), а не скользящие 13×24 часа: иначе
+    // у самого левого дня учитывались только заявки после текущего времени
+    // суток, и первая точка графика выглядела провалом рядом с полными
+    // просмотрами за тот же день. Сравнивается сама колонка со строкой-датой:
+    // `'2026-09-11 00:30:00' > '2026-09-11'`, и индекс idx_leads_created
+    // остаётся в деле — `date(created_at) >= …` его бы отключил.
     const leadsDaily = await safeAll<{ day: string; leads: number }>(gaps, db.prepare(
       `SELECT date(created_at) AS day, COUNT(*) AS leads FROM leads
-       WHERE created_at >= datetime('now', '-13 day') AND ${activeCond}
+       WHERE created_at >= date('now', '-13 day') AND ${activeCond}
        GROUP BY day ORDER BY day ASC`
     ).all());
 

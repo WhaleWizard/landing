@@ -383,10 +383,15 @@ async function readTotals(
   return totals;
 }
 
-async function readSpendTotal(db: D1Database, window: { from: string; to: string }, currency: string): Promise<number> {
-  const row = await db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM ad_spend WHERE day >= date(?) AND day <= date(?) AND currency = ?')
-    .bind(window.from, window.to, currency).first<{ total: number }>();
-  return round(number(row?.total));
+/**
+ * Ни одной строки расходов за период — расходы не заведены, а не равны нулю:
+ * с нулём плитки рисовали «Цена лида 0 $», а сравнение с прошлым периодом —
+ * «с нуля». Строка с суммой 0, введённая владельцем, остаётся честным нулём.
+ */
+async function readSpendTotal(db: D1Database, window: { from: string; to: string }, currency: string): Promise<number | null> {
+  const row = await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM ad_spend WHERE day >= date(?) AND day <= date(?) AND currency = ?')
+    .bind(window.from, window.to, currency).first<{ n: number; total: number }>();
+  return number(row?.n) > 0 ? round(number(row?.total)) : null;
 }
 
 async function readSpendByKey(
@@ -415,13 +420,19 @@ async function readSpendByKey(
  * Валюта отчёта: та, в которой больше всего расходов, иначе — валюта
  * выигранных сделок. Складывать разные валюты без курса нельзя, поэтому
  * остальные показываются отдельным предупреждением, а не суммируются.
+ *
+ * `spendCurrency` говорит, откуда валюта: только найденная по строкам
+ * ad_spend в окне включает расчёт цены лида и окупаемости. Валюта из
+ * выигранных сделок годится для выручки, но не доказывает, что расходы
+ * заведены, — иначе месяц без единой строки расходов показывал нулевые
+ * плитки вместо честного «пока не считаются».
  */
 async function detectCurrency(
   db: D1Database,
   window: { from: string; to: string },
   context: LeadQueryContext,
   spendAvailable: boolean,
-): Promise<{ currency: string | null; otherCurrencies: string[] }> {
+): Promise<{ currency: string | null; otherCurrencies: string[]; spendCurrency: boolean }> {
   const found = new Map<string, number>();
 
   if (spendAvailable) {
@@ -432,7 +443,7 @@ async function detectCurrency(
     for (const row of rows.results || []) found.set(row.currency, number(row.amount));
     if (found.size) {
       const sorted = [...found.entries()].sort((a, b) => b[1] - a[1]);
-      return { currency: sorted[0][0], otherCurrencies: sorted.slice(1).map(([currency]) => currency) };
+      return { currency: sorted[0][0], otherCurrencies: sorted.slice(1).map(([currency]) => currency), spendCurrency: true };
     }
   }
 
@@ -445,11 +456,15 @@ async function detectCurrency(
     `).bind(window.from, window.to).all<{ currency: string; amount: number }>();
     const sorted = (rows.results || []).filter((row) => number(row.amount) > 0);
     if (sorted.length) {
-      return { currency: String(sorted[0].currency || 'USD'), otherCurrencies: sorted.slice(1).map((row) => String(row.currency)) };
+      return {
+        currency: String(sorted[0].currency || 'USD'),
+        otherCurrencies: sorted.slice(1).map((row) => String(row.currency)),
+        spendCurrency: false,
+      };
     }
   }
 
-  return { currency: null, otherCurrencies: [] };
+  return { currency: null, otherCurrencies: [], spendCurrency: false };
 }
 
 interface SeriesPoint {
@@ -532,6 +547,13 @@ interface CohortRow {
  * Когорты по неделе прихода заявки. Считаются всегда от даты создания
  * контакта, а не от последней заявки: иначе повторное обращение переносило
  * бы человека в более свежую когорту и портило картину.
+ *
+ * Неделя — с понедельника: `date(created_at, '-6 days', 'weekday 1')` даёт
+ * понедельник той недели, куда попала заявка. Группировка по `%W` резала
+ * неделю на стыке лет на две половинки, а окно «N×7 дней назад» начиналось
+ * с середины недели — самая старая когорта всегда выглядела провалом. Окно
+ * тоже начинается с понедельника: для восьми недель это семь полных плюс
+ * текущая, которая ещё идёт.
  */
 async function readCohorts(db: D1Database, context: LeadQueryContext, weeks: number): Promise<CohortRow[]> {
   const qualified = context.columns.has('quality')
@@ -543,19 +565,18 @@ async function readCohorts(db: D1Database, context: LeadQueryContext, weeks: num
 
   const rows = await db.prepare(`
     SELECT
-      strftime('%Y-%W', created_at) AS week,
-      MIN(date(created_at)) AS started,
+      date(created_at, '-6 days', 'weekday 1') AS week_start,
       COUNT(*) AS leads,
       ${qualified} AS qualified,
       ${won} AS won
     FROM leads
-    WHERE date(created_at) >= date('now', ?) AND ${context.activeCondition}
-    GROUP BY week
-    ORDER BY week ASC
-  `).bind(`-${weeks * 7} day`).all<{ week: string; started: string; leads: number; qualified: number | null; won: number | null }>();
+    WHERE date(created_at) >= date('now', '-6 days', 'weekday 1', ?) AND ${context.activeCondition}
+    GROUP BY week_start
+    ORDER BY week_start ASC
+  `).bind(`-${(weeks - 1) * 7} days`).all<{ week_start: string; leads: number; qualified: number | null; won: number | null }>();
 
   return (rows.results || []).map((row) => ({
-    week: String(row.started || row.week),
+    week: String(row.week_start),
     leads: number(row.leads),
     qualified: nullableNumber(row.qualified),
     won: nullableNumber(row.won),
@@ -617,9 +638,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       timeColumn: columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at',
     };
 
-    const { currency, otherCurrencies } = availability.leads || spendTableExists
+    const { currency, otherCurrencies, spendCurrency } = availability.leads || spendTableExists
       ? await detectCurrency(db, windows.current, baseContext, spendTableExists)
-      : { currency: null, otherCurrencies: [] };
+      : { currency: null, otherCurrencies: [], spendCurrency: false };
     const context: LeadQueryContext = { ...baseContext, currency };
 
     const [summary, previous] = await Promise.all([
@@ -660,7 +681,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       };
     }
 
-    const spendReady = spendTableExists && Boolean(currency);
+    // Расходы «готовы», только когда валюта найдена по строкам ad_spend в
+    // окне: валюта из выигранных сделок не доказывает, что расходы заведены.
+    const spendReady = spendTableExists && spendCurrency;
     const dimensions: DimensionResult[] = [];
 
     if (availability.leads && columns.has('page_path')) {
@@ -788,7 +811,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       'Целевой, нецелевой и выигранный — текущие состояния среди лидов выбранного периода, а не число изменений этих состояний внутри периода.',
       'Повторная заявка обновляет страницу, услугу и UTM контакта, поэтому модель атрибуции — последний известный источник, а не история касаний.',
       'Конверсия страницы — заявки этой страницы к её просмотрам за тот же период; посетитель мог прийти на одну страницу, а оставить заявку на другой.',
-      'Когорты собираются по неделе первой заявки контакта: свежая неделя всегда выглядит хуже старой, потому что сделкам по ней ещё не хватило времени закрыться.',
+      'Когорты собираются по неделе первой заявки контакта, подпись строки — понедельник недели; последняя строка — неделя, которая ещё идёт, и свежая неделя всегда выглядит хуже старой, потому что сделкам по ней ещё не хватило времени закрыться.',
       '«Дневные уникальные» — сумма уникальных посетителей за каждый день периода: один человек может учитываться снова в другой день. visitor_hashes_daily намеренно не хранит страницу или рекламные метки.',
       'Просмотры по услуге, источнику и UTM не вычисляются: агрегированная статистика страниц не содержит эти измерения.',
       won.supported

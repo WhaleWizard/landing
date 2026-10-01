@@ -86,6 +86,23 @@ function stripHtml(html = ''): string {
     .trim();
 }
 
+/**
+ * Обрезка автоматической выжимки по границе слова.
+ *
+ * Только для текста, который подставляется сам (описание из тела статьи,
+ * SEO-заголовок из заголовка). То, что владелец ввёл руками, не режется
+ * вовсе: лимиты держит isValidArticlePayload, а обрыв посреди слова в
+ * `<title>` и в карточке выглядел как ошибка на семи живых страницах.
+ */
+export function cutAtWord(text: string, max: number): string {
+  const value = String(text || '').trim();
+  if (value.length <= max) return value;
+  const head = value.slice(0, max);
+  const lastSpace = head.lastIndexOf(' ');
+  const cut = (lastSpace > max * 0.6 ? head.slice(0, lastSpace) : head).replace(/[\s,;:–—-]+$/u, '');
+  return `${cut}…`;
+}
+
 function normalizeOptionalIsoDate(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   const parsed = new Date(raw);
@@ -177,9 +194,14 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
     usedSlugs.add(uniqueSlug);
 
     const safeContent = sanitizeArticleHtml(article.content || '<p>Контент статьи отсутствует.</p>');
-    const fallbackDescription = stripHtml(article.description || safeContent).slice(0, 160);
-    const seoDescription = (article.seoDescription || fallbackDescription).slice(0, 170);
-    const summary = String(article.summary || fallbackDescription).trim().slice(0, 350);
+    // Введённое владельцем описание сохраняется целиком (до 2000 знаков по
+    // валидации); режется только выжимка из текста статьи — и по слову.
+    const ownDescription = stripHtml(article.description || '');
+    const description = ownDescription || cutAtWord(stripHtml(safeContent), 160);
+    const seoDescription = String(article.seoDescription || '').trim() || cutAtWord(description, 160);
+    const summary = String(article.summary || '').trim().slice(0, 350) || cutAtWord(description, 350);
+    const title = article.title || `Статья ${index + 1}`;
+    const seoTitle = String(article.seoTitle || '').trim() || cutAtWord(title, 120);
 
     const rawId = Number(article.id);
     let safeId = Number.isInteger(rawId) && rawId > 0 ? rawId : index + 1;
@@ -192,14 +214,14 @@ export function normalizeArticles(rawArticles: unknown[]): Article[] {
     return {
       id: safeId,
       slug: uniqueSlug,
-      title: article.title || `Статья ${index + 1}`,
+      title,
       category: article.category || 'Блог',
       readTime: article.readTime || '',
       date: article.date || new Date().toISOString().slice(0, 10),
-      description: fallbackDescription,
+      description,
       content: safeContent,
       image: article.image || '/og-image-v2.jpg',
-      seoTitle: (article.seoTitle || article.title || `Статья ${index + 1}`).slice(0, 70),
+      seoTitle,
       seoDescription,
       publishedAt: normalizeOptionalIsoDate(article.publishedAt),
       updatedAt: normalizeOptionalIsoDate(article.updatedAt),
@@ -235,24 +257,45 @@ export function applyFreshnessMetadata(normalized: Article[], previousArticles: 
     // сохраняется прежняя. `updatedAt` оставлен последним запасным вариантом:
     // у старых статей без даты публикации она по-прежнему выводится из него,
     // а не прыгает на сегодня.
-    const publishedAt = article.publishedAt || previous?.publishedAt || previous?.updatedAt || nowIso;
+    //
+    // Черновик, который ещё ни разу не выходил, даты не получает вовсе.
+    // Раньше ему ставилось время создания, и при публикации месяц спустя
+    // статья выходила «задним числом»: вставала в ленте ниже более старых
+    // материалов, а datePublished в разметке врал. Первое «опубликовать»
+    // без даты даёт текущее время. Статья, которая выходила и была снята
+    // в черновик, свою дату сохраняет: сдвигать дату первой публикации
+    // нельзя (docs/ARTICLE_REWRITE_BRIEF.md).
+    const isDraft = article.status === 'draft';
+    const previouslyPublished = Boolean(previous) && previous?.status !== 'draft';
+    const publishedAt = article.publishedAt
+      || previous?.publishedAt
+      || (isDraft ? undefined : ((previouslyPublished ? previous?.updatedAt : undefined) || nowIso));
 
-    if (!previous) {
-      return {
-        ...article,
-        publishedAt,
-        updatedAt: article.updatedAt || nowIso,
-      };
-    }
-
-    const changed = didArticleChange(previous, article);
+    const updatedAt = !previous
+      ? (article.updatedAt || nowIso)
+      : (didArticleChange(previous, article) ? nowIso : (previous.updatedAt || previous.publishedAt || nowIso));
 
     return {
       ...article,
       publishedAt,
-      updatedAt: changed ? nowIso : (previous.updatedAt || previous.publishedAt || nowIso),
+      updatedAt: notBeforePublication(updatedAt, publishedAt),
     };
   });
+}
+
+/**
+ * Дата изменения не бывает раньше даты выхода.
+ *
+ * У запланированной статьи правка до выхода давала dateModified и lastmod
+ * раньше datePublished — поисковик получал противоречивые даты, а в RSS
+ * материал вставал по дате правки. Так же уже делает writeScheduleToD1.
+ * После выхода настоящая правка снова двигает дату изменения вперёд.
+ */
+function notBeforePublication(updatedAt: string, publishedAt: string | undefined): string {
+  if (!publishedAt) return updatedAt;
+  const published = Date.parse(publishedAt);
+  const updated = Date.parse(updatedAt);
+  return Number.isFinite(published) && Number.isFinite(updated) && published > updated ? publishedAt : updatedAt;
 }
 
 function buildPrimaryConfig(env: Env): JsonBinConfig {

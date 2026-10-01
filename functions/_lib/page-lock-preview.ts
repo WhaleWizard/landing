@@ -125,6 +125,20 @@ export interface PreviewAccess {
 }
 
 /**
+ * Адрес переадресации только внутри сайта.
+ *
+ * `target.pathname` у запроса вида `//<хост>?ww_preview=…` начинается с двух
+ * слешей, и голый `Location: //<хост>` браузер читает как ссылку на чужой
+ * сайт — открытая переадресация с домена владельца на любой адрес. Ведущие
+ * слеши склеиваются в один: такой адрес остаётся на своём домене и в худшем
+ * случае отдаёт 404.
+ */
+export function sameSiteLocation(target: URL): string {
+  const path = `/${target.pathname.replace(/^[\/\\]+/, '')}`;
+  return `${path}${target.search}${target.hash}`;
+}
+
+/**
  * Разбирает доступ к предпросмотру для текущего запроса.
  *
  * Ссылка обменивается на cookie и тут же убирается из адресной строки: иначе
@@ -143,7 +157,7 @@ export async function resolvePreviewAccess(request: Request, env: Env, url: URL)
       redirect: new Response(null, {
         status: 302,
         headers: {
-          Location: `${target.pathname}${target.search}${target.hash}`,
+          Location: sameSiteLocation(target),
           'Set-Cookie': previewCookie('', 0),
           'Cache-Control': 'no-store',
         },
@@ -156,7 +170,7 @@ export async function resolvePreviewAccess(request: Request, env: Env, url: URL)
     const target = new URL(url.toString());
     target.searchParams.delete(PREVIEW_QUERY);
     const headers = new Headers({
-      Location: `${target.pathname}${target.search}${target.hash}`,
+      Location: sameSiteLocation(target),
       'Cache-Control': 'no-store',
     });
     if (verified.ok) {

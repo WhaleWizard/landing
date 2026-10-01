@@ -8,6 +8,7 @@ import {
   fetchArticleFromD1,
   fetchArticleSummariesFromD1,
   fetchArticlesFromD1,
+  fetchOtherSlugForArticleIdFromD1,
   nextArticleIdFromD1,
   writeArticleToD1,
   writeArticlesToD1,
@@ -381,6 +382,30 @@ function protectedArticleError(): Response {
 }
 
 /**
+ * Сохранение идёт по слагу, поэтому смена адреса у сохранённой статьи молча
+ * создавала вторую копию: старая страница оставалась, новая дублировала текст,
+ * а удаление старой давало 404 без переадресации и потерю позиций.
+ * Переименования с 301 нет — адрес сохранённой статьи не меняется.
+ */
+function slugChangeError(currentSlug: string): Response {
+  return json(
+    {
+      success: false,
+      code: 'SLUG_CHANGE_FORBIDDEN',
+      currentSlug,
+      error: `Адрес сохранённой статьи менять нельзя: старая страница /${currentSlug} останется, а новая станет её дублем. Верните прежний адрес.`,
+    },
+    { status: 409, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
+}
+
+/** id сохранённой статьи из payload; 0 — новая статья или копия. */
+function incomingArticleId(article: Article): number {
+  const id = Number(article.id);
+  return Number.isInteger(id) && id > 0 ? id : 0;
+}
+
+/**
  * Сохранение ОДНОЙ статьи по слагу. Режим списка (PUT) остался для удаления
  * и перестановки, но редактор и импорт ходят сюда: список из тринадцати
  * статей уже весил 168 КБ при лимите тела 256 КБ, и на двадцатой статье
@@ -418,8 +443,18 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
     let existing: Article | null = null;
     let saved: Article | null = null;
 
+    // Статья с id пришла под адресом, которого у неё нет: это смена адреса,
+    // а не новая статья. Id в схеме не уникален, поэтому ищется именно
+    // «строка с этим id под другим слагом», а не наличие id вообще.
+    // Копия из редактора и импорт из файлов id не передают.
+    const incomingId = incomingArticleId(incoming);
+
     if (useD1) {
       existing = await fetchArticleFromD1(env, slug);
+      if (incomingId && Number(existing?.id) !== incomingId) {
+        const currentSlug = await fetchOtherSlugForArticleIdFromD1(env, incomingId, slug);
+        if (currentSlug) return slugChangeError(currentSlug);
+      }
       if (!isProtectedArticleUnchanged(existing ? [existing] : [], [incoming])) return protectedArticleError();
       const article: Article = {
         ...incoming,
@@ -432,6 +467,10 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
     } else {
       const all = await fetchArticlesFromJsonBin(env);
       existing = all.find((article) => article.slug === slug) ?? null;
+      if (incomingId && Number(existing?.id) !== incomingId) {
+        const renamed = all.find((article) => Number(article.id) === incomingId && article.slug !== slug);
+        if (renamed) return slugChangeError(renamed.slug);
+      }
       if (!isProtectedArticleUnchanged(existing ? [existing] : [], [incoming])) return protectedArticleError();
       const article: Article = {
         ...incoming,

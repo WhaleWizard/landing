@@ -1,6 +1,7 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
+import { localTodayIso } from '../../_lib/local-day';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -321,10 +322,15 @@ function isMissingTableError(error: unknown): boolean {
  * недоступна, проверка скорости всё равно должна вернуть результат.
  * Одна строка на день, страницу и режим: повторный запуск в тот же день
  * переписывает запись, а не плодит точки на графике.
+ *
+ * День — местный день владельца (`timezone_offset` в запросе, как в остальных
+ * разделах), а не Гринвич: замер в два часа ночи по Ташкенту иначе затирал
+ * вечерний замер «вчерашней» строкой, и сравнить «до» и «после» правки по
+ * истории было нельзя. Строки, записанные раньше по UTC, не переписываются.
  */
-async function recordHistory(env: Env, result: CompactResult): Promise<void> {
+async function recordHistory(env: Env, result: CompactResult, request: Request): Promise<void> {
   if (!env.DB) return;
-  const day = new Date().toISOString().slice(0, 10);
+  const day = localTodayIso(request);
   try {
     await env.DB
       .prepare(`INSERT OR REPLACE INTO pagespeed_history
@@ -509,7 +515,7 @@ async function runAudit(
     }
 
     const result = compactPsiResponse(payload, target.toString(), strategy);
-    await recordHistory(env, result);
+    await recordHistory(env, result, request);
     if (cache) {
       try {
         await cache.put(cacheRequest, new Response(JSON.stringify(result), {

@@ -160,6 +160,40 @@ function parseCsv(csv: string): { entries: unknown[]; skipped: number } {
   return { entries, skipped };
 }
 
+/**
+ * В CSV две строки с одним ключом (день, источник, кампания, валюта) — это
+ * два расхода одного дня, например две кампании без колонки кампании.
+ * Их надо сложить до записи: уникальный индекс в базе оставил бы последнюю
+ * строку, интерфейс сообщил бы «Загружено строк: 2», а в базе осталось бы
+ * 50 $ вместо 150 $ — и цена лида в «Воронке» выглядела бы втрое дешевле.
+ * Повторная загрузка того же файла по-прежнему заменяет сумму, а не
+ * удваивает: складываются только строки внутри одного файла.
+ */
+function mergeDuplicateSlots(entries: SpendEntry[], errors: string[]): { entries: SpendEntry[]; merged: number; rejected: number } {
+  const bySlot = new Map<string, SpendEntry>();
+  let merged = 0;
+  let rejected = 0;
+  for (const entry of entries) {
+    const key = `${entry.day}|${entry.source}|${entry.campaign}|${entry.currency}`;
+    const existing = bySlot.get(key);
+    if (!existing) {
+      bySlot.set(key, { ...entry });
+      continue;
+    }
+    const amount = Math.round((existing.amount + entry.amount) * 100) / 100;
+    if (amount > MAX_AMOUNT) {
+      // Переполнение — ошибка строки, а не молчаливая обрезка суммы.
+      if (errors.length < 5) errors.push(`Сумма за ${entry.day} (${entry.source}) после сложения строк больше допустимой`);
+      rejected += 1;
+      continue;
+    }
+    existing.amount = amount;
+    existing.note = [...new Set([existing.note, entry.note].filter(Boolean))].join('; ').slice(0, 200);
+    merged += 1;
+  }
+  return { entries: [...bySlot.values()], merged, rejected };
+}
+
 async function readSpendRows(db: D1Database, days: number): Promise<SpendEntry[]> {
   const rows = await db.prepare(`
     SELECT id, day, source, campaign, amount, currency, note
@@ -265,9 +299,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: false, error: errors[0] || 'Ни одну строку не удалось разобрать', errors }, { status: 400, headers: noStore });
     }
 
+    // Ручной ввод не складывается: там повтор ключа — это исправление суммы.
+    const combined = body.action === 'import_csv'
+      ? mergeDuplicateSlots(valid, errors)
+      : { entries: valid, merged: 0, rejected: 0 };
+
     // Один и тот же день + источник + кампания + валюта — это один расход:
     // повторный ввод заменяет сумму, а не удваивает её.
-    const statements = valid.map((entry) => db.prepare(`
+    const statements = combined.entries.map((entry) => db.prepare(`
       INSERT INTO ad_spend (day, source, campaign, amount, currency, note)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(day, source, campaign, currency) DO UPDATE SET
@@ -282,8 +321,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     return json({
       success: true,
-      saved: valid.length,
-      skipped: parsed.skipped + (rawEntries.length - valid.length),
+      saved: combined.entries.length,
+      // Сколько строк файла сложено с соседними — чтобы владелец увидел,
+      // что суммы объединились, а не потерялись.
+      merged: combined.merged,
+      skipped: parsed.skipped + (rawEntries.length - valid.length) + combined.rejected,
       errors,
       entries: await readSpendRows(db, days),
     }, { headers: noStore });

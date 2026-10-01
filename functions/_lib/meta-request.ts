@@ -125,12 +125,30 @@ export function resolveEventTime(payloadEventTime: number | undefined): number {
   return eventTime;
 }
 
+/**
+ * Город, регион и часовой пояс посетителя.
+ *
+ * Заголовки `CF-IPCity`/`CF-Region`/`CF-Timezone` Cloudflare ставит только
+ * при включённом в зоне правиле «Add visitor location headers». По умолчанию
+ * его нет, и ключи `ct`/`st` в Meta уходили пустыми у каждого настоящего
+ * события — при том, что «Тестовое событие» брало те же поля из `request.cf`
+ * и показывало владельцу, будто всё передаётся. Заголовок остаётся первым
+ * (на localhost его подставляет прокси), `request.cf` — запасной источник: он
+ * есть у каждого запроса и от настроек зоны не зависит. Хеширование и
+ * согласие живут в точках отправки и здесь не меняются; страну по-прежнему
+ * даёт `detectCountryCode` со своей фильтрацией XX/T1.
+ */
+function cfText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
 export function extractRequestContext(request: Request, pageUrl?: string) {
+  const cf = (request as Request & { cf?: Record<string, unknown> }).cf || {};
   const country = detectCountryCode(request);
-  const city = request.headers.get('CF-IPCity') || request.headers.get('X-City') || undefined;
-  const region = request.headers.get('CF-Region') || request.headers.get('X-Region') || undefined;
-  const regionCode = request.headers.get('CF-Region-Code') || request.headers.get('X-Region-Code') || undefined;
-  const timezone = request.headers.get('CF-Timezone') || undefined;
+  const city = request.headers.get('CF-IPCity') || request.headers.get('X-City') || cfText(cf.city);
+  const region = request.headers.get('CF-Region') || request.headers.get('X-Region') || cfText(cf.region);
+  const regionCode = request.headers.get('CF-Region-Code') || request.headers.get('X-Region-Code') || cfText(cf.regionCode);
+  const timezone = request.headers.get('CF-Timezone') || cfText(cf.timezone);
   const language = request.headers.get('Accept-Language')?.split(',')[0]?.trim() || undefined;
   const platform = request.headers.get('Sec-CH-UA-Platform')?.replaceAll('"', '') || undefined;
   // Заголовок Sec-CH-UA-Mobile присылает только Chromium; для Safari и Firefox

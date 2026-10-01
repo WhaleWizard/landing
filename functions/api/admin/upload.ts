@@ -29,33 +29,69 @@ function getPassword(request: Request): string {
   return request.headers.get('X-Admin-Password') || '';
 }
 
-function sanitizeFilename(filename: string): string {
-  const fallback = 'upload';
-  const cleaned = String(filename || fallback)
+// Та же таблица, что у transliterate() в редакторе статей (Admin.tsx): файл
+// «Договор.pdf» в медиатеке называется «dogovor.pdf», а не «upload.pdf».
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+  'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+  'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+  'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '',
+  'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+};
+
+function transliterate(value: string): string {
+  return value.toLowerCase().split('').map((char) => (
+    Object.prototype.hasOwnProperty.call(CYRILLIC_TO_LATIN, char) ? CYRILLIC_TO_LATIN[char] : char
+  )).join('');
+}
+
+/**
+ * Имя файла: расширение берётся из исходного имени ДО очистки, очищается
+ * только основа.
+ *
+ * Раньше имя целиком проходило через замену всего, кроме латиницы, на «-»:
+ * «Договор.pdf» превращался в «-.pdf», обрезка краёв оставляла «pdf» без
+ * точки, и проверка расширения отвечала «File extension .unknown». Любой
+ * файл с русским именем — договор в «Клиентах», обложка в редакторе — не
+ * загружался, пока владелец не переименует его латиницей.
+ */
+function splitFilename(filename: string): { base: string; ext: string } {
+  const raw = String(filename || '').normalize('NFKC').trim();
+  const match = raw.match(/^(.*)\.([A-Za-z0-9]+)$/);
+  return { base: match ? match[1] : raw, ext: (match ? match[2] : '').toLowerCase() };
+}
+
+function sanitizeBase(base: string): string {
+  // Точка в основе не пропускается намеренно: иначе появлялось бы второе
+  // расширение, а суффикс размеров копий ищет ровно одно в конце имени.
+  const cleaned = transliterate(base)
     .normalize('NFKD')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-    .slice(0, 96);
-  return cleaned || fallback;
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return cleaned || 'upload';
 }
 
-function getExtension(filename: string): string {
-  const match = sanitizeFilename(filename).toLowerCase().match(/\.([a-z0-9]+)$/);
-  return match?.[1] || '';
+/** Одно имя на всё: проверку, ключ в R2, Content-Disposition и метаданные. */
+function buildSafeName(filename: string): { safeName: string; ext: string } {
+  const { base, ext } = splitFilename(filename);
+  const safeBase = sanitizeBase(base);
+  return { safeName: ext ? `${safeBase}.${ext}` : safeBase, ext };
 }
 
-function validateUpload(file: File): string | null {
-  if (file.size <= 0) return 'Uploaded file is empty';
-  if (file.size > MAX_UPLOAD_BYTES) return 'Uploaded file is too large. Maximum size is 15 MB';
+function validateUpload(file: File, ext: string): string | null {
+  if (file.size <= 0) return 'Файл пустой';
+  if (file.size > MAX_UPLOAD_BYTES) return 'Файл слишком большой: не больше 15 МБ';
 
   const mime = String(file.type || '').toLowerCase();
   const allowedExtensions = ALLOWED_UPLOAD_TYPES[mime];
-  if (!allowedExtensions) return 'File type is not allowed';
+  if (!allowedExtensions) return `Такой тип файла загружать нельзя (${mime || 'тип не определён'})`;
 
-  const extension = getExtension(file.name);
-  if (!allowedExtensions.includes(extension)) {
-    return `File extension .${extension || 'unknown'} does not match ${mime}`;
+  // Сверка расширения с типом не ослабляется: файл без расширения или с чужим
+  // по-прежнему получает 400, а SVG/HTML/JS закрыты списком типов выше.
+  if (!allowedExtensions.includes(ext)) {
+    return `Расширение файла «.${ext || '?'}» не совпадает с его типом ${mime}`;
   }
 
   return null;
@@ -105,7 +141,11 @@ function getPublicHost(env: Env): string {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const rateLimited = await enforceRateLimit(request, 'admin');
+  // Свой профиль ограничения (`admin_media` в rate-limit.ts): сорок
+  // скриншотов подряд упирались в общие 30 запросов/мин админки на 31-м
+  // файле. Пароль роут проверяет по-прежнему; без профиля в rate-limit.ts
+  // действует общий лимит по умолчанию.
+  const rateLimited = await enforceRateLimit(request, 'admin_media');
   if (rateLimited) return rateLimited;
 
   // Проверка доступа идёт до чтения тела. Раньше сюда сначала приходил
@@ -148,7 +188,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: false, error: 'No file uploaded' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
 
-    const validationError = validateUpload(file);
+    const { safeName, ext } = buildSafeName(file.name);
+    const validationError = validateUpload(file, ext);
     if (validationError) {
       return json({ success: false, error: validationError }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
@@ -158,7 +199,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: false, error: plan }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
 
-    const safeName = sanitizeFilename(file.name);
     // Папка выбирается в медиатеке; без неё раскладка остаётся прежней — по дате.
     const folder = normalizeFolderName(formData.get('folder'));
     // Суффикс размеров получает только файл с полным набором копий.

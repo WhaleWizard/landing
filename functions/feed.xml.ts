@@ -3,6 +3,7 @@ import { fetchArticlesWithFallback, filterVisibleArticles } from './_lib/article
 import { getArticlePath, renderFeedXml } from './_lib/seo';
 import { findPageLock, readPageLockSnapshot } from './_lib/page-locks';
 import { xml } from './_lib/http';
+import { headFromGet } from './_lib/article-page';
 import type { Env } from './_lib/types';
 
 function getSiteUrl(env: Env, request: Request): string {
@@ -11,7 +12,10 @@ function getSiteUrl(env: Env, request: Request): string {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
-  const cacheKey = new Request(request.url, { method: 'GET' });
+  // Ключ кэша — без query: иначе `?_=<случайное>` на каждый запрос заново
+  // читал все статьи из D1, и такой ключ не чистился `buildSeoCacheTargets`.
+  const requestUrl = new URL(request.url);
+  const cacheKey = new Request(new URL(requestUrl.pathname, requestUrl.origin).toString(), { method: 'GET' });
   const cached = await matchCache(cacheKey);
   if (cached) return cached;
 
@@ -41,3 +45,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     });
   }
 };
+
+// HEAD отвечает тем же статусом и заголовками, что GET: без своего
+// обработчика Cloudflare Pages отдавал на HEAD статику, то есть 404.
+export const onRequestHead: PagesFunction<Env> = headFromGet(onRequestGet);

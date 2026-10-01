@@ -134,9 +134,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const oneOffSales = await hasOneOffSales(db);
     const [invoices, expenses, times, settings] = await Promise.all([
+      // Выставленный, но не оплаченный счёт приходит всегда, сколько бы ему
+      // ни было: иначе через год он пропадал из «Ждём оплаты» и «Просрочено»,
+      // и отметить его оплаченным было негде. Индекс idx_invoices_status
+      // покрывает условие по статусу.
       db.prepare(
         `SELECT * FROM invoices
-         WHERE (issued_at IS NULL OR issued_at >= ?) OR (paid_at IS NOT NULL AND paid_at >= ?)
+         WHERE (issued_at IS NULL OR issued_at >= ?) OR (paid_at IS NOT NULL AND paid_at >= ?) OR status = 'issued'
          ORDER BY COALESCE(issued_at, created_at) DESC, id DESC`,
       ).bind(since, since).all(),
       db.prepare('SELECT * FROM finance_expenses WHERE day >= ? ORDER BY day DESC, id DESC').bind(since).all(),
