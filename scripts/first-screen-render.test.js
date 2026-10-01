@@ -175,8 +175,10 @@ test('first-screen handoff recognises a reloaded history entry without suppressi
 });
 
 test('article pages render from their seed through the real sanitizer, without entrance styles', async () => {
-  const { readFileSync } = await import('node:fs');
-  const seedFile = JSON.parse(readFileSync('data/articles.build.json', 'utf8'));
+  const { readFileSync, existsSync } = await import('node:fs');
+  // Снимок сборки появляется только после fetch:articles; на свежей копии — закоммиченный снимок.
+  const fixture = existsSync('data/articles.build.json') ? 'data/articles.build.json' : 'data/articles.local.json';
+  const seedFile = JSON.parse(readFileSync(fixture, 'utf8'));
   const articles = (Array.isArray(seedFile) ? seedFile : seedFile.articles || []).filter((article) => article.content);
   const isCase = (article) => String(article.category || '').trim().toLowerCase() === 'кейсы';
   const article = articles.find((item) => !isCase(item));

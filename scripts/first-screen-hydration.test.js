@@ -24,8 +24,11 @@ const { renderRoute, SSR_ROUTES, articleVersion } = serverModule.exports;
 
 // Страницы статей и кейсов рендерятся из той же статьи, что уедет в
 // <script id="ww-article-seed">; фикстура — опубликованный seed сборки.
-const { readFileSync } = await import('node:fs');
-const seedFile = JSON.parse(readFileSync('data/articles.build.json', 'utf8'));
+const { readFileSync, existsSync } = await import('node:fs');
+// data/articles.build.json пишет fetch:articles внутри `build`, то есть ПОСЛЕ этого теста в цепочке
+// check, и на свежей копии репозитория его ещё нет — тогда берём закоммиченный снимок.
+const ARTICLE_FIXTURE = existsSync('data/articles.build.json') ? 'data/articles.build.json' : 'data/articles.local.json';
+const seedFile = JSON.parse(readFileSync(ARTICLE_FIXTURE, 'utf8'));
 const ARTICLES = (Array.isArray(seedFile) ? seedFile : seedFile.articles || []).filter((article) => article.content);
 const isCase = (article) => String(article.category || '').trim().toLowerCase() === 'кейсы';
 const BLOG_ARTICLE = ARTICLES.find((article) => !isCase(article));
