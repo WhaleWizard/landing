@@ -1,4 +1,5 @@
 // src/app/App.tsx
+import type { ReactNode } from 'react';
 import { RouterProvider } from 'react-router';
 import { LazyMotion, MotionConfig, domAnimation } from 'motion/react';
 import { router } from './routes';
@@ -17,14 +18,31 @@ import { router } from './routes';
  * `motion.div` внутри этого дерева тоже заработает, но молча вернёт полную
  * библиотеку в бандл; это стережёт `test:audit-regressions`.
  */
-export default function App() {
+
+/**
+ * Общая обёртка браузерного приложения и его серверного рендера на сборке.
+ *
+ * Генератор страниц (`scripts/ssr-entry.tsx`) рисует первый экран ровно в этом
+ * же каркасе, а `main.tsx` потом гидратирует готовую разметку. Любое отличие
+ * между двумя деревьями — лишний `div`, другой класс — React посчитал бы
+ * расхождением и перестроил страницу заново, поэтому обёртка одна на двоих.
+ */
+export function AppFrame({ children }: { children: ReactNode }) {
   return (
     <LazyMotion features={domAnimation}>
       <MotionConfig reducedMotion="user">
         <div className="dark">
-          <RouterProvider router={router} />
+          {children}
         </div>
       </MotionConfig>
     </LazyMotion>
+  );
+}
+
+export default function App() {
+  return (
+    <AppFrame>
+      <RouterProvider router={router} />
+    </AppFrame>
   );
 }

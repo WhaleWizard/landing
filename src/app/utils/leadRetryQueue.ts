@@ -2,7 +2,8 @@
 // (не по вине сервера — обрыв связи, offline), заявка не теряется, а лежит в
 // localStorage и повторно отправляется при восстановлении сети или следующем визите.
 
-import { loadConsent } from '../consent/consent';
+// Только хранилище согласия: сам трекинг с пикселями в стартовый чанк не нужен.
+import { loadConsent } from '../consent/consentStorage';
 import { applyConsentDowngrade } from './leadRetryConsent';
 
 const QUEUE_KEY = 'ww_lead_retry_queue_v1';

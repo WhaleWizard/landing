@@ -18,9 +18,11 @@ import './consult-studio-hero.css';
 
 type ConsultStudioHeroProps = {
   content: HeroContent;
+  /** Первый экран уже лежит в HTML сборки: эффекты заголовка не проигрываются заново. */
+  settledEntrance?: boolean;
 };
 
-function ConsultStudioHero({ content }: ConsultStudioHeroProps) {
+function ConsultStudioHero({ content, settledEntrance = false }: ConsultStudioHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
@@ -32,7 +34,7 @@ function ConsultStudioHero({ content }: ConsultStudioHeroProps) {
   };
 
   return (
-    <section id="hero" className="consult-studio-hero" aria-labelledby="consult-studio-title">
+    <section id="hero" data-hero-effects={settledEntrance ? 'settled' : undefined} className="consult-studio-hero" aria-labelledby="consult-studio-title">
       <div className="consult-studio-hero__grid">
         <div className="consult-studio-hero__photo-wrap">
           {/* Сцена собрана из отдельных предметов, а не снята одним кадром:

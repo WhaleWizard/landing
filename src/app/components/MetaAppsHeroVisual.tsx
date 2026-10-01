@@ -2,7 +2,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -28,6 +27,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'motion/react';
+import { useIsomorphicLayoutEffect } from '../utils/isomorphicLayoutEffect';
 import './meta-apps-hero.css';
 
 type MetaAppsHeroVisualProps = {
@@ -38,11 +38,16 @@ type MetaAppsHeroVisualProps = {
    * пересечении границы экрана.
    */
   motionAllowed: boolean;
+  /**
+   * Первый экран уже лежит в HTML сборки и гидратируется: телефон, чеки и
+   * штампы видны сразу, без появления. Постоянные петли (блик, парение)
+   * при этом остаются — их запускает наблюдатель видимости, как и прежде.
+   */
+  settled?: boolean;
 };
 
 type MetaAppsVisualStyle = CSSProperties & {
   '--meta-phone-aperture-mask': string;
-  '--meta-receipt-paper-texture': string;
 };
 
 type EventRowProps = {
@@ -62,7 +67,6 @@ type ReceiptProps = {
   status: ReactNode;
   mark?: 'check' | 'stamp';
   reveal: boolean;
-  loop: boolean;
   reduced: boolean;
   subtle: boolean;
   parallax: boolean;
@@ -73,7 +77,12 @@ type ReceiptProps = {
   scrollY: MotionValue<number>;
 };
 
-const FLOAT_PATHS = [
+/**
+ * Траектории парения чеков. Сами петли живут в CSS (`meta-apps-hero.css`,
+ * `meta-apps-receipt-float-1..3`) — композитор ведёт их без участия JS.
+ * Числа оставлены здесь как источник правды: тест сверяет CSS с ними.
+ */
+export const FLOAT_PATHS = [
   {
     y: [0, -9, 5, -4, 0],
     rotate: [0, -0.7, 0.85, -0.35, 0],
@@ -176,12 +185,10 @@ function PhoneNotification({
 
 function PhoneScreen({
   reveal,
-  loop,
   reduced,
   subtle,
 }: {
   reveal: boolean;
-  loop: boolean;
   reduced: boolean;
   subtle: boolean;
 }) {
@@ -217,13 +224,10 @@ function PhoneScreen({
               ease: 'easeOut',
             }}
           />
-          {loop && (
-            <m.div
-              className="meta-phone-events__pulse"
-              animate={{ y: ['0%', '310%'], opacity: [0, 1, 1, 0] }}
-              transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 1.8, ease: 'easeInOut' }}
-            />
-          )}
+          {/* Бегущая точка по линии событий: петля описана в CSS
+              (meta-apps-hero.css, `meta-apps-pulse`), её ведёт композитор.
+              Пауза вне экрана и в скрытой вкладке — классом ww-ambient-motion. */}
+          <div className="meta-phone-events__pulse ww-ambient-motion" />
 
           <EventRow
             index={0}
@@ -309,11 +313,9 @@ function PhoneScreen({
 
       <div className="meta-phone-home-indicator" />
 
-      <m.div
-        className="meta-phone-reflection"
-        animate={loop ? { x: ['-145%', '270%'] } : { x: '-145%' }}
-        transition={{ duration: 2.8, repeat: loop ? Infinity : 0, repeatDelay: 5.5, ease: 'easeInOut' }}
-      />
+      {/* Блик по экрану: те же 2,8 с хода и 5,5 с паузы, но в CSS-петле —
+          на главном потоке он стоил по кадру на каждый тик. */}
+      <div className="meta-phone-reflection ww-ambient-motion" />
     </div>
   );
 }
@@ -325,13 +327,11 @@ function Receipt({
   status,
   mark,
   reveal,
-  loop,
   reduced,
   subtle,
   parallax,
   scrollY,
 }: ReceiptProps) {
-  const path = FLOAT_PATHS[index];
   const pose = RECEIPT_POSES[index];
   const hiddenX = subtle ? 14 : 34;
   const hiddenScale = subtle ? 0.98 : 0.94;
@@ -364,22 +364,15 @@ function Receipt({
           }}
         >
           {/*
-            Кадры анимации копируются в обычные массивы: описаны они через
-            `as const`, а motion ждёт изменяемый список значений и readonly-
-            кортеж не принимает.
+            Парение чека — CSS-петля `meta-apps-receipt-float-<n>` с теми же
+            точками, длительностью и задержкой, что раньше крутил motion на
+            главном потоке (FLOAT_PATHS ниже — её источник, тест сверяет).
           */}
-          <m.article
-            className="meta-receipt"
+          <article
+            className={`meta-receipt meta-receipt--float-${index + 1} ww-ambient-motion`}
             style={{
               backgroundImage:
                 'linear-gradient(115deg, rgba(255, 255, 255, 0.34), transparent 34%, rgba(88, 77, 56, 0.07) 100%), var(--meta-receipt-paper-texture)',
-            }}
-            animate={loop ? { y: [...path.y], rotate: [...path.rotate] } : { y: 0, rotate: 0 }}
-            transition={{
-              duration: path.duration,
-              repeat: loop ? Infinity : 0,
-              ease: 'easeInOut',
-              delay: index * 0.37,
             }}
           >
             <div className="meta-receipt__header">
@@ -439,7 +432,7 @@ function Receipt({
                 }}
               />
             )}
-          </m.article>
+          </article>
         </div>
       </m.div>
     </m.div>
@@ -454,9 +447,12 @@ const PHONE_SCALE_PROPERTY = '--meta-phone-scale';
 /** Запасное значение до первого замера — то же, что стояло в состоянии. */
 const PHONE_SCALE_FALLBACK = 0.48;
 
-function useMobileViewport() {
+function useMobileViewport(hydrating: boolean) {
+  // Во время гидратации первого экрана первый рендер обязан совпасть с
+  // серверным, где ширина окна неизвестна; настоящее значение приходит из
+  // эффекта сразу после монтирования.
   const [mobile, setMobile] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_STATIC_MEDIA).matches,
+    () => typeof window !== 'undefined' && !hydrating && window.matchMedia(MOBILE_STATIC_MEDIA).matches,
   );
 
   useEffect(() => {
@@ -470,19 +466,22 @@ function useMobileViewport() {
   return mobile;
 }
 
-const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => {
+const MetaAppsHeroVisual = memo(({ motionAllowed, settled = false }: MetaAppsHeroVisualProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const phoneAnchorRef = useRef<HTMLDivElement>(null);
   const pointerFrameRef = useRef(0);
   const pointerPointRef = useRef<{ x: number; y: number } | null>(null);
   const [onScreen, setOnScreen] = useState(false);
   const reduced = Boolean(useReducedMotion());
-  const mobile = useMobileViewport();
+  const mobile = useMobileViewport(settled);
   // `motionAllowed` is also used by the admin preview. Do not let the
   // touch-sized variant reintroduce entrance motion into an explicitly static
   // frame.
   const motionOff = reduced || !motionAllowed;
   const subtleMotion = mobile && !motionOff;
+  // Появление отключается и при уменьшенном движении, и когда первый экран
+  // уже показан из HTML: в обоих случаях элементы рисуются сразу готовыми.
+  const entranceOff = motionOff || settled;
 
   // Наблюдение живёт здесь, а не в Hero: перерисовывается только сам визуал,
   // а не весь первый экран вместе с заголовком и кнопками.
@@ -509,8 +508,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
   const parallaxEnabled = inView && !motionOff && !mobile;
   // A frozen preview must still show the visual rather than leaving all
   // nested layers at their hidden entrance state.
-  const reveal = motionOff || inView || mobile;
-  const loop = inView && !motionOff;
+  const reveal = entranceOff || inView || mobile;
 
   /**
    * Экран телефона нарисован в своих 770 px и ужимается под реальную ширину
@@ -528,7 +526,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
    * трогает страницу вовсе. Внешне ничего не меняется: то же число в том же
    * `transform: scale()`.
    */
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const anchor = phoneAnchorRef.current;
     if (!anchor) return undefined;
 
@@ -648,11 +646,10 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
         position: 'relative',
         '--meta-phone-aperture-mask':
           'url("/images/meta-phone-screen-aperture-mask.png")',
-        '--meta-receipt-paper-texture': mobile
-          ? 'url("/images/meta-receipt-paper-texture-mobile.webp")'
-          : 'url("/images/meta-receipt-paper-texture.webp")',
+        // Текстура чека выбирается в CSS по медиазапросу (meta-apps-hero.css):
+        // ширина окна на сборке неизвестна, а разметка обязана совпасть.
       } as MetaAppsVisualStyle}
-      initial={motionOff ? false : { opacity: 0, x: subtleMotion ? 12 : 34 }}
+      initial={entranceOff ? false : { opacity: 0, x: subtleMotion ? 12 : 34 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{
         duration: subtleMotion ? 0.52 : 0.75,
@@ -676,14 +673,14 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           decoding="async"
           fetchpriority="high"
           draggable={false}
-          initial={motionOff ? false : {
+          initial={entranceOff ? false : {
             opacity: 0,
             y: subtleMotion ? 10 : 26,
             scale: subtleMotion ? 0.99 : 0.97,
           }}
           animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : 26, scale: reveal ? 1 : 0.97 }}
           transition={{
-            delay: reduced ? 0 : subtleMotion ? 0.08 : 0.42,
+            delay: entranceOff ? 0 : subtleMotion ? 0.08 : 0.42,
             duration: subtleMotion ? 0.5 : 0.82,
             ease: 'easeOut',
           }}
@@ -696,14 +693,14 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
         >
           <m.div
             className="meta-phone-enter"
-            initial={motionOff ? false : {
+            initial={entranceOff ? false : {
               opacity: 0,
               y: subtleMotion ? 12 : 32,
               rotate: subtleMotion ? 0.6 : 2,
             }}
             animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : 32, rotate: 0 }}
             transition={{
-              delay: reduced ? 0 : subtleMotion ? 0.12 : 0.36,
+              delay: entranceOff ? 0 : subtleMotion ? 0.12 : 0.36,
               duration: subtleMotion ? 0.56 : 0.78,
               type: 'spring',
               bounce: subtleMotion ? 0.08 : 0.18,
@@ -713,11 +710,8 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
               className="meta-phone-object"
               style={parallaxEnabled ? { rotateX: phoneTiltX, rotateY: phoneTiltY } : undefined}
             >
-              <m.div
-                className="meta-phone-float"
-                animate={loop ? { y: [0, -4, 0] } : { y: 0 }}
-                transition={{ duration: 5.8, repeat: loop ? Infinity : 0, ease: 'easeInOut' }}
-              >
+              {/* Парение телефона: 5,8 с туда-обратно на 4 px — в CSS. */}
+              <div className="meta-phone-float ww-ambient-motion">
                 <div className="meta-phone-frame">
                   <div
                     className="meta-phone-canvas"
@@ -733,8 +727,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
                       <div className="meta-phone-live-screen">
                         <PhoneScreen
                           reveal={reveal}
-                          loop={loop}
-                          reduced={motionOff}
+                          reduced={entranceOff}
                           subtle={subtleMotion}
                         />
                       </div>
@@ -754,7 +747,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
                     />
                   </div>
                 </div>
-              </m.div>
+              </div>
             </m.div>
           </m.div>
         </m.div>
@@ -765,8 +758,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           event="INSTALL"
           status="получено"
           reveal={reveal}
-          loop={loop}
-          reduced={motionOff}
+          reduced={entranceOff}
           subtle={subtleMotion}
           parallax={parallaxEnabled}
           scrollY={receiptOneScrollY}
@@ -778,8 +770,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           status="сервер подтверждён"
           mark="check"
           reveal={reveal}
-          loop={loop}
-          reduced={motionOff}
+          reduced={entranceOff}
           subtle={subtleMotion}
           parallax={parallaxEnabled}
           scrollY={receiptTwoScrollY}
@@ -791,8 +782,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed }: MetaAppsHeroVisualProps) => 
           status="передано в Meta"
           mark="stamp"
           reveal={reveal}
-          loop={loop}
-          reduced={motionOff}
+          reduced={entranceOff}
           subtle={subtleMotion}
           parallax={parallaxEnabled}
           scrollY={receiptThreeScrollY}

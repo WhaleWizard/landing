@@ -1,10 +1,12 @@
-import { createRoot } from "react-dom/client";
+import { useLayoutEffect } from 'react';
+import { createRoot, hydrateRoot } from "react-dom/client";
 import { flushSync } from 'react-dom';
 import App from "./app/App";
 import AppErrorBoundary from './app/components/AppErrorBoundary';
 import { initLeadRetryQueue } from './app/utils/leadRetryQueue';
 import { startWebVitals } from './app/utils/webVitals';
 import { prepareRoute } from './app/utils/routePreload';
+import { generatedFirstScreenRoute } from './app/utils/firstScreen';
 import "./styles/index.css";
 
 // Админка (включая iframe точного предпросмотра) не является визитом клиента:
@@ -20,6 +22,8 @@ if (!isAdminRoute) {
 const rootElement = document.getElementById('root')!;
 const ROUTE_PREPARE_TIMEOUT_MS = 8_000;
 const hadGeneratedShell = rootElement.hasChildNodes();
+/** Статический текст для поисковиков и браузеров без JavaScript — вне #root. */
+const STATIC_SHELL_ID = 'ww-static-shell';
 
 function currentSiteContentKey(pathname: string): string | null {
   if (pathname === '/') return 'site:home';
@@ -40,6 +44,35 @@ async function prepareCurrentSiteContent(): Promise<unknown> {
   }
 }
 
+/**
+ * Сборка отрисовала этот маршрут целиком теми же компонентами — React может
+ * принять готовую разметку (`hydrateRoot`), а не стирать её и строить заново.
+ * Остальные страницы по-прежнему монтируются поверх своей оболочки.
+ */
+function canHydrateGeneratedRoute(): boolean {
+  if (isAdminRoute || !hadGeneratedShell) return false;
+  const route = generatedFirstScreenRoute();
+  if (!route) return false;
+  const current = window.location.pathname.replace(/\/+$/, '') || '/';
+  return route === current;
+}
+
+/**
+ * Снимает «предгидратационное» состояние ровно после первого коммита React.
+ *
+ * Пока React не подключился, CSS-петли первого экрана стоят на паузе
+ * (`html[data-ww-prehydrate]`), а под #root лежит текстовая копия страницы
+ * для поисковиков. И то и другое нужно убрать в кадре, когда приложение уже
+ * живое: раньше — рано (страница ещё «не наша»), позже — видно дубли.
+ */
+function HydrationRelease() {
+  useLayoutEffect(() => {
+    delete document.documentElement.dataset.wwPrehydrate;
+    document.getElementById(STATIC_SHELL_ID)?.remove();
+  }, []);
+  return null;
+}
+
 let appRendered = false;
 
 function renderApp() {
@@ -48,12 +81,26 @@ function renderApp() {
   // одновременно с обработчиком восстановления после ошибки.
   if (appRendered) return;
   appRendered = true;
+  const tree = (
+    <AppErrorBoundary>
+      <App />
+      <HydrationRelease />
+    </AppErrorBoundary>
+  );
+  if (canHydrateGeneratedRoute()) {
+    hydrateRoot(rootElement, tree, {
+      onRecoverableError(error) {
+        // Разметка сборки разошлась с клиентским рендером: React уже
+        // дорисовал страницу с клиента, визитёр ничего не потерял. Сообщение
+        // нужно разработчику — именно оно говорит, что первый экран снова
+        // мигает, и где искать причину.
+        console.warn('[app] hydration fell back to client render', error);
+      },
+    });
+    return;
+  }
   flushSync(() => {
-    createRoot(rootElement).render(
-      <AppErrorBoundary>
-        <App />
-      </AppErrorBoundary>,
-    );
+    createRoot(rootElement).render(tree);
   });
 }
 

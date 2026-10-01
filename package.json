@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npm run fetch:articles && npm run optimize:images && vite build && npm run generate:pages",
     "dev": "vite",
-    "generate:pages": "node scripts/generate-pages.js",
+    "generate:pages": "node --require ./scripts/env-production.cjs scripts/generate-pages.js",
     "fetch:articles": "node scripts/fetch-articles.js",
     "sync:production": "node scripts/sync-production-content.js",
     "test": "npm run build",
@@ -35,7 +35,7 @@
     "build:migration-map": "node scripts/build-migration-map.js",
     "test:migration-map": "node --test scripts/migration-guard.test.js",
     "test:page-locks": "node --test scripts/page-locks.test.js",
-    "test:audit-regressions": "node --test scripts/audit-regressions.test.js scripts/scroll-restoration.test.js scripts/service-route-lifecycle.test.js scripts/first-screen-preload.test.js scripts/anchor-scroll.test.js scripts/scene-performance.test.js scripts/first-screen-render.test.js scripts/route-focus.test.js scripts/title-fit-performance.test.js",
+    "test:audit-regressions": "node --test scripts/audit-regressions.test.js scripts/scroll-restoration.test.js scripts/service-route-lifecycle.test.js scripts/first-screen-preload.test.js scripts/anchor-scroll.test.js scripts/scene-performance.test.js scripts/first-screen-render.test.js scripts/first-screen-hydration.test.js scripts/meta-apps-loops.test.js scripts/plexus-static.test.js scripts/route-focus.test.js scripts/title-fit-performance.test.js",
     "test:lead-dedupe": "node --test scripts/lead-dedupe-index.test.js",
     "test:versions-retention": "node --test scripts/versions-retention.test.js",
     "test:datalayer": "node --test scripts/datalayer-events.test.js",

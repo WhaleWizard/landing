@@ -1,0 +1,82 @@
+/*
+ * Композиторная паутинка для телефона и планшета (PlexusConstellation в
+ * PlexusBackdrop.tsx). Узор нарисован один раз как SVG; движение — только
+ * transform и opacity, то есть без перерисовки и без JavaScript на кадр.
+ * Пауза вне экрана, в скрытой вкладке и во время прокрутки — классом
+ * ww-ambient-motion (правила в index.css).
+ */
+.plexus-static {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.plexus-static__layer {
+  position: absolute;
+  inset: -3%;
+  width: 106%;
+  height: 106%;
+  display: block;
+  will-change: transform;
+  animation: plexus-static-drift-near 26s ease-in-out infinite alternate;
+}
+
+.plexus-static__layer--far {
+  opacity: 0.7;
+  animation: plexus-static-drift-far 34s ease-in-out infinite alternate;
+}
+
+.plexus-static__dot {
+  fill-opacity: 0.34;
+}
+
+.plexus-static__dot--far {
+  fill: var(--primary);
+  fill-opacity: 0.22;
+}
+
+.plexus-static__stop--primary { stop-color: var(--primary); }
+.plexus-static__stop--accent { stop-color: var(--accent); }
+
+/* Бродящее свечение — наследник точки притяжения холста: подсвечивает узор
+   то в одном углу, то в другом. Без blur: радиальный градиент на своём слое. */
+.plexus-static__glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--primary) 30%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 14%, transparent) 36%,
+    transparent 68%);
+  opacity: 0.55;
+  will-change: transform;
+  animation: plexus-static-glow 30s ease-in-out infinite alternate;
+}
+
+@keyframes plexus-static-drift-near {
+  from { transform: translate3d(-1.2%, -0.8%, 0); }
+  to { transform: translate3d(1.2%, 0.8%, 0); }
+}
+
+@keyframes plexus-static-drift-far {
+  from { transform: translate3d(1%, 0.9%, 0); }
+  to { transform: translate3d(-1%, -0.9%, 0); }
+}
+
+@keyframes plexus-static-glow {
+  0% { transform: translate3d(calc(var(--plexus-w) * 0.18), calc(var(--plexus-h) * 0.22), 0); }
+  50% { transform: translate3d(calc(var(--plexus-w) * 0.72), calc(var(--plexus-h) * 0.5), 0); }
+  100% { transform: translate3d(calc(var(--plexus-w) * 0.34), calc(var(--plexus-h) * 0.86), 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plexus-static__layer,
+  .plexus-static__glow {
+    animation: none !important;
+  }
+}

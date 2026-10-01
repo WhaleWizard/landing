@@ -18,6 +18,8 @@ import './meta-ads-editorial-hero.css';
 
 type MetaAdsEditorialHeroProps = {
   content: HeroContent;
+  /** Первый экран уже лежит в HTML сборки: эффекты заголовка не проигрываются заново. */
+  settledEntrance?: boolean;
 };
 
 const proofCases = [
@@ -53,7 +55,7 @@ const proofCases = [
   },
 ] as const;
 
-function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
+function MetaAdsEditorialHero({ content, settledEntrance = false }: MetaAdsEditorialHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
@@ -65,7 +67,7 @@ function MetaAdsEditorialHero({ content }: MetaAdsEditorialHeroProps) {
   };
 
   return (
-    <section id="hero" data-ww-first-screen="meta-ads" className="meta-editorial-hero" aria-labelledby="meta-editorial-title">
+    <section id="hero" data-hero-effects={settledEntrance ? 'settled' : undefined} className="meta-editorial-hero" aria-labelledby="meta-editorial-title">
       <div className="meta-editorial-hero__glow meta-editorial-hero__glow--blue" aria-hidden="true" />
       <div className="meta-editorial-hero__glow meta-editorial-hero__glow--pink" aria-hidden="true" />
 

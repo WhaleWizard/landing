@@ -118,13 +118,28 @@ function Layer({ items, kind, compact }: { items: Piece[]; kind: 'moon' | 'shard
   );
 }
 
-function CosmicHeroScene({ active = true }: { active?: boolean }) {
+function CosmicHeroScene({ active = true, hydrating = false }: {
+  active?: boolean;
+  /**
+   * Сцена пришла готовой из HTML сборки, и React её гидратирует. Первый рендер
+   * тогда обязан совпасть с серверным — полный, десктопный набор объектов:
+   * телефонные варианты выбирает `<picture>`, а лишние объекты снимает эффект
+   * ниже сразу после монтирования. Признак приходит через props, а не читается
+   * из разметки: React гидратирует ленивые границы отдельными проходами, и
+   * атрибут на `<html>` к этому моменту уже мог быть снят.
+   */
+  hydrating?: boolean;
+}) {
   const stageRef = useRef<HTMLDivElement>(null);
   const dustRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef(active);
   const controlRef = useRef<{ start: () => void; stop: () => void } | null>(null);
+  // Обычный переход внутри сайта сразу создаёт компактную сцену — иначе WebKit
+  // запрашивал бы и оригиналы, и компактные копии.
   const [compactScene, setCompactScene] = useState(() => (
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches
+    typeof window !== 'undefined'
+    && !hydrating
+    && window.matchMedia('(max-width: 900px)').matches
   ));
 
   useEffect(() => {

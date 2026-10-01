@@ -551,7 +551,15 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     const normalizeFamily = (family: string) => family.replace(/["']/g, '').trim().toLowerCase();
     const readFitSignature = () => {
       const families = new Set<string>();
-      const typography = [element, ...element.querySelectorAll<HTMLElement>('*')].map((node) => {
+      // Только сам заголовок, его прямые дети и строки с собственным шрифтом.
+      // Раньше сигнатура читала computed style у КАЖДОГО потомка: эффект
+      // «печатная машинка» раскладывает заголовок на span по букве, и один
+      // замер стоил сотни getComputedStyle — на телефоне это была задача на
+      // 200+ мс сразу после первого экрана. Буквы и слова наследуют шрифт
+      // строки, поэтому геометрию определяют именно строки.
+      const nodes = new Set<HTMLElement>([element]);
+      element.querySelectorAll<HTMLElement>(':scope > *, .hero-title-effect').forEach((node) => nodes.add(node));
+      const typography = [...nodes].map((node) => {
         const style = window.getComputedStyle(node);
         style.fontFamily.split(',').forEach((family) => families.add(normalizeFamily(family)));
         // Appearance effects change opacity/transform, not text geometry.

@@ -4,7 +4,6 @@ import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Braces, Datab
 import { Button } from './ui/button';
 import { useScrollTo } from './hooks/useScrollTo';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
-import { useIsMobile } from './ui/use-mobile';
 import { useSiteSection } from '../hooks/useServiceContent';
 import {
   managedBodyClasses,
@@ -42,14 +41,30 @@ function CosmicHeroFallback() {
 }
 
 // ─── Static particle data — computed once, never on re-render ──────────────
+// Разброс частиц детерминированный: первый экран рендерится на сборке и
+// гидратируется в браузере, и `Math.random()` давал бы два разных узора —
+// React счёл бы разметку чужой и перестроил хиро. Генератор с фиксированным
+// зерном даёт такой же «случайный» узор, но одинаковый на сборке и в браузере.
+function seededRandom(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const particleRandom = seededRandom(20260927);
 const PARTICLE_DATA = Array.from({ length: 12 }, (_, i) => ({
-  width:  Math.random() * 3 + 1,
-  height: Math.random() * 3 + 1,
-  left:   `${30 + Math.random() * 40}%`,
-  top:    `${20 + Math.random() * 60}%`,
-  glow:   Math.random() * 8 + 4,
-  dur:    5 + Math.random() * 3,
-  delay:  Math.random() * 4,
+  width:  particleRandom() * 3 + 1,
+  height: particleRandom() * 3 + 1,
+  left:   `${30 + particleRandom() * 40}%`,
+  top:    `${20 + particleRandom() * 60}%`,
+  glow:   particleRandom() * 8 + 4,
+  dur:    5 + particleRandom() * 3,
+  delay:  particleRandom() * 4,
   color:  i % 2 === 0 ? 'rgba(139, 92, 246, 0.5)' : 'rgba(0, 210, 255, 0.5)',
 }));
 
@@ -200,13 +215,15 @@ const MetaAppsStatsStrip = memo(({
   stats,
   className = '',
   staticMotion = false,
+  settledEntrance = false,
 }: {
   stats: HeroStat[];
   className?: string;
   staticMotion?: boolean;
+  settledEntrance?: boolean;
 }) => (
   <m.div
-    initial={staticMotion ? false : { opacity: 0, y: 14 }}
+    initial={staticMotion || settledEntrance ? false : { opacity: 0, y: 14 }}
     animate={{ opacity: 1, y: 0 }}
     transition={staticMotion ? { duration: 0 } : { delay: 0.55, duration: 0.55 }}
     className={`meta-apps-stats-strip grid grid-cols-3 overflow-hidden rounded-[22px] border border-white/12 bg-[#090b12]/92 shadow-[0_18px_55px_rgba(0,0,0,0.22)] lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none ${className}`}
@@ -404,6 +421,7 @@ const LeftContent = memo(({
         stats={content.stats}
         className={statsClassName}
         staticMotion={staticMotion}
+        settledEntrance={settledEntrance}
       />
     )}
   </m.div>
@@ -435,9 +453,11 @@ Particles.displayName = 'Particles';
 
 interface RightPanelProps {
   showCards?: boolean;
+  /** Первый экран уже лежит в HTML сборки: карточки видны сразу, без появления. */
+  settledEntrance?: boolean;
 }
 
-const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
+const RightPanel = memo(({ showCards = true, settledEntrance = false }: RightPanelProps) => {
   const isTouch = useTouchDevice();
 
   // Опционально: отключаем hover-анимации на тач-устройствах
@@ -448,7 +468,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
   return (
     <m.div
       aria-hidden="true"
-      initial={{ opacity: 0, x: 50 }}
+      initial={settledEntrance ? false : { opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
       className="relative order-1 lg:order-2 h-[360px] sm:h-[400px] md:h-[600px]"
@@ -550,7 +570,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
       <div className={showCards ? 'contents' : 'hidden'}>
       {/* Data Cards */}
       <m.div
-        initial={{ opacity: 0, scale: 0.8 }}
+        initial={settledEntrance ? false : { opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.8, duration: 0.8, type: 'spring' }}
         className="absolute top-3 left-1 md:top-6 md:left-2 w-32 sm:w-44 md:w-56 z-10 group"
@@ -575,7 +595,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
           </div>
           <m.div
             className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-primary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={settledEntrance ? false : { scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.5 }}
           >
@@ -584,14 +604,14 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
           <div className="flex items-center gap-1.5 md:gap-2 relative z-10">
             <m.div
               className="flex-1 h-0.5 md:h-1 rounded-full bg-primary/20 overflow-hidden"
-              initial={{ scaleX: 0 }}
+              initial={settledEntrance ? false : { scaleX: 0 }}
               animate={{ scaleX: 1 }}
               transition={{ delay: 1.4, duration: 0.8 }}
               style={{ willChange: 'transform' }}
             >
               <m.div
                 className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-                initial={{ scaleX: 0 }}
+                initial={settledEntrance ? false : { scaleX: 0 }}
                 animate={{ scaleX: 0.85 }}
                 transition={{ delay: 1.6, duration: 0.8 }}
                 style={{ transformOrigin: 'left', willChange: 'transform' }}
@@ -605,7 +625,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
       </m.div>
 
       <m.div
-        initial={{ opacity: 0, scale: 0.8 }}
+        initial={settledEntrance ? false : { opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.9, duration: 0.8, type: 'spring' }}
         className="absolute top-1 right-1 md:top-4 md:right-4 w-28 sm:w-36 md:w-44 z-10 group"
@@ -632,7 +652,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
           </div>
           <m.div
             className="break-words text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-accent mb-2 md:mb-3 relative z-10 leading-none tracking-[-0.02em]"
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={settledEntrance ? false : { scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.3, duration: 0.5 }}
           >
@@ -649,7 +669,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
               strokeWidth="2"
               fill="none"
               strokeLinecap="round"
-              initial={{ pathLength: 0 }}
+              initial={settledEntrance ? false : { pathLength: 0 }}
               animate={{ pathLength: 1 }}
               transition={{ delay: 1.5, duration: 1.2 }}
             />
@@ -664,7 +684,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
       </m.div>
 
       <m.div
-        initial={{ opacity: 0, scale: 0.8 }}
+        initial={settledEntrance ? false : { opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1.0, duration: 0.8, type: 'spring' }}
         className="absolute bottom-8 left-1 md:bottom-10 md:left-4 w-32 sm:w-44 md:w-56 z-10 group"
@@ -691,7 +711,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
           </div>
           <m.div
             className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-secondary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={settledEntrance ? false : { scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.4, duration: 0.5 }}
           >
@@ -703,13 +723,13 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
                 key={i}
                 className="w-1 md:w-1.5 rounded-full bg-secondary/30"
                 style={{ height: `${scale}%` }}
-                initial={{ scaleY: 0 }}
+                initial={settledEntrance ? false : { scaleY: 0 }}
                 animate={{ scaleY: 1 }}
                 transition={{ delay: 1.6 + i * 0.1, duration: 0.4 }}
               >
                 <m.div
                   className="w-full bg-gradient-to-t from-secondary to-accent rounded-full"
-                  initial={{ height: 0 }}
+                  initial={settledEntrance ? false : { height: 0 }}
                   animate={{ height: '100%' }}
                   transition={{ delay: 1.8 + i * 0.1, duration: 0.4 }}
                 />
@@ -720,7 +740,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
       </m.div>
 
       <m.div
-        initial={{ opacity: 0, scale: 0.8 }}
+        initial={settledEntrance ? false : { opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1.1, duration: 0.8, type: 'spring' }}
         className="absolute bottom-16 right-1 md:bottom-20 md:right-2 w-24 sm:w-32 md:w-40 z-10 group"
@@ -748,7 +768,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
           </div>
           <m.div
             className="text-2xl sm:text-4xl md:text-5xl font-semibold md:font-bold text-primary relative z-10 leading-none tracking-[-0.03em]"
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={settledEntrance ? false : { scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.5, duration: 0.5 }}
           >
@@ -756,7 +776,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
           </m.div>
           <m.div
             className="mt-2 md:mt-3 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent rounded-full relative z-10"
-            initial={{ scaleX: 0 }}
+            initial={settledEntrance ? false : { scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ delay: 1.7, duration: 0.8 }}
             style={{ transformOrigin: 'left', willChange: 'transform' }}
@@ -772,7 +792,7 @@ const RightPanel = memo(({ showCards = true }: RightPanelProps) => {
         {LINE_PATHS.map((d, i) => (
           <m.path
             key={i}
-            initial={{ pathLength: 0, opacity: 0 }}
+            initial={settledEntrance ? false : { pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 0.3 }}
             transition={{ delay: 2 + i * 0.1, duration: 1.5 }}
             d={d}
@@ -825,7 +845,6 @@ function Hero({
   const content = useSiteSection(contentKey, 'hero', contentProp);
   const sectionRef     = useRef<HTMLElement>(null);
   const prefersReduced = useReducedMotion();
-  const isMobile       = useIsMobile();
   const { scrollToWhenReady } = useScrollTo();
 
   const scrollToContact = useCallback(() => {
@@ -853,6 +872,16 @@ function Hero({
   // перерисовывало весь первый экран каждый раз, когда его край пересекал
   // границу — ровно в кадре, где страница движется.
   useAmbientVisibility(sectionRef);
+  // Признак «движение запрещено» тоже ставится после монтирования, а не в
+  // разметке: `prefers-reduced-motion` известен только браузеру, а первый
+  // экран приходит готовым из HTML сборки и гидратируется — атрибут из
+  // рендера разошёлся бы с разметкой у тех, кто просит меньше движения.
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+    if (motionAllowed) section.removeAttribute('data-hero-ambient');
+    else section.setAttribute('data-hero-ambient', 'off');
+  }, [motionAllowed]);
 
   // Космическая сцена живёт по своей разметке: она занимает весь блок, а текст
   // ложится поверх неё. Вписывать её в общую сетку из двух колонок нельзя —
@@ -862,12 +891,11 @@ function Hero({
       <section
         id="hero"
         ref={sectionRef}
-        data-hero-ambient={motionAllowed ? undefined : 'off'}
         data-hero-effects={settledEntrance ? 'settled' : undefined}
         className="cosmic-hero pt-0 min-[901px]:pt-20"
       >
         <Suspense fallback={<CosmicHeroFallback />}>
-          {scene ?? <CosmicHeroScene active={motionAllowed} />}
+          {scene ?? <CosmicHeroScene active={motionAllowed} hydrating={settledEntrance} />}
         </Suspense>
 
         <div className="cosmic-copy">
@@ -890,7 +918,7 @@ function Hero({
     <section
       id="hero"
       ref={sectionRef}
-      data-hero-ambient={motionAllowed ? undefined : 'off'}
+      data-hero-effects={settledEntrance ? 'settled' : undefined}
       className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
       style={{ contain: 'layout style paint' }}
     >
@@ -898,25 +926,32 @@ function Hero({
 
       <div className={`relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 ${isMetaApps ? 'max-w-[1460px]' : 'max-w-7xl'}`}>
         <div className={`grid ${isMetaApps ? 'items-start gap-5 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(560px,1.1fr)] xl:gap-14' : 'items-center gap-8 md:gap-12 lg:grid-cols-2'}`}>
+          {/* Полоса показателей Meta Apps на телефоне стоит под визуалом, на
+              широком экране — внутри колонки текста. Раньше это решал JS по
+              ширине окна; теперь обе полосы в разметке, а показывает нужную
+              CSS (`max-md:hidden` / `md:hidden`): разметка одинакова на сборке
+              и в браузере, и гидратация первого экрана ничего не перестраивает. */}
           <LeftContent
             onScrollToContact={scrollToContact}
             onScrollToCases={scrollToCases}
             content={content}
             mobileFirst={isMetaApps}
             staticMotion={freezeMotion}
-            statsVariant={isMetaApps ? (isMobile ? 'hidden' : 'meta-apps') : 'default'}
+            settledEntrance={settledEntrance}
+            statsVariant={isMetaApps ? 'meta-apps' : 'default'}
+            statsClassName={isMetaApps ? 'max-md:hidden' : ''}
           />
           {isMetaApps ? (
             <Suspense fallback={<div className="order-2 h-[720px] md:h-[760px] lg:h-[690px]" />}>
-              <MetaAppsHeroVisual motionAllowed={motionAllowed} />
+              <MetaAppsHeroVisual motionAllowed={motionAllowed} settled={settledEntrance} />
             </Suspense>
           ) : (
-            <RightPanel showCards={visual !== 'portrait'} />
+            <RightPanel showCards={visual !== 'portrait'} settledEntrance={settledEntrance} />
           )}
-          {isMetaApps && isMobile && (
+          {isMetaApps && (
             <MetaAppsStatsStrip
               stats={content.stats}
-              className="order-3"
+              className="order-3 md:hidden"
               staticMotion
             />
           )}

@@ -229,7 +229,10 @@
     max-height: 430px;
   }
 
-  .cosmic-sky { inset: -2%; background-position: 60% 45%; }
+  /* Небо на телефоне — та же картинка в 1400 px (scripts/build-cosmic-compact-images.js):
+     сцена здесь не шире 900 CSS px, а именно небо — LCP главной на телефоне.
+     Preload в generate-pages.js выбирает тот же файл теми же медиа-условиями. */
+  .cosmic-sky { inset: -2%; background-position: 60% 45%; background-image: url('/images/cosmic/sky-compact.webp'); }
 
   /* Кит уже полосы — вокруг остаётся фон, сферы и кристаллы, и сцена
      выглядит целой картиной, а не вырезанным куском.

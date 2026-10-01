@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import path from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
@@ -535,6 +535,70 @@ function localArticlesApi() {
   }
 }
 
+/**
+ * Иконки lucide, которые нужны публичным страницам.
+ *
+ * Все иконки сайта уезжали одним чанком `icons`, и каждая публичная страница
+ * скачивала вместе с ними иконки восемнадцати разделов админки (F-116).
+ * Rollup не может разделить их по импортёру: иконка импортируется через общий
+ * индекс пакета, а не из компонента. Поэтому список публичных иконок читается
+ * из исходников на старте сборки: всё, что импортирует только админка, уходит
+ * в `icons-admin`. Неизвестное имя остаётся в публичном чанке — это стоит
+ * байтов, но не ломает страницу.
+ */
+function collectPublicLucideIcons(): Set<string> {
+  const root = path.resolve(__dirname, 'src')
+  const adminOnly = [
+    path.resolve(root, 'app/components/admin'),
+    path.resolve(root, 'app/pages/Admin.tsx'),
+    path.resolve(root, 'app/pages/ContentPreview.tsx'),
+    path.resolve(root, 'app/components/ArticleEditor.tsx'),
+    path.resolve(root, 'app/components/CaseFieldsEditor.tsx'),
+  ]
+  const names = new Set<string>()
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const file = path.join(dir, entry)
+      if (adminOnly.some((prefix) => file === prefix || file.startsWith(`${prefix}${path.sep}`))) continue
+      if (statSync(file).isDirectory()) { walk(file); continue }
+      if (!/\.(?:tsx?|jsx?)$/.test(entry)) continue
+      const source = readFileSync(file, 'utf8')
+      for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]lucide-react['"]/g)) {
+        for (const raw of match[1].split(',')) {
+          const name = raw.trim().split(/\s+as\s+/)[0].trim()
+          if (name && !name.startsWith('type ')) names.add(name)
+        }
+      }
+    }
+  }
+  walk(root)
+  return names
+}
+
+/**
+ * Имя экспорта → файл иконки, из самого пакета: `BarChart3`, `ChartColumn`,
+ * `XIcon` и `LucideX` — псевдонимы одного файла, и угадать его по имени
+ * нельзя (`BarChart3` лежит в `chart-column.js`).
+ */
+function readLucideExportMap(): Map<string, string> {
+  const map = new Map<string, string>()
+  const indexPath = path.resolve(__dirname, 'node_modules/lucide-react/dist/esm/lucide-react.js')
+  if (!existsSync(indexPath)) return map
+  const source = readFileSync(indexPath, 'utf8')
+  for (const match of source.matchAll(/export \{([^}]+)\} from '\.\/icons\/([a-z0-9-]+)\.js'/g)) {
+    for (const raw of match[1].split(',')) {
+      const name = raw.replace(/^\s*default as\s+/, '').trim()
+      if (name) map.set(name, match[2])
+    }
+  }
+  return map
+}
+
+const LUCIDE_EXPORT_MAP = readLucideExportMap()
+const PUBLIC_LUCIDE_FILES = new Set(
+  [...collectPublicLucideIcons()].map((name) => LUCIDE_EXPORT_MAP.get(name)).filter((file): file is string => Boolean(file)),
+)
+
 export default defineConfig({
   plugins: [
     localArticlesApi(),
@@ -565,7 +629,10 @@ export default defineConfig({
           // Каждая иконка уезжала в собственный чанк по 300–700 байт: страница
           // статьи тянула около двадцати таких файлов отдельными запросами, и
           // на мобильной сети водопад стоил дороже самих иконок.
-          if (/node_modules[\\/]lucide-react/.test(id)) return 'icons';
+          if (/node_modules[\\/]lucide-react/.test(id)) {
+            const icon = id.match(/[\\/]icons[\\/]([a-z0-9-]+)\.js$/)?.[1];
+            return icon && !PUBLIC_LUCIDE_FILES.has(icon) ? 'icons-admin' : 'icons';
+          }
           return undefined;
         },
       },

@@ -14,6 +14,7 @@ import { onUserScrollIntent } from '../utils/scrollRestoration';
 import { preloadable } from '../utils/preloadable';
 import { memoizedImport } from '../utils/memoizedImport';
 import { useWarmSections } from '../utils/sectionWarmup';
+import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 import { loadHero, loadConsultStudioHero, loadMetaAdsEditorialHero } from '../utils/heroPreload';
 import {
   managedBodyClasses,
@@ -863,11 +864,11 @@ function DeferredSection({
   const sectionRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const navigationType = useNavigationType();
-  const [shouldRender, setShouldRender] = useState(() => (
-    typeof window === 'undefined'
-    || typeof window.IntersectionObserver === 'undefined'
-    || hashTargetsSection(anchorId)
-  ));
+  // На сборке и в первом кадре браузера секция — заглушка своей высоты:
+  // генератор страниц рендерит это же дерево, и React потом гидратирует его,
+  // а не перестраивает. Браузер без IntersectionObserver и прямой переход по
+  // якорю поднимают секцию сразу после монтирования (эффект ниже).
+  const [shouldRender, setShouldRender] = useState(() => hashTargetsSection(anchorId));
 
   useEffect(() => {
     if (shouldRender) return;
@@ -1075,6 +1076,9 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
   const config = useServiceContent(service, pageConfigs[service]);
   const theme = themes[service];
   const cssVars = serviceThemeStyle(service);
+  const location = useLocation();
+  // Первый экран уже лежит в HTML сборки: не прятать его появлениями.
+  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
   useWarmSections(SERVICE_SECTION_LOADERS);
 
   useEffect(() => {
@@ -1110,13 +1114,14 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
       <Navbar variant="service" />
       <Suspense fallback={<div className="min-h-screen bg-background" aria-hidden="true" />}>
         {service === 'meta-ads' ? (
-          <MetaAdsEditorialHero content={config.hero} />
+          <MetaAdsEditorialHero content={config.hero} settledEntrance={settledEntrance} />
         ) : service === 'consult' ? (
-          <ConsultStudioHero content={config.hero} />
+          <ConsultStudioHero content={config.hero} settledEntrance={settledEntrance} />
         ) : (
           <Hero
             content={config.hero}
             visual={service === 'meta-apps' ? 'meta-apps' : 'default'}
+            settledEntrance={settledEntrance}
           />
         )}
       </Suspense>

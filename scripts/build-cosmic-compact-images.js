@@ -39,4 +39,28 @@ for (const [name, width] of Object.entries(config.widths)) {
   console.log(`${name}: ${metadata.width}×${metadata.height} → ${info.width}×${info.height}, ${original.length} → ${data.length} bytes`);
 }
 
+/*
+ * Фон неба — без прозрачности и сжимается с потерями: на телефоне сцена
+ * занимает не больше 900 CSS px в ширину, а исходные 2048 px нужны только
+ * широкому экрану. Для iPhone с DPR 3 ширины 1400 px хватает: небо — мягкий
+ * градиент без мелких деталей, и лёгкое масштабирование на нём не читается.
+ * Именно эта картинка — LCP главной на телефоне, поэтому её вес важнее всего.
+ */
+for (const [name, options] of Object.entries(config.backgrounds || {})) {
+  const original = await readFile(new URL(`${name}.webp`, imageDirectory));
+  const metadata = await sharp(original).metadata();
+  if (!metadata.width || metadata.width < options.width) throw new Error(`${name}: source is narrower than ${options.width}`);
+  const { data, info } = await sharp(original)
+    .resize({ width: options.width, withoutEnlargement: true })
+    .webp({ quality: options.quality, effort: 6, smartSubsample: true })
+    .toBuffer({ resolveWithObject: true });
+  if (info.width !== options.width || data.length >= original.length) {
+    throw new Error(`${name}: compact background must keep the requested width and reduce bytes`);
+  }
+  await writeFile(new URL(`${name}-compact.webp`, imageDirectory), data);
+  originalBytes += original.length;
+  compactBytes += data.length;
+  console.log(`${name}: ${metadata.width}×${metadata.height} → ${info.width}×${info.height}, ${original.length} → ${data.length} bytes`);
+}
+
 console.log(`Total: ${originalBytes} → ${compactBytes} bytes; saved ${originalBytes - compactBytes} (${((1 - compactBytes / originalBytes) * 100).toFixed(1)}%)`);

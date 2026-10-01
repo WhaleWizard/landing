@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { isScrollActivityActive } from '../utils/motionPerformance';
+import '../../styles/plexus-static.css';
 
 // Интерактивный фон-сеть. Состояние живёт в refs/замыкании canvas, поэтому
 // кадры анимации не вызывают React-рендеры.
@@ -13,6 +14,107 @@ type PlexusBackdropProps = {
   inView?: boolean;
   className?: string;
 };
+
+/**
+ * Телефон и планшет: сеть без холста и без JavaScript на кадр.
+ *
+ * Холст во всю секцию перерисовывался 24 раза в секунду в «Услугах»,
+ * «Отзывах», подвале и блоге — на телефоне это была самая заметная причина
+ * рывков при прокрутке. Здесь тот же узор (те же плотность, дистанция связи и
+ * цвета) рисуется один раз как SVG, а живёт он за счёт композитора: два слоя
+ * медленно дрейфуют навстречу друг другу, а мягкое свечение бродит по секции,
+ * как раньше бродила точка притяжения. Владелец разрешил заменить паутинку на
+ * телефоне более лёгкой анимацией — это она.
+ */
+const STATIC_LINK_DIST = 150;
+const STATIC_MEDIA = '(pointer: coarse), (max-width: 900px)';
+
+type StaticNode = { x: number; y: number; r: number };
+type StaticLink = { x1: number; y1: number; x2: number; y2: number; alpha: number };
+
+function buildConstellation(width: number, height: number, seed: number) {
+  // Детерминированный разброс: один и тот же узор на одной и той же секции,
+  // чтобы возврат к ней прокруткой не рисовал новую сеть.
+  let state = seed >>> 0;
+  const random = () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const count = Math.min(56, Math.max(36, Math.round((width * height) / 25000)));
+  const near: StaticNode[] = Array.from({ length: count }, () => ({
+    x: random() * width,
+    y: random() * height,
+    r: 1.3 + random() * 0.7,
+  }));
+  const far: StaticNode[] = Array.from({ length: Math.round(count / 2) }, () => ({
+    x: random() * width,
+    y: random() * height,
+    r: 0.7 + random() * 0.6,
+  }));
+  const links: StaticLink[] = [];
+  for (let i = 0; i < near.length; i += 1) {
+    for (let j = i + 1; j < near.length; j += 1) {
+      const dx = near[i].x - near[j].x;
+      const dy = near[i].y - near[j].y;
+      const distance = Math.hypot(dx, dy);
+      if (distance >= STATIC_LINK_DIST) continue;
+      links.push({ x1: near[i].x, y1: near[i].y, x2: near[j].x, y2: near[j].y, alpha: (1 - distance / STATIC_LINK_DIST) * 0.16 });
+    }
+  }
+  return { near, far, links };
+}
+
+type ConstellationStyle = CSSProperties & { '--plexus-w': string; '--plexus-h': string };
+
+function PlexusConstellation({ className = '' }: { className?: string }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ width: number; height: number } | null>(null);
+
+  // Один замер при монтировании, а не наблюдатель: узор строится в своих
+  // координатах, а при повороте экрана SVG сам масштабируется viewBox-ом.
+  useLayoutEffect(() => {
+    const element = rootRef.current;
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    setBox({ width: Math.max(320, Math.round(rect.width)), height: Math.max(240, Math.round(rect.height)) });
+  }, []);
+
+  if (!box) return <div ref={rootRef} aria-hidden="true" className={`plexus-static ${className}`} />;
+
+  const { near, far, links } = buildConstellation(box.width, box.height, box.width * 31 + box.height * 7);
+  const gradientId = `plexus-grad-${box.width}x${box.height}`;
+  const style: ConstellationStyle = { '--plexus-w': `${box.width}px`, '--plexus-h': `${box.height}px` };
+  const viewBox = `0 0 ${box.width} ${box.height}`;
+
+  return (
+    <div ref={rootRef} aria-hidden="true" className={`plexus-static ${className}`} style={style}>
+      <svg className="plexus-static__layer plexus-static__layer--far ww-ambient-motion" viewBox={viewBox} preserveAspectRatio="xMidYMid slice">
+        {far.map((node, index) => (
+          <circle key={index} cx={node.x} cy={node.y} r={node.r} className="plexus-static__dot plexus-static__dot--far" />
+        ))}
+      </svg>
+      <svg className="plexus-static__layer plexus-static__layer--near ww-ambient-motion" viewBox={viewBox} preserveAspectRatio="xMidYMid slice">
+        <defs>
+          {/* Фиолетовый слева переходит в голубой справа — как смешение цветов по x в холсте. */}
+          <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={box.width} y2="0">
+            <stop offset="0%" className="plexus-static__stop plexus-static__stop--primary" />
+            <stop offset="100%" className="plexus-static__stop plexus-static__stop--accent" />
+          </linearGradient>
+        </defs>
+        {links.map((link, index) => (
+          <line key={index} x1={link.x1} y1={link.y1} x2={link.x2} y2={link.y2} stroke={`url(#${gradientId})`} strokeOpacity={link.alpha.toFixed(3)} />
+        ))}
+        {near.map((node, index) => (
+          <circle key={index} cx={node.x} cy={node.y} r={node.r} fill={`url(#${gradientId})`} className="plexus-static__dot" />
+        ))}
+      </svg>
+      <div className="plexus-static__glow ww-ambient-motion" />
+    </div>
+  );
+}
 
 type PlexusNode = {
   x: number;
@@ -46,6 +148,16 @@ function parseHexColor(value: string, fallback: [number, number, number]): [numb
 }
 
 const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) => {
+  // Режим выбирается один раз при монтировании: телефон и планшет получают
+  // композиторную версию, курсорный экран — интерактивный холст.
+  const [staticMode] = useState(() => typeof window !== 'undefined' && window.matchMedia(STATIC_MEDIA).matches);
+  if (staticMode) return <PlexusConstellation className={className} />;
+  return <PlexusCanvas inView={inView} className={className} />;
+});
+
+PlexusBackdrop.displayName = 'PlexusBackdrop';
+
+const PlexusCanvas = memo(({ inView, className = '' }: PlexusBackdropProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const prefersReduced = useReducedMotion();
   // Видимость живёт в ref, а не в зависимостях эффекта. Иначе каждый вход и
@@ -481,6 +593,6 @@ const PlexusBackdrop = memo(({ inView, className = '' }: PlexusBackdropProps) =>
   return <canvas ref={canvasRef} aria-hidden="true" className={`pointer-events-none ${className}`} />;
 });
 
-PlexusBackdrop.displayName = 'PlexusBackdrop';
+PlexusCanvas.displayName = 'PlexusCanvas';
 
 export default PlexusBackdrop;

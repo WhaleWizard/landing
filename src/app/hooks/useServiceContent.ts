@@ -119,6 +119,24 @@ export function preloadSiteContent(cacheKey: string): Promise<unknown> {
   return loadSiteContent(cacheKey).catch(() => undefined);
 }
 
+/**
+ * Кладёт опубликованный текст страницы в кэш до рендера.
+ *
+ * Нужно генератору страниц: на сборке нет ни `fetch`, ни встроенного в HTML
+ * seed, а первый экран должен выйти ровно с тем текстом, который браузер
+ * потом прочитает из `ww-site-content-seed` и которым React гидратирует
+ * разметку. Расхождение здесь — это перестроенный первый экран.
+ */
+export function primeSiteContent(cacheKey: string, content: Record<string, unknown> | null): void {
+  serviceContentCache.set(cacheKey, { content, version: null, fetchedAt: Date.now() });
+}
+
+/** Сбрасывает кэш между рендерами разных страниц на сборке. */
+export function resetSiteContentCache(): void {
+  serviceContentCache.clear();
+  serviceContentPending.clear();
+}
+
 function initialContentOverride(cacheKey: string): unknown {
   const cached = serviceContentCache.get(cacheKey);
   if (cached) return cached.content;

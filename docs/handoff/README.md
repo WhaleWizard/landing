@@ -19,16 +19,21 @@
 - Полный аудит 23–24.09: **133 подтверждённые находки** (1 критическая, 12 высоких, 57 средних, 63 низких). Отчёт для владельца — `audit-reports/AUDIT-2026-09-24.md`, машинный список — `docs/handoff/audit-findings.json`.
 - 01.10.2026 исправлены и выложены F-073 (критическая: двухфакторную защиту снимал один пароль через «setup») и F-090 (поток сообщений в Telegram о попытках входа). Тест — `scripts/audit-admin-api-core.test.js`.
 
+**Сделано 01–02.10 в ветке `claude/laughing-archimedes-unb9fp` (ждёт выкладки владельцем):**
+
+- **Ускорение сайта** — план и цифры «до/после» в `docs/handoff/SPEED_PLAN.md`. Главное: первый экран `/`, `/meta-ads`, `/meta-apps`, `/google-ads`, `/consult` рендерится на сборке настоящими компонентами и **гидратируется** (`hydrateRoot`) — мигание «HTML-страница → сайт» и прыжок кита убраны; петли `/meta-apps/` на CSS; паутинка на телефоне — SVG-созвездие; мобильное небо главной 53 КБ; входной чанк 70 → 48 КБ. Lighthouse мобильный: `/meta-apps/` 44 → 85, `/google-ads/` 55 → 89, `/` 65 → 78, `/meta-ads/` 80 → 91. Правило SSR-безопасности первого экрана — в CLAUDE.md (раздел SPA).
+- **Три серверные группы аудита** (admin-api-core 17/17, admin-api-money 16/17, server-public 13/15) — 46 находок исправлены, тесты `scripts/audit-admin-api-{core,money}.test.js`, `scripts/audit-server-public.test.js` в `npm run check`. Журналы — `docs/handoff/work/fix-*.md`. Три находки ждут стыков в чужих файлах (F-036, F-104, F-089) — раздел «Стыки» в `docs/handoff/FIX_PLAN.md`.
+
 **Не сделано:**
 
-- 131 находка аудита — план `docs/handoff/FIX_PLAN.md`. Первая попытка параллельного исправления оборвалась на лимите сессии; недоделанные правки сохранены в `docs/handoff/partial-fixes-unverified.patch` (не проверены — применять только как черновик с проверкой).
-- Аудит скорости не отработал (лимит) — сценарий `.claude/workflows/audit-performance.js`.
+- Семь групп аудита (admin-shell, admin-crm-ui, editor, routing, blog, forms, seo-build) — 85 находок, план `docs/handoff/FIX_PLAN.md`; стыки от сделанных групп (F-019/F-020/F-081/F-091/F-095/F-111 в админке, F-108/F-047 и F-109 в сборке, миграция 0043 для F-036, `health.ts` для F-104). Черновик старых недоделок — `docs/handoff/partial-fixes-unverified.patch` (не проверен).
+- Страница статьи: до React видна общая карточка-заглушка, LCP 4,6 с — пункт I в `docs/handoff/SPEED_PLAN.md`.
 - Статьи: карта, стандарт, агенты-проверяющие, пилот — раздел 4.
 
 ## 3. Очередь работ
 
-1. **Исправить находки аудита** — `docs/handoff/FIX_PLAN.md`. Если доступен Workflow: `Workflow({ name: 'audit-fix' })` (сценарий `.claude/workflows/audit-fix.js`; можно `args: { groups: ['admin-api-core'] }` — по одной группе за запуск надёжнее). Без Workflow — вручную по группам из плана, в том же порядке. После каждой группы: тест в `package.json`, `npm run check`, коммит, push, проверка прода.
-2. **Аудит скорости** — `Workflow({ name: 'audit-performance' })`, затем исправить найденное тем же путём.
+1. **Исправить находки аудита** — `docs/handoff/FIX_PLAN.md`, следующие группы: admin-shell, admin-crm-ui, editor, затем routing, blog, forms, seo-build; после них — «Стыки». Если доступен Workflow: `Workflow({ name: 'audit-fix', args: { groups: ['admin-shell','admin-crm-ui','editor'], waveSize: 3 } })` (сценарий `.claude/workflows/audit-fix.js`). Без Workflow — вручную по группам из плана, в том же порядке. После каждой группы: тест в `package.json`, `npm run check`, коммит, push, проверка прода.
+2. **Скорость** — остаток по `docs/handoff/SPEED_PLAN.md`: пункт I (страница статьи с серверным первым экраном), затем C4 по желанию. Сценарий `audit-performance` больше не нужен как старт — точка отсчёта и причины уже записаны в плане.
 3. **Обновить отчёт** `audit-reports/AUDIT-2026-09-24.md` (статусы) и раздел «Где мы сейчас» в этом файле.
 4. **Статьи** — только когда владелец скажет (он сказал: «сначала аудит и исправления, потом продолжим»). Раздел 4.
 

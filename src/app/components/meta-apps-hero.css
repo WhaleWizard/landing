@@ -1,3 +1,19 @@
+/*
+ * Текстура бумаги чека выбирается здесь, а не в JavaScript по ширине окна:
+ * первый экран рендерится на сборке, где окна нет, и гидратируется в браузере —
+ * разметка обязана совпасть. Та же медиа-граница, что у MOBILE_STATIC_MEDIA в
+ * MetaAppsHeroVisual.tsx.
+ */
+.meta-apps-visual {
+  --meta-receipt-paper-texture: url("/images/meta-receipt-paper-texture.webp");
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .meta-apps-visual {
+    --meta-receipt-paper-texture: url("/images/meta-receipt-paper-texture-mobile.webp");
+  }
+}
+
 .meta-apps-visual {
   position: relative;
   order: 2;
@@ -1305,6 +1321,84 @@
   }
 }
 
+/*
+ * Постоянные петли визуала: парение телефона и чеков, блик по экрану и
+ * бегущая точка по линии событий.
+ *
+ * Раньше их крутил motion на главном потоке: по кадру на каждый тик, и на
+ * телефоне страница /meta-apps тратила на это больше процессора, чем на всё
+ * остальное вместе (замер Lighthouse: 5,4 с на чанк motion). Теперь те же
+ * траектории, длительности и задержки описаны здесь, и их ведёт композитор.
+ * Источник чисел для чеков — FLOAT_PATHS в MetaAppsHeroVisual.tsx; тест
+ * scripts/meta-apps-loops.test.js сверяет их с этими кадрами.
+ *
+ * Пауза вне экрана, в скрытой вкладке и во время прокрутки — общим классом
+ * ww-ambient-motion (правила в src/styles/index.css).
+ */
+.meta-phone-float {
+  animation: meta-apps-phone-float 5.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes meta-apps-phone-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* 2,8 с хода и 5,5 с паузы в конце — один цикл 8,3 с; 2.8 / 8.3 = 33.735%. */
+.meta-phone-reflection {
+  animation: meta-apps-reflection 8.3s ease-in-out infinite;
+}
+
+@keyframes meta-apps-reflection {
+  0% { transform: translateX(-145%); }
+  33.735% { transform: translateX(270%); }
+  100% { transform: translateX(270%); }
+}
+
+/* Точка проходит линию за 2,6 с (прозрачность 0 → 1 → 1 → 0 равными долями)
+   и ждёт 1,8 с — цикл 4,4 с. */
+.meta-phone-events__pulse {
+  opacity: 0;
+  animation: meta-apps-pulse 4.4s ease-in-out infinite;
+}
+
+@keyframes meta-apps-pulse {
+  0% { transform: translateY(0); opacity: 0; }
+  19.697% { opacity: 1; }
+  39.394% { opacity: 1; }
+  59.091% { transform: translateY(310%); opacity: 0; }
+  100% { transform: translateY(310%); opacity: 0; }
+}
+
+.meta-receipt--float-1 { animation: meta-apps-receipt-float-1 5.4s ease-in-out infinite; }
+.meta-receipt--float-2 { animation: meta-apps-receipt-float-2 6.3s ease-in-out 0.37s infinite; }
+.meta-receipt--float-3 { animation: meta-apps-receipt-float-3 7.1s ease-in-out 0.74s infinite; }
+
+@keyframes meta-apps-receipt-float-1 {
+  0% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-9px) rotate(-0.7deg); }
+  50% { transform: translateY(5px) rotate(0.85deg); }
+  75% { transform: translateY(-4px) rotate(-0.35deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes meta-apps-receipt-float-2 {
+  0% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(7px) rotate(0.8deg); }
+  50% { transform: translateY(-6px) rotate(-0.65deg); }
+  75% { transform: translateY(4px) rotate(0.45deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes meta-apps-receipt-float-3 {
+  0% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-6px) rotate(-0.8deg); }
+  50% { transform: translateY(9px) rotate(0.95deg); }
+  75% { transform: translateY(-3px) rotate(-0.4deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .meta-phone-object,
   .meta-phone-float,
@@ -1312,5 +1406,10 @@
   .meta-phone-reflection {
     animation: none !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Без движения точке по линии показывать нечего — раньше она и не рисовалась. */
+  .meta-phone-events__pulse {
+    display: none;
   }
 }

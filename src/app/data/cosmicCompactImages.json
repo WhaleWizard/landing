@@ -8,5 +8,11 @@
     "shard1": 156,
     "shard3": 120,
     "shard5": 90
+  },
+  "backgrounds": {
+    "sky": {
+      "width": 1400,
+      "quality": 80
+    }
   }
 }

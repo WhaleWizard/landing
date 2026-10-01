@@ -111,11 +111,11 @@ function DeferredSection({
   const sectionRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const navigationType = useNavigationType();
-  const [shouldRender, setShouldRender] = useState(() => (
-    typeof window === 'undefined'
-    || typeof window.IntersectionObserver === 'undefined'
-    || hashTargetsSection(anchorId)
-  ));
+  // На сборке и в первом кадре браузера секция — заглушка своей высоты:
+  // генератор страниц рендерит это же дерево, и React потом гидратирует его,
+  // а не перестраивает. Браузер без IntersectionObserver и прямой переход по
+  // якорю поднимают секцию сразу после монтирования (эффект ниже).
+  const [shouldRender, setShouldRender] = useState(() => hashTargetsSection(anchorId));
 
   useEffect(() => {
     if (shouldRender) return;

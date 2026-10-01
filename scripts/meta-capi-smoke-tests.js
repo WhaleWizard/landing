@@ -7,7 +7,9 @@ const files = {
   pageview: readFileSync('functions/api/pageview.ts', 'utf8'),
   lead: readFileSync('functions/api/lead.ts', 'utf8'),
   metaEvent: readFileSync('functions/api/meta-event.ts', 'utf8'),
-  consent: readFileSync('src/app/consent/consent.ts', 'utf8'),
+  // Хранилище согласия вынесено в consentStorage.ts (стартовый чанк без
+  // пикселей); для проверок это один и тот же модуль согласия.
+  consent: readFileSync('src/app/consent/consent.ts', 'utf8') + readFileSync('src/app/consent/consentStorage.ts', 'utf8'),
   cookieConsentManager: readFileSync('src/app/components/cookie/CookieConsentManager.tsx', 'utf8'),
   landingForm: readFileSync('src/app/components/LandingForm.tsx', 'utf8'),
   metaTestEvent: readFileSync('functions/api/meta-test-event.ts', 'utf8'),

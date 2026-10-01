@@ -1,5 +1,5 @@
-import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useNavigationType, useRouteError } from 'react-router';
-import { createElement, lazy, Suspense, useEffect, useInsertionEffect, useLayoutEffect, useRef, type ComponentType } from 'react';
+import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useNavigationType, useRouteError, type RouteObject } from 'react-router';
+import { createElement, lazy, Suspense, useEffect, useInsertionEffect, useRef, useState, type ComponentType } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
 import ScrollExperience from './components/ScrollExperience';
 import RouteIntentPreloader from './components/RouteIntentPreloader';
@@ -9,6 +9,7 @@ import { isPathLocked, refreshPageLocks } from './utils/pageLocks';
 import { onUserScrollIntent, readDocumentScrollY, restoreWindowScrollPosition } from './utils/scrollRestoration';
 import { preloadable } from './utils/preloadable';
 import { focusRouteHeading } from './utils/routeFocus';
+import { useIsomorphicLayoutEffect } from './utils/isomorphicLayoutEffect';
 import {
   loadAdmin,
   loadBlogPage,
@@ -198,7 +199,7 @@ function StableScrollPositionRestoration() {
 
   const storageKey = 'ww_scroll_positions_v2';
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (observedPathRef.current === currentPath) return;
     observedPathRef.current = currentPath;
     // React Router may emit a synthetic scroll event while it restores the
@@ -309,7 +310,7 @@ function StableScrollPositionRestoration() {
     };
   }, [currentPath, location.key]);
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const path = `${location.pathname}${location.search}`;
     const previousPath = previousPathRef.current;
     previousPathRef.current = path;
@@ -375,9 +376,25 @@ function RouteFocusManager() {
 }
 
 
+/**
+ * Монтировать ли компоненты, которых нет в разметке сборки.
+ *
+ * Первый экран рендерится на сборке и гидратируется, а ленивые куски вроде
+ * баннера cookie на сервере не рисуются — и не должны: `React.lazy` кэширует
+ * загруженный модуль, и второй рендер в том же процессе уже отдал бы баннер в
+ * HTML, а первый — нет. До первого эффекта и сервер, и браузер рисуют здесь
+ * ничего, поэтому разметка совпадает; баннер появляется кадром позже.
+ */
+function useMountedOnClient(): boolean {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  return mounted;
+}
+
 function RootLayout() {
   const location = useLocation();
   useRememberPublicRoute();
+  const mounted = useMountedOnClient();
   const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
   const isContentPreview = location.pathname === '/admin/content-preview';
   // Закрытая страница не должна ни отрисоваться, ни подгрузить свой код.
@@ -425,7 +442,7 @@ function RootLayout() {
           {routeContent}
         </ArticlesProvider>
       ) : routeContent}
-      {!isAdmin ? (
+      {!isAdmin && mounted ? (
         <Suspense fallback={null}>
           <CookieConsentManager />
         </Suspense>
@@ -443,7 +460,12 @@ function ApiArticleRedirect() {
   return null;
 }
 
-export const router = createBrowserRouter([
+/**
+ * Дерево маршрутов отдельно от самого роутера: генератор статики рендерит те же
+ * страницы на сборке через `createStaticRouter`, а в Node нет `window`, и
+ * `createBrowserRouter` там падал бы при импорте модуля.
+ */
+export const routes: RouteObject[] = [
   {
     path: '/',
     element: <RootLayout />,
@@ -472,4 +494,10 @@ export const router = createBrowserRouter([
       { path: '*', element: <LazyWrapper><NotFound /></LazyWrapper> },
     ],
   },
-]);
+];
+
+// В браузере роутер создаётся при импорте, как и раньше. На сборке (Node) его
+// нет: страницы рендерит `scripts/ssr-entry.tsx` своим статическим роутером.
+export const router = typeof window === 'undefined'
+  ? (null as unknown as ReturnType<typeof createBrowserRouter>)
+  : createBrowserRouter(routes);

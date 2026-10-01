@@ -22,6 +22,7 @@ import {
   resolveManifestImage,
 } from './article-image-manifest.js';
 import { createArticleSanitizer } from './article-sanitizer.js';
+import { SSR_ASSET_PLACEHOLDER, ssrBuildOptions } from './ssr-bundle.js';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(SCRIPTS_DIR, '..', 'public');
@@ -33,23 +34,15 @@ async function loadSiteContent() {
   const esbuild = await import('esbuild');
   const outfile = join(SCRIPTS_DIR, '.content-entry.build.mjs');
 
-  await esbuild.build({
+  // Настройки общие с тестами (scripts/ssr-bundle.js): бандлим только локальные
+  // исходники, пакеты грузит Node, стили не нужны, а картинки из импортов
+  // заменяются заглушкой — рендер первого экрана проверяет, что она не
+  // попала в разметку.
+  await esbuild.build(ssrBuildOptions({
     entryPoints: [join(SCRIPTS_DIR, 'content-entry.tsx')],
-    bundle: true,
     format: 'esm',
-    platform: 'node',
-    jsx: 'automatic',
     outfile,
-    // Бандлим только локальные исходники сайта; все пакеты из node_modules
-    // (react, radix, motion, three и их транзитивные зависимости) резолвятся
-    // самим Node через обычный import — так не нужно перечислять их вручную.
-    packages: 'external',
-    // Из этой сборки берут только данные, стили в ней не нужны. А ещё они
-    // ссылаются на шрифты абсолютными путями вида /fonts/..., которые вне
-    // dev-сервера не резолвятся и валили генерацию страниц.
-    loader: { '.css': 'empty' },
-    logLevel: 'silent',
-  });
+  }));
 
   try {
     return await import(`${pathToFileURL(outfile).href}?t=${Date.now()}`);
@@ -812,8 +805,13 @@ function renderJsonLdScripts(schemas = []) {
  */
 const HERO_PRELOADS = {
   '/': [
-    { href: '/images/cosmic/sky.webp', priority: true },
-    { href: '/images/cosmic/whale.webp' },
+    // Небо — LCP главной на телефоне: до 900 px берётся компактный файл, как
+    // в cosmic-hero.css; медиа-условия preload и CSS обязаны совпадать.
+    { href: '/images/cosmic/sky-compact.webp', priority: true, media: '(max-width: 900px)' },
+    { href: '/images/cosmic/sky.webp', priority: true, media: '(min-width: 901px)' },
+    // Кит — главный объект первого экрана на любом экране: без высокого
+    // приоритета браузер ставил его в очередь после всех скриптов.
+    { href: '/images/cosmic/whale.webp', priority: true },
   ],
   '/meta-ads': [
     { href: '/images/meta-proof/paper-stack-768.webp', priority: true },
@@ -993,6 +991,14 @@ function htmlTemplate({
   articlePublishedTime,
   articleModifiedTime,
   articleSection,
+  // Разметка, которую React гидратирует: кладётся в #root без единого
+  // лишнего пробела — текстовый узел из переноса строки React считает чужим.
+  hydratable = false,
+  // Текстовая копия страницы для поисковиков и браузеров без JavaScript —
+  // ПОСЛЕ #root, чтобы не участвовать в гидратации; main.tsx убирает её в
+  // кадре первого коммита.
+  afterRootHtml = '',
+  htmlAttributes = null,
 }) {
   const canonicalUrl = `${SITE_URL}${withTrailingSlashIfStaticRoute(canonicalPath)}`;
   const imageUrl = toAbsoluteUrl(ogImage || '/og-image-v2.jpg');
@@ -1046,11 +1052,20 @@ function htmlTemplate({
     if (jsonLdHtml) html = insertBeforeHeadClose(html, jsonLdHtml);
   }
 
-  const rootHtml = `  <div id="root">\n${bodyHtml}\n  </div>`;
+  const rootHtml = hydratable
+    ? `<div id="root">${bodyHtml}</div>${afterRootHtml ? `\n${afterRootHtml}` : ''}`
+    : `  <div id="root">\n${bodyHtml}\n  </div>${afterRootHtml ? `\n${afterRootHtml}` : ''}`;
   if (/<div id="root"><\/div>/i.test(html)) {
-    html = html.replace(/<div id="root"><\/div>/i, rootHtml.trim());
+    html = html.replace(/<div id="root"><\/div>/i, () => rootHtml.trim());
   } else {
-    html = html.replace(/<div id="root">[\s\S]*?<\/div>/i, rootHtml.trim());
+    html = html.replace(/<div id="root">[\s\S]*?<\/div>/i, () => rootHtml.trim());
+  }
+
+  if (htmlAttributes) {
+    const attributes = Object.entries(htmlAttributes)
+      .map(([name, value]) => ` ${name}="${escapeHtml(String(value))}"`)
+      .join('');
+    html = html.replace(/<html\b([^>]*)>/i, (_, existing) => `<html${existing}${attributes}>`);
   }
 
   return html;
@@ -1234,7 +1249,7 @@ function heroShellLeadStyle(hero) {
   return family ? `${generatedShellStyles.lead};font-family:${family}` : generatedShellStyles.lead;
 }
 
-function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, children = '', sections = [], currentRoute = '', firstScreen = '' }) {
+function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, children = '', sections = [], currentRoute = '' }) {
   const sectionsHtml = sections
     .map(
       (s) => `
@@ -1244,14 +1259,6 @@ function renderGeneratedShell({ eyebrow = 'Whale Wizard', title, lead, hero, chi
         </section>`,
     )
     .join('');
-
-  if (firstScreen) {
-    return `    <main class="dark marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden">
-${firstScreen}
-      <div style="max-width:920px;margin:0 auto;padding:24px 20px 48px">${children}${sectionsHtml}</div>
-${renderShellNavHtml(currentRoute)}
-    </main>`;
-  }
 
   return `    <main style="${generatedShellStyles.main}">
       <section style="${generatedShellStyles.card}${sections.length ? ';width:min(100%,920px)' : ''}">
@@ -1263,6 +1270,32 @@ ${children}${sectionsHtml}
       </section>
 ${renderShellNavHtml(currentRoute)}
     </main>`;
+}
+
+/**
+ * Текстовая копия страницы для маршрутов, чей первый экран рендерится
+ * настоящими компонентами и гидратируется (scripts/ssr-entry.tsx).
+ *
+ * Лежит после #root: поисковику без JavaScript достаются те же разделы и
+ * ссылки, что и раньше, а React её не сверяет и не трогает — `main.tsx`
+ * убирает блок в кадре первого коммита, когда живые секции уже на месте.
+ * Заголовка и лида здесь нет: они уже в настоящем хиро выше.
+ */
+function renderStaticShellAfterRoot({ sections = [], currentRoute = '' }) {
+  const sectionsHtml = sections
+    .map(
+      (s) => `
+        <section${s.id ? ` id="${escapeHtml(s.id)}"` : ''} style="margin-top:30px;padding-top:24px;border-top:1px solid rgba(255,255,255,.10)">
+          ${s.heading ? `<h2 style="margin:0 0 14px;font-size:19px;font-weight:800;letter-spacing:-.01em">${escapeHtml(s.heading)}</h2>` : ''}
+          ${s.bodyHtml}
+        </section>`,
+    )
+    .join('');
+
+  return `    <div id="ww-static-shell" style="${generatedShellStyles.main};min-height:0">
+      <section style="${generatedShellStyles.card};width:min(100%,920px)">${sectionsHtml}</section>
+${renderShellNavHtml(currentRoute)}
+    </div>`;
 }
 
 /**
@@ -1600,7 +1633,10 @@ const BREADCRUMB_LABELS = {
   '/cookie-policy': 'Политика cookie',
 };
 
-function renderStaticPages(baseHtml, { content, latestArticles, publishedContent = {} }) {
+async function renderStaticPages(baseHtml, { content, latestArticles, publishedContent = {} }) {
+  // Маршруты, первый экран которых рисуют настоящие компоненты, а браузер
+  // гидратирует. Список живёт в scripts/ssr-entry.tsx рядом с рендером.
+  const ssrRoutes = new Set(content.SSR_ROUTES || []);
   // Главная показывает не весь блог, а закреплённые владельцем (или 15
   // последних) — тем же правилом, что и живая карусель в Blog.tsx.
   const homeArticles = content.selectHomeArticles(latestArticles);
@@ -1790,6 +1826,29 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
         : []),
     ];
 
+    const hydratable = ssrRoutes.has(page.route);
+    let bodyHtml;
+    if (page.route === '/admin/content-preview') {
+      bodyHtml = `    <h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">${escapeHtml(page.h1)}</h1>`;
+    } else if (hydratable) {
+      bodyHtml = await content.renderRoute(page.route, { siteContent: page.siteContentSeed || null });
+      if (bodyHtml.includes(SSR_ASSET_PLACEHOLDER)) {
+        throw new Error(`Server-rendered ${page.route} references a bundled image; its URL would differ from the browser build and break hydration.`);
+      }
+      if (!bodyHtml.includes('id="hero"')) {
+        throw new Error(`Server-rendered ${page.route} has no hero: the generated first screen is incomplete.`);
+      }
+    } else {
+      bodyHtml = renderGeneratedShell({
+        title: page.h1,
+        lead: page.lead,
+        hero: page.hero,
+        eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wizard',
+        sections: page.sections || [],
+        currentRoute: page.route,
+      });
+    }
+
     writeRoute(
       page.route,
       htmlTemplate({
@@ -1809,17 +1868,14 @@ function renderStaticPages(baseHtml, { content, latestArticles, publishedContent
         imagePreloads: HERO_PRELOADS[page.route] || [],
         fontPreloads: [...new Set([...resolveHeroFontPreloads(page.hero), ...(ROUTE_FONT_PRELOADS[page.route] || [])])],
         baseHtml,
-        bodyHtml: page.route === '/admin/content-preview'
-          ? `    <h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">${escapeHtml(page.h1)}</h1>`
-          : renderGeneratedShell({
-          title: page.h1,
-          lead: page.lead,
-          hero: page.hero,
-          eyebrow: page.noIndex ? 'Служебная страница' : 'Whale Wizard',
-          sections: page.sections || [],
-          currentRoute: page.route,
-          firstScreen: page.route === '/' ? content.renderHomeFirstScreen(homeContent.hero) : '',
-        }),
+        bodyHtml,
+        hydratable,
+        afterRootHtml: hydratable
+          ? renderStaticShellAfterRoot({ sections: page.sections || [], currentRoute: page.route })
+          : '',
+        // Маркеры читает main.tsx: какой маршрут гидратировать и что петли
+        // первого экрана стоят на паузе до первого коммита React.
+        htmlAttributes: hydratable ? { 'data-ww-first-screen': page.route, 'data-ww-prehydrate': '1' } : null,
       }),
     );
   }
@@ -2019,6 +2075,11 @@ function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArti
     'application/ld+json',
     '"@type":"ProfessionalService"',
     '"@type":"WebSite"',
+    // Первый экран гидратируется: маркеры для main.tsx и настоящий хиро в #root.
+    'data-ww-first-screen="/"',
+    'data-ww-prehydrate="1"',
+    'id="hero"',
+    'id="ww-static-shell"',
   ], 'Generated home HTML');
 
   const metaAppsPage = staticPages.find((page) => page.route === '/meta-apps');
@@ -2215,7 +2276,7 @@ async function main() {
   const latestArticles = [...articles].sort((a, b) =>
     String(resolveArticleDate(b) || '').localeCompare(String(resolveArticleDate(a) || '')));
 
-  const staticPages = renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
+  const staticPages = await renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
   renderBlogPages(latestArticles, baseHtml, content.BLOG_PAGE_SIZE);
   writeNotFoundPage(baseHtml);
 
