@@ -1,0 +1,284 @@
+diff --git a/functions/_lib/d1.ts b/functions/_lib/d1.ts
+index 04bade0..94ce245 100644
+--- a/functions/_lib/d1.ts
++++ b/functions/_lib/d1.ts
+@@ -340,6 +340,20 @@ export async function writeArticleToD1(env: Env, rawArticle: Article, existing:
+   return fetchArticleFromD1(env, normalized.slug);
+ }
+ 
++/**
++ * Слаг другой статьи с этим id, если такая есть. Нужен, чтобы отличить
++ * новую статью от сохранённой, у которой в редакторе поменяли адрес:
++ * upsert идёт по слагу, и смена адреса молча создала бы вторую копию.
++ */
++export async function fetchOtherSlugForArticleIdFromD1(env: Env, id: number, slug: string): Promise<string | null> {
++  if (!hasD1(env) || !Number.isInteger(id) || id <= 0) return null;
++  const row = await env.DB
++    .prepare('SELECT slug FROM articles WHERE id = ? AND slug <> ? LIMIT 1')
++    .bind(id, slug)
++    .first<{ slug: string }>();
++  return row?.slug ? String(row.slug) : null;
++}
++
+ /** Следующий свободный id для новой статьи: id в базе не перенумеровываются. */
+ export async function nextArticleIdFromD1(env: Env): Promise<number> {
+   if (!hasD1(env)) return 1;
+diff --git a/functions/api/admin/articles.ts b/functions/api/admin/articles.ts
+index 16079c2..4408e74 100644
+--- a/functions/api/admin/articles.ts
++++ b/functions/api/admin/articles.ts
+@@ -8,6 +8,7 @@ import {
+   fetchArticleFromD1,
+   fetchArticleSummariesFromD1,
+   fetchArticlesFromD1,
++  fetchOtherSlugForArticleIdFromD1,
+   nextArticleIdFromD1,
+   writeArticleToD1,
+   writeArticlesToD1,
+@@ -380,6 +381,30 @@ function protectedArticleError(): Response {
+   );
+ }
+ 
++/**
++ * Сохранение идёт по слагу, поэтому смена адреса у сохранённой статьи молча
++ * создавала вторую копию: старая страница оставалась, новая дублировала текст,
++ * а удаление старой давало 404 без переадресации и потерю позиций.
++ * Переименования с 301 нет — адрес сохранённой статьи не меняется.
++ */
++function slugChangeError(currentSlug: string): Response {
++  return json(
++    {
++      success: false,
++      code: 'SLUG_CHANGE_FORBIDDEN',
++      currentSlug,
++      error: `Адрес сохранённой статьи менять нельзя: старая страница /${currentSlug} останется, а новая станет её дублем. Верните прежний адрес.`,
++    },
++    { status: 409, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
++  );
++}
++
++/** id сохранённой статьи из payload; 0 — новая статья или копия. */
++function incomingArticleId(article: Article): number {
++  const id = Number(article.id);
++  return Number.isInteger(id) && id > 0 ? id : 0;
++}
++
+ /**
+  * Сохранение ОДНОЙ статьи по слагу. Режим списка (PUT) остался для удаления
+  * и перестановки, но редактор и импорт ходят сюда: список из тринадцати
+@@ -418,8 +443,17 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
+     let existing: Article | null = null;
+     let saved: Article | null = null;
+ 
++    // Статья с id пришла под адресом, которого у неё нет: это смена адреса,
++    // а не новая статья. Id в схеме не уникален, поэтому ищется именно
++    // «строка с этим id под другим слагом».
++    const incomingId = incomingArticleId(incoming);
++
+     if (useD1) {
+       existing = await fetchArticleFromD1(env, slug);
++      if (incomingId && Number(existing?.id) !== incomingId) {
++        const currentSlug = await fetchOtherSlugForArticleIdFromD1(env, incomingId, slug);
++        if (currentSlug) return slugChangeError(currentSlug);
++      }
+       if (!isProtectedArticleUnchanged(existing ? [existing] : [], [incoming])) return protectedArticleError();
+       const article: Article = {
+         ...incoming,
+@@ -432,6 +466,10 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
+     } else {
+       const all = await fetchArticlesFromJsonBin(env);
+       existing = all.find((article) => article.slug === slug) ?? null;
++      if (incomingId && Number(existing?.id) !== incomingId) {
++        const renamed = all.find((article) => Number(article.id) === incomingId && article.slug !== slug);
++        if (renamed) return slugChangeError(renamed.slug);
++      }
+       if (!isProtectedArticleUnchanged(existing ? [existing] : [], [incoming])) return protectedArticleError();
+       const article: Article = {
+         ...incoming,
+diff --git a/src/app/components/Navbar.tsx b/src/app/components/Navbar.tsx
+index 9376078..894bce7 100644
+--- a/src/app/components/Navbar.tsx
++++ b/src/app/components/Navbar.tsx
+@@ -238,8 +238,10 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
+       ]
+       : [
+         { label: 'Услуги', action: () => scrollToSection('services') },
+-        { label: 'Кейсы', action: () => scrollToSection('cases') },
+-        { label: 'Блог', action: () => scrollToSection('blog') },
++        // Блоки кейсов и блога на главной убираются вместе с закрытием раздела,
++        // и пункт, ведущий к пропавшему якорю, молча не срабатывал бы.
++        { label: 'Кейсы', action: () => scrollToSection('cases'), routePath: '/cases' },
++        { label: 'Блог', action: () => scrollToSection('blog'), routePath: '/blog' },
+         { label: 'Отзывы', action: () => scrollToSection('about') },
+         { label: 'FAQ', href: '/faq', action: () => navigate('/faq', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
+         { label: 'Контакты', action: () => scrollToSection('social') },
+diff --git a/src/app/pages/Admin.tsx b/src/app/pages/Admin.tsx
+index 6026e31..0ae756f 100644
+--- a/src/app/pages/Admin.tsx
++++ b/src/app/pages/Admin.tsx
+@@ -94,7 +94,12 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
+   }
+ }
+ 
+-function transliterate(text: string): string {
++/**
++ * Адрес в процессе набора. Дефис в конце остаётся: иначе он стирался на
++ * каждом нажатии, и «plan-zapuska» получался «planzapuska». Крайний дефис
++ * срезает `transliterate` — при уходе из поля и при сохранении.
++ */
++export function slugDraft(text: string): string {
+   const map: Record<string, string> = {
+     'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+     'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+@@ -103,7 +108,12 @@ function transliterate(text: string): string {
+     'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya', ' ': '-'
+   };
+   return text.toLowerCase().split('').map(ch => map[ch] || ch).join('')
+-    .replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
++    .replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-/, '');
++}
++
++/** Готовый адрес: такой же, как черновик, но без дефиса в конце — сервер его не примет. */
++export function transliterate(text: string): string {
++  return slugDraft(text).replace(/-$/, '');
+ }
+ 
+ interface AdminLoginResult {
+@@ -1004,10 +1014,18 @@ export default function Admin() {
+       const result = await adminLogin(password, twoFactorCode.trim());
+       if (result.ok) {
+         void preloadAdminSection('dashboard');
+-        await forceRefreshAdminArticles(password);
++        // Вход не зависит от списка публикаций. Раньше ожидание списка стояло
++        // до входа: хранилище статей не ответило — и экран писал «Ошибка
++        // сети», хотя сервер пароль и код уже принял, а повтор с тем же кодом
++        // упирался в «Этим кодом уже входили». Список грузится так же, как
++        // при восстановлении сессии, а отказ слышен тостом.
+         setIsAuthenticated(true);
+         setTwoFactorCode('');
+         setError('');
++        forceRefreshAdminArticles(password).catch((requestError) => {
++          const message = requestError instanceof Error ? requestError.message : 'неизвестная причина';
++          notify.error('Не удалось загрузить публикации', message);
++        });
+       } else if (result.codeRequired) {
+         // Пароль принят, остался второй шаг.
+         setCodeRequired(true);
+diff --git a/src/app/routes.tsx b/src/app/routes.tsx
+index 88753cf..f0a1487 100644
+--- a/src/app/routes.tsx
++++ b/src/app/routes.tsx
+@@ -55,6 +55,10 @@ type ServicePreload = MemoizedLoader<unknown>;
+ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = []) {
+   let Loaded: ComponentType<any> | undefined;
+   let pending: Promise<unknown> | undefined;
++  // Как в preloadable: сбой загрузки бросается ошибкой в RouteErrorBoundary,
++  // а не новой попыткой, иначе React крутил бы загрузку по кругу.
++  let failed = false;
++  let failure: unknown;
+ 
+   const resolveLoaded = () => {
+     // Keep React's component identity once resolved. Recreating this wrapper
+@@ -68,6 +72,7 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
+   return function RoutedServiceLanding() {
+     resolveLoaded();
+     if (Loaded) return createElement(Loaded);
++    if (failed) throw failure;
+ 
+     // Above-the-fold hero chunks start together with the landing module instead
+     // of forming a second/third request waterfall after it has evaluated.
+@@ -75,12 +80,15 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
+       pending = Promise.all([
+         loadServiceLandingPage(),
+         ...preloads.map((preload) => preload()),
+-      ]).then(() => {
+-        resolveLoaded();
+-      }).catch((error) => {
+-        pending = undefined;
+-        throw error;
+-      });
++      ]).then(
++        () => {
++          resolveLoaded();
++        },
++        (error) => {
++          failed = true;
++          failure = error;
++        },
++      );
+     }
+     throw pending;
+   };
+diff --git a/src/app/utils/preloadable.ts b/src/app/utils/preloadable.ts
+index 9333772..9e22a8c 100644
+--- a/src/app/utils/preloadable.ts
++++ b/src/app/utils/preloadable.ts
+@@ -9,18 +9,32 @@ export function preloadable<P extends object>(
+ ): ComponentType<P> {
+   let Loaded = loader.resolved?.default;
+   let pending: Promise<unknown> | undefined;
++  // Сбой загрузки запоминается и бросается ошибкой, а не новым промисом.
++  // React перерисовывает компонент и после отклонённого промиса: сброс
++  // `pending` с повторной попыткой давал бесконечный цикл, и ошибка так и не
++  // доходила до RouteErrorBoundary с его одной перезагрузкой на свежую сборку.
++  let failed = false;
++  let failure: unknown;
+ 
+   return function PreloadedComponent(props: P) {
+     if (!Loaded) Loaded = loader.resolved?.default;
+     if (Loaded) return createElement(Loaded, props);
++    // Не сбрасывать при броске: React сразу повторяет отрисовку после ошибки,
++    // и сброшенный флаг снова запустил бы загрузку. Выход из этого состояния —
++    // успешная загрузка того же модуля в другом месте (loader.resolved выше)
++    // или перезагрузка страницы.
++    if (failed) throw failure;
+ 
+     if (!pending) {
+-      pending = loader().then((module) => {
+-        Loaded = module.default;
+-      }).catch((error) => {
+-        pending = undefined;
+-        throw error;
+-      });
++      pending = loader().then(
++        (module) => {
++          Loaded = module.default;
++        },
++        (error) => {
++          failed = true;
++          failure = error;
++        },
++      );
+     }
+     throw pending;
+   };
+diff --git a/src/app/utils/siteNavigation.ts b/src/app/utils/siteNavigation.ts
+index d4bcaf1..a3242f2 100644
+--- a/src/app/utils/siteNavigation.ts
++++ b/src/app/utils/siteNavigation.ts
+@@ -200,12 +200,19 @@ export function useRememberPublicRoute(): void {
+     if (typeof window === 'undefined' || !isTrackablePublicPath(location.pathname)) return;
+ 
+     const save = () => {
+-      const route: RememberedRoute = {
+-        path: `${location.pathname}${location.search || ''}${location.hash || ''}`,
+-        label: documentRouteLabel(location.pathname),
+-        savedAt: Date.now(),
+-      };
+-      window.sessionStorage.setItem(LAST_ROUTE_STORAGE_KEY, JSON.stringify(route));
++      // Браузер с запретом данных сайтов бросает исключение уже при обращении
++      // к sessionStorage. Без обёртки эффект ронял всю страницу в «Страница не
++      // загрузилась», а из наблюдателя за <title> и таймера сыпал ошибками.
++      try {
++        const route: RememberedRoute = {
++          path: `${location.pathname}${location.search || ''}${location.hash || ''}`,
++          label: documentRouteLabel(location.pathname),
++          savedAt: Date.now(),
++        };
++        window.sessionStorage.setItem(LAST_ROUTE_STORAGE_KEY, JSON.stringify(route));
++      } catch {
++        // Хранилище недоступно: кнопка «Назад» возьмёт реферер или родительский раздел.
++      }
+     };
+ 
+     save();

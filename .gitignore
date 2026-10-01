@@ -10,8 +10,10 @@ pnpm-debug.log*
 .env
 .local-roadmap.md
 
-# Локальные настройки Claude Code
-.claude/
+# Локальные настройки Claude Code. Сценарии workflow — общие: по ним облачная
+# сессия продолжает работу (см. docs/handoff/README.md), поэтому они едут в репозиторий.
+.claude/*
+!.claude/workflows/
 
 # Сырые логи dev-серверов из аудитов — не документация
 audit-reports/*.log
