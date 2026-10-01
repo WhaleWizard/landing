@@ -1,5 +1,6 @@
 import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useNavigationType, useRouteError, type RouteObject } from 'react-router';
-import { createElement, lazy, Suspense, useEffect, useInsertionEffect, useRef, useState, type ComponentType } from 'react';
+import { useMountedOnClient } from './hooks/useMountedOnClient';
+import { createElement, lazy, Suspense, useEffect, useInsertionEffect, useRef, type ComponentType } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
 import ScrollExperience from './components/ScrollExperience';
 import RouteIntentPreloader from './components/RouteIntentPreloader';
@@ -385,11 +386,6 @@ function RouteFocusManager() {
  * HTML, а первый — нет. До первого эффекта и сервер, и браузер рисуют здесь
  * ничего, поэтому разметка совпадает; баннер появляется кадром позже.
  */
-function useMountedOnClient(): boolean {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  return mounted;
-}
 
 function RootLayout() {
   const location = useLocation();

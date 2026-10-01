@@ -19,13 +19,21 @@
   position: absolute;
   inset: -3%;
   background: url('/images/consult-proof/desk-h.webp') center / cover no-repeat;
-  will-change: transform;
 }
 
 .cds-plane {
   position: absolute;
   inset: 0;
-  will-change: transform;
+}
+
+/* Планы уходят за курсором, поэтому слой под transform им нужен только там,
+   где курсор есть. На телефоне планы не двигаются, а пять слоёв во всю сцену
+   при DPR 3 — это десятки мегабайт памяти видеокарты впустую. */
+@media (hover: hover) and (pointer: fine) {
+  .cds-desk,
+  .cds-plane {
+    will-change: transform;
+  }
 }
 
 .cds-obj {
@@ -145,8 +153,11 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  will-change: transform;
   pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cds-dust { will-change: transform; }
 }
 
 /* ─── Тень под колонку текста и общая виньетка ────────────────────────── */

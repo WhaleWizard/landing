@@ -17,6 +17,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { lazy, Suspense, useCallback, type MouseEvent, type MutableRefObject, type Ref } from 'react';
+import ClientOnly from './ClientOnly';
 import type { Article } from './hooks/useArticlesApi';
 import Navbar from './Navbar';
 import PageNav from './PageNav';
@@ -56,6 +57,8 @@ interface CaseArticleViewProps {
   onBackToCases: () => void;
   onContact: () => void;
   onRelated: (slug: string) => void;
+  /** Страница пришла готовой из HTML: появления не играют (см. BlogPage). */
+  settledEntrance?: boolean;
 }
 
 function SourceChip({ source }: { source: string }) {
@@ -97,8 +100,10 @@ export default function CaseArticleView({
   onBackToCases,
   onContact,
   onRelated,
+  settledEntrance = false,
 }: CaseArticleViewProps) {
   const reduceMotion = useReducedMotion();
+  const skipEntrance = reduceMotion || settledEntrance;
   const titleFit = useManagedTitleFit<HTMLHeadingElement>(CASE_TITLE_LINES, { minFontSize: 19 });
   const setTitleRef = useCallback((node: HTMLHeadingElement | null) => {
     articleTitleRef.current = node;
@@ -133,7 +138,7 @@ export default function CaseArticleView({
             <div className="case-article-hero-grid">
               <m.div
                 className="case-article-lead"
-                initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+                initial={skipEntrance ? false : { opacity: 0, y: 14 }}
                 animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
                 transition={reduceMotion ? undefined : { duration: 0.4 }}
               >
@@ -142,7 +147,7 @@ export default function CaseArticleView({
                   <span><Clock3 aria-hidden="true" /> {formatReadTime(article.readTime)}</span>
                   <span><CalendarDays aria-hidden="true" /> {articleDisplayDate(article)}</span>
                 </div>
-                <h1 ref={setTitleRef} tabIndex={-1}>{smartTitleBreaks(displayTitle)}</h1>
+                <h1 ref={setTitleRef} tabIndex={-1} data-ww-title-fit={`${CASE_TITLE_LINES.titleMaxLinesMobile}/${CASE_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="19">{smartTitleBreaks(displayTitle)}</h1>
                 <p>{seoDescription}</p>
                 <div className="case-article-chips" aria-label="Каналы и тематика">
                   {(caseData.sources || []).map((source) => <SourceChip key={source} source={source} />)}
@@ -152,7 +157,7 @@ export default function CaseArticleView({
 
               <m.figure
                 className="case-article-cover"
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.985 }}
+                initial={skipEntrance ? false : { opacity: 0, scale: 0.985 }}
                 animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
                 transition={reduceMotion ? undefined : { duration: 0.45, delay: 0.08 }}
               >
@@ -297,9 +302,11 @@ export default function CaseArticleView({
             </aside>
           ) : null}
         </div>
-        <Suspense fallback={null}>
-          <Footer />
-        </Suspense>
+        <ClientOnly>
+          <Suspense fallback={null}>
+            <Footer />
+          </Suspense>
+        </ClientOnly>
       </main>
     </>
   );

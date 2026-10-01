@@ -342,6 +342,15 @@ export const TITLE_FIT_MEASURING_ATTRIBUTE = 'data-title-fit-measuring';
 export const TITLE_FIT_SCALE_ATTRIBUTE = 'data-title-fit-scale';
 
 /**
+ * Подгонка, которую сделал встроенный скрипт страницы (`scripts/title-prefit.js`)
+ * до первого кадра — страница статьи приходит готовой разметкой. Это наш же
+ * результат, а не авторский размер: хук снимает признак и дальше ведёт себя
+ * так, будто уменьшил кегль сам, — иначе на повороте экрана заголовок не
+ * вернулся бы к размеру из CSS.
+ */
+export const TITLE_PREFIT_ATTRIBUTE = 'data-ww-title-prefit';
+
+/**
  * Прямоугольники строк текста внутри элемента.
  *
  * Меряется один раз за проверку и используется дважды: и для переполнения по
@@ -523,6 +532,12 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     let titleFontFamilies = new Set<string>();
     let originalFontSize = element.style.getPropertyValue('font-size');
     let originalFontSizePriority = element.style.getPropertyPriority('font-size');
+    if (element.hasAttribute(TITLE_PREFIT_ATTRIBUTE)) {
+      lastAppliedFontSize = originalFontSize;
+      originalFontSize = '';
+      originalFontSizePriority = '';
+      element.removeAttribute(TITLE_PREFIT_ATTRIBUTE);
+    }
 
     const restoreOriginalFontSize = () => {
       element.removeAttribute(TITLE_FIT_SCALE_ATTRIBUTE);

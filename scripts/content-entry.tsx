@@ -23,4 +23,4 @@ export { default as CookiePolicyContent } from '../src/app/components/legal/Cook
 export { LEGAL_UPDATED_AT } from '../src/app/components/legal/legalMeta';
 export { selectHomeArticles, HOME_ARTICLES_LIMIT } from '../src/app/utils/homeArticles';
 export { BLOG_PAGE_SIZE } from '../src/app/utils/blogListing';
-export { renderRoute, SSR_ROUTES } from './ssr-entry';
+export { renderRoute, SSR_ROUTES, SSR_ARTICLE_ROUTE, isSsrArticleRoute, articleVersion } from './ssr-entry';

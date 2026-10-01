@@ -179,9 +179,18 @@ export function parseArticleSeed(value: unknown): Article[] | null {
   return null;
 }
 
-interface InlineArticleSeed {
+export interface InlineArticleSeed {
   articles: Article[];
   present: boolean;
+}
+
+// Сборка рендерит страницу статьи в Node, где нет document: ssr-entry кладёт
+// сюда ту же статью, что уедет в <script id="ww-article-seed">, и убирает
+// после рендера.
+let serverArticleSeed: Article[] | null = null;
+
+export function primeArticleSeed(articles: Article[] | null): void {
+  serverArticleSeed = articles;
 }
 
 /**
@@ -189,9 +198,11 @@ interface InlineArticleSeed {
  * списком карточек. Оба варианта можно показать сразу; актуальная публичная
  * выдача догружается следом, не задерживая первую отрисовку.
  */
-function readArticleSeed(): InlineArticleSeed {
+export function readArticleSeed(): InlineArticleSeed {
   const missing = { articles: [], present: false };
-  if (typeof document === 'undefined') return missing;
+  if (typeof document === 'undefined') {
+    return serverArticleSeed ? { articles: serverArticleSeed, present: true } : missing;
+  }
   const node = document.getElementById('ww-article-seed');
   if (!node?.textContent) return missing;
   try {

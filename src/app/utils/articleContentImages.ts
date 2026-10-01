@@ -25,8 +25,10 @@ export function optimizeArticleContentImages(root: ParentNode): void {
         image.setAttribute('height', String(resolved.height));
       }
     }
-    image.loading = 'lazy';
-    image.decoding = 'async';
-    image.fetchPriority = 'low';
+    // Атрибутами, а не свойствами: страницу статьи рендерит и сборка (jsdom),
+    // где свойств loading/fetchPriority нет, и свойство не попало бы в HTML.
+    image.setAttribute('loading', 'lazy');
+    image.setAttribute('decoding', 'async');
+    image.setAttribute('fetchpriority', 'low');
   }
 }

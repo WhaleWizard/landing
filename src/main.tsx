@@ -7,6 +7,7 @@ import { initLeadRetryQueue } from './app/utils/leadRetryQueue';
 import { startWebVitals } from './app/utils/webVitals';
 import { prepareRoute } from './app/utils/routePreload';
 import { generatedFirstScreenRoute } from './app/utils/firstScreen';
+import { articleVersion, readArticleSeed } from './app/context/ArticlesContext';
 import "./styles/index.css";
 
 // Админка (включая iframe точного предпросмотра) не является визитом клиента:
@@ -54,7 +55,15 @@ function canHydrateGeneratedRoute(): boolean {
   const route = generatedFirstScreenRoute();
   if (!route) return false;
   const current = window.location.pathname.replace(/\/+$/, '') || '/';
-  return route === current;
+  if (route !== current) return false;
+  // Страница статьи: сервер (article-page.ts) подменяет встроенную статью
+  // живой из базы. Если владелец правил статью после последней сборки,
+  // готовая разметка устарела — тогда страница строится заново, как раньше,
+  // а не гидратируется поверх старого текста.
+  const generatedVersion = document.documentElement.dataset.wwArticleVersion;
+  if (generatedVersion === undefined) return true;
+  const seed = readArticleSeed();
+  return seed.present && seed.articles.length === 1 && String(articleVersion(seed.articles[0])) === generatedVersion;
 }
 
 /**

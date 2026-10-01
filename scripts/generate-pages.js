@@ -226,6 +226,19 @@ function readViteIndexHtml() {
   return html;
 }
 
+// Подгонка кегля заголовка до первого кадра — только на страницах, где
+// есть заголовок с лимитом строк (страницы статей и кейсов). Исходник —
+// scripts/title-prefit.js, сюда попадает сжатым; готовится один раз в main().
+let titlePrefitScript = '';
+
+async function buildTitlePrefitScript() {
+  const esbuild = await import('esbuild');
+  const source = readFileSync(fileURLToPath(new URL('./title-prefit.js', import.meta.url)), 'utf8');
+  const { code } = await esbuild.transform(source, { minify: true, target: 'es2017', legalComments: 'none' });
+  if (code.includes('</script')) throw new Error('title-prefit.js must not contain a closing script tag');
+  return code.trim();
+}
+
 function insertBeforeHeadClose(html, tag) {
   if (!html.includes('</head>')) return `${tag}\n${html}`;
   return html.replace('</head>', `  ${tag}\n</head>`);
@@ -1033,19 +1046,30 @@ function htmlTemplate({
     html = upsertAlternate(html, 'x-default', canonicalUrl);
   }
 
+  // Таблицы стилей маршрута идут раньше preload картинок и шрифтов: они
+  // блокируют рендер, а картинка — нет. Когда они стояли после preload фото
+  // в 246 КБ, первый кадр /consult/ в модели Lighthouse ждал фото, а не стили.
+  const routeStylesheetHtml = renderRouteStylesheets(assetRoute, baseHtml);
+  if (routeStylesheetHtml) html = insertBeforeHeadClose(html, routeStylesheetHtml);
+
   const preloadHtml = renderImagePreloads(imagePreloads);
   if (preloadHtml) html = insertBeforeHeadClose(html, preloadHtml);
 
   const fontPreloadHtml = renderFontPreloads(fontPreloads);
   if (fontPreloadHtml) html = insertBeforeHeadClose(html, fontPreloadHtml);
 
-  const routeStylesheetHtml = renderRouteStylesheets(assetRoute, baseHtml);
-  if (routeStylesheetHtml) html = insertBeforeHeadClose(html, routeStylesheetHtml);
-
   const modulePreloadHtml = renderModulePreloads(assetRoute, baseHtml);
   if (modulePreloadHtml) html = insertBeforeHeadClose(html, modulePreloadHtml);
 
   if (headExtra) html = insertBeforeHeadClose(html, headExtra);
+  if (hydratable && titlePrefitScript && bodyHtml.includes('data-ww-title-fit')) {
+    // В конце <head>, после всех таблиц стилей: встроенный скрипт ждёт их
+    // загрузки сам, и к его запуску стили уже применены. В начале <head> он
+    // стартовал раньше стилей и проигрывал гонку первому кадру — заголовок
+    // всё равно сдвигался. Разбор тела страницы это задерживает на время
+    // загрузки стилей, но без них первый кадр и так невозможен.
+    html = insertBeforeHeadClose(html, `<script>${titlePrefitScript}</script>`);
+  }
 
   if (!noIndex) {
     const jsonLdHtml = renderJsonLdScripts([buildOrganizationJsonLd(), buildWebsiteJsonLd(), ...extraJsonLd]);
@@ -1292,8 +1316,12 @@ function renderStaticShellAfterRoot({ sections = [], currentRoute = '' }) {
     )
     .join('');
 
-  return `    <div id="ww-static-shell" style="${generatedShellStyles.main};min-height:0">
-      <section style="${generatedShellStyles.card};width:min(100%,920px)">${sectionsHtml}</section>
+  // Страница статьи приходит с полным текстом в #root — ей остаются только
+  // ссылки на разделы, пустая карточка была бы видна без JavaScript.
+  const card = sections.length
+    ? `\n      <section style="${generatedShellStyles.card};width:min(100%,920px)">${sectionsHtml}</section>`
+    : '';
+  return `    <div id="ww-static-shell" style="${generatedShellStyles.main};min-height:0">${card}
 ${renderShellNavHtml(currentRoute)}
     </div>`;
 }
@@ -1919,13 +1947,31 @@ ${articleItems}
   );
 }
 
-function renderArticlePages(articles, baseHtml) {
+async function renderArticlePages(articles, baseHtml, content) {
   for (const article of articles) {
     const path = getArticlePath(article);
     const articleTitle = `${article.seoTitle || article.title} | Whale Wizard`;
     const articleDescription = article.seoDescription || article.description;
     const articleFaqJsonLd = buildFaqJsonLd(article.faq || []);
     const coverPreload = resolveArticleCoverPreload(article);
+    // Ровно та статья, что уедет в <script id="ww-article-seed">: сервер
+    // рендерит из неё, браузер читает её же — после JSON, чтобы undefined и
+    // прочие несериализуемые мелочи не отличали разметку сборки от браузера.
+    const seedArticle = JSON.parse(JSON.stringify(article));
+
+    // Страница статьи рендерится настоящим BlogPage и гидратируется, как и
+    // маркетинговые страницы: раньше до React читатель видел общую карточку
+    // «Загружаем…», а текст появлялся через несколько секунд.
+    const bodyHtml = await content.renderRoute(path, { articleSeed: seedArticle });
+    if (bodyHtml.includes(SSR_ASSET_PLACEHOLDER)) {
+      throw new Error(`Server-rendered ${path} references a bundled image; its URL would differ from the browser build and break hydration.`);
+    }
+    if (!/<h1[\s>]/.test(bodyHtml) || !/blog-page--article|case-article-page/.test(bodyHtml)) {
+      throw new Error(`Server-rendered ${path} has no article markup: the generated first screen is incomplete.`);
+    }
+    if (bodyHtml.includes('<script')) {
+      throw new Error(`Server-rendered ${path} carries a <script> tag: the article sanitizer did not run.`);
+    }
 
     writeRoute(
       path,
@@ -1949,18 +1995,19 @@ function renderArticlePages(articles, baseHtml) {
         // Данные самой статьи едут вместе со страницей. Раньше приложение
         // рисовало текст только после ответа /api/articles — лишний запрос
         // стоял ровно посреди пути к первой отрисовке.
-        headExtra: renderArticleSeed(article),
+        headExtra: renderArticleSeed(seedArticle),
         baseHtml,
-        bodyHtml: renderGeneratedShell({
-          title: article.title,
-          lead: articleDescription,
-          eyebrow: article.category,
-          children: `        <p style="${generatedShellStyles.articleMeta}"><strong>Дата:</strong> ${escapeHtml(shellArticleDate(article))}${article.readTime ? ` · <strong>Время чтения:</strong> ${escapeHtml(article.readTime)}` : ''}</p>
-        <section style="${generatedShellStyles.articleBody}">
-${sanitizeArticleHtml(article.content)}
-        </section>`,
-          currentRoute: getArticlePath(article),
-        }),
+        bodyHtml,
+        hydratable: true,
+        afterRootHtml: renderStaticShellAfterRoot({ sections: [], currentRoute: path }),
+        // Версия статьи в разметке: сервер (article-page.ts) подменяет
+        // встроенную статью живой, и если владелец правил её после сборки,
+        // main.tsx строит страницу заново вместо гидратации старого текста.
+        htmlAttributes: {
+          'data-ww-first-screen': path,
+          'data-ww-prehydrate': '1',
+          'data-ww-article-version': String(content.articleVersion(seedArticle)),
+        },
       }),
     );
   }
@@ -1977,7 +2024,8 @@ function listSeeds(articles, blogPageSize) {
   };
 }
 
-function renderBlogPages(articles, baseHtml, blogPageSize) {
+async function renderBlogPages(articles, baseHtml, content) {
+  const blogPageSize = content.BLOG_PAGE_SIZE;
   const blogArticles = articles.filter((article) => !isCaseArticle(article));
   const caseArticles = articles.filter(isCaseArticle);
   const seeds = listSeeds(articles, blogPageSize);
@@ -2006,7 +2054,7 @@ function renderBlogPages(articles, baseHtml, blogPageSize) {
     emptyText: 'Кейсы скоро появятся.',
   }, baseHtml);
 
-  renderArticlePages(articles, baseHtml);
+  await renderArticlePages(articles, baseHtml, content);
 }
 
 function writeSitemap(routes) {
@@ -2262,6 +2310,7 @@ async function main() {
   ensureDir(DIST_DIR);
 
   const baseHtml = readViteIndexHtml();
+  titlePrefitScript = await buildTitlePrefitScript();
   const articles = normalizeArticles(loadArticles()).filter((article) => isPublishedArticle(article));
   const content = await loadSiteContent();
   const publishedContent = await loadPublishedSiteContent({
@@ -2277,7 +2326,7 @@ async function main() {
     String(resolveArticleDate(b) || '').localeCompare(String(resolveArticleDate(a) || '')));
 
   const staticPages = await renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
-  renderBlogPages(latestArticles, baseHtml, content.BLOG_PAGE_SIZE);
+  await renderBlogPages(latestArticles, baseHtml, content);
   writeNotFoundPage(baseHtml);
 
   const articleRoutes = articles.map((article) => getArticlePath(article));

@@ -666,19 +666,33 @@ test('article HTML preloads its optimized cover and never ships heavy originals 
       );
     }
 
+    const seedMatch = html.match(/<script\b[^>]*\bid=["']ww-article-seed["'][^>]*>([\s\S]*?)<\/script>/i);
+    assert.ok(seedMatch, `${route}: article seed is missing`);
+    const seed = JSON.parse(seedMatch[1]);
+    const cover = manifest[String(seed.image || '')];
+
+    // Страница статьи теперь приходит настоящей разметкой BlogPage: сразу
+    // грузятся только обложка (LCP, с высоким приоритетом) и мелкие знаки
+    // бренда в шапке; картинки в тексте и похожих материалах — лениво.
+    let eagerCovers = 0;
     for (const tag of tags(body, 'img')) {
-      assert.equal(attribute(tag, 'loading'), 'lazy', `${route}: shell images must be lazy: ${tag.slice(0, 120)}`);
       const src = attribute(tag, 'src') || '';
+      const isCover = attribute(tag, 'fetchpriority') === 'high';
+      if (isCover) {
+        eagerCovers += 1;
+        if (cover) {
+          assert.ok(src.startsWith(`/images/articles/${cover.id}-`), `${route}: the eager cover must be the optimized variant: ${tag.slice(0, 120)}`);
+        }
+      } else if (!src.startsWith('/images/brand/')) {
+        assert.equal(attribute(tag, 'loading'), 'lazy', `${route}: images other than the cover must be lazy: ${tag.slice(0, 120)}`);
+      }
       if (src.startsWith('/images/articles/')) {
         assert.ok(attribute(tag, 'srcset'), `${route}: optimized image needs srcset: ${tag.slice(0, 120)}`);
         assert.ok(attribute(tag, 'width') && attribute(tag, 'height'), `${route}: optimized image needs intrinsic size`);
       }
     }
+    assert.ok(eagerCovers <= 1, `${route}: only the cover itself may load eagerly`);
 
-    const seedMatch = html.match(/<script\b[^>]*\bid=["']ww-article-seed["'][^>]*>([\s\S]*?)<\/script>/i);
-    assert.ok(seedMatch, `${route}: article seed is missing`);
-    const seed = JSON.parse(seedMatch[1]);
-    const cover = manifest[String(seed.image || '')];
     const imagePreloads = links(head, 'preload').filter((tag) => attribute(tag, 'as') === 'image');
     if (cover) {
       const preload = imagePreloads.find((tag) => (attribute(tag, 'href') || '').startsWith(`/images/articles/${cover.id}-`));

@@ -26,6 +26,10 @@ export const loadFaqPage = memoizedImport(() => import('../pages/FAQPage'));
 export const loadMarketingGlossaryPage = memoizedImport(() => import('../pages/MarketingGlossaryPage'));
 export const loadNotFound = memoizedImport(() => import('../pages/NotFound'));
 export const loadServiceLandingPage = memoizedImport(() => import('../pages/ServiceLandingPage'));
+// Разметка кейса живёт отдельно от BlogPage (тянет cases-finder.css); на
+// странице кейса её ждут вместе с маршрутом, чтобы первый рендер не упёрся
+// в заглушку Suspense поверх готовой разметки.
+export const loadCaseArticleView = memoizedImport(() => import('../components/CaseArticleView'));
 
 const routePromises = new Map<string, Promise<unknown>>();
 
@@ -37,7 +41,9 @@ function routeLoader(pathname: string): { key: string; loader: RouteLoader } | n
     };
   }
   if (/^\/blog(?:\/|$)/.test(pathname)) return { key: 'blog', loader: loadBlogPage };
-  if (/^\/cases\/[^/]+\/?$/.test(pathname)) return { key: 'case-article', loader: loadBlogPage };
+  if (/^\/cases\/[^/]+\/?$/.test(pathname)) {
+    return { key: 'case-article', loader: () => Promise.all([loadBlogPage(), loadCaseArticleView()]) };
+  }
   if (pathname === '/cases' || pathname === '/cases/') return { key: 'cases', loader: loadCasesPage };
   if (pathname === '/calculator' || pathname === '/calculator/') return { key: 'calculator', loader: loadCalculator };
   if (pathname === '/roi-calculator' || pathname === '/roi-calculator/') return { key: 'roi', loader: loadRoiPage };

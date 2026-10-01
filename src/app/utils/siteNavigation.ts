@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { isPathLocked } from './pageLocks';
+import { hasGeneratedFirstScreen } from './firstScreen';
 
 // Единая карта разделов сайта. Отсюда берутся подписи для хлебных крошек
 // и для кнопки «Назад в …», поэтому названия должны совпадать с тем, как
@@ -260,6 +261,15 @@ export function useReturnTo(fallback?: string): ReturnTo {
   const location = useLocation();
   const currentPath = normalizePath(location.pathname);
 
+  // Гидратация готовой разметки: сборка знает только запасной адрес, а
+  // браузер — ещё и историю, `?from=`, запомненный маршрут и реферер. Чтобы
+  // первый рендер совпал с серверным, эти источники подключаются эффектом
+  // сразу после гидратации; подпись кнопки «Назад» меняется в том же кадре.
+  const [serverOnly, setServerOnly] = useState(() => hasGeneratedFirstScreen(location.pathname, location.key));
+  useEffect(() => {
+    if (serverOnly) setServerOnly(false);
+  }, [serverOnly]);
+
   const resolved = useMemo(() => {
     // Закрытая страница не может стать адресом кнопки «Назад в …»: человек
     // вернулся бы на заглушку. Запомненный маршрут это уже проверяет при
@@ -274,41 +284,43 @@ export function useReturnTo(fallback?: string): ReturnTo {
       return { path: safe, explicit: false, viaHistory: false };
     };
 
-    const state = location.state as { from?: string; fromLabel?: string } | null;
-    const stateFrom = asInternalPath(state?.from);
-    if (stateFrom && normalizePath(stateFrom.split('?')[0]) !== currentPath) {
-      const stateLabel = typeof state?.fromLabel === 'string' ? state.fromLabel.trim() : '';
-      // state.from ставят только внутренние Link/navigate-переходы. Возврат по
-      // истории сохраняет не только фильтры, но и точную позицию прокрутки;
-      // повторный navigate(path) создавал новую запись и бросал список вверх.
-      return guard({ path: stateFrom, label: stateLabel || undefined, explicit: true, viaHistory: true });
-    }
+    if (!serverOnly) {
+      const state = location.state as { from?: string; fromLabel?: string } | null;
+      const stateFrom = asInternalPath(state?.from);
+      if (stateFrom && normalizePath(stateFrom.split('?')[0]) !== currentPath) {
+        const stateLabel = typeof state?.fromLabel === 'string' ? state.fromLabel.trim() : '';
+        // state.from ставят только внутренние Link/navigate-переходы. Возврат по
+        // истории сохраняет не только фильтры, но и точную позицию прокрутки;
+        // повторный navigate(path) создавал новую запись и бросал список вверх.
+        return guard({ path: stateFrom, label: stateLabel || undefined, explicit: true, viaHistory: true });
+      }
 
-    const rawFrom = new URLSearchParams(location.search).get('from');
-    const queryFrom = rawFrom ? (resolveFromAlias(rawFrom) ?? asInternalPath(rawFrom)) : null;
-    if (queryFrom && normalizePath(queryFrom.split('?')[0]) !== currentPath) {
-      return guard({ path: queryFrom, explicit: true, viaHistory: false });
-    }
+      const rawFrom = new URLSearchParams(location.search).get('from');
+      const queryFrom = rawFrom ? (resolveFromAlias(rawFrom) ?? asInternalPath(rawFrom)) : null;
+      if (queryFrom && normalizePath(queryFrom.split('?')[0]) !== currentPath) {
+        return guard({ path: queryFrom, explicit: true, viaHistory: false });
+      }
 
-    const remembered = readRememberedRoute(currentPath);
-    if (remembered) {
-      return guard({
-        path: remembered.path,
-        label: remembered.label,
-        explicit: true,
-        viaHistory: false,
-      });
-    }
+      const remembered = readRememberedRoute(currentPath);
+      if (remembered) {
+        return guard({
+          path: remembered.path,
+          label: remembered.label,
+          explicit: true,
+          viaHistory: false,
+        });
+      }
 
-    const referrer = sameOriginReferrer(currentPath);
-    if (referrer) return guard({ path: referrer, explicit: false, viaHistory: true });
+      const referrer = sameOriginReferrer(currentPath);
+      if (referrer) return guard({ path: referrer, explicit: false, viaHistory: true });
+    }
 
     return guard({
       path: fallback ?? parentRouteOf(currentPath),
       explicit: false,
       viaHistory: false,
     });
-  }, [currentPath, fallback, location.search, location.state]);
+  }, [currentPath, fallback, location.search, location.state, serverOnly]);
 
   const label = resolved.label ?? routeLabel(resolved.path, true);
   const buttonLabel = backLabel(resolved.path);

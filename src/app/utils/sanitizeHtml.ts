@@ -62,38 +62,78 @@ function isSafeIframeSrc(src: string): boolean {
   }
 }
 
-DOMPurify.addHook('uponSanitizeElement', (node, data) => {
-  if (data.tagName === 'iframe') {
-    const element = node as Element;
-    const src = element.getAttribute('src') || '';
-    if (!isSafeIframeSrc(src)) {
-      element.remove();
-    }
-  }
-});
+type Purifier = typeof DOMPurify;
 
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.nodeName?.toLowerCase() === 'a') {
-    const element = node as Element;
-    const href = element.getAttribute('href') || '';
-    const target = element.getAttribute('target') || '';
-    if (target === '_blank' || /^https?:\/\//i.test(href)) {
-      element.setAttribute('rel', 'noopener noreferrer');
+function withHooks(instance: Purifier): Purifier {
+  instance.addHook('uponSanitizeElement', (node, data) => {
+    if (data.tagName === 'iframe') {
+      const element = node as Element;
+      const src = element.getAttribute('src') || '';
+      if (!isSafeIframeSrc(src)) {
+        element.remove();
+      }
     }
-  }
+  });
 
-  if (node.nodeName?.toLowerCase() === 'iframe') {
-    const element = node as Element;
-    const src = element.getAttribute('src') || '';
-    if (isSafeIframeSrc(src)) {
-      element.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
-      element.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  instance.addHook('afterSanitizeAttributes', (node) => {
+    if (node.nodeName?.toLowerCase() === 'a') {
+      const element = node as Element;
+      const href = element.getAttribute('href') || '';
+      const target = element.getAttribute('target') || '';
+      if (target === '_blank' || /^https?:\/\//i.test(href)) {
+        element.setAttribute('rel', 'noopener noreferrer');
+      }
+    }
+
+    if (node.nodeName?.toLowerCase() === 'iframe') {
+      const element = node as Element;
+      const src = element.getAttribute('src') || '';
+      if (isSafeIframeSrc(src)) {
+        element.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+        element.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      }
+    }
+  });
+
+  return instance;
+}
+
+/**
+ * В браузере DOMPurify привязан к window при импорте. На сборке (Node) окна
+ * нет: `isSupported` там false, а `sanitize` в этом состоянии возвращает
+ * строку как есть — молча, без единой ошибки (так уже не работала серверная
+ * очистка поверх linkedom). Поэтому без окна санитайзер не молчит, а падает,
+ * а серверный рендер страницы статьи (`scripts/ssr-entry.tsx`) привязывает
+ * окно jsdom через `bindSanitizerWindow`, не трогая глобальный `window`:
+ * по нему код различает сервер и браузер.
+ */
+let purifier: Purifier | null = DOMPurify.isSupported ? withHooks(DOMPurify) : null;
+
+export function bindSanitizerWindow(windowLike: Parameters<Purifier>[0]): void {
+  const instance = DOMPurify(windowLike);
+  if (!instance.isSupported) {
+    throw new Error('sanitizeHtml: переданное окно не подходит DOMPurify — очистка статей невозможна');
+  }
+  purifier = withHooks(instance);
+}
+
+function requirePurifier(): Purifier {
+  if (purifier) return purifier;
+  // Модуль dompurify мог быть загружен раньше, чем появилось окно (в тестах
+  // его делит серверный и клиентский бандл): тогда экземпляр по умолчанию
+  // «не поддерживается», хотя окно уже есть. Привязываемся к нему сами.
+  if (typeof window !== 'undefined') {
+    const instance = DOMPurify(window);
+    if (instance.isSupported) {
+      purifier = withHooks(instance);
+      return purifier;
     }
   }
-});
+  throw new Error('sanitizeHtml: нет DOM для очистки HTML — на сборке сначала bindSanitizerWindow(jsdom.window)');
+}
 
 export function sanitizeHtml(input: string): string {
-  return DOMPurify.sanitize(input, CONFIG);
+  return requirePurifier().sanitize(input, CONFIG) as string;
 }
 
 /**
@@ -106,5 +146,5 @@ export function sanitizeHtml(input: string): string {
  * потока. Дерево из первого прохода можно править напрямую.
  */
 export function sanitizeHtmlToBody(input: string): HTMLElement {
-  return DOMPurify.sanitize(input, { ...CONFIG, RETURN_DOM: true }) as HTMLElement;
+  return requirePurifier().sanitize(input, { ...CONFIG, RETURN_DOM: true }) as HTMLElement;
 }

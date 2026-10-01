@@ -19,7 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { useParams, useNavigate, useLocation, useNavigationType, Link} from 'react-router';
-import { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense, type Ref } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense, type Ref } from 'react';
 import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
@@ -42,12 +42,19 @@ import { smartTitleBreaks } from '../utils/smartTitle';
 import { useReturnTo, withReturnTo } from '../utils/siteNavigation';
 import { useDialogFocus } from '../components/hooks/useDialogFocus';
 import { articleDisplayDate } from '../utils/articleDate';
+import { useIsomorphicLayoutEffect } from '../utils/isomorphicLayoutEffect';
+import { hasGeneratedFirstScreen } from '../utils/firstScreen';
+import { preloadable } from '../utils/preloadable';
+import { loadCaseArticleView } from '../utils/routePreload';
+import ClientOnly from '../components/ClientOnly';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 const Footer = lazy(() => import('../components/Footer'));
 // Разметка кейса тянет за собой cases-finder.css (~36 КБ). Статический импорт
-// грузил его и на списке статей, где ни одного .case-article-* нет.
-const CaseArticleView = lazy(() => import('../components/CaseArticleView'));
+// грузил его и на списке статей, где ни одного .case-article-* нет. Модуль
+// готовится вместе с маршрутом (routePreload), поэтому рисуется в первом
+// же коммите — и на сборке, и при гидратации страницы кейса.
+const CaseArticleView = preloadable(loadCaseArticleView);
 const SITE_URL = 'https://www.whalewzrd.com';
 
 // Потолок строк в заголовках. Заголовки статей приходят из CMS и бывают
@@ -146,9 +153,11 @@ function InViewPlexus({ viewportBound = false }: { viewportBound?: boolean }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0">
       <div className={viewportBound ? 'sticky top-0 h-[100svh] w-full' : 'absolute inset-0'}>
-        <Suspense fallback={null}>
-          <PlexusBackdrop className="absolute inset-0 h-full w-full" />
-        </Suspense>
+        <ClientOnly>
+          <Suspense fallback={null}>
+            <PlexusBackdrop className="absolute inset-0 h-full w-full" />
+          </Suspense>
+        </ClientOnly>
       </div>
     </div>
   );
@@ -162,9 +171,11 @@ function ArticleHeroBackdrop() {
     <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0">
       <div className="ww-ambient-motion absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity' }} />
       <div className="ww-ambient-motion absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s' }} />
-      <Suspense fallback={null}>
-        <PlexusBackdrop className="absolute inset-0 h-full w-full" />
-      </Suspense>
+      <ClientOnly>
+        <Suspense fallback={null}>
+          <PlexusBackdrop className="absolute inset-0 h-full w-full" />
+        </Suspense>
+      </ClientOnly>
     </div>
   );
 }
@@ -437,6 +448,9 @@ function BlogPageComponent() {
   const navigate = useNavigate();
   const location = useLocation();
   const navigationType = useNavigationType();
+  // Страница пришла готовой из HTML (сборка + гидратация): появления через
+  // motion не играют, иначе текст уехал бы в разметку с opacity:0.
+  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
   const isCasesRoute = location.pathname === '/cases' || location.pathname.startsWith('/cases/');
   const routeBase = isCasesRoute ? '/cases' : '/blog';
   const returnTo = useReturnTo(routeBase);
@@ -456,16 +470,16 @@ function BlogPageComponent() {
     )) ?? null;
   }, [allArticles, isCasesRoute, loading, slug]);
   // Поддержка /blog?search=… — этот формат заявлен в JSON-LD SearchAction (SEO.tsx)
-  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
-  const [activeTopic, setActiveTopic] = useState(() => normalizeTopicId(new URLSearchParams(window.location.search).get('topic')));
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('search') || '');
+  const [activeTopic, setActiveTopic] = useState(() => normalizeTopicId(new URLSearchParams(location.search).get('topic')));
   const [sort, setSort] = useState<BlogSort>(() => {
-    const requested = new URLSearchParams(window.location.search).get('sort');
+    const requested = new URLSearchParams(location.search).get('sort');
     return BLOG_SORTS.some((item) => item.id === requested) ? (requested as BlogSort) : 'new';
   });
   // Номер шага списка привязан к набору фильтров: сменили тему, поиск или
   // порядок — список снова начинается с первого шага, без отдельного эффекта.
   const [pageState, setPageState] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     return {
       key: `${normalizeTopicId(params.get('topic'))}|${params.get('sort') || 'new'}|${(params.get('search') || '').trim()}`,
       page: parseBlogPage(params.get('page')),
@@ -521,7 +535,7 @@ function BlogPageComponent() {
     }
   }, [selectedArticle]);
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     // PUSH/REPLACE открывают новый материал с начала до первого кадра. При POP
     // позицию восстанавливает ScrollRestoration: без этой проверки возврат из
     // статьи всегда перебрасывал список наверх уже после восстановления.
@@ -775,6 +789,7 @@ function BlogPageComponent() {
           <Suspense fallback={<RouteSkeleton />}>
             <CaseArticleView
               article={selectedArticle}
+              settledEntrance={settledEntrance}
               seoDescription={seoDescription}
               articleHtml={articleHtml}
               toc={toc}
@@ -831,13 +846,13 @@ function BlogPageComponent() {
                 className="mb-6"
               />
 
-              <m.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-5xl space-y-5">
+              <m.div initial={settledEntrance ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-5xl space-y-5">
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                   <span className="rounded-lg border border-primary/25 bg-primary/15 px-3 py-1.5 font-semibold uppercase tracking-[0.04em] text-primary">{selectedArticle.category}</span>
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="h-4 w-4" /><span>{formatReadTime(selectedArticle.readTime)}</span></div>
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-4 w-4" /><span>{articleDisplayDate(selectedArticle)}</span></div>
                 </div>
-                <h1 ref={setArticleTitleRef} tabIndex={-1} className="text-balance text-[clamp(1.85rem,8vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.032em] text-foreground focus:outline-none md:max-w-4xl">{smartTitleBreaks(selectedArticle.title)}</h1>
+                <h1 ref={setArticleTitleRef} tabIndex={-1} data-ww-title-fit={`${ARTICLE_TITLE_LINES.titleMaxLinesMobile}/${ARTICLE_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="19" className="text-balance text-[clamp(1.85rem,8vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.032em] text-foreground focus:outline-none md:max-w-4xl">{smartTitleBreaks(selectedArticle.title)}</h1>
                 <p className="max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">{seoDescription}</p>
                 <div className="flex items-center gap-3 border-t border-border/60 pt-5">
                   <img
@@ -856,7 +871,7 @@ function BlogPageComponent() {
             </div>
           </div>
           {hasCustomCover(selectedArticle.image) && (
-            <m.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
+            <m.div initial={settledEntrance ? false : { opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
               <div className="blog-hero-cover rounded-2xl overflow-hidden border border-border shadow-2xl">
                 <img
                   {...articleImageAttributes(selectedArticle.image, ARTICLE_IMAGE_SIZES.cover)}
@@ -874,7 +889,7 @@ function BlogPageComponent() {
               </div>
             </m.div>
           )}
-          <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+          <m.div initial={settledEntrance ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap mx-auto max-w-6xl px-4 pb-20 sm:px-6">
             <div className="lg:grid lg:grid-cols-[minmax(0,760px)_minmax(230px,290px)] lg:items-start lg:justify-between lg:gap-12">
               <article className="min-w-0">
             {toc.length >= 3 && (
@@ -1016,9 +1031,11 @@ function BlogPageComponent() {
             </div>
           </m.div>
         </main>
-        <Suspense fallback={null}>
-          <Footer />
-        </Suspense>
+        <ClientOnly>
+          <Suspense fallback={null}>
+            <Footer />
+          </Suspense>
+        </ClientOnly>
         <AnimatePresence>
           {pendingZipDownload && (
             <>
@@ -1436,9 +1453,11 @@ function BlogPageComponent() {
           </section>
         </div>
       </main>
-      <Suspense fallback={null}>
-        <Footer />
-      </Suspense>
+      <ClientOnly>
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
+      </ClientOnly>
     </>
   );
 }

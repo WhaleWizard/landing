@@ -173,3 +173,36 @@ test('first-screen handoff recognises a reloaded history entry without suppressi
   assert.equal(module.exports.hasGeneratedFirstScreen('/meta-ads/', 'default'), true);
   assert.equal(module.exports.hasGeneratedFirstScreen('/', 'default'), false);
 });
+
+test('article pages render from their seed through the real sanitizer, without entrance styles', async () => {
+  const { readFileSync } = await import('node:fs');
+  const seedFile = JSON.parse(readFileSync('data/articles.build.json', 'utf8'));
+  const articles = (Array.isArray(seedFile) ? seedFile : seedFile.articles || []).filter((article) => article.content);
+  const isCase = (article) => String(article.category || '').trim().toLowerCase() === 'кейсы';
+  const article = articles.find((item) => !isCase(item));
+  const caseArticle = articles.find(isCase);
+  assert.ok(article && caseArticle, 'fixture needs a blog article and a case with content');
+
+  // Текст статьи проходит через тот же санитайзер, что и в браузере: скрипт и
+  // обработчик обязаны исчезнуть из серверной разметки, а не уехать в HTML.
+  const dirty = {
+    ...article,
+    content: `${article.content}<p onclick="alert(1)">хвост</p><script>alert(2)</script><iframe src="https://evil.example/x"></iframe>`,
+  };
+  const html = await renderRoute(`/blog/${article.slug}`, { articleSeed: dirty });
+  assert.match(html, /blog-page--article/, 'страница статьи должна быть отрисована настоящим BlogPage');
+  assert.match(html, /<h1[\s>]/);
+  assert.match(html, /blog-article-content/);
+  assert.ok(html.includes('хвост'), 'очищенный текст остаётся');
+  assert.doesNotMatch(html, /<script|onclick|evil\.example/i, 'санитайзер на сборке обязан вырезать опасное');
+  assert.doesNotMatch(html, /opacity:\s*0[;"]/, 'появления через motion не должны прятать текст в HTML');
+  assert.doesNotMatch(html, /Загружаем интерактивную/, 'общей карточки-заглушки на странице статьи больше нет');
+
+  const caseHtml = await renderRoute(`/cases/${caseArticle.slug}`, { articleSeed: caseArticle });
+  assert.match(caseHtml, /case-article-page/, 'страница кейса рисуется настоящим CaseArticleView');
+  assert.match(caseHtml, /<h1[\s>]/);
+
+  await assert.rejects(() => renderRoute(`/blog/${article.slug}`), /articleSeed/);
+  await assert.rejects(() => renderRoute(`/cases/${article.slug}`, { articleSeed: article }), /disagree/);
+  await assert.rejects(() => renderRoute(`/blog/${article.slug}`, { articleSeed: caseArticle }), /instead of/);
+});
