@@ -830,8 +830,17 @@ function clientsServer({ months = [], access = [], setAccessDelay = 0 } = {}) {
   return calls;
 }
 
-test('F-041: месяц существующей строки не меняется, «Добавить месяц» открывает уже заведённый, строку можно удалить', async () => {
-  window.confirm = () => true;
+/** Месяц на шаг раньше в формате «ГГГГ-ММ» — как `previousMonth` в AdminClients. */
+const monthBefore = (month) => {
+  const [year, part] = month.split('-').map(Number);
+  const date = new Date(Date.UTC(year, part - 2, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+
+test('F-041: «Добавить месяц» при занятом текущем даёт пустую форму со свободным месяцем, месяц существующей строки не меняется, строку можно удалить', async () => {
+  const confirms = [];
+  let confirmAnswer = false;
+  window.confirm = (text) => { confirms.push(text); return confirmAnswer; };
   const month = localMonth();
   const calls = clientsServer({
     months: [{ client_id: 1, month, report_sent_at: '2026-10-01', report_url: '', spend: 100, spend_currency: 'USD', leads: 10, sales: 1, revenue: 500, note: 'важно' }],
@@ -841,25 +850,40 @@ test('F-041: месяц существующей строки не меняет�
   await click([...view.container.querySelectorAll('.clients__list button')].find((node) => node.textContent.includes('Ива Петрова')));
   await settle();
 
+  // Текущий месяц уже заведён — владельцу нужно завести прошлый, а не править текущий.
   await click(buttonByText(view.container, 'Добавить месяц'));
   const monthInput = byLabel(view.container, 'Месяц');
   assert.ok(monthInput, 'форма месяца открыта');
-  assert.equal(monthInput.value, month, 'текущий месяц уже есть — открыта его строка');
-  assert.equal(monthInput.readOnly, true, 'месяц существующей строки не меняется — иначе получался дубль');
-  assert.equal(byLabel(view.container, 'Отчёт отправлен').value, '2026-10-01', 'отметка об отчёте не стёрта пустой формой');
-  assert.equal(byLabel(view.container, 'Заявок').value, '10');
+  assert.equal(monthInput.value, monthBefore(month), 'предложен первый свободный месяц — на шаг раньше занятого текущего');
+  assert.equal(monthInput.readOnly, false, 'в новой форме месяц можно сменить на любой другой');
+  assert.equal(byLabel(view.container, 'Отчёт отправлен').value, '', 'форма пустая, а не строка текущего месяца');
+  assert.equal(byLabel(view.container, 'Заявок').value, '');
 
+  // Владелец сменил месяц на уже заведённый — перед записью поверх спрашивают, а не стирают молча.
+  await type(monthInput, month);
+  await click(buttonByText(view.container, 'Сохранить месяц'));
+  await settle();
+  assert.equal(confirms.length, 1, 'на занятый месяц задан вопрос «Заменить»');
+  assert.match(confirms[0], /уже есть/);
+  assert.equal(calls.filter((call) => call.method === 'POST' && call.body?.action === 'set_month').length, 0, 'после отказа ничего не записано');
+  await click(buttonByText(view.container, 'Отмена'));
+
+  // Правка существующей строки — только через карандаш, и месяц там не меняется.
+  await click(buttonByAria(view.container, `Изменить ${month}`));
+  const editInput = byLabel(view.container, 'Месяц');
+  assert.equal(editInput.value, month);
+  assert.equal(editInput.readOnly, true, 'месяц существующей строки не меняется — иначе получался дубль');
+  assert.equal(byLabel(view.container, 'Отчёт отправлен').value, '2026-10-01', 'строка открыта со своими значениями');
+  assert.equal(byLabel(view.container, 'Заявок').value, '10');
   await click(buttonByText(view.container, 'Сохранить месяц'));
   await settle();
   const saved = calls.find((call) => call.method === 'POST' && call.body?.action === 'set_month');
   assert.ok(saved, 'сохранение ушло');
+  assert.equal(confirms.length, 1, 'правка своей строки вопросов не задаёт');
   assert.equal(saved.body.note, 'важно', 'заметка месяца проходит через форму, а не стирается');
   assert.equal(saved.body.month, month);
 
-  await click(buttonByAria(view.container, `Изменить ${month}`));
-  assert.equal(byLabel(view.container, 'Месяц').readOnly, true, 'и через «Изменить» месяц тоже только для чтения');
-  await click(buttonByText(view.container, 'Отмена'));
-
+  confirmAnswer = true;
   await click(buttonByAria(view.container, `Удалить ${month}`));
   await settle();
   const removed = calls.find((call) => call.method === 'POST' && call.body?.action === 'delete_month');

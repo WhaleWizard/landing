@@ -145,6 +145,25 @@ function currentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Месяц на шаг раньше: «2026-01» → «2025-12». */
+function previousMonth(month: string): string {
+  const [year, monthPart] = month.split('-').map(Number);
+  const date = new Date(Date.UTC(year, monthPart - 2, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Первый месяц без строки, считая назад от текущего: клиента начали вести
+ * в октябре, октябрь уже заведён — форма предложит сентябрь, а не откроет
+ * октябрь на правку. Иначе прошлые месяцы было бы не завести до ноября.
+ */
+function firstFreeMonth(taken: ClientMonth[]): string {
+  const used = new Set(taken.map((item) => item.month));
+  let month = currentMonth();
+  for (let step = 0; step < 240 && used.has(month); step += 1) month = previousMonth(month);
+  return month;
+}
+
 /** Который час у клиента: одна строка, которая спасает от звонка в 7 утра. */
 function clientLocalTime(offsetMinutes: number | null): string {
   if (offsetMinutes === null || offsetMinutes === undefined) return '';
@@ -372,28 +391,18 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
     }
   };
 
-  /** Открыть форму месяца: существующую строку — на правку, новую — с месяцем, которого ещё нет. */
+  /**
+   * Открыть форму месяца: существующую строку — на правку (месяц записи не
+   * меняется), новую — пустой с первым свободным месяцем, который владелец
+   * может сменить на любой другой. Если он выберет месяц, который уже есть,
+   * `saveMonth` спросит «Заменить», а не сотрёт отметку об отчёте молча.
+   */
   const openMonth = (month: ClientMonth | null) => {
     setMonthOrigin(month ? month.month : null);
     setMonthDraft(month || {
-      client_id: draft?.id || 0, month: currentMonth(), report_sent_at: null, report_url: '',
+      client_id: draft?.id || 0, month: firstFreeMonth(months), report_sent_at: null, report_url: '',
       spend: null, spend_currency: draft?.retainer_currency || 'USD', leads: null, sales: null, revenue: null, note: '',
     });
-  };
-
-  /**
-   * «Добавить месяц» для месяца, который уже есть, открывает его строку:
-   * иначе пустая форма сохранялась бы поверх и стирала отметку об отчёте
-   * и цифры — клиент снова загорался красным.
-   */
-  const addMonth = () => {
-    const existing = months.find((month) => month.month === currentMonth());
-    if (existing) {
-      notify.info(`${formatMonth(existing.month)} уже есть — открыт для правки`);
-      openMonth(existing);
-      return;
-    }
-    openMonth(null);
   };
 
   const saveMonth = async (month: ClientMonth) => {
@@ -639,7 +648,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
                   <h3 className="admin-card-title"><CalendarClock aria-hidden="true" /> Отчёты и результаты по месяцам</h3>
                   <p className="admin-hint">Цифры, которые вы и так собираете для отчёта. Отсюда же соберётся кейс.</p>
                 </div>
-                <button type="button" className="admin-button admin-button--compact" onClick={addMonth}>
+                <button type="button" className="admin-button admin-button--compact" onClick={() => openMonth(null)}>
                   <Plus aria-hidden="true" /> Добавить месяц
                 </button>
               </header>
