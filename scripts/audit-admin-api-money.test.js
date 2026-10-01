@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { build } from 'esbuild';
 
@@ -631,19 +631,19 @@ test('F-033: дата завершения ставится в день пере
 
 // ─── F-036: скрытое уведомление не возвращается, пока повод тот же ──────────
 
-/** Колонка из будущей миграции; если файл уже есть — берётся он. */
-function addDismissedAtColumn(sqlite) {
-  const file = 'migrations/0043_admin_alerts_dismissed.sql';
-  if (existsSync(file)) sqlite.exec(readFileSync(file, 'utf8'));
-  else sqlite.exec('ALTER TABLE admin_alerts ADD COLUMN dismissed_at TEXT;');
+/** База без одной миграции — так выглядит админка владельца, который её ещё не применил. */
+function databaseWithout(prefix) {
+  const sqlite = new DatabaseSync(':memory:');
+  for (const file of ALL_MIGRATIONS.filter((name) => !name.startsWith(prefix))) sqlite.exec(readFileSync(`migrations/${file}`, 'utf8'));
+  return sqlite;
 }
 
 test('F-036: с колонкой dismissed_at скрытый повод молчит, пока ситуация не исчезнет и не вернётся', async (t) => {
   t.after(installMemoryCache());
   const spy = installFetchSpy();
   t.after(spy.restore);
+  assert.ok(ALL_MIGRATIONS.some((file) => file.startsWith('0043_admin_alerts_dismissed')), 'колонку даёт миграция 0043');
   const sqlite = freshDatabase();
-  addDismissedAtColumn(sqlite);
   const alerts = await loadModule('functions/_lib/admin-alerts.ts');
   const env = { DB: new D1Database(sqlite), TELEGRAM_BOT_TOKEN: 'token', TELEGRAM_CHAT_ID: '1' };
   const draft = {
@@ -681,7 +681,7 @@ test('F-036: с колонкой dismissed_at скрытый повод молч
 
 test('F-036: без колонки dismissed_at раздел не падает и скрытие работает по-старому', async (t) => {
   t.after(installMemoryCache());
-  const sqlite = freshDatabase();
+  const sqlite = databaseWithout('0043');
   const alerts = await loadModule('functions/_lib/admin-alerts.ts');
   const env = { DB: new D1Database(sqlite) };
   const draft = { fingerprint: 'meta-dead-letter', kind: 'meta', severity: 'critical', title: 'x', detail: 'y', destination: 'meta' };
@@ -723,4 +723,116 @@ test('F-125: когорты группируются по понедельник
   assert.equal(byWeek.get(sqlDate(dayBefore(thisMonday, 7))), 2, 'воскресенье и понедельник одной недели — одна когорта');
   assert.equal(byWeek.get(sqlDate(dayBefore(thisMonday, 49))), 1, 'восьмая неделя назад начинается с понедельника');
   assert.equal(cohorts.reduce((sum, cohort) => sum + cohort.leads, 0), 4, 'заявка до окна не попадает');
+});
+
+// ─── F-036: кнопка «×» в центре уведомлений идёт через dismissAlert ──────────
+
+test('F-036: скрытое через раздел уведомление не возвращается при следующем открытии, пока повод тот же', async (t) => {
+  t.after(installMemoryCache());
+  const spy = installFetchSpy();
+  t.after(spy.restore);
+  const sqlite = freshDatabase();
+  // Заявка третий час без ответа — повод «leads-no-answer» существует при каждом пересчёте.
+  const lead = insertLead(sqlite, { name: 'Ждёт ответа', created_at: sqlDateTime(new Date(Date.now() - 3 * 3_600_000)) });
+  const alerts = await harness('functions/api/admin/alerts.ts', { sqlite, env: { TELEGRAM_BOT_TOKEN: 'token', TELEGRAM_CHAT_ID: '1' } });
+  const row = () => sqlite.prepare("SELECT id, resolved_at, dismissed_at, notified_at FROM admin_alerts WHERE fingerprint = 'leads-no-answer'").get();
+
+  const opened = await alerts.get({ timezone_offset: 0 });
+  assert.equal(opened.status, 200, JSON.stringify(opened.payload));
+  const alert = opened.payload.alerts.find((item) => item.fingerprint === 'leads-no-answer');
+  assert.ok(alert, 'повод виден в разделе');
+
+  const dismissed = await alerts.post({ action: 'dismiss', id: alert.id });
+  assert.equal(dismissed.status, 200, JSON.stringify(dismissed.payload));
+  assert.equal(dismissed.payload.alerts.some((item) => item.fingerprint === 'leads-no-answer'), false);
+  assert.ok(row().dismissed_at, 'скрытие помечено отдельно от «исчезло само»');
+  assert.ok(row().notified_at, 'в Telegram не уйдёт');
+
+  // Повод тот же — следующее открытие раздела его не оживляет (раньше оживляло).
+  const reopened = await alerts.get({ timezone_offset: 0 });
+  assert.equal(reopened.payload.alerts.some((item) => item.fingerprint === 'leads-no-answer'), false, 'скрытый не вернулся');
+  assert.equal((await alerts.post({ action: 'notify' })).payload.sent, 0);
+  assert.equal(spy.telegram.length, 0);
+
+  // Ситуация прошла — скрытие снято; вернулась — повод ожил как новый.
+  sqlite.prepare("UPDATE leads SET first_response_at = datetime('now') WHERE id = ?").run(lead);
+  await alerts.get({ timezone_offset: 0 });
+  assert.equal(row().dismissed_at, null);
+  sqlite.prepare('UPDATE leads SET first_response_at = NULL WHERE id = ?').run(lead);
+  const returned = await alerts.get({ timezone_offset: 0 });
+  assert.equal(returned.payload.alerts.some((item) => item.fingerprint === 'leads-no-answer'), true, 'повод ожил');
+  assert.equal((await alerts.post({ action: 'notify' })).payload.sent, 1);
+  assert.equal(spy.telegram.length, 1);
+});
+
+// ─── F-093: узбекская кириллица ─────────────────────────────────────────────
+
+test('F-093: «ғафур» находит «Ғафур Алиев» — узбекские буквы сводятся к строчным вместе с русскими', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const gafur = insertLead(sqlite, { name: 'Ғафур Алиев', email: 'gafur@example.test' });
+  const otkir = insertLead(sqlite, { name: 'Ўткир Ҳакимов', email: 'otkir@example.test' });
+  insertLead(sqlite, { name: 'Қодир', deleted_at: sqlDateTime(new Date()), deleted_reason: 'Дубль' });
+
+  const crm = await harness('functions/api/admin/crm-leads.ts', { sqlite });
+  for (const q of ['ғафур', 'ҒАФУР', 'алиев']) {
+    assert.deepEqual((await crm.get({ timezone_offset: 0, q })).payload.leads.map((lead) => lead.id), [gafur], `поиск «${q}»`);
+  }
+  assert.deepEqual((await crm.get({ timezone_offset: 0, q: 'ўткир' })).payload.leads.map((lead) => lead.id), [otkir]);
+  assert.deepEqual((await crm.get({ timezone_offset: 0, q: 'ҳакимов' })).payload.leads.map((lead) => lead.id), [otkir]);
+
+  const trash = await harness('functions/api/admin/lead-trash.ts', { sqlite });
+  const found = (await trash.get({ q: 'қодир' })).payload;
+  assert.equal(found.matched, 1, 'в корзине тоже');
+  assert.equal(found.leads[0].name, 'Қодир');
+});
+
+// ─── F-100: переполнение суммы отбрасывает слот целиком ─────────────────────
+
+test('F-100: если сложенная сумма дня больше допустимой, в базу не уходит и часть — слот отбрасывается целиком', async (t) => {
+  t.after(installMemoryCache());
+  const spend = await harness('functions/api/admin/ad-spend.ts');
+  const csv = [
+    'date,source,amount',
+    '2026-09-01,facebook,600000000',
+    '2026-09-01,facebook,600000000',
+    '2026-09-01,facebook,5',
+    '2026-09-02,google,10',
+  ].join('\n');
+
+  const result = await spend.post({ action: 'import_csv', csv });
+  assert.equal(result.status, 200, JSON.stringify(result.payload));
+  assert.equal(result.payload.saved, 1, 'записана только строка google');
+  assert.equal(result.payload.merged, 0, 'сложение отменено вместе со слотом');
+  assert.equal(result.payload.skipped, 3, 'все три строки переполненного слота отклонены');
+  assert.match(result.payload.errors[0], /не загружены/);
+  assert.deepEqual(
+    spend.sqlite.prepare('SELECT day, source, amount FROM ad_spend ORDER BY day').all().map((row) => ({ ...row })),
+    [{ day: '2026-09-02', source: 'google', amount: 10 }],
+    'в базе нет ни 600 000 000, ни 5 под видом расхода дня',
+  );
+});
+
+// ─── F-089: просмотры считаются только у согласившихся на маркетинг ─────────
+
+test('F-089: у публикации с заявками без строки просмотров — «нет данных», а не ноль; оговорка — в заметках и в воронке', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  sqlite.prepare("INSERT INTO page_stats_daily (day, page_path, views) VALUES (date('now'), '/blog/with-views', 100)").run();
+  insertLead(sqlite, { name: 'A', page_path: '/blog/with-views' });
+  insertLead(sqlite, { name: 'B', page_path: '/blog/with-views' });
+  insertLead(sqlite, { name: 'C', page_path: '/blog/no-consent-views' });
+
+  const content = await harness('functions/api/admin/content-stats.ts', { sqlite });
+  const { status, payload } = await content.get({ days: 30 });
+  assert.equal(status, 200, JSON.stringify(payload));
+  const byPath = new Map(payload.pages.map((page) => [page.path, page]));
+  assert.deepEqual(byPath.get('/blog/with-views'), { path: '/blog/with-views', views: 100, leads: 2, conversion: 2 });
+  assert.deepEqual(byPath.get('/blog/no-consent-views'), { path: '/blog/no-consent-views', views: null, leads: 1, conversion: null },
+    'заявки есть, просмотров нет в статистике — это пробел в данных, не ноль');
+  assert.ok(payload.notes.some((note) => /маркетинговые cookie/.test(note)), 'заметка про согласие');
+
+  const attribution = await harness('functions/api/admin/attribution.ts', { sqlite });
+  const funnel = (await attribution.get({ days: 30 })).payload;
+  assert.ok(funnel.limitations.some((note) => note.startsWith('Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie')), 'оговорка в воронке');
 });

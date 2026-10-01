@@ -1,6 +1,7 @@
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { json, readCappedJsonBody } from '../../_lib/http';
+import { isoSince } from '../../_lib/local-day';
 import { processMetaOutbox } from '../../_lib/meta-outbox';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { redactSensitiveText } from '../../_lib/redact';
@@ -210,23 +211,10 @@ function formatAggregate(row: DiagnosticsAggregateRow) {
   };
 }
 
-/**
- * Граница окна считается в JS и сравнивается с колонкой напрямую.
- *
- * Раньше здесь стояло `WHERE datetime(created_at) >= datetime('now', ?)`.
- * Обёртка `datetime()` вокруг колонки отключает индекс
- * `idx_meta_capi_diagnostics_created_at`, и запрос читал таблицу диагностики
- * целиком вместо нужного окна — на бесплатном тарифе Cloudflare это самый
- * дорогой запрос всей админки.
- *
- * `created_at` пишется как `new Date().toISOString()`, поэтому граница
- * строится тем же способом: форматы совпадают посимвольно, и сравнение строк
- * здесь равносильно сравнению дат — в отличие от `datetime('now', ?)`,
- * который отдаёт другой формат (пробел вместо `T`, без миллисекунд и `Z`).
- */
-function isoSince(days: number): string {
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-}
+// Граница окна «за N суток» — общий `isoSince` из _lib/local-day: считается
+// в JS и сравнивается с колонкой напрямую. Обёртка `datetime()` вокруг
+// колонки отключала бы индекс `idx_meta_capi_diagnostics_created_at`, а
+// `datetime('now', ?)` отдаёт другой формат, чем `toISOString()` в колонке.
 
 async function diagnosticsPeriod(
   db: D1Database,

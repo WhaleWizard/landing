@@ -6,6 +6,7 @@ import { hasLeadSoftDelete, isTelegramConfigured } from '../../_lib/leads';
 import { getTrackingSignatureMode, type TrackingSignatureMode } from '../../_lib/tracking-signature';
 import { pageLockLabel, readPageLockSnapshot } from '../../_lib/page-locks';
 import { readFormGuardToday } from '../../_lib/form-guard-stats';
+import { isoSince } from '../../_lib/local-day';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -66,6 +67,43 @@ async function getTrackingSignatureAudit(
     meta_event: Number(row?.meta_event || 0),
     pageview: Number(row?.pageview || 0),
   };
+}
+
+/**
+ * Строка «Подпись tracking-запросов» вместо объёма трафика.
+ *
+ * В `tracking_signature_daily` лежат только попытки с подписью: запросы без
+ * неё — то есть все с настоящего сайта, браузер подпись не ставит — в D1 не
+ * пишутся, чтобы не тратить суточный лимит записей. Поэтому «lead: 0,
+ * meta-event: 0, pageview: 0» из этой таблицы — не «трафика нет», а «подписи
+ * никто не присылал», и показывать это как объём трафика нельзя. Объём
+ * берётся из статистики посещений (`page_stats_daily`) — тем же запросом,
+ * что и проверка «Сбор статистики посещений».
+ */
+async function describeSignatureTraffic(db: D1Database, audit: TrackingSignatureAuditAggregate): Promise<string> {
+  // Отметка `disabled` (reason audit_budget_exhausted под endpoint 'all')
+  // ставится, когда суточный бюджет записей аудита — 200 на дата-центр —
+  // исчерпан: дальше невалидные попытки не считаются, и настоящее число
+  // больше сохранённого.
+  const invalid = audit.disabled > 0
+    ? `не меньше ${audit.invalid} — суточный бюджет 200 записей аудита исчерпан, день неполный`
+    : String(audit.invalid);
+  // Разбивка по точкам имеет смысл только когда подписанные попытки были.
+  const byEndpoint = audit.valid + audit.invalid > 0
+    ? ` (по точкам: lead ${audit.lead}, meta-event ${audit.meta_event}, pageview ${audit.pageview})`
+    : '';
+  const signed = `Неподписанные запросы (все с настоящего сайта) не журналируются, чтобы не тратить лимит записей D1; подписанных попыток за сутки: валидных ${audit.valid}, невалидных ${invalid}${byEndpoint}`;
+  let volume: string;
+  try {
+    const row = await db.prepare("SELECT SUM(views) AS v FROM page_stats_daily WHERE day >= date('now', '-1 day')").first<{ v: number | null }>();
+    const views = Number(row?.v ?? 0);
+    volume = views > 0
+      ? `Объём трафика по статистике посещений: просмотров за сутки ${views}`
+      : 'Объём трафика по статистике посещений: за сутки просмотров не записано';
+  } catch {
+    volume = 'Объём трафика по статистике посещений прочитать не удалось — таблица page_stats_daily недоступна';
+  }
+  return `${signed}. ${volume}`;
 }
 
 async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
@@ -286,7 +324,7 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
   } else {
     try {
       const audit = await getTrackingSignatureAudit(env.DB!, signatureMode);
-      const traffic = `валидных: ${audit.valid}, невалидных: ${audit.invalid}; lead: ${audit.lead}, meta-event: ${audit.meta_event}, pageview: ${audit.pageview}`;
+      const traffic = await describeSignatureTraffic(env.DB!, audit);
       const approximateWindow = 'Показаны дневные агрегаты, обновлявшиеся за последние 24 часа; граница периода приблизительная';
       if (signatureMode === 'monitor') {
         // «Валидных: 0» в monitor — норма, а не проблема: события отправляет
@@ -296,7 +334,7 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
           'tracking-signature-config',
           'Подпись tracking-запросов',
           'ok',
-          `Штатный режим monitor: запросы наблюдаются, но не блокируются. «Валидных: 0» — это норма, браузер не подписывает запросы, и включать enforce нельзя. ${traffic}. ${approximateWindow}`,
+          `Штатный режим monitor: запросы наблюдаются, но не блокируются. «Валидных 0» — это норма: браузер не подписывает запросы, и включать enforce нельзя. ${traffic}. ${approximateWindow}`,
         ));
       } else {
         const status: CheckStatus = audit.valid === 0 && audit.invalid > 0
@@ -387,9 +425,11 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
              SUM(CASE WHEN status = 'sent' AND COALESCE(events_received, 0) > 0 THEN 1 ELSE 0 END) AS sent,
              SUM(CASE WHEN status = 'failed' AND marketing_consent = 1 THEN 1 ELSE 0 END) AS failed
            FROM meta_capi_diagnostics
-           WHERE created_at >= datetime('now', '-1 day')
+           WHERE created_at >= ?
              AND COALESCE(service, '') NOT IN ('meta_capi_test_event', 'meta_capi_diagnostics_health')`
-        ).first<{ sent: number; failed: number }>(),
+        // Граница в том же ISO-формате, что и колонка: `datetime('now', '-1 day')`
+        // отдаёт другой формат, и условие захватывало весь вчерашний день.
+        ).bind(isoSince(1)).first<{ sent: number; failed: number }>(),
         env.DB.prepare(
           `SELECT MAX(created_at) AS confirmed_at
            FROM meta_capi_diagnostics

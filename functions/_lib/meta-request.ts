@@ -125,6 +125,11 @@ export function resolveEventTime(payloadEventTime: number | undefined): number {
   return eventTime;
 }
 
+/** Строковое поле `request.cf`; пустое или не строка — как отсутствующее. */
+function cfText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
 /**
  * Город, регион и часовой пояс посетителя.
  *
@@ -138,10 +143,6 @@ export function resolveEventTime(payloadEventTime: number | undefined): number {
  * согласие живут в точках отправки и здесь не меняются; страну по-прежнему
  * даёт `detectCountryCode` со своей фильтрацией XX/T1.
  */
-function cfText(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
 export function extractRequestContext(request: Request, pageUrl?: string) {
   const cf = (request as Request & { cf?: Record<string, unknown> }).cf || {};
   const country = detectCountryCode(request);

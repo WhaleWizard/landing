@@ -174,8 +174,43 @@ function toIsoDate(value) {
   return null;
 }
 
+/**
+ * Ключ публикации — тот же, что у RSS (`renderFeedXml` в functions/_lib/seo.ts):
+ * publishedAt → date → updatedAt. Раньше блог сортировал по updatedAt, и
+ * поправленная старая статья уезжала наверх витрины, а в ленте оставалась
+ * на своём месте — блог и RSS отбирали разные материалы.
+ */
 function resolveArticleDate(article) {
-  return toIsoDate(article.updatedAt) || toIsoDate(article.publishedAt) || toIsoDate(article.date);
+  return toIsoDate(article.publishedAt) || toIsoDate(article.date) || toIsoDate(article.updatedAt);
+}
+
+function articlePublicationTime(article) {
+  const exact = Date.parse(article.publishedAt || '');
+  if (Number.isFinite(exact)) return exact;
+  const day = resolveArticleDate(article);
+  const fallback = day ? Date.parse(`${day}T00:00:00Z`) : NaN;
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
+/** Порядок витрин блога и главной: как в ленте — публикация, затем правка, затем id. */
+function compareByPublication(a, b) {
+  return articlePublicationTime(b) - articlePublicationTime(a)
+    || (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0)
+    || Number(b.id || 0) - Number(a.id || 0);
+}
+
+/**
+ * Обрезка по границе слова, как `cutAtWord` в functions/_lib/jsonbin.ts:
+ * описание, обрезанное посреди слова, в сниппете и карточке выглядело как
+ * ошибка.
+ */
+function cutAtWord(text, max) {
+  const value = String(text || '').trim();
+  if (value.length <= max) return value;
+  const head = value.slice(0, max);
+  const lastSpace = head.lastIndexOf(' ');
+  const cut = (lastSpace > max * 0.6 ? head.slice(0, lastSpace) : head).replace(/[\s,;:–—-]+$/u, '');
+  return `${cut}…`;
 }
 
 function toSafeSlug(rawSlug, fallback) {
@@ -543,7 +578,7 @@ function normalizeArticles(rawArticles) {
     usedSlugs.add(uniqueSlug);
 
     const content = article?.content || '<p>Контент статьи отсутствует.</p>';
-    const description = stripHtml(article?.description || content).slice(0, 160);
+    const description = cutAtWord(stripHtml(article?.description || content), 160);
     const faq = Array.isArray(article?.faq)
       ? article.faq
         .map((item) => ({
@@ -2322,8 +2357,7 @@ async function main() {
 
   // Для блока «Последние статьи блога» — действительно последние по дате,
   // а не первые по порядку массива из админки.
-  const latestArticles = [...articles].sort((a, b) =>
-    String(resolveArticleDate(b) || '').localeCompare(String(resolveArticleDate(a) || '')));
+  const latestArticles = [...articles].sort(compareByPublication);
 
   const staticPages = await renderStaticPages(baseHtml, { content, latestArticles, publishedContent });
   await renderBlogPages(latestArticles, baseHtml, content);

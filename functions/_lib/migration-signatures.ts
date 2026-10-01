@@ -356,4 +356,13 @@ export const MIGRATION_SIGNATURES: readonly MigrationSignature[] = [
     indexes: ['idx_articles_featured_order'],
     triggers: [],
   },
+  {
+    file: '0043_admin_alerts_dismissed.sql',
+    tables: [],
+    columns: {
+      admin_alerts: ['dismissed_at'],
+    },
+    indexes: [],
+    triggers: [],
+  },
 ];

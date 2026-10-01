@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1091,4 +1091,187 @@ test('F-111: пачка режется по бюджету подзапросо�
   assert.deepEqual(second.payload.moved.map((item) => item.previousKey), [keys[2]]);
   assert.deepEqual(second.payload.skipped, []);
   assert.ok(!bucket.objects.has(keys[2]));
+});
+
+// ─── F-086: тестовое событие берёт город и регион оттуда же, откуда настоящие ──
+
+function sha256Prefix(value) {
+  return createHash('sha256').update(value).digest('hex').slice(0, 12);
+}
+
+async function metaTestEventWithGeo(env, { headers = {}, cf } = {}) {
+  const endpoint = await loadModule('functions/api/meta-test-event.ts');
+  const request = new Request('https://www.example.test/api/meta-test-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.9', ...headers },
+    body: JSON.stringify({ event_name: 'Lead' }),
+  });
+  if (cf) request.cf = cf;
+  const background = [];
+  const response = await endpoint.onRequestPost({ request, env, waitUntil: (promise) => background.push(promise) });
+  await Promise.allSettled(background);
+  const payload = await response.json();
+  const lead = payload.events_detail?.find((event) => event.event_name === 'Lead');
+  return {
+    status: response.status,
+    payload,
+    userData: Object.fromEntries((lead?.user_data || []).map((item) => [item.key, item.preview])),
+  };
+}
+
+test('F-086: тестовое событие берёт город и регион из того же источника, что настоящая заявка', async (t) => {
+  const restoreCache = installMemoryCache();
+  const originalFetch = globalThis.fetch;
+  // Meta подменяется: наружу ничего не уходит, а квитанция подтверждает приём.
+  globalThis.fetch = async (input) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url.includes('graph.facebook.com')) {
+      return new Response(JSON.stringify({ events_received: 1, fbtrace_id: 'test' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error(`Неожиданный внешний запрос в тесте: ${url}`);
+  };
+  t.after(() => { restoreCache(); globalThis.fetch = originalFetch; });
+
+  const env = {
+    DB: new D1Database(freshDatabase()),
+    ADMIN_PASSWORD,
+    META_CAPI_ACCESS_TOKEN: 'token',
+    VITE_META_PIXEL_ID: '1',
+    META_CAPI_TEST_CODE: 'TEST1',
+  };
+  const password = { 'X-Admin-Password': ADMIN_PASSWORD };
+
+  // Без заголовков местоположения поля берутся из request.cf — как у настоящей
+  // заявки в extractRequestContext; регион — regionCode || region, как в lead.ts.
+  const fromCf = await metaTestEventWithGeo(env, { headers: password, cf: { city: 'Tashkent', region: 'Tashkent City', regionCode: 'TK' } });
+  assert.equal(fromCf.status, 200, JSON.stringify(fromCf.payload));
+  assert.ok(fromCf.userData.ct?.startsWith(sha256Prefix('tashkent')), `ct из request.cf: ${fromCf.userData.ct}`);
+  assert.ok(fromCf.userData.st?.startsWith(sha256Prefix('tk')), `st — код региона: ${fromCf.userData.st}`);
+  assert.equal(fromCf.userData.country, undefined, 'страна — только из CF-IPCountry, как у настоящих событий');
+
+  // Заголовки Cloudflare важнее request.cf — тот же приоритет, что у настоящих точек.
+  const fromHeaders = await metaTestEventWithGeo(env, {
+    headers: { ...password, 'CF-IPCity': 'Berlin', 'CF-Region-Code': 'BE', 'CF-IPCountry': 'DE' },
+    cf: { city: 'Hamburg', region: 'Hamburg', regionCode: 'HH' },
+  });
+  assert.equal(fromHeaders.status, 200, JSON.stringify(fromHeaders.payload));
+  assert.ok(fromHeaders.userData.ct?.startsWith(sha256Prefix('berlin')), 'ct из заголовка');
+  assert.ok(fromHeaders.userData.st?.startsWith(sha256Prefix('be')), 'st из заголовка кода региона');
+  assert.ok(fromHeaders.userData.country?.startsWith(sha256Prefix('de')), 'страна из CF-IPCountry');
+
+  // Только регион без кода — берётся регион; совсем без местоположения ct/st не выдумываются.
+  const regionOnly = await metaTestEventWithGeo(env, { headers: password, cf: { region: 'Tashkent City' } });
+  assert.ok(regionOnly.userData.st?.startsWith(sha256Prefix('tashkentcity')), 'регион без кода');
+  const none = await metaTestEventWithGeo(env, { headers: password });
+  assert.equal(none.status, 200);
+  assert.equal(none.userData.ct, undefined);
+  assert.equal(none.userData.st, undefined);
+});
+
+// ─── F-104 / F-085: раздел «Проверка» ───────────────────────────────────────
+
+async function healthChecks(env) {
+  const health = await loadModule('functions/api/admin/health.ts');
+  const response = await health.onRequestGet({
+    request: new Request('https://www.example.test/api/admin/health', {
+      headers: { 'X-Admin-Password': ADMIN_PASSWORD, 'CF-Connecting-IP': '203.0.113.7' },
+    }),
+    env,
+    waitUntil: () => {},
+  });
+  const payload = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(payload));
+  return new Map(payload.checks.map((item) => [item.id, item]));
+}
+
+/** Проверка страниц сайта ходит на origin запроса: отвечаем 200, наружу ничего не уходит. */
+function installSiteFetchStub() {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url.startsWith('https://www.example.test/')) return new Response('ok', { status: 200 });
+    throw new Error(`Неожиданный внешний запрос в тесте: ${url}`);
+  };
+  return () => { globalThis.fetch = original; };
+}
+
+test('F-104: строка подписи называет только подписанные попытки, а объём трафика берёт из статистики посещений', async (t) => {
+  const restoreCache = installMemoryCache();
+  const restoreFetch = installSiteFetchStub();
+  t.after(() => { restoreCache(); restoreFetch(); });
+  const sqlite = freshDatabase();
+  const env = { DB: new D1Database(sqlite), ADMIN_PASSWORD, TRACKING_HMAC_SECRET: 'a'.repeat(64) };
+
+  // Пустой журнал: с настоящего сайта подписи не приходят вовсе — это не «нет трафика».
+  const empty = (await healthChecks(env)).get('tracking-signature-config');
+  assert.equal(empty.status, 'ok');
+  assert.match(empty.detail, /не журналируются/);
+  assert.match(empty.detail, /валидных 0, невалидных 0/);
+  assert.doesNotMatch(empty.detail, /lead: 0, meta-event: 0, pageview: 0/, 'нули журнала не выдаются за объём трафика');
+  assert.match(empty.detail, /просмотров не записано/);
+
+  sqlite.prepare("INSERT INTO page_stats_daily (day, page_path, views) VALUES (date('now'), '/', 37)").run();
+  sqlite.prepare("INSERT INTO tracking_signature_daily (day, endpoint, mode, result, reason, count) VALUES (date('now'), 'pageview', 'monitor', 'invalid', 'invalid_signature', 4)").run();
+  const withTraffic = (await healthChecks(env)).get('tracking-signature-config');
+  assert.equal(withTraffic.status, 'ok', 'в monitor невалидные подписи не блокируются и не красят светофор');
+  assert.match(withTraffic.detail, /просмотров за сутки 37/, 'объём трафика — из page_stats_daily');
+  assert.match(withTraffic.detail, /валидных 0, невалидных 4 \(по точкам: lead 0, meta-event 0, pageview 4\)/);
+
+  // Бюджет записей аудита исчерпан: отметка под endpoint 'all' — «не меньше», день неполный.
+  const { AUDIT_BUDGET_EXHAUSTED_REASON, AUDIT_BUDGET_MARKER_ENDPOINT } = await loadModule('functions/_lib/tracking-signature.ts');
+  sqlite.prepare("INSERT INTO tracking_signature_daily (day, endpoint, mode, result, reason, count) VALUES (date('now'), ?, 'monitor', 'disabled', ?, 1)")
+    .run(AUDIT_BUDGET_MARKER_ENDPOINT, AUDIT_BUDGET_EXHAUSTED_REASON);
+  const exhausted = (await healthChecks(env)).get('tracking-signature-config');
+  assert.match(exhausted.detail, /невалидных не меньше 4 — суточный бюджет 200 записей аудита исчерпан, день неполный/);
+  assert.match(exhausted.detail, /pageview 4\)/, 'отметка не попадает в счётчик точки');
+
+  // Enforce по-прежнему честен: только отклонённые и ни одного принятого — fail.
+  sqlite.prepare("INSERT INTO tracking_signature_daily (day, endpoint, mode, result, reason, count) VALUES (date('now'), 'lead', 'enforce', 'invalid', 'invalid_signature', 2)").run();
+  const enforce = (await healthChecks({ ...env, TRACKING_SIGNATURE_MODE: 'enforce' })).get('tracking-signature-config');
+  assert.equal(enforce.status, 'fail');
+  assert.match(enforce.detail, /Enforce активен/);
+  assert.match(enforce.detail, /валидных 0, невалидных 2 \(по точкам: lead 2, meta-event 0, pageview 0\)/);
+});
+
+test('F-085/F-099: «Проверка» считает подтверждённые и ошибочные события Meta ровно за 24 часа', async (t) => {
+  const restoreCache = installMemoryCache();
+  const restoreFetch = installSiteFetchStub();
+  t.after(() => { restoreCache(); restoreFetch(); });
+  const sqlite = freshDatabase();
+  const insert = sqlite.prepare('INSERT INTO meta_capi_diagnostics (event_name, status, created_at, events_received, marketing_consent) VALUES (?, ?, ?, ?, 1)');
+  const hoursAgo = (hours) => new Date(Date.now() - hours * 3_600_000).toISOString();
+  insert.run('Lead', 'failed', hoursAgo(25), null);
+  insert.run('Lead', 'failed', hoursAgo(23), null);
+  insert.run('Lead', 'sent', hoursAgo(30), 1);
+  insert.run('Lead', 'sent', hoursAgo(1), 1);
+
+  // Ловушка формата: старое условие сравнивало ISO-строку с форматом SQLite и захватывало весь вчерашний день.
+  const legacy = sqlite.prepare("SELECT COUNT(*) AS n FROM meta_capi_diagnostics WHERE status = 'failed' AND created_at >= datetime('now', '-1 day')").get().n;
+  assert.equal(legacy, 2);
+
+  const env = { DB: new D1Database(sqlite), ADMIN_PASSWORD, META_CAPI_ACCESS_TOKEN: 'token' };
+  const capi = (await healthChecks(env)).get('capi');
+  assert.match(capi.detail, /За сутки подтверждено: 1; ошибок попыток: 1\./, capi.detail);
+});
+
+// ─── F-111: свой лимит у медиатеки ──────────────────────────────────────────
+
+test('F-111: у медиатеки свой лимит — 240 запросов в минуту, общий профиль админки остаётся на 30', async (t) => {
+  t.after(installMemoryCache());
+  const { enforceRateLimit, getRateLimitProfile } = await loadModule('functions/_lib/rate-limit.ts');
+  assert.deepEqual(getRateLimitProfile('admin_media'), { windowSeconds: 60, maxRequests: 240 });
+  assert.deepEqual(getRateLimitProfile('admin'), { windowSeconds: 60, maxRequests: 30 });
+  for (const file of ['functions/api/admin/upload.ts', 'functions/api/admin/media.ts']) {
+    assert.match(readFileSync(file, 'utf8'), /enforceRateLimit\(request, 'admin_media'\)/, `${file} использует профиль admin_media`);
+  }
+
+  const request = () => new Request('https://www.example.test/api/admin/media', { headers: { 'CF-Connecting-IP': '203.0.113.50' } });
+  for (let index = 0; index < 240; index += 1) {
+    assert.equal(await enforceRateLimit(request(), 'admin_media'), null, `запрос ${index + 1} проходит`);
+  }
+  const limited = await enforceRateLimit(request(), 'admin_media');
+  assert.equal(limited?.status, 429, 'двести сорок первый — 429');
+  assert.equal((await limited.json()).retryable, true);
+  // Пачка в медиатеке не съедает лимит остальной админки: ключ счётчика — по области.
+  assert.equal(await enforceRateLimit(request(), 'admin'), null);
 });

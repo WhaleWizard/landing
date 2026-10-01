@@ -6,8 +6,9 @@ import { verifyAdminPassword, verifyDebugSecret } from '../_lib/auth';
 import { hasValidAdminSession } from '../_lib/admin-session';
 import { isAdmin2faEnabled } from '../_lib/admin-2fa';
 import { recordMetaDiagnostics } from '../_lib/meta-diagnostics';
-import { detectCountryCode, postMetaEvents, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
+import { postMetaEvents, getMetaApiVersion, getMetaDataProcessingOptions, getMetaPixelId, isConfirmedMetaReceipt, type MetaApiReceipt } from '../_lib/meta-capi';
 import { normalizeEmail, normalizeLocation, normalizeName, normalizePhone, sha256Hex } from '../_lib/meta-pii';
+import { extractRequestContext } from '../_lib/meta-request';
 
 const TEST_EVENTS = ['PageView', 'ViewContent', 'FormStart', 'LeadFormView', 'EngagedView', 'Contact', 'Lead', 'QualifiedLead', 'UnqualifiedLead'] as const;
 
@@ -32,12 +33,19 @@ function getClientIp(request: Request): string {
   return request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
 }
 
+/**
+ * Город, регион и страна — из того же источника, что у настоящих событий
+ * (`extractRequestContext` в `/api/lead`, `/api/meta-event`, `/api/pageview`):
+ * заголовки Cloudflare, затем `request.cf`. Своя версия брала поля только из
+ * `request.cf`, и тест показывал ct/st там, где настоящая заявка их не несла.
+ * Регион — `regionCode || region`, ровно как в `lead.ts`.
+ */
 function getRequestGeo(request: Request): { country?: string; city?: string; region?: string } {
-  const cf = (request as Request & { cf?: Record<string, unknown> }).cf || {};
+  const ctx = extractRequestContext(request);
   return {
-    country: detectCountryCode(request) || (cf.country as string) || undefined,
-    city: (cf.city as string) || undefined,
-    region: (cf.regionCode as string) || (cf.region as string) || undefined,
+    country: ctx.country,
+    city: ctx.city,
+    region: ctx.regionCode || ctx.region,
   };
 }
 

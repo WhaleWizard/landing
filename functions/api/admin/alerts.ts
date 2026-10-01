@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import {
   ADMIN_ALERTS_MIGRATION,
   collectAlerts,
+  dismissAlert,
   isMissingAlertsTable,
   listAlerts,
   notifyAlerts,
@@ -69,8 +70,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!Number.isInteger(id) || id <= 0) {
         return json({ success: false, error: 'Некорректный идентификатор' }, { status: 400, headers: noStore });
       }
-      // Скрытый повод вернётся, если ситуация повторится: правило создаст его заново.
-      await env.DB.prepare("UPDATE admin_alerts SET resolved_at = datetime('now') WHERE id = ?").bind(id).run();
+      // Скрытый повод молчит, пока ситуация та же, и возвращается только
+      // когда она исчезнет и возникнет снова (колонка dismissed_at, миграция
+      // 0043; без неё — прежнее закрытие по resolved_at).
+      await dismissAlert(env.DB, id);
       return json({ success: true, alerts: await listAlerts(env.DB) }, { headers: noStore });
     }
 

@@ -54,4 +54,5 @@ export const MIGRATION_UNLOCKS: Readonly<Record<string, string>> = {
   '0040_versions_retention.sql': 'История версий статей и текстов обрезается до пятидесяти.',
   '0041_invoice_one_off_sales.sql': 'Разовые продажи в «Финансах»: консультация, аудит, настройка без карточки клиента.',
   '0042_articles_featured_order.sql': 'Закрепление статей на главной: до пятнадцати в порядке владельца.',
+  '0043_admin_alerts_dismissed.sql': 'Скрытие уведомления не возвращается, пока повод тот же.',
 };

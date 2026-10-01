@@ -513,6 +513,7 @@ test('crawlers that verify indexing are recognised as bots', () => {
     'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
     'Mozilla/5.0 (compatible; GPTBot/1.1; +https://openai.com/gptbot)',
     'Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)',
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)',
     'Mozilla/5.0 (compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)',
     'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
   ];

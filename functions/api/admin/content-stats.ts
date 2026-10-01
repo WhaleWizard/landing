@@ -9,7 +9,8 @@ const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
 interface PageRow {
   path: string;
-  views: number;
+  /** null — «нет данных»: статистика просмотров этой страницы не записана. */
+  views: number | null;
   leads: number;
   conversion: number | null;
 }
@@ -116,15 +117,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     const paths = new Set([...views.keys(), ...leads.keys()]);
     const pages: PageRow[] = [...paths].map((path) => {
-      const pageViews = views.get(path) || 0;
+      // Страница с заявками, но без строки просмотров — это не «ноль
+      // просмотров», а пробел в данных: просмотры пишутся только у тех, кто
+      // разрешил маркетинговые cookie, заявка — у всех. Ноль здесь обещал бы
+      // конверсию выше ста процентов и врал бы про трафик.
+      const pageViews = views.has(path) ? (views.get(path) as number) : null;
       const pageLeads = leads.get(path) || 0;
       return {
         path,
         views: pageViews,
         leads: pageLeads,
-        conversion: pageViews > 0 ? Math.round((pageLeads / pageViews) * 10_000) / 100 : null,
+        conversion: pageViews !== null && pageViews > 0 ? Math.round((pageLeads / pageViews) * 10_000) / 100 : null,
       };
-    }).sort((a, b) => b.leads - a.leads || b.views - a.views);
+    }).sort((a, b) => b.leads - a.leads || (b.views ?? -1) - (a.views ?? -1));
 
     return json({
       success: true,
@@ -134,6 +139,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       notes: [
         'Заявка засчитывается публикации, если это была страница входа в форму — то есть человек оставил заявку именно с неё.',
         'Просмотры и заявки берутся за один и тот же период, поэтому свежая статья выглядит скромнее старой просто из-за возраста.',
+        'Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie. Посетители из ЕС/UK/CH, которые отказались или не ответили на баннер, в знаменатель не попадают, заявки же считаются у всех. Поэтому конверсия страниц может быть завышена, а у страницы с заявками и без просмотров стоит «нет данных», а не ноль.',
       ],
     }, { headers: noStore });
   } catch (error) {

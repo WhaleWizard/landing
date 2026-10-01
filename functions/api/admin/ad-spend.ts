@@ -171,24 +171,40 @@ function parseCsv(csv: string): { entries: unknown[]; skipped: number } {
  */
 function mergeDuplicateSlots(entries: SpendEntry[], errors: string[]): { entries: SpendEntry[]; merged: number; rejected: number } {
   const bySlot = new Map<string, SpendEntry>();
+  // Сколько строк файла уже легло в слот и какие слоты вышли за предел:
+  // при переполнении отбрасываются все строки слота, а не одна последняя.
+  const rowsBySlot = new Map<string, number>();
+  const overflowed = new Set<string>();
   let merged = 0;
   let rejected = 0;
   for (const entry of entries) {
     const key = `${entry.day}|${entry.source}|${entry.campaign}|${entry.currency}`;
+    if (overflowed.has(key)) {
+      rejected += 1;
+      continue;
+    }
     const existing = bySlot.get(key);
     if (!existing) {
       bySlot.set(key, { ...entry });
+      rowsBySlot.set(key, 1);
       continue;
     }
     const amount = Math.round((existing.amount + entry.amount) * 100) / 100;
     if (amount > MAX_AMOUNT) {
-      // Переполнение — ошибка строки, а не молчаливая обрезка суммы.
-      if (errors.length < 5) errors.push(`Сумма за ${entry.day} (${entry.source}) после сложения строк больше допустимой`);
-      rejected += 1;
+      // Переполнение — ошибка всего слота, а не одной строки: если оставить
+      // уже сложенную часть, в базу уйдёт часть суммы под видом целой, и
+      // цена лида в «Воронке» будет считаться от неверного расхода.
+      if (errors.length < 5) errors.push(`Сумма за ${entry.day} (${entry.source}) после сложения строк больше допустимой — строки этого дня и источника не загружены`);
+      const rows = rowsBySlot.get(key) || 1;
+      bySlot.delete(key);
+      overflowed.add(key);
+      rejected += rows + 1;
+      merged -= rows - 1;
       continue;
     }
     existing.amount = amount;
     existing.note = [...new Set([existing.note, entry.note].filter(Boolean))].join('; ').slice(0, 200);
+    rowsBySlot.set(key, (rowsBySlot.get(key) || 1) + 1);
     merged += 1;
   }
   return { entries: [...bySlot.values()], merged, rejected };

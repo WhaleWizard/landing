@@ -322,8 +322,10 @@ export function createCrmActivityStatement(
  * Отдельной колонки и миграции это не требует, а заявок на D1 немного, так
  * что полный проход по строкам ничего не стоит — `LIKE '%…%'` и так его делал.
  */
-const CYRILLIC_UPPER = 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
-const CYRILLIC_LOWER = 'абвгдежзийклмнопрстуфхцчшщъыьэюя';
+// Вместе с русскими — четыре буквы узбекской кириллицы (Ў Ғ Қ Ҳ): владелец
+// работает в Ташкенте, и «ғафур» обязан находить «Ғафур Алиев».
+const CYRILLIC_UPPER = 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯЎҒҚҲ';
+const CYRILLIC_LOWER = 'абвгдежзийклмнопрстуфхцчшщъыьэюяўғқҳ';
 
 export function foldSearchSql(expression: string): string {
   let sql = `lower(${expression})`;
