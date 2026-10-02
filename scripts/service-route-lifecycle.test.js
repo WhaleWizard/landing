@@ -89,20 +89,18 @@ test('cold service and hero imports share one pending task, then retain componen
   assert.equal(heroCalls, 1);
 });
 
-test('failed service preload can retry instead of poisoning the route forever', async () => {
+test('failed service preload throws the error on the next render so the route boundary can reload once', async () => {
+  // F-001: the previous reset-and-retry left the landing on its skeleton forever.
   let calls = 0;
   const loader = async () => {
     calls += 1;
-    if (calls === 1) throw new Error('temporary chunk failure');
-    return (loader.resolved = { ServiceLandingPage: () => null });
+    throw new Error('temporary chunk failure');
   };
   const Route = fixture(createElement, loader)('meta-ads');
   let first;
   try { Route(); } catch (pending) { first = pending; }
-  await assert.rejects(first, /temporary chunk failure/);
-  let retry;
-  try { Route(); } catch (pending) { retry = pending; }
-  await retry;
-  assert.ok(Route().type);
-  assert.equal(calls, 2);
+  await first; // the Suspense promise fulfils; the error is kept for the re-render
+  assert.throws(() => Route(), /temporary chunk failure/);
+  assert.throws(() => Route(), /temporary chunk failure/, 'failure must not be reset by the throw');
+  assert.equal(calls, 1);
 });

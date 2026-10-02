@@ -201,12 +201,20 @@ export function useRememberPublicRoute(): void {
     if (typeof window === 'undefined' || !isTrackablePublicPath(location.pathname)) return;
 
     const save = () => {
-      const route: RememberedRoute = {
-        path: `${location.pathname}${location.search || ''}${location.hash || ''}`,
-        label: documentRouteLabel(location.pathname),
-        savedAt: Date.now(),
-      };
-      window.sessionStorage.setItem(LAST_ROUTE_STORAGE_KEY, JSON.stringify(route));
+      try {
+        const route: RememberedRoute = {
+          path: `${location.pathname}${location.search || ''}${location.hash || ''}`,
+          label: documentRouteLabel(location.pathname),
+          savedAt: Date.now(),
+        };
+        window.sessionStorage.setItem(LAST_ROUTE_STORAGE_KEY, JSON.stringify(route));
+      } catch {
+        // Хранилище запрещено настройками браузера (cookie и данные сайтов
+        // выключены). Раньше исключение из эффекта RootLayout ронял весь сайт в
+        // «Страница не загрузилась»; кнопка «Назад» возьмёт реферер или
+        // родительский раздел. Та же функция стоит в MutationObserver и таймере,
+        // поэтому одна обёртка закрывает все три вызова.
+      }
     };
 
     save();

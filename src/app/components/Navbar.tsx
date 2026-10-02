@@ -238,8 +238,11 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       ]
       : [
         { label: 'Услуги', action: () => scrollToSection('services') },
-        { label: 'Кейсы', action: () => scrollToSection('cases') },
-        { label: 'Блог', action: () => scrollToSection('blog') },
+        // Секции «Кейсы» и «Блог» на главной пропадают вместе с закрытием
+        // /cases и /blog (Home.tsx). Пункт меню без routePath оставался и
+        // прокручивал к секции, которой нет, — нажатие ничего не делало.
+        { label: 'Кейсы', action: () => scrollToSection('cases'), routePath: '/cases' },
+        { label: 'Блог', action: () => scrollToSection('blog'), routePath: '/blog' },
         { label: 'Отзывы', action: () => scrollToSection('about') },
         { label: 'FAQ', href: '/faq', action: () => navigate('/faq', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social') },

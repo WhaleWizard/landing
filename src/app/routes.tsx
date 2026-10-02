@@ -57,6 +57,8 @@ type ServicePreload = MemoizedLoader<unknown>;
 function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = []) {
   let Loaded: ComponentType<any> | undefined;
   let pending: Promise<unknown> | undefined;
+  let failed = false;
+  let failure: unknown;
 
   const resolveLoaded = () => {
     // Keep React's component identity once resolved. Recreating this wrapper
@@ -68,6 +70,12 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
   };
 
   return function RoutedServiceLanding() {
+    // Ошибка загрузки хранится насовсем и бросается при следующей отрисовке,
+    // как в preloadable и React.lazy. Сброс перед броском оставлял бы цикл:
+    // React повторяет отрисовку сразу, импорт уходит снова, и лендинг висит на
+    // скелетоне. Теперь ошибка доходит до RouteErrorBoundary с одной
+    // перезагрузкой на свежую сборку.
+    if (failed) throw failure;
     resolveLoaded();
     if (Loaded) return createElement(Loaded);
 
@@ -77,12 +85,12 @@ function lazyServiceLanding(service: ServiceType, preloads: ServicePreload[] = [
       pending = Promise.all([
         loadServiceLandingPage(),
         ...preloads.map((preload) => preload()),
-      ]).then(() => {
-        resolveLoaded();
-      }).catch((error) => {
-        pending = undefined;
-        throw error;
-      });
+      ]).then(
+        () => { resolveLoaded(); },
+        // Промис обязан завершиться успешно: отклонённый промис React считает
+        // ошибкой самого Suspense и перерисовывает без конца.
+        (error: unknown) => { failed = true; failure = error; },
+      );
     }
     throw pending;
   };

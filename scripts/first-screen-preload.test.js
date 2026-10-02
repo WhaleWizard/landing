@@ -97,19 +97,20 @@ test('a genuinely cold component keeps Suspense, sharing one pending task', asyn
   assert.equal(calls, 1);
 });
 
-test('a rejected component import remains retryable', async () => {
+test('a rejected component import is thrown once on the next render instead of retried forever', async () => {
+  // F-001: a reset before the throw let React re-render, call the loader again
+  // and spin on the skeleton. React.lazy keeps the failure; so does preloadable.
   let calls = 0;
-  const Component = () => null;
   const Prepared = preloadable(async () => {
-    if (++calls === 1) throw new Error('chunk unavailable');
-    return { default: Component };
+    calls += 1;
+    throw new Error('chunk unavailable');
   });
   let pending;
   try { Prepared({}); } catch (error) { pending = error; }
-  await assert.rejects(pending, /chunk unavailable/);
-  try { Prepared({}); } catch (retry) { await retry; }
-  assert.equal(Prepared({}).type, Component);
-  assert.equal(calls, 2);
+  await pending; // the Suspense promise itself fulfils: React re-renders instead of treating it as a crash
+  assert.throws(() => Prepared({}), /chunk unavailable/);
+  assert.throws(() => Prepared({}), /chunk unavailable/, 'the failure must stay, or the retry loop returns');
+  assert.equal(calls, 1, 'the import is not re-attempted behind the skeleton');
 });
 
 test('first-screen consumers use the same loaders that bootstrap prepares', async () => {

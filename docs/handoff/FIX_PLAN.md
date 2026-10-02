@@ -68,7 +68,7 @@
 - [x] **F-059** (низкая) Метрики кейса «прыгают» между полями, если заполнять не по порядку — `src/app/components/CaseFieldsEditor.tsx:37`
 - [x] **F-064** (низкая) Подсказка редактора обещает горячие клавиши, которых нет — `src/app/components/ArticleEditor.tsx:858`
 
-## 4. routing — Загрузка страниц, маршруты, навигация (4, открыто 4)
+## 4. routing — Загрузка страниц, маршруты, навигация (4, открыто 0 в своих файлах — F-001, F-002 исправлены 02.10; F-003, F-044 ждут стыков в blog/Footer/Hero, см. `docs/handoff/work/fix-routing.md`)
 
 Файлы группы: src/app/utils/preloadable.ts, siteNavigation.ts, routeFocus.ts, scrollRestoration.ts, memoizedImport.ts; src/app/routes.tsx; src/app/components/Navbar.tsx
 

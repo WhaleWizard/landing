@@ -12,12 +12,16 @@
 - Если в `git log main` последний коммит ещё «wip(audit)…» или «fix(audit): стыки серверных групп» —
   значит вторая выкладка не дошла: взять ветку, прогнать `npm run check`, и `git push origin <sha>:main`.
 
-## 2. Третья волна: группы routing, blog, forms, seo-build (46 открытых находок — всё, что осталось)
+## 2. Третья волна: группы blog, forms, seo-build (42 открытых находки — всё, что осталось)
+
+Группа routing закрыта 02.10 одним исполнителем без ревью (`docs/handoff/work/fix-routing.md`): F-001, F-002 сделаны;
+F-003 и F-044 — остатки в чужих файлах: `BlogPage.tsx` (scrollTo по смене slug — отдать группе blog), `Footer.tsx`
+«Избранные кейсы» и `Hero.tsx`/`Home.tsx` «Посмотреть кейсы» при закрытом `/cases` (сделать вместе с seo-build, Footer в её файлах).
 
 Команда (один запуск = одна волна; группы можно давать по одной, так дешевле и безопаснее при обрыве):
 
 ```
-Workflow({ name: 'audit-fix', args: { groups: ['routing', 'blog'], waveSize: 2 } })
+Workflow({ name: 'audit-fix', args: { groups: ['blog'], waveSize: 1 } })
 Workflow({ name: 'audit-fix', args: { groups: ['forms', 'seo-build'], waveSize: 2 } })
 ```
 
