@@ -27,7 +27,10 @@ async function bundle(path) {
 }
 
 const { preloadable } = await bundle('utils/preloadable.ts');
-const routesSource = await readFile(src('routes.tsx'), 'utf8');
+// Переводы строк приводятся к LF: на Windows git отдаёт исходники с CRLF,
+// и поиск конца функции по «\n}\n» иначе не срабатывал.
+const lf = (text) => text.replace(/\r\n/g, '\n');
+const routesSource = lf(await readFile(src('routes.tsx'), 'utf8'));
 
 async function routeFixture(functionName, params) {
   const start = routesSource.indexOf(`function ${functionName}(`);
@@ -182,16 +185,16 @@ test('F-003: route focus is not moved when only the query string changes', async
 
 test('F-003: blog and cases filters ask the router not to reset scroll', async () => {
   for (const page of ['BlogPage', 'CasesPage']) {
-    const source = await readFile(src(`pages/${page}.tsx`), 'utf8');
+    const source = lf(await readFile(src(`pages/${page}.tsx`), 'utf8'));
     assert.ok(source.includes('navigate(nextUrl, { replace: true, preventScrollReset: true'), `${page} filter sync must keep the scroll position`);
   }
 });
 
 test('F-044: home menu items for cases and blog disappear together with a closed section', async () => {
-  const source = await readFile(src('components/Navbar.tsx'), 'utf8');
+  const source = lf(await readFile(src('components/Navbar.tsx'), 'utf8'));
   assert.ok(source.includes("{ label: 'Кейсы', action: () => scrollToSection('cases'), routePath: '/cases' }"));
   assert.ok(source.includes("{ label: 'Блог', action: () => scrollToSection('blog'), routePath: '/blog' }"));
   assert.ok(source.includes('allNavItems.filter((item) => !item.routePath || !isHiddenInNav(item.routePath))'));
-  const home = await readFile(src('pages/Home.tsx'), 'utf8');
+  const home = lf(await readFile(src('pages/Home.tsx'), 'utf8'));
   assert.ok(home.includes("!isHiddenInNav('/cases')") && home.includes("!isHiddenInNav('/blog')"), 'the sections the menu scrolls to are hidden by the same rule');
 });

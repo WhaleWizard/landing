@@ -130,7 +130,10 @@ if (args.report) {
   writeFileSync(resolve(args.report), JSON.stringify(report, null, 2), 'utf8');
   console.log(`Отчёт: ${resolve(args.report)}`);
 }
-process.exit(report.failed.length > 0 ? 1 : 0);
+// Код выхода, а не process.exit(): на Windows (Node 25) принудительный выход
+// при ещё открытых соединениях fetch ронял процесс внутренней ошибкой libuv
+// (0xC0000409) уже после того, как вся работа сделана и отчёт записан.
+process.exitCode = report.failed.length > 0 ? 1 : 0;
 
 // ——— helpers ———
 

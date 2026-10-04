@@ -21,8 +21,10 @@ import { ssrBuildOptions } from './ssr-bundle.js';
 
 const require = createRequire(import.meta.url);
 
+// Переводы строк приводятся к LF: на Windows git отдаёт исходники с CRLF, и
+// якоря вида «\n}\n» иначе не находились бы, хотя код тот же.
 async function source(relativePath) {
-  return readFile(new URL(`../${relativePath}`, import.meta.url), 'utf8');
+  return (await readFile(new URL(`../${relativePath}`, import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 }
 
 /** Собирает чистый модуль со всеми зависимостями в память. */

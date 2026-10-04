@@ -67,17 +67,22 @@ test('таблицы ключевых разделов есть в карте', 
   }
 });
 
+// Сравниваем содержание, а не переводы строк: на Windows git при скачивании
+// превращает LF сгенерированных файлов и миграций в CRLF, и побайтное
+// сравнение падало только локально, хотя файлы не отстали ни на строку.
+const sameText = (text) => String(text).replace(/\r\n/g, '\n');
+
 test('подписи миграций не отстали от файлов', () => {
   assert.ok(existsSync(SIGNATURES_PATH), 'нет migration-signatures.ts — запустите build:migration-map');
   const expected = renderMigrationSignatures(collectMigrationSignatures());
-  assert.equal(readFileSync(SIGNATURES_PATH, 'utf8'), expected,
+  assert.equal(sameText(readFileSync(SIGNATURES_PATH, 'utf8')), sameText(expected),
     'подписи миграций устарели — запустите npm run build:migration-map');
 });
 
 test('тексты миграций не отстали от файлов', () => {
   assert.ok(existsSync(SQL_PATH), 'нет migration-sql.ts — запустите build:migration-map');
   const expected = renderMigrationSql(listMigrationFiles());
-  assert.equal(readFileSync(SQL_PATH, 'utf8'), expected,
+  assert.equal(sameText(readFileSync(SQL_PATH, 'utf8')), sameText(expected),
     'тексты миграций устарели — запустите npm run build:migration-map');
 });
 

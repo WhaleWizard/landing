@@ -2,6 +2,7 @@ import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
 
@@ -63,7 +64,7 @@ async function bundle(contents) {
   });
   const file = `${TMP_DIR}/${randomUUID()}.mjs`;
   writeFileSync(file, result.outputFiles[0].text);
-  return import(file);
+  return import(pathToFileURL(file).href);
 }
 
 const { createElement, act, useState, createRoot } = await bundle(`

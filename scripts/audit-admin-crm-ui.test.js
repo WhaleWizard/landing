@@ -2,6 +2,7 @@ import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
 
@@ -41,7 +42,9 @@ for (const key of [
   'window', 'document', 'navigator', 'getComputedStyle', 'localStorage', 'sessionStorage', 'location', 'history',
   'matchMedia', 'self', 'requestAnimationFrame', 'cancelAnimationFrame', 'getSelection',
 ]) {
-  if (key in window && (!(key in globalThis) || key === 'self')) {
+  // Хранилища подменяются всегда: в Node 25 есть свой глобальный localStorage,
+  // но без --localstorage-file он нерабочий (setItem — не функция).
+  if (key in window && (!(key in globalThis) || key === 'self' || key === 'localStorage' || key === 'sessionStorage')) {
     Object.defineProperty(globalThis, key, { value: window[key], configurable: true, writable: true });
   }
 }
@@ -70,7 +73,7 @@ async function bundle(contents) {
   });
   const file = `${TMP_DIR}/${randomUUID()}.mjs`;
   writeFileSync(file, result.outputFiles[0].text);
-  return import(file);
+  return import(pathToFileURL(file).href);
 }
 
 const reactModule = await bundle(`
