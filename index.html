@@ -28,6 +28,11 @@
     <link rel="dns-prefetch" href="https://mc.yandex.ru" />
     <link rel="dns-prefetch" href="https://connect.facebook.net" />
     <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    <!-- Библиотека шрифтов редактора: не блокирует первый кадр (media=print →
+         подмена на all после загрузки). Шрифт первого экрана объявлен preload-ом
+         ниже, скрипт подгонки заголовка эту таблицу не ждёт (data-ww-noncritical). -->
+    <link rel="stylesheet" href="/fonts/library.css" media="print" data-ww-noncritical onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="/fonts/library.css" /></noscript>
     <!-- Meta Pixel Code removed – теперь управляется через consent.ts -->
   </head>
   <body>

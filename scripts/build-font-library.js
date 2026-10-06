@@ -27,6 +27,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LIBRARY_DIR = join(ROOT, 'public', 'fonts', 'library');
 const HERO_DIR = join(ROOT, 'public', 'fonts', 'hero');
 const CSS_PATH = join(ROOT, 'src', 'styles', 'content-font-library.css');
+// Та же библиотека как отдельный файл для браузера: 584 @font-face не должны
+// лежать в блокирующей таблице стилей каждой страницы (см. index.html).
+const PUBLIC_CSS_PATH = join(ROOT, 'public', 'fonts', 'library.css');
 const CATALOG_PATH = join(ROOT, 'src', 'app', 'utils', 'contentFontCatalog.ts');
 const SERVER_IDS_PATH = join(ROOT, 'functions', '_lib', 'content-font-ids.ts');
 
@@ -286,6 +289,7 @@ async function main() {
   });
 
   writeFileSync(CSS_PATH, renderCss(resolved), 'utf8');
+  writeFileSync(PUBLIC_CSS_PATH, renderCss(resolved), 'utf8');
   writeFileSync(CATALOG_PATH, renderCatalog(resolved), 'utf8');
   writeFileSync(SERVER_IDS_PATH, renderServerIds(resolved), 'utf8');
 

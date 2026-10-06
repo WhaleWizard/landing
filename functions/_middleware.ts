@@ -84,8 +84,37 @@ function buildCsp(): string {
   return directives.join('; ');
 }
 
+/**
+ * Готовая страница со сборки — на CDN на минуту.
+ *
+ * Статические страницы идут через эту функцию только ради списка закрытых
+ * страниц и заголовков, но каждый заход всё равно доезжал до воркера
+ * (TTFB 0,2–0,45 с). Браузерный заголовок остаётся прежним — посетитель при
+ * переходе всегда спрашивает сервер, — а дата-центр Cloudflare держит копию
+ * 60 секунд и ещё 5 минут отдаёт её, обновляя в фоне. Выкладка новой сборки
+ * сбрасывает кэш Pages сама. Закрытие страницы применяется через полминуты
+ * (столько живёт список в воркере) плюс минута кэша — это в пределах
+ * обещанного в CLAUDE.md. Статьи, админка, предпросмотр и служебные ответы
+ * сюда не попадают: у них свои заголовки, а здесь только ответ 200 с HTML из
+ * статики без собственного CDN-указания.
+ */
+const STATIC_PAGE_CDN_CACHE = 'public, max-age=60, stale-while-revalidate=300';
+
+function isCacheableStaticPage(response: Response, request: Request, previewActive: boolean): boolean {
+  if (previewActive || response.status !== 200 || request.method !== 'GET') return false;
+  if (!(response.headers.get('Content-Type') || '').includes('text/html')) return false;
+  if (response.headers.has('Cloudflare-CDN-Cache-Control')) return false;
+  // Страницы статей и их 404 отдают Functions с no-store — их не кэшируем.
+  const cacheControl = response.headers.get('Cache-Control') || '';
+  return !/no-store|private/i.test(cacheControl);
+}
+
 function withSecurityHeaders(response: Response, request: Request, previewActive = false): Response {
   const headers = new Headers(response.headers);
+
+  if (isCacheableStaticPage(response, request, previewActive)) {
+    headers.set('Cloudflare-CDN-Cache-Control', STATIC_PAGE_CDN_CACHE);
+  }
 
   // JSON служебных эндпоинтов не должен попадать в поиск как отдельная
   // страница. Закрывать их в robots.txt нельзя: тогда Googlebot не сможет

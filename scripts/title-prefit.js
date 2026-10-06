@@ -93,7 +93,9 @@
   }
 
   function stylesReady() {
-    var links = doc.querySelectorAll('link[rel="stylesheet"]');
+    // Некритичные таблицы (библиотека шрифтов) грузятся после первого кадра —
+    // ждать их значит отдать кадр без подгонки, то есть со сдвигом.
+    var links = doc.querySelectorAll('link[rel="stylesheet"]:not([data-ww-noncritical])');
     for (var i = 0; i < links.length; i += 1) {
       if (!links[i].sheet) {
         links[i].addEventListener('load', run);
