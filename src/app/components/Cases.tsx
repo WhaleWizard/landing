@@ -37,6 +37,26 @@ export type CasesContent = {
   typography?: ContentTypography;
 };
 
+/**
+ * Размеры и WebP-копии четырёх штатных обложек кейсов.
+ *
+ * Карточки рисовались JPG без width/height: пока картинка догружалась,
+ * текст под ней сдвигался, а на телефоне качался файл вдвое тяжелее нужного.
+ * Адрес в контенте остаётся прежним (его хранит CMS), подмена идёт по карте;
+ * незнакомый адрес из «Текстов сайта» показывается как есть.
+ */
+const CASE_IMAGE_META: Record<string, { webp: string; width: number; height: number }> = {
+  '/images/case-concierge.jpg': { webp: '/images/case-concierge.webp', width: 669, height: 352 },
+  '/images/case-ecommerce.jpg': { webp: '/images/case-ecommerce.webp', width: 659, height: 348 },
+  '/images/case-infobusiness.jpg': { webp: '/images/case-infobusiness.webp', width: 673, height: 350 },
+  '/images/case-b2c.jpg': { webp: '/images/case-b2c.webp', width: 665, height: 355 },
+};
+
+function caseImageProps(image: string): { src: string; width?: number; height?: number } {
+  const meta = CASE_IMAGE_META[image];
+  return meta ? { src: meta.webp, width: meta.width, height: meta.height } : { src: image };
+}
+
 const casesData: CaseItem[] = [
   {
     title: 'Консьерж-сервис премиум-класса',
@@ -281,10 +301,11 @@ function Cases({
 
               <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
                 <ImageWithFallback
-                  src={item.image}
+                  {...caseImageProps(item.image)}
                   alt={item.title}
                   className={`w-full h-full object-cover ${staticMotion ? '' : 'transition-transform duration-500 group-hover:scale-110'}`}
                   loading="lazy"
+                  decoding="async"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                 <div
@@ -364,10 +385,11 @@ function Cases({
                   >
                     <div className="relative h-52 overflow-hidden">
                       <ImageWithFallback
-                        src={item.image}
+                        {...caseImageProps(item.image)}
                         alt={item.title}
                         className="w-full h-full object-cover"
                         loading="lazy"
+                        decoding="async"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
