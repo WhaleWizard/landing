@@ -596,9 +596,25 @@ test('bypassed static assets retain security and cache headers', () => {
   assert.ok(existsSync(outputPath), 'dist/_headers is missing');
 
   const source = readFileSync(sourcePath, 'utf8');
-  assert.equal(readFileSync(outputPath, 'utf8'), source, 'build output must keep the static header contract unchanged');
-  for (const line of source.split(/\r?\n/)) {
+  // Генератор дописывает в dist/_headers ранние подсказки первого кадра
+  // (Link: preload CSS и картинок) — всё до этой отметки обязано совпадать с
+  // public/_headers побайтово, а сам хвост проверяется ниже.
+  const output = readFileSync(outputPath, 'utf8');
+  const marker = '# Ранние подсказки первого кадра';
+  const markerAt = output.indexOf(marker);
+  assert.ok(markerAt > 0, 'dist/_headers must carry the early-hint rules written by generate-pages');
+  assert.equal(output.slice(0, markerAt).trimEnd(), source.trimEnd(), 'build output must keep the static header contract unchanged');
+  for (const line of output.split(/\r?\n/)) {
     assert.ok(line.length <= 2_000, `_headers line exceeds the Cloudflare Pages 2,000-character limit`);
+  }
+  const hintRules = parseHeadersFile(output.slice(markerAt));
+  for (const route of ['/', '/meta-ads/', '/meta-apps/', '/google-ads/', '/consult/']) {
+    const link = hintRules.get(route)?.get('link') || '';
+    assert.match(link, /<\/assets\/index-[^>]+\.css>; rel=preload; as=style/, `${route}: early hints must preload the global stylesheet`);
+  }
+  assert.match(hintRules.get('/')?.get('link') || '', /whale\.webp>; rel=preload; as=image/, 'home early hints must preload the whale (LCP image)');
+  for (const [, headers] of hintRules) {
+    assert.ok(!/media=/.test(headers.get('link') || ''), 'early hints cannot carry media conditions');
   }
 
   const rules = parseHeadersFile(source);

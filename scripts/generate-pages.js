@@ -2102,6 +2102,50 @@ ${uniqueRoutes.map((route) => `  <url><loc>${xmlEscape(`${SITE_URL}${withTrailin
   writeFileSync(join(DIST_DIR, 'sitemap.xml'), xml, 'utf8');
 }
 
+/**
+ * Ранние подсказки (Early Hints, 103) для первого кадра.
+ *
+ * Cloudflare собирает заголовок Link из тегов modulepreload в HTML сам, но
+ * таблицы стилей и картинку первого экрана в него не берёт — а именно они
+ * нужны первому кадру раньше любого JavaScript. Здесь в dist/_headers для
+ * каждой готовой страницы дописывается правило Link с preload главного CSS,
+ * таблиц маршрута и картинок первого экрана без медиа-условий (условные
+ * пары «телефон/десктоп» в заголовке не выразить — телефон скачал бы обе).
+ * Имена файлов с хешами известны только после сборки, поэтому правила пишет
+ * генератор, а не public/_headers. Предел Cloudflare — 2000 символов на
+ * строку заголовка, стережёт generated-seo.test.js.
+ */
+function writeEarlyHints(staticPages, baseHtml) {
+  const headersPath = join(DIST_DIR, '_headers');
+  if (!existsSync(headersPath)) return;
+  const globalCss = baseHtml.match(/<link[^>]+rel="stylesheet"[^>]+href="(\/assets\/[^"]+\.css)"/i)?.[1];
+  const blocks = [];
+  for (const page of staticPages) {
+    if (page.noIndex) continue;
+    const routeCss = collectRouteManifestItems(page.route)
+      .flatMap((item) => (Array.isArray(item.css) ? item.css : []))
+      .map((file) => `/${file}`);
+    const stylesheets = [...new Set([globalCss, ...routeCss].filter(Boolean))];
+    // Только картинки без медиа-условий: заголовок не умеет выбирать по ширине
+    // экрана, и телефон скачал бы десктопную пару.
+    const images = (HERO_PRELOADS[page.route] || [])
+      .filter((preload) => !preload.media && !preload.imageSrcSet)
+      .map((preload) => preload.href);
+    const hints = [
+      ...stylesheets.map((href) => `<${href}>; rel=preload; as=style`),
+      ...images.map((href) => `<${href}>; rel=preload; as=image`),
+    ];
+    if (!hints.length) continue;
+    const line = `  Link: ${hints.join(', ')}`;
+    if (line.length > 1900) continue;
+    blocks.push(`${withTrailingSlashIfStaticRoute(page.route)}\n${line}`);
+  }
+  if (!blocks.length) return;
+  const current = readFileSync(headersPath, 'utf8').replace(/\s+$/, '');
+  const note = '# Ранние подсказки первого кадра — пишет scripts/generate-pages.js на сборке.';
+  writeFileSync(headersPath, `${current}\n\n${note}\n${blocks.join('\n\n')}\n`, 'utf8');
+}
+
 function writeRobots() {
   // `/admin` закрыт от индексации заголовком `noindex` в самой разметке, а не
   // запретом обхода. Причина та же, по которой так же поступили с `/api/*`:
@@ -2367,6 +2411,7 @@ async function main() {
   const allRoutes = [...new Set([...STATIC_ROUTES, ...articleRoutes])];
 
   writeSitemap(allRoutes);
+  writeEarlyHints(staticPages, baseHtml);
   writeRobots();
   appendLlmsContentIndex(articles);
   writeLlmsFull(articles);

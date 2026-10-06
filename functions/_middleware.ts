@@ -84,37 +84,19 @@ function buildCsp(): string {
   return directives.join('; ');
 }
 
-/**
- * Готовая страница со сборки — на CDN на минуту.
- *
- * Статические страницы идут через эту функцию только ради списка закрытых
- * страниц и заголовков, но каждый заход всё равно доезжал до воркера
- * (TTFB 0,2–0,45 с). Браузерный заголовок остаётся прежним — посетитель при
- * переходе всегда спрашивает сервер, — а дата-центр Cloudflare держит копию
- * 60 секунд и ещё 5 минут отдаёт её, обновляя в фоне. Выкладка новой сборки
- * сбрасывает кэш Pages сама. Закрытие страницы применяется через полминуты
- * (столько живёт список в воркере) плюс минута кэша — это в пределах
- * обещанного в CLAUDE.md. Статьи, админка, предпросмотр и служебные ответы
- * сюда не попадают: у них свои заголовки, а здесь только ответ 200 с HTML из
- * статики без собственного CDN-указания.
- */
-const STATIC_PAGE_CDN_CACHE = 'public, max-age=60, stale-while-revalidate=300';
-
+/** Ответ 200 с HTML из статики Pages — то, что можно положить в кэш дата-центра. */
 function isCacheableStaticPage(response: Response, request: Request, previewActive: boolean): boolean {
   if (previewActive || response.status !== 200 || request.method !== 'GET') return false;
   if (!(response.headers.get('Content-Type') || '').includes('text/html')) return false;
-  if (response.headers.has('Cloudflare-CDN-Cache-Control')) return false;
-  // Страницы статей и их 404 отдают Functions с no-store — их не кэшируем.
+  // Только ответ статики Pages: у неё заголовок из public/_headers без
+  // s-maxage. Всё, что отдали Functions (статьи человеку с no-store, бот-версия
+  // статьи со своим s-maxage и Vary, служебные ответы), остаётся как есть.
   const cacheControl = response.headers.get('Cache-Control') || '';
-  return !/no-store|private/i.test(cacheControl);
+  return /^public, max-age=0, must-revalidate$/i.test(cacheControl.trim()) && !response.headers.has('Vary');
 }
 
 function withSecurityHeaders(response: Response, request: Request, previewActive = false): Response {
   const headers = new Headers(response.headers);
-
-  if (isCacheableStaticPage(response, request, previewActive)) {
-    headers.set('Cloudflare-CDN-Cache-Control', STATIC_PAGE_CDN_CACHE);
-  }
 
   // JSON служебных эндпоинтов не должен попадать в поиск как отдельная
   // страница. Закрывать их в robots.txt нельзя: тогда Googlebot не сможет
@@ -212,6 +194,64 @@ async function ensureApiNotFound(url: URL, response: Response): Promise<Response
   });
 }
 
+/**
+ * Готовая страница со сборки — из кэша дата-центра, а не с диска Pages.
+ *
+ * Статические страницы идут через эту функцию только ради списка закрытых
+ * страниц и заголовков, но каждый заход всё равно доезжал до воркера и
+ * хранилища Pages (TTFB 0,2–0,45 с). Заголовок CDN-Cache-Control на ответ
+ * Functions Cloudflare не применяет, поэтому кэш ведётся явно через Cache API,
+ * как у бот-версии статей. Ключ — адрес без параметров: ?utm и прочие хвосты
+ * не плодят копии. Кэшируется только ответ 200 статики (заголовок из
+ * public/_headers, без Vary) — статьи, 404, редиректы и служебные ответы
+ * проходят мимо. Срок — минута: Pages при новой сборке кэш не чистит, и минута
+ * ограничивает окно устаревшей страницы после выкладки; закрытие страницы
+ * применяется впрыском списка уже поверх кэшированного HTML.
+ */
+const STATIC_PAGE_CACHE_SECONDS = 60;
+
+function staticPageCacheKey(url: URL): Request {
+  return new Request(new URL(url.pathname, url.origin).toString(), { method: 'GET' });
+}
+
+async function staticPage(
+  request: Request,
+  url: URL,
+  next: () => Promise<Response>,
+  waitUntil: (promise: Promise<unknown>) => void,
+): Promise<Response> {
+  if (request.method !== 'GET') return next();
+  const key = staticPageCacheKey(url);
+  try {
+    const cached = await caches.default.match(key);
+    if (cached) {
+      const headers = new Headers(cached.headers);
+      // В кэше лежит минутный срок для самого кэша; браузеру — прежнее
+      // «всегда спроси сервер», иначе переход назад показал бы старую копию.
+      headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+      headers.set('X-WW-Static-Cache', 'hit');
+      return new Response(cached.body, { status: cached.status, headers });
+    }
+  } catch {
+    // Cache API недоступен — страница отдаётся как раньше.
+  }
+
+  const response = await next();
+  if (!isCacheableStaticPage(response, request, false)) return response;
+
+  const stored = new Response(response.clone().body, {
+    status: response.status,
+    headers: new Headers(response.headers),
+  });
+  stored.headers.set('Cache-Control', `public, max-age=${STATIC_PAGE_CACHE_SECONDS}`);
+  stored.headers.set('X-WW-Static-Cache', 'stored');
+  waitUntil(caches.default.put(key, stored).catch(() => undefined));
+
+  const headers = new Headers(response.headers);
+  headers.set('X-WW-Static-Cache', 'miss');
+  return new Response(response.body, { status: response.status, headers });
+}
+
 export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUntil }) => {
   const url = new URL(request.url);
 
@@ -235,7 +275,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUn
 
   const snapshot = await readPageLockSnapshot(env, waitUntil);
   if (snapshot.locks.length === 0 && !preview.active) {
-    return withSecurityHeaders(await next(), request);
+    return withSecurityHeaders(await staticPage(request, url, next, waitUntil), request);
   }
 
   const lock = findPageLock(snapshot.locks, url.pathname);
@@ -252,6 +292,6 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUn
     return withSecurityHeaders(response, request);
   }
 
-  const response = await next();
+  const response = preview.active ? await next() : await staticPage(request, url, next, waitUntil);
   return withSecurityHeaders(injectLockState(response, snapshot, preview.active), request, preview.active);
 };
