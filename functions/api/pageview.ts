@@ -82,6 +82,7 @@ interface PageViewPayload {
   predicted_ltv?: number;
   status?: string;
   search_string?: string;
+  stats_only?: boolean;
 }
 
 function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
@@ -436,7 +437,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
   // Отправляем асинхронно, не замедляя клиентскую навигацию.
   // Запись в outbox и отметки sent/retry делает сам sendMetaPageView.
-  waitUntil(sendMetaPageView(payload, env, request));
+  if (!parsedBody.stats_only) {
+    waitUntil(sendMetaPageView(payload, env, request));
+  }
   // Заодно фоном дошлём события, не доставленные в Meta ранее. Очередь
   // разбирается не на каждом просмотре, а примерно на каждом десятом: на
   // бесплатном тарифе Cloudflare лишний запрос к D1 с каждого визита — это

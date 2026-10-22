@@ -232,6 +232,32 @@ test('F-112: PageView endpoint strictly gates Meta CAPI on marketing consent', a
     const outboxNoConsent = sqlite.prepare('SELECT COUNT(*) as count FROM meta_outbox').get();
     assert.equal(Number(outboxNoConsent.count), 0, 'meta_outbox must be empty for PageView without consent');
 
+    // 1b. Anonymous stats_only request (analytics consent without marketing - F-089)
+    const pendingStatsOnly = [];
+    const eventIdStatsOnly = randomUUID();
+    const requestStatsOnly = makeTrustedRequest('https://www.whalewzrd.com/api/pageview', {
+      event_id: eventIdStatsOnly,
+      page_url: 'https://www.whalewzrd.com/meta-apps/',
+      page_path: '/meta-apps/',
+      marketing_consent: false,
+      stats_only: true,
+    });
+
+    const responseStatsOnly = await pageviewEndpoint.onRequestPost({
+      request: requestStatsOnly,
+      env,
+      waitUntil: (promise) => pendingStatsOnly.push(promise),
+    });
+
+    assert.equal(responseStatsOnly.status, 200);
+    await Promise.allSettled(pendingStatsOnly);
+
+    const capiRequestsStatsOnly = capturedRequests.filter((r) => r.url.includes('graph.facebook.com'));
+    assert.equal(capiRequestsStatsOnly.length, 0, 'No Meta CAPI request must be sent for stats_only PageView');
+
+    const statsOnlyRow = sqlite.prepare("SELECT views FROM page_stats_daily WHERE page_path = '/meta-apps'").get();
+    assert.ok(statsOnlyRow && Number(statsOnlyRow.views) >= 1, 'page_stats_daily must record the stats_only pageview');
+
     // 2. With marketing consent
     const pendingWithConsent = [];
     const eventIdWithConsent = randomUUID();

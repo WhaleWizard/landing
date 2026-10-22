@@ -1068,6 +1068,7 @@ type ServerPageViewPayload = MetaBrowserContext & {
   content_ids?: string[];
   service?: string;
   service_slug?: string;
+  stats_only?: boolean;
 };
 
 function sendServerPageView(payload: ServerPageViewPayload): void {
@@ -1584,7 +1585,18 @@ export function trackPageView(path: string, options: { marketing?: boolean; anal
     }
   }
 
-  if (!shouldTrackMarketing) return;
+  if (!shouldTrackMarketing) {
+    if (shouldTrackAnalytics) {
+      sendServerPageView({
+        event_id: eventId,
+        page_url: getTrackingPageUrl(),
+        page_path: path,
+        marketing_consent: false,
+        stats_only: true,
+      });
+    }
+    return;
+  }
 
   const browserContext = getMetaBrowserContext(path);
   if (!browserContext.marketing_consent) return;
