@@ -12,6 +12,23 @@
 
 ## 2. Где мы сейчас
 
+**Сделано 23.10.2026 (Mobile-Only Master Audit, Responsiveness & Autonomous Repair):**
+
+- **MOB-HERO-001 (Невидимые символы печатной машинки в акцентном градиенте):**
+  - Обнаружено на Blink/Chromium и WebKit: при выборе эффекта `typewriter` для акцентных строк Hero (`bg-gradient-to-r ... bg-clip-text text-transparent`) глифы оставались прозрачными (`color: transparent`, `visibility: hidden`, 0 видимых пикселей).
+  - Причины: 
+    1. Промежуточный нестилизованный `<span>` вокруг `renderTypewriter` разрывал CSS-наследование `background-image: inherit` от родительского контейнера.
+    2. Квантование времени в Blink: анимация с большой задержкой и шагом `1ms step-end both` вычисляла время с плавающей точкой (`0.999999ms`), из-за чего браузер оставался в стартовом кадре `opacity: 0, visibility: hidden` даже после завершения анимации.
+  - Исправление: удалён промежуточный `<span>` в `HeroTitleEffect.tsx`; в `hero-title-effects.css` добавлен селектор для `.hero-title-effect__typeword` и `.hero-title-effect__character` с `background-image: inherit` и `-webkit-background-clip: text`; ключевые кадры переведены на `40ms linear forwards`. Символы гарантированно переходят в `opacity: 1, visibility: visible` и заполняются акцентным градиентом.
+- **MOB-HERO-002 (Рассинхронизация многострочных заголовков Hero):**
+  - Обнаружено: при независимой настройке эффектов строк в CMS (например, строка 1 `typewriter`, строка 2 `fade-up`) вторая строка рассчитывала задержку по формуле `safeDelay + safeSequenceIndex * safeSequenceGap`, не учитывая реальную длительность анимации первой строки. В результате вторая строка начинала анимацию и появлялась раньше, чем завершался набор первой строки.
+  - Исправление: реализована функция `resolveHeroTitleLines` в `HeroTitleEffect.tsx`, вычисляющая кумулятивные задержки строк $T_i = T_{i-1} + \text{duration of line } (i-1) + \text{gap}$. Интегрирована во все компоненты Hero: `Hero.tsx`, `ConsultStudioHero.tsx`, `MetaAdsEditorialHero.tsx`.
+- **Проверка мобильной адаптивности и регрессий:**
+  - 15 мобильных разрешений (320px–480px, 639px–1024px) на Chromium и WebKit: 0 горизонтальных переполнений (`overflow-x: 0`), 0 наложений, 100% валидность вёрстки.
+  - Полноценная матрица всех 8 эффектов анимаций Hero (`none`, `fade-up`, `fade-in`, `slide-left`, `slide-right`, `blur-reveal`, `typewriter`, `words`) подтверждена в headless-тестах с проверкой `opacity: 1, visibility: visible`.
+  - Мобильное меню навигации протестировано на открытие, блокировку скролла body, интерактивность и закрытие.
+  - Полный аудит зафиксирован в директории `audit/mobile/` (`00_STATE.md`, `04_MOBILE_BUGS.csv`, `11_FIX_CHANGELOG.md`, `12_REGRESSION_RESULTS.md`, `14_MOBILE_FINAL_REPORT.md`, `reports/`, `screenshots/`).
+
 **Сделано 22.10.2026 (Production-First Engineering, Network Torture Test & Autonomous Repair):**
 
 - **PROD-001 (Early Hints Preload Mismatch & Duplicate CSS Fetch):**

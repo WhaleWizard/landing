@@ -1,7 +1,7 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { HeroContent } from '../Hero';
-import HeroTitleEffect, { resolveHeroTitleLine } from '../HeroTitleEffect';
+import HeroTitleEffect, { resolveHeroTitleLines } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
 import { Button } from '../ui/button';
 import {
@@ -78,43 +78,56 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
             <span>{content.badge}</span>
           </div>
 
-          <h1
-            ref={titleRef}
-            id="meta-editorial-title"
-            className={`meta-editorial-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
-            style={managedTitleStyle(content.typography)}
-          >
-            {titleLines?.length ? (
-              titleLines.map((line, index) => {
-                const resolved = resolveHeroTitleLine(line, titleAnimation, { display: 'block' });
-                return (
-                  <HeroTitleEffect
-                    as="span"
-                    key={`line-${index}`}
-                    className={line.tone === 'accent' ? 'meta-editorial-hero__title-accent' : undefined}
-                    style={resolved.style}
-                    text={line.text}
-                    effect={resolved.effect}
-                    speed={resolved.speed}
-                    delayMs={resolved.delayMs}
-                    sequenceIndex={index}
-                  >
-                    {line.text}
-                  </HeroTitleEffect>
-                );
-              })
-            ) : (
-              <>
-                <HeroTitleEffect as="span" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={0}>{content.titlePrefix}</HeroTitleEffect>
-                <HeroTitleEffect as="span" className="meta-editorial-hero__title-accent" style={{ display: 'block' }} text={String(content.titleAccent || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={1}>{content.titleAccent}</HeroTitleEffect>
-              </>
-            )}
-          </h1>
+          {(() => {
+            const rawLines = titleLines?.length
+              ? titleLines
+              : [
+                { text: String(content.titlePrefix || ''), tone: 'default' as const },
+                { text: String(content.titleAccent || ''), tone: 'accent' as const },
+              ];
+            const allToResolve = supportingLine ? [...rawLines, supportingLine] : rawLines;
+            const resolvedAll = resolveHeroTitleLines(allToResolve, titleAnimation, { display: 'block' });
+            const resolvedTitle = resolvedAll.slice(0, rawLines.length);
+            const resolvedSupporting = supportingLine ? resolvedAll[rawLines.length] : null;
 
-          {supportingLine && (() => {
-            const resolved = resolveHeroTitleLine(supportingLine, titleAnimation, { display: 'block' });
             return (
-              <HeroTitleEffect as="p" className="meta-editorial-hero__supporting" style={resolved.style} text={supportingLine.text} effect={resolved.effect} speed={resolved.speed} delayMs={resolved.delayMs} sequenceIndex={titleLines?.length || 2}>{supportingLine.text}</HeroTitleEffect>
+              <>
+                <h1
+                  ref={titleRef}
+                  id="meta-editorial-title"
+                  className={`meta-editorial-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
+                  style={managedTitleStyle(content.typography)}
+                >
+                  {resolvedTitle.map((resolved, index) => (
+                    <HeroTitleEffect
+                      as="span"
+                      key={`line-${index}`}
+                      className={resolved.line.tone === 'accent' ? 'meta-editorial-hero__title-accent' : undefined}
+                      style={resolved.style}
+                      text={resolved.line.text}
+                      effect={resolved.effect}
+                      speed={resolved.speed}
+                      delayMs={resolved.delayMs}
+                    >
+                      {resolved.line.text}
+                    </HeroTitleEffect>
+                  ))}
+                </h1>
+
+                {resolvedSupporting && (
+                  <HeroTitleEffect
+                    as="p"
+                    className="meta-editorial-hero__supporting"
+                    style={resolvedSupporting.style}
+                    text={resolvedSupporting.line.text}
+                    effect={resolvedSupporting.effect}
+                    speed={resolvedSupporting.speed}
+                    delayMs={resolvedSupporting.delayMs}
+                  >
+                    {resolvedSupporting.line.text}
+                  </HeroTitleEffect>
+                )}
+              </>
             );
           })()}
 

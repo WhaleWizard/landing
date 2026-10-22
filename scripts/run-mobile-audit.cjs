@@ -76,11 +76,16 @@ async function runAudit() {
       // Collect network size and requests
       let totalBytes = 0;
       let requestCount = 0;
-      page.on('response', (res) => {
+      page.on('response', async (res) => {
         requestCount++;
-        const headers = res.headers();
-        const len = headers['content-length'] ? Number(headers['content-length']) : 0;
-        totalBytes += len;
+        try {
+          const buffer = await res.body();
+          totalBytes += buffer.length;
+        } catch (e) {
+          const headers = res.headers();
+          const len = headers['content-length'] ? Number(headers['content-length']) : 0;
+          totalBytes += len;
+        }
       });
 
       const t0 = Date.now();
@@ -351,8 +356,119 @@ async function runAudit() {
 
   await navContext.close();
 
+  // 5. Hero Title Animation Effects Matrix Test
+  console.log('\n========================================');
+  console.log('5. TESTING ALL HERO ANIMATION EFFECTS (ACCENT VS NORMAL)');
+  console.log('========================================');
+
+  const effects = ['none', 'fade-up', 'fade-in', 'slide-left', 'slide-right', 'blur-reveal', 'typewriter', 'words'];
+  results.effectsMatrix = {};
+
+  for (const engineName of ['chromium', 'webkit']) {
+    const b = engineName === 'webkit' ? wkBrowser : crBrowser;
+    const context = await b.newContext({
+      viewport: { width: 390, height: 844 },
+      deviceScaleFactor: 2,
+      isMobile: true,
+      hasTouch: true,
+    });
+
+    results.effectsMatrix[engineName] = {};
+
+    for (const effect of effects) {
+      const page = await context.newPage();
+      
+      // Override /api/site-content to return titleLines with this effect
+      await page.route('**/api/site-content*', async (route) => {
+        const json = {
+          success: true,
+          version: 1,
+          content: {
+            hero: {
+              titleLines: [
+                { text: 'Обычная строка', effect: effect, tone: 'default' },
+                { text: 'Акцентная строка градиент', effect: effect, tone: 'accent' },
+                { text: 'Поддерживающая строка', effect: effect, tone: 'supporting' }
+              ]
+            }
+          }
+        };
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(json) });
+      });
+
+      await page.goto(`${baseUrl}/meta-apps/`, { waitUntil: 'load' });
+      // Wait for all title animations to finish
+      await page.evaluate(async () => {
+        const anims = document.getAnimations().filter(a => a.animationName && a.animationName.includes('hero-title'));
+        if (anims.length) {
+          await Promise.all(anims.map(a => a.finished.catch(() => {})));
+        }
+      });
+      await page.waitForTimeout(300);
+
+      const effectEval = await page.evaluate(() => {
+        const h1 = document.querySelector('h1');
+        if (!h1) return { error: 'No h1' };
+        
+        const lines = Array.from(h1.querySelectorAll('.hero-title-effect, span.block')).map(el => {
+          const comp = window.getComputedStyle(el);
+          const words = Array.from(el.querySelectorAll('.hero-title-effect__word')).map(w => {
+            const wc = window.getComputedStyle(w);
+            return {
+              text: w.innerText,
+              opacity: wc.opacity,
+              visibility: wc.visibility,
+              color: wc.color,
+              webkitTextFillColor: wc.webkitTextFillColor,
+              bgClip: wc.backgroundClip || wc.webkitBackgroundClip,
+              bgImage: wc.backgroundImage ? wc.backgroundImage.slice(0, 30) : 'none'
+            };
+          });
+
+          const chars = Array.from(el.querySelectorAll('.hero-title-effect__character')).map(c => {
+            const cc = window.getComputedStyle(c);
+            return {
+              char: c.innerText,
+              opacity: cc.opacity,
+              visibility: cc.visibility,
+              color: cc.color,
+              webkitTextFillColor: cc.webkitTextFillColor,
+              bgClip: cc.backgroundClip || cc.webkitBackgroundClip,
+              bgImage: cc.backgroundImage ? cc.backgroundImage.slice(0, 30) : 'none'
+            };
+          });
+
+          return {
+            text: el.innerText,
+            dataEffect: el.getAttribute('data-effect'),
+            opacity: comp.opacity,
+            visibility: comp.visibility,
+            color: comp.color,
+            webkitTextFillColor: comp.webkitTextFillColor,
+            bgClip: comp.backgroundClip || comp.webkitBackgroundClip,
+            bgImage: comp.backgroundImage ? comp.backgroundImage.slice(0, 30) : 'none',
+            wordCount: words.length,
+            wordsSample: words.slice(0, 2),
+            charCount: chars.length,
+            charsSample: chars.slice(0, 2)
+          };
+        });
+
+        return { lines };
+      });
+
+      results.effectsMatrix[engineName][effect] = effectEval;
+      console.log(`[Effect Matrix] ${engineName} - ${effect} -> lines: ${effectEval.lines?.length || 0}`);
+      await page.close();
+    }
+
+    await context.close();
+  }
+
   // Write all results to files
-  fs.writeFileSync(path.join(__dirname, '../audit/mobile/reports/mobile-audit-results.json'), JSON.stringify(results, null, 2));
+  const reportPath = path.join(__dirname, '../audit/mobile/reports/mobile-audit-results.json');
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, JSON.stringify(results, null, 2));
 
   console.log('\nAudit complete! Closing browsers and server.');
   await crBrowser.close();

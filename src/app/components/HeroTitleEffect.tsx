@@ -108,6 +108,45 @@ export function heroTitleLineFontStyle(font: unknown): CSSProperties | undefined
   return { fontFamily: fontFamilyForContent(font, 'title') };
 }
 
+export type ResolvedHeroTitleLine<T extends HeroTitleLine = HeroTitleLine> = {
+  line: T;
+  effect: HeroTitleEffect;
+  speed: HeroTitleEffectSpeed;
+  delayMs: number;
+  style: CSSProperties | undefined;
+};
+
+/** Собирает итоговые настройки нескольких строк заголовка с расчётом последовательной задержки. */
+export function resolveHeroTitleLines<T extends HeroTitleLine>(
+  lines: readonly T[] | undefined,
+  animation: HeroTitleAnimation | undefined,
+  baseStyle?: CSSProperties,
+): ResolvedHeroTitleLine<T>[] {
+  if (!lines || lines.length === 0) return [];
+  const source = animation || {};
+  const baseDelay = clampNumber(source.delayMs, 0, 10_000);
+  let currentDelay = baseDelay;
+
+  return lines.map((line) => {
+    const effect = normalizeHeroTitleEffect(line.effect, normalizeHeroTitleEffect(source.effect));
+    const speed = normalizeHeroTitleEffectSpeed(line.speed, normalizeHeroTitleEffectSpeed(source.speed));
+    const fontStyle = heroTitleLineFontStyle(line.font);
+    const lineDelay = currentDelay;
+
+    if (effect !== 'none') {
+      currentDelay += heroTitleSequenceGapMs(effect, speed);
+    }
+
+    return {
+      line,
+      effect,
+      speed,
+      delayMs: lineDelay,
+      style: baseStyle || fontStyle ? { ...baseStyle, ...fontStyle } : undefined,
+    };
+  });
+}
+
 /** Собирает итоговые настройки одной строки поверх настроек всего заголовка. */
 export function resolveHeroTitleLine(
   line: HeroTitleLine | undefined,
@@ -312,12 +351,14 @@ export function heroTitleTotalDurationMs(
   const base = animation || {};
   const startDelay = clampNumber(base.delayMs, 0, 10_000);
   let total = 0;
-  lines.forEach((line, index) => {
+  let currentStart = startDelay;
+  lines.forEach((line) => {
     const effect = normalizeHeroTitleEffect(line.effect, normalizeHeroTitleEffect(base.effect));
     if (effect === 'none') return;
     const speed = normalizeHeroTitleEffectSpeed(line.speed, normalizeHeroTitleEffectSpeed(base.speed));
-    const start = startDelay + index * heroTitleSequenceGapMs(effect, speed);
+    const start = currentStart;
     total = Math.max(total, start + heroTitleLineDurationMs(effect, speed, line.text));
+    currentStart += heroTitleSequenceGapMs(effect, speed);
   });
   return total;
 }
@@ -416,7 +457,7 @@ export function HeroTitleEffect({
       {safeEffect === 'words'
         ? renderWords(children)
         : safeEffect === 'typewriter' && plainText
-          ? <span>{renderTypewriter(plainText, safeSpeed)}</span>
+          ? renderTypewriter(plainText, safeSpeed)
           : children}
     </Component>
   );

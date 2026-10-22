@@ -1,0 +1,3017 @@
+{
+  "timestamp": "2026-10-22T18:46:50.816Z",
+  "routes": {
+    "/ [Pixel 7 (Chromium)]": {
+      "route": "/",
+      "engine": "chromium",
+      "viewport": "393x851",
+      "ttfb": 7.5,
+      "domContentLoaded": 41.30000000074506,
+      "loadEvent": 67.09999999776483,
+      "fcp": 1640,
+      "cls": 0,
+      "h1Text": "Увеличу поток клиентов через Google Ads и Meta Ads",
+      "h1Rect": {
+        "width": 320,
+        "height": 58
+      },
+      "heroVisible": true,
+      "heroHeight": 1061,
+      "documentScrollWidth": 393,
+      "hasOverflow": false,
+      "totalBytes": 1911771,
+      "requestCount": 75
+    },
+    "/ [iPhone 13 (WebKit)]": {
+      "route": "/",
+      "engine": "webkit",
+      "viewport": "390x844",
+      "ttfb": 3,
+      "domContentLoaded": 83,
+      "loadEvent": 97,
+      "fcp": 119,
+      "cls": 0,
+      "h1Text": "Увеличу поток клиентов через Google Ads и Meta Ads",
+      "h1Rect": {
+        "width": 318,
+        "height": 57
+      },
+      "heroVisible": true,
+      "heroHeight": 1057,
+      "documentScrollWidth": 390,
+      "hasOverflow": false,
+      "totalBytes": 2198133,
+      "requestCount": 78
+    },
+    "/meta-apps/ [Pixel 7 (Chromium)]": {
+      "route": "/meta-apps/",
+      "engine": "chromium",
+      "viewport": "393x851",
+      "ttfb": 2.699999999254942,
+      "domContentLoaded": 179.69999999925494,
+      "loadEvent": 187.60000000149012,
+      "fcp": 244,
+      "cls": 0,
+      "h1Text": "Реклама приложений в Meta: качественные установки",
+      "h1Rect": {
+        "width": 361,
+        "height": 51
+      },
+      "heroVisible": true,
+      "heroHeight": 1258,
+      "documentScrollWidth": 393,
+      "hasOverflow": false,
+      "totalBytes": 1744435,
+      "requestCount": 60
+    },
+    "/meta-apps/ [iPhone 13 (WebKit)]": {
+      "route": "/meta-apps/",
+      "engine": "webkit",
+      "viewport": "390x844",
+      "ttfb": 3,
+      "domContentLoaded": 81,
+      "loadEvent": 121,
+      "fcp": 131,
+      "cls": 0,
+      "h1Text": "Реклама приложений в Meta: качественные установки",
+      "h1Rect": {
+        "width": 358,
+        "height": 51
+      },
+      "heroVisible": true,
+      "heroHeight": 1258,
+      "documentScrollWidth": 390,
+      "hasOverflow": false,
+      "totalBytes": 2061754,
+      "requestCount": 62
+    },
+    "/meta-ads/ [Pixel 7 (Chromium)]": {
+      "route": "/meta-ads/",
+      "engine": "chromium",
+      "viewport": "393x851",
+      "ttfb": 2.399999998509884,
+      "domContentLoaded": 40.80000000074506,
+      "loadEvent": 176.30000000074506,
+      "fcp": 168,
+      "cls": 0,
+      "h1Text": "Реклама в Meta: привожу клиентов, а не просто лиды",
+      "h1Rect": {
+        "width": 353,
+        "height": 56
+      },
+      "heroVisible": true,
+      "heroHeight": 1304,
+      "documentScrollWidth": 393,
+      "hasOverflow": false,
+      "totalBytes": 1768544,
+      "requestCount": 65
+    },
+    "/meta-ads/ [iPhone 13 (WebKit)]": {
+      "route": "/meta-ads/",
+      "engine": "webkit",
+      "viewport": "390x844",
+      "ttfb": 2,
+      "domContentLoaded": 82,
+      "loadEvent": 163,
+      "fcp": 138,
+      "cls": 0,
+      "h1Text": "Реклама в Meta: привожу клиентов, а не просто лиды",
+      "h1Rect": {
+        "width": 350,
+        "height": 55
+      },
+      "heroVisible": true,
+      "heroHeight": 1321,
+      "documentScrollWidth": 390,
+      "hasOverflow": false,
+      "totalBytes": 2307511,
+      "requestCount": 71
+    },
+    "/google-ads/ [Pixel 7 (Chromium)]": {
+      "route": "/google-ads/",
+      "engine": "chromium",
+      "viewport": "393x851",
+      "ttfb": 2.5,
+      "domContentLoaded": 44.80000000074506,
+      "loadEvent": 62.19999999925494,
+      "fcp": 192,
+      "cls": 0,
+      "h1Text": "Реклама в Google: клиенты, которые уже ищут вас",
+      "h1Rect": {
+        "width": 320,
+        "height": 85
+      },
+      "heroVisible": true,
+      "heroHeight": 1174,
+      "documentScrollWidth": 393,
+      "hasOverflow": false,
+      "totalBytes": 1538382,
+      "requestCount": 55
+    },
+    "/google-ads/ [iPhone 13 (WebKit)]": {
+      "route": "/google-ads/",
+      "engine": "webkit",
+      "viewport": "390x844",
+      "ttfb": 2,
+      "domContentLoaded": 103,
+      "loadEvent": 103,
+      "fcp": 81,
+      "cls": 0,
+      "h1Text": "Реклама в Google: клиенты, которые уже ищут вас",
+      "h1Rect": {
+        "width": 318,
+        "height": 84
+      },
+      "heroVisible": true,
+      "heroHeight": 1173,
+      "documentScrollWidth": 390,
+      "hasOverflow": false,
+      "totalBytes": 1794269,
+      "requestCount": 57
+    },
+    "/consult/ [Pixel 7 (Chromium)]": {
+      "route": "/consult/",
+      "engine": "chromium",
+      "viewport": "393x851",
+      "ttfb": 2.599999997764826,
+      "domContentLoaded": 42.899999998509884,
+      "loadEvent": 63.80000000074506,
+      "fcp": 164,
+      "cls": 0,
+      "h1Text": "Консультация по рекламе: для бизнеса и таргетологов",
+      "h1Rect": {
+        "width": 353,
+        "height": 63
+      },
+      "heroVisible": true,
+      "heroHeight": 1115,
+      "documentScrollWidth": 393,
+      "hasOverflow": false,
+      "totalBytes": 2206730,
+      "requestCount": 66
+    },
+    "/consult/ [iPhone 13 (WebKit)]": {
+      "route": "/consult/",
+      "engine": "webkit",
+      "viewport": "390x844",
+      "ttfb": 3,
+      "domContentLoaded": 175,
+      "loadEvent": 191,
+      "fcp": 110,
+      "cls": 0,
+      "h1Text": "Консультация по рекламе: для бизнеса и таргетологов",
+      "h1Rect": {
+        "width": 350,
+        "height": 62
+      },
+      "heroVisible": true,
+      "heroHeight": 1110,
+      "documentScrollWidth": 390,
+      "hasOverflow": false,
+      "totalBytes": 2462617,
+      "requestCount": 68
+    },
+    "/blog/ [Pixel 7 (Chromium)]": {
+      "route": "/blog/",
+      "engine": "chromium",
+      "viewport": "393x851",
+      "ttfb": 2.199999999254942,
+      "domContentLoaded": 72,
+      "loadEvent": 72,
+      "fcp": 84,
+      "cls": 0,
+      "h1Text": "Решения для реальных задач",
+      "h1Rect": {
+        "width": 361,
+        "height": 79
+      },
+      "heroVisible": false,
+      "heroHeight": 0,
+      "documentScrollWidth": 393,
+      "hasOverflow": false,
+      "totalBytes": 1465710,
+      "requestCount": 41
+    },
+    "/blog/ [iPhone 13 (WebKit)]": {
+      "route": "/blog/",
+      "engine": "webkit",
+      "viewport": "390x844",
+      "ttfb": 3,
+      "domContentLoaded": 96,
+      "loadEvent": 99,
+      "fcp": 55,
+      "cls": 0,
+      "h1Text": "Решения для реальных задач",
+      "h1Rect": {
+        "width": 358,
+        "height": 79
+      },
+      "heroVisible": false,
+      "heroHeight": 0,
+      "documentScrollWidth": 390,
+      "hasOverflow": false,
+      "totalBytes": 1774177,
+      "requestCount": 44
+    },
+    "/cases/ [Pixel 7 (Chromium)]": {
+      "route": "/cases/",
+      "engine": "chromium",
+      "viewport": "393x851",
+      "ttfb": 2.800000000745058,
+      "domContentLoaded": 66.5,
+      "loadEvent": 66.5,
+      "fcp": 72,
+      "cls": 0,
+      "h1Text": "Найдите кейс, похожий на ваш проект",
+      "h1Rect": {
+        "width": 361,
+        "height": 73
+      },
+      "heroVisible": false,
+      "heroHeight": 0,
+      "documentScrollWidth": 393,
+      "hasOverflow": false,
+      "totalBytes": 1517661,
+      "requestCount": 41
+    },
+    "/cases/ [iPhone 13 (WebKit)]": {
+      "route": "/cases/",
+      "engine": "webkit",
+      "viewport": "390x844",
+      "ttfb": 3,
+      "domContentLoaded": 87,
+      "loadEvent": 91,
+      "fcp": 104,
+      "cls": 0,
+      "h1Text": "Найдите кейс, похожий на ваш проект",
+      "h1Rect": {
+        "width": 358,
+        "height": 73
+      },
+      "heroVisible": false,
+      "heroHeight": 0,
+      "documentScrollWidth": 390,
+      "hasOverflow": false,
+      "totalBytes": 1826128,
+      "requestCount": 44
+    }
+  },
+  "responsive": [],
+  "heroForensics": {
+    "chromium": [
+      {
+        "elapsed": 0,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 161,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 316,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 488,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 643,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 799,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 955,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1111,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1267,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1421,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1575,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1729,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1885,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2039,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2194,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2348,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2502,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2660,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2817,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2969,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      }
+    ],
+    "webkit": [
+      {
+        "elapsed": 0,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 156,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 323,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 480,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 638,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 794,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 949,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1105,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1261,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1415,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1572,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1727,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 1883,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2039,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2196,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2351,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2508,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2664,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2820,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      },
+      {
+        "elapsed": 2978,
+        "h1Animations": [],
+        "lines": [
+          {
+            "text": "Реклама приложений в Meta:",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgb(245, 245, 247)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 158,
+              "width": 358,
+              "height": 23.515625,
+              "top": 158,
+              "right": 374,
+              "bottom": 181.515625,
+              "left": 16
+            }
+          },
+          {
+            "text": "качественные установки",
+            "dataEffect": "none",
+            "dataSpeed": "normal",
+            "opacity": "1",
+            "visibility": "visible",
+            "transform": "none",
+            "color": "rgba(0, 0, 0, 0)",
+            "fontSize": "21px",
+            "display": "block",
+            "rect": {
+              "x": 16,
+              "y": 181.515625,
+              "width": 358,
+              "height": 27.28125,
+              "top": 181.515625,
+              "right": 374,
+              "bottom": 208.796875,
+              "left": 16
+            }
+          }
+        ],
+        "wordCount": 0,
+        "words": [],
+        "charCount": 0
+      }
+    ]
+  },
+  "overflows": [],
+  "effectsMatrix": {
+    "chromium": {
+      "none": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "none",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "none",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "fade-up": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "fade-up",
+            "opacity": "0.668509",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "fade-up",
+            "opacity": "0.326777",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "fade-in": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "fade-in",
+            "opacity": "0.7121",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "fade-in",
+            "opacity": "0.403863",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "slide-left": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "slide-left",
+            "opacity": "0.668403",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "slide-left",
+            "opacity": "0.326594",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "slide-right": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "slide-right",
+            "opacity": "0.712325",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "slide-right",
+            "opacity": "0.404269",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "blur-reveal": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "blur-reveal",
+            "opacity": "0.712174",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "blur-reveal",
+            "opacity": "0.403997",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "typewriter": {
+        "lines": [
+          {
+            "text": "Об ",
+            "dataEffect": "typewriter",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 13,
+            "charsSample": [
+              {
+                "char": "О",
+                "opacity": "1",
+                "visibility": "visible",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              },
+              {
+                "char": "б",
+                "opacity": "1",
+                "visibility": "visible",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              }
+            ]
+          },
+          {
+            "text": "  ",
+            "dataEffect": "typewriter",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 23,
+            "charsSample": [
+              {
+                "char": "",
+                "opacity": "0",
+                "visibility": "hidden",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              },
+              {
+                "char": "",
+                "opacity": "0",
+                "visibility": "hidden",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              }
+            ]
+          }
+        ]
+      },
+      "words": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "words",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 2,
+            "wordsSample": [
+              {
+                "text": "Обычная",
+                "opacity": "0.668355",
+                "visibility": "visible",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              },
+              {
+                "text": "строка",
+                "opacity": "0.409865",
+                "visibility": "visible",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              }
+            ],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "words",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 3,
+            "wordsSample": [
+              {
+                "text": "Акцентная",
+                "opacity": "0.326511",
+                "visibility": "visible",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              },
+              {
+                "text": "строка",
+                "opacity": "0",
+                "visibility": "visible",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              }
+            ],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      }
+    },
+    "webkit": {
+      "none": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "none",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "none",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "fade-up": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "fade-up",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "fade-up",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "fade-in": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "fade-in",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "fade-in",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "slide-left": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "slide-left",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "slide-left",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "slide-right": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "slide-right",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "slide-right",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "blur-reveal": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "blur-reveal",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "blur-reveal",
+            "opacity": "0",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      },
+      "typewriter": {
+        "lines": [
+          {
+            "text": " ",
+            "dataEffect": "typewriter",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 13,
+            "charsSample": [
+              {
+                "char": "",
+                "opacity": "0",
+                "visibility": "hidden",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              },
+              {
+                "char": "",
+                "opacity": "0",
+                "visibility": "hidden",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              }
+            ]
+          },
+          {
+            "text": "  ",
+            "dataEffect": "typewriter",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 0,
+            "wordsSample": [],
+            "charCount": 23,
+            "charsSample": [
+              {
+                "char": "",
+                "opacity": "0",
+                "visibility": "hidden",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              },
+              {
+                "char": "",
+                "opacity": "0",
+                "visibility": "hidden",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              }
+            ]
+          }
+        ]
+      },
+      "words": {
+        "lines": [
+          {
+            "text": "Обычная строка",
+            "dataEffect": "words",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgb(245, 245, 247)",
+            "webkitTextFillColor": "rgb(245, 245, 247)",
+            "bgClip": "border-box",
+            "bgImage": "none",
+            "wordCount": 2,
+            "wordsSample": [
+              {
+                "text": "Обычная",
+                "opacity": "0",
+                "visibility": "visible",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              },
+              {
+                "text": "строка",
+                "opacity": "0",
+                "visibility": "visible",
+                "color": "rgb(245, 245, 247)",
+                "webkitTextFillColor": "rgb(245, 245, 247)",
+                "bgClip": "border-box",
+                "bgImage": "none"
+              }
+            ],
+            "charCount": 0,
+            "charsSample": []
+          },
+          {
+            "text": "Акцентная строка градиент",
+            "dataEffect": "words",
+            "opacity": "1",
+            "visibility": "visible",
+            "color": "rgba(0, 0, 0, 0)",
+            "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+            "bgClip": "text",
+            "bgImage": "linear-gradient(to right in ok",
+            "wordCount": 3,
+            "wordsSample": [
+              {
+                "text": "Акцентная",
+                "opacity": "0",
+                "visibility": "visible",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              },
+              {
+                "text": "строка",
+                "opacity": "0",
+                "visibility": "visible",
+                "color": "rgba(0, 0, 0, 0)",
+                "webkitTextFillColor": "rgba(0, 0, 0, 0)",
+                "bgClip": "text",
+                "bgImage": "linear-gradient(to right in ok"
+              }
+            ],
+            "charCount": 0,
+            "charsSample": []
+          }
+        ]
+      }
+    }
+  }
+}

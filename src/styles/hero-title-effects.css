@@ -80,8 +80,13 @@
   opacity: 0;
   visibility: hidden;
   white-space: pre;
-  animation: hero-title-character-in 1ms step-end both;
+  animation: hero-title-character-in 40ms linear forwards;
   animation-delay: calc(var(--hero-title-delay) + var(--hero-title-character-delay, 0ms));
+}
+
+@keyframes hero-title-character-in {
+  from { opacity: 0; visibility: hidden; }
+  to { opacity: 1; visibility: visible; }
 }
 
 .hero-title-effect[data-effect='words'] {
@@ -107,8 +112,14 @@
  * элементам восстанавливает полную видимость и корректный рендер градиента.
  */
 .hero-title-effect[class*='bg-clip-text'] .hero-title-effect__word,
+.hero-title-effect[class*='bg-clip-text'] .hero-title-effect__typeword,
+.hero-title-effect[class*='bg-clip-text'] .hero-title-effect__character,
 .hero-title-effect.consult-studio-hero__title-accent .hero-title-effect__word,
-.hero-title-effect.meta-editorial-hero__title-accent .hero-title-effect__word {
+.hero-title-effect.consult-studio-hero__title-accent .hero-title-effect__typeword,
+.hero-title-effect.consult-studio-hero__title-accent .hero-title-effect__character,
+.hero-title-effect.meta-editorial-hero__title-accent .hero-title-effect__word,
+.hero-title-effect.meta-editorial-hero__title-accent .hero-title-effect__typeword,
+.hero-title-effect.meta-editorial-hero__title-accent .hero-title-effect__character {
   background-image: inherit;
   -webkit-background-clip: text;
   background-clip: text;
@@ -165,10 +176,6 @@
     filter: none;
     transform: none;
   }
-}
-
-@keyframes hero-title-character-in {
-  to { opacity: 1; visibility: visible; }
 }
 
 @keyframes hero-title-cursor-blink {

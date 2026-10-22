@@ -17,7 +17,7 @@ import {
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { useTouchDevice } from '../hooks/useTouchDevice';
 import HeroTitleEffect, {
-  resolveHeroTitleLine,
+  resolveHeroTitleLines,
   type HeroTitleAnimation,
   type HeroTitleLine,
 } from './HeroTitleEffect';
@@ -311,71 +311,81 @@ const LeftContent = memo(({
       // строку на телефоне, которую подгонка кегля убрать не могла — у неё
       // свой, меньший кегль. Обёртка нужна, чтобы отступы остались прежними:
       // вертикальный шаг колонки ложится на обёртку, а не между h1 и абзацем.
-      <div>
-        <h1
-          ref={titleRef}
-          aria-label={content.titleLines.filter((line) => line.tone !== 'supporting').map((line) => line.text).join(' ')}
-          className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
-          style={managedTitleStyle(content.typography)}
-        >
-          {content.titleLines.map((line, index) => {
-            // Ключ по позиции, а не по тексту: иначе правка буквы пересоздаёт
-            // строку и эффект появления запускается заново — в предпросмотре
-            // это выглядело как исчезающий и обрезанный заголовок.
-            if (line.tone === 'supporting') return null;
-            const resolved = resolveHeroTitleLine(line, titleAnimation, { display: 'block' });
-            return (
-              <HeroTitleEffect
-                as="span"
-                key={`line-${index}`}
-                className={`block text-nowrap ${line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
-                style={resolved.style}
-                text={line.text}
-                effect={resolved.effect}
-                speed={resolved.speed}
-                delayMs={resolved.delayMs}
-                sequenceIndex={index}
-              >
-                {line.text}
-              </HeroTitleEffect>
-            );
-          })}
-        </h1>
-        {content.titleLines.map((line, index) => {
-          if (line.tone !== 'supporting') return null;
-          const supporting = resolveHeroTitleLine(line, titleAnimation);
-          return (
-            <p
-              key={`line-${index}`}
-              className="mt-2.5 flex items-center gap-2.5 text-[13px] min-[360px]:text-sm sm:text-base md:text-[17px] font-medium leading-snug tracking-[-0.01em] text-muted-foreground"
-              style={{ display: 'flex', fontFamily: managedTitleStyle(content.typography).fontFamily }}
+      (() => {
+        const resolvedTitleLines = resolveHeroTitleLines(content.titleLines, titleAnimation, { display: 'block' });
+        return (
+          <div>
+            <h1
+              ref={titleRef}
+              aria-label={content.titleLines.filter((line) => line.tone !== 'supporting').map((line) => line.text).join(' ')}
+              className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
+              style={managedTitleStyle(content.typography)}
             >
-              <span
-                aria-hidden="true"
-                className="h-px w-6 sm:w-8 shrink-0 bg-gradient-to-r from-primary via-accent to-secondary opacity-80"
-              />
-              <HeroTitleEffect
-                as="span"
-                text={line.text}
-                effect={supporting.effect}
-                speed={supporting.speed}
-                delayMs={supporting.delayMs}
-                style={supporting.style}
-                sequenceIndex={index}
-              >
-                {line.text}
-              </HeroTitleEffect>
-            </p>
-          );
-        })}
-      </div>
+              {resolvedTitleLines.map((resolved, index) => {
+                // Ключ по позиции, а не по тексту: иначе правка буквы пересоздаёт
+                // строку и эффект появления запускается заново — в предпросмотре
+                // это выглядело как исчезающий и обрезанный заголовок.
+                if (resolved.line.tone === 'supporting') return null;
+                return (
+                  <HeroTitleEffect
+                    as="span"
+                    key={`line-${index}`}
+                    className={`block text-nowrap ${resolved.line.tone === 'accent' ? 'bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]' : ''}`}
+                    style={resolved.style}
+                    text={resolved.line.text}
+                    effect={resolved.effect}
+                    speed={resolved.speed}
+                    delayMs={resolved.delayMs}
+                  >
+                    {resolved.line.text}
+                  </HeroTitleEffect>
+                );
+              })}
+            </h1>
+            {resolvedTitleLines.map((resolved, index) => {
+              if (resolved.line.tone !== 'supporting') return null;
+              return (
+                <p
+                  key={`line-${index}`}
+                  className="mt-2.5 flex items-center gap-2.5 text-[13px] min-[360px]:text-sm sm:text-base md:text-[17px] font-medium leading-snug tracking-[-0.01em] text-muted-foreground"
+                  style={{ display: 'flex', fontFamily: managedTitleStyle(content.typography).fontFamily }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-px w-6 sm:w-8 shrink-0 bg-gradient-to-r from-primary via-accent to-secondary opacity-80"
+                  />
+                  <HeroTitleEffect
+                    as="span"
+                    text={resolved.line.text}
+                    effect={resolved.effect}
+                    speed={resolved.speed}
+                    delayMs={resolved.delayMs}
+                    style={resolved.style}
+                  >
+                    {resolved.line.text}
+                  </HeroTitleEffect>
+                </p>
+              );
+            })}
+          </div>
+        );
+      })()
     ) : (
-      <h1 ref={titleRef} style={managedTitleStyle(content.typography)} className={`max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
-        <HeroTitleEffect as="span" className="block" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={0}>{content.titlePrefix}</HeroTitleEffect>{' '}
-        <HeroTitleEffect as="span" className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]" style={{ display: 'block' }} text={String(content.titleAccent || '')} effect={titleAnimation.effect} speed={titleAnimation.speed} delayMs={titleAnimation.delayMs} sequenceIndex={1}>
-          {content.titleAccent}
-        </HeroTitleEffect>
-      </h1>
+      (() => {
+        const fallbackLines = [
+          { text: String(content.titlePrefix || ''), tone: 'default' as const },
+          { text: String(content.titleAccent || ''), tone: 'accent' as const },
+        ];
+        const resolvedFallback = resolveHeroTitleLines(fallbackLines, titleAnimation, { display: 'block' });
+        return (
+          <h1 ref={titleRef} style={managedTitleStyle(content.typography)} className={`max-w-[24ch] text-balance text-[clamp(1.3rem,5.9vw,2.75rem)] lg:text-[29px] xl:text-[38px] font-semibold md:font-bold leading-[1.16] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}>
+            <HeroTitleEffect as="span" className="block" style={{ display: 'block' }} text={String(content.titlePrefix || '')} effect={resolvedFallback[0].effect} speed={resolvedFallback[0].speed} delayMs={resolvedFallback[0].delayMs}>{content.titlePrefix}</HeroTitleEffect>{' '}
+            <HeroTitleEffect as="span" className="block bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent pb-[0.18em] -mb-[0.18em]" style={{ display: 'block' }} text={String(content.titleAccent || '')} effect={resolvedFallback[1].effect} speed={resolvedFallback[1].speed} delayMs={resolvedFallback[1].delayMs}>
+              {content.titleAccent}
+            </HeroTitleEffect>
+          </h1>
+        );
+      })()
     )}
 
     <div className={`space-y-3 ${mobileFirst ? 'meta-apps-hero-paragraphs' : ''}`}>
