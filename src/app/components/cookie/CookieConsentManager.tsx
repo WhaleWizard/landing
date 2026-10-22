@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { router } from '../../routes';
+import { router } from '../../routerInstance';
 import {
   ensureAnalyticsLoaded,
   ensureMarketingLoaded,

@@ -45,7 +45,7 @@ import { articleDisplayDate } from '../utils/articleDate';
 import { useIsomorphicLayoutEffect } from '../utils/isomorphicLayoutEffect';
 import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 import { preloadable } from '../utils/preloadable';
-import { loadCaseArticleView } from '../utils/routePreload';
+import { loadCaseArticleView } from '../utils/caseArticlePreload';
 import ClientOnly from '../components/ClientOnly';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
@@ -669,7 +669,7 @@ function BlogPageComponent() {
     return () => content.removeEventListener('click', handler);
   }, [contentNode, selectedArticle, navigate]);
 
-  const goToBlogList = useCallback(() => returnTo.goBack(), [returnTo.goBack]);
+  const goToBlogList = useCallback(() => returnTo.goBack(), [returnTo]);
 
   const openRelatedArticle = useCallback((nextSlug: string) => {
     navigate(`${routeBase}/${nextSlug}${preservedCaseSearch}`, {

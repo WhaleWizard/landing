@@ -205,7 +205,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
     }
 
     performNavigation();
-  }, [isMobileMenuOpen, location.key, location.pathname, navigate, sectionsPath, variant]);
+  }, [isMobileMenuOpen, location.pathname, navigate, sectionsPath, variant]);
 
   // Логотип на контентных страницах ведёт не всегда на главную: со страницы
   // благодарности — назад на лендинг, с которого пришла заявка.

@@ -30,7 +30,7 @@ import {
   type ContentPreviewPayload,
   type ContentPreviewReport,
 } from '../../content/contentPreviewProtocol';
-import type { EditableContent, EditorPage, EditorSection } from './AdminContentControl';
+import type { EditableContent, EditorPage, EditorSection } from '../../types/editorContent';
 import { observePreviewViewport } from './previewViewportSizing';
 
 type PreviewPresetId = 'desktop' | 'laptop' | 'tablet' | 'mobile-wide' | 'mobile' | 'mobile-small';

@@ -1447,7 +1447,7 @@ function renderStaticShellAfterRoot({ sections = [], currentRoute = '' }) {
   // Страница статьи приходит с полным текстом в #root — ей остаются только
   // ссылки на разделы, пустая карточка была бы видна без JavaScript.
   const card = sections.length
-    ? `\n      <section style="${generatedShellStyles.card};width:min(100%,920px)">${sectionsHtml}</section>`
+    ? `\n      <section aria-label="Текстовая версия страницы" style="${generatedShellStyles.card};width:min(100%,920px)">${sectionsHtml}</section>`
     : '';
   return `    <div id="ww-static-shell" style="${generatedShellStyles.main};min-height:0">${card}
 ${renderShellNavHtml(currentRoute)}

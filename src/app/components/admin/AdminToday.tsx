@@ -215,8 +215,8 @@ export default function AdminToday({
 
   useEffect(() => { void load(); }, [load]);
 
-  const items = data?.items || [];
-  const focus = data?.focus || [];
+  const items = useMemo(() => data?.items || [], [data?.items]);
+  const focus = useMemo(() => data?.focus || [], [data?.focus]);
   const shownFocus = showAllFocus ? focus : focus.slice(0, 6);
   const totals = stats?.totals;
   const capi = stats?.capi;

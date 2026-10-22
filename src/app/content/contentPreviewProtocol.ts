@@ -2,7 +2,7 @@ import type {
   EditableContent,
   EditorPage,
   EditorSection,
-} from '../components/admin/AdminContentControl';
+} from '../types/editorContent';
 
 export const CONTENT_PREVIEW_MESSAGE = 'ww:content-preview';
 export const CONTENT_PREVIEW_READY_MESSAGE = 'ww:content-preview-ready';

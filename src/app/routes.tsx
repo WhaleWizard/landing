@@ -1,3 +1,4 @@
+import { setAppRouter } from './routerInstance';
 import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useNavigationType, useRouteError, type RouteObject } from 'react-router';
 import { useMountedOnClient } from './hooks/useMountedOnClient';
 import { createElement, lazy, Suspense, useEffect, useInsertionEffect, useRef, type ComponentType } from 'react';
@@ -505,3 +506,5 @@ export const routes: RouteObject[] = [
 export const router = typeof window === 'undefined'
   ? (null as unknown as ReturnType<typeof createBrowserRouter>)
   : createBrowserRouter(routes);
+
+setAppRouter(router);

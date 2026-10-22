@@ -48,11 +48,10 @@ function PublishSchedulePanel({
   onSchedule: (items: Array<{ slug: string; publishedAt: string }>) => Promise<{ scheduled: string[]; skipped: string[] }>;
 }) {
   const confirmDialog = useConfirm();
-  const nowIso = useMemo(() => new Date().toISOString(), [articles]);
-  const candidates = useMemo(
-    () => articles.filter((article) => isSchedulable(article, nowIso)),
-    [articles, nowIso],
-  );
+  const candidates = useMemo(() => {
+    const nowIso = new Date().toISOString();
+    return articles.filter((article) => isSchedulable(article, nowIso));
+  }, [articles]);
   const [unchecked, setUnchecked] = useState<Set<string>>(() => new Set());
   const [startDate, setStartDate] = useState(() => ownerTomorrow());
   const [days, setDays] = useState(21);

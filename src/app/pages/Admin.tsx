@@ -1202,7 +1202,7 @@ export default function Admin() {
   useEffect(() => {
     if (!isAuthenticated) return;
     void refreshHealth();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshHealth]);
 
   // Смена раздела начинается сверху: иначе после длинной страницы новый раздел
   // открывается где-то в середине, и кажется, что он загрузился неправильно.
@@ -1283,6 +1283,7 @@ export default function Admin() {
     return () => { cancelled = true; };
     // Пустой список зависимостей намеренный: проверка сессии выполняется один
     // раз при открытии страницы.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {

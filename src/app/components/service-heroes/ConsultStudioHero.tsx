@@ -1,6 +1,6 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import ConsultDeskScene from './ConsultDeskScene';
-import type { HeroContent } from '../Hero';
+import type { HeroContent } from '../../types/hero';
 import HeroTitleEffect, { resolveHeroTitleLines } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
 import { Button } from '../ui/button';

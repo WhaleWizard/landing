@@ -21,19 +21,8 @@ const STATIC_TITLE_MIN_FONT_SIZE = 20;
 // границу «дорисовать с клиента», и гидратация перестраивала бы страницу.
 const Footer = lazy(() => import('../components/Footer'));
 
-export const FAQ_CATEGORIES = ['Старт', 'Бюджет', 'Аналитика', 'Приложения', 'Результат', 'Процесс', 'Консультация'] as const;
-export type FaqCategory = (typeof FAQ_CATEGORIES)[number];
-
-export interface FaqItem {
-  id: string;
-  question: string;
-  answer: string;
-  details: string[];
-  category: FaqCategory;
-  relatedTermIds?: string[];
-  sourceIds?: string[];
-  reviewedAt?: string;
-}
+import { FAQ_CATEGORIES, type FaqCategory, type FaqItem } from '../types/faq';
+export { FAQ_CATEGORIES, type FaqCategory, type FaqItem };
 
 type FaqSeed = Omit<FaqItem, 'id'>;
 

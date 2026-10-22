@@ -13,7 +13,6 @@
  * сайта и предпросмотр редактора сохраняют свои появления.
  */
 declare global {
-  // eslint-disable-next-line no-var
   var __WW_SSR_ROUTE__: string | undefined;
 }
 

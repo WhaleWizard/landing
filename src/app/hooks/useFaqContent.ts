@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FaqItem } from '../pages/FAQPage';
+import type { FaqItem } from '../types/faq';
 import { readInlineSiteContentSeed } from '../utils/siteContentSeed';
 
 export type FaqSeoContent = {

@@ -25,7 +25,7 @@ import HeroTitleEffect, {
 export type { HeroTitleLine } from './HeroTitleEffect';
 
 import { preloadable } from '../utils/preloadable';
-import { loadCosmicHeroScene, loadMetaAppsHeroVisual } from '../utils/heroPreload';
+import { loadCosmicHeroScene, loadMetaAppsHeroVisual } from '../utils/heroVisualPreload';
 
 const MetaAppsHeroVisual = preloadable(loadMetaAppsHeroVisual);
 const CosmicHeroScene = preloadable(loadCosmicHeroScene);

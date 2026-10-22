@@ -174,7 +174,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const routes = data?.routes || [];
+  const routes = useMemo(() => data?.routes || [], [data?.routes]);
   const locked = useMemo(() => routes.filter((route) => route.locked), [routes]);
   const groups = useMemo(() => {
     const order: string[] = [];

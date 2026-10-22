@@ -340,9 +340,11 @@ function TrendChart({
   const values = points.map((point) => Number(point[metric] || 0));
   const max = Math.max(1, ...values);
   const hasData = values.some((value) => value > 0);
+  const valuesKey = values.join(',');
   const { line, area } = useMemo(
     () => buildPath(values, max, width, height, padding),
-    [height, max, padding, values.join(','), width],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [height, max, padding, valuesKey, width],
   );
   const total = values.reduce((sum, value) => sum + value, 0);
   const peakIndex = values.indexOf(Math.max(...values));
