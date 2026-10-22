@@ -1,0 +1,26 @@
+Profile,Route,URL,Status,LoadTimeMs,HeroVisible,H1Snippet,ErrorsCount,FailedRequestsCount
+"Fast connection","Home","https://www.whalewzrd.com/","200",631,true,"Увеличу поток клиентов через Google Ads ",0,0
+"Fast connection","Meta Apps","https://www.whalewzrd.com/meta-apps/","200",937,true,"Реклама приложений в Meta:качественные у",0,0
+"Fast connection","Meta Ads","https://www.whalewzrd.com/meta-ads/","200",802,true,"Реклама в Meta:привожу клиентов, а не пр",0,0
+"Fast connection","Blog List","https://www.whalewzrd.com/blog/","200",621,false,"Решения для реальных задач",0,0
+"Fast connection","Cases List","https://www.whalewzrd.com/cases/","200",672,false,"Найдите кейс, похожий на ваш проект",0,0
+"Typical 4G","Home","https://www.whalewzrd.com/","200",1454,true,"Увеличу поток клиентов через Google Ads ",0,0
+"Typical 4G","Meta Apps","https://www.whalewzrd.com/meta-apps/","200",1166,true,"Реклама приложений в Meta:качественные у",0,0
+"Typical 4G","Meta Ads","https://www.whalewzrd.com/meta-ads/","200",1458,true,"Реклама в Meta:привожу клиентов, а не пр",0,0
+"Typical 4G","Blog List","https://www.whalewzrd.com/blog/","200",961,false,"Решения для реальных задач",0,0
+"Typical 4G","Cases List","https://www.whalewzrd.com/cases/","200",998,false,"Найдите кейс, похожий на ваш проект",0,0
+"Slow 4G","Home","https://www.whalewzrd.com/","200",2427,true,"Увеличу поток клиентов через Google Ads ",0,0
+"Slow 4G","Meta Apps","https://www.whalewzrd.com/meta-apps/","200",2536,true,"Реклама приложений в Meta:качественные у",0,0
+"Slow 4G","Meta Ads","https://www.whalewzrd.com/meta-ads/","200",3236,true,"Реклама в Meta:привожу клиентов, а не пр",0,0
+"Slow 4G","Blog List","https://www.whalewzrd.com/blog/","200",1907,false,"Решения для реальных задач",0,0
+"Slow 4G","Cases List","https://www.whalewzrd.com/cases/","200",1991,false,"Найдите кейс, похожий на ваш проект",0,0
+"Slow 3G","Home","https://www.whalewzrd.com/","200",8392,true,"Увеличу поток клиентов через Google Ads ",0,0
+"Slow 3G","Meta Apps","https://www.whalewzrd.com/meta-apps/","200",8778,true,"Реклама приложений в Meta:качественные у",0,0
+"Slow 3G","Meta Ads","https://www.whalewzrd.com/meta-ads/","200",11171,true,"Реклама в Meta:привожу клиентов, а не пр",0,0
+"Slow 3G","Blog List","https://www.whalewzrd.com/blog/","200",6223,false,"Решения для реальных задач",0,0
+"Slow 3G","Cases List","https://www.whalewzrd.com/cases/","200",6634,false,"Найдите кейс, похожий на ваш проект",0,0
+"Severe connection","Home","https://www.whalewzrd.com/","200",16661,true,"Увеличу поток клиентов через Google Ads ",0,0
+"Severe connection","Meta Apps","https://www.whalewzrd.com/meta-apps/","200",17304,true,"Реклама приложений в Meta:качественные у",0,0
+"Severe connection","Meta Ads","https://www.whalewzrd.com/meta-ads/","200",22063,true,"Реклама в Meta:привожу клиентов, а не пр",0,0
+"Severe connection","Blog List","https://www.whalewzrd.com/blog/","200",12379,false,"Решения для реальных задач",0,0
+"Severe connection","Cases List","https://www.whalewzrd.com/cases/","200",13138,false,"Найдите кейс, похожий на ваш проект",0,0

@@ -1,0 +1,9 @@
+{
+  "mobileConsoleLogs": [
+    {
+      "type": "warning",
+      "text": "A preload for 'https://www.whalewzrd.com/assets/index-DFJN9XAf.css' is found, but is not used because the request credentials mode does not match. Consider taking a look at crossorigin attribute."
+    }
+  ],
+  "mobilePageErrors": []
+}

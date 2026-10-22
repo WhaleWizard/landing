@@ -1,0 +1,1480 @@
+[
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "cacheControl": "public, max-age=0, must-revalidate",
+    "timing": {
+      "startTime": 1792687912745.007,
+      "domainLookupStart": 2717.526,
+      "domainLookupEnd": 2727.46,
+      "connectStart": 2727.614,
+      "secureConnectionStart": 2868.637,
+      "connectEnd": 3054.864,
+      "requestStart": 3055.134,
+      "responseStart": 3195.746,
+      "responseEnd": 3200.26
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-DFJN9XAf.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915974.476,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.042,
+      "responseStart": 9.955,
+      "responseEnd": 24.616
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-DFJN9XAf.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915979.83,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.013,
+      "responseStart": 4.832,
+      "responseEnd": 19.589
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/HeroTitleEffect-D67JIvSN.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915974.6072,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.009,
+      "responseStart": 24.389,
+      "responseEnd": 25.041
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/whale.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "148360",
+    "timing": {
+      "startTime": 1792687915975.616,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.017,
+      "responseStart": 37.1,
+      "responseEnd": 314.893
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/cosmic-hero-NyXxgi8Y.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915974.545,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.014,
+      "responseStart": 95.646,
+      "responseEnd": 132.972
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/sky.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "131164",
+    "timing": {
+      "startTime": 1792687915975.552,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 1.643,
+      "responseStart": 126.241,
+      "responseEnd": 304.321
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/moon3.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "18728",
+    "timing": {
+      "startTime": 1792687915979.9668,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.321,
+      "responseStart": 122.014,
+      "responseEnd": 313.04
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/moon5.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "7330",
+    "timing": {
+      "startTime": 1792687915980.093,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.336,
+      "responseStart": 122.065,
+      "responseEnd": 313.172
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/shard3.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "29636",
+    "timing": {
+      "startTime": 1792687915980.727,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.317,
+      "responseStart": 121.756,
+      "responseEnd": 339.916
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/moon4.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "13114",
+    "timing": {
+      "startTime": 1792687915980.032,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.35,
+      "responseStart": 124.309,
+      "responseEnd": 313.104
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/shard7.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "12422",
+    "timing": {
+      "startTime": 1792687915981.2988,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.228,
+      "responseStart": 123.464,
+      "responseEnd": 347.61
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/shard5.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "21358",
+    "timing": {
+      "startTime": 1792687915981.161,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.185,
+      "responseStart": 123.883,
+      "responseEnd": 347.087
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/brand/whale-wizard-96.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "3064",
+    "timing": {
+      "startTime": 1792687915979.772,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.518,
+      "responseStart": 126.649,
+      "responseEnd": 305.796
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/shard4.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "29280",
+    "timing": {
+      "startTime": 1792687915980.7861,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.305,
+      "responseStart": 126.134,
+      "responseEnd": 346.842
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/moon2.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "39682",
+    "timing": {
+      "startTime": 1792687915980.524,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.365,
+      "responseStart": 148.35,
+      "responseEnd": 328.804
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/brand/whale-wand-glow.png",
+    "status": 200,
+    "contentType": "image/png",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "3104",
+    "timing": {
+      "startTime": 1792687915979.8801,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.358,
+      "responseStart": 149.178,
+      "responseEnd": 312.825
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/shard2.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "25188",
+    "timing": {
+      "startTime": 1792687915980.655,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.291,
+      "responseStart": 148.706,
+      "responseEnd": 339.82
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/shard6.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "16480",
+    "timing": {
+      "startTime": 1792687915981.235,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.173,
+      "responseStart": 148.259,
+      "responseEnd": 347.364
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/shard1.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "42226",
+    "timing": {
+      "startTime": 1792687915980.595,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.327,
+      "responseStart": 153.623,
+      "responseEnd": 339.522
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/cosmic/moon1.webp",
+    "status": 200,
+    "contentType": "image/webp",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "contentLength": "58530",
+    "timing": {
+      "startTime": 1792687915980.157,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.282,
+      "responseStart": 198.699,
+      "responseEnd": 320.254
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/fonts/library.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=604800, stale-while-revalidate=86400",
+    "timing": {
+      "startTime": 1792687915981.494,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.233,
+      "responseStart": 197.663,
+      "responseEnd": 345.369
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/button-CHSKlEr9.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915975.772,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 1.342,
+      "responseStart": 157.968,
+      "responseEnd": 204.319
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Home-CEH-JUbX.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915975.6748,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 1.383,
+      "responseStart": 158.249,
+      "responseEnd": 204.208
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/vendor-Bj9tNUel.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915975.432,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 1.724,
+      "responseStart": 126.041,
+      "responseEnd": 206.854
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Navbar-CfuaIFdC.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915975.7258,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 1.365,
+      "responseStart": 203.566,
+      "responseEnd": 207.757
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/motion-S_x8MBv3.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915975.494,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 1.685,
+      "responseStart": 153.007,
+      "responseEnd": 208.258
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-Dx0An2gi.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915975.3389,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 1.81,
+      "responseStart": 204.105,
+      "responseEnd": 208.209
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useDialogFocus-DLOvyXl6.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.063,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.274,
+      "responseStart": 156.329,
+      "responseEnd": 299.429
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/WhaleMark-wbLcAZmI.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915977.664,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.253,
+      "responseStart": 200.515,
+      "responseEnd": 299.337
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/motionPreference-Bj7JhMO5.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915977.739,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.228,
+      "responseStart": 128.862,
+      "responseEnd": 299.385
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/utils-B9xP5I_u.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915977.456,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.344,
+      "responseStart": 151.752,
+      "responseEnd": 299.188
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useScrollTo-DU4icI_x.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.281,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.2,
+      "responseStart": 156.255,
+      "responseEnd": 304.269
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useServiceContent-DAnrpfrd.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.661,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.314,
+      "responseStart": 155.413,
+      "responseEnd": 304.436
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/SEO-Byahfx_h.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915979.273,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.308,
+      "responseStart": 126.885,
+      "responseEnd": 304.536
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/isBotUserAgent-CUKo8AqB.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915979.4731,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.171,
+      "responseStart": 122.85,
+      "responseEnd": 304.604
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CosmicHeroScene-DSNehiGy.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915979.538,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.149,
+      "responseStart": 198.967,
+      "responseEnd": 304.634
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Hero-DhunSb9U.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.2258,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.274,
+      "responseStart": 200.785,
+      "responseEnd": 304.344
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/siteContentSeed-D8gy0QAm.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.7349,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.258,
+      "responseStart": 128.028,
+      "responseEnd": 304.46
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/contentTypography-DN2qISrb.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.8022,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.222,
+      "responseStart": 125.783,
+      "responseEnd": 304.485
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/HeroTitleEffect-FP0U1yXw.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915979.21,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.187,
+      "responseStart": 154.22,
+      "responseEnd": 304.518
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useAmbientVisibility-Bs6PTBVT.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.591,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.291,
+      "responseStart": 126.596,
+      "responseEnd": 304.366
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useTouchDevice-DK8dP83t.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915979.136,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.191,
+      "responseStart": 199.561,
+      "responseEnd": 304.5
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/icons-Ckg0krrt.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687915978.162,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.269,
+      "responseStart": 126.747,
+      "responseEnd": 304.239
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/legalMeta-DqplRc1z.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687916317.7031,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.603,
+      "responseStart": 91.71,
+      "responseEnd": 92.332
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/site-content?key=site%3Ahome",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "cacheControl": "public, max-age=0, must-revalidate",
+    "contentLength": "49",
+    "timing": {
+      "startTime": 1792687916304.394,
+      "domainLookupStart": 0.521,
+      "domainLookupEnd": 0.521,
+      "connectStart": 0.521,
+      "secureConnectionStart": 0.521,
+      "connectEnd": 0.521,
+      "requestStart": 0.659,
+      "responseStart": 126.59,
+      "responseEnd": 127.425
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/use-mobile-DmnEM37g.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687916325.345,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.853,
+      "responseStart": 104.652,
+      "responseEnd": 106.241
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Modal-B6rwxQ4X.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687916325.2341,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.779,
+      "responseStart": 105.354,
+      "responseEnd": 106.431
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Services-D0i8nhBO.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687916325.0872,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.594,
+      "responseStart": 140.282,
+      "responseEnd": 141.283
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CookieConsentManager-Bn1H9sPE.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687916317.577,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.538,
+      "responseStart": 148.204,
+      "responseEnd": 149.108
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/articles?view=summary",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "cacheControl": "public, s-maxage=120, stale-while-revalidate=300",
+    "timing": {
+      "startTime": 1792687916362.163,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.384,
+      "responseStart": 154.349,
+      "responseEnd": 155.676
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/PlexusBackdrop-BUIXBC8X.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687916469.346,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.286,
+      "responseStart": 110.813,
+      "responseEnd": 111.365
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/PlexusBackdrop-CB_kU11_.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687916469.2258,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.603,
+      "responseStart": 138.118,
+      "responseEnd": 138.983
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/geo",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "cacheControl": "no-store",
+    "contentLength": "44",
+    "timing": {
+      "startTime": 1792687916634.0388,
+      "domainLookupStart": 0.478,
+      "domainLookupEnd": 0.705,
+      "connectStart": 0.876,
+      "secureConnectionStart": 0.876,
+      "connectEnd": 74.83,
+      "requestStart": 74.985,
+      "responseStart": 271.37,
+      "responseEnd": 271.913
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/meta-event",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "cacheControl": "no-store",
+    "contentLength": "16",
+    "timing": {
+      "startTime": 1792687917099.0322,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.428,
+      "responseStart": 109.129,
+      "responseEnd": -1
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/pageview",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "cacheControl": "no-store",
+    "contentLength": "16",
+    "timing": {
+      "startTime": 1792687917098.7498,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.996,
+      "responseStart": 112.106,
+      "responseEnd": 301.746
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Cases-BTfHFRQL.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687917609.3318,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.791,
+      "responseStart": 173.912,
+      "responseEnd": 174.708
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/ImageWithFallback-BddBL53e.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687917609.604,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.756,
+      "responseStart": 128.023,
+      "responseEnd": 128.805
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CallToAction-BAJ1fHuq.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687917894.429,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.45,
+      "responseStart": 147.844,
+      "responseEnd": 148.612
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useDragScroll-BNazPw9W.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918208.365,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.477,
+      "responseStart": 98.319,
+      "responseEnd": 99.17
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Testimonials-CoDP5iQT.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918208.211,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.45,
+      "responseStart": 134.541,
+      "responseEnd": 135.841
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/imageVariants-CltslY81.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918428.972,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.548,
+      "responseStart": 81.216,
+      "responseEnd": 82.422
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/homeArticles-Bm7zTPRI.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918429.087,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.549,
+      "responseStart": 81.44,
+      "responseEnd": 82.411
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/ArticlesLoadError-B-3Oj7ue.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918429.2,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.529,
+      "responseStart": 81.495,
+      "responseEnd": 82.381
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/articleCategory-DnTU0Q4k.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918429.149,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.617,
+      "responseStart": 81.695,
+      "responseEnd": 82.47
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/articleMeta-COUlz6NJ.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918428.898,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.779,
+      "responseStart": 90.272,
+      "responseEnd": 91.003
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/blogSections-O3ZPJSWB.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918429.8481,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.209,
+      "responseStart": 110.53,
+      "responseEnd": 111.939
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/articleDate-BeF2goAC.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918429.022,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.547,
+      "responseStart": 111.982,
+      "responseEnd": 112.546
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Blog-BP-yVxtd.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918428.756,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.576,
+      "responseStart": 183.204,
+      "responseEnd": 183.896
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/SocialBar-CG416ywh.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918705.4019,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.669,
+      "responseStart": 162.973,
+      "responseEnd": 163.845
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CalculatorButtons-_ZdW3Fd0.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687918957.289,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.411,
+      "responseStart": 149.568,
+      "responseEnd": 150.249
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CountryFlag-mdeFYx4S.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919190.061,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.568,
+      "responseStart": 79.749,
+      "responseEnd": 80.708
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useTurnstile-sph1lDaH.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919190.86,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.297,
+      "responseStart": 79.374,
+      "responseEnd": 80.689
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/phoneCountry-CZ3pN-ur.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919189.855,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.59,
+      "responseStart": 91.54,
+      "responseEnd": 92.495
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/select-BAA3_28R.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919189.935,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.649,
+      "responseStart": 91.844,
+      "responseEnd": 93.741
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-D13No2Su.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919190.0273,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.67,
+      "responseStart": 100.643,
+      "responseEnd": 101.366
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/input-cAcRGsVz.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919189.785,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.728,
+      "responseStart": 106.085,
+      "responseEnd": 106.784
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/leadContext-Bry6oGMI.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919190.116,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.596,
+      "responseStart": 107.788,
+      "responseEnd": 108.358
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/ContactForm-DxmpEhGe.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919189.6118,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.652,
+      "responseStart": 134.401,
+      "responseEnd": 135.299
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Footer-CSOOuvPO.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919410.044,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.694,
+      "responseStart": 85.862,
+      "responseEnd": 86.605
+    }
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Footer-CNDCeDGw.js",
+    "status": 200,
+    "contentType": "application/javascript",
+    "cacheControl": "public, max-age=31536000, immutable",
+    "timing": {
+      "startTime": 1792687919409.874,
+      "domainLookupStart": -1,
+      "domainLookupEnd": -1,
+      "connectStart": -1,
+      "secureConnectionStart": -1,
+      "connectEnd": -1,
+      "requestStart": 0.638,
+      "responseStart": 143.139,
+      "responseEnd": 144
+    }
+  }
+]

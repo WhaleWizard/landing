@@ -1,7 +1,7 @@
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
@@ -139,7 +139,8 @@ function changeSpy() {
   return spy;
 }
 
-const liveArticles = JSON.parse(readFileSync(new URL('../data/articles.build.json', import.meta.url), 'utf8'));
+const liveArticlesSource = ['data/articles.build.json', 'public/articles.seed.json', 'data/articles.local.json'].find((path) => existsSync(path));
+const liveArticles = liveArticlesSource ? JSON.parse(readFileSync(liveArticlesSource, 'utf8')) : [];
 const liveArticleList = Array.isArray(liveArticles) ? liveArticles : liveArticles.articles;
 
 /* ---------------------------------------------------------------------- */

@@ -1,0 +1,138 @@
+{
+  "home": {
+    "status": 200,
+    "scripts": [
+      "/assets/index-Dx0An2gi.js"
+    ],
+    "styles": [
+      "/fonts/library.css",
+      "/fonts/library.css",
+      "/assets/index-DFJN9XAf.css",
+      "/assets/cosmic-hero-NyXxgi8Y.css",
+      "/assets/HeroTitleEffect-D67JIvSN.css"
+    ],
+    "preloads": [
+      "/images/cosmic/sky-compact.webp",
+      "/images/cosmic/sky.webp",
+      "/images/cosmic/whale.webp"
+    ],
+    "htmlTag": "<html lang=\"ru\" data-ww-first-screen=\"/\" data-ww-prehydrate=\"1\">",
+    "headers": {
+      "date": "Thu, 22 Oct 2026 16:51:52 GMT",
+      "content-type": "text/html; charset=utf-8",
+      "content-length": "67060",
+      "connection": "keep-alive",
+      "cf-ray": "a4ea025b0b669852-WAW",
+      "cf-cache-status": "HIT",
+      "accept-ranges": "bytes",
+      "access-control-allow-origin": "*",
+      "age": "49",
+      "cache-control": "public, max-age=0, must-revalidate",
+      "etag": "\"72ea6c040bf76ea6374935faaf9f17ec\"",
+      "link": "</assets/index-DFJN9XAf.css>; rel=preload; as=style, </assets/cosmic-hero-NyXxgi8Y.css>; rel=preload; as=style, </assets/HeroTitleEffect-D67JIvSN.css>; rel=preload; as=style, </images/cosmic/whale.webp>; rel=preload; as=image",
+      "server": "cloudflare",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "x-ww-static-cache": "hit",
+      "content-security-policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://www.facebook.com; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://analytics.tiktok.com; connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://ipwho.is; frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com; manifest-src 'self'; upgrade-insecure-requests",
+      "cross-origin-opener-policy": "same-origin-allow-popups",
+      "permissions-policy": "camera=(), microphone=(), geolocation=()",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=iCfUdJXbPocH%2BzSotNXxVQN5w823NICHgBkDGjTNAEH%2FYRvLOjDRnZnrSGziYKjGPw%2FByk64aw7%2B2Jw5MSjTu5rLNo7tGV1JiqKJmETix15I%2BdQhPaqs0sbVuEvAqY83sy%2FGMQ%3D%3D\"}]}",
+      "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+      "alt-svc": "h3=\":443\"; ma=86400"
+    }
+  },
+  "metaApps": {
+    "status": 200,
+    "scripts": [
+      "/assets/index-Dx0An2gi.js"
+    ],
+    "styles": [
+      "/fonts/library.css",
+      "/fonts/library.css",
+      "/assets/index-DFJN9XAf.css",
+      "/assets/HeroTitleEffect-D67JIvSN.css",
+      "/assets/MetaAppsHeroVisual-Czw9MD2K.css"
+    ],
+    "preloads": [
+      "/images/meta-hero-pedestal-rack-mobile.webp",
+      "/images/meta-phone-3d-shell-mobile.webp",
+      "/images/meta-hero-pedestal-rack.webp",
+      "/images/meta-phone-3d-shell.webp"
+    ],
+    "htmlTag": "<html lang=\"ru\" data-ww-first-screen=\"/meta-apps\" data-ww-prehydrate=\"1\">",
+    "headers": {
+      "date": "Thu, 22 Oct 2026 16:51:52 GMT",
+      "content-type": "text/html; charset=utf-8",
+      "content-length": "87926",
+      "connection": "keep-alive",
+      "cf-ray": "a4ea025c486b9852-WAW",
+      "cf-cache-status": "HIT",
+      "accept-ranges": "bytes",
+      "access-control-allow-origin": "*",
+      "age": "49",
+      "cache-control": "public, max-age=0, must-revalidate",
+      "etag": "\"ed03e67ed83b3cfb54f811dd55374265\"",
+      "link": "</assets/index-DFJN9XAf.css>; rel=preload; as=style, </assets/HeroTitleEffect-D67JIvSN.css>; rel=preload; as=style, </assets/MetaAppsHeroVisual-Czw9MD2K.css>; rel=preload; as=style",
+      "server": "cloudflare",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "x-ww-static-cache": "hit",
+      "content-security-policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://www.facebook.com; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://analytics.tiktok.com; connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://ipwho.is; frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com; manifest-src 'self'; upgrade-insecure-requests",
+      "cross-origin-opener-policy": "same-origin-allow-popups",
+      "permissions-policy": "camera=(), microphone=(), geolocation=()",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=LagW554HEtn7Qj3nXxf4rgX9QwkM22UeD6G%2FFJKWDoJSDa0GnlJ4%2FfUQGm7gkapocLbXatmLtSM%2BoOWw%2B2gfzQEhbnqaRE%2F0jT8dT0OS8kAYTp6olNbQaPvF0aDciiQL1Y9eSg%3D%3D\"}]}",
+      "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+      "alt-svc": "h3=\":443\"; ma=86400"
+    }
+  },
+  "metaAds": {
+    "status": 200,
+    "scripts": [
+      "/assets/index-Dx0An2gi.js"
+    ],
+    "styles": [
+      "/fonts/library.css",
+      "/fonts/library.css",
+      "/assets/index-DFJN9XAf.css",
+      "/assets/MetaAdsEditorialHero-CoLgQC90.css",
+      "/assets/HeroTitleEffect-D67JIvSN.css"
+    ],
+    "preloads": [
+      "/images/meta-proof/paper-stack-768.webp",
+      "/images/meta-proof/ecommerce-photo.webp",
+      "/fonts/library/pangolin-400-normal-cyrillic.woff2"
+    ],
+    "htmlTag": "<html lang=\"ru\" data-ww-first-screen=\"/meta-ads\" data-ww-prehydrate=\"1\">",
+    "headers": {
+      "date": "Thu, 22 Oct 2026 16:51:52 GMT",
+      "content-type": "text/html; charset=utf-8",
+      "content-length": "66599",
+      "connection": "keep-alive",
+      "cf-ray": "a4ea025d1be39852-WAW",
+      "cf-cache-status": "HIT",
+      "accept-ranges": "bytes",
+      "access-control-allow-origin": "*",
+      "age": "49",
+      "cache-control": "public, max-age=0, must-revalidate",
+      "etag": "\"cec941a1d3f8b533784b1a43f40fd089\"",
+      "link": "</assets/index-DFJN9XAf.css>; rel=preload; as=style, </assets/MetaAdsEditorialHero-CoLgQC90.css>; rel=preload; as=style, </assets/HeroTitleEffect-D67JIvSN.css>; rel=preload; as=style, </images/meta-proof/paper-stack-768.webp>; rel=preload; as=image",
+      "server": "cloudflare",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "x-ww-static-cache": "hit",
+      "content-security-policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://www.facebook.com; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://analytics.tiktok.com; connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://ipwho.is; frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com; manifest-src 'self'; upgrade-insecure-requests",
+      "cross-origin-opener-policy": "same-origin-allow-popups",
+      "permissions-policy": "camera=(), microphone=(), geolocation=()",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=5sroNYJPGu8VWp562LuzmzTcoFa9QwnA4oyv4ahXmGLU2D%2FLWsrAZNxCJeoz3bP%2BZpUWyqdZKftERxhPkTdqhLyRZ4uCgez4jydaW2vQV2Mqo7gm2NI2UKpuGZFUzYwRrigl%2BQ%3D%3D\"}]}",
+      "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+      "alt-svc": "h3=\":443\"; ma=86400"
+    }
+  }
+}

@@ -1,0 +1,210 @@
+{
+  "none": {
+    "immediate": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    }
+  },
+  "fade-up": {
+    "immediate": {
+      "animationName": "hero-title-fade-up",
+      "animationPlayState": "running",
+      "opacity": "0",
+      "transform": "matrix(1, 0, 0, 1, 0, 10.4)",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "hero-title-fade-up",
+      "animationPlayState": "running",
+      "opacity": "0.937773",
+      "transform": "matrix(1, 0, 0, 1, 0, 0.647163)",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "hero-title-fade-up",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "filter": "none",
+      "visibility": "visible"
+    }
+  },
+  "fade-in": {
+    "immediate": {
+      "animationName": "hero-title-fade-in",
+      "animationPlayState": "running",
+      "opacity": "0",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "hero-title-fade-in",
+      "animationPlayState": "running",
+      "opacity": "0.955612",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "hero-title-fade-in",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    }
+  },
+  "slide-left": {
+    "immediate": {
+      "animationName": "hero-title-slide-left",
+      "animationPlayState": "running",
+      "opacity": "0",
+      "transform": "matrix(1, 0, 0, 1, -10.4, 0)",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "hero-title-slide-left",
+      "animationPlayState": "running",
+      "opacity": "0.968859",
+      "transform": "matrix(1, 0, 0, 1, -0.323866, 0)",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "hero-title-slide-left",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "filter": "none",
+      "visibility": "visible"
+    }
+  },
+  "slide-right": {
+    "immediate": {
+      "animationName": "hero-title-slide-right",
+      "animationPlayState": "running",
+      "opacity": "0",
+      "transform": "matrix(1, 0, 0, 1, 10.4, 0)",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "hero-title-slide-right",
+      "animationPlayState": "running",
+      "opacity": "0.968832",
+      "transform": "matrix(1, 0, 0, 1, 0.324143, 0)",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "hero-title-slide-right",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "filter": "none",
+      "visibility": "visible"
+    }
+  },
+  "blur-reveal": {
+    "immediate": {
+      "animationName": "hero-title-blur-reveal",
+      "animationPlayState": "running",
+      "opacity": "0",
+      "transform": "matrix(0.985, 0, 0, 0.985, 0, 3.78)",
+      "filter": "blur(8.82px)",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "hero-title-blur-reveal",
+      "animationPlayState": "running",
+      "opacity": "0.955584",
+      "transform": "matrix(0.999334, 0, 0, 0.999334, 0, 0.167891)",
+      "filter": "blur(0.391745px)",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "hero-title-blur-reveal",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "filter": "blur(0px)",
+      "visibility": "visible"
+    }
+  },
+  "typewriter": {
+    "immediate": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    }
+  },
+  "words": {
+    "immediate": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "mid": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    },
+    "settled": {
+      "animationName": "none",
+      "animationPlayState": "running",
+      "opacity": "1",
+      "transform": "none",
+      "filter": "none",
+      "visibility": "visible"
+    }
+  }
+}

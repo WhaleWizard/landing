@@ -1,0 +1,28 @@
+{
+  "heroExists": true,
+  "h1Exists": true,
+  "h1Text": "Увеличу поток клиентов через Google Ads и Meta Ads",
+  "heroEffectsAttr": null,
+  "titleLines": [
+    {
+      "text": "Увеличу поток клиентов",
+      "opacity": "1",
+      "visibility": "visible",
+      "transform": "none",
+      "animationName": "none",
+      "animationPlayState": "running",
+      "display": "block",
+      "clipPath": "none"
+    },
+    {
+      "text": "через Google Ads и Meta Ads",
+      "opacity": "1",
+      "visibility": "visible",
+      "transform": "none",
+      "animationName": "none",
+      "animationPlayState": "running",
+      "display": "block",
+      "clipPath": "none"
+    }
+  ]
+}

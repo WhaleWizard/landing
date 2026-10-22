@@ -1,0 +1,103 @@
+{
+  "heroExists": true,
+  "h1Exists": true,
+  "h1Text": "Реклама приложений в Meta:качественные установки",
+  "heroEffectsAttr": null,
+  "titleLines": [
+    {
+      "text": "Реклама приложений в Meta:",
+      "opacity": "1",
+      "visibility": "visible",
+      "transform": "none",
+      "animationName": "none",
+      "animationPlayState": "running",
+      "display": "block"
+    },
+    {
+      "text": "качественные установки",
+      "opacity": "1",
+      "visibility": "visible",
+      "transform": "none",
+      "animationName": "none",
+      "animationPlayState": "running",
+      "display": "block"
+    },
+    {
+      "text": "оптимизация на покупки, донаты и подписки",
+      "opacity": "1",
+      "visibility": "visible",
+      "transform": "none",
+      "animationName": "none",
+      "animationPlayState": "running",
+      "display": "block"
+    }
+  ],
+  "receipts": [
+    {
+      "className": "meta-receipt-slot meta-receipt-slot--1",
+      "rect": {
+        "top": 662.28125,
+        "left": 253.90625,
+        "width": 128.09375,
+        "height": 139.21875
+      },
+      "filter": "none",
+      "clipPath": "none"
+    },
+    {
+      "className": "meta-receipt-angle",
+      "rect": {
+        "top": 653.633056640625,
+        "left": 241.71836853027344,
+        "width": 142.8795928955078,
+        "height": 154.9500732421875
+      },
+      "filter": "drop-shadow(rgba(0, 0, 0, 0.45) -8px 14px 16px)",
+      "clipPath": "none"
+    },
+    {
+      "className": "meta-receipt-slot meta-receipt-slot--2",
+      "rect": {
+        "top": 786.28125,
+        "left": 224.640625,
+        "width": 120.765625,
+        "height": 131.265625
+      },
+      "filter": "none",
+      "clipPath": "none"
+    },
+    {
+      "className": "meta-receipt-angle",
+      "rect": {
+        "top": 774.95947265625,
+        "left": 216.94091796875,
+        "width": 144.1707763671875,
+        "height": 156.451904296875
+      },
+      "filter": "drop-shadow(rgba(0, 0, 0, 0.45) -8px 14px 16px)",
+      "clipPath": "none"
+    },
+    {
+      "className": "meta-receipt-slot meta-receipt-slot--3",
+      "rect": {
+        "top": 908.28125,
+        "left": 248.421875,
+        "width": 126.265625,
+        "height": 137.234375
+      },
+      "filter": "none",
+      "clipPath": "none"
+    },
+    {
+      "className": "meta-receipt-angle",
+      "rect": {
+        "top": 906.0291748046875,
+        "left": 245.6290283203125,
+        "width": 131.86734008789062,
+        "height": 141.6656494140625
+      },
+      "filter": "drop-shadow(rgba(0, 0, 0, 0.45) -8px 14px 16px)",
+      "clipPath": "none"
+    }
+  ]
+}

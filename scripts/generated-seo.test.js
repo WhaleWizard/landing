@@ -623,7 +623,7 @@ test('bypassed static assets retain security and cache headers', () => {
   const hintRules = parseHeadersFile(output.slice(markerAt));
   for (const route of ['/', '/meta-ads/', '/meta-apps/', '/google-ads/', '/consult/']) {
     const link = hintRules.get(route)?.get('link') || '';
-    assert.match(link, /<\/assets\/index-[^>]+\.css>; rel=preload; as=style/, `${route}: early hints must preload the global stylesheet`);
+    assert.match(link, /<\/assets\/index-[^>]+\.css>; rel=preload; as=style; crossorigin/, `${route}: early hints must preload the global stylesheet`);
   }
   assert.match(hintRules.get('/')?.get('link') || '', /whale\.webp>; rel=preload; as=image/, 'home early hints must preload the whale (LCP image)');
   for (const [, headers] of hintRules) {

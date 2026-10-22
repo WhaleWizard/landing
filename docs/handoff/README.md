@@ -12,7 +12,26 @@
 
 ## 2. Где мы сейчас
 
-**Сделано 22.10.2026 (устранение лагов загрузки, Hero-анимации, прогрессивный скролл и F-101, F-102, F-115):**
+**Сделано 22.10.2026 (Production-First Engineering, Network Torture Test & Autonomous Repair):**
+
+- **PROD-001 (Early Hints Preload Mismatch & Duplicate CSS Fetch):**
+  - Обнаружено в реальном браузере на проде: Chrome логировал `A preload for .../assets/index-DFJN9XAf.css is found, but is not used because the request credentials mode does not match`. Из-за отсутствия `crossorigin` браузер отбрасывал предзагруженный стиль и повторно запрашивал его по сети.
+  - В `scripts/generate-pages.js` (`writeEarlyHints` и `renderRouteStylesheets`) добавлен атрибут `crossorigin` ко всем ссылкам и подсказкам предзагрузки стилей (`as=style; crossorigin`), полностью устранив предупреждение и дублирующий сетевой запрос.
+  - В `scripts/generated-seo.test.js` обновлён контракт тестирования ранних подсказок.
+
+- **PROD-002 (Невидимый текст при анимации акцентного градиента Hero):**
+  - Обнаружено на Playwright Chromium и WebKit: при выборе эффектов `words` или `typewriter` на строках заголовка с тоном `accent` (`bg-gradient-to-r ... bg-clip-text text-transparent`) дочерние `inline-block` элементы с CSS-трансформами (`translateY`, `scale`) формируют изолированный контекст наложения. Фон родителя не обрезался по глифам слов, и текст рисовался со 100% прозрачностью (`color: rgba(0, 0, 0, 0)`, 0 видимых пикселей).
+  - В `src/styles/hero-title-effects.css` добавлено наследование градиента и `background-clip: text` для `.hero-title-effect__word` и `.hero-title-effect__character` внутри контейнеров `bg-clip-text` и акцентных классов лендингов. Видимость текста подтверждена замером цветных пикселей (рост с 0 до 3835 px).
+
+- **PROD-003 (Сбой роута при сетевых сбоях и прокрутке — Network Chaos Scenario F):**
+  - Обнаружено в тесте на устойчивость к сбоям сети: при отключении сети на 1 секунду во время прокрутки вглубь страницы (`meta-apps`, `home`) отказ динамического импорта чанков секций (`DeferredSection`) не перехватывался локально и всплывал до `RouteErrorBoundary`, приводя к полному краху страницы и размонтированию рабочего блока Hero.
+  - Создан компонент `SectionErrorBoundary` (`src/app/components/SectionErrorBoundary.tsx`), локально изолирующий сбои загрузки отложенных секций.
+  - В `DeferredSection` в `src/app/pages/Home.tsx` и `src/app/pages/ServiceLandingPage.tsx` компонент `<Suspense>` обёрнут в `<SectionErrorBoundary>`. При сетевом сбое верхний экран (Hero) и навигация остаются полностью работоспособными, скелетон секции отображает аккуратный статус и кнопку «Попробовать снова», а при событии `window.addEventListener('online')` секция автоматически повторяет загрузку.
+
+- **Комплект аудиторской документации:**
+  - Созданы и заполнены: `audit/00_STATE.md`, `audit/04_FINDINGS.csv`, `audit/14_PRODUCTION_BASELINE.md`, `audit/15_DEPLOYMENT_MATRIX.md`, `audit/16_NETWORK_TEST_MATRIX.csv`, `audit/17_PRODUCTION_FINDINGS.csv`, `audit/18_PRODUCTION_VS_LOCAL.md`, `audit/23_NETWORK_RESILIENCE.md`.
+
+- **Сделано 22.10.2026 ранее (устранение лагов загрузки, Hero-анимации, прогрессивный скролл и F-101, F-102, F-115):**
 
 - **BUG-P1 (Анимации строк заголовка Hero):**
   - В `src/styles/hero-title-effects.css` селектор `[data-title-fit-measuring]` отвязан от `[data-hero-effects="settled"]`. Заменено деструктивное `animation: none !important` на `animation-play-state: paused !important` — замер шрифта больше не сбрасывает и не отменяет активные CSS-анимации появления строк.

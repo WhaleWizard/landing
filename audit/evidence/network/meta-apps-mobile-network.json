@@ -1,0 +1,362 @@
+[
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/meta-apps/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/HeroTitleEffect-D67JIvSN.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/utils-B9xP5I_u.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-Dx0An2gi.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/brand/whale-wand-glow.png",
+    "status": 200,
+    "contentType": "image/png"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/fonts/library.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/brand/whale-wizard-96.webp",
+    "status": 200,
+    "contentType": "image/webp"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-DFJN9XAf.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/MetaAppsHeroVisual-Czw9MD2K.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/meta-phone-screen-aperture-mask.png",
+    "status": 200,
+    "contentType": "image/png"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/meta-phone-3d-shell-mobile.webp",
+    "status": 200,
+    "contentType": "image/webp"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/meta-hero-pedestal-rack-mobile.webp",
+    "status": 200,
+    "contentType": "image/webp"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/meta-verification-stamp.webp",
+    "status": 200,
+    "contentType": "image/webp"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/meta-transfer-stamp.webp",
+    "status": 200,
+    "contentType": "image/webp"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-DFJN9XAf.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/vendor-Bj9tNUel.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/WhaleMark-wbLcAZmI.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/button-CHSKlEr9.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Navbar-CfuaIFdC.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useDialogFocus-DLOvyXl6.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/motionPreference-Bj7JhMO5.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useServiceContent-DAnrpfrd.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useAmbientVisibility-Bs6PTBVT.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/siteContentSeed-D8gy0QAm.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/SEO-Byahfx_h.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/isBotUserAgent-CUKo8AqB.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/ServiceLandingPage-Dvsy1nEf.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/icons-Ckg0krrt.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/motion-S_x8MBv3.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useScrollTo-DU4icI_x.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/HeroTitleEffect-FP0U1yXw.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useTouchDevice-DK8dP83t.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/MetaAppsHeroVisual-DVJZZu3N.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/contentTypography-DN2qISrb.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Hero-DhunSb9U.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/images/meta-receipt-paper-texture-mobile.webp",
+    "status": 200,
+    "contentType": "image/webp"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/legalMeta-DqplRc1z.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CookieConsentManager-Bn1H9sPE.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/site-content?key=service%3Ameta-apps",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/geo",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/pageview",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/api/meta-event",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Services-D0i8nhBO.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/use-mobile-DmnEM37g.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Modal-B6rwxQ4X.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/ImageWithFallback-BddBL53e.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Cases-BTfHFRQL.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CallToAction-BAJ1fHuq.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useDragScroll-BNazPw9W.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Testimonials-CoDP5iQT.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/phoneCountry-CZ3pN-ur.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/leadContext-Bry6oGMI.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/input-cAcRGsVz.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/select-BAA3_28R.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/useTurnstile-sph1lDaH.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/CountryFlag-mdeFYx4S.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/index-D13No2Su.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/LandingForm-B7T_QKvL.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Footer-CNDCeDGw.js",
+    "status": 200,
+    "contentType": "application/javascript"
+  },
+  {
+    "event": "response",
+    "url": "https://www.whalewzrd.com/assets/Footer-CSOOuvPO.css",
+    "status": 200,
+    "contentType": "text/css; charset=utf-8"
+  }
+]

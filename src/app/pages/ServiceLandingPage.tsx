@@ -16,6 +16,7 @@ import { memoizedImport } from '../utils/memoizedImport';
 import { useWarmSections } from '../utils/sectionWarmup';
 import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 import { isBotUserAgent } from '../utils/isBotUserAgent';
+import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import { loadHero, loadConsultStudioHero, loadMetaAdsEditorialHero } from '../utils/heroPreload';
 import {
   managedBodyClasses,
@@ -994,7 +995,9 @@ function DeferredSection({
       id={shouldRender ? undefined : anchorId}
     >
       {shouldRender ? (
-        <Suspense fallback={<SectionSkeleton heights={heights} />}>{children}</Suspense>
+        <SectionErrorBoundary fallback={<SectionSkeleton heights={heights} />} anchorId={anchorId}>
+          <Suspense fallback={<SectionSkeleton heights={heights} />}>{children}</Suspense>
+        </SectionErrorBoundary>
       ) : (
         <SectionSkeleton heights={heights} />
       )}

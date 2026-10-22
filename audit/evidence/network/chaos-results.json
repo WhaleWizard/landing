@@ -1,0 +1,23 @@
+[
+  {
+    "scenario": "E — Third-Party Blocking",
+    "description": "Blocked GA4, GTM, Meta Pixel",
+    "passed": true,
+    "blockedRequestsCount": 0,
+    "pageErrorsCount": 0,
+    "notes": "Interface functional without 3rd party scripts"
+  },
+  {
+    "scenario": "C — Failed JS Chunk",
+    "description": "Aborted lower section chunk (https://www.whalewzrd.com/assets/Services-D0i8nhBO.js)",
+    "passed": true,
+    "pageErrorsCount": 0,
+    "notes": "Hero remained intact despite deferred chunk failure"
+  },
+  {
+    "scenario": "F — Network Disconnect / Recovery",
+    "description": "Go offline then restore network during page session",
+    "passed": false,
+    "notes": "Session crashed"
+  }
+]

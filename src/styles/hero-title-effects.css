@@ -99,6 +99,23 @@
   );
 }
 
+/*
+ * На строках с акцентным градиентом (background-clip: text + text-transparent)
+ * дочерние inline-block слова создают свой контекст форматирования/наложения,
+ * из-за чего фон родителя не обрезался по глифам слов и текст пропадал
+ * (color: transparent). Передача градиента и background-clip: text дочерним
+ * элементам восстанавливает полную видимость и корректный рендер градиента.
+ */
+.hero-title-effect[class*='bg-clip-text'] .hero-title-effect__word,
+.hero-title-effect.consult-studio-hero__title-accent .hero-title-effect__word,
+.hero-title-effect.meta-editorial-hero__title-accent .hero-title-effect__word {
+  background-image: inherit;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
 @keyframes hero-title-fade-up {
   from {
     opacity: 0;

@@ -515,7 +515,7 @@ function renderRouteStylesheets(route, baseHtml) {
   return files
     // Global CSS is already linked by Vite in the original HTML shell.
     .filter((file) => !baseHtml.includes(file))
-    .map((file) => `<link rel="stylesheet" href="/${file}" />`)
+    .map((file) => `<link rel="stylesheet" crossorigin href="/${file}" />`)
     .join('\n  ');
 }
 
@@ -2165,7 +2165,7 @@ function writeEarlyHints(staticPages, baseHtml) {
       .filter((preload) => !preload.media && !preload.imageSrcSet)
       .map((preload) => preload.href);
     const hints = [
-      ...stylesheets.map((href) => `<${href}>; rel=preload; as=style`),
+      ...stylesheets.map((href) => `<${href}>; rel=preload; as=style; crossorigin`),
       ...images.map((href) => `<${href}>; rel=preload; as=image`),
     ];
     if (!hints.length) continue;

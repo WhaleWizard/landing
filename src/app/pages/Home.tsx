@@ -18,6 +18,7 @@ import { memoizedImport } from '../utils/memoizedImport';
 import { useWarmSections } from '../utils/sectionWarmup';
 import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 import { isBotUserAgent } from '../utils/isBotUserAgent';
+import SectionErrorBoundary from '../components/SectionErrorBoundary';
 // The mobile cosmic stage participates in document flow. Load its geometry
 // with the Home route (rather than the nested lazy scene) so Suspense reserves
 // 320–430px immediately without making non-cosmic service heroes download it.
@@ -177,7 +178,9 @@ function DeferredSection({
   return (
     <section ref={sectionRef} data-home-section="" data-home-anchor={anchorId} id={shouldRender ? undefined : anchorId}>
       {shouldRender ? (
-        <Suspense fallback={<SectionSkeleton heights={heights} />}>{children}</Suspense>
+        <SectionErrorBoundary fallback={<SectionSkeleton heights={heights} />} anchorId={anchorId}>
+          <Suspense fallback={<SectionSkeleton heights={heights} />}>{children}</Suspense>
+        </SectionErrorBoundary>
       ) : (
         <SectionSkeleton heights={heights} />
       )}
