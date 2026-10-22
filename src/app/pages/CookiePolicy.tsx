@@ -22,8 +22,8 @@ export default function CookiePolicy() {
     <>
       <SEO
         title="Политика использования файлов cookie"
-        description="Cookie, localStorage, аналитика, рекламные пиксели и управление согласием на сайте Whale Wizard."
-        url="/cookie-policy"
+        description="Какие cookie, пиксели и счётчики использует сайт, зачем они нужны и как в один клик изменить своё согласие на их использование."
+        url="/cookie-policy/"
       />
       <Navbar variant="content" />
       <main className="min-h-screen bg-background pt-24 md:pt-28">

@@ -52,11 +52,11 @@ function send(samples: Sample[]): void {
   }
 }
 
-function observe(type: string, handler: (entries: PerformanceEntryList) => void): PerformanceObserver | null {
+function observe(type: string, handler: (entries: PerformanceEntryList) => void, extra?: Record<string, unknown>): PerformanceObserver | null {
   try {
     const observer = new PerformanceObserver((list) => handler(list.getEntries()));
     // buffered даёт события, случившиеся до подписки — иначе LCP теряется.
-    observer.observe({ type, buffered: true } as PerformanceObserverInit);
+    observer.observe({ type, buffered: true, ...extra } as PerformanceObserverInit);
     return observer;
   } catch {
     return null;
@@ -71,8 +71,12 @@ export function startWebVitals(): void {
 
   const path = pagePath();
   let largestPaint = 0;
-  let layoutShift = 0;
+  let maxSessionWindowScore = 0;
+  let currentSessionWindowScore = 0;
+  let sessionWindowStart = 0;
+  let sessionWindowEnd = 0;
   let slowestInteraction = 0;
+  let hadInteraction = false;
   let sent = false;
 
   const observers: Array<PerformanceObserver | null> = [];
@@ -83,23 +87,35 @@ export function startWebVitals(): void {
     }
   }));
 
+  // CLS по сессионным окнам: разрыв не более 1 с, окно не более 5 с (F-052).
   observers.push(observe('layout-shift', (entries) => {
-    for (const entry of entries as Array<PerformanceEntry & { value?: number; hadRecentInput?: boolean }>) {
-      // Сдвиги сразу после действия пользователя не считаются ошибкой вёрстки.
+    for (const entry of entries as Array<PerformanceEntry & { value?: number; hadRecentInput?: boolean; startTime: number }>) {
       if (entry.hadRecentInput) continue;
-      layoutShift += Number(entry.value || 0);
+      const value = Number(entry.value || 0);
+      if (currentSessionWindowScore > 0 && entry.startTime - sessionWindowEnd < 1000 && entry.startTime - sessionWindowStart < 5000) {
+        currentSessionWindowScore += value;
+        sessionWindowEnd = entry.startTime;
+      } else {
+        currentSessionWindowScore = value;
+        sessionWindowStart = entry.startTime;
+        sessionWindowEnd = entry.startTime;
+      }
+      if (currentSessionWindowScore > maxSessionWindowScore) {
+        maxSessionWindowScore = currentSessionWindowScore;
+      }
     }
   }));
 
-  // Приближение INP: самая долгая обработка взаимодействия на странице.
-  // Полный алгоритм учитывает распределение по всем взаимодействиям, здесь
-  // берётся худшее — это ближе к смыслу метрики, чем ничего.
-  observers.push(observe('event', (entries) => {
+  // INP: порог 40 мс + first-input для быстрых взаимодействий (F-018).
+  const handleInteraction = (entries: PerformanceEntryList) => {
     for (const entry of entries as Array<PerformanceEntry & { interactionId?: number; duration?: number }>) {
       if (!entry.interactionId) continue;
+      hadInteraction = true;
       slowestInteraction = Math.max(slowestInteraction, Number(entry.duration || 0));
     }
-  }));
+  };
+  observers.push(observe('event', handleInteraction, { durationThreshold: 40 }));
+  observers.push(observe('first-input', handleInteraction));
 
   const timeToFirstByte = (): number => {
     try {
@@ -119,8 +135,8 @@ export function startWebVitals(): void {
 
     const samples: Sample[] = [];
     if (largestPaint > 0) samples.push({ metric: 'LCP', value: Math.round(largestPaint), path });
-    if (layoutShift > 0) samples.push({ metric: 'CLS', value: Math.round(layoutShift * 1000) / 1000, path });
-    if (slowestInteraction > 0) samples.push({ metric: 'INP', value: Math.round(slowestInteraction), path });
+    if (maxSessionWindowScore > 0) samples.push({ metric: 'CLS', value: Math.round(maxSessionWindowScore * 1000) / 1000, path });
+    if (hadInteraction) samples.push({ metric: 'INP', value: Math.round(slowestInteraction), path });
     const ttfb = timeToFirstByte();
     if (ttfb > 0) samples.push({ metric: 'TTFB', value: Math.round(ttfb), path });
     send(samples);
@@ -132,4 +148,5 @@ export function startWebVitals(): void {
     if (document.visibilityState === 'hidden') flush();
   }, { once: false });
   window.addEventListener('pagehide', flush, { once: true });
+  window.addEventListener('popstate', flush, { once: true });
 }

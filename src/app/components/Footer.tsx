@@ -136,7 +136,7 @@ function Footer() {
             <ul className={footerListClass}>
               {!isHiddenInNav('/meta-ads') && (
                 <li>
-                  <Link to="/meta-ads" state={linkState} className={footerLinkClass}>
+                  <Link to="/meta-ads/" state={linkState} className={footerLinkClass}>
                     Meta Ads — Facebook и Instagram
                   </Link>
                 </li>
@@ -144,7 +144,7 @@ function Footer() {
 
               {!isHiddenInNav('/meta-apps') && (
                 <li>
-                  <Link to="/meta-apps" state={linkState} className={footerLinkClass}>
+                  <Link to="/meta-apps/" state={linkState} className={footerLinkClass}>
                     Продвижение приложений
                   </Link>
                 </li>
@@ -152,7 +152,7 @@ function Footer() {
 
               {!isHiddenInNav('/google-ads') && (
                 <li>
-                  <Link to="/google-ads" state={linkState} className={footerLinkClass}>
+                  <Link to="/google-ads/" state={linkState} className={footerLinkClass}>
                     Google Ads
                   </Link>
                 </li>
@@ -160,7 +160,7 @@ function Footer() {
 
               {!isHiddenInNav('/consult') && (
                 <li>
-                  <Link to="/consult" state={linkState} className={footerLinkClass}>
+                  <Link to="/consult/" state={linkState} className={footerLinkClass}>
                     Консультация
                   </Link>
                 </li>
@@ -196,14 +196,14 @@ function Footer() {
 
               {!isHiddenInNav('/blog') && (
                 <li>
-                  <Link to="/blog" state={linkState} className={footerLinkClass}>
+                  <Link to="/blog/" state={linkState} className={footerLinkClass}>
                     Блог
                   </Link>
                 </li>
               )}
               {!isHiddenInNav('/cases') && (
                 <li>
-                  <Link to="/cases" state={linkState} className={footerLinkClass}>
+                  <Link to="/cases/" state={linkState} className={footerLinkClass}>
                     Все кейсы
                   </Link>
                 </li>
@@ -211,7 +211,7 @@ function Footer() {
 
               {!isHiddenInNav('/faq') && (
                 <li>
-                  <Link to="/faq" state={linkState} className={footerLinkClass}>
+                  <Link to="/faq/" state={linkState} className={footerLinkClass}>
                     FAQ
                   </Link>
                 </li>
@@ -219,7 +219,7 @@ function Footer() {
 
               {!isHiddenInNav('/marketing-glossary') && (
                 <li>
-                  <Link to="/marketing-glossary" state={linkState} className={footerLinkClass}>
+                  <Link to="/marketing-glossary/" state={linkState} className={footerLinkClass}>
                     Словарь метрик
                   </Link>
                 </li>
@@ -227,7 +227,7 @@ function Footer() {
 
               {!isHiddenInNav('/calculator') && (
                 <li>
-                  <Link to="/calculator" state={linkState} className={footerLinkClass}>
+                  <Link to="/calculator/" state={linkState} className={footerLinkClass}>
                     Калькулятор бюджета
                   </Link>
                 </li>
@@ -293,20 +293,20 @@ function Footer() {
             </p>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 justify-center md:justify-end leading-none">
-              <Link to="/privacy-policy" state={linkState} className={footerLegalLinkClass}>
+              <Link to="/privacy-policy/" state={linkState} className={footerLegalLinkClass}>
                 <span>Политика конфиденциальности и ПД</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </Link>
-              <Link to="/offer" state={linkState} className={footerLegalLinkClass}>
+              <Link to="/offer/" state={linkState} className={footerLegalLinkClass}>
                 <span>Публичная оферта</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </Link>
-              <Link to="/cookie-policy" state={linkState} className={footerLegalLinkClass}>
+              <Link to="/cookie-policy/" state={linkState} className={footerLegalLinkClass}>
                 <span>Политика Cookie</span>
                 <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
               </Link>
               {!isHiddenInNav('/faq') && (
-                <Link to="/faq" state={linkState} className={footerLegalLinkClass}>
+                <Link to="/faq/" state={linkState} className={footerLegalLinkClass}>
                   <span>FAQ</span>
                   <div className="absolute bottom-0 left-0 w-0 h-px bg-primary group-hover:w-full transition-all duration-300" />
                 </Link>

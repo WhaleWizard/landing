@@ -174,6 +174,7 @@ function ArticleHeroBackdrop() {
 function normalizeTokens(value = '') {
   return String(value)
     .toLowerCase()
+    .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
     .split(/\s+/)
     .filter((token) => token.length > 2);
@@ -228,21 +229,25 @@ function getDownloadFileName(href = '') {
 
 function extractRelatedArticles(allArticles: Article[], currentArticle: Article | null | undefined) {
   if (!currentArticle) return [];
+  const currentSectionId = sectionOfArticle(currentArticle)?.id;
   const currentTags = new Set((currentArticle.tags || []).map((tag) => String(tag).toLowerCase()));
   const currentTokens = new Set(normalizeTokens(`${currentArticle.title} ${currentArticle.description}`));
 
   return allArticles
     .filter((article) => article.slug !== currentArticle.slug)
     .map((article) => {
-      const sameCategory = Number(article.category === currentArticle.category) * 3;
+      const articleSectionId = sectionOfArticle(article)?.id;
+      const sameSection = currentSectionId && articleSectionId
+        ? Number(currentSectionId === articleSectionId) * 3
+        : Number(article.category === currentArticle.category) * 3;
       const tagsScore = (article.tags || []).reduce((acc, tag) => acc + Number(currentTags.has(String(tag).toLowerCase())), 0);
       const articleTokens = normalizeTokens(`${article.title} ${article.description}`);
       const tokenScore = articleTokens.reduce((acc, token) => acc + Number(currentTokens.has(token)), 0);
-      return { article, score: sameCategory + tagsScore * 2 + tokenScore };
+      return { article, score: sameSection + tagsScore * 2 + tokenScore };
     })
     .sort((a, b) => {
-      const byCategory = b.score - a.score;
-      if (byCategory !== 0) return byCategory;
+      const byScore = b.score - a.score;
+      if (byScore !== 0) return byScore;
       return a.article.title.localeCompare(b.article.title);
     })
     .slice(0, 3)
@@ -264,13 +269,21 @@ function ArticleReadingProgress({ isCase = false }: { isCase?: boolean }) {
 
 function toIsoDate(value?: string): string | undefined {
   if (!value) return undefined;
-  const direct = new Date(value);
-  if (!Number.isNaN(direct.getTime())) return direct.toISOString().slice(0, 10);
-  const match = value.trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  if (raw.length <= 10 && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const direct = new Date(raw);
+  if (!Number.isNaN(direct.getTime())) {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(direct);
+    } catch {
+      return direct.toISOString().slice(0, 10);
+    }
+  }
+  const match = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (!match) return undefined;
   const [, day, month, year] = match;
-  const parsed = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString().slice(0, 10);
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
 /**
@@ -281,7 +294,10 @@ function toIsoDate(value?: string): string | undefined {
  */
 function absoluteArticleImage(path = ''): string {
   const optimized = resolveArticleImage(path)?.src;
-  if (optimized) return `${SITE_URL}${optimized}`;
+  if (optimized) {
+    if (/^https?:\/\//i.test(optimized)) return optimized;
+    return `${SITE_URL}${optimized.startsWith('/') ? optimized : `/${optimized}`}`;
+  }
   if (/^https?:\/\//i.test(path)) return path;
   return `${SITE_URL}${path.startsWith('/') ? path : `/${path || 'og-image-v2.jpg'}`}`;
 }
@@ -566,9 +582,27 @@ function BlogPageComponent() {
   }, [contentNode, selectedArticle]);
 
   useEffect(() => {
-    const ids = ['ld-article', 'ld-breadcrumbs', 'ld-faq-page'] as const;
     if (!selectedArticle) {
-      ids.forEach((id) => document.getElementById(id)?.remove());
+      document.getElementById('ld-article')?.remove();
+      document.getElementById('ld-faq-page')?.remove();
+      const existingBreadcrumbs = document.getElementById('ld-breadcrumbs');
+      const listBreadcrumbPayload = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Главная', item: `${SITE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: routeBase === '/cases' ? 'Кейсы' : 'Блог', item: `${SITE_URL}${routeBase}/` },
+        ],
+      };
+      if (existingBreadcrumbs instanceof HTMLScriptElement) {
+        existingBreadcrumbs.textContent = JSON.stringify(listBreadcrumbPayload);
+      } else {
+        const script = document.createElement('script');
+        script.id = 'ld-breadcrumbs';
+        script.type = 'application/ld+json';
+        script.textContent = JSON.stringify(listBreadcrumbPayload);
+        document.head.appendChild(script);
+      }
       return;
     }
 
@@ -595,7 +629,10 @@ function BlogPageComponent() {
       if (!script.isConnected) document.head.appendChild(script);
     }
 
-    return () => ids.forEach((id) => document.getElementById(id)?.remove());
+    return () => {
+      document.getElementById('ld-article')?.remove();
+      document.getElementById('ld-faq-page')?.remove();
+    };
   }, [selectedArticle, routeBase]);
 
   useEffect(() => {
@@ -681,12 +718,12 @@ function BlogPageComponent() {
         article.title,
         article.description,
         article.category,
+        sectionOfArticle(article)?.label || '',
         Array.isArray(article.tags) ? article.tags.join(' ') : '',
         article.summary || '',
       ].join(' '));
 
-      const haystackSet = new Set(haystack);
-      return normalizedQueryTokens.every((token) => haystackSet.has(token));
+      return normalizedQueryTokens.every((token) => haystack.some((word) => word.startsWith(token)));
     })
     .sort((a, b) => {
       if (sort === 'short') return articleReadMinutes(a) - articleReadMinutes(b);
@@ -762,7 +799,7 @@ function BlogPageComponent() {
     // отдаёт список по `/blog/`, и замена на `/blog` сразу после гидратации
     // была бы лишней навигацией (новая запись истории → прокрутка наверх при
     // перезагрузке и сброс признака «страница пришла готовой»).
-    const listPathname = /^\/blog\/?$/.test(location.pathname) ? location.pathname : '/blog';
+    const listPathname = '/blog/';
     const nextUrl = `${listPathname}${query ? `?${query}` : ''}`;
     if (`${location.pathname}${location.search}` !== nextUrl) {
       internalSearchRef.current = query ? `?${query}` : '';
@@ -1238,8 +1275,10 @@ function BlogPageComponent() {
                       setShowAllTopics(nextShown);
                       // Свернули список — не оставляем активной тему, которую больше не видно.
                       if (!nextShown) {
+                        const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
+                        const visibleLimit = isMobile ? 3 : 4;
                         const hiddenIndex = topics.findIndex((topic) => topic.id === activeTopic);
-                        if (hiddenIndex >= 4) setActiveTopic('');
+                        if (hiddenIndex >= visibleLimit) setActiveTopic('');
                       }
                     }}
                     className={`blog-touch-target mt-3 inline-flex items-center gap-2 text-sm font-semibold text-primary ${topics.length > 4 ? '' : 'sm:hidden'}`}
@@ -1452,7 +1491,7 @@ function BlogPageComponent() {
                 </p>
               </div>
               <Link
-                to="/cases?from=blog"
+                to="/cases/?from=blog"
                 state={withReturnTo(location)}
                 className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95"
               >

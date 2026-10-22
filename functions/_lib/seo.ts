@@ -63,16 +63,23 @@ function toIsoDate(value?: string): string | null {
   const raw = String(value).trim();
   if (!raw) return null;
 
+  if (raw.length <= 10 && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+
   const direct = new Date(raw);
   if (!Number.isNaN(direct.getTime())) {
-    return direct.toISOString().slice(0, 10);
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(direct);
+    } catch {
+      return direct.toISOString().slice(0, 10);
+    }
   }
 
   const ddmmyyyy = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (ddmmyyyy) {
     const [, dd, mm, yyyy] = ddmmyyyy;
-    const parsed = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}T00:00:00Z`);
-    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
   }
 
   return null;
@@ -424,4 +431,133 @@ export function renderFeedXml(siteUrl: string, articles: Article[]): string {
 ${items}
 </channel>
 </rss>`;
+}
+
+export function htmlToPlainText(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n### $1\n\n')
+    .replace(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n#### $1\n\n')
+    .replace(/<h[4-6]\b[^>]*>([\s\S]*?)<\/h[4-6]>/gi, '\n\n##### $1\n\n')
+    .replace(/\s*<li\b[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1')
+    .replace(/<\/(p|blockquote|ul|ol|figure|table)>/gi, '\n\n')
+    .replace(/<hr\b[^>]*\/?>/gi, '\n\n')
+    .replace(/<br\b[^>]*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+export function renderLlmsFullArticle(article: Article, siteUrl: string): string {
+  const url = `${siteUrl}${getArticlePath(article)}`;
+  const kind = isCaseArticle(article) ? 'Case study' : 'Blog article';
+  const title = article.seoTitle || article.title;
+  const summary = article.seoDescription || article.description || '';
+  const dateStr = String(article.publishedAt || '').slice(0, 10);
+
+  const parts: string[] = [
+    `## ${title}`,
+    '',
+    `URL: ${url}`,
+    `Type: ${kind}`,
+    `Category: ${article.category || ''}`,
+    `Published: ${dateStr}`,
+    `Summary: ${summary}`,
+  ];
+
+  if (article.summary && article.summary.trim()) {
+    parts.push(`Short answer: ${article.summary.trim()}`);
+  }
+
+  if (Array.isArray(article.keyTakeaways) && article.keyTakeaways.length > 0) {
+    const takeaways = article.keyTakeaways.filter(Boolean);
+    if (takeaways.length > 0) {
+      parts.push('', 'Key takeaways:');
+      for (const t of takeaways) {
+        parts.push(`- ${t}`);
+      }
+    }
+  }
+
+  const plainText = htmlToPlainText(article.content || '');
+  if (plainText) {
+    parts.push('', plainText);
+  }
+
+  if (Array.isArray(article.faq) && article.faq.length > 0) {
+    const validFaq = article.faq.filter((q) => q && q.question && q.answer);
+    if (validFaq.length > 0) {
+      parts.push('', 'FAQ:');
+      for (const q of validFaq) {
+        parts.push(`Q: ${q.question}`, `A: ${q.answer}`, '');
+      }
+    }
+  }
+
+  return parts.join('\n').trimEnd();
+}
+
+export function renderLlmsIndex(articles: Article[], siteUrl: string, generatedDate: string): string {
+  const blogArticles = articles.filter((article) => !isCaseArticle(article));
+  const caseArticles = articles.filter((article) => isCaseArticle(article));
+
+  const lines = [
+    '## 14) Content index (auto-generated at build)',
+    '',
+    `Generated: ${generatedDate}. Total published items: ${articles.length}.`,
+    '',
+    '### Blog articles',
+  ];
+
+  for (const article of blogArticles) {
+    const title = article.seoTitle || article.title;
+    const desc = article.seoDescription || article.description || '';
+    lines.push(`- ${siteUrl}${getArticlePath(article)} — ${title}: ${desc}`);
+  }
+
+  if (caseArticles.length > 0) {
+    lines.push('', '### Case studies');
+    for (const article of caseArticles) {
+      const title = article.seoTitle || article.title;
+      const desc = article.seoDescription || article.description || '';
+      lines.push(`- ${siteUrl}${getArticlePath(article)} — ${title}: ${desc}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function renderLlmsTxt(rawHeader: string, articles: Article[], siteUrl: string, generatedDate: string): string {
+  const marker = '## 14) Content index (auto-generated at build)';
+  const baseHeader = rawHeader.split(marker)[0].trimEnd();
+  const index = renderLlmsIndex(articles, siteUrl, generatedDate);
+  return `${baseHeader}\n\n${index}\n`;
+}
+
+export function renderLlmsFullTxt(rawHeader: string, articles: Article[], siteUrl: string): string {
+  const marker = '---';
+  const header = rawHeader.split(marker)[0].trimEnd();
+  const parts = [
+    header,
+    '',
+    '---',
+    '',
+    '# Full content (auto-generated at build)',
+    '',
+  ];
+  for (const article of articles) {
+    parts.push(renderLlmsFullArticle(article, siteUrl), '');
+  }
+  return `${parts.join('\n').trimEnd()}\n`;
 }

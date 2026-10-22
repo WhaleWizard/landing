@@ -197,14 +197,23 @@ function scheduleTrackingRuntimeLoad(
   }
 }
 
-function applyConsent(consent: ConsentRecord, immediateRuntimeLoad = false): void {
+function applyConsent(consent: ConsentRecord, immediateRuntimeLoad = false, previous: ConsentRecord | null = null): void {
   prepareTrackingQueues(consent.categories);
   updateConsentState(consent.categories);
   const location = router.state.location;
   const path = location.pathname;
-  if (consent.categories.analytics || consent.categories.marketing) {
-    trackPageView(path, { marketing: consent.categories.marketing });
-    trackServiceViewContent(path, { marketing: consent.categories.marketing });
+
+  const newAnalytics = consent.categories.analytics && (!previous || !previous.categories.analytics);
+  const newMarketing = consent.categories.marketing && (!previous || !previous.categories.marketing);
+
+  if (newAnalytics || newMarketing || (previous === null && (consent.categories.analytics || consent.categories.marketing))) {
+    trackPageView(path, {
+      marketing: newMarketing,
+      analytics: newAnalytics || previous === null,
+    });
+    if (newMarketing) {
+      trackServiceViewContent(path, { marketing: true });
+    }
   }
   scheduleTrackingRuntimeLoad(consent.categories, immediateRuntimeLoad);
 }
@@ -284,9 +293,10 @@ export default function CookieConsentManager() {
 
   const saveAndApply = useCallback(
     (categories: Omit<ConsentCategories, 'necessary'>, source: ConsentRecord['source']) => {
+      const previous = consentRef.current;
       const consent = saveConsent(categories, region, source);
       consentRef.current = consent;
-      applyConsent(consent, true);
+      applyConsent(consent, true, previous);
       setMode('hidden');
     },
     [region],

@@ -80,7 +80,11 @@ function loadTurnstileScript(): Promise<TurnstileApi | null> {
 
     const done = () => finish((window as TurnstileWindow).turnstile || null);
     script.addEventListener('load', done, { once: true });
-    script.addEventListener('error', () => finish(null), { once: true });
+    script.addEventListener('error', () => {
+      scriptPromise = null;
+      try { script.remove(); } catch { /* ignore */ }
+      finish(null);
+    }, { once: true });
 
     if (!existing) {
       script.src = SCRIPT_SRC;

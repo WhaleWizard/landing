@@ -5,6 +5,7 @@
 // Только хранилище согласия: сам трекинг с пикселями в стартовый чанк не нужен.
 import { loadConsent } from '../consent/consentStorage';
 import { applyConsentDowngrade } from './leadRetryConsent';
+import { createEventId } from '../consent/consent';
 
 const QUEUE_KEY = 'ww_lead_retry_queue_v1';
 const MAX_QUEUE_SIZE = 10;
@@ -40,7 +41,7 @@ function writeQueue(queue: QueuedLead[]): boolean {
 export function queueLeadForRetry(endpoint: string, payload: unknown): boolean {
   try {
     const queue = readQueue();
-    queue.push({ id: crypto.randomUUID(), endpoint, payload, queuedAt: Date.now() });
+    queue.push({ id: createEventId(), endpoint, payload, queuedAt: Date.now() });
     return writeQueue(queue);
   } catch {
     // A form must keep its entered fields unless the retry really persisted.
@@ -118,9 +119,12 @@ export async function flushLeadQueue(): Promise<void> {
       try {
         const payload = applyConsentDowngrade(item.payload, loadConsent());
         const freshToken = mintToken ? await mintToken() : null;
-        const body = freshToken
-          ? { ...(payload as Record<string, unknown>), turnstile_token: freshToken }
-          : payload;
+        if (!freshToken) {
+          // Без свежего токена Turnstile не отправляем: сервер ответит 403, и запись
+          // удалится из очереди. Оставляем её в очереди до следующей попытки (F-016).
+          continue;
+        }
+        const body = { ...(payload as Record<string, unknown>), turnstile_token: freshToken };
 
         const res = await fetch(item.endpoint, {
           method: 'POST',
@@ -142,6 +146,39 @@ export async function flushLeadQueue(): Promise<void> {
   }
 }
 
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryAttempt = 0;
+
+/**
+ * Планирует повторную отправку отложенных заявок в рамках текущей сессии (F-005).
+ * Использует экспоненциальное нарастание задержки (10 с, 30 с, 2 мин, 5 мин).
+ */
+export function scheduleLeadRetry(delayMs?: number): void {
+  if (typeof window === 'undefined') return;
+  if (retryTimer) clearTimeout(retryTimer);
+
+  const delays = [10_000, 30_000, 120_000, 300_000];
+  const computedDelay = delayMs !== undefined ? Math.max(10_000, delayMs) : delays[Math.min(retryAttempt, delays.length - 1)];
+
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    const queue = readQueue();
+    if (!queue.length) {
+      retryAttempt = 0;
+      return;
+    }
+    retryAttempt += 1;
+    void flushLeadQueue().then(() => {
+      const remaining = readQueue();
+      if (remaining.length > 0) {
+        scheduleLeadRetry();
+      } else {
+        retryAttempt = 0;
+      }
+    });
+  }, computedDelay);
+}
+
 let initialized = false;
 
 export function initLeadRetryQueue(): void {
@@ -150,5 +187,11 @@ export function initLeadRetryQueue(): void {
   void flushLeadQueue();
   window.addEventListener('online', () => {
     void flushLeadQueue();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const queue = readQueue();
+      if (queue.length > 0) void flushLeadQueue();
+    }
   });
 }

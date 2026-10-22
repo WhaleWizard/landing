@@ -90,8 +90,15 @@ test('номер с восьмёркой не превращается в нес
   // Введённый плюс всегда главнее выбора в списке.
   assert.equal(phone.buildFullPhone('+1', '+7 926 123 45 67'), '+79261234567');
 
-  // Правило узкое: чужие нумерации не трогаем.
+  // Правило узкое: чужие нумерации не трогаем, кроме таблицы известных национальных префиксов.
   assert.equal(phone.buildFullPhone('+1', '8005551234'), '+18005551234');
+  assert.equal(phone.buildFullPhone('+380', '050 123 45 67'), '+380501234567');
+  assert.equal(phone.buildFullPhone('+375', '8 029 123-45-67'), '+375291234567');
+  assert.equal(phone.buildFullPhone('+44', '07911 123456'), '+447911123456');
+  assert.equal(phone.buildFullPhone('+49', '0151 23456789'), '+4915123456789');
+  assert.equal(phone.buildFullPhone('+90', '0532 123 45 67'), '+905321234567');
+  assert.equal(phone.buildFullPhone('+39', '06 1234 5678'), '+390612345678');
+  assert.equal(phone.buildFullPhone('+380', '380501234567'), '+380501234567');
   assert.equal(phone.buildFullPhone('+7', ''), '');
 });
 

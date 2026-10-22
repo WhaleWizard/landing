@@ -103,7 +103,7 @@ test('все предрендеренные страницы есть в кат�
 });
 
 test('админку, API и служебные файлы закрыть нельзя', () => {
-  for (const path of ['/admin', '/admin/content-preview', '/api/lead', '/api/page-locks', '/sitemap.xml', '/feed.xml', '/robots.txt', '/llms.txt']) {
+  for (const path of ['/admin', '/admin/content-preview', '/api/lead', '/api/page-locks', '/sitemap.xml', '/feed.xml', '/robots.txt', '/llms.txt', '/llms-full.txt']) {
     assert.equal(server.isLockablePath(path), false, `${path} не должен поддаваться блокировке`);
   }
   for (const path of ['/blog', '/google-ads', '/']) {

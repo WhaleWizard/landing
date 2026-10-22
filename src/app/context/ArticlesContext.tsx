@@ -189,9 +189,27 @@ export interface InlineArticleSeed {
 // /blog/:slug и /cases/:slug или список карточек для /blog и /cases, — и
 // убирает после рендера.
 let serverArticleSeed: Article[] | null = null;
+let seedConsumed = false;
 
 export function primeArticleSeed(articles: Article[] | null): void {
   serverArticleSeed = articles;
+}
+
+/** Сброс состояния использованного seed для изоляции в тестах. */
+export function resetArticleSeedConsumptionForTests(): void {
+  seedConsumed = false;
+}
+
+/**
+ * Помечает встроенный seed как использованный и удаляет элемент из DOM (F-010).
+ * Защищает от ситуации, когда возврат назад или повторное монтирование провайдера
+ * подтягивают устаревшие данные статьи из первой загрузки страницы.
+ */
+export function consumeArticleSeed(): void {
+  seedConsumed = true;
+  if (typeof document !== 'undefined') {
+    document.getElementById('ww-article-seed')?.remove();
+  }
 }
 
 /**
@@ -224,6 +242,7 @@ export function readArticleSeed(): InlineArticleSeed {
   if (typeof document === 'undefined') {
     return serverArticleSeed ? { articles: serverArticleSeed, present: true } : missing;
   }
+  if (seedConsumed) return missing;
   const node = document.getElementById('ww-article-seed');
   if (!node?.textContent) return missing;
   try {
@@ -240,11 +259,12 @@ interface Props {
 }
 
 export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props) => {
-  const [initialSeed] = useState<InlineArticleSeed>(() => (
-    initialLoad === 'manual'
-      ? { articles: [], present: false }
-      : readArticleSeed()
-  ));
+  const [initialSeed] = useState<InlineArticleSeed>(() => {
+    if (initialLoad === 'manual') return { articles: [], present: false };
+    const seed = readArticleSeed();
+    consumeArticleSeed();
+    return seed;
+  });
   const [articles, setArticles] = useState<Article[]>(() => initialSeed.articles);
   const seededRef = useRef(initialSeed.present);
   const [loading, setLoading] = useState(!seededRef.current);

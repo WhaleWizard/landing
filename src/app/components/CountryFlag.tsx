@@ -42,9 +42,8 @@ export default function CountryFlag({ countryCode, className = '', alt = '' }: C
 
   if (!normalized) return null;
 
-  // SVG лежат в public и попадают в production как обычные статические файлы.
-  // Так форма загружает только выбранный флаг, а не карту всех стран в JS.
-  const source = `/images/country-flags/${normalized.toLowerCase()}.svg`;
+  // WebP-копии лежат в public (72x54 для 3x экранов) и весят по ~1 КБ вместо тяжёлых SVG (F-117).
+  const source = `/images/country-flags/${normalized.toLowerCase()}.webp`;
   if (loadFailed) {
     return <span className={`country-flag country-flag--fallback ${className}`.trim()} aria-label={alt || normalized}>{normalized}</span>;
   }

@@ -15,6 +15,7 @@ import { preloadable } from '../utils/preloadable';
 import { memoizedImport } from '../utils/memoizedImport';
 import { useWarmSections } from '../utils/sectionWarmup';
 import { hasGeneratedFirstScreen } from '../utils/firstScreen';
+import { isBotUserAgent } from '../utils/isBotUserAgent';
 import { loadHero, loadConsultStudioHero, loadMetaAdsEditorialHero } from '../utils/heroPreload';
 import {
   managedBodyClasses,
@@ -868,10 +869,19 @@ function DeferredSection({
   // генератор страниц рендерит это же дерево, и React потом гидратирует его,
   // а не перестраивает. Браузер без IntersectionObserver и прямой переход по
   // якорю поднимают секцию сразу после монтирования (эффект ниже).
-  const [shouldRender, setShouldRender] = useState(() => hashTargetsSection(anchorId));
+  const [shouldRender, setShouldRender] = useState(() => {
+    if (hashTargetsSection(anchorId)) return true;
+    if (typeof navigator !== 'undefined' && isBotUserAgent(navigator.userAgent)) return true;
+    return false;
+  });
 
   useEffect(() => {
     if (shouldRender) return;
+
+    if (typeof window !== 'undefined' && window.innerHeight >= 3000) {
+      setShouldRender(true);
+      return;
+    }
 
     const section = sectionRef.current;
     if (!section || typeof window.IntersectionObserver === 'undefined') {

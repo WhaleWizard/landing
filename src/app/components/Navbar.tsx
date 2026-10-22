@@ -221,16 +221,16 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
       { label: 'Отзывы', action: () => scrollToSection('about') },
       // Со страниц услуг раньше не было выхода в контентные разделы:
       // все пункты вели на якоря внутри той же страницы.
-      { label: 'Все кейсы', href: `/cases?from=${serviceFromKey(location.pathname)}`, action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
-      { label: 'Блог', href: '/blog', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
+      { label: 'Все кейсы', href: `/cases/?from=${serviceFromKey(location.pathname)}`, action: () => { navigate(`/cases?from=${serviceFromKey(location.pathname)}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+      { label: 'Блог', href: '/blog/', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
     ]
     : variant === 'content'
       ? [
         { label: 'Услуги', action: () => scrollToSection('services'), preloadRoute: sectionsPath },
-        { label: 'Кейсы', href: `/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`, action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
-        { label: 'Блог', href: '/blog', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
+        { label: 'Кейсы', href: `/cases/${location.pathname.startsWith('/cases/') ? location.search : ''}`, action: () => { navigate(`/cases${location.pathname.startsWith('/cases/') ? location.search : ''}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
+        { label: 'Блог', href: '/blog/', action: () => { navigate('/blog', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/blog', routePath: '/blog' },
         { label: 'О нас', action: () => scrollToSection('about'), preloadRoute: sectionsPath },
-        { label: 'FAQ', href: '/faq', action: () => { navigate('/faq', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
+        { label: 'FAQ', href: '/faq/', action: () => { navigate('/faq', { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/faq', routePath: '/faq' },
         // Блок соцсетей есть только на главной. На лендинге услуги якоря
         // `social` нет вовсе, и пункт молча не срабатывал бы — там «Контакты»
         // ведут к форме заявки.
@@ -244,7 +244,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
         { label: 'Кейсы', action: () => scrollToSection('cases'), routePath: '/cases' },
         { label: 'Блог', action: () => scrollToSection('blog'), routePath: '/blog' },
         { label: 'Отзывы', action: () => scrollToSection('about') },
-        { label: 'FAQ', href: '/faq', action: () => navigate('/faq', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
+        { label: 'FAQ', href: '/faq/', action: () => navigate('/faq', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social') },
         { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
       ];

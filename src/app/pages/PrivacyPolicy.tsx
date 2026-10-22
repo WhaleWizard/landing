@@ -22,8 +22,8 @@ export default function PrivacyPolicy() {
     <>
       <SEO
         title="Политика конфиденциальности и обработки персональных данных"
-        description="Порядок обработки персональных данных, cookie, аналитики и заявок на сайте Whale Wizard."
-        url="/privacy-policy"
+        description="Порядок обработки персональных данных, cookie, аналитики и заявок на сайте Whale Wizard: какие данные собираются, зачем и как их удалить."
+        url="/privacy-policy/"
       />
       <Navbar variant="content" />
       <main className="min-h-screen bg-background pt-24 md:pt-28">

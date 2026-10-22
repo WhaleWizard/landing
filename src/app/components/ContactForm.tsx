@@ -18,6 +18,7 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select';
 import CountryFlag from './CountryFlag';
 import {
+  createEventId,
   getAnalyticsClientIds,
   getMetaBrowserContext,
   rememberMetaLeadIdentifiers,
@@ -42,7 +43,7 @@ import {
   getCountryPhoneName,
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
-import { isRetryableLeadStatus, queueLeadForRetry } from '../utils/leadRetryQueue';
+import { isRetryableLeadStatus, queueLeadForRetry, scheduleLeadRetry } from '../utils/leadRetryQueue';
 import { fetchGeoPayload } from '../utils/geoLookup';
 import { saveLeadContext } from '../utils/leadContext';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
@@ -239,18 +240,9 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
       setIsSubmitting(true);
 
       let leadPayload: Record<string, unknown> | undefined;
+      let submissionStarted = false;
       try {
-        // Проверка «человек или бот» запускается здесь, а не при открытии
-        // страницы: токен живёт минуты, и полученный заранее успел бы протухнуть.
-        // Обычный посетитель ничего не видит и ничего не нажимает.
-        const turnstileToken = await getTurnstileToken();
-        if (!turnstileToken) {
-          setVerificationFailed(true);
-          return;
-        }
-        setVerificationFailed(false);
-
-        const eventId = crypto.randomUUID();
+        const eventId = typeof createEventId === 'function' ? createEventId() : crypto.randomUUID();
         const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
         const analyticsClientIds = await getAnalyticsClientIds();
         const fullPhone = buildFullPhone(phoneCode, formData.phone);
@@ -271,10 +263,54 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           lead_source_page: window.location.pathname,
           event_id: eventId,
           hp_trap: hpTrap,
-          turnstile_token: turnstileToken,
           page_url: window.location.href,
           referrer: document.referrer || undefined,
         };
+
+        const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (isOffline) {
+          if (queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
+            if (typeof scheduleLeadRetry === 'function') scheduleLeadRetry();
+            setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
+            setTelegramUsername('');
+            setHpTrap('');
+            setContactMethod('telegram');
+            setAgreed(false);
+            setNotice({
+              tone: 'info',
+              title: 'Сейчас нет связи — заявка не потеряна',
+              text: 'Она сохранена в этом браузере. Как только интернет вернётся, сайт отправит её сам.',
+            });
+            return;
+          }
+        }
+
+        // Проверка «человек или бот» запускается здесь, а не при открытии
+        // страницы: токен живёт минуты, и полученный заранее успел бы протухнуть.
+        const turnstileToken = await getTurnstileToken();
+        if (!turnstileToken) {
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            if (queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
+              if (typeof scheduleLeadRetry === 'function') scheduleLeadRetry();
+              setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
+              setTelegramUsername('');
+              setHpTrap('');
+              setContactMethod('telegram');
+              setAgreed(false);
+              setNotice({
+                tone: 'info',
+                title: 'Сейчас нет связи — заявка не потеряна',
+                text: 'Она сохранена в этом браузере. Как только интернет вернётся, сайт отправит её сам.',
+              });
+              return;
+            }
+          }
+          setVerificationFailed(true);
+          return;
+        }
+        setVerificationFailed(false);
+        leadPayload.turnstile_token = turnstileToken;
+        submissionStarted = true;
 
         const res = await fetch(API_ROUTES.lead, {
           method: 'POST',
@@ -282,9 +318,13 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           body: JSON.stringify(leadPayload),
         });
         if (!res.ok) {
+          const retryAfterHeader = res.headers.get('Retry-After');
+          const retryAfterSec = retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined;
           const payload = await res.json().catch(() => null) as { error?: string; retryable?: boolean } | null;
           throw Object.assign(new Error(payload?.error || `HTTP ${res.status}`), {
             retryable: payload?.retryable === true || isRetryableLeadStatus(res.status),
+            retryAfterSec,
+            status: res.status,
           });
         }
 
@@ -333,7 +373,11 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         console.error(error);
         const retryable = error instanceof TypeError
           || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true);
-        if (retryable && leadPayload && queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
+        const retryAfterSec = error instanceof Error && typeof (error as { retryAfterSec?: number }).retryAfterSec === 'number'
+          ? (error as { retryAfterSec?: number }).retryAfterSec
+          : undefined;
+        if (submissionStarted && retryable && leadPayload && queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
+          if (typeof scheduleLeadRetry === 'function') scheduleLeadRetry(retryAfterSec ? retryAfterSec * 1000 : undefined);
           // fetch не смог достучаться до сервера (нет сети/офлайн) — не потеряем заявку,
           // сохраним и отправим автоматически при восстановлении связи.
           setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
@@ -341,10 +385,13 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           setHpTrap('');
           setContactMethod('telegram');
           setAgreed(false);
+          const isNetworkError = error instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
           setNotice({
             tone: 'info',
-            title: 'Сейчас нет связи — заявка не потеряна',
-            text: 'Она сохранена в этом браузере. Как только интернет вернётся, сайт отправит её сам.',
+            title: isNetworkError ? 'Сейчас нет связи — заявка не потеряна' : 'Сервер временно недоступен — заявка сохранена',
+            text: isNetworkError
+              ? 'Она сохранена в этом браузере. Как только интернет вернётся, сайт отправит её сам.'
+              : 'Сервер сейчас не ответил — повторим отправку автоматически в течение нескольких минут; если срочно — напишите в Telegram.',
           });
         } else {
           setNotice({

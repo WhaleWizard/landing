@@ -163,7 +163,7 @@ const sections: LegalSection[] = [
         <p>
               Сайт использует необходимые cookie и может использовать аналитические и маркетинговые технологии: Google Analytics, Яндекс
               Метрика, Meta Pixel, Google Ads, TikTok Pixel, UTM-метки, click identifiers и аналогичные инструменты. Подробные правила
-              описаны в <a href="/cookie-policy">Политике cookie</a>.
+              описаны в <a href="/cookie-policy/">Политике cookie</a>.
             </p>
             <p>
               Пользователь может изменить выбор cookie через баннер при первом посещении, кнопку «Настройки Cookie» в подвале сайта или

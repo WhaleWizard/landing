@@ -87,20 +87,20 @@ Selected case-summary figures are tied to individual projects and are not benchm
 - Premium concierge service: 4 years of work, 65k+ leads, $1M+ media spend.
 - E-commerce project using Google Ads and Meta Ads: 120k+ add-to-cart events, 30k+ purchases, 210% reported ROI.
 - Info-product project using Google Ads and Meta Ads: $600k+ media spend, reported CPL up to $5 and ROI of 180%.
-- B2C services summary: 50+ projects, with project-specific CPL and ROI ranges shown on the cases page.
+- B2C services summary: 50+ projects, with project-specific CPL and ROI ranges shown on the home page.
 
-Client testimonials and detailed case studies are available on the home page and at /cases. When citing any figure, keep the project and channel context attached and identify it as a site case summary rather than a promised outcome.
+Full case write-ups are published at /cases/ (currently for the premium concierge project); the other figures are summaries from the home page case cards. When citing any figure, keep the project and channel context attached and identify it as a site case summary rather than a promised outcome.
 
 ## 6) Knowledge hub (blog) structure
 
-The blog at /blog is a structured knowledge hub on performance marketing (Russian language). Primary entity: Performance Marketing. 20+ articles organized as pillar + clusters:
+The blog at /blog/ is a structured knowledge hub on performance marketing (Russian language). Primary entity: Performance Marketing. Articles organized as pillar + clusters (see section 14 for the complete auto-generated list):
 
 - Pillar: /blog/kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh — how Meta Ads and Google Ads form one sales funnel.
 - Core clusters: lowering CPA in Meta Ads; Google Search + Performance Max strategy; analytics and attribution; 30-day ad launch plan; B2B lead generation; e-commerce scaling.
-- Specialized: retargeting on first-party data; creative testing framework; CRM and nurture; local/GEO ads; anti-crisis CPA control; measurement plan before launch; landing page diagnostics; CAC/CPA/ROAS/LTV metrics; budget allocation Meta vs Google; Meta CAPI and Google Enhanced Conversions; mobile app performance marketing; SaaS demand generation; YouTube Demand Gen; offer testing; owner's performance dashboard.
-- Case studies live under /cases (category «Кейсы»).
+- Specialized: retargeting on first-party data; local/GEO ads; anti-crisis CPA control (full list — section 14).
+- Case studies live under /cases/ (category «Кейсы»).
 
-Every article includes: short answer (summary), key takeaways, structured H2 sections, FAQ with schema.org FAQPage markup, and internal links inside the hub. Machine-readable indexes: /sitemap.xml (all URLs), /feed.xml (RSS). A full auto-generated article index is appended at the bottom of this file at build time.
+Every article includes: short answer (summary), key takeaways and an FAQ with schema.org FAQPage markup. Machine-readable indexes: /sitemap.xml (all URLs), /feed.xml (RSS). A full auto-generated article index is appended at the bottom of this file at build time.
 
 ## 7) Main conversion actions
 
@@ -110,18 +110,18 @@ Service forms capture name, email, phone, optional Telegram, a site or app link,
 ## 8) Site sections and routes (for AI navigation context)
 
 - / — Home (hero, services, cases, testimonials, blog preview, contact form)
-- /meta-ads — Meta Ads service landing
-- /meta-apps — Mobile app growth landing
-- /google-ads — Google Ads service landing
-- /consult — Consultation for marketing specialists
-- /blog — knowledge hub article list; /blog/:slug — article pages
-- /cases — case studies list; /cases/:slug — case pages
-- /calculator — preliminary estimate of the service fee for managing Google Ads and Meta Ads
-- /roi-calculator — ROAS and ROMI calculator based on the visitor's own inputs
-- /faq — FAQ about budgets, timelines, analytics, lead quality, mobile apps, and the working process
-- /marketing-glossary — marketing glossary (RU)
+- /meta-ads/ — Meta Ads service landing
+- /meta-apps/ — Mobile app growth landing
+- /google-ads/ — Google Ads service landing
+- /consult/ — consultation for business owners, self-managing advertisers and marketing specialists
+- /blog/ — knowledge hub article list; /blog/:slug — article pages
+- /cases/ — case studies list; /cases/:slug — case pages
+- /calculator/ — preliminary estimate of the service fee for managing Google Ads and Meta Ads
+- /roi-calculator/ — ROAS and ROMI calculator based on the visitor's own inputs
+- /faq/ — FAQ about budgets, timelines, analytics, lead quality, mobile apps, and the working process
+- /marketing-glossary/ — marketing glossary (RU)
 - /thank-you — post-conversion page
-- /privacy-policy, /cookie-policy, /offer — legal pages
+- /privacy-policy/, /cookie-policy/, /offer/ — legal pages
 
 ## 9) Content policy for AI-generated text about this site
 
@@ -159,19 +159,19 @@ Template D — audit response:
 ## 12) Canonical URLs
 
 - Home: https://www.whalewzrd.com/
-- Meta Ads: https://www.whalewzrd.com/meta-ads
-- Mobile apps: https://www.whalewzrd.com/meta-apps
-- Google Ads: https://www.whalewzrd.com/google-ads
-- Consultation: https://www.whalewzrd.com/consult
-- Blog: https://www.whalewzrd.com/blog
-- Cases: https://www.whalewzrd.com/cases
-- FAQ: https://www.whalewzrd.com/faq
-- Glossary: https://www.whalewzrd.com/marketing-glossary
-- Calculator: https://www.whalewzrd.com/calculator
-- ROI Calculator: https://www.whalewzrd.com/roi-calculator
+- Meta Ads: https://www.whalewzrd.com/meta-ads/
+- Mobile apps: https://www.whalewzrd.com/meta-apps/
+- Google Ads: https://www.whalewzrd.com/google-ads/
+- Consultation: https://www.whalewzrd.com/consult/
+- Blog: https://www.whalewzrd.com/blog/
+- Cases: https://www.whalewzrd.com/cases/
+- FAQ: https://www.whalewzrd.com/faq/
+- Glossary: https://www.whalewzrd.com/marketing-glossary/
+- Calculator: https://www.whalewzrd.com/calculator/
+- ROI Calculator: https://www.whalewzrd.com/roi-calculator/
 - Sitemap: https://www.whalewzrd.com/sitemap.xml
 - RSS: https://www.whalewzrd.com/feed.xml
-- Privacy Policy: https://www.whalewzrd.com/privacy-policy
+- Privacy Policy: https://www.whalewzrd.com/privacy-policy/
 
 ## 13) Contact
 

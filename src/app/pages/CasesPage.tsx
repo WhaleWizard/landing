@@ -563,7 +563,7 @@ export default function CasesPage() {
     // отдаёт витрину по `/cases/`, и замена на `/cases` сразу после гидратации
     // была бы лишней навигацией (прокрутка наверх при перезагрузке и сброс
     // признака «страница пришла готовой»).
-    const listPathname = /^\/cases\/?$/.test(location.pathname) ? location.pathname : '/cases';
+    const listPathname = '/cases/';
     const nextUrl = `${listPathname}${nextSearch}`;
     if (`${location.pathname}${location.search}` !== nextUrl) {
       internalSearchRef.current = nextSearch;
@@ -572,12 +572,13 @@ export default function CasesPage() {
   }, [entry, goals, loading, location.pathname, location.search, location.state, navigate, niches, origin, sort, sources, urlSyncRevision]);
 
   const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('ru');
+    const normalizedQuery = query.trim().toLocaleLowerCase('ru').replace(/ё/g, 'е');
+    const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
     const list = cases.filter((item) => {
       const matchNiche = niches.size === 0 || Boolean(item.data.niche && niches.has(item.data.niche));
       const matchSource = sources.size === 0 || (item.data.sources || []).some((source) => sources.has(source));
       const matchGoal = goals.size === 0 || item.goals.some((goal) => goals.has(goal));
-      const haystack = [
+      const haystackWords = [
         item.title,
         item.description,
         item.data.niche,
@@ -585,8 +586,8 @@ export default function CasesPage() {
         ...item.goals,
         item.data.headline,
         ...(item.data.metrics || []).flatMap((metric) => [metric.value, metric.label]),
-      ].filter(Boolean).join(' ').toLocaleLowerCase('ru');
-      const matchQuery = !normalizedQuery || normalizedQuery.split(/\s+/).every((token) => haystack.includes(token));
+      ].filter(Boolean).join(' ').toLocaleLowerCase('ru').replace(/ё/g, 'е').split(/[^\p{L}\p{N}-]+/u).filter(Boolean);
+      const matchQuery = queryTokens.length === 0 || queryTokens.every((token) => haystackWords.some((word) => word.startsWith(token) || word.includes(token)));
       return matchNiche && matchSource && matchGoal && matchQuery;
     });
 
@@ -700,7 +701,7 @@ export default function CasesPage() {
       <SEO
         title="Кейсы по таргету и Google Ads: бюджеты, цена заявки, ROI"
         description="Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения."
-        url="/cases"
+        url="/cases/"
       />
       <Navbar variant="content" />
       <main className="cases-finder marketing-typography min-h-screen bg-background">
@@ -877,7 +878,7 @@ export default function CasesPage() {
                   </p>
                 </div>
                 <Link
-                  to="/blog"
+                  to="/blog/"
                   state={withReturnTo(location)}
                   className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95"
                 >

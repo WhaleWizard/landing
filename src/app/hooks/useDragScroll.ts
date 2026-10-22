@@ -73,11 +73,17 @@ export function useDragScroll(ref: RefObject<HTMLElement | null>) {
       event.preventDefault();
     };
 
+    // Запрет нативного drag-and-drop ссылок и картинок внутри ленты (F-043).
+    const handleDragStart = (event: DragEvent) => {
+      event.preventDefault();
+    };
+
     node.addEventListener('pointerdown', handlePointerDown);
     node.addEventListener('pointermove', handlePointerMove);
     node.addEventListener('pointerup', handlePointerUp);
     node.addEventListener('pointercancel', handlePointerUp);
     node.addEventListener('click', handleClickCapture, true);
+    node.addEventListener('dragstart', handleDragStart);
 
     return () => {
       releasePointer();
@@ -86,6 +92,7 @@ export function useDragScroll(ref: RefObject<HTMLElement | null>) {
       node.removeEventListener('pointerup', handlePointerUp);
       node.removeEventListener('pointercancel', handlePointerUp);
       node.removeEventListener('click', handleClickCapture, true);
+      node.removeEventListener('dragstart', handleDragStart);
     };
   }, [ref]);
 }

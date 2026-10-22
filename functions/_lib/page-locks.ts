@@ -91,7 +91,7 @@ const ROUTE_BY_PATH = new Map(PAGE_LOCK_ROUTES.map((route) => [route.path, route
  * `/api/*` — иначе перестал бы работать приём заявок и трекинг: страницы
  * закрыты, а заявки с уже открытых страниц обязаны доходить всегда.
  */
-const NEVER_LOCKED_EXACT = new Set(['/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt']);
+const NEVER_LOCKED_EXACT = new Set(['/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/llms-full.txt']);
 const NEVER_LOCKED_PREFIXES = ['/api/', '/admin'];
 
 export interface PageLock {

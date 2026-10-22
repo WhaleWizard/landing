@@ -161,14 +161,23 @@ function toIsoDate(value) {
   const raw = String(value).trim();
   if (!raw) return null;
 
+  if (raw.length <= 10 && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+
   const direct = new Date(raw);
-  if (!Number.isNaN(direct.getTime())) return direct.toISOString().slice(0, 10);
+  if (!Number.isNaN(direct.getTime())) {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(direct);
+    } catch {
+      return direct.toISOString().slice(0, 10);
+    }
+  }
 
   const ddmmyyyy = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (ddmmyyyy) {
     const [, dd, mm, yyyy] = ddmmyyyy;
-    const parsed = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}T00:00:00Z`);
-    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
   }
 
   return null;
@@ -1287,20 +1296,44 @@ function renderHeroShellTitle(hero, fallbackTitle) {
     if (lineFamily) lineStyle.push(`font-family:${lineFamily}`);
     if (line?.tone === 'accent') {
       lineStyle.push('background:linear-gradient(90deg,#8b5cf6,#38bdf8,#60a5fa)', 'background-clip:text', '-webkit-background-clip:text', 'color:transparent', 'padding-bottom:.18em', 'margin-bottom:-.18em');
-    } else if (line?.tone === 'supporting') {
-      lineStyle.push('margin-top:.7em', 'color:rgba(203,213,225,.78)', 'font-size:.48em', 'font-weight:500', 'line-height:1.35', 'letter-spacing:-.01em');
     }
     return `<span data-ww-shell-title-line="${index + 1}" style="${lineStyle.join(';')}">${escapeHtml(line?.text || '')}</span>`;
   };
 
-  const lines = hasTitleLines
+  const allLines = hasTitleLines
     ? hero.titleLines
     : [
       { text: hero.titlePrefix },
       { text: hero.titleAccent, tone: 'accent' },
     ];
-  const titleHtml = lines.map(renderLine).join('');
-  return `<h1 aria-label="${escapeHtml(fallbackTitle)}" style="${style.join(';')}">${titleHtml}</h1>`;
+  const titleLines = allLines.filter((line) => line?.tone !== 'supporting');
+  const supportingLines = allLines.filter((line) => line?.tone === 'supporting');
+
+  const titleHtml = titleLines.map(renderLine).join(' ');
+  const h1Html = `<h1 aria-label="${escapeHtml(fallbackTitle)}" style="${style.join(';')}">${titleHtml}</h1>`;
+
+  if (supportingLines.length === 0) {
+    return h1Html;
+  }
+
+  const supportingHtml = supportingLines
+    .map((line) => {
+      const supFamily = shellFontFamily(line?.font) || family;
+      const supStyle = [
+        'color:rgba(203,213,225,.78)',
+        'font-weight:500',
+        'line-height:1.35',
+        'letter-spacing:-.01em',
+        `font-size:clamp(${mobileSize * 0.48}px,1.92vw,${desktopSize * 0.48}px)`,
+        'margin-top:.7em',
+        'margin-bottom:0',
+      ];
+      if (supFamily) supStyle.push(`font-family:${supFamily}`);
+      return `<p data-ww-shell-supporting="true" style="${supStyle.join(';')}">${escapeHtml(line?.text || '')}</p>`;
+    })
+    .join('');
+
+  return `${h1Html}${supportingHtml}`;
 }
 
 function heroShellLeadStyle(hero) {
@@ -1726,7 +1759,7 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
       description: config.seo.description,
       h1: heroHeading(config.hero),
       hero: config.hero,
-      lead: [heroSupportingText(config.hero), ...config.hero.paragraphs.map((paragraph) => String(paragraph))].filter(Boolean).join(' '),
+      lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).filter(Boolean).join(' '),
       sections: renderServicePageSections(config),
       siteContentSeed: { key: contentKey, content: publishedOverride },
       breadcrumbName: serviceName,
@@ -1830,9 +1863,9 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
     },
     {
       route: '/privacy-policy',
-      title: 'Политика конфиденциальности | Whale Wizard',
+      title: 'Политика конфиденциальности и обработки персональных данных | Whale Wizard',
       description: 'Порядок обработки персональных данных, cookie, аналитики и заявок на сайте Whale Wizard: какие данные собираются, зачем и как их удалить.',
-      h1: 'Политика конфиденциальности',
+      h1: 'Политика конфиденциальности и обработки персональных данных',
       lead: `Условия обработки персональных данных. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.PrivacyPolicyContent),
     },
@@ -1846,9 +1879,9 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
     },
     {
       route: '/cookie-policy',
-      title: 'Политика cookie | Whale Wizard',
+      title: 'Политика использования файлов cookie | Whale Wizard',
       description: 'Какие cookie, пиксели и счётчики использует сайт, зачем они нужны и как в один клик изменить своё согласие на их использование.',
-      h1: 'Политика cookie',
+      h1: 'Политика использования файлов cookie',
       lead: `Правила использования cookie и аналитических технологий. Редакция от ${content.LEGAL_UPDATED_AT}`,
       sections: renderLegalSection(content.CookiePolicyContent),
     },
@@ -2083,7 +2116,7 @@ async function renderBlogPages(articles, baseHtml, content) {
     route: '/cases',
     title: 'Кейсы по таргету и Google Ads: бюджеты, цена заявки, ROI | Whale Wizard',
     description: 'Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения.',
-    h1: 'Проекты с цифрами и контекстом',
+    h1: 'Найдите кейс, похожий на ваш проект',
     lead: 'Фильтруйте по нише и каналу. В карточках указаны только опубликованные показатели проекта.',
     eyebrow: 'Кейсы Whale Wizard',
     emptyText: 'Кейсы скоро появятся.',
@@ -2249,7 +2282,7 @@ function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArti
 
   assertFileContains(routeIndexPath('/cases'), [
     `${SITE_URL}/cases/`,
-    'Проекты с цифрами и контекстом',
+    'Найдите кейс, похожий на ваш проект',
   ], 'Generated /cases HTML');
 
   const seeds = listSeeds(latestArticles, blogPageSize);
@@ -2325,6 +2358,32 @@ function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArti
  * страниц он обычно не станет. По соглашению рядом с оглавлением кладут полный
  * свод, и раньше этот адрес отвечал ошибкой, хотя в robots.txt на него ссылка.
  */
+function htmlToPlainText(html) {
+  if (!html) return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n### $1\n\n')
+    .replace(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n#### $1\n\n')
+    .replace(/<h[4-6]\b[^>]*>([\s\S]*?)<\/h[4-6]>/gi, '\n\n##### $1\n\n')
+    .replace(/\s*<li\b[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1')
+    .replace(/<\/(p|blockquote|ul|ol|figure|table)>/gi, '\n\n')
+    .replace(/<hr\b[^>]*\/?>/gi, '\n\n')
+    .replace(/<br\b[^>]*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function writeLlmsFull(articles) {
   const llmsPath = join(DIST_DIR, 'llms.txt');
   const header = existsSync(llmsPath) ? readFileSync(llmsPath, 'utf8').trimEnd() : '';
@@ -2333,19 +2392,50 @@ function writeLlmsFull(articles) {
   for (const article of articles) {
     const url = `${SITE_URL}${getArticlePath(article)}`;
     const kind = isCaseArticle(article) ? 'Case study' : 'Blog article';
-    const text = stripHtml(article.content || '').replace(/\s+/g, ' ').trim();
-    parts.push(
-      `## ${article.seoTitle || article.title}`,
+    const title = article.seoTitle || article.title;
+    const summary = article.seoDescription || article.description || '';
+    const dateStr = String(article.publishedAt || '').slice(0, 10);
+
+    const articleParts = [
+      `## ${title}`,
       '',
       `URL: ${url}`,
       `Type: ${kind}`,
       `Category: ${article.category || ''}`,
-      `Published: ${String(article.publishedAt || '').slice(0, 10)}`,
-      `Summary: ${article.seoDescription || article.description || ''}`,
-      '',
-      text,
-      '',
-    );
+      `Published: ${dateStr}`,
+      `Summary: ${summary}`,
+    ];
+
+    if (article.summary && article.summary.trim()) {
+      articleParts.push(`Short answer: ${article.summary.trim()}`);
+    }
+
+    if (Array.isArray(article.keyTakeaways) && article.keyTakeaways.length > 0) {
+      const takeaways = article.keyTakeaways.filter(Boolean);
+      if (takeaways.length > 0) {
+        articleParts.push('', 'Key takeaways:');
+        for (const t of takeaways) {
+          articleParts.push(`- ${t}`);
+        }
+      }
+    }
+
+    const plainText = htmlToPlainText(article.content || '');
+    if (plainText) {
+      articleParts.push('', plainText);
+    }
+
+    if (Array.isArray(article.faq) && article.faq.length > 0) {
+      const validFaq = article.faq.filter((q) => q && q.question && q.answer);
+      if (validFaq.length > 0) {
+        articleParts.push('', 'FAQ:');
+        for (const q of validFaq) {
+          articleParts.push(`Q: ${q.question}`, `A: ${q.answer}`, '');
+        }
+      }
+    }
+
+    parts.push(articleParts.join('\n').trimEnd(), '');
   }
 
   writeFileSync(join(DIST_DIR, 'llms-full.txt'), `${parts.join('\n').trimEnd()}\n`, 'utf8');

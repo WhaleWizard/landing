@@ -9,14 +9,17 @@ export const DEFAULT_COUNTRY_PHONE_CODE = 'US';
 // Sorted alphabetically by display label.
 // Includes several NANP territories/states-like regions that use distinct area ecosystems under +1.
 export const COUNTRY_PHONE_OPTIONS: CountryPhoneOption[] = [
+  { code: 'AL', dial: '+355', label: '🇦🇱 Albania (+355)' },
   { code: 'AR', dial: '+54', label: '🇦🇷 Argentina (+54)' },
   { code: 'AM', dial: '+374', label: '🇦🇲 Armenia (+374)' },
   { code: 'AU', dial: '+61', label: '🇦🇺 Australia (+61)' },
   { code: 'AT', dial: '+43', label: '🇦🇹 Austria (+43)' },
   { code: 'AZ', dial: '+994', label: '🇦🇿 Azerbaijan (+994)' },
+  { code: 'BH', dial: '+973', label: '🇧🇭 Bahrain (+973)' },
   { code: 'BD', dial: '+880', label: '🇧🇩 Bangladesh (+880)' },
   { code: 'BY', dial: '+375', label: '🇧🇾 Belarus (+375)' },
   { code: 'BE', dial: '+32', label: '🇧🇪 Belgium (+32)' },
+  { code: 'BA', dial: '+387', label: '🇧🇦 Bosnia and Herzegovina (+387)' },
   { code: 'BR', dial: '+55', label: '🇧🇷 Brazil (+55)' },
   { code: 'BG', dial: '+359', label: '🇧🇬 Bulgaria (+359)' },
   { code: 'CA', dial: '+1', label: '🇨🇦 Canada (+1)' },
@@ -24,6 +27,7 @@ export const COUNTRY_PHONE_OPTIONS: CountryPhoneOption[] = [
   { code: 'CN', dial: '+86', label: '🇨🇳 China (+86)' },
   { code: 'CO', dial: '+57', label: '🇨🇴 Colombia (+57)' },
   { code: 'HR', dial: '+385', label: '🇭🇷 Croatia (+385)' },
+  { code: 'CY', dial: '+357', label: '🇨🇾 Cyprus (+357)' },
   { code: 'CZ', dial: '+420', label: '🇨🇿 Czechia (+420)' },
   { code: 'DK', dial: '+45', label: '🇩🇰 Denmark (+45)' },
   { code: 'EG', dial: '+20', label: '🇪🇬 Egypt (+20)' },
@@ -35,6 +39,7 @@ export const COUNTRY_PHONE_OPTIONS: CountryPhoneOption[] = [
   { code: 'GR', dial: '+30', label: '🇬🇷 Greece (+30)' },
   { code: 'HK', dial: '+852', label: '🇭🇰 Hong Kong (+852)' },
   { code: 'HU', dial: '+36', label: '🇭🇺 Hungary (+36)' },
+  { code: 'IS', dial: '+354', label: '🇮🇸 Iceland (+354)' },
   { code: 'IN', dial: '+91', label: '🇮🇳 India (+91)' },
   { code: 'ID', dial: '+62', label: '🇮🇩 Indonesia (+62)' },
   { code: 'IE', dial: '+353', label: '🇮🇪 Ireland (+353)' },
@@ -42,23 +47,31 @@ export const COUNTRY_PHONE_OPTIONS: CountryPhoneOption[] = [
   { code: 'IT', dial: '+39', label: '🇮🇹 Italy (+39)' },
   { code: 'JP', dial: '+81', label: '🇯🇵 Japan (+81)' },
   { code: 'KZ', dial: '+7', label: '🇰🇿 Kazakhstan (+7)' },
+  { code: 'KW', dial: '+965', label: '🇰🇼 Kuwait (+965)' },
   { code: 'KG', dial: '+996', label: '🇰🇬 Kyrgyzstan (+996)' },
   { code: 'LV', dial: '+371', label: '🇱🇻 Latvia (+371)' },
+  { code: 'LI', dial: '+423', label: '🇱🇮 Liechtenstein (+423)' },
   { code: 'LT', dial: '+370', label: '🇱🇹 Lithuania (+370)' },
   { code: 'LU', dial: '+352', label: '🇱🇺 Luxembourg (+352)' },
   { code: 'MY', dial: '+60', label: '🇲🇾 Malaysia (+60)' },
+  { code: 'MT', dial: '+356', label: '🇲🇹 Malta (+356)' },
   { code: 'MX', dial: '+52', label: '🇲🇽 Mexico (+52)' },
   { code: 'MD', dial: '+373', label: '🇲🇩 Moldova (+373)' },
+  { code: 'MN', dial: '+976', label: '🇲🇳 Mongolia (+976)' },
+  { code: 'ME', dial: '+382', label: '🇲🇪 Montenegro (+382)' },
   { code: 'NL', dial: '+31', label: '🇳🇱 Netherlands (+31)' },
   { code: 'NZ', dial: '+64', label: '🇳🇿 New Zealand (+64)' },
   { code: 'NG', dial: '+234', label: '🇳🇬 Nigeria (+234)' },
+  { code: 'MK', dial: '+389', label: '🇲🇰 North Macedonia (+389)' },
   { code: 'NO', dial: '+47', label: '🇳🇴 Norway (+47)' },
+  { code: 'OM', dial: '+968', label: '🇴🇲 Oman (+968)' },
   { code: 'PK', dial: '+92', label: '🇵🇰 Pakistan (+92)' },
   { code: 'PE', dial: '+51', label: '🇵🇪 Peru (+51)' },
   { code: 'PH', dial: '+63', label: '🇵🇭 Philippines (+63)' },
   { code: 'PL', dial: '+48', label: '🇵🇱 Poland (+48)' },
   { code: 'PT', dial: '+351', label: '🇵🇹 Portugal (+351)' },
   { code: 'PR', dial: '+1', label: '🇵🇷 Puerto Rico (+1)' },
+  { code: 'QA', dial: '+974', label: '🇶🇦 Qatar (+974)' },
   { code: 'RO', dial: '+40', label: '🇷🇴 Romania (+40)' },
   { code: 'RU', dial: '+7', label: '🇷🇺 Russia (+7)' },
   { code: 'SA', dial: '+966', label: '🇸🇦 Saudi Arabia (+966)' },
@@ -112,6 +125,32 @@ export const COUNTRY_DIAL_CODES: Record<string, string> = COUNTRY_PHONE_OPTIONS.
   return acc;
 }, {} as Record<string, string>);
 
+type NationalPrefixRule = {
+  prefixes: string[];
+  nsnLength: number | [number, number];
+};
+
+/**
+ * Явная таблица национальных префиксов и длин номеров (F-015).
+ * Префикс снимается только при точном совпадении с национальной длиной,
+ * чтобы не сломать номера случайным срезом нуля.
+ */
+const NATIONAL_PREFIX_RULES: Record<string, NationalPrefixRule> = {
+  '+380': { prefixes: ['0'], nsnLength: 9 }, // UA: 050 -> 50... (9 цифр)
+  '+375': { prefixes: ['80', '0'], nsnLength: 9 }, // BY: 8029 -> 29... (9 цифр)
+  '+44': { prefixes: ['0'], nsnLength: 10 }, // GB: 07911 -> 7911... (10 цифр)
+  '+49': { prefixes: ['0'], nsnLength: [10, 11] }, // DE: 0151 -> 151... (10-11 цифр)
+  '+90': { prefixes: ['0'], nsnLength: 10 }, // TR: 0532 -> 532... (10 цифр)
+  '+995': { prefixes: ['0'], nsnLength: 9 }, // GE: 0599 -> 599... (9 цифр)
+};
+
+function matchesNsnLength(length: number, nsnLength: number | [number, number]): boolean {
+  if (Array.isArray(nsnLength)) {
+    return length >= nsnLength[0] && length <= nsnLength[1];
+  }
+  return length === nsnLength;
+}
+
 /**
  * Полный номер из кода страны в селекторе и того, что человек набрал руками.
  *
@@ -125,9 +164,9 @@ export const COUNTRY_DIAL_CODES: Record<string, string> = COUNTRY_PHONE_OPTIONS.
  * Он уходил в CRM, в Telegram и — хешем `ph` — в Meta как ключ сопоставления,
  * который никогда ни с кем не совпадёт.
  *
- * Правило намеренно узкое: только код +7 и только полные одиннадцать цифр.
- * В других странах восьмёрка в начале означает не то же самое, а угадывать
- * чужие форматы хуже, чем не трогать их вовсе.
+ * Также поддерживаются национальные префиксы (например ведущий 0 для Украины,
+ * Великобритании, Германии, Турции, Грузии и 80 для Беларуси) по строгой
+ * таблице ожидаемой длины номера (F-015).
  */
 const RUSSIAN_NUMBERING_DIAL = '+7';
 const RUSSIAN_NUMBERING_LENGTH = 11;
@@ -142,6 +181,29 @@ export function buildFullPhone(code: string, rawPhone: string): string {
     // «8…» — та же нумерация, что и «7…»: меняем ведущую цифру, а не добавляем.
     if (digits.startsWith('8') || digits.startsWith('7')) {
       return `+7${digits.slice(1)}`;
+    }
+  }
+
+  const dialDigits = code.replace(/\D/g, '');
+  const rule = NATIONAL_PREFIX_RULES[code];
+
+  if (rule) {
+    // Код страны, набранный без плюса (например, 380501234567 для +380)
+    if (digits.startsWith(dialDigits)) {
+      const rest = digits.slice(dialDigits.length);
+      if (matchesNsnLength(rest.length, rule.nsnLength)) {
+        return `+${digits}`;
+      }
+    }
+
+    // Снятие ведущего национального префикса (например, «0» или «80»)
+    for (const prefix of rule.prefixes) {
+      if (digits.startsWith(prefix)) {
+        const rest = digits.slice(prefix.length);
+        if (matchesNsnLength(rest.length, rule.nsnLength)) {
+          return `${code}${rest}`;
+        }
+      }
     }
   }
 

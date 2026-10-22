@@ -15,11 +15,24 @@ import type { Article } from '../components/hooks/useArticlesApi';
 export function articleDisplayDate(article: Pick<Article, 'publishedAt' | 'date'>): string {
   const raw = String(article.publishedAt || '').trim();
   if (raw) {
-    const parsed = new Date(raw.length <= 10 ? `${raw}T00:00:00Z` : raw);
+    if (raw.length <= 10 && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [year, month, day] = raw.split('-');
+      return `${day}.${month}.${year}`;
+    }
+    const parsed = new Date(raw);
     if (Number.isFinite(parsed.getTime())) {
-      const day = String(parsed.getUTCDate()).padStart(2, '0');
-      const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
-      return `${day}.${month}.${parsed.getUTCFullYear()}`;
+      try {
+        return new Intl.DateTimeFormat('ru-RU', {
+          timeZone: 'Asia/Tashkent',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        }).format(parsed);
+      } catch {
+        const day = String(parsed.getUTCDate()).padStart(2, '0');
+        const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+        return `${day}.${month}.${parsed.getUTCFullYear()}`;
+      }
     }
   }
   return String(article.date || '').trim();

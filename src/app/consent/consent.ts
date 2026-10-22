@@ -817,6 +817,39 @@ function persistSession(id: string, now = Date.now()): string {
   return id;
 }
 
+/**
+ * Создаёт уникальный UUID v4 для дедупликации Pixel / CAPI / dataLayer.
+ * Безопасен для старых окружений (Safari 11-15.3, WebView), где нет crypto.randomUUID (F-051).
+ */
+export function createEventId(): string {
+  if (typeof crypto !== 'undefined') {
+    if (typeof crypto.randomUUID === 'function') {
+      try {
+        return crypto.randomUUID();
+      } catch {
+        // Fallback to getRandomValues below
+      }
+    }
+    if (typeof crypto.getRandomValues === 'function') {
+      try {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      } catch {
+        // Fallback
+      }
+    }
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function getOrCreateSessionId(): string | undefined {
   const now = Date.now();
   const existing = safeReadLocalStorage(META_SESSION_ID_KEY);
@@ -834,7 +867,7 @@ function getOrCreateSessionId(): string | undefined {
   }
 
   try {
-    return persistSession(crypto.randomUUID(), now);
+    return persistSession(createEventId(), now);
   } catch {
     return undefined;
   }
@@ -873,7 +906,7 @@ function getOrCreateMetaExternalId(): string | undefined {
   if (existing) return existing;
 
   try {
-    const id = crypto.randomUUID();
+    const id = createEventId();
     safeWriteLocalStorage(META_EXTERNAL_ID_KEY, id);
     return id;
   } catch {
@@ -1297,7 +1330,7 @@ export function trackServiceViewContent(path: string, options: { marketing?: boo
 
   const content = getMetaPageContent(path);
 
-  const eventId = crypto.randomUUID();
+  const eventId = createEventId();
   const browserContext = getMetaBrowserContext(path);
   if (!browserContext.marketing_consent) return;
 
@@ -1332,7 +1365,7 @@ export function trackFormStart(serviceSlug: string, extraData: Record<string, un
   const browserContext = getMetaBrowserContext(window.location.pathname);
   if (!browserContext.marketing_consent) return false;
 
-  const eventId = crypto.randomUUID();
+  const eventId = createEventId();
   const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     form_id: 'service_landing_form',
@@ -1382,7 +1415,7 @@ export function trackLeadFormView(serviceSlug: string): boolean {
   if (leadFormViewTracked.has(key)) return false;
   leadFormViewTracked.add(key);
 
-  const eventId = crypto.randomUUID();
+  const eventId = createEventId();
   const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     form_id: 'service_landing_form',
@@ -1423,7 +1456,7 @@ export function trackEngagedView(reason: 'time_10s' | 'scroll_50' | 'form_view',
   if (engagedViewTracked.has(key)) return false;
   engagedViewTracked.add(key);
 
-  const eventId = crypto.randomUUID();
+  const eventId = createEventId();
   const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     engagement_type: reason,
@@ -1459,7 +1492,7 @@ export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone
   const browserContext = getMetaBrowserContext(window.location.pathname);
   if (!browserContext.marketing_consent) return false;
 
-  const eventId = crypto.randomUUID();
+  const eventId = createEventId();
   const serviceContent = getMetaPageContent(window.location.pathname);
   const eventData = {
     contact_channel: channel,
@@ -1492,7 +1525,7 @@ export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone
   return true;
 }
 
-export function trackPageView(path: string, options: { marketing?: boolean } = {}): void {
+export function trackPageView(path: string, options: { marketing?: boolean; analytics?: boolean } = {}): void {
   if (engagedViewTimerId !== undefined) {
     window.clearTimeout(engagedViewTimerId);
     engagedViewTimerId = undefined;
@@ -1501,14 +1534,15 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
 
   const now = Date.now();
   const shouldTrackMarketing = options.marketing !== false;
-  const trackingKey = `${path}|marketing:${shouldTrackMarketing ? 'on' : 'off'}`;
+  const shouldTrackAnalytics = options.analytics !== false;
+  const trackingKey = `${path}|marketing:${shouldTrackMarketing ? 'on' : 'off'}|analytics:${shouldTrackAnalytics ? 'on' : 'off'}`;
   if (trackingKey === lastTrackedPath && now - lastTrackedAt < 1200) return;
   lastTrackedPath = trackingKey;
   lastTrackedAt = now;
 
   // Пользователь ушёл со страницы раньше 10 секунд — отменяем отложенный
   // engaged_view предыдущей страницы, иначе он засчитается новой.
-  const eventId = crypto.randomUUID(); // уникальный ID для дедупликации
+  const eventId = createEventId(); // уникальный ID для дедупликации
 
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;
@@ -1523,29 +1557,31 @@ export function trackPageView(path: string, options: { marketing?: boolean } = {
   const analyticsPageUrl = new URL(getTrackingPageUrl());
   const analyticsPagePath = `${analyticsPageUrl.pathname}${analyticsPageUrl.search}`;
 
-  if (win.gtag && gaId) {
-    // Повторный `config` на смене SPA-роута не создаёт хит в GA4 (это устаревший
-    // паттерн из Universal Analytics) — данные тихо не долетали до Google.
-    // Нужен именно gtag('event', 'page_view', ...).
-    win.gtag('event', 'page_view', {
-      send_to: gaId,
-      page_path: analyticsPagePath,
-      page_location: analyticsPageUrl.href,
-      page_title: document.title,
-    });
-  }
+  if (shouldTrackAnalytics) {
+    if (win.gtag && gaId) {
+      // Повторный `config` на смене SPA-роута не создаёт хит в GA4 (это устаревший
+      // паттерн из Universal Analytics) — данные тихо не долетали до Google.
+      // Нужен именно gtag('event', 'page_view', ...).
+      win.gtag('event', 'page_view', {
+        send_to: gaId,
+        page_path: analyticsPagePath,
+        page_location: analyticsPageUrl.href,
+        page_title: document.title,
+      });
+    }
 
-  if (win.ym && ymId) {
-    win.ym(ymId, 'hit', analyticsPagePath);
-  }
+    if (win.ym && ymId) {
+      win.ym(ymId, 'hit', analyticsPagePath);
+    }
 
-  if (Array.isArray(win.dataLayer)) {
-    win.dataLayer.push({
-      event: 'virtual_pageview',
-      event_id: eventId,
-      page_path: path,
-      page_location: getTrackingPageUrl(),
-    });
+    if (Array.isArray(win.dataLayer)) {
+      win.dataLayer.push({
+        event: 'virtual_pageview',
+        event_id: eventId,
+        page_path: path,
+        page_location: getTrackingPageUrl(),
+      });
+    }
   }
 
   if (!shouldTrackMarketing) return;

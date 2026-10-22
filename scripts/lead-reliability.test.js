@@ -143,6 +143,8 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
       setTimeout: (callback) => { calls.timers.push(callback); return calls.timers.length; },
     },
     crypto: { randomUUID: () => 'form-event-id' },
+    createEventId: () => 'form-event-id',
+    scheduleLeadRetry: () => {},
     console: { error: () => {}, warn: () => {} },
     setIsSubmitting: (value) => calls.submitting.push(value),
     getTurnstileToken: async () => 'test-token',
