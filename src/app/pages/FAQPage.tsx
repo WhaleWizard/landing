@@ -2,18 +2,23 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { m } from 'motion/react';
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, ChevronDown, Search, Sparkles } from 'lucide-react';
+import ClientOnly from '../components/ClientOnly';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
 import { trackFaqOpen } from '../consent/consent';
 import { glossaryTermById } from '../data/marketingGlossary';
 import useFaqContent from '../hooks/useFaqContent';
+import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { useManagedTitleFit } from '../utils/contentTypography';
 
 /** Заголовок страницы на телефоне — не больше двух строк. */
 const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
+const STATIC_TITLE_MIN_FONT_SIZE = 20;
 
+// Подвал — вне серверной разметки: React.lazy внутри renderToString отдаёт
+// границу «дорисовать с клиента», и гидратация перестраивала бы страницу.
 const Footer = lazy(() => import('../components/Footer'));
 
 export const FAQ_CATEGORIES = ['Старт', 'Бюджет', 'Аналитика', 'Приложения', 'Результат', 'Процесс', 'Консультация'] as const;
@@ -522,12 +527,18 @@ export default function FAQPage() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const navigate = useNavigate();
+  // Страница пришла готовой из HTML: появления через motion не играют —
+  // иначе в серверной разметке текст стоял бы с opacity:0 до JavaScript.
+  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | FaqCategory>('all');
   const defaultSeo = useMemo(() => ({
     title: FAQ_SEO.title,
     description: FAQ_SEO.description,
   }), []);
+  // На сборке хук отдаёт вопросы из кода: встроенного seed у него нет, а в
+  // кэш `primeSiteContent` он не смотрит. Пока владелец не публиковал FAQ из
+  // админки, серверная и браузерная разметка совпадают.
   const faqContent = useFaqContent(faqs, defaultSeo);
   const liveFaqs = useMemo(() => faqContent.items.map((item) => ({
     ...item,
@@ -611,7 +622,7 @@ export default function FAQPage() {
     window.history.replaceState(window.history.state, '', nextUrl);
   };
 
-  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 20 });
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: STATIC_TITLE_MIN_FONT_SIZE });
   const resetFilters = () => {
     setQuery('');
     setSelectedCategory('all');
@@ -636,7 +647,7 @@ export default function FAQPage() {
             className="mb-8"
           />
           <m.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={settledEntrance ? false : { opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center mb-10"
           >
@@ -645,7 +656,15 @@ export default function FAQPage() {
               <span className="text-xs md:text-sm text-primary font-semibold">FAQ</span>
             </div>
 
-            <h1 ref={staticTitleFit} className="text-3xl sm:text-4xl md:text-5xl font-bold text-pretty">
+            {/* Лимит строк на странице из HTML выполняет до первого кадра
+                встроенный скрипт генератора (`scripts/title-prefit.js`) —
+                он читает эти же атрибуты. */}
+            <h1
+              ref={staticTitleFit}
+              data-ww-title-fit={`${STATIC_TITLE_LINES.titleMaxLinesMobile}/0`}
+              data-ww-title-fit-min={STATIC_TITLE_MIN_FONT_SIZE}
+              className="text-3xl sm:text-4xl md:text-5xl font-bold text-pretty"
+            >
               Ответы на вопросы о рекламе и{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 аналитике
@@ -796,7 +815,7 @@ export default function FAQPage() {
           )}
 
           <m.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={settledEntrance ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="mt-12"
@@ -822,9 +841,11 @@ export default function FAQPage() {
           </m.div>
         </div>
       </main>
-      <Suspense fallback={null}>
-        <Footer />
-      </Suspense>
+      <ClientOnly>
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
+      </ClientOnly>
     </>
   );
 }

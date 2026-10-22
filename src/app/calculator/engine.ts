@@ -70,6 +70,71 @@ export type QuoteResult = {
   policy: 'house-v2-preview';
 };
 
+/**
+ * Что за поле: денежное (и счётное) или процентное. От этого зависит, как
+ * читать одиночную запятую — см. `parseNumberInput`.
+ */
+export type NumberInputKind = 'amount' | 'percent';
+
+/** Сводит строку к «целая.дробная», выбросив все разделители, кроме десятичного. */
+const joinDigits = (text: string, decimalSeparator: ',' | '.' | null): string => {
+  if (decimalSeparator === null) return text.replace(/[.,]/g, '');
+  const index = text.lastIndexOf(decimalSeparator);
+  const integer = text.slice(0, index).replace(/[.,]/g, '');
+  const fraction = text.slice(index + 1).replace(/[.,]/g, '');
+  return `${integer || '0'}.${fraction}`;
+};
+
+/**
+ * Число из того, что человек набрал или вставил в поле калькулятора.
+ *
+ * Суммы копируют из рекламных кабинетов как есть: «1 234,56 $» из Ads Manager,
+ * «10,000.50» из англоязычного Google Ads, «$1200». Раньше всё, кроме цифр,
+ * пробелов и одной запятой, превращало значение в NaN, и поле молча
+ * очищалось, а «10,000» читалось как десять.
+ *
+ * Правила:
+ * - пробелы (в том числе неразрывные), валюта и буквы отбрасываются;
+ * - есть и запятая, и точка — десятичный разделитель тот, что стоит
+ *   последним, остальные считаются разделителями тысяч;
+ * - один и тот же разделитель несколько раз («1,000,000») — тысячи;
+ * - одиночная запятая: в денежном поле ровно три цифры после неё при
+ *   ненулевой целой части — тысячи («10,000» → 10000), иначе десятичная
+ *   («1234,56», «0,125»); в процентном поле — всегда десятичная («2,5»);
+ * - одиночная точка — десятичная, как раньше;
+ * - строка без единой цифры — пусто: число выдумывать нельзя.
+ */
+export function parseNumberInput(value: string, kind: NumberInputKind = 'amount'): number | null {
+  const cleaned = String(value ?? '').replace(/[^\d.,-]/g, '');
+  if (!/\d/.test(cleaned)) return null;
+  const negative = cleaned.startsWith('-');
+  const text = cleaned.replace(/-/g, '');
+  const commas = (text.match(/,/g) ?? []).length;
+  const dots = (text.match(/\./g) ?? []).length;
+
+  let decimalSeparator: ',' | '.' | null;
+  if (commas > 0 && dots > 0) {
+    decimalSeparator = text.lastIndexOf(',') > text.lastIndexOf('.') ? ',' : '.';
+  } else if (commas > 1 || dots > 1) {
+    decimalSeparator = null;
+  } else if (commas === 1) {
+    const [integer, fraction] = text.split(',');
+    const looksLikeThousands = kind === 'amount'
+      && fraction.length === 3
+      && integer.length > 0
+      && Number(integer) !== 0;
+    decimalSeparator = looksLikeThousands ? null : ',';
+  } else if (dots === 1) {
+    decimalSeparator = '.';
+  } else {
+    decimalSeparator = null;
+  }
+
+  const parsed = Number(joinDigits(text, decimalSeparator));
+  if (!Number.isFinite(parsed)) return null;
+  return negative ? -parsed : parsed;
+}
+
 const safeDivide = (numerator: number, denominator: number) => (
   Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0
     ? numerator / denominator

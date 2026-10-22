@@ -184,13 +184,34 @@ export interface InlineArticleSeed {
   present: boolean;
 }
 
-// Сборка рендерит страницу статьи в Node, где нет document: ssr-entry кладёт
-// сюда ту же статью, что уедет в <script id="ww-article-seed">, и убирает
-// после рендера.
+// Сборка рендерит страницы в Node, где нет document: ssr-entry кладёт сюда
+// то же, что уедет в <script id="ww-article-seed"> — одну статью для
+// /blog/:slug и /cases/:slug или список карточек для /blog и /cases, — и
+// убирает после рендера.
 let serverArticleSeed: Article[] | null = null;
 
 export function primeArticleSeed(articles: Article[] | null): void {
   serverArticleSeed = articles;
+}
+
+/**
+ * Список для серверного рендера `/blog` и `/cases` — ровно в том виде, в каком
+ * его прочитает браузер из `ww-article-seed` (после JSON). Невалидный список
+ * браузер молча отбросил бы и показал скелетон вместо карточек, а сервер
+ * нарисовал бы карточки — и React перестроил бы страницу. Поэтому здесь не
+ * предупреждение, а ошибка сборки.
+ */
+export function assertInlineArticleSeedList(value: unknown): Article[] {
+  if (!Array.isArray(value)) {
+    throw new Error('Inline article seed for a list page must be an array of public summaries');
+  }
+  const parsed = parseArticleSeed(JSON.parse(JSON.stringify(value)));
+  if (parsed === null) {
+    const bad = value.findIndex((item) => !isInlineArticleSummary(JSON.parse(JSON.stringify(item))));
+    const slug = isRecord(value[bad]) ? String(value[bad].slug ?? '') : '';
+    throw new Error(`Inline article seed item #${bad}${slug ? ` ("${slug}")` : ''} is not a public summary: expected _summary: true, content: "" and string slug/title/category/readTime/date/description/image`);
+  }
+  return parsed;
 }
 
 /**

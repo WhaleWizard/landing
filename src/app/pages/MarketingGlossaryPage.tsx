@@ -1,11 +1,13 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { m } from 'motion/react';
 import { useLocation, useNavigate, useNavigationType } from 'react-router';
+import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { ArrowRight, BookOpenText, Filter, Layers3, Link2, Search, Smartphone } from 'lucide-react';
+import ClientOnly from '../components/ClientOnly';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
+import { Accordion, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
@@ -20,13 +22,45 @@ import {
   type GlossarySectionId,
   type MarketingGlossaryItem,
 } from '../data/marketingGlossary';
+import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { useManagedTitleFit } from '../utils/contentTypography';
 
 /** Заголовок страницы на телефоне — не больше двух строк. */
 const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
+const STATIC_TITLE_MIN_FONT_SIZE = 20;
+const CTA_TITLE_MIN_FONT_SIZE = 16;
 
+// Подвал — вне серверной разметки: React.lazy внутри renderToString отдаёт
+// границу «дорисовать с клиента», и гидратация перестраивала бы страницу.
 const Footer = lazy(() => import('../components/Footer'));
+
+/**
+ * Содержимое термина — всегда в разметке (`forceMount`): определения лежат в
+ * HTML для поисковика и не пропадают после загрузки приложения (F-096), а
+ * серверная разметка совпадает с первым рендером в браузере.
+ *
+ * Radix при `forceMount` закрытый пункт сам не прячет (`hidden` всегда снят),
+ * поэтому сворачивание — сеткой: строка `0fr` ↔ `1fr` за те же 0,2 с и с тем
+ * же `ease-out`, что у `accordion-up/down` из tw-animate-css, — на глаз
+ * движение прежнее. Переход стоит на дочернем блоке, а не на самом Content:
+ * Radix на каждое переключение ставит Content инлайновый
+ * `transition-duration: 0s` ради замера высоты и погасил бы анимацию.
+ * `visibility: hidden` с задержкой на время перехода убирает свёрнутый текст
+ * из порядка Tab и из дерева доступности. Обёртка `pt-0 pb-4` — как в
+ * `ui/accordion.tsx`, чтобы отступы не изменились.
+ */
+function GlossaryTermContent({ children }: { children: ReactNode }) {
+  return (
+    <AccordionPrimitive.Content forceMount data-slot="accordion-content" className="group/term overflow-hidden text-sm">
+      <div className="invisible grid [grid-template-rows:0fr] [transition:grid-template-rows_.2s_ease-out,visibility_0s_linear_.2s] group-data-[state=open]/term:visible group-data-[state=open]/term:[grid-template-rows:1fr] group-data-[state=open]/term:[transition:grid-template-rows_.2s_ease-out]">
+        <div className="min-h-0 overflow-hidden">
+          <div className="pt-0 pb-4">{children}</div>
+        </div>
+      </div>
+    </AccordionPrimitive.Content>
+  );
+}
 
 type CollectionFilter = 'all' | (typeof glossaryCollections)[number]['id'];
 type SectionFilter = 'all' | GlossarySectionId;
@@ -85,6 +119,9 @@ export default function MarketingGlossaryPage() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const navigate = useNavigate();
+  // Страница пришла готовой из HTML: появление шапки через motion не играет —
+  // иначе в серверной разметке заголовок стоял бы с opacity:0 до JavaScript.
+  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
   const [query, setQuery] = useState('');
   const [selectedSection, setSelectedSection] = useState<SectionFilter>('all');
   const [selectedCollection, setSelectedCollection] = useState<CollectionFilter>('all');
@@ -228,8 +265,8 @@ export default function MarketingGlossaryPage() {
     setOpenTermId(termId);
     setSelectedCollection('all');
     setSelectedSection('all');
-    // A related term can be outside the current search result. Clear every
-    // filter before opening it, otherwise the new hash points to absent DOM.
+    // Связанный термин может не попадать в текущий результат поиска: без
+    // сброса запроса раскрытый пункт сворачивался, а новый не появлялся (F-011).
     setQuery('');
     replaceHash(termAnchor(termId));
     window.clearTimeout(relatedScrollTimerRef.current);
@@ -240,8 +277,8 @@ export default function MarketingGlossaryPage() {
     }
   };
 
-  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 20 });
-  const ctaTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 16 });
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: STATIC_TITLE_MIN_FONT_SIZE });
+  const ctaTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: CTA_TITLE_MIN_FONT_SIZE });
   const resetFilters = () => {
     setQuery('');
     setSelectedSection('all');
@@ -269,13 +306,21 @@ export default function MarketingGlossaryPage() {
             className="mb-8"
           />
           <m.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={settledEntrance ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="max-w-4xl"
           >
             <p className="text-primary font-medium mb-3">Справочник по рекламе, данным и продукту</p>
-            <h1 ref={staticTitleFit} className="text-balance text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
+            {/* Лимит строк на странице из HTML выполняет до первого кадра
+                встроенный скрипт генератора (`scripts/title-prefit.js`) —
+                он читает эти же атрибуты. */}
+            <h1
+              ref={staticTitleFit}
+              data-ww-title-fit={`${STATIC_TITLE_LINES.titleMaxLinesMobile}/0`}
+              data-ww-title-fit-min={STATIC_TITLE_MIN_FONT_SIZE}
+              className="text-balance text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight"
+            >
               Словарь маркетинга <span className="text-primary">без лишнего жаргона</span>
             </h1>
             <p className="max-w-3xl text-pretty text-base text-muted-foreground md:text-lg">
@@ -460,7 +505,7 @@ export default function MarketingGlossaryPage() {
                           </div>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <GlossaryTermContent>
                         <div className="space-y-3 pb-2">
                           {item.disambiguation && (
                             <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-foreground/90">
@@ -540,7 +585,7 @@ export default function MarketingGlossaryPage() {
                             Постоянная ссылка
                           </a>
                         </div>
-                      </AccordionContent>
+                      </GlossaryTermContent>
                     </AccordionItem>
                   );
                 })}
@@ -567,7 +612,14 @@ export default function MarketingGlossaryPage() {
                 <BookOpenText className="w-4 h-4" />
                 Метрики под ваш проект
               </p>
-              <h2 ref={ctaTitleFit} className="text-balance text-2xl font-semibold">Неясно, какие показатели смотреть?</h2>
+              <h2
+                ref={ctaTitleFit}
+                data-ww-title-fit={`${STATIC_TITLE_LINES.titleMaxLinesMobile}/0`}
+                data-ww-title-fit-min={CTA_TITLE_MIN_FONT_SIZE}
+                className="text-balance text-2xl font-semibold"
+              >
+                Неясно, какие показатели смотреть?
+              </h2>
               <p className="mt-2 max-w-2xl text-pretty text-muted-foreground">
                 Разберём путь от рекламного расхода до продажи или события приложения и выберем метрики, по которым можно принимать решения.
               </p>
@@ -583,9 +635,11 @@ export default function MarketingGlossaryPage() {
         </section>
       </div>
       </main>
-      <Suspense fallback={null}>
-        <Footer />
-      </Suspense>
+      <ClientOnly>
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
+      </ClientOnly>
     </div>
   );
 }

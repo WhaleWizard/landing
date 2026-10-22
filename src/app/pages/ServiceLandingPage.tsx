@@ -892,7 +892,7 @@ function DeferredSection({
       {
         // Keep below-the-fold animation bundles out of the initial mobile
         // render while still mounting a section shortly before it is visible.
-        rootMargin: '720px 0px',
+        rootMargin: '1200px 0px',
         threshold: 0,
       },
     );

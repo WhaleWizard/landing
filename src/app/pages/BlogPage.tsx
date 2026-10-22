@@ -24,7 +24,7 @@ import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import { isCaseArticle } from '../utils/articleCategory';
-import { BLOG_PAGE_SIZE, parseBlogPage } from '../utils/blogListing';
+import { BLOG_PAGE_SIZE, blogArticleOrder, blogArticleTimestamp, parseBlogPage } from '../utils/blogListing';
 import { BLOG_SECTIONS, categoryDisplayLabel, normalizeTopicId, sectionOfArticle } from '../data/blogSections';
 import { useArticles } from '../context/ArticlesContext';
 import type { Article } from '../components/hooks/useArticlesApi';
@@ -130,15 +130,6 @@ function buildBlogTopics(articles: Article[]): BlogTopic[] {
     });
 
   return topics;
-}
-
-/** Дата статьи числом: сначала ISO, затем формат «дд.мм.гггг» из админки. */
-function articleTimestamp(article: Article): number {
-  const iso = Date.parse(article.publishedAt || '');
-  if (Number.isFinite(iso)) return iso;
-  const match = String(article.date || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (!match) return 0;
-  return Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
 }
 
 function articleReadMinutes(article: Article): number {
@@ -535,11 +526,21 @@ function BlogPageComponent() {
     }
   }, [selectedArticle]);
 
+  // Предыдущий материал: наверх прокручивает только настоящая смена статьи
+  // (открыли или закрыли), а не смена типа навигации. Раньше первое изменение
+  // фильтра после возврата по истории (POP → REPLACE) прокручивало список
+  // наверх ещё раз (аудит F-003/F-004).
+  const previousSlugRef = useRef<{ slug: string | undefined; mounted: boolean }>({ slug, mounted: false });
   useIsomorphicLayoutEffect(() => {
+    const previous = previousSlugRef.current;
+    const slugChanged = previous.slug !== slug;
+    const firstRender = !previous.mounted;
+    previousSlugRef.current = { slug, mounted: true };
     // PUSH/REPLACE открывают новый материал с начала до первого кадра. При POP
     // позицию восстанавливает ScrollRestoration: без этой проверки возврат из
     // статьи всегда перебрасывал список наверх уже после восстановления.
     if (navigationType === 'POP') return;
+    if (!firstRender && !slugChanged) return;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [navigationType, slug]);
 
@@ -689,8 +690,12 @@ function BlogPageComponent() {
     })
     .sort((a, b) => {
       if (sort === 'short') return articleReadMinutes(a) - articleReadMinutes(b);
-      const difference = articleTimestamp(a) - articleTimestamp(b);
-      return sort === 'old' ? difference : -difference;
+      // Та же дата и тот же порядок при равной дате, что у встроенного в
+      // страницу списка (blogListing.selectBlogListSeed): иначе живой список
+      // после загрузки переставил бы карточки готовой разметки.
+      const difference = blogArticleTimestamp(a) - blogArticleTimestamp(b);
+      if (difference !== 0) return sort === 'old' ? difference : -difference;
+      return blogArticleOrder(a) - blogArticleOrder(b);
     });
   }, [activeTopicRule, scopedArticles, searchQuery, sort]);
   const relatedArticles = useMemo(
@@ -753,7 +758,12 @@ function BlogPageComponent() {
     apply('page', listPage > 1 ? String(listPage) : '');
 
     const query = params.toString();
-    const nextUrl = `/blog${query ? `?${query}` : ''}`;
+    // Меняется только строка параметров, адрес остаётся как есть: сборка
+    // отдаёт список по `/blog/`, и замена на `/blog` сразу после гидратации
+    // была бы лишней навигацией (новая запись истории → прокрутка наверх при
+    // перезагрузке и сброс признака «страница пришла готовой»).
+    const listPathname = /^\/blog\/?$/.test(location.pathname) ? location.pathname : '/blog';
+    const nextUrl = `${listPathname}${query ? `?${query}` : ''}`;
     if (`${location.pathname}${location.search}` !== nextUrl) {
       internalSearchRef.current = query ? `?${query}` : '';
       navigate(nextUrl, { replace: true, preventScrollReset: true, state: location.state });
@@ -1144,12 +1154,12 @@ function BlogPageComponent() {
             backFallback="/"
             className="mb-7"
           />
-          <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={isCasesRoute ? 'mb-10 text-center md:mb-14' : 'mb-8 max-w-3xl md:mb-10'}>
+          <m.div initial={settledEntrance ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={isCasesRoute ? 'mb-10 text-center md:mb-14' : 'mb-8 max-w-3xl md:mb-10'}>
             <div className={`mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary ${isCasesRoute ? 'mx-auto' : ''}`}>
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               {isCasesRoute ? `Кейсы · ${scopedArticles.length}` : `Практический блог · ${russianCountLabel(scopedArticles.length, ['статья', 'статьи', 'статей'])}`}
             </div>
-            <h1 ref={listTitleFit} className="text-balance text-[clamp(1.9rem,9.6vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.038em] md:text-[3.25rem]">
+            <h1 ref={listTitleFit} data-ww-title-fit={`${LIST_TITLE_LINES.titleMaxLinesMobile}/${LIST_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="22" className="text-balance text-[clamp(1.9rem,9.6vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.038em] md:text-[3.25rem]">
               {isCasesRoute ? 'Кейсы и ' : 'Решения для '}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {isCasesRoute ? 'разборы' : 'реальных задач'}
@@ -1369,7 +1379,7 @@ function BlogPageComponent() {
                         {visibleFeedArticles.map((article, index) => (
                           <m.article
                             key={article.slug}
-                            initial={{ opacity: 0, y: 12 }}
+                            initial={settledEntrance ? false : { opacity: 0, y: 12 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: Math.min(index, 5) * 0.04 }}

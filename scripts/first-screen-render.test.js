@@ -39,7 +39,8 @@ test('server-rendered home shows the real hero, published text and visible, link
   assert.equal(document.querySelectorAll('h1').length, 1);
   assert.match(document.querySelector('h1').textContent, /Первый экран.*без мигания/);
   assert.ok(document.querySelector('#hero.cosmic-hero .cosmic-stage .cosmic-whale img'));
-  assert.equal(document.querySelector('#hero')?.getAttribute('data-hero-effects'), 'settled');
+  // Live hero does not force settled so title effects can play
+  assert.equal(document.querySelector('#hero')?.hasAttribute('data-hero-effects'), false);
   // Пауза петель до гидратации живёт на <html> (ставит генератор), а не в
   // атрибуте секции: атрибут из рендера разошёлся бы с разметкой у тех, кто
   // просит меньше движения, и React перестроил бы первый экран.
@@ -62,7 +63,8 @@ test('every hydratable route renders a visible hero without entrance styles or b
     assert.ok(document.querySelector('#hero'), `${route}: hero is missing`);
     assert.ok(document.querySelector('nav.ww-public-navbar'), `${route}: navbar is missing`);
     assert.equal(document.querySelectorAll('h1').length, 1, `${route}: exactly one h1`);
-    assert.equal(document.querySelector('#hero')?.getAttribute('data-hero-effects'), 'settled', `${route}: title effects must not replay`);
+    // Live hero does not force settled so title effects can play
+    assert.equal(document.querySelector('#hero')?.hasAttribute('data-hero-effects'), false, `${route}: hero title effects enabled`);
     for (const node of document.querySelectorAll('[style]')) {
       assert.doesNotMatch(node.getAttribute('style'), /(?:^|;)opacity:\s*0(?:;|$)/, `${route}: SSR must not hide content pending JS`);
     }

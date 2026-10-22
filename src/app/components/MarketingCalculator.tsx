@@ -20,9 +20,11 @@ import {
   calculateFinancials,
   calculateForecast,
   calculateQuote,
+  parseNumberInput,
   type BusinessModel,
   type CalculatorMode,
   type ForecastResult,
+  type NumberInputKind,
   type ScenarioId,
   type ServiceGoal,
 } from '../calculator/engine';
@@ -89,8 +91,10 @@ type CalculatorSelectProps = {
   className?: string;
 };
 
-/** Заголовок страницы на телефоне — не больше двух строк. */
+/** Заголовок страницы на телефоне — не больше двух строк; на десктопе лимита нет. */
 const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
+/** Ниже этого кегля подгонка заголовок не ужимает — то же число уходит в `data-ww-title-fit-min`. */
+const STATIC_TITLE_MIN_FONT_SIZE = 20;
 
 const modeOptions: Array<{
   id: CalculatorMode;
@@ -137,13 +141,17 @@ const marketOptions = [
 
 const currencyOptions = ['USD', 'KZT', 'UZS', 'RUB', 'EUR', 'GEL', 'AMD', 'AZN', 'KGS'];
 
-const parseNumber = (value: string) => {
-  if (!value.trim()) return null;
-  const parsed = Number(value.replace(/\s/g, '').replace(',', '.'));
-  return Number.isFinite(parsed) ? parsed : null;
-};
+/**
+ * Процентное поле читает запятую только как десятичную («2,5»), денежное и
+ * счётное — ещё и как разделитель тысяч («10,000»). Признак берётся из
+ * суффикса поля, см. `parseNumberInput` в движке.
+ */
+const inputKindForSuffix = (suffix?: string): NumberInputKind => (suffix === '%' ? 'percent' : 'amount');
 
-const asNonNegative = (value: string) => Math.max(0, parseNumber(value) ?? 0);
+const asNonNegative = (value: string, kind: NumberInputKind = 'amount') => (
+  Math.max(0, parseNumberInput(value, kind) ?? 0)
+);
+const asNonNegativePercent = (value: string) => asNonNegative(value, 'percent');
 
 function CalculatorSelect({
   id,
@@ -166,8 +174,15 @@ function CalculatorSelect({
         >
           {/* Длинные названия рынков не помещались в поле на экране 320 px и
               обрезались на середине слова без всякого признака, что текст
-              продолжается. Многоточие показывает это честно. */}
-          <SelectValue className="block min-w-0 truncate text-left" />
+              продолжается. Многоточие показывает это честно.
+
+              Подпись выбранного пункта передаётся детьми, а не берётся из
+              списка: без детей Radix вставляет текст в поле порталом уже
+              после первого кадра в браузере, и страница, пришедшая готовой
+              из HTML, показывала три пустых поля до загрузки JavaScript. */}
+          <SelectValue className="block min-w-0 truncate text-left">
+            {options.find((option) => option.value === value)?.label}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent
           position="popper"
@@ -201,9 +216,10 @@ function NumericInput({
   step = 'any',
   placeholder,
 }: NumericInputProps) {
+  const kind = inputKindForSuffix(suffix);
   const normalizeOnBlur = () => {
     if (!value.trim()) return;
-    const parsed = parseNumber(value);
+    const parsed = parseNumberInput(value, kind);
     if (parsed === null) {
       onChange('');
       return;
@@ -211,7 +227,12 @@ function NumericInput({
 
     const clamped = Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min, parsed));
     const normalized = step === '1' ? String(Math.round(clamped)) : String(clamped);
-    if (normalized !== value.replace(/\s/g, '').replace(',', '.')) onChange(normalized);
+    // Набранное «2,5» или «1 000» остаётся как есть: оно уже читается тем же
+    // разбором как то же число, и переписывать его в «2.5» незачем. Всё
+    // остальное — валюта, буквы, смешанные разделители, значение за границами
+    // поля — заменяется канонической записью.
+    const plain = /^\s*-?[\d\s]*(?:[.,]\d*)?\s*$/.test(value) && Number(normalized) === parsed;
+    if (!plain && normalized !== value) onChange(normalized);
   };
 
   return (
@@ -391,9 +412,9 @@ export default function MarketingCalculator({
   const forecastIsReady = asNonNegative(mediaSpend) > 0
     && asNonNegative(acquisitionCost) > 0
     && asNonNegative(averageOrderValue) > 0
-    && asNonNegative(margin) > 0
+    && asNonNegativePercent(margin) > 0
     && (businessModel === 'ecommerce'
-      || (asNonNegative(qualifiedRate) > 0 && asNonNegative(closeRate) > 0));
+      || (asNonNegativePercent(qualifiedRate) > 0 && asNonNegativePercent(closeRate) > 0));
 
   const forecasts = useMemo(() => (
     forecastIsReady
@@ -401,10 +422,10 @@ export default function MarketingCalculator({
           ...sharedCosts,
           businessModel,
           acquisitionCost: asNonNegative(acquisitionCost),
-          qualifiedLeadRatePct: businessModel === 'leadgen' ? asNonNegative(qualifiedRate) : 100,
-          closeRatePct: businessModel === 'leadgen' ? asNonNegative(closeRate) : 100,
+          qualifiedLeadRatePct: businessModel === 'leadgen' ? asNonNegativePercent(qualifiedRate) : 100,
+          closeRatePct: businessModel === 'leadgen' ? asNonNegativePercent(closeRate) : 100,
           averageOrderValue: asNonNegative(averageOrderValue),
-          contributionMarginPct: asNonNegative(margin),
+          contributionMarginPct: asNonNegativePercent(margin),
         })
       : []
   ), [
@@ -421,14 +442,14 @@ export default function MarketingCalculator({
   const selectedForecast = forecasts.find((item) => item.id === scenarioId) ?? forecasts[1] ?? null;
 
   const ordersRevenue = asNonNegative(actualOrders) * asNonNegative(averageOrderValue);
-  const enteredRevenue = parseNumber(actualRevenue);
+  const enteredRevenue = parseNumberInput(actualRevenue);
   const revenueMismatch = enteredRevenue !== null
     && ordersRevenue > 0
     && Math.abs(enteredRevenue - ordersRevenue) / Math.max(enteredRevenue, ordersRevenue) > 0.02;
   const resolvedRevenue = enteredRevenue !== null ? Math.max(0, enteredRevenue) : ordersRevenue;
   const actualIsReady = sharedCosts.mediaSpend > 0
     && resolvedRevenue > 0
-    && asNonNegative(margin) > 0
+    && asNonNegativePercent(margin) > 0
     && !revenueMismatch;
 
   const actualResult = useMemo(() => (
@@ -436,7 +457,7 @@ export default function MarketingCalculator({
       ? calculateFinancials({
           ...sharedCosts,
           revenue: resolvedRevenue,
-          contributionMarginPct: asNonNegative(margin),
+          contributionMarginPct: asNonNegativePercent(margin),
           units: asNonNegative(actualOrders),
           averageOrderValue: asNonNegative(averageOrderValue),
         })
@@ -990,7 +1011,7 @@ export default function MarketingCalculator({
       <>
         <div className="rounded-2xl border border-primary/35 bg-gradient-to-br from-primary/15 via-primary/[0.04] to-accent/10 p-5">
           <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-            Ориентир за первый месяц
+            {firstMonth ? 'Ориентир за первый месяц' : 'Ориентир за месяц'}
           </p>
           <p className="mt-2 text-4xl font-bold tabular-nums text-primary">
             {formatMoney(quoteResult.monthlyFee, 'USD')}
@@ -1023,7 +1044,7 @@ export default function MarketingCalculator({
     );
   };
 
-  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 20 });
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: STATIC_TITLE_MIN_FONT_SIZE });
   const currentMode = modeOptions.find((item) => item.id === mode) ?? modeOptions[0];
 
   return (
@@ -1043,7 +1064,17 @@ export default function MarketingCalculator({
               <Calculator className="h-4 w-4" />
               {pageCopy.badge}
             </div>
-            <h1 ref={staticTitleFit} className="text-balance text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
+            {/* data-ww-title-fit: страница приходит готовой из HTML, и лимит
+                строк до первого кадра выполняет встроенный скрипт генератора
+                (scripts/title-prefit.js) — иначе длинный заголовок ужимался
+                бы уже после JavaScript и сдвигал всё под собой. Формат и
+                минимум те же, что у хука ниже. */}
+            <h1
+              ref={staticTitleFit}
+              data-ww-title-fit={`${STATIC_TITLE_LINES.titleMaxLinesMobile}/0`}
+              data-ww-title-fit-min={String(STATIC_TITLE_MIN_FONT_SIZE)}
+              className="text-balance text-3xl font-bold leading-tight sm:text-4xl md:text-5xl"
+            >
               {pageCopy.titlePrefix}{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 {pageCopy.titleAccent}

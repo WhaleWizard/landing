@@ -22,7 +22,7 @@ type ConsultStudioHeroProps = {
   settledEntrance?: boolean;
 };
 
-function ConsultStudioHero({ content, settledEntrance = false }: ConsultStudioHeroProps) {
+function ConsultStudioHero({ content, settledEntrance: _settledEntrance = false }: ConsultStudioHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
@@ -34,7 +34,7 @@ function ConsultStudioHero({ content, settledEntrance = false }: ConsultStudioHe
   };
 
   return (
-    <section id="hero" data-hero-effects={settledEntrance ? 'settled' : undefined} className="consult-studio-hero" aria-labelledby="consult-studio-title">
+    <section id="hero" className="consult-studio-hero" aria-labelledby="consult-studio-title">
       <div className="consult-studio-hero__grid">
         <div className="consult-studio-hero__photo-wrap">
           {/* Сцена собрана из отдельных предметов, а не снята одним кадром:

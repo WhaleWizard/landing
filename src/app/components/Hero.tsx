@@ -891,7 +891,6 @@ function Hero({
       <section
         id="hero"
         ref={sectionRef}
-        data-hero-effects={settledEntrance ? 'settled' : undefined}
         className="cosmic-hero pt-0 min-[901px]:pt-20"
       >
         <Suspense fallback={<CosmicHeroFallback />}>
@@ -918,9 +917,7 @@ function Hero({
     <section
       id="hero"
       ref={sectionRef}
-      data-hero-effects={settledEntrance ? 'settled' : undefined}
       className={`relative min-h-screen flex items-center justify-center overflow-hidden pt-16 md:pt-20 ${isMetaApps ? 'meta-apps-page-hero bg-[#08090e]' : ''}`}
-      style={{ contain: 'layout style paint' }}
     >
       <BackgroundOrbs staticMotion={freezeMotion} />
 

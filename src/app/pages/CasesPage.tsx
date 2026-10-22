@@ -60,6 +60,8 @@ import {
 } from '../data/caseCatalog';
 import { plural } from '../utils/plural';
 import { withReturnTo } from '../utils/siteNavigation';
+import { hasGeneratedFirstScreen } from '../utils/firstScreen';
+import ClientOnly from '../components/ClientOnly';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -114,6 +116,15 @@ function entryPreset(from?: string | null): { sources: string[]; nicheHints: str
 type SortValue = 'fresh' | 'roi' | 'budget';
 type CaseFilterKind = 'niche' | 'source' | 'result';
 
+// Подпись выбранного порядка уходит в триггер списка детьми: без них Radix
+// переносит текст пункта в триггер порталом уже после layout-эффекта, и первый
+// кадр страницы из HTML показывал пустое поле сортировки.
+const SORT_LABELS: Record<SortValue, string> = {
+  fresh: 'Сначала новые',
+  roi: 'Сначала высокий ROI',
+  budget: 'Сначала крупный бюджет',
+};
+
 type CatalogArticle = Pick<
   Article,
   'id' | 'slug' | 'title' | 'category' | 'readTime' | 'date' | 'description' | 'image' | 'tags' | 'caseData' | 'publishedAt' | 'updatedAt'
@@ -167,7 +178,13 @@ function caseViewFromArticle(article: CatalogArticle, fallback = false): CaseVie
 
 function formatInteger(value?: number): string {
   if (!value) return '—';
-  return `${new Intl.NumberFormat('ru-RU').format(value)}+`;
+  // Разряды через неразрывный пробел — как у Intl.NumberFormat('ru-RU') в
+  // Chrome, но без зависимости от ICU: сборка в Node и браузер обязаны дать
+  // одну и ту же строку, иначе гидратация увидела бы разный текст.
+  const rounded = Math.round(value * 1000) / 1000;
+  const [whole, fraction] = String(rounded).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${fraction ? `${grouped},${fraction}` : grouped}+`;
 }
 
 function formatBudget(value?: number, label?: string): string {
@@ -205,6 +222,52 @@ function readSelectedParams(params: URLSearchParams, key: string, kind: CaseFilt
       allowed.includes(value) && isMetaSafeCaseFilterValue(value)
     ));
   });
+}
+
+type CaseUrlState = {
+  niches: Set<string>;
+  sources: Set<string>;
+  goals: Set<string>;
+  sort: SortValue;
+  entry: string | null;
+  origin: string | null;
+};
+
+/**
+ * Состояние витрины из адреса. Чистая функция: тот же адрес и тот же список
+ * кейсов дают одно состояние и на сборке, и в браузере, поэтому первый рендер
+ * без параметров совпадает с серверной разметкой и страница гидратируется, а
+ * не строится заново (раньше адрес разбирался эффектом, и до него рисовался
+ * пустой список). С параметрами в адресе гидратация не включается (main.tsx):
+ * разбор идёт в браузере по встроенному списку, а живой список, если добавит
+ * кейсы, применяется заново эффектом ниже.
+ */
+function readCaseUrlState(search: string, allNiches: string[], allSources: string[], allGoals: string[]): CaseUrlState {
+  const params = new URLSearchParams(search);
+  const from = params.get('from');
+  const presetDisabled = params.get('all') === '1';
+  const hasExplicitFilters = presetDisabled || ['niche', 'src', 'result'].some((key) => params.has(key));
+
+  // `from` приходит прямо из адреса, поэтому обе карты ищутся только по своему
+  // ключу. Обычный поиск по объекту находил и унаследованные свойства: для
+  // `?from=constructor` возвращалась функция `Object`, дальше у неё читалось
+  // `preset.sources.filter(...)`, и страница падала прямо во время отрисовки.
+  const preset = entryPreset(from);
+  const usePreset = Boolean(preset) && !hasExplicitFilters;
+  const requestedSort = params.get('sort');
+
+  return {
+    niches: usePreset && preset
+      ? new Set(allNiches.filter((niche) => preset.nicheHints.some((hint) => niche.toLowerCase().includes(hint))))
+      : new Set(readSelectedParams(params, 'niche', 'niche', allNiches)),
+    sources: usePreset && preset
+      ? new Set(preset.sources.filter((source) => allSources.includes(source)))
+      : new Set(readSelectedParams(params, 'src', 'source', allSources)),
+    goals: usePreset ? new Set() : new Set(readSelectedParams(params, 'result', 'result', allGoals)),
+    sort: requestedSort === 'roi' || requestedSort === 'budget' || requestedSort === 'fresh' ? requestedSort : 'fresh',
+    entry: usePreset ? from : null,
+    origin: getCaseBackTarget(from) ? from : null,
+  };
 }
 
 function FilterCheckbox({ active, count, label, onClick }: { active: boolean; count: number; label: string; onClick: () => void }) {
@@ -299,7 +362,19 @@ function ResultMetric({ value, label }: { value: string; label: string }) {
   );
 }
 
-function CaseResultCard({ item, index, href, onOpen }: { item: CaseView; index: number; href: string; onOpen: (item: CaseView) => void }) {
+function CaseResultCard({ item, index, href, onOpen, settledEntrance }: {
+  item: CaseView;
+  index: number;
+  href: string;
+  onOpen: (item: CaseView) => void;
+  /** Страница пришла готовой из HTML: появление не играет (см. BlogPage). */
+  settledEntrance: boolean;
+}) {
+  // Только уход карточки и темп зависят от «уменьшить движение»: они не
+  // попадают в разметку. Появление решается по settledEntrance — motion на
+  // сборке отдаёт null, а браузер с «уменьшить движение» true, и разный
+  // `initial` давал бы разный style в первом рендере (расхождение гидратации).
+  // Само движение при «уменьшить движение» гасит MotionConfig в AppFrame.
   const reduceMotion = useReducedMotion();
   const isFeatured = Boolean(item.data.featured);
   const metrics = item.data.metrics || [];
@@ -310,8 +385,8 @@ function CaseResultCard({ item, index, href, onOpen }: { item: CaseView; index: 
   return (
     <m.article
       layout
-      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-      animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+      initial={settledEntrance ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
       exit={reduceMotion ? undefined : { opacity: 0, y: 8 }}
       transition={reduceMotion ? undefined : { duration: 0.24, delay: Math.min(index, 4) * 0.035 }}
       className={`cases-result-card ${isFeatured ? 'is-featured' : ''}`}
@@ -390,23 +465,11 @@ export default function CasesPage() {
   const { articles, loading, error: articlesError, refreshArticles } = useArticles();
   const navigate = useNavigate();
   const location = useLocation();
-  const reduceMotion = useReducedMotion();
+  // Страница пришла готовой из HTML (сборка + гидратация): появления через
+  // motion не играют, иначе текст уехал бы в разметку с opacity:0.
+  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
   // Шапка витрины: две строки — потолок, третья ломает ритм экрана.
   const introTitleFit = useManagedTitleFit<HTMLHeadingElement>(INTRO_TITLE_LINES, { minFontSize: 22 });
-  const internalSearchRef = useRef<string | null>(null);
-  const hydratedSearchRef = useRef<string | null>(null);
-  const skipUrlWriteRef = useRef(false);
-  const [urlReady, setUrlReady] = useState(false);
-  const [urlSyncRevision, setUrlSyncRevision] = useState(0);
-
-  const [niches, setNiches] = useState<Set<string>>(new Set());
-  const [sources, setSources] = useState<Set<string>>(new Set());
-  const [goals, setGoals] = useState<Set<string>>(new Set());
-  const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<SortValue>('fresh');
-  const [entry, setEntry] = useState<string | null>(null);
-  const [origin, setOrigin] = useState<string | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const publishedCases = useMemo<CaseView[]>(() => (
     articles
@@ -419,48 +482,54 @@ export default function CasesPage() {
   const allNiches = useMemo(() => Array.from(new Set(cases.map((item) => item.data.niche).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'ru')), [cases]);
   const allSources = useMemo(() => Array.from(new Set(cases.flatMap((item) => item.data.sources || []))).sort(), [cases]);
   const allGoals = useMemo(() => Array.from(new Set(cases.flatMap((item) => item.goals))).sort((a, b) => a.localeCompare(b, 'ru')), [cases]);
+  // Подпись набора значений фильтров: по ней видно, что живой список добавил
+  // кейсы (или список только что загрузился), и адрес нужно разобрать заново.
+  const optionsSignature = `${allNiches.join('\u0000')}\u0001${allSources.join('\u0000')}\u0001${allGoals.join('\u0000')}`;
 
+  const internalSearchRef = useRef<string | null>(null);
+  const hydratedSearchRef = useRef(location.search);
+  const appliedOptionsRef = useRef(optionsSignature);
+  const skipUrlWriteRef = useRef(false);
+  const [urlSyncRevision, setUrlSyncRevision] = useState(0);
+
+  // Адрес разбирается в начальном состоянии (useLocation есть и на сборке),
+  // а не эффектом: без параметров первый рендер сервера и браузера совпадает.
+  const [initialUrlState] = useState(() => readCaseUrlState(location.search, allNiches, allSources, allGoals));
+  const [niches, setNiches] = useState<Set<string>>(initialUrlState.niches);
+  const [sources, setSources] = useState<Set<string>>(initialUrlState.sources);
+  const [goals, setGoals] = useState<Set<string>>(initialUrlState.goals);
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<SortValue>(initialUrlState.sort);
+  const [entry, setEntry] = useState<string | null>(initialUrlState.entry);
+  const [origin, setOrigin] = useState<string | null>(initialUrlState.origin);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Browser history and links can change only the query string without
+  // remounting this page; the live list can add cases whose filter values a
+  // link refers to. Re-read the address in both cases, never on a plain mount.
   useEffect(() => {
     if (loading) return;
     if (internalSearchRef.current === location.search) {
       internalSearchRef.current = null;
       hydratedSearchRef.current = location.search;
+      appliedOptionsRef.current = optionsSignature;
       return;
     }
 
-    const shouldResetLocalQuery = hydratedSearchRef.current !== location.search;
+    const searchChanged = hydratedSearchRef.current !== location.search;
+    if (!searchChanged && appliedOptionsRef.current === optionsSignature) return;
     skipUrlWriteRef.current = true;
-    const params = new URLSearchParams(location.search);
-    const from = params.get('from');
-    const presetDisabled = params.get('all') === '1';
-    const hasExplicitFilters = presetDisabled || ['niche', 'src', 'result'].some((key) => params.has(key));
-
-    // `from` приходит прямо из адреса, поэтому обе карты ищутся только по своему
-    // ключу. Обычный поиск по объекту находил и унаследованные свойства: для
-    // `?from=constructor` возвращалась функция `Object`, дальше у неё читалось
-    // `preset.sources.filter(...)`, и страница падала прямо во время отрисовки.
-    const preset = entryPreset(from);
-    setOrigin(getCaseBackTarget(from) ? from : null);
-    setEntry(preset && !hasExplicitFilters ? from : null);
-    if (preset && !hasExplicitFilters) {
-      setSources(new Set(preset.sources.filter((source) => allSources.includes(source))));
-      setNiches(new Set(allNiches.filter((niche) => preset.nicheHints.some((hint) => niche.toLowerCase().includes(hint)))));
-      setGoals(new Set());
-    } else {
-      const nicheValues = readSelectedParams(params, 'niche', 'niche', allNiches);
-      const sourceValues = readSelectedParams(params, 'src', 'source', allSources);
-      const goalValues = readSelectedParams(params, 'result', 'result', allGoals);
-      setNiches(new Set(nicheValues));
-      setSources(new Set(sourceValues));
-      setGoals(new Set(goalValues));
-    }
-
-    if (shouldResetLocalQuery) setQuery('');
-    const requestedSort = params.get('sort');
-    setSort(requestedSort === 'roi' || requestedSort === 'budget' || requestedSort === 'fresh' ? requestedSort : 'fresh');
+    const next = readCaseUrlState(location.search, allNiches, allSources, allGoals);
+    setOrigin(next.origin);
+    setEntry(next.entry);
+    setNiches(next.niches);
+    setSources(next.sources);
+    setGoals(next.goals);
+    if (searchChanged) setQuery('');
+    setSort(next.sort);
     hydratedSearchRef.current = location.search;
-    setUrlReady(true);
-  }, [allGoals, allNiches, allSources, loading, location.search]);
+    appliedOptionsRef.current = optionsSignature;
+  }, [allGoals, allNiches, allSources, loading, location.search, optionsSignature]);
 
   useEffect(() => {
     if (skipUrlWriteRef.current) {
@@ -470,7 +539,9 @@ export default function CasesPage() {
       setUrlSyncRevision((revision) => revision + 1);
       return;
     }
-    if (!urlReady) return;
+    // Пока список грузится, в состоянии ещё нет значений из адреса: запись
+    // адреса в этот момент стёрла бы фильтры из ссылки.
+    if (loading) return;
     const currentParams = new URLSearchParams(location.search);
     const params = new URLSearchParams();
     CASE_ATTRIBUTION_PARAMS.forEach((key) => {
@@ -488,12 +559,17 @@ export default function CasesPage() {
     }
     const search = params.toString();
     const nextSearch = search ? `?${search}` : '';
-    const nextUrl = `/cases${search ? `?${search}` : ''}`;
+    // Меняется только строка параметров, адрес остаётся как есть: сборка
+    // отдаёт витрину по `/cases/`, и замена на `/cases` сразу после гидратации
+    // была бы лишней навигацией (прокрутка наверх при перезагрузке и сброс
+    // признака «страница пришла готовой»).
+    const listPathname = /^\/cases\/?$/.test(location.pathname) ? location.pathname : '/cases';
+    const nextUrl = `${listPathname}${nextSearch}`;
     if (`${location.pathname}${location.search}` !== nextUrl) {
       internalSearchRef.current = nextSearch;
       navigate(nextUrl, { replace: true, preventScrollReset: true, state: location.state });
     }
-  }, [entry, goals, location.pathname, location.search, location.state, navigate, niches, origin, sort, sources, urlReady, urlSyncRevision]);
+  }, [entry, goals, loading, location.pathname, location.search, location.state, navigate, niches, origin, sort, sources, urlSyncRevision]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ru');
@@ -641,11 +717,11 @@ export default function CasesPage() {
 
             <div className="cases-finder-intro">
               <m.div
-                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                initial={settledEntrance ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
               >
                 <span className="cases-finder-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Библиотека кейсов</span>
-                <h1 ref={introTitleFit}>Найдите кейс, похожий&nbsp;на <span>ваш проект</span></h1>
+                <h1 ref={introTitleFit} data-ww-title-fit={`${INTRO_TITLE_LINES.titleMaxLinesMobile}/${INTRO_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="22">Найдите кейс, похожий&nbsp;на <span>ваш проект</span></h1>
                 <p>Выберите канал, нишу или результат — и откройте полный разбор с контекстом, решениями и цифрами.</p>
               </m.div>
               <label className="cases-search">
@@ -707,12 +783,12 @@ export default function CasesPage() {
               <Select value={sort} onValueChange={(value) => setSort(value as SortValue)}>
                 <SelectTrigger aria-label="Сортировка кейсов" className="cases-sort-select">
                   <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
-                  <SelectValue />
+                  <SelectValue>{SORT_LABELS[sort]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent align="end" className="rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
-                  <SelectItem value="fresh">Сначала новые</SelectItem>
-                  <SelectItem value="roi">Сначала высокий ROI</SelectItem>
-                  <SelectItem value="budget">Сначала крупный бюджет</SelectItem>
+                  <SelectItem value="fresh">{SORT_LABELS.fresh}</SelectItem>
+                  <SelectItem value="roi">{SORT_LABELS.roi}</SelectItem>
+                  <SelectItem value="budget">{SORT_LABELS.budget}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -746,12 +822,12 @@ export default function CasesPage() {
                   <Select value={sort} onValueChange={(value) => setSort(value as SortValue)}>
                     <SelectTrigger aria-label="Сортировка кейсов" className="cases-sort-select">
                       <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
-                      <SelectValue />
+                      <SelectValue>{SORT_LABELS[sort]}</SelectValue>
                     </SelectTrigger>
                     <SelectContent align="end" className="rounded-2xl border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl">
-                      <SelectItem value="fresh">Сначала новые</SelectItem>
-                      <SelectItem value="roi">Сначала высокий ROI</SelectItem>
-                      <SelectItem value="budget">Сначала крупный бюджет</SelectItem>
+                      <SelectItem value="fresh">{SORT_LABELS.fresh}</SelectItem>
+                      <SelectItem value="roi">{SORT_LABELS.roi}</SelectItem>
+                      <SelectItem value="budget">{SORT_LABELS.budget}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -770,6 +846,7 @@ export default function CasesPage() {
                           index={index}
                           href={item.fallback ? '/#contact' : `/cases/${item.slug}${location.search}`}
                           onOpen={openCase}
+                          settledEntrance={settledEntrance}
                         />
                       ))}
                     </AnimatePresence>
@@ -811,9 +888,14 @@ export default function CasesPage() {
             </section>
           </div>
         </section>
-        <Suspense fallback={null}>
-          <Footer />
-        </Suspense>
+        {/* Подвал ленивый и в серверной разметке его нет: до первого эффекта
+            он не рисуется ни на сборке, ни в браузере, иначе React.lazy отдал бы
+            на сборке «дорисовать с клиента», и гидратация перестраивала бы подвал. */}
+        <ClientOnly>
+          <Suspense fallback={null}>
+            <Footer />
+          </Suspense>
+        </ClientOnly>
       </main>
     </>
   );

@@ -139,7 +139,7 @@ function DeferredSection({
       },
       // One viewport of lead time lets the next chunk settle before a quick
       // trackpad gesture reaches it, without mounting the whole page at LCP.
-      { rootMargin: '720px 0px', threshold: 0 },
+      { rootMargin: '1200px 0px', threshold: 0 },
     );
 
     observer.observe(section);

@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import ClientOnly from '../components/ClientOnly';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
@@ -7,13 +8,16 @@ import OfferContent from '../components/legal/OfferContent';
 import '../../styles/route-reveal.css';
 import { useManagedTitleFit } from '../utils/contentTypography';
 
+// Подвал — вне серверной разметки: React.lazy внутри renderToString отдаёт
+// границу «дорисовать с клиента», и гидратация перестраивала бы страницу.
 const Footer = lazy(() => import('../components/Footer'));
 
 /** Заголовок страницы на телефоне — не больше двух строк. */
 const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
+const STATIC_TITLE_MIN_FONT_SIZE = 16;
 
 export default function Offer() {
-  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: 16 });
+  const staticTitleFit = useManagedTitleFit<HTMLHeadingElement>(STATIC_TITLE_LINES, { minFontSize: STATIC_TITLE_MIN_FONT_SIZE });
   return (
     <>
       <SEO
@@ -35,7 +39,15 @@ export default function Offer() {
             />
 
             <div className="route-intro-reveal text-center mb-12">
-              <h1 ref={staticTitleFit} className="text-balance break-words text-2xl font-bold sm:text-4xl md:text-5xl">
+              {/* Лимит строк на странице из HTML выполняет до первого кадра
+                  встроенный скрипт генератора (`scripts/title-prefit.js`) —
+                  он читает эти же атрибуты. */}
+              <h1
+                ref={staticTitleFit}
+                data-ww-title-fit={`${STATIC_TITLE_LINES.titleMaxLinesMobile}/0`}
+                data-ww-title-fit-min={STATIC_TITLE_MIN_FONT_SIZE}
+                className="text-balance break-words text-2xl font-bold sm:text-4xl md:text-5xl"
+              >
                 Публичная<span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent"> оферта</span>
               </h1>
               <p className="text-muted-foreground mt-4">Дата последнего обновления: {LEGAL_UPDATED_AT}</p>
@@ -46,9 +58,11 @@ export default function Offer() {
             </div>
           </div>
         </section>
-        <Suspense fallback={null}>
-          <Footer />
-        </Suspense>
+        <ClientOnly>
+          <Suspense fallback={null}>
+            <Footer />
+          </Suspense>
+        </ClientOnly>
       </main>
     </>
   );

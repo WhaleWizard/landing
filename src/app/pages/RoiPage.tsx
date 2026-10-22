@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import ClientOnly from '../components/ClientOnly';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import RoiCalculatorPopup from '../components/RoiCalculatorPopup';
@@ -25,9 +26,14 @@ export default function RoiPage() {
           />
         </div>
         <RoiCalculatorPopup />
-        <Suspense fallback={null}>
-          <Footer />
-        </Suspense>
+        {/* Подвал — вне серверной разметки: страница приходит готовой из HTML и
+            гидратируется, а ленивый модуль внутри renderToString отдавал бы
+            границу «дорисовать с клиента» и ошибку гидратации. */}
+        <ClientOnly>
+          <Suspense fallback={null}>
+            <Footer />
+          </Suspense>
+        </ClientOnly>
       </main>
     </>
   );

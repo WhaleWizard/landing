@@ -21,7 +21,7 @@ if (!isAdminRoute) {
 }
 
 const rootElement = document.getElementById('root')!;
-const ROUTE_PREPARE_TIMEOUT_MS = 8_000;
+const ROUTE_PREPARE_TIMEOUT_MS = 2_000;
 const hadGeneratedShell = rootElement.hasChildNodes();
 /** Статический текст для поисковиков и браузеров без JavaScript — вне #root. */
 const STATIC_SHELL_ID = 'ww-static-shell';

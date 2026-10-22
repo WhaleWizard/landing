@@ -17,6 +17,7 @@ pnpm-debug.log*
 
 # Сырые логи dev-серверов из аудитов — не документация
 audit-reports/*.log
+audit-reports/*.png
 
 # Логи dev-серверов Codex и скриншоты Playwright — рабочие артефакты, не код
 .codex-dev-*.log

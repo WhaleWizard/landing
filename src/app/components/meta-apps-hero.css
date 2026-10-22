@@ -1041,19 +1041,19 @@
      при высоте чека ~131), отступы справа разные — чтобы стопка не читалась
      вертикальной линией. */
   .meta-receipt-slot--1 {
-    top: -62px;
+    top: 14px;
     right: 0;
     width: 35%;
   }
 
   .meta-receipt-slot--2 {
-    top: 70px;
+    top: 138px;
     right: 10%;
     width: 33%;
   }
 
   .meta-receipt-slot--3 {
-    top: 198px;
+    top: 260px;
     right: 2%;
     width: 34.5%;
   }
