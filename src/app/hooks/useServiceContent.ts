@@ -45,6 +45,10 @@ export function mergeContent<T>(base: T, override: unknown): T {
     const next: Record<string, unknown> = { ...base };
     Object.entries(override).forEach(([key, value]) => {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+      if (key === 'titleLines' && Array.isArray(value)) {
+        next[key] = value;
+        return;
+      }
       next[key] = key in base ? mergeContent(base[key], value) : value;
     });
     return next as T;

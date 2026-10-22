@@ -893,6 +893,8 @@ function DeferredSection({
     const mountForHash = () => {
       if (hashTargetsSection(anchorId)) mount();
     };
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const rootMargin = isMobile ? '350px 0px' : '800px 0px';
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return;
@@ -902,7 +904,7 @@ function DeferredSection({
       {
         // Keep below-the-fold animation bundles out of the initial mobile
         // render while still mounting a section shortly before it is visible.
-        rootMargin: '1200px 0px',
+        rootMargin,
         threshold: 0,
       },
     );

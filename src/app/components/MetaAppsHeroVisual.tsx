@@ -539,7 +539,8 @@ const MetaAppsHeroVisual = memo(({ motionAllowed, settled = false }: MetaAppsHer
       anchor.style.setProperty(PHONE_SCALE_PROPERTY, String(next));
     };
 
-    apply(anchor.getBoundingClientRect().width);
+    const initialWidth = anchor.clientWidth || anchor.offsetWidth;
+    if (initialWidth > 0) apply(initialWidth);
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];

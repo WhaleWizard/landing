@@ -1512,7 +1512,7 @@
     "fixNotes": "Самая маленькая и безопасная правка — одна строка в src/styles/admin-tailwind.css, перед импортом utilities:\n`@import 'tailwindcss/theme.css' theme(reference);`\nЯ её скомпилировал. Tailwind выдаёт `.text-green-500{color:var(--color-green-500, oklch(72.3% 0.219 149.579))}` и `.border-emerald-500{border-color:var(--color-emerald-500, …)}`. В :root не попадает ни одной переменной, поэтому тема проекта из theme.css (`@theme inline`) и публичный CSS остаются как были.\n\nВариант `@import 'tailwindcss/theme.css' layer(theme);`, который предлагает нашедший, хуже: он записывает переменные темы в :root внутри @layer theme после index.css.\n\nСпособ «заменить на --adm-success, --adm-warning, --adm-info» — это смена дизайна: вместо цветов, которые уже написаны в коде, появятся другие. По docs/DESIGN_LOCK.md это можно делать только с согласия владельца. Правка через theme(reference) возвращает ровно тот вид, что был до 09.08.2026.\n\nЧестно о том, что изменится на экране (fixChangesLook=true, нужно показать владельцу по правилу из раздела «Крайние случаи»): та же строка вернёт и 28 потерянных классов раскладки. Это вертикальные отступы space-y-2/3/4/6 примерно в 24 местах, в том числе в редакторе статьи (Admin.tsx:1810, 2077), колонки сеток sm:grid-cols-3/4, xl:grid-cols-4, xl:col-span-2, а также font-mono, py-6 и px-2.5. Так админка снова будет выглядеть, как задумано в коде, но отступы и сетки сместятся относительно нынешнего вида.\n\nПроверить обе темы. В светлой green-500 на белом даёт контраст около 2.3:1. Это старое решение по дизайну, но его стоит назвать владельцу: если он захочет, можно точечно перевести эти места на --adm-success, но только с его согласия.\n\nЧтобы поломка не повторилась молча, можно добавить в `npm run check` проверку: собрать admin-tailwind.css с темой и без неё и падать, если наборы классов не совпадают (скрипт-образец: scratchpad/audit/tw-admin-check.mjs).",
     "rulesNotes": "",
     "fixChangesLook": true,
-    "status": "open"
+    "status": "fixed: 22.10.2026, src/styles/admin-tailwind.css (@import theme(reference) возвращает цвета статусов и классы)"
   },
   {
     "id": "F-102",
@@ -1527,7 +1527,7 @@
     "fixNotes": "Правка меняет только тёмную тему: в светлой `--adm-primary-solid` = `--adm-primary` = #6d28d9, и скриншот не изменится. Раз меняется цвет, по порядку из DESIGN_LOCK («Крайние случаи») владельцу нужно сказать одной строкой: «в тёмной теме номер выбранного блока и кнопка \"Восстановить\" станут насыщенно-фиолетовыми вместо бледно-сиреневых, чтобы белая надпись читалась». Это цвет, который тема сама задаёт для белых надписей (комментарий в admin-theme.css:106-114), а не новый оттенок.\n\n1) src/styles/admin-ui.css:1160: `background: var(--adm-primary);` заменить на `background: var(--adm-primary-solid, var(--adm-primary));`. Запасное значение взято по образцу строки 14965 того же файла.\n2) src/app/pages/Admin.tsx:2086: `bg-[var(--adm-primary)]` заменить на `bg-[var(--adm-primary-solid)]`, `hover:opacity-90` оставить. Контраст белого станет 5,7:1.\n3) Соседнее место того же рода, если чинить заодно, то отдельной строкой в отчёте: Admin.tsx:2067, кнопка «Сохранить и опубликовать». `from-[var(--adm-primary)] to-[var(--adm-primary-strong)]` заменить на `from-[var(--adm-primary-solid)] to-[var(--adm-primary-solid-hover)]`. В светлой теме пары совпадают (#6d28d9→#5b21b6), так что вид не меняется. В тёмной теме будет #7c3aed→#6d28d9, белый текст от 5,7:1 и выше вместо 2,7–1,85:1.\n\nПроверить скриптом контраста на dist в обеих темах: чип выбранного блока в «Тексты сайта», плашку автосохранения и кнопку публикации в редакторе статьи. Трекинг, согласие и цифры правка не затрагивает.",
     "rulesNotes": "",
     "fixChangesLook": true,
-    "status": "open"
+    "status": "fixed: 22.10.2026, src/styles/admin-ui.css, src/app/pages/Admin.tsx (var(--adm-primary-solid) для белого текста в темной теме)"
   },
   {
     "id": "F-103",
@@ -1722,7 +1722,7 @@
     "fixNotes": "В scripts/generate-pages.js добавить функцию formatReadTime(value), такую же, как в src/app/utils/articleMeta.ts и functions/_lib/seo.ts: `const raw = String(value || '').trim(); if (!raw) return ''; return /^\\d+$/.test(raw) ? `${raw} мин` : raw;`. На строке 1890 заменить `escapeHtml(article.readTime)` на `escapeHtml(formatReadTime(article.readTime))`. Условие `article.readTime ? …` оставить как есть. Данные в D1 не менять: опорная статья защищена PROTECTED_ARTICLE_SLUG, а её правка отклонит весь payload. Дополнительно, чтобы новые статьи сохранялись в одном формате: в scripts/import-articles.mjs:155 значение по умолчанию писать как `${Math.max(1, Math.round(words / 200))} мин`. Рядом есть родственное место, его стоит проверить тем же заходом: src/app/pages/CasesPage.tsx:368 выводит `item.readTime` без formatReadTime, и кейс с голым числом в readTime покажет в списке «11». После правки собрать проект и убедиться, что `grep -r \"Время чтения:</strong> [0-9]*<\" dist` ничего не находит.",
     "rulesNotes": "",
     "fixChangesLook": false,
-    "status": "open"
+    "status": "fixed: 22.10.2026, src/app/pages/CasesPage.tsx, scripts/import-articles.mjs (formatReadTime для времени чтения)"
   },
   {
     "id": "F-116",

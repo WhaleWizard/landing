@@ -174,7 +174,7 @@ function normalize(raw, file) {
     slug,
     title,
     category,
-    readTime: String(raw.readTime || Math.max(1, Math.round(words / 200))),
+    readTime: /^\d+$/.test(String(raw.readTime || '').trim()) ? `${String(raw.readTime).trim()} мин` : String(raw.readTime || `${Math.max(1, Math.round(words / 200))} мин`),
     date: String(raw.date || new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })),
     description,
     content,

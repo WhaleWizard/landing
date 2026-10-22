@@ -12,6 +12,27 @@
 
 ## 2. Где мы сейчас
 
+**Сделано 22.10.2026 (устранение лагов загрузки, Hero-анимации, прогрессивный скролл и F-101, F-102, F-115):**
+
+- **BUG-P1 (Анимации строк заголовка Hero):**
+  - В `src/styles/hero-title-effects.css` селектор `[data-title-fit-measuring]` отвязан от `[data-hero-effects="settled"]`. Заменено деструктивное `animation: none !important` на `animation-play-state: paused !important` — замер шрифта больше не сбрасывает и не отменяет активные CSS-анимации появления строк.
+  - Из `src/app/utils/contentTypography.ts` удалён деструктивный вызов и реализация `settleTitleEffects()`, который принудительно перематывал в `animation.finish()` все анимации заголовка на первом же тике.
+  - В `src/app/hooks/useServiceContent.ts` (`mergeContent`) поле `titleLines` защищено от слияния слотов базового шаблона: кастомные строки заголовка из CMS больше не наследуют ошибочный `tone: 'supporting'` и не выпадают из `<h1>`.
+  - В `src/app/pages/ContentPreview.tsx` хук `useHeroEffectPlayback` дополнен авторазморозкой (1200 мс после прекращения ввода), предотвращая постоянную заморозку анимаций в `settled` при редактировании текста в админке.
+
+- **BUG-P2 (Тормоза GPU и верстки на Meta Apps):**
+  - В `src/app/components/meta-apps-hero.css` для мобильных устройств (`max-width: 767px`, `hover: none and pointer: coarse`) для `.meta-receipt-angle` добавлен оптимизированный однопроходный `filter: drop-shadow(-8px 14px 16px rgba(0, 0, 0, 0.45))`, устранивший тяжелейший двойной блюр 82-точечного полигона `clip-path`.
+  - В `src/app/components/MetaAppsHeroVisual.tsx` в `useIsomorphicLayoutEffect` синхронный `anchor.getBoundingClientRect().width` заменён на `anchor.clientWidth || anchor.offsetWidth` перед передачей в `ResizeObserver`, ликвидируя синхронный forced reflow при монтировании.
+
+- **BUG-P3 (Прогрессивная подгрузка вместо одновременной загрузки всей страницы):**
+  - В `src/app/pages/Home.tsx` и `src/app/pages/ServiceLandingPage.tsx` в `DeferredSection` задан адаптивный `rootMargin`: `350px 0px` на мобильных и `800px 0px` на десктопе (вместо прежних фиксированных `1200px 0px`), предотвращая одновременное монтирование 3-4 экранов сразу при первом открытии.
+  - В `src/app/utils/sectionWarmup.ts` (`useWarmSections`) фоновый прогрев переведён с параллельного `Promise.all` на последовательный обход с квантами по 80 мс между чанками, разгружая главный поток и сеть при старте.
+
+- **Закрыты оставшиеся находки аудита:**
+  - `F-101`: в `src/styles/admin-tailwind.css` подключен `@import 'tailwindcss/theme.css' theme(reference);` — возвращены цвета статусов и вспомогательные классы разметки админки.
+  - `F-102`: в `src/styles/admin-ui.css` и `src/app/pages/Admin.tsx` применен `var(--adm-primary-solid)` для белого текста в темной теме (номер выбранного блока и кнопка «Восстановить»).
+  - `F-115`: в `src/app/pages/CasesPage.tsx` и `scripts/import-articles.mjs` применено форматирование времени чтения через `formatReadTime`.
+
 **Сделано 22.10.2026 (закрытие волны аудита: группы blog, forms, seo-build — 28 находок):**
 
 - **Группа blog (10 находок):**

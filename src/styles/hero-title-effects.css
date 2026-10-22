@@ -183,7 +183,15 @@
 [data-title-fit-measuring] .hero-title-effect,
 [data-title-fit-measuring].hero-title-effect,
 [data-title-fit-measuring] .hero-title-effect__word,
-[data-title-fit-measuring] .hero-title-effect__character,
+[data-title-fit-measuring] .hero-title-effect__character {
+  animation-play-state: paused !important;
+  clip-path: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
 [data-hero-effects='settled'] .hero-title-effect,
 [data-hero-effects='settled'] .hero-title-effect__word,
 [data-hero-effects='settled'] .hero-title-effect__character {

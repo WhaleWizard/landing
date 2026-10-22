@@ -2472,7 +2472,7 @@ export default function Admin() {
                   )}
 
                   <div className="admin-editor-actions flex gap-3">
-                    <button onClick={() => handleSave('published')} disabled={isEditingProtected} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary)] to-[var(--adm-primary-strong)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button onClick={() => handleSave('published')} disabled={isEditingProtected} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary-solid)] to-[var(--adm-primary-solid-hover)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                       <Save className="w-4 h-4" /> Сохранить и опубликовать
                     </button>
                     <button onClick={() => handleSave('draft')} disabled={isEditingProtected} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -2492,7 +2492,7 @@ export default function Admin() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => openArticleEditor(backup.article, { dirty: true, slugEdited: true })}
-                          className="rounded-lg bg-[var(--adm-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                          className="rounded-lg bg-[var(--adm-primary-solid)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         >
                           Восстановить
                         </button>

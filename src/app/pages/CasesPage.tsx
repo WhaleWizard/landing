@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import { isCaseArticle } from '../utils/articleCategory';
+import { formatReadTime } from '../utils/articleMeta';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -165,7 +166,7 @@ function caseViewFromArticle(article: CatalogArticle, fallback = false): CaseVie
     slug: article.slug,
     title: getCaseDisplayTitle(article.title),
     description: article.description || '',
-    readTime: article.readTime || '8 мин',
+    readTime: formatReadTime(article.readTime) || '8 мин',
     date: article.date || '',
     publishedAt: article.publishedAt || article.updatedAt,
     fallback,

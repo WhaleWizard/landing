@@ -3,6 +3,7 @@
  * содержит классы CRM, планера и редактора, но сами классы и их порядок
  * остаются ровно теми же. Theme и preflight уже загружены общим index.css.
  */
+@import 'tailwindcss/theme.css' theme(reference);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 @source '../app/pages/Admin.tsx';
 @source '../app/components/admin';

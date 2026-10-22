@@ -325,9 +325,16 @@ function useHeroEffectPlayback({
     previous.current = { effectSignature, textSignature, replayKey, section };
     if (last.effectSignature !== effectSignature || last.replayKey !== replayKey || last.section !== section) {
       setFrozenByTyping(false);
-    } else if (last.textSignature !== textSignature) {
-      setFrozenByTyping(true);
+      return undefined;
     }
+    if (last.textSignature !== textSignature) {
+      setFrozenByTyping(true);
+      const timer = window.setTimeout(() => {
+        setFrozenByTyping(false);
+      }, 1200);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
   }, [effectSignature, textSignature, replayKey, section]);
 
   const looping = section === 'hero' && totalMs > 0 && !frozenByTyping;

@@ -1157,7 +1157,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-block-nav > button[aria-current='step'] > span:first-child {
   border-color: transparent;
   color: #fff;
-  background: var(--adm-primary);
+  background: var(--adm-primary-solid, var(--adm-primary));
 }
 
 .admin-root .admin-block-nav-mobile {

@@ -141,15 +141,17 @@ function DeferredSection({
       // (hashless) loads lazy and leave sections after the target deferred.
       if (precedesDeferredHashTarget(section)) mount();
     };
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const rootMargin = isMobile ? '350px 0px' : '800px 0px';
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return;
         observer.disconnect();
         mount();
       },
-      // One viewport of lead time lets the next chunk settle before a quick
-      // trackpad gesture reaches it, without mounting the whole page at LCP.
-      { rootMargin: '1200px 0px', threshold: 0 },
+      // One screen of lead time lets the next chunk settle before a gesture
+      // reaches it, without mounting all below-the-fold sections at LCP.
+      { rootMargin, threshold: 0 },
     );
 
     observer.observe(section);

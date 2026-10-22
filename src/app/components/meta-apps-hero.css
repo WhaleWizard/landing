@@ -647,6 +647,12 @@
   will-change: transform;
 }
 
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .meta-receipt-angle {
+    filter: drop-shadow(-8px 14px 16px rgba(0, 0, 0, 0.45));
+  }
+}
+
 .meta-receipt {
   position: relative;
   min-height: 195px;

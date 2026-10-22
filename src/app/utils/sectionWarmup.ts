@@ -50,15 +50,17 @@ export function useWarmSections(loaders: ReadonlyArray<MemoizedLoader<unknown>>)
 
     const warm = async () => {
       if (cancelled || typeof window === 'undefined') return;
-      // Загружаем чанки секций параллельно, чтобы не устраивать водопад ожидания:
-      await Promise.all(loaders.map(async (loader) => {
+      // Прогреваем секции по очереди с паузой, чтобы не забивать сеть и главный
+      // поток всеми чанками одновременно при первом открытии:
+      for (const loader of loaders) {
         if (cancelled || typeof window === 'undefined') return;
         try {
           await loader();
         } catch {
           // Сеть подвела — секция попробует сама, когда подойдёт к экрану.
         }
-      }));
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
     };
 
     const start = () => {
