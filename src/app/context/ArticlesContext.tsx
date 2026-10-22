@@ -1,5 +1,5 @@
 // src/app/context/ArticlesContext.tsx
-import { createContext, useCallback, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, useEffect, useRef, startTransition, ReactNode } from 'react';
 import {
   deleteArticle,
   fetchAdminArticle,
@@ -287,19 +287,27 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
       // Быстрый переход или повторное обновление не должны позволять старому
       // медленному ответу перезаписать результат последнего действия.
       if (sequence === requestSequence.current) {
-        setArticles((current) => (
-          preserveLoadedDetails ? mergePublicArticleSummaries(current, data) : data
-        ));
+        startTransition(() => {
+          setArticles((current) => (
+            preserveLoadedDetails ? mergePublicArticleSummaries(current, data) : data
+          ));
+        });
       }
     } catch (requestError) {
       // Молчаливая догрузка не должна рушить уже показанную статью экраном
       // ошибки: на странице есть всё, что нужно читателю.
       if (sequence === requestSequence.current && !silent) {
-        setError(requestError instanceof Error ? requestError.message : 'Не удалось загрузить публикации');
+        startTransition(() => {
+          setError(requestError instanceof Error ? requestError.message : 'Не удалось загрузить публикации');
+        });
       }
       throw requestError;
     } finally {
-      if (sequence === requestSequence.current) setLoading(false);
+      if (sequence === requestSequence.current) {
+        startTransition(() => {
+          setLoading(false);
+        });
+      }
     }
   }, []);
 
@@ -341,7 +349,9 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
         if (article && articleVersion(article) < expectedVersion) {
           throw new Error('Получена устаревшая версия публикации. Повторите загрузку.');
         }
-        setArticles((current) => mergeArticleDetailResult(current, normalizedSlug, article, expected));
+        startTransition(() => {
+          setArticles((current) => mergeArticleDetailResult(current, normalizedSlug, article, expected));
+        });
         return article;
       } catch (requestError) {
         if (detailRequests.current.get(normalizedSlug)?.id === requestId) {

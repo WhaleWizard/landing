@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, startTransition } from 'react';
 
 /**
  * «Уже смонтировано в браузере». До первого эффекта — false и на сервере, и
@@ -11,6 +11,10 @@ import { useEffect, useState } from 'react';
  */
 export function useMountedOnClient(): boolean {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    startTransition(() => {
+      setMounted(true);
+    });
+  }, []);
   return mounted;
 }
