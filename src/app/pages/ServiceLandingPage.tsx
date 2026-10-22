@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, startTransition, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigationType } from 'react-router';
 import { BarChart3, Briefcase, CheckCircle2, Search, ShoppingCart, Sparkles, Target, TrendingUp, Users, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -890,7 +890,7 @@ function DeferredSection({
       return;
     }
 
-    const mount = () => setShouldRender(true);
+    const mount = () => startTransition(() => setShouldRender(true));
     const mountForHash = () => {
       if (hashTargetsSection(anchorId)) mount();
     };

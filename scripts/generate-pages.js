@@ -571,6 +571,63 @@ function loadArticles() {
   return readArticles(BUILD_ARTICLES_PATH) || readArticles(LOCAL_ARTICLES_PATH) || [];
 }
 
+function normalizeCaseData(raw) {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const src = raw;
+  const str = (value, max) => {
+    const s = String(value ?? '').trim();
+    return s ? s.slice(0, max) : undefined;
+  };
+  const num = (value) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+  const sources = Array.isArray(src.sources)
+    ? src.sources.map((s) => String(s).trim().toLowerCase()).filter(Boolean).slice(0, 4)
+    : undefined;
+
+  const metrics = Array.isArray(src.metrics)
+    ? src.metrics
+        .map((m) => {
+          const metric = m ?? {};
+          return { value: str(metric.value, 40) || '', label: str(metric.label, 60) || '' };
+        })
+        .filter((m) => m.value && m.label)
+        .slice(0, 3)
+    : undefined;
+
+  let beforeAfter;
+  if (src.beforeAfter && typeof src.beforeAfter === 'object') {
+    const ba = src.beforeAfter;
+    const label = str(ba.label, 60);
+    const from = str(ba.from, 40);
+    const to = str(ba.to, 40);
+    if (label && from && to) beforeAfter = { label, from, to, delta: str(ba.delta, 20) };
+  }
+
+  const chartPoints = Array.isArray(src.chartPoints)
+    ? src.chartPoints.map(Number).filter(Number.isFinite).slice(0, 24)
+    : undefined;
+
+  const data = {
+    niche: str(src.niche, 60),
+    sources: sources?.length ? sources : undefined,
+    period: str(src.period, 60),
+    budgetLabel: str(src.budgetLabel, 40),
+    budgetValue: num(src.budgetValue),
+    leadsValue: num(src.leadsValue),
+    roiValue: num(src.roiValue),
+    headline: str(src.headline, 40),
+    headlineLabel: str(src.headlineLabel, 60),
+    trend: str(src.trend, 40),
+    metrics: metrics?.length ? metrics : undefined,
+    beforeAfter,
+    chartPoints: chartPoints && chartPoints.length >= 2 ? chartPoints : undefined,
+    featured: src.featured === true ? true : undefined,
+  };
+
+  return Object.values(data).some((value) => value !== undefined) ? data : undefined;
+}
+
 function normalizeArticles(rawArticles) {
   const usedSlugs = new Set();
 
@@ -615,6 +672,9 @@ function normalizeArticles(rawArticles) {
       summary: article?.summary || '',
       keyTakeaways: Array.isArray(article?.keyTakeaways) ? article.keyTakeaways.map((item) => String(item).trim()).filter(Boolean) : [],
       faq,
+      id: typeof article?.id === 'number' ? article.id : index + 1,
+      caseData: normalizeCaseData(article?.caseData),
+      featuredOrder: Number.isInteger(article?.featuredOrder) && Number(article.featuredOrder) > 0 ? Number(article.featuredOrder) : null,
     };
   });
 }

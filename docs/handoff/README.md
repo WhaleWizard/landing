@@ -23,8 +23,16 @@
 - **MOB-HERO-002 (Рассинхронизация многострочных заголовков Hero):**
   - Обнаружено: при независимой настройке эффектов строк в CMS (например, строка 1 `typewriter`, строка 2 `fade-up`) вторая строка рассчитывала задержку по формуле `safeDelay + safeSequenceIndex * safeSequenceGap`, не учитывая реальную длительность анимации первой строки. В результате вторая строка начинала анимацию и появлялась раньше, чем завершался набор первой строки.
   - Исправление: реализована функция `resolveHeroTitleLines` в `HeroTitleEffect.tsx`, вычисляющая кумулятивные задержки строк $T_i = T_{i-1} + \text{duration of line } (i-1) + \text{gap}$. Интегрирована во все компоненты Hero: `Hero.tsx`, `ConsultStudioHero.tsx`, `MetaAdsEditorialHero.tsx`.
+- **HYDR-CASE-001 (Срыв гидратации React #418/#422 на страницах кейсов):**
+  - Обнаружено при мобильном аудите живого прода: на страницах `/cases/:slug` в консоли появлялись ошибки React #418 и #422 (`[app] hydration fell back to client render`).
+  - Причина: функция `normalizeArticles` в `scripts/generate-pages.js` при сборке отбрасывала поле `caseData` у статей. В результате пререндер HTML страницы кейса строился без блока `.case-article-proof`, тогда как живой рантайм Functions подставлял в `ww-article-seed` полную статью с `caseData`, вызывая расхождение DOM при гидратации.
+  - Исправление: в `scripts/generate-pages.js` добавлена `normalizeCaseData` и сохранение полей `caseData`, `id`, `featuredOrder`. Разметка сборки и клиента синхронизирована (ошибки #418/#422 полностью устранены).
+- **HYDR-SUSP-001 (Срыв гидратации React #421 в WebKit на главной странице):**
+  - Обнаружено: в WebKit (Safari) на главной странице `/` возникала ошибка React #421 (`This Suspense boundary received an update before it finished hydrating`).
+  - Причина: `setCompactScene` в `CosmicHeroScene.tsx` и `setShouldRender` в `DeferredSection` вызывали синхронное обновление состояния внутри границ `<Suspense>` до завершения первого коммита гидратации.
+  - Исправление: вызовы обновления состояния переведены в `startTransition`, гарантируя завершение гидратации до применения изменений отложенных секций и адаптивной сцены.
 - **Проверка мобильной адаптивности и регрессий:**
-  - 15 мобильных разрешений (320px–480px, 639px–1024px) на Chromium и WebKit: 0 горизонтальных переполнений (`overflow-x: 0`), 0 наложений, 100% валидность вёрстки.
+  - 17 маршрутов протестированы в Chromium и WebKit: 0 ошибок рантайма, 0 предупреждений гидратации, 0 горизонтальных переполнений (`overflow-x: 0`), 0 наложений, 100% валидность вёрстки.
   - Полноценная матрица всех 8 эффектов анимаций Hero (`none`, `fade-up`, `fade-in`, `slide-left`, `slide-right`, `blur-reveal`, `typewriter`, `words`) подтверждена в headless-тестах с проверкой `opacity: 1, visibility: visible`.
   - Мобильное меню навигации протестировано на открытие, блокировку скролла body, интерактивность и закрытие.
   - Полный аудит зафиксирован в директории `audit/mobile/` (`00_STATE.md`, `04_MOBILE_BUGS.csv`, `11_FIX_CHANGELOG.md`, `12_REGRESSION_RESULTS.md`, `14_MOBILE_FINAL_REPORT.md`, `reports/`, `screenshots/`).

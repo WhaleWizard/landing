@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, startTransition } from 'react';
 import compactImages from '../data/cosmicCompactImages.json';
 import {
   SCROLL_ACTIVITY_END_EVENT,
@@ -151,11 +151,11 @@ function CosmicHeroScene({ active = true, hydrating = false }: {
       const currentRevision = ++revision;
       if (nextCompact) {
         wasCompact = true;
-        setCompactScene(true);
+        startTransition(() => setCompactScene(true));
         return;
       }
       if (!wasCompact) {
-        setCompactScene(false);
+        startTransition(() => setCompactScene(false));
         return;
       }
 
@@ -165,11 +165,11 @@ function CosmicHeroScene({ active = true, hydrating = false }: {
       // one on a slower connection.
       wasCompact = false;
       void Promise.all(WIDE_ONLY_PIECES.map(preloadPiece)).then(() => {
-        if (revision === currentRevision && !media.matches) setCompactScene(false);
+        if (revision === currentRevision && !media.matches) startTransition(() => setCompactScene(false));
       });
     };
     media.addEventListener('change', sync);
-    setCompactScene(wasCompact);
+    startTransition(() => setCompactScene(wasCompact));
     return () => {
       revision += 1;
       media.removeEventListener('change', sync);

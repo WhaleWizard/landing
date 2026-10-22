@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  startTransition,
   type CSSProperties,
   type ReactNode,
 } from 'react';
@@ -136,7 +137,7 @@ function DeferredSection({
       return;
     }
 
-    const mount = () => setShouldRender(true);
+    const mount = () => startTransition(() => setShouldRender(true));
     const mountForHash = () => {
       // Deep links need the real heights above their target. Keep ordinary
       // (hashless) loads lazy and leave sections after the target deferred.

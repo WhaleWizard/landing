@@ -48,7 +48,8 @@ function startAuditServer(port = 4173) {
       let articles = [];
       try {
         if (fs.existsSync(path.join(DATA_DIR, 'articles.build.json'))) {
-          articles = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'articles.build.json'), 'utf8'));
+          const raw = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'articles.build.json'), 'utf8'));
+          articles = Array.isArray(raw) ? raw : (raw.articles || []);
         }
       } catch (e) {}
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -63,6 +64,11 @@ function startAuditServer(port = 4173) {
     }
 
     if (!fs.existsSync(candidate)) {
+      if (pathname.startsWith('/assets/') || pathname.startsWith('/fonts/') || pathname.startsWith('/images/')) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+        return;
+      }
       if (fs.existsSync(candidate + '.html')) {
         candidate = candidate + '.html';
       } else if (fs.existsSync(path.join(DIST_DIR, pathname, 'index.html'))) {
