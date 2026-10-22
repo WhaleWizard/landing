@@ -291,7 +291,7 @@ export default function MarketingGlossaryPage() {
       <SEO
         title={MARKETING_GLOSSARY_SEO.title}
         description={MARKETING_GLOSSARY_SEO.description}
-        url="/marketing-glossary"
+        url="/marketing-glossary/"
       />
 
       <main>

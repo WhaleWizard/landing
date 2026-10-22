@@ -1,3 +1,4 @@
+import { useTouchDevice } from '../hooks/useTouchDevice';
 import { m } from 'motion/react';
 import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -104,14 +105,6 @@ const casesData: CaseItem[] = [
   },
 ];
 
-// Хук для определения тач-устройства
-const useTouchDevice = () => {
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  }, []);
-  return isTouch;
-};
 
 export const defaultCasesContent: CasesContent = {
   badge: 'Проекты и результаты',

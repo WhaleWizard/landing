@@ -634,7 +634,7 @@ export default function FAQPage() {
       <SEO
         title={faqContent.seo.title}
         description={faqContent.seo.description}
-        url="/faq"
+        url="/faq/"
       />
 
       <main className="marketing-typography min-h-screen bg-background px-4 pb-16 pt-24 sm:px-6 md:pb-24 md:pt-32">

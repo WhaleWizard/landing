@@ -1,3 +1,4 @@
+import { useTouchDevice } from '../hooks/useTouchDevice';
 import { useState, useCallback, memo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router';
 import { m, AnimatePresence } from 'motion/react';
@@ -112,14 +113,6 @@ export const defaultContactContent: ContactFormContent = {
   ],
 };
 
-const useTouchDevice = () => {
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  }, []);
-  return isTouch;
-};
 
 function ContactForm({ content: contentProp = defaultContactContent, contentKey = null }: { content?: ContactFormContent; contentKey?: string | null }) {
   const content = useSiteSection(contentKey, 'contact', contentProp);

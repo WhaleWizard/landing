@@ -175,7 +175,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     seo: {
       title: 'Таргетолог Meta Ads: настройка рекламы в Instagram и Facebook',
       description: 'Настройка и ведение таргетированной рекламы в Instagram и Facebook под заявки и продажи, а не клики: оффер, креативы, Pixel и Conversions API, статусы лидов из CRM. Удалённо, по всему миру.',
-      url: '/meta-ads',
+      url: '/meta-ads/',
     },
     hero: {
       badge: 'Таргетолог Meta Ads · Instagram и Facebook',
@@ -335,7 +335,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     seo: {
       title: 'Настройка и ведение Google Ads: контекстная реклама под заявки',
       description: 'Специалист по Google Ads: настройка и ведение контекстной рекламы в Google для услуг, B2B и интернет-магазинов — Search, Shopping, Performance Max. Спрос и цену заявки считаю до старта. Удалённо, по всему миру.',
-      url: '/google-ads',
+      url: '/google-ads/',
     },
     hero: {
       badge: 'Специалист по Google Ads · настройка и ведение',
@@ -490,7 +490,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     seo: {
       title: 'Продвижение мобильного приложения: реклама в Instagram и Facebook',
       description: 'Реклама iOS- и Android-приложений в Meta Ads: установки, регистрации, покупки и подписки, а не просто инсталлы. Настраиваю SDK, MMP и Conversions API, готовлю креативы, считаю CPI и цену платящего пользователя.',
-      url: '/meta-apps',
+      url: '/meta-apps/',
     },
     hero: {
       badge: 'Реклама приложений в Instagram и Facebook',
@@ -650,7 +650,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     seo: {
       title: 'Консультация таргетолога и аудит рекламного кабинета — $70',
       description: 'Консультация по рекламе один на один за $70: аудит кабинета Meta Ads и Google Ads, проверка подрядчика, разбор кампаний для тех, кто ведёт рекламу сам, помощь таргетологам с оффером и ценой. 60–90 минут.',
-      url: '/consult',
+      url: '/consult/',
     },
     hero: {
       badge: 'Консультация один на один',
@@ -944,10 +944,11 @@ function DeferredSection({
         // load, while the same navigation from the menu already reserves the
         // header gutter. Keep both paths visually aligned.
         // navHeight is cached outside the RAF loop to prevent per-frame forced reflows
-        const y = target.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+        const targetTop = target.getBoundingClientRect().top;
+        const y = targetTop + window.scrollY - navHeight - 8;
         const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
         const nextY = Math.min(Math.max(0, y), maxScroll);
-        if (Math.abs(target.getBoundingClientRect().top - (navHeight + 8)) > 1) {
+        if (Math.abs(targetTop - (navHeight + 8)) > 1) {
           window.scrollTo({ top: nextY, left: 0, behavior: 'auto' });
         }
 
@@ -966,7 +967,7 @@ function DeferredSection({
         // scroll itself. Four stable frames can otherwise finish before its
         // chunk response arrives, leaving a later anchor displaced by the
         // section's real height.
-        if ((stableFrames >= 4 && attempts >= 45) || attempts >= 90) {
+        if ((stableFrames >= 4 && attempts >= 30) || attempts >= 75) {
           stopIntentListener();
           return;
         }
@@ -975,7 +976,7 @@ function DeferredSection({
       }
 
       attempts += 1;
-      if (attempts < 90) frame = window.requestAnimationFrame(alignToHashTarget);
+      if (attempts < 75) frame = window.requestAnimationFrame(alignToHashTarget);
       else stopIntentListener();
     };
 

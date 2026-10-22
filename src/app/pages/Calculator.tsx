@@ -13,7 +13,7 @@ export default function CalculatorPage() {
       <SEO
         title="Калькулятор бюджета на рекламу: сколько стоит таргет и Google Ads"
         description="Посчитайте, сколько нужно бюджета на рекламу в Instagram, Facebook и Google, сколько заявок и продаж он даст в трёх сценариях и сколько стоит ведение. По вашим цифрам, а не по средним по рынку."
-        url="/calculator"
+        url="/calculator/"
       />
       <Navbar variant="content" />
       <main className="marketing-typography min-h-screen bg-background pt-24 text-foreground md:pt-28">

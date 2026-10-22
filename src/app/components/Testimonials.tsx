@@ -1,3 +1,4 @@
+import { useTouchDevice } from '../hooks/useTouchDevice';
 import { m, useReducedMotion } from 'motion/react';
 import { Sparkles, Users, ChevronLeft, ChevronRight, Quote, Building2, MoveHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef, memo, useCallback, lazy, Suspense, useMemo } from 'react';
@@ -183,14 +184,6 @@ const cardStyles = [
   },
 ];
 
-// Хук для определения тач-устройства
-const useTouchDevice = () => {
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  }, []);
-  return isTouch;
-};
 
 function TestimonialCard({ testimonial, index, compact = false }: { testimonial: Testimonial; index: number; compact?: boolean }) {
   const initials = getInitials(testimonial.name);

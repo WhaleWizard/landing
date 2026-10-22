@@ -152,7 +152,7 @@ export default function ThankYou() {
       <SEO
         title="Спасибо за заявку"
         description="Страница подтверждения отправки заявки."
-        url="/thank-you"
+        url="/thank-you/"
         noIndex
       />
       <Navbar variant="content" sectionsPath={origin.path} />

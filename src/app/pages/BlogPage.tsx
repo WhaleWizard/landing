@@ -462,7 +462,8 @@ function BlogPageComponent() {
   const routeBase = isCasesRoute ? '/cases' : '/blog';
   const returnTo = useReturnTo(routeBase);
   const preservedCaseSearch = isCasesRoute ? location.search : '';
-  const listUrl = `${routeBase}${preservedCaseSearch}`;
+  const listBase = isCasesRoute ? '/cases/' : '/blog/';
+  const listUrl = `${listBase}${preservedCaseSearch}`;
   const {
     articles: allArticles,
     loading,
@@ -1172,7 +1173,7 @@ function BlogPageComponent() {
       <SEO
         title={isCasesRoute ? 'Кейсы по таргету и Google Ads: бюджеты, цена заявки, ROI' : 'Блог о таргете и Google Ads: как получать заявки из рекламы'}
         description={isCasesRoute ? 'Кейсы рекламы в Instagram, Facebook и Google: задача, бюджет, цена заявки, ROI и что сработало. Премиум-услуги, e-commerce, инфобизнес, B2C, мобильные приложения.' : 'Статьи о рекламе в Instagram, Facebook и Google Ads: запуск, снижение цены заявки, аналитика, продвижение мобильных приложений. Практика без воды и обещаний.'}
-        url={routeBase}
+        url={isCasesRoute ? '/cases/' : '/blog/'}
       />
       <main
         data-blog-ui="true"

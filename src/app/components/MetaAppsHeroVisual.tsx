@@ -1,5 +1,6 @@
 import {
   memo,
+  startTransition,
   useCallback,
   useEffect,
   useRef,
@@ -457,7 +458,7 @@ function useMobileViewport(hydrating: boolean) {
 
   useEffect(() => {
     const query = window.matchMedia(MOBILE_STATIC_MEDIA);
-    const sync = () => setMobile(query.matches);
+    const sync = () => { startTransition(() => { setMobile(query.matches); }); };
     sync();
     query.addEventListener('change', sync);
     return () => query.removeEventListener('change', sync);
@@ -488,11 +489,11 @@ const MetaAppsHeroVisual = memo(({ motionAllowed, settled = false }: MetaAppsHer
   useEffect(() => {
     const container = containerRef.current;
     if (!container || typeof IntersectionObserver === 'undefined') {
-      setOnScreen(true);
+      startTransition(() => { setOnScreen(true); });
       return undefined;
     }
     const observer = new IntersectionObserver(
-      ([entry]) => setOnScreen(Boolean(entry?.isIntersecting)),
+      ([entry]) => { startTransition(() => { setOnScreen(Boolean(entry?.isIntersecting)); }); },
       { rootMargin: '0px 0px -10% 0px', threshold: 0 },
     );
     observer.observe(container);

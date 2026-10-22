@@ -1,4 +1,4 @@
-import { memo, Suspense, useCallback, useRef, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, Suspense, useCallback, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { m, useReducedMotion } from 'motion/react';
 import { ArrowRight, TrendingUp, Target, Zap, BarChart3, Sparkles, Braces, Database } from 'lucide-react';
 import { Button } from './ui/button';
@@ -15,6 +15,7 @@ import {
   withMobileTitleLines,
 } from '../utils/contentTypography';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { useTouchDevice } from '../hooks/useTouchDevice';
 import HeroTitleEffect, {
   resolveHeroTitleLine,
   type HeroTitleAnimation,
@@ -76,14 +77,6 @@ const LINE_PATHS = [
   'M 50,55 Q 70,65 82,72',
 ];
 
-// Хук для определения тач-устройства (без ховера)
-const useTouchDevice = () => {
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  }, []);
-  return isTouch;
-};
 
 // Фоновые орбы. Пауза при выходе из вьюпорта и на время прокрутки приходит
 // классом ww-ambient-motion, а не пересчётом в разметке.

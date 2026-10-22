@@ -13,7 +13,7 @@ export default function RoiPage() {
       <SEO
         title="Калькулятор окупаемости рекламы: ROI, ROMI и ROAS"
         description="Калькулятор ROI, ROMI и ROAS рекламы: рассчитайте окупаемость и точку безубыточности с учётом ведения, креативов, сервисов, налогов и комиссий — по своим цифрам, а не по средним по рынку."
-        url="/roi-calculator"
+        url="/roi-calculator/"
       />
       <Navbar variant="content" />
       <main className="marketing-typography min-h-screen bg-background pt-24 text-foreground md:pt-28">
