@@ -1,0 +1,3 @@
+ID,DiscoveredDate,Component,Severity,Description,TriggerCondition,Status,ActionTaken
+NEW-001,2026-10-22,audit-forensics.mjs,P3,BOM present in legacy markdown documentation and excel CSV exports,Character forensics scan,RESOLVED,"Verified non-code assets (docs/ & audit-reports/), zero effect on browser runtime"
+NEW-002,2026-10-22,scripts/run-desktop-audit.cjs,P3,Navbar scroll class mutation on desktop,Playwright desktop interaction test,VERIFIED,Sticky navbar background opacity correctly shifts on scroll past 800px

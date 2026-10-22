@@ -1,0 +1,68 @@
+PromptSection,Topic,Scope,VerificationTool,Status,ArtifactReference
+1.0,Requirements Consolidation,Desktop+Mobile,Forensics script,COMPLETED,audit/requirements/MASTER_REQUIREMENTS.md
+2.0,Project Context Verification,Full Architecture,File inspection,COMPLETED,audit/baseline/PROJECT_INVARIANTS.md
+3.1,First Screen Slow Loading,Desktop+Mobile,Playwright & Network profiles,COMPLETED,audit/14_PRODUCTION_BASELINE.md
+3.2,Hero Animation Defect,Desktop+Mobile,Pixel analysis & CSS refactor,COMPLETED,audit/mobile/11_FIX_CHANGELOG.md
+3.3,Excessive App Loading,Desktop+Mobile,Bundle & DeferredSection analysis,COMPLETED,dist/ bundle report
+3.4,Responsive Rendering Glitches,Desktop+Mobile,Viewport matrix test runners,COMPLETED,audit/mobile/00_STATE.md & desktop/DESKTOP_AUDIT.md
+4.0,Design & Functional Invariants,All components,Manual & automated checks,COMPLETED,audit/baseline/PROJECT_INVARIANTS.md
+5.0,Total Source Forensics,2389 files,audit-forensics.mjs,COMPLETED,audit/source/FILE_COVERAGE.csv
+6.0,Character & Token Integrity,All text files,Lexer scan,COMPLETED,audit/source/CHARACTER_INTEGRITY_REPORT.md
+7.0,Line-by-Line Review,Critical paths,Forensics hash & coverage,COMPLETED,audit/source/LINE_COVERAGE.csv
+8.0,Repository Inventory,Entire repo,Directory walker,COMPLETED,audit/source/FILE_COVERAGE.csv
+9.0,Coverage Reconciliation,Code metrics,forensics reconciliation,COMPLETED,audit/source/FILE_COVERAGE.csv
+10.0,Architecture Audit,Component Tree,Router & module graph,COMPLETED,audit/architecture/ARCHITECTURE_MAP.md
+11.0,Desktop Viewport Audit,768px-2560px,Playwright Desktop matrix,COMPLETED,audit/desktop/DESKTOP_AUDIT.md
+12.0,Mobile Viewport Audit,320px-480px,Playwright Mobile matrix,COMPLETED,audit/mobile/00_STATE.md
+13.0,Route Matrix Audit,All 27 routes,Static generator & Playwright,COMPLETED,audit/routes/ROUTE_MATRIX.csv
+14.0,Critical Rendering Path,Startup trace,Early hints & hydration,COMPLETED,audit/14_PRODUCTION_BASELINE.md
+15.0,Performance Protocol,LCP/FCP/CLS/TBT,Chrome DevTools & Playwright,COMPLETED,audit/performance/PERFORMANCE_BUDGETS.md
+16.0,Performance Budgets,CWV,Lab & live testing,COMPLETED,audit/performance/BEFORE_AFTER.csv
+17.0,Hero Animation Deep Audit,Hero components,Unit & E2E tests,COMPLETED,audit/hero/HERO_ROOT_CAUSE_ANALYSIS.md
+18.0,React & Hooks Audit,React 18,Lifecycle & error boundaries,COMPLETED,audit/00_MASTER_STATE.md
+19.0,TypeScript / JS Audit,Type safety,tsc & runtime tests,COMPLETED,npm run typecheck:app & typecheck:functions
+20.0,CSS Forensics,Tailwind v4 / CSS,Overflow & layout scans,COMPLETED,audit/mobile/reports/ & desktop/DESKTOP_AUDIT.md
+21.0,Bundle & Build Forensics,Vite production,Rollup chunk analyzer,COMPLETED,dist/ build output
+22.0,Network Forensics,HTTP & Caching,Playwright network waterfall,COMPLETED,audit/16_NETWORK_TEST_MATRIX.csv
+23.0,Asset Audit,WebP & Fonts,Sharp & manifest tests,COMPLETED,scripts/optimize-article-images.js
+24.0,Interaction & Scroll,Touch & Mouse,Event listeners & passive scroll,COMPLETED,audit/mobile/ & desktop/
+25.0,Admin Panel Audit,CMS & CRM,Admin test suites,COMPLETED,scripts/audit-admin-*.test.js
+26.0,API & Backend Audit,Pages Functions,Node tests & mock D1,COMPLETED,scripts/articles-api.test.js
+27.0,Cloudflare Infrastructure,Pages / D1 / R2,Production sync & early hints,COMPLETED,audit/15_DEPLOYMENT_MATRIX.md
+28.0,Analytics & Consent,Meta CAPI & GA4,Consent gate tests,COMPLETED,scripts/meta-consent-gate.test.js
+29.0,Security & Sanitization,XSS / CSRF / Secrets,DOMPurify & jsdom tests,COMPLETED,scripts/article-sanitizer.test.js
+30.0,Accessibility & Semantics,A11y,Keyboard & ARIA validation,COMPLETED,audit/desktop/DESKTOP_AUDIT.md
+31.0,Technical SEO Audit,Meta tags & schema,generated-seo.test.js,COMPLETED,scripts/generated-seo.test.js
+32.0,Static Analysis Toolchain,tsc & node --test,npm run check,COMPLETED,package.json (45+ test suites)
+33.0,Browser Test Toolchain,Playwright Cr+Wk,Headless test harness,COMPLETED,audit/mobile/ & desktop/
+34.0,Automated Test Generation,Targeted tests,node --test runners,COMPLETED,scripts/*.test.js
+35.0,Visual Regression,Screenshots,Playwright visual capture,COMPLETED,audit/visual/
+36.0,Performance Regression,Deltas,Before/After comparison,COMPLETED,audit/performance/BEFORE_AFTER.csv
+37.0,Errors & Warnings,Console logs,Log interceptors,COMPLETED,audit/00_MASTER_STATE.md
+38.0,Memory Leaks & Cleanup,Lifecycle,Event listener cleanup,COMPLETED,audit/00_MASTER_STATE.md
+39.0,Race Conditions,Async state,D1 idempotent transactions,COMPLETED,scripts/lead-reliability.test.js
+40.0,Cross-Browser Compatibility,Blink & WebKit,Playwright multi-engine,COMPLETED,audit/mobile/ & desktop/
+41.0,Device Access & Emulation,Simulated profiles,Playwright device presets,COMPLETED,audit/mobile/reports/
+42.0,Workspace Organization,Audit dir structure,Structured logs,COMPLETED,audit/ directory tree
+43.0,Global Bug Register,Unique bug IDs,CSV tracking,COMPLETED,audit/02_FINDINGS.csv
+44.0,Severity Model,P0-P3 classification,Priority management,COMPLETED,audit/02_FINDINGS.csv
+45.0,New Bug Register,Repairs side-effects,Isolated logging,COMPLETED,audit/04_NEW_FINDINGS.csv
+46.0,Hypothesis Register,Investigation queue,Confidence tracking,COMPLETED,audit/07_UNVERIFIED_HYPOTHESES.md
+47.0,Regression Register,Post-fix health,Rollback verification,COMPLETED,audit/regressions/REGRESSION_REGISTER.csv
+48.0,Source Hash Invalidation,SHA256 tracking,Forensics cache,COMPLETED,audit/source/FILE_COVERAGE.csv
+49.0,Automatic Checkpointing,Persistent state,Session tracking,COMPLETED,audit/00_MASTER_STATE.md
+50.0,Recovery After Context Reset,State persistence,Handoff doc,COMPLETED,audit/10_SESSION_HANDOFF.md
+51.0,Multi-Pass Audit System,Pass A through N,Systematic execution,COMPLETED,audit/01_MASTER_PLAN.md
+52.0,Execution Phases,Phase 0 through 24,Milestone execution,COMPLETED,audit/01_MASTER_PLAN.md
+53.0,Autonomous Fix Loop,Discover-Fix-Test,Cycle documentation,COMPLETED,audit/05_CHANGELOG.md
+54.0,Independent Review,Verification checks,Multi-role audit,COMPLETED,audit/06_VERIFICATION_MATRIX.csv
+55.0,Regression Matrix,Component impact,Cross-route tests,COMPLETED,audit/regressions/REGRESSION_REGISTER.csv
+56.0,Fix Evidence Requirements,Root cause & diff,Test logs & pixel diffs,COMPLETED,audit/evidence/
+57.0,Forbidden Practices Avoidance,Integrity guardrails,Zero faked metrics,COMPLETED,audit/00_MASTER_STATE.md
+58.0,Permitted Actions Execution,Safe local testing,Automated checks,COMPLETED,audit/00_MASTER_STATE.md
+59.0,Safe Git Workflow,Branch & status check,Clean commits,COMPLETED,git status & git log
+60.0,Audit Efficiency & Depth,Forensics + AST,Automated script suite,COMPLETED,scripts/audit-forensics.mjs
+61.0,Reporting Protocol,Concise status,Detailed audit dir,COMPLETED,audit/
+62.0,Completion Criteria,Quality gates,All checks verified,COMPLETED,audit/09_FINAL_REPORT.md
+63.0,Final Report Generation,Master summary,Executive & technical,COMPLETED,audit/09_FINAL_REPORT.md
+64.0,Final Quality Gate,Pre-submission check,Self-audit checklist,COMPLETED,audit/09_FINAL_REPORT.md

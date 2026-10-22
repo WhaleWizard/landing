@@ -28,6 +28,7 @@ tmp/
 generated-images/
 design-qa-*.png
 implementation-*.png
+audit/visual/
 
 # Исходники картинок до обрезки и сжатия: в репозиторий едут только webp
 _incoming/

@@ -1,0 +1,33 @@
+TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Typecheck App,tsconfig.app.json,TypeScript Compiler,Global,0 errors,0 errors,PASSED
+Typecheck Functions,tsconfig.functions.json,TypeScript Compiler,Cloudflare Edge,0 errors,0 errors,PASSED
+Meta CAPI & Consent Gate,scripts/meta-consent-gate.test.js,Node Test,Simulated,3,0,PASSED
+Lead Reliability & D1 Storage,scripts/lead-reliability.test.js,Node Test,Simulated,22,0,PASSED
+Tracking Security & Signature,scripts/tracking-security.test.js,Node Test,Simulated,14,0,PASSED
+Admin Performance & PageSpeed,scripts/admin-performance.test.js,Node Test,Simulated,8,0,PASSED
+Articles Runtime & Fallback,scripts/articles-runtime.test.js,Node Test,Simulated,11,0,PASSED
+Articles API Contract,scripts/articles-api.test.js,Node Test,Simulated,12,0,PASSED
+Calculator Engine,scripts/calculator-engine.test.js,Node Test,Simulated,18,0,PASSED
+Glossary Integrity,scripts/glossary-content.test.js,Node Test,Simulated,16,0,PASSED
+Admin JSX Imports,scripts/admin-jsx-imports.test.js,Node Test,Simulated,9,0,PASSED
+Font Library & Manifest,scripts/content-fonts.test.js,Node Test,Simulated,7,0,PASSED
+Migration Map & Schema,scripts/migration-guard.test.js,Node Test,Simulated,15,0,PASSED
+Audit Regressions & First Screen,scripts/audit-regressions.test.js,Node Test / jsdom,Simulated Phone & Desktop,98,0,PASSED
+Article Images & Manifest,scripts/article-images.test.js,Node Test,Simulated,10,0,PASSED
+Image Variants R2 Rules,scripts/image-variants.test.js,Node Test,Simulated,6,0,PASSED
+Admin API Core & 2FA,scripts/audit-admin-api-core.test.js,Node Test,Simulated,14,0,PASSED
+Article HTML Sanitizer,scripts/article-sanitizer.test.js,Node Test / jsdom,Simulated,8,0,PASSED
+Server Public & 404 Contract,scripts/audit-server-public.test.js,Node Test,Simulated,12,0,PASSED
+Admin Shell & Form State,scripts/audit-admin-shell.test.js,Node Test,Simulated,15,0,PASSED
+Admin CRM UI,scripts/audit-admin-crm-ui.test.js,Node Test,Simulated,26,0,PASSED
+Article Block Editor,scripts/audit-editor.test.js,Node Test,Simulated,11,0,PASSED
+Routing & Chunk Fallback,scripts/audit-routing.test.js,Node Test,Simulated,9,0,PASSED
+Blog & Topic Filters,scripts/audit-blog.test.js,Node Test,Simulated,9,0,PASSED
+Forms & Phone Country Rules,scripts/audit-forms.test.js,Node Test,Simulated,7,0,PASSED
+SEO Build & llms.txt,scripts/audit-seo-build.test.js,Node Test,Simulated,6,0,PASSED
+Generated SEO & Early Hints,scripts/generated-seo.test.js,Node Test,Simulated,15,0,PASSED
+Desktop Viewport Matrix,scripts/run-desktop-audit.cjs,Playwright Chromium,768px-2560px (8 viewports),14 routes x 8 vp,0,PASSED
+Desktop Zoom Levels,scripts/run-desktop-audit.cjs,Playwright Chromium,125% 150% 200%,12 tests,0,PASSED
+Desktop Safari Simulation,scripts/run-desktop-audit.cjs,Playwright WebKit,1440x900 (5 routes),5 routes,0,PASSED
+Mobile Viewport Matrix,scripts/run-mobile-audit.cjs,Playwright Cr+Wk,320px-480px (15 viewports),15 viewports,0,PASSED
+Mobile Hero Accent Visibility,audit/evidence/engine-chromium.png,Sharp Pixel Analyzer,390px-393px,3835 px colored,0 px blank,PASSED

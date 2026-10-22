@@ -1,0 +1,15 @@
+ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+PROD-001,P1,Early Hints Preload Credentials Mode Mismatch,scripts/generate-pages.js,COMPLETED,680d4b9
+PROD-002,P1,Hero Title Accent Gradient Inline Words Clipping,src/styles/hero-title-effects.css,COMPLETED,680d4b9
+PROD-003,P0,Section Error Boundary Isolation for Dynamic Chunks,src/app/components/SectionErrorBoundary.tsx,COMPLETED,680d4b9
+MOB-HERO-001,P1,Typewriter Character Invisible Text on Accent Gradient,HeroTitleEffect.tsx & hero-title-effects.css,COMPLETED,d1e5496
+MOB-HERO-002,P2,Hero Title Multi-Line Animation Sequence Stagger,HeroTitleEffect.tsx & hero components,COMPLETED,d1e5496
+BUG-P1,P1,Hero Title Fit Measuring Animation Pause vs Cancellation,contentTypography.ts & CSS,COMPLETED,3303c00
+BUG-P2,P1,Meta Apps Hero Receipt GPU Drop-Shadow & Forced Reflow,meta-apps-hero.css & MetaAppsHeroVisual.tsx,COMPLETED,3303c00
+BUG-P3,P2,DeferredSection Adaptive Viewport Root Margin,Home.tsx & ServiceLandingPage.tsx,COMPLETED,3303c00
+BUG-DEEP-01,P2,Canonical Trailing Slashes on Internal Links,siteNavigation.ts & Navbar.tsx,COMPLETED,3303c00
+BUG-DEEP-02,P2,Eliminate Forced Synchronous Reflow in Hash RAF Loop,ServiceLandingPage.tsx,COMPLETED,3303c00
+BUG-DEEP-03,P2,Eliminate Title Pre-fit Binary Search DOM Thrashing,contentTypography.ts,COMPLETED,3303c00
+F-089,P1,Stats-only Pageview Mode for Analytics-Only Consent,functions/api/pageview.ts & consent.ts,COMPLETED,f753342
+F-112,P0,Meta CAPI Server Gate Hard Marketing Consent Check,functions/_lib/meta-capi.ts,COMPLETED,3303c00
+F-073,P0,Admin 2FA Security Strict Enforcement,functions/api/admin/auth.ts,COMPLETED,e55dce6

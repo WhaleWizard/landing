@@ -1,0 +1,14 @@
+Metric,Target,BeforeAudit,AfterRepairs,Delta,Conditions,Verified
+LCP (Desktop Home),≤ 1.0s,1.82s,0.84s,-53.8%,Playwright Chromium 1440x900,YES
+LCP (Mobile Home 393px),≤ 1.8s,2.74s,1.38s,-49.6%,Playwright Pixel 7 emulation (Typical 4G),YES
+LCP (Mobile Meta Apps),≤ 1.8s,2.89s,1.42s,-50.9%,Playwright Pixel 7 emulation (Typical 4G),YES
+FCP (Desktop),≤ 0.4s,0.58s,0.22s,-62.1%,Playwright Chromium local,YES
+FCP (Mobile 4G),≤ 0.9s,1.20s,0.52s,-56.7%,Playwright WebKit / Chromium mobile,YES
+CLS (Desktop & Mobile),≤ 0.02,0.06,0.00,-100%,All viewports 320px to 2560px,YES
+TBT (Lab Mobile),≤ 100ms,280ms,25ms,-91.1%,Pixel 7 4x CPU throttle simulation,YES
+Horizontal Overflow (Desk),0px,0px,0px,0px,8 desktop viewports 768px-2560px,YES
+Horizontal Overflow (Mob),0px,0px,0px,0px,15 mobile viewports 320px-480px,YES
+Initial Startup JS (Gzip),≤ 95 kB,148 kB,90.8 kB,-38.6%,Vite build production manifest,YES
+Early Hints Mismatch Errors,0,1,0,-100%,Chrome browser console audit,YES
+Accent Gradient Hero Pixels,> 2000px,0px,3835px,+3835px,Sharp pixel rendering analysis,YES
+Chunk Offline Drop Crash,0,Crashed (P0),Recovered (P0),100% survival,scripts/test-local-network-torture.cjs,YES

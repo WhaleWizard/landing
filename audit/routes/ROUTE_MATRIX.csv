@@ -1,0 +1,21 @@
+Route,SourceFile,Layout,MainComponents,DataDependencies,DesktopTested,MobileTested,DirectLoadTested,NavigationTested,PerformanceTested,AccessibilityTested,VisualTested,Issues,Status
+/,src/app/pages/Home.tsx,RootLayout,"Hero, Services, Cases, Reviews, FAQ, ContactForm",site-content / articles,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/meta-ads/,src/app/pages/ServiceLandingPage.tsx,RootLayout,"MetaAdsEditorialHero, Services, Cases, ContactForm",site-content,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/meta-apps/,src/app/pages/ServiceLandingPage.tsx,RootLayout,"Hero, MetaAppsHeroVisual, Receipt, Cases, ContactForm",site-content,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/google-ads/,src/app/pages/ServiceLandingPage.tsx,RootLayout,"Hero, GoogleAdsGrid, Cases, ContactForm",site-content,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/consult/,src/app/pages/ServiceLandingPage.tsx,RootLayout,"ConsultStudioHero, Process, ContactForm",site-content,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/blog/,src/app/pages/BlogPage.tsx,RootLayout,"BlogFilterBar, BlogGrid, FeaturedArticle",articles.build.json / D1,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/blog/:slug/,src/app/pages/BlogPage.tsx,RootLayout,"ArticleView, TableOfContents, RelatedArticles, ShareWidget",ww-article-seed / D1,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/cases/,src/app/pages/CasesPage.tsx,RootLayout,"CasesFilterBar, CaseStudiesGrid, ClientProof",articles.build.json / D1,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/cases/:slug/,src/app/pages/BlogPage.tsx,RootLayout,"CaseStudyView, MetricsBanner, Gallery, CTA",ww-article-seed / D1,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/calculator/,src/app/pages/MarketingCalculator.tsx,RootLayout,"CalculatorForm, BudgetVisualizer, LeadCapture",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/roi-calculator/,src/app/pages/RoiCalculatorPage.tsx,RootLayout,"RoiForm, ConversionFunnel, SummaryCards",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/faq/,src/app/pages/FAQPage.tsx,RootLayout,"FaqAccordion, CategoryPills, ContactCta",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/marketing-glossary/,src/app/pages/MarketingGlossaryPage.tsx,RootLayout,"GlossaryIndex, AlphabetNav, TermCards",marketingGlossary.ts,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/privacy-policy/,src/app/pages/PrivacyPolicyPage.tsx,RootLayout,"LegalContent, TableOfContents",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/offer/,src/app/pages/OfferPage.tsx,RootLayout,"ContractTerms, SignatureBlock",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/cookie-policy/,src/app/pages/CookiePolicyPage.tsx,RootLayout,"CookieCategoriesTable, ConsentToggle",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/thank-you/,src/app/pages/ThankYou.tsx,RootLayout,"SuccessMessage, NextSteps, TelegramLink",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED
+/admin/,src/app/pages/Admin.tsx,RootLayout,"AdminAuth, AdminCRM, AdminEditor, MediaCenter",Cloudflare D1 / R2,YES,NO,YES,YES,YES,YES,YES,None,VERIFIED
+/admin/content-preview,src/app/pages/ContentPreview.tsx,IsolatedPreview,"HeroTitlePreview, ContentSyncBridge",localStorage,YES,NO,YES,YES,YES,YES,YES,None,VERIFIED
+/404,src/app/pages/NotFound.tsx,RootLayout,"NotFoundHero, NavigationOptions",none,YES,YES,YES,YES,YES,YES,YES,None,VERIFIED

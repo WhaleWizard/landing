@@ -1,0 +1,9 @@
+OriginalFixID,ModifiedFiles,AffectedModules,UndesiredBehaviorObserved,ReproductionMethod,Severity,RollbackDecision,ResolutionStatus,VerificationResult
+PROD-001,scripts/generate-pages.js,Preload tags,None observed,Browser console check,NONE,NO,STABLE,Zero credential warnings in Chromium
+PROD-002,src/styles/hero-title-effects.css,Hero title text,None observed,Pixel analysis & DOM inspection,NONE,NO,STABLE,Accent text displays with full gradient visibility
+PROD-003,src/app/components/SectionErrorBoundary.tsx,DeferredSection,None observed,Offline scroll test,NONE,NO,STABLE,Section catches chunk failure and renders recovery button
+MOB-HERO-001,HeroTitleEffect.tsx & hero-title-effects.css,Typewriter effect,None observed,Mobile typewriter visual capture,NONE,NO,STABLE,Typewriter characters visible on mobile across viewports
+MOB-HERO-002,HeroTitleEffect.tsx & hero components,Hero multi-line titles,None observed,Multi-line hero stagger test,NONE,NO,STABLE,Line 1 animates strictly after line 0 finishes
+BUG-P1,contentTypography.ts,Font size fitting,None observed,scripts/title-fit-performance.test.js,NONE,NO,STABLE,Animations not cancelled during measurement
+BUG-P2,meta-apps-hero.css & MetaAppsHeroVisual.tsx,Meta Apps receipt,None observed,Performance profile & visual render,NONE,NO,STABLE,Zero forced reflow during mount
+BUG-P3,Home.tsx & ServiceLandingPage.tsx,DeferredSection,None observed,Scroll & network waterfall test,NONE,NO,STABLE,Sections mount progressively within view threshold
