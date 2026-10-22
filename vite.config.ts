@@ -3,6 +3,7 @@ import path from 'path'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 function figmaAssetResolver() {
   return {
@@ -606,6 +607,16 @@ export default defineConfig({
     figmaAssetResolver(),
     react(),
     tailwindcss(),
+    ...(process.env.ANALYZE === 'true'
+      ? [
+          visualizer({
+            filename: 'dist/stats.html',
+            open: false,
+            gzipSize: true,
+            brotliSize: true,
+          }),
+        ]
+      : []),
   ],
   resolve: {
     alias: {

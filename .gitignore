@@ -35,3 +35,6 @@ _incoming/
 
 # Промежуточная сборка scripts/content-entry.tsx для generate:pages
 scripts/.content-entry.build.*
+
+.lighthouseci/
+

@@ -12,3 +12,7 @@ Initial Startup JS (Gzip),≤ 95 kB,148 kB,90.8 kB,-38.6%,Vite build production 
 Early Hints Mismatch Errors,0,1,0,-100%,Chrome browser console audit,YES
 Accent Gradient Hero Pixels,> 2000px,0px,3835px,+3835px,Sharp pixel rendering analysis,YES
 Chunk Offline Drop Crash,0,Crashed (P0),Recovered (P0),100% survival,scripts/test-local-network-torture.cjs,YES
+Lighthouse A11y Score (All Pages),100,95,100,+5.3%,Lighthouse CI static audit,YES
+Lighthouse Best Practices,≥ 95,92,96-100,+4.3%,Lighthouse CI static audit,YES
+Circular Dependency Loops,0,8,0,-100%,Madge AST module analyzer,YES
+React Hook Deps Warnings,0,13,0,-100%,ESLint react-hooks/exhaustive-deps,YES

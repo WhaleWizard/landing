@@ -1,3 +1,6 @@
 ID,DiscoveredDate,Component,Severity,Description,TriggerCondition,Status,ActionTaken
 NEW-001,2026-10-22,audit-forensics.mjs,P3,BOM present in legacy markdown documentation and excel CSV exports,Character forensics scan,RESOLVED,"Verified non-code assets (docs/ & audit-reports/), zero effect on browser runtime"
 NEW-002,2026-10-22,scripts/run-desktop-audit.cjs,P3,Navbar scroll class mutation on desktop,Playwright desktop interaction test,VERIFIED,Sticky navbar background opacity correctly shifts on scroll past 800px
+NEW-003,2026-10-23,scripts/audit/smoke-test-a11y.mjs,P2,Axe-core region landmark violation on #ww-static-shell,Playwright axe-core audit,RESOLVED,"Added aria-label=""Текстовая версия страницы"" to section in scripts/generate-pages.js:1450. Violations: 0"
+NEW-004,2026-10-23,madge,P2,8 circular dependency loops detected across component and loader modules,npm run audit:madge,RESOLVED,"Extracted types/faq.ts, types/hero.ts, types/editorContent.ts, utils/heroVisualPreload.ts, utils/caseArticlePreload.ts, routerInstance.ts. Circular loops: 0"
+NEW-005,2026-10-23,eslint,P2,13 React Hook exhaustive-deps warnings including stale returnTo closure in BlogPage.tsx:672,npm run lint,RESOLVED,"Synchronized hook dependency arrays across BlogPage, Navbar, PublishSchedulePanel, AdminToday, AdminPageLocks, AttributionCharts, Admin, firstScreen. Warnings: 0"

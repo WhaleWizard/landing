@@ -13,3 +13,6 @@ BUG-DEEP-03,P2,Eliminate Title Pre-fit Binary Search DOM Thrashing,contentTypogr
 F-089,P1,Stats-only Pageview Mode for Analytics-Only Consent,functions/api/pageview.ts & consent.ts,COMPLETED,f753342
 F-112,P0,Meta CAPI Server Gate Hard Marketing Consent Check,functions/_lib/meta-capi.ts,COMPLETED,3303c00
 F-073,P0,Admin 2FA Security Strict Enforcement,functions/api/admin/auth.ts,COMPLETED,e55dce6
+A11Y-001,P2,Static Shell Section Missing Accessible Region Landmark,scripts/generate-pages.js,COMPLETED,c9a1735
+CIRC-001,P2,Decouple 8 Circular Dependency Loops in Module Graph,types/ & utils/ & routerInstance.ts,COMPLETED,c9a1735
+HOOK-001,P2,Eliminate 13 ESLint React Hook Exhaustive-Deps Warnings,src/app/,COMPLETED,c9a1735

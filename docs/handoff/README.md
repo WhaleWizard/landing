@@ -12,6 +12,28 @@
 
 ## 2. Где мы сейчас
 
+**Сделано 23.10.2026 (Antigravity Ultimate Engineering System v4.0, Architecture & Static Hardening):**
+
+- **Устранение всех 8 циклических зависимостей (Madge Circular Loops):**
+  - Декомпозированы циклические импорты через создание легковесных модулей типов и фасадов предзагрузки: `src/app/types/faq.ts`, `src/app/types/hero.ts`, `src/app/types/editorContent.ts`, `src/app/utils/heroVisualPreload.ts`, `src/app/utils/caseArticlePreload.ts`, `src/app/routerInstance.ts`.
+  - Модульный граф очищен: 0 циклических зависимостей среди 218 модулей (`npm run audit:madge` со статусом 0).
+- **Устранение всех 13 предупреждений React Hooks (ESLint):**
+  - Устранена потенциальная потеря замыкания `returnTo` при возврате из статьи в `BlogPage.tsx:672`.
+  - Стабилизированы зависимости и устранено пересоздание ссылок в `Navbar.tsx`, `PublishSchedulePanel.tsx`, `AdminToday.tsx`, `AdminPageLocks.tsx`, `AttributionCharts.tsx`, `Admin.tsx`, `firstScreen.ts`.
+  - Результат `npm run lint`: 0 ошибок, 0 предупреждений (100% clean).
+- **Ликвидация нарушения доступности Axe-core (A11Y-001):**
+  - В `scripts/generate-pages.js:1450` блоку `<section>` статической оболочки `#ww-static-shell` назначен атрибут `aria-label="Текстовая версия страницы"`, обеспечив полноценный семантический landmark-регион для скринридеров по стандарту WCAG 2.1 AA.
+  - Результат `node scripts/audit/smoke-test-a11y.mjs`: 0 нарушений доступности.
+- **Анализ безопасности Semgrep и профилирование Lighthouse CI:**
+  - `npm run audit:semgrep`: проведена ревизия 2 правил (фреймы в админ-превью и DOMPurify в редакторе статей), подтверждена безопасность проектных решений (`audit/security/SEMGREP_SECURITY_REVIEW.md`).
+  - `npm run audit:lhci`: 100/100 Accessibility, 96-100/100 Best Practices, 0.00 CLS по всем страницам.
+- **Интеграция Antigravity Tooling & Subagents:**
+  - Настроено 9 специализированных Skills в `.agents/skills/`.
+  - Определено и зарегистрировано 8 ролей субагентов в `.agents/agents/ROLES.md` и в рантайме.
+  - Зафиксированы постоянные правила в `.agents/rules/audit-rules.md`.
+  - Обновлены мастер-реестры: `audit/00_MASTER_STATE.md`, `audit/02_FINDINGS.csv`, `audit/03_FIX_QUEUE.csv`, `audit/04_NEW_FINDINGS.csv`, `audit/05_CHANGELOG.md`, `audit/10_SESSION_HANDOFF.md`.
+- **Полная проверка:** `npm run check` зелёный (exit code 0 across 45+ test suites, static generation, SEO contracts).
+
 **Сделано 23.10.2026 (Master Consolidation Audit v3.0, Total Forensics & Desktop/Mobile Hardening):**
 
 - **Полная инвентаризация и посимвольный аудит исходного кода (Total Source Forensics):**
