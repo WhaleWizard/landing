@@ -185,14 +185,16 @@ function Footer() {
                 </button>
               </li>
 
-              <li>
-                <button
-                  onClick={() => scrollToSection('cases')}
-                  className={footerLinkClass}
-                >
-                  Избранные кейсы
-                </button>
-              </li>
+              {!isHiddenInNav('/cases') && (
+                <li>
+                  <button
+                    onClick={() => scrollToSection('cases')}
+                    className={footerLinkClass}
+                  >
+                    Избранные кейсы
+                  </button>
+                </li>
+              )}
 
               {!isHiddenInNav('/blog') && (
                 <li>

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { STATIC_ROUTES } from './config.js';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import test from 'node:test';
@@ -258,6 +259,18 @@ test('discovery files are present and robots points to the canonical sitemap', (
   const dynamicSitemap = readFileSync(dynamicSitemapPath, 'utf8');
   assert.doesNotMatch(dynamicSitemap, /['"]\/feed\.xml['"]/, 'dynamic sitemap must not index feed.xml');
   assert.doesNotMatch(dynamicSitemap, /['"]\/llms\.txt['"]/, 'dynamic sitemap must not index llms.txt');
+
+  const staticRoutesMatch = dynamicSitemap.match(/const STATIC_ROUTES = \[([^\]]*)\]/);
+  assert.ok(staticRoutesMatch, 'STATIC_ROUTES must be present in functions/sitemap.xml.ts');
+  const routesInDynamicSitemap = staticRoutesMatch[1]
+    .split(',')
+    .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+  assert.deepEqual(
+    new Set(routesInDynamicSitemap),
+    new Set(STATIC_ROUTES),
+    'functions/sitemap.xml.ts and scripts/config.js STATIC_ROUTES must stay in sync',
+  );
   const robots = readFileSync(join(DIST, 'robots.txt'), 'utf8');
   assert.match(robots, new RegExp(`Sitemap: ${SITE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/sitemap\\.xml`));
   // Служебные страницы закрыты заголовком `noindex`, а не запретом обхода:

@@ -208,7 +208,7 @@ export default function Home() {
       </DeferredSection>
       {!isHiddenInNav('/cases') && (
         <DeferredSection anchorId="cases" heights={{ mobile: 1062, tablet: 1720, desktop: 1569 }}>
-          <Cases contentKey="site:home" moreHref="/cases" />
+          <Cases contentKey="site:home" moreHref="/cases/" />
         </DeferredSection>
       )}
       <DeferredSection heights={{ mobile: 352, tablet: 351, desktop: 332 }}>

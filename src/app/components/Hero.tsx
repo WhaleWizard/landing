@@ -14,6 +14,7 @@ import {
   type ContentTypography,
   withMobileTitleLines,
 } from '../utils/contentTypography';
+import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import HeroTitleEffect, {
   resolveHeroTitleLine,
   type HeroTitleAnimation,
@@ -289,6 +290,7 @@ const LeftContent = memo(({
   statsVariant = 'default',
   statsClassName = '',
 }: LeftContentProps) => {
+  const isHiddenInNav = useIsPathHiddenInNav();
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 14 });
   const titleAnimation = content.titleAnimation || {};
   return (
@@ -403,16 +405,18 @@ const LeftContent = memo(({
         <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform relative" />
         </a>
       </Button>
-      <Button
-        size="lg"
-        variant="outline"
-        asChild
-        className="border-primary/30 hover:bg-primary/10 backdrop-blur-sm text-sm md:text-base"
-      >
-        <a href="#cases" onClick={(event) => { event.preventDefault(); onScrollToCases(); }}>
-          <span className="text-center leading-tight">{content.secondaryButton}</span>
-        </a>
-      </Button>
+      {!isHiddenInNav('/cases') && (
+        <Button
+          size="lg"
+          variant="outline"
+          asChild
+          className="border-primary/30 hover:bg-primary/10 backdrop-blur-sm text-sm md:text-base"
+        >
+          <a href="#cases" onClick={(event) => { event.preventDefault(); onScrollToCases(); }}>
+            <span className="text-center leading-tight">{content.secondaryButton}</span>
+          </a>
+        </Button>
+      )}
     </div>
 
     {statsVariant === 'default' && <StatsRow stats={content.stats} settledEntrance={settledEntrance} />}

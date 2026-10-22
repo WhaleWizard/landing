@@ -46,29 +46,29 @@ type WaitingCard = { to: string; title: string; note: string };
 
 const WAITING_CARDS: Record<LeadServiceSlug, WaitingCard[]> = {
   consult: [
-    { to: '/faq', title: 'Частые вопросы', note: 'Как проходит разбор и что нужно подготовить' },
-    { to: '/calculator', title: 'Калькулятор бюджета', note: 'Прикинуть, сколько нужно на тест' },
-    { to: '/marketing-glossary', title: 'Словарь метрик', note: 'CPL, ROAS, CAC — без воды' },
+    { to: '/faq/', title: 'Частые вопросы', note: 'Как проходит разбор и что нужно подготовить' },
+    { to: '/calculator/', title: 'Калькулятор бюджета', note: 'Прикинуть, сколько нужно на тест' },
+    { to: '/marketing-glossary/', title: 'Словарь метрик', note: 'CPL, ROAS, CAC — без воды' },
   ],
   'google-ads': [
-    { to: '/cases', title: 'Кейсы', note: 'Что получалось у похожих проектов' },
-    { to: '/roi-calculator', title: 'Калькулятор ROI', note: 'Посчитать окупаемость на своих цифрах' },
-    { to: '/blog', title: 'Блог', note: 'Разборы и рабочие связки' },
+    { to: '/cases/', title: 'Кейсы', note: 'Что получалось у похожих проектов' },
+    { to: '/roi-calculator/', title: 'Калькулятор ROI', note: 'Посчитать окупаемость на своих цифрах' },
+    { to: '/blog/', title: 'Блог', note: 'Разборы и рабочие связки' },
   ],
   'meta-ads': [
-    { to: '/cases', title: 'Кейсы', note: 'Что получалось у похожих проектов' },
-    { to: '/roi-calculator', title: 'Калькулятор ROI', note: 'Посчитать окупаемость на своих цифрах' },
-    { to: '/blog', title: 'Блог', note: 'Разборы и рабочие связки' },
+    { to: '/cases/', title: 'Кейсы', note: 'Что получалось у похожих проектов' },
+    { to: '/roi-calculator/', title: 'Калькулятор ROI', note: 'Посчитать окупаемость на своих цифрах' },
+    { to: '/blog/', title: 'Блог', note: 'Разборы и рабочие связки' },
   ],
   'meta-apps': [
-    { to: '/cases', title: 'Кейсы', note: 'Что получалось у похожих приложений' },
-    { to: '/blog', title: 'Блог', note: 'Разборы и рабочие связки' },
-    { to: '/marketing-glossary', title: 'Словарь метрик', note: 'CPI, ROAS, retention — без воды' },
+    { to: '/cases/', title: 'Кейсы', note: 'Что получалось у похожих приложений' },
+    { to: '/blog/', title: 'Блог', note: 'Разборы и рабочие связки' },
+    { to: '/marketing-glossary/', title: 'Словарь метрик', note: 'CPI, ROAS, retention — без воды' },
   ],
   home: [
-    { to: '/cases', title: 'Кейсы', note: 'Что получалось у похожих проектов' },
-    { to: '/blog', title: 'Блог', note: 'Разборы и рабочие связки' },
-    { to: '/calculator', title: 'Калькулятор бюджета', note: 'Прикинуть, сколько нужно на тест' },
+    { to: '/cases/', title: 'Кейсы', note: 'Что получалось у похожих проектов' },
+    { to: '/blog/', title: 'Блог', note: 'Разборы и рабочие связки' },
+    { to: '/calculator/', title: 'Калькулятор бюджета', note: 'Прикинуть, сколько нужно на тест' },
   ],
 };
 
@@ -83,10 +83,10 @@ const TILE_ORBS = ['shard5', 'moon2', 'shard6'];
  */
 const ORIGIN: Record<LeadServiceSlug, { path: string; label: string }> = {
   home: { path: '/', label: 'На главную' },
-  'meta-ads': { path: '/meta-ads', label: 'Вернуться к Meta Ads' },
-  'google-ads': { path: '/google-ads', label: 'Вернуться к Google Ads' },
-  'meta-apps': { path: '/meta-apps', label: 'Вернуться к продвижению приложения' },
-  consult: { path: '/consult', label: 'Вернуться к консультации' },
+  'meta-ads': { path: '/meta-ads/', label: 'Вернуться к Meta Ads' },
+  'google-ads': { path: '/google-ads/', label: 'Вернуться к Google Ads' },
+  'meta-apps': { path: '/meta-apps/', label: 'Вернуться к продвижению приложения' },
+  consult: { path: '/consult/', label: 'Вернуться к консультации' },
 };
 
 const socialLinks = [

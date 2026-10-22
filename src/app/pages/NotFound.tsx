@@ -7,8 +7,8 @@ import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import './NotFound.css';
 
 const destinations = [
-  { to: '/blog', label: 'Блог' },
-  { to: '/cases', label: 'Кейсы' },
+  { to: '/blog/', label: 'Блог' },
+  { to: '/cases/', label: 'Кейсы' },
   { to: '/#services', label: 'Услуги' },
   { to: '/#contact', label: 'Контакты' },
 ];

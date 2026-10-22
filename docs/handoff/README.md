@@ -29,9 +29,15 @@
   - В `src/app/utils/sectionWarmup.ts` (`useWarmSections`) фоновый прогрев переведён с параллельного `Promise.all` на последовательный обход с квантами по 80 мс между чанками, разгружая главный поток и сеть при старте.
 
 - **Закрыты оставшиеся находки аудита:**
+  - `F-044`: в `Footer.tsx` и `Hero.tsx` ссылки и кнопки на `/cases` скрываются при блокировке маршрута через `useIsPathHiddenInNav`.
   - `F-101`: в `src/styles/admin-tailwind.css` подключен `@import 'tailwindcss/theme.css' theme(reference);` — возвращены цвета статусов и вспомогательные классы разметки админки.
   - `F-102`: в `src/styles/admin-ui.css` и `src/app/pages/Admin.tsx` применен `var(--adm-primary-solid)` для белого текста в темной теме (номер выбранного блока и кнопка «Восстановить»).
+  - `F-114`: в `scripts/generated-seo.test.js` добавлены проверки соответствия `STATIC_ROUTES` в `functions/sitemap.xml.ts` и `scripts/config.js`.
   - `F-115`: в `src/app/pages/CasesPage.tsx` и `scripts/import-articles.mjs` применено форматирование времени чтения через `formatReadTime`.
+  - **Оптимизации производительности и роутинга (второй проход):**
+    - Канонизация слэшей (BUG-DEEP-01): `NotFound.tsx`, `ThankYou.tsx`, `Blog.tsx`, `Navbar.tsx`, `Home.tsx`, `ServiceLandingPage.tsx`, `siteNavigation.ts` переведены на канонические пути со слешем (`/blog/`, `/cases/`, `/faq/`, и т.д.), исключая 308-редиректы Cloudflare.
+    - Устранение reflow в цикле RAF (BUG-DEEP-02): в `ServiceLandingPage.tsx` замер `navHeight` вынесен за пределы RAF-петли `alignToHashTarget` (до 90 принудительных синхронных reflow на переход).
+    - Устранение атрибутного трешинга (BUG-DEEP-03): в `contentTypography.ts` убран сброс/возврат атрибута `data-title-fit-measuring` внутри `withinWidth` на 12 итерациях бинарного поиска подгонки заголовков.
 
 **Сделано 22.10.2026 (закрытие волны аудита: группы blog, forms, seo-build — 28 находок):**
 

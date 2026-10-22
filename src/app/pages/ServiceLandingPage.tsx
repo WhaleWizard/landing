@@ -934,6 +934,7 @@ function DeferredSection({
       cancelled = true;
       window.cancelAnimationFrame(frame);
     });
+    const navHeight = typeof document !== 'undefined' ? (document.querySelector('nav')?.getBoundingClientRect().height || 80) : 80;
     const alignToHashTarget = () => {
       if (cancelled) return;
       const target = document.getElementById(anchorId);
@@ -942,7 +943,7 @@ function DeferredSection({
         // start })` puts its heading behind that navbar on a direct cold hash
         // load, while the same navigation from the menu already reserves the
         // header gutter. Keep both paths visually aligned.
-        const navHeight = document.querySelector('nav')?.getBoundingClientRect().height || 80;
+        // navHeight is cached outside the RAF loop to prevent per-frame forced reflows
         const y = target.getBoundingClientRect().top + window.scrollY - navHeight - 8;
         const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
         const nextY = Math.min(Math.max(0, y), maxScroll);
@@ -1152,7 +1153,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
       >
         <Cases
           content={config.cases}
-          moreHref={`/cases?from=${service}`}
+          moreHref={`/cases/?from=${service}`}
         />
       </DeferredSection>
       <DeferredSection heights={{ mobile: 410, tablet: 390, desktop: 371 }}>

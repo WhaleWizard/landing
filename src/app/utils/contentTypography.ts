@@ -674,15 +674,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
        * там, где на деле строка торчала за колонку.
        */
       const withinWidth = () => {
-        const wasMeasuring = element.hasAttribute(TITLE_FIT_MEASURING_ATTRIBUTE);
-        if (wasMeasuring) element.removeAttribute(TITLE_FIT_MEASURING_ATTRIBUTE);
-        try {
-          if (element.clientWidth <= 0) return true;
-          if (element.scrollWidth > element.clientWidth + 1) return false;
-          return !textOverflowsHorizontally(element, measureTextRects(element));
-        } finally {
-          if (wasMeasuring) element.setAttribute(TITLE_FIT_MEASURING_ATTRIBUTE, '');
-        }
+        if (element.clientWidth <= 0) return true;
+        if (element.scrollWidth > element.clientWidth + 1) return false;
+        return !textOverflowsHorizontally(element, measureTextRects(element));
       };
 
       if (elementTextFits(element, maxLines, singleLine)) {

@@ -64,16 +64,16 @@ export function backLabel(pathOrUrl: string): string {
 // (/cases?from=meta-apps) и теперь работают на всём сайте.
 export const FROM_ALIASES: Record<string, string> = {
   home: '/',
-  'meta-ads': '/meta-ads',
-  'meta-apps': '/meta-apps',
-  'google-ads': '/google-ads',
-  consult: '/consult',
-  blog: '/blog',
-  cases: '/cases',
-  faq: '/faq',
-  glossary: '/marketing-glossary',
-  calculator: '/calculator',
-  roi: '/roi-calculator',
+  'meta-ads': '/meta-ads/',
+  'meta-apps': '/meta-apps/',
+  'google-ads': '/google-ads/',
+  consult: '/consult/',
+  blog: '/blog/',
+  cases: '/cases/',
+  faq: '/faq/',
+  glossary: '/marketing-glossary/',
+  calculator: '/calculator/',
+  roi: '/roi-calculator/',
 };
 
 /**
@@ -113,8 +113,8 @@ function asInternalPath(value?: string | null): string | null {
 /** Родительский раздел: /blog/статья → /blog, /cases/кейс → /cases. */
 export function parentRouteOf(pathname: string): string {
   const path = normalizePath(pathname);
-  if (path.startsWith('/blog/')) return '/blog';
-  if (path.startsWith('/cases/')) return '/cases';
+  if (path.startsWith('/blog/')) return '/blog/';
+  if (path.startsWith('/cases/')) return '/cases/';
   return '/';
 }
 
