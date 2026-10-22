@@ -32,6 +32,7 @@
   - `F-044`: в `Footer.tsx` и `Hero.tsx` ссылки и кнопки на `/cases` скрываются при блокировке маршрута через `useIsPathHiddenInNav`.
   - `F-101`: в `src/styles/admin-tailwind.css` подключен `@import 'tailwindcss/theme.css' theme(reference);` — возвращены цвета статусов и вспомогательные классы разметки админки.
   - `F-102`: в `src/styles/admin-ui.css` и `src/app/pages/Admin.tsx` применен `var(--adm-primary-solid)` для белого текста в темной теме (номер выбранного блока и кнопка «Восстановить»).
+  - `F-112`: в `scripts/meta-consent-gate.test.js` и `package.json` (`test:meta-capi`) добавлен поведенческий тест шлюза согласия Meta CAPI (проверка отправки при `marketing_consent: false` и `marketing_consent: true` для lead, pageview, meta-event).
   - `F-114`: в `scripts/generated-seo.test.js` добавлены проверки соответствия `STATIC_ROUTES` в `functions/sitemap.xml.ts` и `scripts/config.js`.
   - `F-115`: в `src/app/pages/CasesPage.tsx` и `scripts/import-articles.mjs` применено форматирование времени чтения через `formatReadTime`.
   - **Оптимизации производительности и роутинга (второй проход):**
