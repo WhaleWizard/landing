@@ -319,9 +319,9 @@ export default function MarketingGlossaryPage() {
               ref={staticTitleFit}
               data-ww-title-fit={`${STATIC_TITLE_LINES.titleMaxLinesMobile}/0`}
               data-ww-title-fit-min={STATIC_TITLE_MIN_FONT_SIZE}
-              className="text-balance text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight"
+              className="text-balance text-[clamp(1.75rem,7.5vw,2.5rem)] sm:text-4xl md:text-5xl font-bold mb-4 leading-tight"
             >
-              Словарь маркетинга <span className="text-primary">без лишнего жаргона</span>
+              Словарь маркетинга <span className="text-primary inline-block">без лишнего жаргона</span>
             </h1>
             <p className="max-w-3xl text-pretty text-base text-muted-foreground md:text-lg">
               {MARKETING_GLOSSARY_SEO.lead}

@@ -17,11 +17,11 @@ const footerListClass = 'space-y-2 text-sm font-semibold text-muted-foreground';
 // минимум 24 px. Отступ добавлен внутрь ссылки и тут же скомпенсирован
 // отрицательным внешним отступом — расстояние между строками и вся вёрстка
 // остаются прежними, увеличивается только площадь, которая ловит палец.
-const footerLinkClass = 'font-semibold hover:text-primary transition-colors inline-block py-[3px] -my-[3px]';
+const footerLinkClass = 'font-semibold hover:text-primary transition-colors inline-block py-1.5 -my-1.5 sm:py-[3px] sm:-my-[3px]';
 const footerContactLinkClass =
   'flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors group';
 const footerLegalLinkClass =
-  'inline-flex h-5 items-center text-sm font-semibold leading-none hover:text-primary transition-colors relative group';
+  'inline-flex min-h-6 sm:h-5 py-1 -my-1 sm:py-0 sm:my-0 items-center text-sm font-semibold leading-none hover:text-primary transition-colors relative group';
 
 function Footer() {
   const navigate = useNavigate();

@@ -357,7 +357,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     services: {
       badge: 'Что входит в работу',
       titlePrefix: 'Что именно я',
-      titleAccent: 'настраиваю и веду',
+      titleAccent: 'настраиваю\u00A0и\u00A0веду',
       description: 'Формат кампаний выбираю после проверки спроса и данных. Search, Shopping и PMax не обязаны запускаться одновременно.',
       cards: [
         {
@@ -419,7 +419,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
     cases: {
       badge: 'Когда я полезен',
       titlePrefix: 'Примеры проектов в',
-      titleAccent: 'Google Ads',
+      titleAccent: 'Google\u00A0Ads',
       description: 'Четыре ситуации, для которых нужен разный набор кампаний, данных и критериев оценки.',
       items: [
         {

@@ -1197,7 +1197,7 @@ function BlogPageComponent() {
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               {isCasesRoute ? `Кейсы · ${scopedArticles.length}` : `Практический блог · ${russianCountLabel(scopedArticles.length, ['статья', 'статьи', 'статей'])}`}
             </div>
-            <h1 ref={listTitleFit} data-ww-title-fit={`${LIST_TITLE_LINES.titleMaxLinesMobile}/${LIST_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="22" className="text-balance text-[clamp(1.9rem,9.6vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.038em] md:text-[3.25rem]">
+            <h1 ref={listTitleFit} data-ww-title-fit={`${LIST_TITLE_LINES.titleMaxLinesMobile}/${LIST_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="22" className="text-balance text-[clamp(1.9rem,9.6vw,2.6rem)] font-bold leading-[1.14] tracking-[-0.038em] md:text-[3.25rem]">
               {isCasesRoute ? 'Кейсы и ' : 'Решения для '}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 {isCasesRoute ? 'разборы' : 'реальных задач'}
@@ -1448,7 +1448,7 @@ function BlogPageComponent() {
                               </div>
                               <div className="min-w-0">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-primary sm:text-xs">{categoryDisplayLabel(article.category)}</p>
-                                <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-foreground transition group-hover:text-primary sm:text-lg">
+                                <h3 className="mt-1 line-clamp-2 text-balance text-sm font-semibold leading-snug text-foreground transition group-hover:text-primary sm:text-lg">
                                   {article.title}
                                 </h3>
                                 <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground sm:text-xs">

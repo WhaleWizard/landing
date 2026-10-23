@@ -371,7 +371,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                       transition={{ duration: 0.5 }}
                       className="relative"
                     >
-                      <div className="relative p-[1.125rem] rounded-2xl bg-card/70 backdrop-blur-md border border-primary/25 shadow-xl shadow-primary/10 overflow-hidden flex flex-col">
+                      <div className="relative min-h-[490px] h-full p-[1.125rem] rounded-2xl bg-card/70 backdrop-blur-md border border-primary/25 shadow-xl shadow-primary/10 overflow-hidden flex flex-col justify-between">
                         <div className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-5`} />
                         <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${service.gradient}`} />
                         <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${service.gradient} opacity-10 blur-2xl`} />
@@ -405,7 +405,7 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                           </div>
 
                           {/* Кнопка "Подробнее о работе" в мобильной версии */}
-                          <div className="mt-6 pt-4 border-t border-border/50">
+                          <div className="mt-auto pt-4 border-t border-border/50">
                             <button
                               onClick={openModal}
                               tabIndex={isMobile && index !== currentIndex ? -1 : 0}

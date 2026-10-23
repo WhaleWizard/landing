@@ -24,7 +24,7 @@ export type CallToActionContent = {
 
 export const defaultCallToActionContent: CallToActionContent = {
   badge: 'Без брифов и созвонов на два часа',
-  title: 'Расскажите, что продвигаете',
+  title: 'Расскажите, что\u00A0продвигаете',
   description: 'Пары абзацев хватит — продукт, гео и что уже пробовали. Отвечу, с чего разумнее начать: с разбора, теста или аналитики, и почему.',
   button: 'Написать мне',
 };

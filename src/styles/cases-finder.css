@@ -110,6 +110,10 @@
   background: linear-gradient(110deg, #a855f7 0%, #7c63ff 44%, #4f83ff 100%);
   background-clip: text;
   -webkit-background-clip: text;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
 }
 
 .cases-finder-intro p {
@@ -144,12 +148,13 @@
 
 .cases-search input {
   min-width: 0;
+  min-height: 44px;
   flex: 1;
   border: 0;
   outline: 0;
   color: #f5f5f7;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .cases-search input::placeholder {
@@ -569,7 +574,7 @@
   font-size: clamp(17px, 1.5vw, 21px);
   line-height: 1.23;
   letter-spacing: -0.025em;
-  text-wrap: pretty;
+  text-wrap: balance;
 }
 
 .cases-context-label {

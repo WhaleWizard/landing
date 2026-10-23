@@ -867,7 +867,7 @@ export default function MarketingCalculator({
       <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/25 bg-primary/10 text-primary">
         <Calculator className="h-7 w-7" />
       </span>
-      <h3 className="mt-4 text-lg font-semibold">Заполните ключевые поля</h3>
+      <h3 className="mt-4 text-balance text-lg font-semibold">Заполните ключевые&nbsp;поля</h3>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{copy}</p>
     </div>
   );

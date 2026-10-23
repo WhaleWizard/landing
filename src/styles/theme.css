@@ -221,3 +221,12 @@
     background-position: 0 50%;
   }
 }
+
+@layer utilities {
+  .bg-clip-text {
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding-bottom: 0.14em;
+    margin-bottom: -0.14em;
+  }
+}

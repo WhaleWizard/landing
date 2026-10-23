@@ -248,7 +248,7 @@ export default function ThankYou() {
                   <span className="ths-kicker-dot" />
                   Что дальше
                 </p>
-                <h2 className="ths-h2">Три шага, дальше решаете вы</h2>
+                <h2 className="ths-h2 text-balance">Три шага, дальше решаете&nbsp;вы</h2>
                 <p className="ths-split-note">
                   Ничего делать не нужно — просто держите телефон под рукой.
                 </p>
