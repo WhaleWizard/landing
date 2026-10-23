@@ -8,10 +8,10 @@
 - **Production Edge Target**: Cloudflare Pages (`https://www.whalewzrd.com`), D1 SQLite, R2 Asset Storage, KV
 
 ## 2. Quantitative Inventory & Coverage
-- **Total Repository Files Accounted For**: 2,395 files
-- **Total Source Code Lines**: 212,680 lines
-- **Total Source Characters**: 12,852,400 characters
-- **Total Source Bytes**: 91.5 MB
+- **Total Repository Files Accounted For**: 2,467 files
+- **Total Source Code Lines**: 283,574 lines
+- **Total Source Characters**: 19,028,999 characters
+- **Total Source Bytes**: 123.0 MB
 - **Character & Lexer Anomalies**: 0 in source code files (`audit/source/CHARACTER_REPORT.md`)
 - **Circular Dependencies in Application Module Graph**: **0 across 218 modules** (reduced from 8)
 - **ESLint React Hook Violations / Warnings**: **0 across all src/ files** (reduced from 13)

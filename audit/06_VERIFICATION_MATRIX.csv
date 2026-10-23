@@ -31,3 +31,8 @@ Desktop Zoom Levels,scripts/run-desktop-audit.cjs,Playwright Chromium,125% 150% 
 Desktop Safari Simulation,scripts/run-desktop-audit.cjs,Playwright WebKit,1440x900 (5 routes),5 routes,0,PASSED
 Mobile Viewport Matrix,scripts/run-mobile-audit.cjs,Playwright Cr+Wk,320px-480px (15 viewports),15 viewports,0,PASSED
 Mobile Hero Accent Visibility,audit/evidence/engine-chromium.png,Sharp Pixel Analyzer,390px-393px,3835 px colored,0 px blank,PASSED
+ESLint Hooks Validation,eslint.config.mjs,ESLint Engine,All src/ modules,0 errors,0 warnings,PASSED
+Module Circular Dependencies,madge,Madge AST Analyzer,218 application modules,0 cycles,0 cycles,PASSED
+Axe-core WCAG 2.1 AA,scripts/audit/smoke-test-a11y.mjs,Playwright Axe-core,Static Shell & Live SSR,0 violations,0 violations,PASSED
+Semgrep Static Security,audit/security/SEMGREP_SECURITY_REVIEW.md,Semgrep Engine,299 targets (74 rules),0 exploitable,0 vulnerabilities,PASSED
+Lighthouse CI Audit,.lighthouseci/,Lighthouse Engine,5 canonical routes,100 a11y,0 CLS,PASSED

@@ -7,3 +7,6 @@ MOB-HERO-002,HeroTitleEffect.tsx & hero components,Hero multi-line titles,None o
 BUG-P1,contentTypography.ts,Font size fitting,None observed,scripts/title-fit-performance.test.js,NONE,NO,STABLE,Animations not cancelled during measurement
 BUG-P2,meta-apps-hero.css & MetaAppsHeroVisual.tsx,Meta Apps receipt,None observed,Performance profile & visual render,NONE,NO,STABLE,Zero forced reflow during mount
 BUG-P3,Home.tsx & ServiceLandingPage.tsx,DeferredSection,None observed,Scroll & network waterfall test,NONE,NO,STABLE,Sections mount progressively within view threshold
+A11Y-001,scripts/generate-pages.js,Static pre-render shell,None observed,scripts/audit/smoke-test-a11y.mjs,NONE,NO,STABLE,Zero axe-core region landmark violations
+CIRC-001,types/ & utils/ & routerInstance.ts,Application module graph,None observed,madge --circular,NONE,NO,STABLE,Zero circular dependency cycles across 218 modules
+HOOK-001,BlogPage.tsx & Navbar.tsx & Admin components,React component hooks,None observed,eslint src/,NONE,NO,STABLE,Zero react-hooks/exhaustive-deps warnings

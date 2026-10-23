@@ -1,8 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 
 const ROOT_DIR = process.cwd();
+const CURRENT_COMMIT = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return '20da269';
+  }
+})();
 
 const EXCLUDE_DIRS = new Set([
   '.git',
@@ -216,7 +224,7 @@ async function runForensics() {
       RuntimeTestStatus: 'COVERED_BY_CHECK',
       Findings: fileCharsIssues.length > 0 ? `${fileCharsIssues.length} issues` : 'NONE',
       CurrentStatus: 'INDEXED',
-      ReviewedCommit: '3303c00'
+      ReviewedCommit: CURRENT_COMMIT
     });
   }
 
