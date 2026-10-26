@@ -1,7 +1,3 @@
-import conciergeCover from '../../assets/cases/concierge-meta-ads.webp';
-import ecommerceCover from '../../assets/cases/ecommerce-performance.webp';
-import infoproductsCover from '../../assets/cases/infoproducts-performance.webp';
-import b2cCover from '../../assets/cases/b2c-services-performance.webp';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { hasCustomCover } from '../utils/articleCover';
 
@@ -22,7 +18,7 @@ export const CASE_BACK_TARGETS: Record<string, { path: string; label: string }> 
 
 export const CASE_CATALOG_META: Record<string, CaseCatalogMeta> = {
   'keys-premium-concierge-meta-ads': {
-    cover: conciergeCover,
+    cover: '/images/case-concierge.webp',
     coverAlt: 'Стойка премиум-сервиса с сервисным звонком в фиолетовом свете',
     niche: 'Премиум-сервисы',
     goals: ['Лидогенерация', 'Квалификация'],
@@ -44,7 +40,7 @@ export const CASE_CATALOG_META: Record<string, CaseCatalogMeta> = {
     },
   },
   'keys-ecommerce-google-shopping-meta': {
-    cover: ecommerceCover,
+    cover: '/images/case-ecommerce.webp',
     coverAlt: 'Тележка интернет-магазина на фоне графика роста',
     niche: 'E-commerce',
     goals: ['Продажи', 'Рост ROI'],
@@ -63,7 +59,7 @@ export const CASE_CATALOG_META: Record<string, CaseCatalogMeta> = {
     },
   },
   'keys-infobiznes-google-meta': {
-    cover: infoproductsCover,
+    cover: '/images/case-infobusiness.webp',
     coverAlt: 'Учебный интерфейс и аналитика инфопродукта в фиолетовом свете',
     niche: 'Инфопродукты',
     goals: ['Лидогенерация', 'Снижение CPL'],
@@ -83,7 +79,7 @@ export const CASE_CATALOG_META: Record<string, CaseCatalogMeta> = {
     },
   },
   'keys-b2c-uslugi-google-meta': {
-    cover: b2cCover,
+    cover: '/images/case-b2c.webp',
     coverAlt: 'Сеть аудиторий B2C-проектов на фоне графика роста',
     niche: 'B2C-услуги',
     goals: ['Лидогенерация', 'Рост ROI'],
@@ -111,7 +107,7 @@ export const FALLBACK_CASE_ARTICLES: Array<Pick<Article, 'id' | 'slug' | 'title'
     readTime: '9 мин',
     date: '08.07.2026',
     description: 'Долгосрочный проект в Meta Ads: 65 000+ лидов, бюджет $1 млн+, фокус на качестве обращений, а не на дешёвой цене заявки.',
-    image: conciergeCover,
+    image: '/images/case-concierge.webp',
     caseData: CASE_CATALOG_META['keys-premium-concierge-meta-ads'].data,
   },
   {
@@ -122,7 +118,7 @@ export const FALLBACK_CASE_ARTICLES: Array<Pick<Article, 'id' | 'slug' | 'title'
     readTime: '10 мин',
     date: '08.07.2026',
     description: 'Продвижение интернет-магазина в связке Google Search + Shopping + Meta Ads: 120 000+ добавлений в корзину, 30 000+ покупок, ROI 210%.',
-    image: ecommerceCover,
+    image: '/images/case-ecommerce.webp',
     caseData: CASE_CATALOG_META['keys-ecommerce-google-shopping-meta'].data,
   },
   {
@@ -133,7 +129,7 @@ export const FALLBACK_CASE_ARTICLES: Array<Pick<Article, 'id' | 'slug' | 'title'
     readTime: '9 мин',
     date: '08.07.2026',
     description: 'Продвижение инфопродуктов на русскоязычную аудиторию по всему миру: $600k+ бюджета, CPL до $5, ROI 180% на связке Meta и Google.',
-    image: infoproductsCover,
+    image: '/images/case-infobusiness.webp',
     caseData: CASE_CATALOG_META['keys-infobiznes-google-meta'].data,
   },
   {
@@ -144,7 +140,7 @@ export const FALLBACK_CASE_ARTICLES: Array<Pick<Article, 'id' | 'slug' | 'title'
     readTime: '8 мин',
     date: '08.07.2026',
     description: 'Сводный кейс по 50+ проектам в сфере услуг: салоны, клиники, фитнес, обучение. CPL до $25 и ROI до 300% за счёт повторяемой системы.',
-    image: b2cCover,
+    image: '/images/case-b2c.webp',
     caseData: CASE_CATALOG_META['keys-b2c-uslugi-google-meta'].data,
   },
 ];
@@ -159,8 +155,13 @@ export const FALLBACK_CASE_ARTICLES: Array<Pick<Article, 'id' | 'slug' | 'title'
  * а следующее место, которое обратится к результату иначе, обвалится.
  */
 export function getCaseCatalogMeta(slug?: string): CaseCatalogMeta | undefined {
-  if (!slug || !Object.prototype.hasOwnProperty.call(CASE_CATALOG_META, slug)) return undefined;
-  return CASE_CATALOG_META[slug];
+  if (!slug || typeof slug !== 'string') return undefined;
+  if (Object.prototype.hasOwnProperty.call(CASE_CATALOG_META, slug)) return CASE_CATALOG_META[slug];
+  if (slug.includes('konserzh')) return CASE_CATALOG_META['keys-premium-concierge-meta-ads'];
+  if (slug.includes('premialnyh-nish') || slug.includes('b2c')) return CASE_CATALOG_META['keys-b2c-uslugi-google-meta'];
+  if (slug.includes('ecommerce') || slug.includes('shopping')) return CASE_CATALOG_META['keys-ecommerce-google-shopping-meta'];
+  if (slug.includes('infobiznes') || slug.includes('infoproduct')) return CASE_CATALOG_META['keys-infobiznes-google-meta'];
+  return undefined;
 }
 
 /** Раздел, из которого пришли на кейсы: значение `?from=` — тоже из адреса. */
@@ -199,7 +200,7 @@ export function getCaseGoals(article: Pick<Article, 'slug' | 'tags'>): string[] 
 
 export function getCaseCover(article: Pick<Article, 'slug' | 'image'>): string {
   if (hasCustomCover(article.image)) return article.image;
-  return getCaseCatalogMeta(article.slug)?.cover || article.image;
+  return getCaseCatalogMeta(article.slug)?.cover || '';
 }
 
 export function getCaseCoverAlt(article: Pick<Article, 'slug' | 'title' | 'image'>): string {

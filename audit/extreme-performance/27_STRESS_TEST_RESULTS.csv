@@ -1,0 +1,49 @@
+ScenarioId,ScenarioName,Route,Device,Network,CPUThrottle,Cache,TTFB_ms,FCP_ms,LCP_ms,TBT_ms,CLS,LCPElement,HeadingVisible,CTAUsable,FailedRequests,TotalKB,HydrationStatus,Error
+SCENARIO-1,"Low-End Android + Slow 4G",/,"Class A (Moto G4)","1600k / 150ms",4x,cold,4,2096,2108,117,0,"DIV",YES,NO,0,532,PASS,NONE
+SCENARIO-1,"Low-End Android + Slow 4G",/meta-ads/,"Class A (Moto G4)","1600k / 150ms",4x,cold,2,1816,1816,0,0.0227,"IMG",YES,NO,0,523,PASS,NONE
+SCENARIO-1,"Low-End Android + Slow 4G",/meta-apps/,"Class A (Moto G4)","1600k / 150ms",4x,cold,3,1896,1896,32,0,"SPAN",YES,NO,0,403,PASS,NONE
+SCENARIO-1,"Low-End Android + Slow 4G",/google-ads/,"Class A (Moto G4)","1600k / 150ms",4x,cold,2,1744,2004,17,0,"IMG",YES,NO,0,324,PASS,NONE
+SCENARIO-1,"Low-End Android + Slow 4G",/consult/,"Class A (Moto G4)","1600k / 150ms",4x,cold,2,1780,4952,165,0,"DIV",YES,NO,0,892,PASS,NONE
+SCENARIO-1,"Low-End Android + Slow 4G",/blog/,"Class A (Moto G4)","1600k / 150ms",4x,cold,2,1220,1220,575,0,"P",YES,NO,0,284,PASS,NONE
+SCENARIO-1,"Low-End Android + Slow 4G",/cases/,"Class A (Moto G4)","1600k / 150ms",4x,cold,2,1184,1184,591,0,"SPAN",YES,NO,0,324,PASS,NONE
+SCENARIO-1,"Low-End Android + Slow 4G",/faq/,"Class A (Moto G4)","1600k / 150ms",4x,cold,3,1216,1216,570,0,"H1",YES,NO,0,271,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/,"Class A (Moto G4)","400k / 300ms",6x,cold,1,4956,6976,400,0,"DIV",YES,NO,0,539,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/meta-ads/,"Class A (Moto G4)","400k / 300ms",6x,cold,2,4948,4968,456,0,"IMG",YES,NO,0,530,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/meta-apps/,"Class A (Moto G4)","400k / 300ms",6x,cold,3,5312,5312,210,0,"SPAN",YES,NO,0,403,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/google-ads/,"Class A (Moto G4)","400k / 300ms",6x,cold,2,5028,7552,74,0,"IMG",YES,NO,0,324,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/consult/,"Class A (Moto G4)","400k / 300ms",6x,cold,2,4936,20092,357,0,"DIV",YES,NO,0,892,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/blog/,"Class A (Moto G4)","400k / 300ms",6x,cold,1,4044,4044,1175,0,"P",YES,NO,0,233,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/cases/,"Class A (Moto G4)","400k / 300ms",6x,cold,2,3936,3936,1378,0,"SPAN",YES,NO,0,249,PASS,NONE
+SCENARIO-2,"Low-End Android + Very Slow Mobile (3G)",/faq/,"Class A (Moto G4)","400k / 300ms",6x,cold,3,4060,4060,1078,0,"H1",YES,NO,0,257,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/,"Class A (Moto G4)","200k / 500ms",4x,cold,1,8076,13900,185,0,"DIV",YES,NO,0,547,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/meta-ads/,"Class A (Moto G4)","200k / 500ms",4x,cold,1,8248,8256,190,0.0005,"IMG",YES,NO,0,529,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/meta-apps/,"Class A (Moto G4)","200k / 500ms",4x,cold,3,8076,8076,21,0,"SPAN",YES,NO,0,410,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/google-ads/,"Class A (Moto G4)","200k / 500ms",4x,cold,2,8284,14788,20,0,"IMG",YES,NO,0,324,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/consult/,"Class A (Moto G4)","200k / 500ms",4x,cold,2,8184,39936,120,0,"DIV",YES,NO,0,892,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/blog/,"Class A (Moto G4)","200k / 500ms",4x,cold,2,7416,7416,662,0,"P",YES,NO,0,233,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/cases/,"Class A (Moto G4)","200k / 500ms",4x,cold,2,7156,7156,794,0,"SPAN",YES,NO,0,249,PASS,NONE
+SCENARIO-3,"Low-End Android + Severe Congestion",/faq/,"Class A (Moto G4)","200k / 500ms",4x,cold,3,7684,7684,511,0,"H1",YES,NO,0,257,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/,"Class A (Moto G4)","100k / 800ms",6x,cold,1,16064,28104,375,0,"DIV",YES,NO,0,549,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/meta-ads/,"Class A (Moto G4)","100k / 800ms",6x,cold,1,15948,15992,424,0.0005,"IMG",YES,NO,0,531,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/meta-apps/,"Class A (Moto G4)","100k / 800ms",6x,cold,2,16068,16068,140,0,"SPAN",YES,NO,0,408,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/google-ads/,"Class A (Moto G4)","100k / 800ms",6x,cold,2,16060,29068,90,0,"IMG",YES,NO,0,320,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/consult/,"Class A (Moto G4)","100k / 800ms",6x,cold,2,15928,79348,370,0,"DIV",YES,NO,0,892,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/blog/,"Class A (Moto G4)","100k / 800ms",6x,cold,2,14636,14636,1313,0,"P",YES,NO,0,233,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/cases/,"Class A (Moto G4)","100k / 800ms",6x,cold,1,14212,14212,1322,0,"SPAN",YES,NO,0,249,PASS,NONE
+SCENARIO-4,"Extreme Edge Case (Near Offline)",/faq/,"Class A (Moto G4)","100k / 800ms",6x,cold,4,15080,15080,1082,0,"H1",YES,NO,0,257,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,1,876,1036,1,0,"DIV",YES,NO,0,530,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/meta-ads/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,1,1044,1044,44,0.0083,"IMG",YES,NO,0,566,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/meta-apps/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,2,1036,1036,20,0,"SPAN",YES,NO,0,499,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/google-ads/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,2,960,1152,14,0,"IMG",YES,NO,0,337,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/consult/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,2,992,3212,14,0,"DIV",YES,NO,0,1062,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/blog/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,1,704,1396,208,0,"H1",YES,NO,0,320,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/cases/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,2,692,1752,220,0,"IMG",YES,NO,0,324,PASS,NONE
+SCENARIO-5,"Mid-Range Android + Moderate Mobile",/faq/,"Class B (Pixel 7)","3000k / 100ms",2x,cold,3,692,692,171,0,"H1",YES,NO,0,271,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,128,128,173,0,"DIV",YES,NO,0,945,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/meta-ads/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,164,164,0,0.0106,"IMG",YES,NO,0,813,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/meta-apps/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,116,204,2,0,"SPAN",YES,NO,0,759,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/google-ads/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,180,180,0,0,"IMG",YES,NO,0,614,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/consult/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,140,3580,129,0,"DIV",YES,NO,0,1376,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/blog/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,96,96,594,0,"P",YES,NO,0,482,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/cases/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,92,92,565,0,"SPAN",YES,NO,0,530,PASS,NONE
+SCENARIO-6,"Low-End Android + Warm Cache Navigation",/faq/,"Class A (Moto G4)","1600k / 150ms",4x,warm,0,188,1084,26,0,"H1",YES,NO,0,506,PASS,NONE

@@ -1,0 +1,17 @@
+Route,Type,Component,Layout,InitialBundle,SharedDeps,CriticalAssets,LCPElement,MainCTA,ExpectedFirstScreen
+/,Static/Landing,Home,AppFrame,index-*.js,vendor-*.js,index.css,Hero Title Heading,Обсудить проект,Hero + Cosmic Scene
+/meta-ads/,Static/Service,ServiceLandingPage,AppFrame,ServiceLandingPage-*.js,vendor-*.js,index.css,Hero Title Heading,Оставить заявку,Meta Ads Editorial Hero
+/meta-apps/,Static/Service,ServiceLandingPage,AppFrame,ServiceLandingPage-*.js,vendor-*.js,index.css,Hero Visual Container,Рассчитать окупаемость,Meta Apps Visual Hero
+/google-ads/,Static/Service,ServiceLandingPage,AppFrame,ServiceLandingPage-*.js,vendor-*.js,index.css,Hero Title Heading,Оставить заявку,Google Ads Hero
+/consult/,Static/Service,ServiceLandingPage,AppFrame,ServiceLandingPage-*.js,vendor-*.js,index.css,Hero Title Heading,Записаться на разбор,Consult Studio Hero
+/blog/,Static/List,BlogPage,AppFrame,BlogPage-*.js,vendor-*.js,index.css,Blog List Heading,Читать статью,Article Cards Grid
+/cases/,Static/List,CasesPage,AppFrame,CasesPage-*.js,vendor-*.js,index.css,Cases List Heading,Смотреть кейс,Case Studies Grid
+/faq/,Static/Content,FAQPage,AppFrame,FAQPage-*.js,vendor-*.js,index.css,FAQ Heading,Задать вопрос,Accordion Q&A
+/marketing-glossary/,Static/Content,MarketingGlossaryPage,AppFrame,MarketingGlossaryPage-*.js,vendor-*.js,index.css,Glossary Title,Искать термин,Searchable Glossary
+/calculator/,Static/Tool,Calculator,AppFrame,MarketingCalculator-*.js,vendor-*.js,index.css,Calculator Header,Рассчитать медиаплан,Interactive Sliders
+/roi-calculator/,Static/Tool,RoiPage,AppFrame,MarketingCalculator-*.js,vendor-*.js,index.css,ROI Calculator Header,Рассчитать ROI,ROI Projection Tool
+/privacy-policy/,Static/Legal,PrivacyPolicy,AppFrame,PrivacyPolicyContent-*.js,vendor-*.js,index.css,Legal Heading,На главную,Full Legal Policy
+/offer/,Static/Legal,Offer,AppFrame,OfferContent-*.js,vendor-*.js,index.css,Legal Heading,На главную,Public Offer Document
+/cookie-policy/,Static/Legal,CookiePolicy,AppFrame,PrivacyPolicyContent-*.js,vendor-*.js,index.css,Legal Heading,На главную,Cookie Usage Terms
+/blog/kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh,Dynamic/Article,BlogPage,AppFrame,BlogPage-*.js,vendor-*.js,WebP Cover Image,Article Cover / H1,Связаться,SSR Article Body
+/cases/prodvizhenie-premialnogo-konserzh-servisa-klienty-i-trafik-dlya-konserzh-servisa-cherez-targetirovannuyu-reklamu,Dynamic/Case,BlogPage,AppFrame,BlogPage-*.js,vendor-*.js,WebP Cover Image,Case Cover / Proof Grid,Обсудить проект,SSR Case Study

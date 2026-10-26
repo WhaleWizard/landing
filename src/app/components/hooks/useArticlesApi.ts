@@ -163,6 +163,10 @@ const requestArticles = async (endpoint: string, options?: { bypassCache?: boole
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error(`Expected JSON response but received ${contentType || 'non-JSON'}`);
+    }
 
     const json = (await res.json()) as ArticlesResponse;
     if (!Array.isArray(json?.articles)) throw new Error('Invalid articles response');
@@ -200,6 +204,10 @@ export const fetchArticle = async (
 
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Expected JSON response but received ${contentType || 'non-JSON'}`);
+  }
 
   const payload = (await response.json()) as ArticleResponse;
   if (!payload?.article || payload.article.slug !== normalizedSlug) {

@@ -43,6 +43,7 @@ export default function WhaleMark({
           height="256"
           alt=""
           loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
           draggable={false}
         />
       </picture>
@@ -53,6 +54,8 @@ export default function WhaleMark({
         height="96"
         alt=""
         aria-hidden="true"
+        loading="lazy"
+        decoding="async"
         draggable={false}
       />
     </span>

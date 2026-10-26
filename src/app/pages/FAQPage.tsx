@@ -9,7 +9,7 @@ import SEO from '../components/SEO';
 import { trackFaqOpen } from '../consent/consent';
 import { glossaryTermById } from '../data/marketingGlossary';
 import useFaqContent from '../hooks/useFaqContent';
-import { hasGeneratedFirstScreen } from '../utils/firstScreen';
+import { hasGeneratedFirstScreen, isInitialEntry } from '../utils/firstScreen';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { useManagedTitleFit } from '../utils/contentTypography';
 
@@ -518,7 +518,7 @@ export default function FAQPage() {
   const navigate = useNavigate();
   // Страница пришла готовой из HTML: появления через motion не играют —
   // иначе в серверной разметке текст стоял бы с opacity:0 до JavaScript.
-  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
+  const settledEntrance = isInitialEntry(location.key) || hasGeneratedFirstScreen(location.pathname, location.key);
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | FaqCategory>('all');
   const defaultSeo = useMemo(() => ({

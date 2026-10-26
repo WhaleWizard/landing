@@ -36,3 +36,8 @@ Module Circular Dependencies,madge,Madge AST Analyzer,218 application modules,0 
 Axe-core WCAG 2.1 AA,scripts/audit/smoke-test-a11y.mjs,Playwright Axe-core,Static Shell & Live SSR,0 violations,0 violations,PASSED
 Semgrep Static Security,audit/security/SEMGREP_SECURITY_REVIEW.md,Semgrep Engine,299 targets (74 rules),0 exploitable,0 vulnerabilities,PASSED
 Lighthouse CI Audit,.lighthouseci/,Lighthouse Engine,5 canonical routes,100 a11y,0 CLS,PASSED
+Core Web Vitals & Hydration,scripts/audit/run-perf-audit.mjs,Playwright CDP,Desktop & Mobile-MotoG4 (8 routes),16 runs,0 hydration errors,PASSED
+Multi-Viewport Overflow QA,scripts/audit/run-viewport-qa.mjs,Playwright Chromium,8 Desktop + 15 Mobile + 3 Zoom (14 routes),364 checks,0 overflows,PASSED
+Character & Encoding Integrity,scripts/audit/check-characters.mjs,Node AST/Buffer Scanner,src/ & functions/ & scripts/,426 files,0 BOM/invisible,PASSED
+Mobile Lighthouse 95-100 Benchmark,audit/extreme-performance/26_LIGHTHOUSE_95_TRACKER.csv,Lighthouse Engine,Mobile Slow 4G / 4x CPU throttle (17 routes),17 routes >= 95,0,PASSED
+Case Articles 14KB TCP CWND Compression,scripts/generate-pages.js,Gzip / Network Profiler,Initial HTML <= 14.6KB (1 RTT),2 cases < 14KB,0,PASSED

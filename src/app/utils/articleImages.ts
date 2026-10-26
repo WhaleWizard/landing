@@ -33,7 +33,7 @@ export type ResolvedArticleImage = {
  */
 export const ARTICLE_IMAGE_SIZES = {
   /** Обложка на странице статьи: контейнер max-w-5xl с полями. */
-  cover: '(max-width: 639px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), 976px',
+  cover: '(max-width: 480px) 180px, (max-width: 639px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), 976px',
   /** Рекомендуемая статья в блоге: половина max-w-7xl на десктопе. */
   featured: '(max-width: 767px) calc(100vw - 32px), (max-width: 1279px) 51vw, 628px',
   /** Миниатюры списка блога: 88px до 640px, дальше 136px. */
@@ -41,9 +41,9 @@ export const ARTICLE_IMAGE_SIZES = {
   /** Карточки карусели на главной: 280 / 320 / 360px. */
   carousel: '(max-width: 639px) 280px, (max-width: 767px) 320px, 360px',
   /** Картинки в тексте статьи: колонка 760px. */
-  content: '(max-width: 799px) calc(100vw - 32px), 760px',
+  content: '(max-width: 480px) 180px, (max-width: 799px) calc(100vw - 32px), 760px',
   /** Обложка кейса в шапке и на витрине. */
-  caseCover: '(max-width: 767px) calc(100vw - 32px), (max-width: 1279px) 45vw, 560px',
+  caseCover: '(max-width: 480px) 270px, (max-width: 767px) calc(100vw - 32px), (max-width: 1279px) 45vw, 560px',
   /** Похожие кейсы под статьёй. */
   caseRelated: '(max-width: 767px) calc(100vw - 32px), 300px',
 } as const;
@@ -79,13 +79,48 @@ export type ArticleImageAttributes = {
   height?: number;
 };
 
+const STATIC_CASE_DIMENSIONS: Record<string, { width: number; height: number; srcSet?: string }> = {
+  '/images/case-concierge.webp': {
+    width: 669,
+    height: 352,
+    srcSet: '/images/case-concierge-480.webp 480w, /images/case-concierge.webp 669w',
+  },
+  '/images/case-b2c.webp': {
+    width: 665,
+    height: 355,
+    srcSet: '/images/case-b2c-480.webp 480w, /images/case-b2c.webp 665w',
+  },
+  '/images/case-ecommerce.webp': {
+    width: 659,
+    height: 348,
+    srcSet: '/images/case-ecommerce-480.webp 480w, /images/case-ecommerce.webp 659w',
+  },
+  '/images/case-infobusiness.webp': {
+    width: 673,
+    height: 350,
+    srcSet: '/images/case-infobusiness-480.webp 480w, /images/case-infobusiness.webp 673w',
+  },
+};
+
 /**
  * Атрибуты `<img>` для картинки статьи. Для известного адреса — варианты с
  * размерами, для любого другого — исходный `src` без изменений.
  */
 export function articleImageAttributes(url: string, sizes: ArticleImageSizes | string): ArticleImageAttributes {
   const resolved = resolveArticleImage(url);
-  if (!resolved) return { src: url };
+  if (!resolved) {
+    const staticDim = STATIC_CASE_DIMENSIONS[url];
+    if (staticDim) {
+      return {
+        src: url,
+        srcSet: staticDim.srcSet,
+        sizes: staticDim.srcSet ? sizes : undefined,
+        width: staticDim.width,
+        height: staticDim.height,
+      };
+    }
+    return { src: url };
+  }
   return {
     src: resolved.src,
     srcSet: resolved.srcSet,

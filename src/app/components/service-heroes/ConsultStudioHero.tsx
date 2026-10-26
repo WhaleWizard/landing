@@ -74,6 +74,8 @@ function ConsultStudioHero({ content, settledEntrance: _settledEntrance = false 
                 <h1
                   ref={titleRef}
                   id="consult-studio-title"
+                  data-ww-title-fit="2/0"
+                  data-ww-title-fit-min="17"
                   className={`consult-studio-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
                   style={managedTitleStyle(content.typography)}
                 >

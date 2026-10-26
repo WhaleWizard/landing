@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FaqItem } from '../types/faq';
-import { readInlineSiteContentSeed } from '../utils/siteContentSeed';
+import { initialContentOverride } from './useServiceContent';
 
 export type FaqSeoContent = {
   title: string;
@@ -64,15 +64,17 @@ function resolveFaqContent(
 }
 
 export default function useFaqContent(fallback: FaqItem[], fallbackSeo: FaqSeoContent): FaqPageContent {
-  const [content, setContent] = useState<FaqPageContent>(() => (
-    faqCache || resolveFaqContent(
-      faqOverrideCache === undefined
-        ? readInlineSiteContentSeed('site:faq')
+  const [content, setContent] = useState<FaqPageContent>(() => {
+    if (faqCache) return faqCache;
+    const initialOverride = initialContentOverride('site:faq') as Record<string, unknown> | null | undefined;
+    return resolveFaqContent(
+      initialOverride !== undefined
+        ? initialOverride
         : faqOverrideCache,
       fallback,
       fallbackSeo,
-    )
-  ));
+    );
+  });
 
   useEffect(() => {
     let active = true;

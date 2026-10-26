@@ -85,6 +85,23 @@ test('stored reader replaces only the exact superseded Meta Ads cases block', as
   assert.ok(submitted.cases);
 });
 
+test('stored reader strips accidental pangolin and inter fonts from meta-ads hero title lines', async () => {
+  const { safeSiteJsonObject } = await siteContentModule;
+  const content = {
+    hero: {
+      titleLines: [
+        { text: 'Реклама в Meta:', font: 'inter' },
+        { text: 'привожу клиентов, а не просто лиды', tone: 'accent', font: 'pangolin' },
+      ],
+    },
+  };
+  const stored = safeSiteJsonObject('service:meta-ads', JSON.stringify(content));
+  assert.deepEqual(stored.hero.titleLines, [
+    { text: 'Реклама в Meta:' },
+    { text: 'привожу клиентов, а не просто лиды', tone: 'accent' },
+  ]);
+});
+
 test('stored reader recognizes the editor-normalized form of the old block', async () => {
   const { safeSiteJsonObject } = await siteContentModule;
   const cases = legacyMetaAdsCases();

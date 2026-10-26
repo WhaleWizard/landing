@@ -53,6 +53,17 @@ const DEPTH: Record<string, [number, number]> = {
 
 type Mote = { x: number; y: number; r: number; sp: number; drift: number; ph: number };
 
+const PIECE_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  laptop: { width: 720, height: 693 },
+  notebook: { width: 700, height: 582 },
+  obj1: { width: 320, height: 265 },
+  obj3: { width: 320, height: 297 },
+  paper1: { width: 260, height: 258 },
+  paper2: { width: 254, height: 233 },
+  paper3: { width: 260, height: 270 },
+  paper4: { width: 260, height: 170 },
+};
+
 function Layer({ items }: { items: Piece[] }) {
   return (
     <>
@@ -61,10 +72,26 @@ function Layer({ items }: { items: Piece[] }) {
           key={p.file}
           className={`cds-obj ${p.cls}`}
           src={`/images/consult-proof/scene/${p.file}.webp`}
+          srcSet={
+            p.file === 'laptop'
+              ? '/images/consult-proof/scene/laptop-mobile.webp 480w, /images/consult-proof/scene/laptop.webp 720w'
+              : p.file === 'notebook'
+              ? '/images/consult-proof/scene/notebook-mobile.webp 400w, /images/consult-proof/scene/notebook.webp 700w'
+              : undefined
+          }
+          sizes={
+            p.file === 'laptop'
+              ? '(max-width: 1023px) 240px, 720px'
+              : p.file === 'notebook'
+              ? '(max-width: 1023px) 210px, 700px'
+              : undefined
+          }
+          width={PIECE_DIMENSIONS[p.file]?.width}
+          height={PIECE_DIMENSIONS[p.file]?.height}
           alt=""
-          loading="eager"
+          loading="lazy"
+          fetchpriority="low"
           decoding="async"
-          aria-hidden="true"
         />
       ))}
     </>
@@ -175,8 +202,8 @@ function ConsultDeskScene() {
     let onScreen = true;
     const shouldRun = () => onScreen && !document.hidden && !reduced && !isScrollActivityActive();
 
-    let appliedX = Number.NaN;
-    let appliedY = Number.NaN;
+    let appliedX = 0;
+    let appliedY = 0;
 
     const loop = (t: number) => {
       if (!shouldRun()) {
@@ -266,6 +293,14 @@ function ConsultDeskScene() {
 
     build();
 
+    if (compact) {
+      paint(0);
+      return () => {
+        observer?.disconnect();
+        if (!observer) window.removeEventListener('resize', handleWindowResize);
+      };
+    }
+
     const visibility = typeof IntersectionObserver === 'undefined'
       ? null
       : new IntersectionObserver(([entry]) => {
@@ -275,8 +310,14 @@ function ConsultDeskScene() {
       }, { rootMargin: '120px 0px', threshold: 0 });
     visibility?.observe(root);
 
+    let activationTimer = 0;
     paint(0);
-    start();
+    if (!reduced && !coarse) start();
+    else if (!reduced) {
+      activationTimer = window.setTimeout(() => {
+        start();
+      }, 4_500);
+    }
     if (!coarse) window.addEventListener('mousemove', onMove, { passive: true });
     motionPreference.addEventListener('change', onMotionPreference);
     document.addEventListener('visibilitychange', onVisibility);
@@ -285,6 +326,7 @@ function ConsultDeskScene() {
 
     return () => {
       stop();
+      if (activationTimer) window.clearTimeout(activationTimer);
       for (const [el] of planes) el.style.transform = '';
       motionPreference.removeEventListener('change', onMotionPreference);
       observer?.disconnect();
@@ -298,7 +340,7 @@ function ConsultDeskScene() {
   }, []);
 
   return (
-    <div className="cds" ref={rootRef} aria-hidden="true">
+    <div className="cds" ref={rootRef}>
       <div className="cds-desk" data-plane="desk" />
 
       <div className="cds-plane" data-plane="far">

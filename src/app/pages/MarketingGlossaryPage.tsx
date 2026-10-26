@@ -22,9 +22,10 @@ import {
   type GlossarySectionId,
   type MarketingGlossaryItem,
 } from '../data/marketingGlossary';
-import { hasGeneratedFirstScreen } from '../utils/firstScreen';
+import { hasGeneratedFirstScreen, isInitialEntry } from '../utils/firstScreen';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { useManagedTitleFit } from '../utils/contentTypography';
+import { useIdleReady } from '../hooks/useIdleReady';
 
 /** Заголовок страницы на телефоне — не больше двух строк. */
 const STATIC_TITLE_LINES = { titleMaxLinesMobile: 2 } as const;
@@ -121,7 +122,7 @@ export default function MarketingGlossaryPage() {
   const navigate = useNavigate();
   // Страница пришла готовой из HTML: появление шапки через motion не играет —
   // иначе в серверной разметке заголовок стоял бы с opacity:0 до JavaScript.
-  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
+  const settledEntrance = isInitialEntry(location.key) || hasGeneratedFirstScreen(location.pathname, location.key);
   const [query, setQuery] = useState('');
   const [selectedSection, setSelectedSection] = useState<SectionFilter>('all');
   const [selectedCollection, setSelectedCollection] = useState<CollectionFilter>('all');
@@ -179,11 +180,15 @@ export default function MarketingGlossaryPage() {
       .map(({ item }) => item);
   }, [collectionOrder, query, selectedSection]);
 
+  const idleReady = useIdleReady(3500);
+
   const displayGroups = useMemo(() => {
     const filteredIds = new Set(filteredTerms.map((term) => term.id));
 
+    let groups: { id: string; label: string; terms: MarketingGlossaryItem[] }[] = [];
+
     if (selectedCollectionData) {
-      return selectedCollectionData.groups
+      groups = selectedCollectionData.groups
         .map((group) => ({
           id: group.id,
           label: group.label,
@@ -195,16 +200,23 @@ export default function MarketingGlossaryPage() {
             .filter((term): term is MarketingGlossaryItem => Boolean(term)),
         }))
         .filter((group) => group.terms.length > 0);
+    } else {
+      groups = GLOSSARY_SECTIONS
+        .map((section) => ({
+          id: section.id,
+          label: section.label,
+          terms: filteredTerms.filter((term) => term.primarySection === section.id),
+        }))
+        .filter((group) => group.terms.length > 0);
     }
 
-    return GLOSSARY_SECTIONS
-      .map((section) => ({
-        id: section.id,
-        label: section.label,
-        terms: filteredTerms.filter((term) => term.primarySection === section.id),
-      }))
-      .filter((group) => group.terms.length > 0);
-  }, [filteredTerms, selectedCollectionData]);
+    const hasTargetHash = typeof window !== 'undefined' && window.location.hash.includes('term-');
+    if (!idleReady && !query && !hasTargetHash && groups.length > 2) {
+      return groups.slice(0, 2);
+    }
+
+    return groups;
+  }, [filteredTerms, selectedCollectionData, idleReady, query]);
 
   const metaAppsTermCount = useMemo(() => (
     new Set(glossaryCollections.find((collection) => collection.id === 'meta-apps')?.groups.flatMap((group) => group.termIds) || []).size
@@ -232,6 +244,7 @@ export default function MarketingGlossaryPage() {
   useEffect(() => {
     const scriptId = 'ld-marketing-glossary';
     let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (script && script.textContent && script.textContent.length > 50) return;
     if (!script) {
       script = document.createElement('script');
       script.id = scriptId;
@@ -454,8 +467,8 @@ export default function MarketingGlossaryPage() {
         </div>
 
         <div className="space-y-8">
-          {displayGroups.map((group) => (
-            <section key={group.id} aria-labelledby={`glossary-group-${group.id}`}>
+          {displayGroups.map((group, index) => (
+            <section key={group.id} style={index > 0 ? { contentVisibility: 'auto', containIntrinsicSize: '1px 500px' } : undefined} aria-labelledby={`glossary-group-${group.id}`}>
               <div className="mb-3 flex items-end justify-between gap-4">
                 <h2 id={`glossary-group-${group.id}`} className="text-xl md:text-2xl font-semibold text-pretty">
                   {group.label}

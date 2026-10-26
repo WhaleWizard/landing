@@ -61,7 +61,7 @@ import {
 } from '../data/caseCatalog';
 import { plural } from '../utils/plural';
 import { withReturnTo } from '../utils/siteNavigation';
-import { hasGeneratedFirstScreen } from '../utils/firstScreen';
+import { hasGeneratedFirstScreen, isInitialEntry } from '../utils/firstScreen';
 import ClientOnly from '../components/ClientOnly';
 
 const Footer = lazy(() => import('../components/Footer'));
@@ -403,13 +403,15 @@ function CaseResultCard({ item, index, href, onOpen, settledEntrance }: {
         aria-label={`Открыть кейс: ${item.title}`}
       >
         <div className="cases-result-cover">
-          <DeferredImage
-            {...articleImageAttributes(item.image, ARTICLE_IMAGE_SIZES.caseCover)}
-            alt={item.imageAlt}
-            loading={index === 0 ? 'eager' : 'lazy'}
-            decoding="async"
-            fetchPriority={index === 0 ? 'high' : 'low'}
-          />
+          {item.image ? (
+            <DeferredImage
+              {...articleImageAttributes(item.image, ARTICLE_IMAGE_SIZES.caseCover)}
+              alt={item.imageAlt}
+              loading={index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+              fetchPriority={index === 0 ? 'high' : 'low'}
+            />
+          ) : null}
           {isFeatured ? <span className="cases-featured-label">Топ-кейс</span> : null}
         </div>
 
@@ -468,7 +470,7 @@ export default function CasesPage() {
   const location = useLocation();
   // Страница пришла готовой из HTML (сборка + гидратация): появления через
   // motion не играют, иначе текст уехал бы в разметку с opacity:0.
-  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
+  const settledEntrance = isInitialEntry(location.key) || hasGeneratedFirstScreen(location.pathname, location.key);
   // Шапка витрины: две строки — потолок, третья ломает ритм экрана.
   const introTitleFit = useManagedTitleFit<HTMLHeadingElement>(INTRO_TITLE_LINES, { minFontSize: 22 });
 

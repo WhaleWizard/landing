@@ -38,3 +38,7 @@ scripts/.content-entry.build.*
 
 .lighthouseci/
 
+# Временные следы и логи аудита
+localhost_*.json
+scratch/
+

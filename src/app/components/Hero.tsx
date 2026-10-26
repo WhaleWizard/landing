@@ -34,7 +34,19 @@ function CosmicHeroFallback() {
   return (
     <div className="cosmic-stage" aria-hidden="true">
       <div className="cosmic-plane cosmic-sky-plane">
-        <div className="cosmic-sky" />
+        <img
+          className="cosmic-sky"
+          src="/images/cosmic/sky.webp"
+          srcSet="/images/cosmic/sky-compact.webp 900w, /images/cosmic/sky.webp 1920w"
+          sizes="(max-width: 900px) 100vw, 100vw"
+          alt=""
+          aria-hidden="true"
+          width={1920}
+          height={1080}
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
+        />
       </div>
       <div className="cosmic-scrim" />
       <div className="cosmic-vignette" />
@@ -317,6 +329,8 @@ const LeftContent = memo(({
           <div>
             <h1
               ref={titleRef}
+              data-ww-title-fit="2/0"
+              data-ww-title-fit-min="14"
               aria-label={content.titleLines.filter((line) => line.tone !== 'supporting').map((line) => line.text).join(' ')}
               className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
               style={managedTitleStyle(content.typography)}
@@ -498,7 +512,9 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false }: RightPan
               статике игнорировались, а несовпадение URL с preload давало бы
               двойную загрузку. Файл 746x720 — как раз под контейнер. */}
           <img
-            src="/images/hero-portrait.jpg"
+            src="/images/hero-portrait.webp"
+            srcSet="/images/hero-portrait-mobile.webp 400w, /images/hero-portrait.webp 746w"
+            sizes="(max-width: 640px) 150px, 746px"
             alt=""
             loading="eager"
             decoding="async"

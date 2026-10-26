@@ -70,7 +70,11 @@
     var minFontSize = Math.max(4, parseFloat(el.getAttribute(MIN_ATTR)) || 8);
     if (!(maxLines > 0) || el.clientWidth <= 0) return;
     var authored = parseFloat(window.getComputedStyle(el).fontSize);
-    if (!(authored > 0) || fits(el, maxLines)) return;
+    if (!(authored > 0)) return;
+    if (fits(el, maxLines)) {
+      el.setAttribute(DONE_ATTR, '');
+      return;
+    }
 
     var floor = Math.min(authored, minFontSize);
     el.style.setProperty('font-size', floor + 'px', 'important');
@@ -78,6 +82,7 @@
       // Даже минимальный кегль не укладывает текст в лимит — хук в этом случае
       // оставляет авторский размер. Делаем то же самое.
       el.style.removeProperty('font-size');
+      el.setAttribute(DONE_ATTR, '');
       return;
     }
     var low = floor;
@@ -105,22 +110,37 @@
     return true;
   }
 
+  var observer = null;
+
   function run() {
     var pending = doc.querySelectorAll('[' + FIT_ATTR + ']:not([' + DONE_ATTR + '])');
-    if (!pending.length) return;
+    if (!pending.length) {
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+      return;
+    }
     if (!stylesReady()) return;
     for (var i = 0; i < pending.length; i += 1) {
       // Пока у заголовка нет соседа, разборщик ещё внутри него: текст неполный.
       if (pending[i].nextSibling) fitOne(pending[i]);
     }
+    if (!doc.querySelector('[' + FIT_ATTR + ']:not([' + DONE_ATTR + '])') && observer) {
+      observer.disconnect();
+      observer = null;
+    }
   }
 
   if (typeof MutationObserver === 'function') {
-    var observer = new MutationObserver(run);
+    observer = new MutationObserver(run);
     observer.observe(doc.documentElement, { childList: true, subtree: true });
     doc.addEventListener('DOMContentLoaded', function () {
       run();
-      observer.disconnect();
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
     });
   }
 })();

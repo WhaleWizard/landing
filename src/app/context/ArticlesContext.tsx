@@ -162,6 +162,30 @@ function isInlineArticleSummary(value: unknown): value is Article {
   return true;
 }
 
+export function toInlineArticleSummary(article: Article): Article {
+  const summary: Article = {
+    id: typeof article.id === 'number' ? article.id : (Number(article.id) || 0),
+    _summary: true,
+    content: '',
+    slug: String(article.slug || ''),
+    title: String(article.title || ''),
+    category: String(article.category || ''),
+    readTime: String(article.readTime || ''),
+    date: String(article.date || ''),
+    description: String(article.description || ''),
+    image: String(article.image || ''),
+  };
+  if (article.tags !== undefined && Array.isArray(article.tags)) {
+    summary.tags = article.tags.map(String);
+  }
+  if (article.caseData !== undefined && isRecord(article.caseData)) {
+    summary.caseData = article.caseData;
+  }
+  if (article.publishedAt !== undefined) summary.publishedAt = String(article.publishedAt);
+  if (article.updatedAt !== undefined) summary.updatedAt = String(article.updatedAt);
+  return summary;
+}
+
 /**
  * Detail routes embed one complete article, while /blog and /cases embed a
  * compact array of public summaries. `null` distinguishes an invalid or

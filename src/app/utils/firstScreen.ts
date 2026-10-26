@@ -41,6 +41,11 @@ export function generatedFirstScreenRoute(): string | null {
   return browserGeneratedRoute;
 }
 
+export function isInitialEntry(locationKey: string): boolean {
+  if (typeof window === 'undefined') return true;
+  return locationKey === initialEntryKey;
+}
+
 export function hasGeneratedFirstScreen(pathname: string, locationKey: string): boolean {
   const generatedRoute = generatedFirstScreenRoute();
   return locationKey === initialEntryKey && generatedRoute !== null && generatedRoute === normalizeRoute(pathname);

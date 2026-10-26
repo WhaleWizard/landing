@@ -79,10 +79,13 @@ export function useWarmSections(loaders: ReadonlyArray<MemoizedLoader<unknown>>)
       target.addEventListener(type, start, { passive: true });
     }
 
-    // Если посетитель читает заголовок и ещё не начал листать, через секунду
-    // всё равно фоново прогреваем секции в свободный такт браузера:
-    const autoWarmTimer = typeof idleWindow.setTimeout === 'function'
-      ? idleWindow.setTimeout(start, 1200)
+    // Если посетитель читает заголовок и ещё не начал листать, через 3.5 секунды
+    // фоново прогреваем секции в свободный такт браузера, не конкурируя с LCP первого экрана
+    // (при включённом Save-Data прогреваем только по прямому жесту скролла/касания):
+    const nav = typeof navigator !== 'undefined' ? (navigator as { connection?: { saveData?: boolean } }) : undefined;
+    const isSaveData = Boolean(nav?.connection?.saveData);
+    const autoWarmTimer = !isSaveData && typeof idleWindow.setTimeout === 'function'
+      ? idleWindow.setTimeout(start, 3500)
       : 0;
 
     return () => {

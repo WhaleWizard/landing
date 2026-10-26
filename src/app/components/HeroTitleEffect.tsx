@@ -9,7 +9,6 @@ import {
   isContentFontId,
   type ContentFontId,
 } from '../utils/contentTypography';
-import '../../styles/hero-title-effects.css';
 
 export const HERO_TITLE_EFFECTS = [
   'none',

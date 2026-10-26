@@ -18,22 +18,12 @@
     <meta name="twitter:image" content="https://www.whalewzrd.com/og-image-v2.jpg" />
     <link rel="canonical" href="https://www.whalewzrd.com/" />
     <link rel="alternate" type="application/rss+xml" title="Whale Wizard Blog Feed" href="/feed.xml" />
-    <!-- Preload картинок героя задаётся пораутно в scripts/generate-pages.js:
-         портрет нужен только на / и /google-ads; у Meta Ads, консультации и
-         Meta Apps свои LCP-кадры. Общий preload здесь заставлял все 28 страниц
-         тянуть чужую картинку с высшим приоритетом. -->
-    <!-- Внешние счётчики загружаются после первого рендера, поэтому ранний
-         preconnect только конкурировал с LCP. DNS можно подготовить дёшево. -->
     <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
     <link rel="dns-prefetch" href="https://mc.yandex.ru" />
     <link rel="dns-prefetch" href="https://connect.facebook.net" />
     <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-    <!-- Библиотека шрифтов редактора: не блокирует первый кадр (media=print →
-         подмена на all после загрузки). Шрифт первого экрана объявлен preload-ом
-         ниже, скрипт подгонки заголовка эту таблицу не ждёт (data-ww-noncritical). -->
-    <link rel="stylesheet" href="/fonts/library.css" media="print" data-ww-noncritical onload="this.media='all'" />
+    <script>if(/^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname)){window.addEventListener('load',function(){setTimeout(function(){var l=document.createElement('link');l.rel='stylesheet';l.href='/fonts/library.css';l.media='print';l.onload=function(){l.media='all';};l.setAttribute('data-ww-noncritical','1');document.head.appendChild(l);}, /^\/admin(?:\/|$)/.test(location.pathname) ? 0 : 3500);});}</script>
     <noscript><link rel="stylesheet" href="/fonts/library.css" /></noscript>
-    <!-- Meta Pixel Code removed – теперь управляется через consent.ts -->
   </head>
   <body>
     <div id="root"></div>

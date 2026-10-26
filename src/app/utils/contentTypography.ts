@@ -532,7 +532,8 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     let titleFontFamilies = new Set<string>();
     let originalFontSize = element.style.getPropertyValue('font-size');
     let originalFontSizePriority = element.style.getPropertyPriority('font-size');
-    if (element.hasAttribute(TITLE_PREFIT_ATTRIBUTE)) {
+    const wasPrefitted = element.hasAttribute(TITLE_PREFIT_ATTRIBUTE);
+    if (wasPrefitted) {
       lastAppliedFontSize = originalFontSize;
       originalFontSize = '';
       originalFontSizePriority = '';
@@ -586,6 +587,13 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       return [window.innerWidth, element.clientWidth, element.clientHeight,
         contentRevision, fontRevision, ...typography].join(';');
     };
+
+    if (wasPrefitted) {
+      measuredOnce = true;
+      lastFitSignature = readFitSignature();
+      lastFitWidth = element.clientWidth;
+      lastFitHeight = element.clientHeight;
+    }
 
     /*
      * Вылезал ли текст за край ДО того, как замер выключил эффекты появления.
@@ -900,6 +908,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
     };
     void fontSet?.ready.then(() => {
       if (cancelled) return;
+      const isAnyFontPending = titleFontFamilies.size > 0
+        && [...titleFontFamilies].some((family) => !document.fonts?.check?.(`16px "${family}"`));
+      if (measuredOnce && !isAnyFontPending) return;
       fontRevision += 1;
       scheduleFit();
     }).catch(() => undefined);

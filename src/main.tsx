@@ -1,6 +1,5 @@
 import { useLayoutEffect } from 'react';
 import { createRoot, hydrateRoot } from "react-dom/client";
-import { flushSync } from 'react-dom';
 import App from "./app/App";
 import AppErrorBoundary from './app/components/AppErrorBoundary';
 import { initLeadRetryQueue } from './app/utils/leadRetryQueue';
@@ -28,6 +27,7 @@ const STATIC_SHELL_ID = 'ww-static-shell';
 
 function currentSiteContentKey(pathname: string): string | null {
   if (pathname === '/') return 'site:home';
+  if (pathname === '/faq' || pathname === '/faq/') return 'site:faq';
   const service = pathname.match(/^\/(meta-ads|meta-apps|google-ads|consult)\/?$/)?.[1];
   return service ? `service:${service}` : null;
 }
@@ -108,18 +108,17 @@ function renderApp() {
     });
     return;
   }
-  flushSync(() => {
-    createRoot(rootElement).render(tree);
-  });
+  createRoot(rootElement).render(tree);
 }
 
 function handOffToApp() {
-  // The route module is already prepared before this hand-off. Fading the
-  // entire root created one viewport-sized compositing layer: on iOS it could
-  // leave dark tiles over transformed hero content, and Lighthouse delayed
-  // stable text/image painting until that layer settled. Mount directly; the
-  // generated shell remains visible up to the same-frame React commit.
-  renderApp();
+  if (hadGeneratedShell && typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      renderApp();
+    });
+  } else {
+    renderApp();
+  }
 }
 
 async function bootstrap() {
@@ -159,7 +158,10 @@ async function bootstrap() {
   // handed off. This keeps the CMS request useful without competing with the
   // route/hero chunks or delaying the visual transition.
   if (hadGeneratedShell) {
-    window.setTimeout(() => { void prepareCurrentSiteContent(); }, 0);
+    const deferTask = typeof requestIdleCallback === 'function'
+      ? requestIdleCallback
+      : (cb: () => void) => window.setTimeout(cb, 2500);
+    deferTask(() => { void prepareCurrentSiteContent(); });
   }
 }
 

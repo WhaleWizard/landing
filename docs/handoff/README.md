@@ -1,7 +1,7 @@
 # Передача работы: с чего продолжать
 
 Точка входа для любой новой сессии Claude (облачной или локальной), когда владелец пишет «продолжи работу».
-Состояние на **01.10.2026**. Обновляй этот файл в конце каждой рабочей сессии: что сделано, что дальше.
+Состояние на **24.10.2026**. Обновляй этот файл в конце каждой рабочей сессии: что сделано, что дальше.
 
 ## 1. Быстрый старт
 
@@ -11,6 +11,180 @@
 4. Работать по очереди из раздела 3. После каждого законченного куска — `npm run check`, коммит, `git push origin main`, проверка прода (раздел 5).
 
 ## 2. Где мы сейчас
+
+**Сделано 27.10.2026 (Сессия Block B — Full Platform SSR First Screen & Hydration across 100% of Public Routes):**
+- **100% ПУБЛИЧНЫХ МАРШРУТОВ ПЛАТФОРМЫ ПЕРЕВЕДЕНЫ НА НАСТОЯЩИЙ SSR FIRST SCREEN И ЧИСТУЮ ГИДРАТАЦИЮ:**
+  - Группа 1 (Юридические): `/privacy-policy`, `/offer`, `/cookie-policy`
+  - Группа 2 (Калькуляторы): `/calculator`, `/roi-calculator`
+  - Группа 3 (Инфо и контент): `/faq`, `/marketing-glossary`
+  - Группа 4 (Списки материалов): `/cases`, `/blog`
+  - Маркетинговые и детальные статьи/кейсы сохранены и усилены.
+- **Инженерные решения Block B:**
+  1. `ArticlesContext.tsx`: экспортирован канонический `toInlineArticleSummary` для консистентной структуры кратких публичных карточек при серверном и клиентском рендере списков.
+  2. `useServiceContent.ts` / `useFaqContent.ts`: `initialContentOverride` экспортирован и подключен к `useFaqContent`, гарантируя идентичность данных `site:faq` на сервере и клиенте без расхождений.
+  3. `scripts/ssr-entry.tsx`: `SSR_ROUTES` расширен на все 14 публичных статических маршрутов; предзагрузка всех 17 модулей первого экрана включена в `preloadFirstScreenModules()`.
+  4. `scripts/generate-pages.js`: `renderArticleListPage` переведён на `renderRoute` с передачей `articleSeed` карточек, выставляя `hydratable: true`, маркеры `data-ww-first-screen` и `data-ww-prehydrate`.
+  5. `scripts/first-screen-hydration.test.js`: расширен до 18 тестов, покрывая все 14 статических страниц и страницы статей/кейсов. Результат: **18/18 тестов проходят, 0 recoverable errors, 0 hydration warnings**.
+  6. Все 46 наборов проверок `npm run check` завершены с кодом **0**.
+
+**Сделано 27.10.2026 (Сессия Complete 95–100 Mobile Lighthouse Across 100% of Routes):**
+- **ВСЕ 17 ПУБЛИЧНЫХ МАРШРУТОВ ПЛАТФОРМЫ ДОСТИГЛИ РЕЗУЛЬТАТА 95–99 В MOBILE LIGHTHOUSE (Slow 4G, 4x CPU slowdown):**
+  - 14 Маркетинговых и сервисных страниц: **95–99** (Home: 95, Meta Ads: 98, Meta Apps: 95, Google Ads: 99, Consult: 95, Cases listing: 98, Blog listing: 95, FAQ: 98, Calculators: 98, Glossary: 97, Legal: 96–97)
+  - Динамическая статья блога (`/blog/:slug`): **Score 95** | FCP: 906ms | LCP: 3009ms | TBT: 8ms | CLS: 0.0312
+  - Кейс 1 (`/cases/prodvizhenie-premialnogo-...`): **Score 95** | FCP: 906ms | LCP: 3010ms | TBT: 2ms | CLS: 0.0000 | SI: 1339ms
+  - Кейс 2 (`/cases/trafik-dlya-premialnyh-...`): **Score 95** | FCP: 908ms | LCP: 3008ms | TBT: 0ms | CLS: 0.0000 | SI: 1226ms
+- **Ключевой технический прорыв (Устранение барьера TCP CWND 14.6 KB):**
+  - Трансфер Кейса 2 сокращён с 16,510 байт (15,021 байт по сети с заголовками, требовавший 2 RTT) до 13,770 байт (14,247 байт transfer size по сети).
+  - Документ стал полностью помещаться в одно начальное окно перегрузки (10 пакетов MSS = 14,600 байт), устранив задержку 2-го RTT (+150ms).
+  - В результате FCP Кейса 2 упал с 1058ms до 908ms (-150ms), а LCP — с 3158ms до 3008ms (-150ms), подняв оценку с 94 до **95**.
+- **Реализованные оптимизации:**
+  1. `Navbar.tsx`: десктопное меню (`hidden lg:flex`) на контентных маршрутах (`variant="content"`) обёрнуто в `<ClientOnly>` (экономия 595 байт gzip).
+  2. `CaseArticleView.tsx`: вынос `case-article-cta` и мобильного оглавления `case-article-toc-mobile` в `<ClientOnly>` (экономия 467 и 166 байт gzip).
+  3. `CaseArticleView.tsx`: адаптация `faq` и `keyTakeaways` из готового SSR DOM при пустом seed, что позволило устранить дублирование FAQ и тезисов в `<script id="ww-article-seed">` (экономия 816 байт gzip).
+  4. `generate-pages.js`: удаление мертвого массива `knowsAbout` из `buildOrganizationJsonLd` (экономия 90 байт gzip).
+  5. `generate-pages.js`: очистка пустой оболочки `#ww-static-shell` на контентных страницах, где текст и навигация уже полностью присутствуют в `#root` (экономия 318 байт gzip).
+  6. `generate-pages.js`: вырезание редакторских атрибутов `data-ww-block` и `data-ww-tone` из публичной статики (экономия 243 байт gzip).
+  7. `articleImages.ts`: уточнение адаптивных размеров `ARTICLE_IMAGE_SIZES.caseCover` для скачивания 480w WebP (10 KB) вместо оригиналов (16–21 KB).
+- **Полная верификация качества и регрессионная стойкость:**
+  - Полный сквозной прогон `npm run check` (все 46 тестовых наборов, проверка типов src/ и functions/, полная production-сборка и валидация SEO-контрактов) завершён с кодом **0**.
+  - `first-screen-hydration.test.js`: 100% тестов гидратации зеленые, 0 предупреждений о срывах в клиентский рендеринг.
+  - Реестр `audit/extreme-performance/26_LIGHTHOUSE_95_TRACKER.csv` обновлён: все 17 маршрутов имеют статус `Target95Met = YES`.
+
+**Сделано 26.10.2026 (Сессия Mobile Case Routes Forensics & LCP/FCP Breakdown):**
+- **15 МАРШРУТОВ ДОСТИГЛИ РЕЗУЛЬТАТА 95–99 В MOBILE LIGHTHOUSE (14 базовых + статья блога):**
+  - Динамическая статья блога: **95** (FCP: 906–981ms, LCP: 3009–3010ms, TBT: 6–8ms, CLS: 0.0312)
+  - Динамические кейсы подняты до **92** в базовом коде (в изолированном тесте < 14KB — **93**; FCP: 982ms, LCP: 3160ms, TBT: 0ms, CLS: **0.0000**)
+- **Вскрыта фундаментальная математическая причина разрыва FCP и LCP кейсов:**
+  1. **Начальное окно TCP CWND (14.6 KB):** HTML кейсов весил 19.1 KB transfer size (> 14.6 KB) из-за тяжелого дублирования тела статьи в `ww-article-seed` и устаревшей схемы `FAQPage` (2.9 KB). Это требовало 2 раунд-трипа на 4G, задерживая FCP ровно на один RTT (+149ms: с 982ms до 1131ms). Эксперимент доказал: при сжатии документа < 14 KB FCP мгновенно падает до 982ms (-149ms).
+  2. **Привязка LCP к Interactive (TTI):** В симуляторе Lantern на кейсах `largestContentfulPaint` = 3161.8ms строго равен `interactive` = 3161.8ms.
+- **Обнаружены и зафиксированы новые дефекты кода:**
+  - `NEW-021` (P2, `scripts/generate-pages.js`): Мертвая схема `FAQPage` JSON-LD (2.9 KB / 1.6 KB gzip), отключенная в Google для коммерческих сайтов с 2023 года и не требуемая тестами.
+  - `NEW-022` (P2, `src/app/components/CaseArticleView.tsx`): Дублирование разметки `summary`, `takeaways` и `toc` на десктоп (`<aside>/<section>`) и мобильный (`<details>`) — 70+ лишних узлов DOM, утяжеляющих гидратацию.
+  - `NEW-023` (P2, `public/articles.seed.json`): Устаревшее поле `image: "/og-image.jpg"` у кейсов 12 и 13 вместо каталожных обложек, из-за чего пропускалась предзагрузка.
+  - `NEW-024` (P2, `src/app/pages/BlogPage.tsx`): Двойной прогон DOMPurify на клиенте при монтировании статьи/кейса, сжигающий 80–120ms троттленного CPU на уже очищенном SSR-тексте.
+- **Все 46 проверок `npm run check` стабильно зеленые (Exit code 0).**
+- **Полная памятка для продолжения:** `audit/extreme-performance/30_CONTINUATION_MEMO.md`.
+
+**Сделано 26.10.2026 (Сессия Mobile Dynamic Articles & Cases 95+ Optimization & Zero-CLS):**
+- **15 МАРШРУТОВ ДОСТИГЛИ РЕЗУЛЬТАТА 95–99 В MOBILE LIGHTHOUSE (14 базовых + статья блога):**
+  - Динамическая статья блога: **95** (FCP: 906–981ms, LCP: 3009–3010ms, TBT: 6–8ms, CLS: 0.0312)
+  - Динамические кейсы подняты до **92** (FCP: 1132ms, LCP: 3310–3311ms, TBT: 0–4ms, CLS: **0.0000**)
+  - Единая таблица стилей: устранена задержка отдельного CSS-чанка кейсов, LCP кейса 2 снизился с 3462ms до 3310ms (-152ms).
+  - Находки NEW-014 — NEW-020 добавлены в `audit/04_NEW_FINDINGS.csv`.
+  - Все 46 проверок `npm run check` стабильно зеленые (Exit code 0).
+- **Ликвидация сдвига макета CLS на Кейсе 2:**
+  - Вскрыта причина: в медиа-запросе `@media (max-width: 560px)` заголовок `.case-article-lead h1` принудительно задавался как `clamp(26px, 7.6vw, 33px)`, из-за чего длинный заголовок разбивался на 4 строки, а после гидратации сжимался до 3 со скачком 0.0582.
+  - Расслаблен clamp до `clamp(20px, 5.8vw, 28px)`, заголовок изначально рендерится в 3 строки. CLS стал строго **0.0000**.
+- **Оптимизация размеров обложек статей (`ARTICLE_IMAGE_SIZES.cover`):**
+  - Добавлено правило `(max-width: 480px) 180px`, телефон с DPR 2.625 теперь загружает `480.webp` (15 KB) вместо `768.webp` (36 KB). Статья блога достигла **95 баллов**.
+- **Устранение Framer Motion задержки на обложках статей:**
+  - Заменены `<m.figure>` и `<m.div>` на чистые `<figure>` и `<div>`, отключена анимация при `settledEntrance = true`, выставлен `decoding="auto"`.
+- **Разделение стилей каталога и кейсов (CSS chunk -50%):**
+  - Из `cases-finder.css` извлечен `src/styles/case-article.css`, что уменьшило размер блокирующего CSS на страницах кейсов с 36.78 KB до 19.06 KB (4.01 KB gzip).
+- **Разрешена блокировка SSR-сборки (`caseCatalog.ts`):**
+  - Устранен импорт ассетов Vite в пользу публичных WebP адресов, защищен `getCaseCatalogMeta` от прототипных свойств.
+- **Добавлены находки аудита NEW-014 — NEW-020** в `audit/04_NEW_FINDINGS.csv`.
+- **Полная верификация без регрессий:** все 46 тестов цепочки `npm run check` пройдены с кодом 0.
+
+**Сделано 26.10.2026 (Сессия Mobile Lighthouse 95–100 Target Completion):**
+- **100% ВСЕХ 14 МАРШРУТОВ ДОСТИГЛИ ЦЕЛИ 95–99 В MOBILE LIGHTHOUSE:**
+  - `/google-ads/`: **99** (FCP: 910ms, LCP: 1965ms, TBT: 25ms, CLS: 0)
+  - `/meta-ads/`: **98** (FCP: 908ms, LCP: 2487ms, TBT: 9ms, CLS: 0.0033)
+  - `/cases/`: **98** (FCP: 981ms, LCP: 2106ms, TBT: 130ms, CLS: 0)
+  - `/faq/`: **98** (FCP: 908ms, LCP: 2108ms, TBT: 120ms, CLS: 0)
+  - `/calculator/`: **98** (FCP: 907ms, LCP: 1957ms, TBT: 129ms, CLS: 0)
+  - `/roi-calculator/`: **98** (FCP: 907ms, LCP: 1957ms, TBT: 147ms, CLS: 0)
+  - `/marketing-glossary/`: **97** (FCP: 907ms, LCP: 2107ms, TBT: 179ms, CLS: 0)
+  - `/privacy-policy/`: **97** (FCP: 908ms, LCP: 2558ms, TBT: 0ms, CLS: 0)
+  - `/offer/`: **96** (FCP: 906ms, LCP: 2859ms, TBT: 5ms, CLS: 0)
+  - `/cookie-policy/`: **96** (FCP: 908ms, LCP: 2712ms, TBT: 0ms, CLS: 0)
+  - `/meta-apps/`: **95** (FCP: 1059ms, LCP: 2940ms, TBT: 16ms, CLS: 0)
+  - `/consult/`: **95** (FCP: 910ms, LCP: 2864ms, TBT: 19ms, CLS: 0)
+  - `/`: **95** (FCP: 1059ms, LCP: 2863ms, TBT: 9ms, CLS: 0)
+  - `/blog/`: **95** (FCP: 906ms, LCP: 2856ms, TBT: 65ms, CLS: 0)
+- **Искоренение утечки шрифта Inter на `/meta-ads/`:** в `functions/_lib/site-content.ts` и `scripts/site-content-sync.js` добавлена фильтрация случайного `"font": "inter"` в заголовке `service:meta-ads`. Устранены паразитные 66 KB шрифтов `inter-cyrillic` и `inter-latin`. Оценка выросла с 94 до **98**.
+- **Оптимизация сцены `/consult/`:** вторичные ассеты (`laptop`, `notebook`) переведены на десктопные preloads и `loading="lazy"`. LCP-фон `desk-v-800.webp` сжат с 78 KB до 38.7 KB. Устранен паразитный запрос `commissioner-latin` (36.1 KB) сужением `unicode-range` до букв. Оценка выросла с 88 до **95**.
+- **Новые находки аудита:** добавлены NEW-009 — NEW-013 в `audit/04_NEW_FINDINGS.csv`.
+- **Памятка бесшовного продолжения:** `audit/extreme-performance/30_CONTINUATION_MEMO.md`.
+- **Полная верификация без регрессий:** все 45+ тестов цепочки `npm run check` пройдены с кодом 0.
+
+**Сделано 24.10.2026 (Сессия Mobile Lighthouse 95+ Forensics & Optimizations):**
+- **Глобальная памятка продолжения:** `audit/extreme-performance/30_CONTINUATION_MEMO.md`.
+- **Удален лишний шрифт Pangolin (-124 KB):** вычищен `font: pangolin` из `site-content` и `_lib/site-content.ts` для `/meta-ads/`, FCP упал на -1.82s.
+- **Responsive Eager Hero на Главной (/):** фон `.cosmic-sky` заменен на responsive `<img>` с compact-версией, кит получил responsive `srcset`.
+- **Кэширование SSR Seed:** `useServiceContent` синхронно кэширует исходный текст, предотвращая дублирующие запросы к `/api/site-content` при старте.
+- **Отложен Cookie Consent:** `CookieConsentManager` переведен на `useIdleReady(1500)` в `src/app/routes.tsx`.
+- **Отложен `library.css`:** 182 KB CMS-шрифтов убраны из критического графа LCP Lantern.
+- **Мобильный Lighthouse поднялся:** `/meta-ads/` (86–87), `/google-ads/` (88), `/meta-apps/` (87), `/` (84). TBT 0–20ms, CLS 0.000.
+- **Полный прогон проверок:** все тесты `npm run check` (типы, SEO, регрессии, сборка) — 100% PASS.
+
+**Сделано 23.10.2026 (Extreme Performance Engineering v6.0 · Multi-Device Stress Testing · Lighthouse 95+ · Autonomous Repair):**
+
+- **Level A — Стандартизированный десктопный и мобильный аудит Lighthouse:**
+  - **Десктоп: 100% маршрутов стабильно удерживают 96–100** (медиана **98**). 100/100 на `/roi-calculator/` и `/cookie-policy/`, 99 на `/blog/`, 98 на `/`, 97 на всех услугах. TBT 0ms и CLS 0.000 на всех 14 маршрутах.
+  - **Мобильный (Moto G4, 4x CPU throttle, 1.6 Mbps):**
+    - `/privacy-policy/`: **91** (FCP 2497ms, LCP 2993ms, TBT 8ms, CLS 0.000)
+    - `/cookie-policy/`: **91** (FCP 2572ms, LCP 2992ms, TBT 3ms, CLS 0.000)
+    - `/offer/`: **89** (FCP 2796ms, LCP 3142ms, TBT 5ms, CLS 0.000)
+    - `/calculator/`: **88** (FCP 2869ms, LCP 3132ms, TBT 74ms, CLS 0.000)
+    - `/roi-calculator/`: **88** (FCP 2646ms, LCP 3138ms, TBT 142ms, CLS 0.000)
+    - `/google-ads/`: **86** (FCP 2797ms, LCP 3495ms, TBT 0ms, CLS 0.000)
+    - `/meta-apps/`: **84** (FCP 2946ms, LCP 3718ms, TBT 0ms, CLS 0.000)
+    - `/cases/`: **83** (FCP 2859ms, LCP 3692ms, TBT 156ms, CLS 0.000)
+    - `/faq/`: **80** (FCP 2709ms, LCP 4183ms, TBT 151ms, CLS 0.000)
+    - `/marketing-glossary/`: **79** (FCP 2708ms, LCP 3536ms, TBT 315ms, CLS 0.000) — прирост +6 пунктов, LCP сокращен с 4262ms до 3536ms
+    - `/blog/`: **78** (FCP 2709ms, LCP 4370ms, TBT 181ms, CLS 0.000)
+    - `/consult/`: **75** (FCP 2941ms, LCP 5288ms, TBT 15ms, CLS 0.000) — прирост +4 пункта, LCP сокращен с 6761ms до 5288ms
+    - `/meta-ads/`: **75** (FCP 3781ms, LCP 4625ms, TBT 0ms, CLS 0.000)
+    - `/`: **75** (FCP 3032ms, LCP 4866ms, TBT 139ms, CLS 0.000)
+- **Level B — Реальный пользовательский опыт (Field / Lab CWV):**
+  - **CLS 0.000** по всем 14 маршрутам на десктопе и мобильных устройствах.
+  - **TBT на мобильных устройствах**: 0ms на посадочных страницах (`/meta-ads/`, `/meta-apps/`, `/google-ads/`), 3-15ms на `/cookie-policy/`, `/offer/`, `/privacy-policy/`, `/consult/`.
+  - **Warm Cache Navigation**: FCP и LCP от **92ms до 204ms** на телефоне Moto G4 под 4x троттлингом CPU.
+- **Level C — Стресс-тестирование на слабых сетях и устройствах (CDP Automation):**
+  - 100% PASS гидратации, 100% немедленная видимость первого экрана, 0 срывов в клиентский рендер, 0 необработанных исключений при профилях от 3 Mbps до 100 Kbps.
+- **Сессия Mobile 95+ (23.10.2026 16:53):**
+  - Подробная памятка возобновления и точные инструкции: `audit/extreme-performance/30_RESUMPTION_MEMO.md`.
+  - Сгенерирован и внедрен `public/images/meta-proof/paper-stack-480.webp` (8.8 KB vs 18.8 KB, -53%) с адаптивным `srcSet` и `preload`.
+  - Устранен отдельный блокирующий CSS-файл `HeroTitleEffect-*.css` (стили консолидированы в `src/styles/index.css`), экономия одного RTT (304ms).
+  - Устранен неиспользуемый импорт `flushSync` в `src/main.tsx`, `npm run typecheck:app` и `functions` — 100% PASS.
+  - Детально расследован механизм симулятора Lantern: узкие места зафиксированы в цепочках шрифтов (`prata` и `inter`) и `background-image` неба. Шаги 1–4 готовы к мгновенному продолжению.
+  - `src/app/pages/Home.tsx` и `src/app/pages/ServiceLandingPage.tsx`: скорректирован `rootMargin` с 350px до 120px на мобильных вьюпортах. Устранено преждевременное монтирование секции `#services` и подложки `PlexusBackdrop` в первом кадре Hero, предотвратив reflow и сэкономив 544ms CPU.
+  - `src/app/utils/contentTypography.ts`: внедрен шорт-кат `wasPrefitted` при гидратации. Предотвращен сброс кегля и повторный бинарный поиск, исключив вторичный LCP reflow.
+  - `src/styles/cosmic-hero.css`: отключена 46-секундная фоновая CSS-анимация `.cosmic-sky` на экранах до 900px (`animation: none; will-change: auto;`), исключив вторичный paint-триггер при снятии `data-ww-prehydrate`.
+  - `src/app/components/service-heroes/ConsultDeskScene.tsx`:
+    - Устранена паразитная мутация inline-стилей `translate3d(0,0,0)` на `.cds-desk` при гидратации (`appliedX = 0, appliedY = 0`).
+    - Декоративные объекты стола переведены в `loading="lazy"` и `decoding="async"`, устранив одновременную конкуренцию 236 KB вторичных изображений с LCP-фоном.
+    - Внедрена задержка старта canvas-пыли на touch-устройствах (`activationTimer`).
+    - Изображения `desk-v-800.webp` (-43.6 KB), `laptop.webp` (-4.4 KB), `notebook.webp` (-7.0 KB) пережаты через sharp.
+  - `scripts/generate-pages.js`:
+    - Реализовано физическое поднятие критических CSS-файлов (`index-*.css`, route CSS) и high-priority preloads в самый верх `<head>`. Скрипты и `modulepreload` смещены в конец `<head>`, обеспечив Preload Scanner первый раунд TCP-пакетов под стили.
+    - В `ROUTE_FONT_PRELOADS` добавлен маршрут `/meta-ads` с подмножествами `WW Prata` (`cyrillic` и `latin`), устранена паразитная предзагрузка 48 KB неиспользуемого шрифта Pangolin.
+  - `src/app/pages/MarketingGlossaryPage.tsx`: внедрен `content-visibility: auto; contain-intrinsic-size: 1px 500px;` на секциях глоссария, сократив DOM Style & Layout time.
+  - `src/app/components/hooks/useArticlesApi.ts`: добавлена проверка заголовка `content-type: application/json` перед парсингом `json()` в `requestArticles` и `fetchArticle` (NEW-007 RESOLVED).
+  - Реестр `audit/04_NEW_FINDINGS.csv`: все 7 находок (NEW-001..NEW-007) переведены в статус **RESOLVED**.
+- **Полная верификация:** цепочка `npm run check` (все 45+ наборов тестов, сборка, контракты SEO) полностью зелёная (код 0).
+
+- **Калибровка и предварительный аудит окружения Antigravity (`audit/TOOLING_READINESS.md`):**
+  - Подтверждена работоспособность и протокол stdio JSON-RPC 2.0 для `chrome-devtools` (`chrome-devtools-mcp` v1.12.0) и `playwright` (`@playwright/mcp` v1.64.0-alpha).
+  - Установлены и верифицированы локальные инструменты качества: `@lhci/cli` (v0.15.1), `semgrep` (v1.182.1), `rollup-plugin-visualizer` (v7.1.1), `knip` (v6.42.1), `madge` (v8.0.0), `eslint` (v10.13.0) с `eslint-plugin-react-hooks` (v7.1.1), `@axe-core/playwright` (v4.14.0).
+  - Сформированы и проверены 7 специализированных Agent Skills в `.agents/skills/` (`audit-source`, `audit-performance`, `audit-hero`, `audit-desktop-mobile-qa`, `audit-rca`, `audit-regression-guard`, `audit-context-sync`).
+  - Проанализировано расщепление бандлов Vite (`dist/stats.html`): подтверждено, что бандл админки (`Admin-*.js`, `react-dnd`) полностью изолирован и не попадает в публичные бандлы; размер главного входного чанка составляет всего 47.5 KB raw (~13 KB gzip).
+- **Комплексный аудит Core Web Vitals и гидратации (`audit/performance/PERFORMANCE_REPORT.md`):**
+  - Проведено автоматизированное тестирование 8 ключевых маршрутов (`/`, `/meta-ads/`, `/meta-apps/`, `/google-ads/`, `/consult/`, `/blog/`, `/cases/`, `/faq/`) в двух профилях: Desktop (1440×900) и Mobile-MotoG4-Sim (375×812 с 4x замедлением CPU).
+  - Результаты:
+    - **LCP**: 100% маршрутов укладываются в стандарт Google Good (<2500ms; десктоп 136–1708ms, мобильный 548–840ms).
+    - **CLS**: 0.0000–0.0001 по всем маршрутам (полное отсутствие сдвигов макета).
+    - **Гидратация**: PASS на всех 16 замерах, 0 срывов в клиентский рендеринг (`console.warn` чист).
+    - **TBT на мобильном**: зафиксировано повышение TBT на `/blog/` (466ms), `/cases/` (475ms) и `/faq/` (395ms) под 4x CPU замедлением из-за тяжести DOM-дерева (в FAQ 2 821 DOM-узел) (внесено в `audit/04_NEW_FINDINGS.csv` как NEW-006).
+- **Кросс-вьюпортный QA-аудит (364 автоматические проверки, `audit/qa/VIEWPORT_QA_REPORT.md`):**
+  - 14 статических маршрутов протестированы на 8 десктопных разрешениях (768px–2560px), 15 мобильных брейкпоинтах (320px–1023px) и при стресс-зуме (125%, 150%, 200%).
+  - Результат: **0 пикселей горизонтального переполнения** (`scrollWidth <= innerWidth` выполнено на 100% проверок).
+- **Посимвольный аудит исходного кода (`scripts/audit/check-characters.mjs`):**
+  - Просканировано 426 файлов исходного кода (`src/`, `functions/`, `scripts/`). Зафиксировано 0 BOM, 0 невидимых zero-width пробелов.
+- **Мастер-реестры и верификация:**
+  - Обновлены `audit/00_MASTER_STATE.md`, `audit/04_NEW_FINDINGS.csv`, `audit/06_VERIFICATION_MATRIX.csv`.
+  - Цепочка проверок `npm run check` полностью зелёная (exit code 0 across all 45+ test suites).
 
 **Сделано 23.10.2026 (Antigravity Ultimate Engineering System v4.0, Architecture & Static Hardening):**
 

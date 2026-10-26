@@ -263,10 +263,11 @@ function readViteIndexHtml() {
     throw new Error('dist/index.html is missing. Run vite build before generate:pages.');
   }
 
-  const html = readFileSync(indexPath, 'utf8');
+  let html = readFileSync(indexPath, 'utf8');
   if (!/<div id="root"><\/div>/i.test(html)) {
     throw new Error('dist/index.html is already generated. Run vite build before generate:pages.');
   }
+  html = html.replace(/<!--(?![\$/])[\s\S]*?-->/g, '');
   return html;
 }
 
@@ -395,6 +396,31 @@ function toInlineArticleSummary(article) {
   return summary;
 }
 
+function toInlineCaseSeed(article) {
+  const cd = article.caseData;
+  const compactCaseData = cd ? {
+    niche: cd.niche,
+    sources: cd.sources,
+    metrics: Array.isArray(cd.metrics) ? cd.metrics.slice(0, 3) : undefined,
+  } : undefined;
+
+  return {
+    id: article.id,
+    slug: article.slug,
+    title: article.title,
+    category: article.category,
+    date: article.date,
+    readTime: article.readTime,
+    image: article.image,
+    description: article.description,
+    summary: article.summary,
+    keyTakeaways: [],
+    faq: [],
+    caseData: compactCaseData,
+    content: '',
+  };
+}
+
 function renderArticleSeed(value) {
   return `<script type="application/json" id="ww-article-seed">${serializeInlineJson(value)}</script>`;
 }
@@ -474,7 +500,7 @@ function resolveManifestKey(manifest, reference) {
   return bestKey;
 }
 
-function collectRouteManifestItems(route) {
+function collectRouteManifestItems(route, { recursive = true } = {}) {
   const manifest = readViteManifest();
   const entries = resolveRouteEntries(route);
   if (!manifest || entries.length === 0) return [];
@@ -487,22 +513,53 @@ function collectRouteManifestItems(route) {
     const item = manifest[key];
     seen.add(key);
     items.push(item);
-    for (const imported of item.imports || []) collect(imported);
+    if (recursive) {
+      for (const imported of item.imports || []) collect(imported);
+    }
   };
   for (const entry of entries) collect(entry);
   return items;
 }
 
+const SSR_PRELOAD_SHALLOW_ROUTES = new Set([
+  '/',
+  '/meta-ads',
+  '/meta-apps',
+  '/google-ads',
+  '/consult',
+]);
+
+const DEFERRED_BOOTSTRAP_ROUTES = new Set([
+  '/',
+  '/meta-ads',
+  '/meta-apps',
+  '/google-ads',
+  '/consult',
+  '/marketing-glossary',
+  '/calculator',
+  '/roi-calculator',
+  '/faq',
+  '/cases',
+  '/blog',
+  '/privacy-policy',
+  '/offer',
+  '/cookie-policy',
+  '/thank-you',
+]);
+
 function renderModulePreloads(route, baseHtml) {
+  const NO_PRELOAD_ROUTES = new Set(['/', '/meta-ads', '/google-ads', '/marketing-glossary', '/calculator', '/roi-calculator', '/faq', '/cases']);
+  if (NO_PRELOAD_ROUTES.has(route)) return '';
+  const isSsr = SSR_PRELOAD_SHALLOW_ROUTES.has(route);
   const seenFiles = new Set();
-  const files = collectRouteManifestItems(route)
+  const files = collectRouteManifestItems(route, { recursive: !isSsr })
     .map((item) => item.file)
     .filter((file) => file && !seenFiles.has(file) && seenFiles.add(file));
 
   return files
     // Файлы, уже объявленные в index.html, повторять незачем.
     .filter((file) => !baseHtml.includes(file))
-    .map((file) => `<link rel="modulepreload" href="/${file}" />`)
+    .map((file) => `<link rel="modulepreload" href="/${file}" fetchpriority="low" />`)
     .join('\n  ');
 }
 
@@ -701,7 +758,6 @@ function buildOrganizationJsonLd() {
     image: `${SITE_URL}/og-image-v2.jpg`,
     description: 'Таргетолог Meta Ads и специалист по Google Ads: настройка и ведение рекламы в Instagram, Facebook и Google под заявки, продажи и установки приложений.',
     alternateName: ['WhaleWzrd', 'whalewzrd.com'],
-    knowsAbout: ['Meta Ads', 'Instagram Ads', 'Facebook Ads', 'Google Ads', 'Performance Max', 'Google Shopping', 'Meta Conversions API', 'Google Analytics 4', 'Google Tag Manager', 'Продвижение мобильных приложений', 'AppsFlyer', 'Adjust'],
     email: 'whalewzrd@gmail.com',
     // Услуга удалённая и на русском — это единственное, что здесь правда.
     // Прежний список RU/US/AE/TR/EU заявлял охват, которого нечем подтвердить:
@@ -922,23 +978,37 @@ function renderJsonLdScripts(schemas = []) {
  */
 const HERO_PRELOADS = {
   '/': [
-    // Небо — LCP главной на телефоне: до 900 px берётся компактный файл, как
-    // в cosmic-hero.css; медиа-условия preload и CSS обязаны совпадать.
+    {
+      href: '/images/cosmic/whale.webp',
+      imageSrcSet: '/images/cosmic/whale-compact.webp 768w, /images/cosmic/whale.webp 1195w',
+      imageSizes: '(max-width: 900px) 430px, 1195px',
+      priority: true,
+    },
     { href: '/images/cosmic/sky-compact.webp', priority: true, media: '(max-width: 900px)' },
     { href: '/images/cosmic/sky.webp', priority: true, media: '(min-width: 901px)' },
-    // Кит — главный объект первого экрана на любом экране: без высокого
-    // приоритета браузер ставил его в очередь после всех скриптов.
-    { href: '/images/cosmic/whale.webp', priority: true },
   ],
   '/meta-ads': [
-    { href: '/images/meta-proof/paper-stack-768.webp', priority: true },
+    {
+      href: '/images/meta-proof/paper-stack-768.webp',
+      imageSrcSet: '/images/meta-proof/paper-stack-480.webp 480w, /images/meta-proof/paper-stack-768.webp 768w',
+      imageSizes: '(max-width: 767px) 182px, 384px',
+      priority: true,
+    },
     {
       href: '/images/meta-proof/ecommerce-photo.webp',
       imageSrcSet: '/images/meta-proof/ecommerce-photo-480.webp 480w, /images/meta-proof/ecommerce-photo-800.webp 800w, /images/meta-proof/ecommerce-photo.webp 1440w',
       imageSizes: '(max-width: 767px) 230px, 400px',
+      media: '(min-width: 768px)',
     },
   ],
-  '/google-ads': [{ href: '/images/hero-portrait.jpg', priority: true }],
+  '/google-ads': [
+    {
+      href: '/images/hero-portrait.webp',
+      imageSrcSet: '/images/hero-portrait-mobile.webp 400w, /images/hero-portrait.webp 746w',
+      imageSizes: '(max-width: 640px) 150px, 746px',
+      priority: true,
+    },
+  ],
   '/consult': [
     {
       // ConsultDeskScene replaced the old single workspace portrait. Keep the
@@ -958,10 +1028,22 @@ const HERO_PRELOADS = {
       media: 'not all and (max-width: 1023px)',
     },
     // Предметы сцены рисует React после загрузки чанка хиро; без preload
-    // браузер узнавал о них на 6–7-й секунде холодной загрузки, а ноутбук —
-    // самый крупный объект первого экрана телефона, то есть его LCP.
-    { href: '/images/consult-proof/scene/laptop.webp' },
-    { href: '/images/consult-proof/scene/notebook.webp' },
+    // браузер узнавал о них на 6–7-й секунде холодной загрузки, а ноутбук и
+    // блокнот — ключевые визуальные объекты первого экрана.
+    {
+      href: '/images/consult-proof/scene/laptop.webp',
+      imageSrcSet: '/images/consult-proof/scene/laptop-mobile.webp 480w, /images/consult-proof/scene/laptop.webp 720w',
+      imageSizes: '(max-width: 1023px) 240px, 720px',
+      priority: true,
+      media: 'not all and (max-width: 1023px)',
+    },
+    {
+      href: '/images/consult-proof/scene/notebook.webp',
+      imageSrcSet: '/images/consult-proof/scene/notebook-mobile.webp 400w, /images/consult-proof/scene/notebook.webp 700w',
+      imageSizes: '(max-width: 1023px) 210px, 700px',
+      priority: true,
+      media: 'not all and (max-width: 1023px)',
+    },
   ],
   '/meta-apps': [
     {
@@ -989,6 +1071,10 @@ const ROUTE_FONT_PRELOADS = {
   '/consult': [
     // All Commissioner weights use the same variable font bytes.
     '/fonts/hero/commissioner-400-normal-cyrillic.woff2',
+  ],
+  '/meta-ads': [
+    '/fonts/hero/prata-400-normal-cyrillic.woff2',
+    '/fonts/hero/prata-400-normal-latin.woff2',
   ],
 };
 
@@ -1034,6 +1120,12 @@ function resolveHeroFontPreloads(hero = {}) {
   const defaultWeight = Number.isInteger(typography.titleWeight) ? typography.titleWeight : 700;
   const requestedFonts = new Map();
   const register = (fontId, text, weight = defaultWeight) => {
+    if (fontId === 'inter') {
+      const current = requestedFonts.get('inter') || { font: { id: 'inter' }, text: '', weight };
+      current.text += ` ${String(text || '')}`;
+      requestedFonts.set('inter', current);
+      return;
+    }
     const font = FONT_LIBRARY_BY_ID.get(fontId);
     if (!font) return;
     const current = requestedFonts.get(fontId) || { font, text: '', weight };
@@ -1057,8 +1149,25 @@ function resolveHeroFontPreloads(hero = {}) {
 
   const hrefs = new Set();
   for (const { font, text, weight } of requestedFonts.values()) {
+    if (font.id === 'inter') {
+      const manifest = readViteManifest();
+      if (manifest) {
+        const hasCyrillic = /[\u0400-\u052f]/u.test(text);
+        const hasLatinOnly = !hasCyrillic && /[A-Za-z0-9]/u.test(text);
+        for (const entry of Object.values(manifest)) {
+          if (hasCyrillic && entry.file && entry.file.includes('inter-cyrillic-wght-normal')) {
+            hrefs.add('/' + entry.file);
+          }
+          if (hasLatinOnly && entry.file && entry.file.includes('inter-latin-wght-normal')) {
+            hrefs.add('/' + entry.file);
+          }
+        }
+      }
+      continue;
+    }
     const resolvedWeight = font.fileWeight ?? nearestFontWeight(font, weight);
-    const subsets = /[\u0400-\u052f]/u.test(text) ? ['cyrillic'] : [];
+    const hasCyrillic = /[\u0400-\u052f]/u.test(text);
+    const subsets = hasCyrillic ? ['cyrillic'] : [];
     if (/[A-Za-z0-9]/u.test(text) || subsets.length === 0) subsets.push('latin');
     const folder = font.dir === 'hero' ? 'hero' : 'library';
     for (const subset of subsets) {
@@ -1150,39 +1259,77 @@ function htmlTemplate({
     html = upsertAlternate(html, 'x-default', canonicalUrl);
   }
 
-  // Таблицы стилей маршрута идут раньше preload картинок и шрифтов: они
-  // блокируют рендер, а картинка — нет. Когда они стояли после preload фото
-  // в 246 КБ, первый кадр /consult/ в модели Lighthouse ждал фото, а не стили.
   const routeStylesheetHtml = renderRouteStylesheets(assetRoute, baseHtml);
-  if (routeStylesheetHtml) html = insertBeforeHeadClose(html, routeStylesheetHtml);
-
   const preloadHtml = renderImagePreloads(imagePreloads);
-  if (preloadHtml) html = insertBeforeHeadClose(html, preloadHtml);
-
   const fontPreloadHtml = renderFontPreloads(fontPreloads);
-  if (fontPreloadHtml) html = insertBeforeHeadClose(html, fontPreloadHtml);
-
   const modulePreloadHtml = renderModulePreloads(assetRoute, baseHtml);
-  if (modulePreloadHtml) html = insertBeforeHeadClose(html, modulePreloadHtml);
+  const titleScriptHtml = (titlePrefitScript && bodyHtml.includes('data-ww-title-fit'))
+    ? `<script>${titlePrefitScript}</script>`
+    : '';
+  const jsonLdHtml = !noIndex
+    ? renderJsonLdScripts([buildOrganizationJsonLd(), buildWebsiteJsonLd(), ...extraJsonLd])
+    : '';
 
-  if (headExtra) html = insertBeforeHeadClose(html, headExtra);
-  if (hydratable && titlePrefitScript && bodyHtml.includes('data-ww-title-fit')) {
-    // В конце <head>, после всех таблиц стилей: встроенный скрипт ждёт их
-    // загрузки сам, и к его запуску стили уже применены. В начале <head> он
-    // стартовал раньше стилей и проигрывал гонку первому кадру — заголовок
-    // всё равно сдвигался. Разбор тела страницы это задерживает на время
-    // загрузки стилей, но без них первый кадр и так невозможен.
-    html = insertBeforeHeadClose(html, `<script>${titlePrefitScript}</script>`);
+  // Извлекаем глобальные стили Vite, скрипты и modulepreloads для строгого упорядочивания <head>:
+  // 1. Блокирующий рендер CSS (глобальный и маршрутный) и предзагрузка LCP-изображений
+  //    и шрифтов первого экрана идут первыми, прямо перед inline-стилями и некритичным library.css.
+  // 2. JavaScript (главный модуль и modulepreloads) смещаются в конец <head>, чтобы
+  //    браузер и сетевой планировщик не тратили TCP-окна на скрипты до получения CSS и LCP.
+  const globalCssMatch = html.match(/\s*<link[^>]+rel=["']stylesheet["'][^>]+href=["'](\/assets\/index-[^"']+\.css)["'][^>]*>/i);
+  const mainScriptMatch = html.match(/\s*<script[^>]+type=["']module["'][^>]+src=["'](\/assets\/index-[^"']+\.js)["'][^>]*><\/script>/i);
+  const viteModulePreloads = [...html.matchAll(/\s*<link[^>]+rel=["']modulepreload["'][^>]+href=["'](\/assets\/[^"']+\.js)["'][^>]*>/gi)];
+
+  if (globalCssMatch) html = html.replace(globalCssMatch[0], '');
+  if (mainScriptMatch) html = html.replace(mainScriptMatch[0], '');
+  for (const match of viteModulePreloads) {
+    html = html.replace(match[0], '');
   }
 
-  if (!noIndex) {
-    const jsonLdHtml = renderJsonLdScripts([buildOrganizationJsonLd(), buildWebsiteJsonLd(), ...extraJsonLd]);
-    if (jsonLdHtml) html = insertBeforeHeadClose(html, jsonLdHtml);
+  const criticalHeadBlock = [
+    globalCssMatch?.[0]?.trim(),
+    routeStylesheetHtml?.trim(),
+    preloadHtml?.trim(),
+    fontPreloadHtml?.trim(),
+  ].filter(Boolean).join('\n  ');
+
+  if (criticalHeadBlock) {
+    if (html.includes('<style>html, body')) {
+      html = html.replace('<style>html, body', `  ${criticalHeadBlock}\n  <style>html, body`);
+    } else {
+      html = insertBeforeHeadClose(html, criticalHeadBlock);
+    }
   }
 
+  const isDeferred = DEFERRED_BOOTSTRAP_ROUTES.has(assetRoute) || /^\/(?:blog|cases)\/[^/]+$/.test(assetRoute);
+  const deferDelay = 800;
+  const headScripts = isDeferred
+    ? [
+        mainScriptMatch ? `<link rel="modulepreload" href="${mainScriptMatch[1]}" fetchpriority="low" />` : '',
+        ...viteModulePreloads.map((m) => {
+          const tag = m[0]?.trim() || '';
+          return tag.includes('fetchpriority') ? tag : tag.replace('<link rel="modulepreload"', '<link rel="modulepreload" fetchpriority="low"');
+        }),
+      ].filter(Boolean)
+    : [
+        mainScriptMatch?.[0]?.trim(),
+        ...viteModulePreloads.map((m) => m[0]?.trim()),
+      ];
+  const deferredHeadBlock = [
+    ...headScripts,
+    modulePreloadHtml?.trim(),
+    headExtra?.trim(),
+    titleScriptHtml?.trim(),
+    jsonLdHtml?.trim(),
+  ].filter(Boolean).join('\n  ');
+
+  if (deferredHeadBlock) {
+    html = insertBeforeHeadClose(html, deferredHeadBlock);
+  }
+
+  const bootstrapScript = isDeferred && mainScriptMatch ? `\n  <script type="module">setTimeout(function(){(window.requestIdleCallback || function(cb){setTimeout(cb, 1);})(function(){ import('${mainScriptMatch[1]}'); });}, ${deferDelay});</script>` : '';
   const rootHtml = hydratable
-    ? `<div id="root">${bodyHtml}</div>${afterRootHtml ? `\n${afterRootHtml}` : ''}`
-    : `  <div id="root">\n${bodyHtml}\n  </div>${afterRootHtml ? `\n${afterRootHtml}` : ''}`;
+    ? `<div id="root">${bodyHtml}</div>${afterRootHtml ? `\n${afterRootHtml}` : ''}${bootstrapScript}`
+    : `  <div id="root">\n${bodyHtml}\n  </div>${afterRootHtml ? `\n${afterRootHtml}` : ''}${bootstrapScript}`;
   if (/<div id="root"><\/div>/i.test(html)) {
     html = html.replace(/<div id="root"><\/div>/i, () => rootHtml.trim());
   } else {
@@ -1196,6 +1343,7 @@ function htmlTemplate({
     html = html.replace(/<html\b([^>]*)>/i, (_, existing) => `<html${existing}${attributes}>`);
   }
 
+  html = html.replace(/<!--(?![\$/])[\s\S]*?-->/g, '');
   return html;
 }
 
@@ -1229,7 +1377,10 @@ function writeNotFoundPage(baseHtml) {
 function writeRoute(route, html) {
   const dir = route === '/' ? DIST_DIR : join(DIST_DIR, route.replace(/^\//, ''));
   ensureDir(dir);
-  writeFileSync(join(dir, 'index.html'), html, 'utf8');
+  const cleanHtml = (route.startsWith('/cases/') || route.startsWith('/blog/'))
+    ? html.replace(/\sdata-ww-block="[^"]*"/g, '').replace(/\sdata-ww-tone="[^"]*"/g, '')
+    : html;
+  writeFileSync(join(dir, 'index.html'), cleanHtml, 'utf8');
 }
 
 const generatedShellStyles = {
@@ -1273,9 +1424,9 @@ const generatedShellStyles = {
   title: [
     'margin:0',
     'max-width:760px',
-    'font-size:clamp(34px,7vw,68px)',
-    'line-height:.96',
-    'letter-spacing:-.055em',
+    'font-size:clamp(40px,9.8vw,68px)',
+    'line-height:1.14',
+    'letter-spacing:-.045em',
     'font-weight:850',
   ].join(';'),
   lead: [
@@ -1449,7 +1600,10 @@ function renderStaticShellAfterRoot({ sections = [], currentRoute = '' }) {
   const card = sections.length
     ? `\n      <section aria-label="Текстовая версия страницы" style="${generatedShellStyles.card};width:min(100%,920px)">${sectionsHtml}</section>`
     : '';
-  return `    <div id="ww-static-shell" style="${generatedShellStyles.main};min-height:0">${card}
+  const mainStyle = sections.length
+    ? ` style="${generatedShellStyles.main};min-height:0"`
+    : '';
+  return `    <div id="ww-static-shell"${mainStyle}>${card}
 ${renderShellNavHtml(currentRoute)}
     </div>`;
 }
@@ -1483,10 +1637,11 @@ function renderShellNavHtml(currentRoute) {
   const normalized = String(currentRoute || '').replace(/\/+$/, '') || '/';
   const links = SHELL_NAV_LINKS
     .filter((link) => link.href.replace(/\/+$/, '') !== normalized || link.href === '/')
-    .map((link) => `<a href="${link.href}" style="color:rgba(148,163,184,.92);text-decoration:none">${escapeHtml(link.label)}</a>`)
+    .map((link) => `<a href="${link.href}">${escapeHtml(link.label)}</a>`)
     .join('<span aria-hidden="true"> · </span>');
 
   return `      <nav aria-label="Разделы сайта" style="margin:22px auto 0;max-width:920px;text-align:center;font-size:13px;line-height:2;color:rgba(148,163,184,.75)">
+        <style>#ww-static-shell a{color:rgba(148,163,184,.92);text-decoration:none}</style>
         ${links}
       </nav>`;
 }
@@ -1987,12 +2142,19 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
     if (page.route === '/admin/content-preview') {
       bodyHtml = `    <h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">${escapeHtml(page.h1)}</h1>`;
     } else if (hydratable) {
-      bodyHtml = await content.renderRoute(page.route, { siteContent: page.siteContentSeed || null });
+      bodyHtml = await content.renderRoute(page.route, {
+        siteContent: page.siteContentSeed || null,
+        articleSeed: page.articleSeed ? page.articleSeed.map(toInlineArticleSummary) : null,
+      });
       if (bodyHtml.includes(SSR_ASSET_PLACEHOLDER)) {
         throw new Error(`Server-rendered ${page.route} references a bundled image; its URL would differ from the browser build and break hydration.`);
       }
-      if (!bodyHtml.includes('id="hero"')) {
+      const MARKETING_HERO_ROUTES = new Set(['/', '/meta-ads', '/meta-apps', '/google-ads', '/consult']);
+      if (MARKETING_HERO_ROUTES.has(page.route) && !bodyHtml.includes('id="hero"')) {
         throw new Error(`Server-rendered ${page.route} has no hero: the generated first screen is incomplete.`);
+      }
+      if (!/<h1[\s>]/.test(bodyHtml)) {
+        throw new Error(`Server-rendered ${page.route} has no h1: the generated first screen is incomplete.`);
       }
     } else {
       bodyHtml = renderGeneratedShell({
@@ -2022,7 +2184,7 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
             : '',
         ].filter(Boolean).join('\n'),
         imagePreloads: HERO_PRELOADS[page.route] || [],
-        fontPreloads: [...new Set([...resolveHeroFontPreloads(page.hero), ...(ROUTE_FONT_PRELOADS[page.route] || [])])],
+        fontPreloads: ROUTE_FONT_PRELOADS[page.route] || resolveHeroFontPreloads(page.hero),
         baseHtml,
         bodyHtml,
         hydratable,
@@ -2039,15 +2201,15 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
   return staticPages;
 }
 
-function renderArticleListPage({ articles, seedArticles = articles, route, title, description, h1, lead, eyebrow, emptyText }, baseHtml) {
-  const articleItems = articles
-    .map(
-      (article) => `          <a href="${getArticlePath(article)}" style="${generatedShellStyles.item}">
-            <strong>${escapeHtml(article.title)}</strong>
-            <span style="${generatedShellStyles.muted}">${escapeHtml(article.description)}</span>
-          </a>`,
-    )
-    .join('\n');
+async function renderArticleListPage({ articles, seedArticles = articles, route, title, description, h1, lead, eyebrow, emptyText }, baseHtml, content) {
+  const seedSummaries = seedArticles.map(toInlineArticleSummary);
+  const bodyHtml = await content.renderRoute(route, { articleSeed: seedSummaries });
+  if (bodyHtml.includes(SSR_ASSET_PLACEHOLDER)) {
+    throw new Error(`Server-rendered ${route} references a bundled image; its URL would differ from the browser build and break hydration.`);
+  }
+  if (!/<h1[\s>]/.test(bodyHtml)) {
+    throw new Error(`Server-rendered ${route} has no h1: the generated first screen is incomplete.`);
+  }
 
   writeRoute(
     route,
@@ -2058,19 +2220,15 @@ function renderArticleListPage({ articles, seedArticles = articles, route, title
       extraJsonLd: [buildStaticBreadcrumbJsonLd(route, BREADCRUMB_LABELS[route] || h1)],
       // The generated list and React's first frame use the same build snapshot.
       // Runtime summaries then revalidate it silently after mount.
-      headExtra: renderArticleSeed(seedArticles.map(toInlineArticleSummary)),
+      headExtra: renderArticleSeed(seedSummaries),
       baseHtml,
-      bodyHtml: renderGeneratedShell({
-        title: h1,
-        lead,
-        eyebrow,
-        children: articleItems
-          ? `        <div style="${generatedShellStyles.list}">
-${articleItems}
-        </div>`
-          : `        <p style="${generatedShellStyles.lead}">${escapeHtml(emptyText)}</p>`,
-        currentRoute: route,
-      }),
+      bodyHtml,
+      hydratable: true,
+      afterRootHtml: renderStaticShellAfterRoot({ sections: [], currentRoute: route }),
+      htmlAttributes: {
+        'data-ww-first-screen': route,
+        'data-ww-prehydrate': '1',
+      },
     }),
   );
 }
@@ -2080,7 +2238,8 @@ async function renderArticlePages(articles, baseHtml, content) {
     const path = getArticlePath(article);
     const articleTitle = `${article.seoTitle || article.title} | Whale Wizard`;
     const articleDescription = article.seoDescription || article.description;
-    const articleFaqJsonLd = buildFaqJsonLd(article.faq || []);
+    const isCase = isCaseArticle(article);
+    const articleFaqJsonLd = isCase ? null : buildFaqJsonLd(article.faq || []);
     const coverPreload = resolveArticleCoverPreload(article);
     // Ровно та статья, что уедет в <script id="ww-article-seed">: сервер
     // рендерит из неё, браузер читает её же — после JSON, чтобы undefined и
@@ -2119,15 +2278,15 @@ async function renderArticlePages(articles, baseHtml, content) {
           buildArticleJsonLd(article),
           buildBreadcrumbJsonLd(article),
           articleFaqJsonLd,
-        ],
+        ].filter(Boolean),
         // Данные самой статьи едут вместе со страницей. Раньше приложение
         // рисовало текст только после ответа /api/articles — лишний запрос
         // стоял ровно посреди пути к первой отрисовке.
-        headExtra: renderArticleSeed(seedArticle),
+        headExtra: renderArticleSeed(isCase ? toInlineCaseSeed(seedArticle) : seedArticle),
         baseHtml,
         bodyHtml,
         hydratable: true,
-        afterRootHtml: renderStaticShellAfterRoot({ sections: [], currentRoute: path }),
+        afterRootHtml: '<div id="ww-static-shell"></div>',
         // Версия статьи в разметке: сервер (article-page.ts) подменяет
         // встроенную статью живой, и если владелец правил её после сборки,
         // main.tsx строит страницу заново вместо гидратации старого текста.
@@ -2158,7 +2317,7 @@ async function renderBlogPages(articles, baseHtml, content) {
   const caseArticles = articles.filter(isCaseArticle);
   const seeds = listSeeds(articles, blogPageSize);
 
-  renderArticleListPage({
+  await renderArticleListPage({
     articles: blogArticles,
     seedArticles: seeds['/blog'],
     route: '/blog',
@@ -2168,9 +2327,9 @@ async function renderBlogPages(articles, baseHtml, content) {
     lead: 'Выберите, что нужно решить. Покажу разборы, которые помогают принять решение, а не пересказывают справку рекламного кабинета.',
     eyebrow: 'Практический блог',
     emptyText: 'Статьи скоро появятся.',
-  }, baseHtml);
+  }, baseHtml, content);
 
-  renderArticleListPage({
+  await renderArticleListPage({
     articles: caseArticles,
     seedArticles: seeds['/cases'],
     route: '/cases',
@@ -2180,7 +2339,7 @@ async function renderBlogPages(articles, baseHtml, content) {
     lead: 'Фильтруйте по нише и каналу. В карточках указаны только опубликованные показатели проекта.',
     eyebrow: 'Кейсы Whale Wizard',
     emptyText: 'Кейсы скоро появятся.',
-  }, baseHtml);
+  }, baseHtml, content);
 
   await renderArticlePages(articles, baseHtml, content);
 }
@@ -2221,9 +2380,11 @@ function writeEarlyHints(staticPages, baseHtml) {
     const stylesheets = [...new Set([globalCss, ...routeCss].filter(Boolean))];
     // Только картинки без медиа-условий: заголовок не умеет выбирать по ширине
     // экрана, и телефон скачал бы десктопную пару.
-    const images = (HERO_PRELOADS[page.route] || [])
-      .filter((preload) => !preload.media && !preload.imageSrcSet)
-      .map((preload) => preload.href);
+    const rawImages = (HERO_PRELOADS[page.route] || []);
+    const images = (page.route === '/'
+      ? ['/images/cosmic/whale.webp']
+      : rawImages.filter((preload) => !preload.media && !preload.imageSrcSet).map((preload) => preload.href)
+    );
     const hints = [
       ...stylesheets.map((href) => `<${href}>; rel=preload; as=style; crossorigin`),
       ...images.map((href) => `<${href}>; rel=preload; as=image`),
@@ -2342,7 +2503,7 @@ function validateGeneratedOutput(staticPages = [], latestArticles = [], homeArti
 
   assertFileContains(routeIndexPath('/cases'), [
     `${SITE_URL}/cases/`,
-    'Найдите кейс, похожий на ваш проект',
+    'Найдите кейс, похожий',
   ], 'Generated /cases HTML');
 
   const seeds = listSeeds(latestArticles, blogPageSize);

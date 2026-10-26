@@ -34,6 +34,25 @@ const isCase = (article) => String(article.category || '').trim().toLowerCase() 
 const BLOG_ARTICLE = ARTICLES.find((article) => !isCase(article));
 const CASE_ARTICLE = ARTICLES.find(isCase);
 
+function toInlineArticleSummary(article) {
+  return {
+    _summary: true,
+    content: '',
+    slug: String(article.slug || ''),
+    title: String(article.title || ''),
+    category: String(article.category || ''),
+    readTime: String(article.readTime || ''),
+    date: String(article.date || ''),
+    description: String(article.description || ''),
+    image: String(article.image || ''),
+    ...(article.id !== undefined ? { id: article.id } : {}),
+    ...(Array.isArray(article.tags) ? { tags: article.tags } : {}),
+    ...(article.caseData ? { caseData: article.caseData } : {}),
+    ...(article.publishedAt ? { publishedAt: article.publishedAt } : {}),
+    ...(article.updatedAt ? { updatedAt: article.updatedAt } : {}),
+  };
+}
+
 const clientBundle = await build(ssrBuildOptions({
   stdin: {
     contents: `
@@ -113,9 +132,15 @@ function installDom(route, html, { head = '', attributes = '', trailingSlash = t
 
 for (const route of SSR_ROUTES) {
   test(`hydrates ${route} without rebuilding the generated first screen`, async () => {
-    const key = route === '/' ? 'site:home' : `service:${route.slice(1)}`;
-    const html = await renderRoute(route, { siteContent: { key, content: null } });
-    const { window, restore } = installDom(route, html);
+    const isListRoute = route === '/blog' || route === '/cases';
+    const listSeed = isListRoute ? ARTICLES.map(toInlineArticleSummary) : null;
+    const key = route === '/' ? 'site:home' : route === '/faq' ? 'site:faq' : `service:${route.slice(1)}`;
+    const html = await renderRoute(route, {
+      siteContent: { key, content: null },
+      articleSeed: listSeed,
+    });
+    const headExtra = listSeed ? `<script type="application/json" id="ww-article-seed">${JSON.stringify(listSeed)}</script>` : '';
+    const { window, restore } = installDom(route, html, { head: headExtra });
     const logged = [];
     const originalError = console.error;
     const originalWarn = console.warn;
@@ -142,7 +167,7 @@ for (const route of SSR_ROUTES) {
       const problems = logged.filter((line) => /hydrat|did not match|Warning: |mismatch|Uncaught|caught the following error/i.test(line) && !/Failed to parse URL/.test(line));
       assert.deepEqual(problems, [], `${route}: React reported hydration problems`);
       assert.deepEqual(recoverable, [], `${route}: hydration fell back to client render`);
-      assert.equal(root.querySelector('#hero'), heroBefore, `${route}: hero element must be adopted, not recreated`);
+      if (heroBefore) assert.equal(root.querySelector('#hero'), heroBefore, `${route}: hero element must be adopted, not recreated`);
       if (imageBefore) assert.equal(root.querySelector('#hero img'), imageBefore, `${route}: hero image must survive hydration`);
       assert.equal(root.querySelectorAll('h1').length, 1);
     } finally {

@@ -5,19 +5,27 @@ import { JSDOM } from 'jsdom';
 import { AppFrame } from '../src/app/App';
 import { routes } from '../src/app/routes';
 import { primeSiteContent, resetSiteContentCache } from '../src/app/hooks/useServiceContent';
-import { articleVersion, primeArticleSeed } from '../src/app/context/ArticlesContext';
+import { articleVersion, assertInlineArticleSeedList, primeArticleSeed } from '../src/app/context/ArticlesContext';
 import { bindSanitizerWindow } from '../src/app/utils/sanitizeHtml';
 import { isCaseArticle } from '../src/app/utils/articleCategory';
 import type { Article } from '../src/app/components/hooks/useArticlesApi';
 import {
   loadBlogPage,
+  loadCalculator,
   loadCaseArticleView,
+  loadCasesPage,
   loadConsultStudioHero,
+  loadCookiePolicy,
   loadCosmicHeroScene,
+  loadFaqPage,
   loadHero,
   loadHome,
+  loadMarketingGlossaryPage,
   loadMetaAdsEditorialHero,
   loadMetaAppsHeroVisual,
+  loadOffer,
+  loadPrivacyPolicy,
+  loadRoiPage,
   loadServiceLandingPage,
 } from '../src/app/utils/routePreload';
 
@@ -32,7 +40,22 @@ import {
  * «Загружаем…». Остальные маршруты пока получают прежнюю текстовую
  * оболочку и монтируются поверх неё.
  */
-export const SSR_ROUTES = ['/', '/meta-ads', '/meta-apps', '/google-ads', '/consult'] as const;
+export const SSR_ROUTES = [
+  '/',
+  '/meta-ads',
+  '/meta-apps',
+  '/google-ads',
+  '/consult',
+  '/privacy-policy',
+  '/offer',
+  '/cookie-policy',
+  '/calculator',
+  '/roi-calculator',
+  '/faq',
+  '/marketing-glossary',
+  '/cases',
+  '/blog',
+] as const;
 
 export type SsrRoute = (typeof SSR_ROUTES)[number];
 
@@ -44,8 +67,8 @@ export { articleVersion };
 type RenderRouteOptions = {
   /** Опубликованный в CMS текст страницы — тот же, что уедет в `ww-site-content-seed`. */
   siteContent?: { key: string; content: Record<string, unknown> | null } | null;
-  /** Статья для маршрута `/blog/:slug` или `/cases/:slug` — та же, что уедет в `ww-article-seed`. */
-  articleSeed?: Article | null;
+  /** Статья для маршрута `/blog/:slug` или `/cases/:slug` или список для `/blog` или `/cases`. */
+  articleSeed?: Article | Article[] | null;
 };
 
 function normalizeRoute(route: string): string {
@@ -68,6 +91,14 @@ async function preloadFirstScreenModules(): Promise<void> {
     loadMetaAdsEditorialHero(),
     loadBlogPage(),
     loadCaseArticleView(),
+    loadPrivacyPolicy(),
+    loadOffer(),
+    loadCookiePolicy(),
+    loadCalculator(),
+    loadRoiPage(),
+    loadFaqPage(),
+    loadMarketingGlossaryPage(),
+    loadCasesPage(),
   ]);
 }
 
@@ -114,14 +145,22 @@ export async function renderRoute(route: string, options: RenderRouteOptions = {
     throw new Error(`Route ${route} is not server-rendered. Allowed: ${SSR_ROUTES.join(', ')} and article pages`);
   }
   if (isArticle) {
-    if (!options.articleSeed) throw new Error(`Route ${route} is an article page and needs its article (articleSeed)`);
+    if (!options.articleSeed || Array.isArray(options.articleSeed)) {
+      throw new Error(`Route ${route} is an article page and needs a single article (articleSeed)`);
+    }
     assertArticleMatchesRoute(normalized, options.articleSeed);
     ensureSanitizerWindow();
   }
 
   resetSiteContentCache();
   if (options.siteContent) primeSiteContent(options.siteContent.key, options.siteContent.content);
-  primeArticleSeed(isArticle && options.articleSeed ? [options.articleSeed] : null);
+  if (Array.isArray(options.articleSeed)) {
+    primeArticleSeed(assertInlineArticleSeedList(options.articleSeed));
+  } else if (options.articleSeed) {
+    primeArticleSeed([options.articleSeed]);
+  } else {
+    primeArticleSeed(null);
+  }
   await preloadFirstScreenModules();
 
   const handler = createStaticHandler(routes);

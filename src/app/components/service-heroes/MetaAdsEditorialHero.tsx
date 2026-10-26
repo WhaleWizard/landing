@@ -95,6 +95,8 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                 <h1
                   ref={titleRef}
                   id="meta-editorial-title"
+                  data-ww-title-fit="2/0"
+                  data-ww-title-fit-min="18"
                   className={`meta-editorial-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
                   style={managedTitleStyle(content.typography)}
                 >
@@ -189,6 +191,8 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                 <div className="meta-proof__art">
                   <img
                     src="/images/meta-proof/paper-stack-768.webp"
+                    srcSet="/images/meta-proof/paper-stack-480.webp 480w, /images/meta-proof/paper-stack-768.webp 768w"
+                    sizes="(max-width: 767px) 182px, 384px"
                     width="768"
                     height="512"
                     alt=""
@@ -206,9 +210,9 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                       width={item.width}
                       height={item.height}
                       alt={item.alt}
-                      loading={index === 0 ? 'eager' : 'lazy'}
+                      loading="lazy"
                       decoding="async"
-                      fetchpriority={index === 0 ? 'high' : 'low'}
+                      fetchpriority="low"
                       className="meta-proof__photo"
                     />
                   </div>

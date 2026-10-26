@@ -127,13 +127,12 @@
         ],
         "titleLines": [
           {
-            "text": "Реклама в Meta:",
-            "font": "inter"
+            "text": "Реклама в Meta:"
           },
           {
             "text": "привожу клиентов, а не просто лиды",
             "tone": "accent",
-            "font": "pangolin",
+            "font": "prata",
             "effect": "blur-reveal",
             "speed": "normal"
           },

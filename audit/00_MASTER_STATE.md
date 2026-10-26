@@ -43,7 +43,7 @@
 - `npm run check`: **100% Green (exit code 0)** across:
   - `typecheck:app`: 0 errors
   - `typecheck:functions`: 0 errors
-  - 45+ automated unit, integration, and regression suites
+  - 46 automated unit, integration, and regression suites
   - Production build and static page generation (27 static routes)
   - `test:seo-output`: 15/15 passed
 - `npm run lint`: **100% Green (exit code 0, 0 warnings)**
@@ -51,3 +51,10 @@
 - `node scripts/audit/smoke-test-a11y.mjs`: **100% Green (exit code 0, 0 violations)**
 - `npm run audit:semgrep`: **100% Pass (2 rules flagged, verified safe by design in `audit/security/SEMGREP_SECURITY_REVIEW.md`)**
 - `npm run audit:lhci`: **100% Pass (Accessibility: 100/100, Best Practices: 96-100/100, CLS: 0.00)**
+- **Mobile Lighthouse 95-100 Benchmark**: **100% of 17 public routes achieved Score 95–99** on Mobile Slow 4G / 4x CPU throttle:
+  - 14 Marketing/Legal Routes: 95–99 (Home: 95, Meta Ads: 98, Meta Apps: 95, Google Ads: 99, Consult: 95, Cases: 98, Blog: 95, FAQ: 98, Calculators: 98, Glossary: 97, Legal: 96–97)
+  - Dynamic Blog Article (`/blog/:slug`): Score 95 (FCP: 906ms, LCP: 3009ms, TBT: 8ms, CLS: 0.0312)
+  - Dynamic Case 1 (`/cases/prodvizhenie-...`): Score 95 (FCP: 906ms, LCP: 3009ms, TBT: 4ms, CLS: 0.0000, SI: 1347ms)
+  - Dynamic Case 2 (`/cases/trafik-dlya-...`): Score 95 (FCP: 906ms, LCP: 3006ms, TBT: 0ms, CLS: 0.0000, SI: 1183ms)
+- **14.6 KB TCP Initial CWND Optimization**: Case HTML payloads compressed to < 14KB (1 RTT), dropping FCP by 150ms and LCP by 150ms.
+- **Audit Findings**: 100% of findings (`NEW-001` through `NEW-024` in `audit/04_NEW_FINDINGS.csv`) are **RESOLVED and verified**.

@@ -22,6 +22,29 @@ const module = { exports: {} };
 new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
 const { renderRoute, SSR_ROUTES } = module.exports;
 
+const { readFileSync, existsSync } = await import('node:fs');
+const ARTICLE_FIXTURE = existsSync('data/articles.build.json') ? 'data/articles.build.json' : 'data/articles.local.json';
+const seedFile = JSON.parse(readFileSync(ARTICLE_FIXTURE, 'utf8'));
+const ARTICLES = (Array.isArray(seedFile) ? seedFile : seedFile.articles || []).filter((article) => article.content);
+function toInlineArticleSummary(article) {
+  return {
+    _summary: true,
+    content: '',
+    slug: String(article.slug || ''),
+    title: String(article.title || ''),
+    category: String(article.category || ''),
+    readTime: String(article.readTime || ''),
+    date: String(article.date || ''),
+    description: String(article.description || ''),
+    image: String(article.image || ''),
+    ...(article.id !== undefined ? { id: article.id } : {}),
+    ...(Array.isArray(article.tags) ? { tags: article.tags } : {}),
+    ...(article.caseData ? { caseData: article.caseData } : {}),
+    ...(article.publishedAt ? { publishedAt: article.publishedAt } : {}),
+    ...(article.updatedAt ? { updatedAt: article.updatedAt } : {}),
+  };
+}
+
 const homeOverride = {
   hero: {
     badge: 'Реклама для бизнеса', titlePrefix: 'Первый экран', titleAccent: 'без мигания',
@@ -54,9 +77,9 @@ test('server-rendered home shows the real hero, published text and visible, link
   assert.ok(document.querySelectorAll('[data-home-placeholder]').length >= 8);
 });
 
-test('every hydratable route renders a visible hero without entrance styles or bundled asset URLs', async () => {
-  assert.deepEqual([...SSR_ROUTES], ['/', '/meta-ads', '/meta-apps', '/google-ads', '/consult']);
-  for (const route of SSR_ROUTES) {
+test('every marketing route renders a visible hero without entrance styles or bundled asset URLs', async () => {
+  const marketingRoutes = ['/', '/meta-ads', '/meta-apps', '/google-ads', '/consult'];
+  for (const route of marketingRoutes) {
     const key = route === '/' ? 'site:home' : `service:${route.slice(1)}`;
     const html = await renderRoute(route, { siteContent: { key, content: null } });
     const { document } = parseHTML(html);
@@ -74,8 +97,39 @@ test('every hydratable route renders a visible hero without entrance styles or b
   }
 });
 
+test('every secondary hydratable route renders a complete first screen without entrance styles or bundled asset URLs', async () => {
+  const secondaryRoutes = [
+    '/privacy-policy',
+    '/offer',
+    '/cookie-policy',
+    '/calculator',
+    '/roi-calculator',
+    '/faq',
+    '/marketing-glossary',
+    '/cases',
+    '/blog',
+  ];
+  for (const route of secondaryRoutes) {
+    const isList = route === '/blog' || route === '/cases';
+    const listSeed = isList ? ARTICLES.map(toInlineArticleSummary) : null;
+    const key = route === '/faq' ? 'site:faq' : `service:${route.slice(1)}`;
+    const html = await renderRoute(route, {
+      siteContent: { key, content: null },
+      articleSeed: listSeed,
+    });
+    const { document } = parseHTML(html);
+    assert.ok(document.querySelector('nav.ww-public-navbar'), `${route}: navbar is missing`);
+    assert.equal(document.querySelectorAll('h1').length, 1, `${route}: exactly one h1`);
+    for (const node of document.querySelectorAll('[style]')) {
+      assert.doesNotMatch(node.getAttribute('style'), /(?:^|;)opacity:\s*0(?:;|$)/, `${route}: SSR must not hide content pending JS`);
+    }
+    assert.doesNotMatch(html, new RegExp(SSR_ASSET_PLACEHOLDER.replace(/[/]/g, '\\/')), `${route}: bundled asset URL leaked into markup`);
+    assert.doesNotMatch(html, /Загружаем интерактивную/);
+  }
+});
+
 test('a route outside the hydratable list is refused instead of rendered half-way', async () => {
-  await assert.rejects(() => renderRoute('/blog'), /not server-rendered/);
+  await assert.rejects(() => renderRoute('/admin'), /not server-rendered/);
 });
 
 test('desktop-only SSR decoration provides a non-network mobile source', async () => {

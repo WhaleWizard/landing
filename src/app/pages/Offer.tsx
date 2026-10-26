@@ -5,7 +5,6 @@ import PageNav from '../components/PageNav';
 import SEO from '../components/SEO';
 import { LEGAL_UPDATED_AT } from '../components/legal/legalMeta';
 import OfferContent from '../components/legal/OfferContent';
-import '../../styles/route-reveal.css';
 import { useManagedTitleFit } from '../utils/contentTypography';
 
 // Подвал — вне серверной разметки: React.lazy внутри renderToString отдаёт

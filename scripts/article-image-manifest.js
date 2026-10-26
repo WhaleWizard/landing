@@ -37,8 +37,8 @@ export const ARTICLE_IMAGE_FALLBACK_WIDTH = 1200;
  * `max-w-7xl`, тело статьи — колонка 760px.
  */
 export const ARTICLE_IMAGE_SIZES = {
-  cover: '(max-width: 639px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), 976px',
-  content: '(max-width: 799px) calc(100vw - 32px), 760px',
+  cover: '(max-width: 480px) 180px, (max-width: 639px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), 976px',
+  content: '(max-width: 480px) 180px, (max-width: 799px) calc(100vw - 32px), 760px',
 };
 
 export function variantPath(entry, width) {

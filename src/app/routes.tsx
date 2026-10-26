@@ -1,6 +1,6 @@
 import { setAppRouter } from './routerInstance';
 import { createBrowserRouter, Outlet, ScrollRestoration, useLocation, useNavigationType, useRouteError, type RouteObject } from 'react-router';
-import { useMountedOnClient } from './hooks/useMountedOnClient';
+import { useIdleReady } from './hooks/useIdleReady';
 import { createElement, lazy, Suspense, useEffect, useInsertionEffect, useRef, type ComponentType } from 'react';
 import RouteSkeleton from './components/RouteSkeleton';
 import ScrollExperience from './components/ScrollExperience';
@@ -399,7 +399,7 @@ function RouteFocusManager() {
 function RootLayout() {
   const location = useLocation();
   useRememberPublicRoute();
-  const mounted = useMountedOnClient();
+  const consentReady = useIdleReady(1500);
   const isAdmin = /^\/admin(?:\/|$)/.test(location.pathname);
   const isContentPreview = location.pathname === '/admin/content-preview';
   // Закрытая страница не должна ни отрисоваться, ни подгрузить свой код.
@@ -411,7 +411,7 @@ function RootLayout() {
   );
   const articleInitialLoad = isAdmin
     ? 'manual'
-    : location.pathname === '/'
+    : (location.pathname === '/' || location.pathname === '/cases' || location.pathname === '/blog')
       ? 'deferred'
       : 'immediate';
   const routeContent = isLocked
@@ -447,7 +447,7 @@ function RootLayout() {
           {routeContent}
         </ArticlesProvider>
       ) : routeContent}
-      {!isAdmin && mounted ? (
+      {!isAdmin && consentReady ? (
         <Suspense fallback={null}>
           <CookieConsentManager />
         </Suspense>

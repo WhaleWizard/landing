@@ -85,7 +85,14 @@ function loadSiteContent(cacheKey: string, revalidate = false): Promise<unknown>
   // `null` — тоже завершённый и валидный ответ («для ключа нет CMS override»).
   // Проверка по truthiness раньше не кэшировала его, поэтому Home параллельно
   // запрашивал один и тот же site:home из SEO и Hero.
-  const cached = serviceContentCache.get(cacheKey);
+  let cached = serviceContentCache.get(cacheKey);
+  if (!cached) {
+    const seed = readInlineSiteContentSeed(cacheKey);
+    if (seed !== undefined) {
+      cached = { content: seed, version: null, fetchedAt: Date.now() };
+      serviceContentCache.set(cacheKey, cached);
+    }
+  }
   const cacheTtl = revalidate ? SITE_CONTENT_REVALIDATE_COOLDOWN_MS : SITE_CONTENT_CACHE_TTL_MS;
   if (cached && Date.now() - cached.fetchedAt < cacheTtl) {
     return Promise.resolve(cached.content);
@@ -141,10 +148,15 @@ export function resetSiteContentCache(): void {
   serviceContentPending.clear();
 }
 
-function initialContentOverride(cacheKey: string): unknown {
+export function initialContentOverride(cacheKey: string): unknown {
   const cached = serviceContentCache.get(cacheKey);
   if (cached) return cached.content;
-  return readInlineSiteContentSeed(cacheKey);
+  const seed = readInlineSiteContentSeed(cacheKey);
+  if (seed !== undefined) {
+    serviceContentCache.set(cacheKey, { content: seed, version: null, fetchedAt: Date.now() });
+    return seed;
+  }
+  return undefined;
 }
 
 function resolveContent<T>(cacheKey: string, fallback: T): T {

@@ -45,7 +45,7 @@ test('known images are rewritten to optimized variants and every image is lazy',
   const output = sanitize('<img src="https://i.ibb.co/abc/cover.png" alt="Обложка"><img src="https://cdn.example.com/unknown.jpg" alt="">');
   assert.ok(output.includes('src="/images/articles/abc123abc123-1200.webp"'), 'known image must use the optimized src');
   assert.ok(output.includes('srcset="/images/articles/abc123abc123-480.webp 480w,'), 'known image must carry srcset');
-  assert.ok(output.includes('sizes="(max-width: 799px) calc(100vw - 32px), 760px"'));
+  assert.ok(output.includes('sizes="(max-width: 480px) 180px, (max-width: 799px) calc(100vw - 32px), 760px"'));
   assert.ok(output.includes('width="1536"') && output.includes('height="1024"'), 'known image must reserve its aspect ratio');
   assert.ok(output.includes('src="https://cdn.example.com/unknown.jpg"'), 'unknown image stays untouched');
   assert.equal((output.match(/loading="lazy"/g) || []).length, 2, 'every image in the shell must be lazy');

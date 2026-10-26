@@ -129,7 +129,17 @@ function dropSupersededStoredFields(key, content) {
 }
 
 export function applyStoredSiteContentCompatibility(key, storedContent) {
-  const content = dropSupersededStoredFields(key, storedContent);
+  let content = dropSupersededStoredFields(key, storedContent);
+  if (key === 'service:meta-ads' && isRecord(content) && isRecord(content.hero) && Array.isArray(content.hero.titleLines)) {
+    const titleLines = content.hero.titleLines.map((line) => {
+      if (isRecord(line) && (line.font === 'pangolin' || line.font === 'inter')) {
+        const { font: _font, ...rest } = line;
+        return rest;
+      }
+      return line;
+    });
+    content = { ...content, hero: { ...content.hero, titleLines } };
+  }
   if (key !== 'service:meta-ads' || !isRecord(content) || !isRecord(content.cases)) return content;
   const cases = content.cases;
   const exact = cases.badge === LEGACY_META_ADS_CASES.badge

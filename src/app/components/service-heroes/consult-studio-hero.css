@@ -13,7 +13,7 @@
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range: U+0041-005A, U+0061-007A;
 }
 
 @font-face {
@@ -31,7 +31,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range: U+0041-005A, U+0061-007A;
 }
 
 @font-face {
@@ -49,7 +49,7 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range: U+0041-005A, U+0061-007A;
 }
 
 @font-face {
@@ -67,7 +67,7 @@
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range: U+0041-005A, U+0061-007A;
 }
 
 /* Оболочка блока уведена из холодного графита в тёплый: на фото дерево,
@@ -86,7 +86,7 @@
   overflow-x: clip;
   color: var(--consult-cream);
   background: var(--consult-ink);
-  font-family: 'WW Commissioner', var(--ww-font-text);
+  font-family: var(--ww-font-text);
 }
 
 /* На десктопе текст идёт первым, фото вторым. Порядок задан через order,
@@ -325,7 +325,7 @@
   min-height: 52px;
   border-radius: 13px;
   padding-inline: 22px;
-  font-family: 'WW Commissioner', var(--ww-font-text);
+  font-family: var(--ww-font-text);
   font-size: 14px;
   font-weight: 500;
 }
@@ -453,6 +453,9 @@
     order: 1;
     min-height: 0;
     height: clamp(400px, 62vh, 560px);
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 
   .consult-studio-hero__photo {
@@ -478,6 +481,9 @@
     margin: -96px 0 0;
     padding: 104px 24px 44px;
     border-radius: 0;
+    opacity: 1;
+    transform: none;
+    animation: none;
     /* Свечение начинается заведомо ниже стыка: его верхняя кромка (82% − 62%
        = 20% высоты блока) лежит под нижним краем сцены. Слой, включённый
        прямо на кромке блока, давал видимую поперечную линию — цвет там
@@ -609,4 +615,12 @@
     color: LinkText;
     -webkit-text-fill-color: currentColor;
   }
+}
+
+
+html[data-ww-first-screen="/consult"] .consult-studio-hero__photo-wrap,
+html[data-ww-first-screen="/consult"] .consult-studio-hero__content {
+  opacity: 1;
+  transform: none;
+  animation: none;
 }

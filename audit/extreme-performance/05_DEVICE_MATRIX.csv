@@ -1,0 +1,9 @@
+Class,DeviceName,Viewport,DPR,UserAgentSnippet,CPUThrottling,RAMTier,Purpose
+Class A,Low-End Android (Moto G4 sim),360x640,2.0,Android 7.0 Chrome/69 Mobile,6x,1-2 GB,Extreme low CPU parsing & execution stress
+Class B,Mid-Range Android (Pixel 7 / Galaxy A54),412x915,2.625,Android 13 Chrome Mobile,4x,4-6 GB,Standard modern mobile baseline
+Class C,High-End Android (Galaxy S24 / Pixel 8 Pro),412x915,3.5,Android 14 Chrome Mobile,1x,8-12 GB,High DPR visual rendering & animation smoothness
+Class D,Older iPhone (iPhone 8 / SE 2020),375x667,2.0,iPhone CPU iPhone OS 14_0 Safari,4x,2-3 GB,Older WebKit JS engine & small screen constraints
+Class E,Modern iPhone (iPhone 15 Pro / 16),393x852,3.0,iPhone CPU iPhone OS 17_0 Safari,1x,6-8 GB,Modern WebKit dynamic island viewport & fluid gesture
+Class F,Low-End Laptop (Dual-core Celeron/i3),1366x768,1.0,Windows NT 10.0 Chrome,4x,4 GB,Limited desktop CPU long task detection
+Class G,Standard Desktop (Quad-core i5/Ryzen 5),1440x900,1.0,Windows NT 10.0 Chrome,1x,8-16 GB,Standard desktop baseline
+Class H,High-End Desktop (8+ core / M3 Pro / RTX),1920x1080,1.0,Windows NT 10.0 Chrome,1x,16-32 GB,Unthrottled desktop baseline

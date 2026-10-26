@@ -169,7 +169,6 @@ function CosmicHeroScene({ active = true, hydrating = false }: {
       });
     };
     media.addEventListener('change', sync);
-    startTransition(() => setCompactScene(wasCompact));
     return () => {
       revision += 1;
       media.removeEventListener('change', sync);
@@ -438,7 +437,19 @@ function CosmicHeroScene({ active = true, hydrating = false }: {
           animation win over the inline transform and silently disables this
           depth layer's parallax. */}
       <div className="cosmic-plane cosmic-sky-plane" data-plane="sky">
-        <div className="cosmic-sky" />
+        <img
+          className="cosmic-sky"
+          src="/images/cosmic/sky.webp"
+          srcSet="/images/cosmic/sky-compact.webp 900w, /images/cosmic/sky.webp 1920w"
+          sizes="(max-width: 900px) 100vw, 100vw"
+          alt=""
+          aria-hidden="true"
+          width={1920}
+          height={1080}
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
+        />
       </div>
 
       <div className="cosmic-plane cosmic-deep" data-plane="deep">
@@ -454,6 +465,8 @@ function CosmicHeroScene({ active = true, hydrating = false }: {
           <span className="cosmic-swim">
             <img
               src="/images/cosmic/whale.webp"
+              srcSet="/images/cosmic/whale-compact.webp 768w, /images/cosmic/whale.webp 1195w"
+              sizes="(max-width: 900px) 430px, 1195px"
               alt=""
               width={1195}
               height={697}

@@ -186,7 +186,20 @@ function applyStoredSiteContentCompatibility(
   key: SiteContentKey,
   value: UnknownRecord,
 ): UnknownRecord {
-  const current = dropSupersededStoredFields(key, value);
+  let current = dropSupersededStoredFields(key, value);
+  if (key === 'service:meta-ads' && current.hero && typeof current.hero === 'object' && !Array.isArray(current.hero)) {
+    const hero = current.hero as UnknownRecord;
+    if (Array.isArray(hero.titleLines)) {
+      const titleLines = hero.titleLines.map((line) => {
+        if (line && typeof line === 'object' && !Array.isArray(line) && ((line as UnknownRecord).font === 'pangolin' || (line as UnknownRecord).font === 'inter')) {
+          const { font: _font, ...rest } = line as UnknownRecord;
+          return rest;
+        }
+        return line;
+      });
+      current = { ...current, hero: { ...hero, titleLines } };
+    }
+  }
   if (key !== 'service:meta-ads' || !isExactLegacyMetaAdsCases(current.cases)) return current;
   const { cases: _legacyCases, ...withoutCases } = current;
   return withoutCases;

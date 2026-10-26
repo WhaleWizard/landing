@@ -1,3 +1,4 @@
+import ClientOnly from './ClientOnly';
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { Menu, X, Briefcase, Trophy, Newspaper, Star, HelpCircle, Phone, Calculator, ChevronRight } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -276,7 +277,9 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
             </div>
 
             {/* Десктопное меню */}
-            <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
+            {variant === 'content' ? (
+              <ClientOnly>
+                <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
               {navItems.map((item) => {
                 const className = `relative transition-[color,transform] duration-200 hover:-translate-y-0.5 group ${
                   isContentItemActive(item.label)
@@ -319,13 +322,66 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
               })}
               <Button
                 onClick={() => scrollToSection('contact')}
-                data-route-preload={variant === 'content' ? sectionsPath : undefined}
+                data-route-preload={undefined}
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
                 <span className="relative">Обсудить проект</span>
               </Button>
             </div>
+              </ClientOnly>
+            ) : (
+              <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
+              {navItems.map((item) => {
+                const className = `relative transition-[color,transform] duration-200 hover:-translate-y-0.5 group ${
+                  isContentItemActive(item.label)
+                    ? 'text-primary'
+                    : 'text-foreground/80 hover:text-primary'
+                }`;
+                const underline = (
+                  <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full ${isContentItemActive(item.label) ? 'w-full' : 'w-0'}`} />
+                );
+                // Пункт, ведущий на другую страницу, — настоящая ссылка.
+                // Пункт, прокручивающий текущую страницу, остаётся кнопкой.
+                if (item.href) {
+                  return (
+                    <Link
+                      key={item.label}
+                      to={item.href}
+                      state={withReturnTo(location)}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      data-route-preload={item.preloadRoute}
+                      aria-current={isContentItemActive(item.label) ? 'page' : undefined}
+                      className={className}
+                    >
+                      {item.label}
+                      {underline}
+                    </Link>
+                  );
+                }
+                return (
+                  <button
+                    key={item.label}
+                    onClick={item.action}
+                    data-route-preload={item.preloadRoute}
+                    aria-current={isContentItemActive(item.label) ? 'page' : undefined}
+                    className={className}
+                  >
+                    {item.label}
+                    {underline}
+                  </button>
+                );
+              })}
+              <Button
+                onClick={() => scrollToSection('contact')}
+                data-route-preload={undefined}
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+                <span className="relative">Обсудить проект</span>
+              </Button>
+            </div>
+            )}
 
             {/* Мобильное меню */}
             <button

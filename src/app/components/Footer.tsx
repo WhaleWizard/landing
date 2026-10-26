@@ -6,7 +6,6 @@ import { withReturnTo } from '../utils/siteNavigation';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import WhaleMark from './brand/WhaleMark';
-import '../../styles/footer.css';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 

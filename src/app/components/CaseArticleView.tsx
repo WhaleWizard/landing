@@ -1,7 +1,7 @@
 // Стили .case-article-* живут рядом с компонентом, чтобы их 46 КБ не висели
 // в общей блокирующей таблице стилей всего сайта. Тот же файл импортирует
 // pages/CasesPage.tsx — там лежат правила витрины .cases-*.
-import '../../styles/cases-finder.css';
+// case-article.css imported in index.css for single-stylesheet SSR CRP
 import { m, useReducedMotion } from 'motion/react';
 import {
   ArrowRight,
@@ -16,7 +16,7 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react';
-import { lazy, Suspense, useCallback, type MouseEvent, type MutableRefObject, type Ref } from 'react';
+import { lazy, Suspense, useCallback, useMemo, type MouseEvent, type MutableRefObject, type Ref } from 'react';
 import ClientOnly from './ClientOnly';
 import type { Article } from './hooks/useArticlesApi';
 import Navbar from './Navbar';
@@ -33,7 +33,6 @@ import { useManagedTitleFit } from '../utils/contentTypography';
 import { smartTitleBreaks } from '../utils/smartTitle';
 import DeferredImage from './DeferredImage';
 import { articleDisplayDate } from '../utils/articleDate';
-import { withPlural } from '../utils/plural';
 
 const Footer = lazy(() => import('./Footer'));
 
@@ -118,11 +117,34 @@ export default function CaseArticleView({
       label: metric.label,
     })),
   ];
+  const takeawayItems = useMemo(() => {
+    if (Array.isArray(article.keyTakeaways) && article.keyTakeaways.length) return article.keyTakeaways;
+    if (typeof document !== 'undefined') {
+      const items = document.querySelectorAll('.case-article-takeaways ul > li');
+      if (items.length) {
+        return Array.from(items).map((li) => li.textContent?.trim() || '').filter(Boolean);
+      }
+    }
+    return [];
+  }, [article.keyTakeaways]);
+  const faqItems = useMemo(() => {
+    if (Array.isArray(article.faq) && article.faq.length) return article.faq;
+    if (typeof document !== 'undefined') {
+      const items = document.querySelectorAll('.case-article-faq details');
+      if (items.length) {
+        return Array.from(items).map((detail) => ({
+          question: (detail.querySelector('summary')?.textContent || '').replace(/\+$/, '').trim(),
+          answer: detail.querySelector('p')?.textContent?.trim() || '',
+        }));
+      }
+    }
+    return [];
+  }, [article.faq]);
 
   return (
     <>
       <Navbar variant="content" />
-      <main data-blog-ui="true" className="case-article-page marketing-typography min-h-screen bg-background">
+      <main data-blog-ui="true" className="case-article-page marketing-typography min-h-screen bg-background" style={{ contain: 'layout style paint' }}>
         <header className="case-article-hero">
           <div className="case-article-container">
             <PageNav
@@ -136,12 +158,27 @@ export default function CaseArticleView({
             />
 
             <div className="case-article-hero-grid">
-              <m.div
-                className="case-article-lead"
-                initial={skipEntrance ? false : { opacity: 0, y: 14 }}
-                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                transition={reduceMotion ? undefined : { duration: 0.4 }}
-              >
+              {skipEntrance ? (
+                <div className="case-article-lead">
+                  <div className="case-article-meta">
+                    <span className="case-article-category">Кейс</span>
+                    <span><Clock3 aria-hidden="true" /> {formatReadTime(article.readTime)}</span>
+                    <span><CalendarDays aria-hidden="true" /> {articleDisplayDate(article)}</span>
+                  </div>
+                  <h1 ref={setTitleRef} tabIndex={-1} data-ww-title-fit={`${CASE_TITLE_LINES.titleMaxLinesMobile}/${CASE_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="19">{smartTitleBreaks(displayTitle)}</h1>
+                  <p>{seoDescription}</p>
+                  <div className="case-article-chips" aria-label="Каналы и тематика">
+                    {(caseData.sources || []).map((source) => <SourceChip key={source} source={source} />)}
+                    {caseData.niche ? <span className="case-article-chip">{caseData.niche}</span> : null}
+                  </div>
+                </div>
+              ) : (
+                <m.div
+                  className="case-article-lead"
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
                 <div className="case-article-meta">
                   <span className="case-article-category">Кейс</span>
                   <span><Clock3 aria-hidden="true" /> {formatReadTime(article.readTime)}</span>
@@ -153,24 +190,23 @@ export default function CaseArticleView({
                   {(caseData.sources || []).map((source) => <SourceChip key={source} source={source} />)}
                   {caseData.niche ? <span className="case-article-chip">{caseData.niche}</span> : null}
                 </div>
-              </m.div>
+                </m.div>
+              )}
 
-              <m.figure
-                className="case-article-cover"
-                initial={skipEntrance ? false : { opacity: 0, scale: 0.985 }}
-                animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
-                transition={reduceMotion ? undefined : { duration: 0.45, delay: 0.08 }}
-              >
+              {cover ? (
+              <figure className="case-article-cover">
                 <img
                   {...articleImageAttributes(cover, ARTICLE_IMAGE_SIZES.caseCover)}
                   alt={getCaseCoverAlt(article)}
                   loading="eager"
-                  decoding="async"
+                  decoding="auto"
                   fetchpriority="high"
                 />
-              </m.figure>
+              </figure>
+              ) : null}
 
-              <aside className="case-article-toc-desktop" aria-label="Оглавление">
+              <ClientOnly>
+                <aside className="case-article-toc-desktop" aria-label="Оглавление">
                 <h2>В этой статье</h2>
                 {toc.length ? (
                   <ol>
@@ -185,6 +221,7 @@ export default function CaseArticleView({
                   <MessageCircle aria-hidden="true" /> Обсудить похожий проект
                 </button>
               </aside>
+              </ClientOnly>
             </div>
 
             {proofItems.length ? (
@@ -193,7 +230,7 @@ export default function CaseArticleView({
                   const Icon = getProofIcon(item.value, item.label);
                   return (
                     <div key={`${item.value}-${item.label}`}>
-                      <span className="case-article-proof-icon"><Icon aria-hidden="true" /></span>
+                      <ClientOnly><span className="case-article-proof-icon"><Icon aria-hidden="true" /></span></ClientOnly>
                       <p><strong>{item.value}</strong><span>{item.label}</span></p>
                     </div>
                   );
@@ -206,46 +243,32 @@ export default function CaseArticleView({
         <div className="case-article-container case-article-body-grid">
           <article className="case-article-main">
             {article.summary ? (
-              <aside className="case-article-summary case-article-summary-desktop">
+              <aside className="case-article-summary">
                 <h2>Коротко</h2>
                 <p>{article.summary}</p>
               </aside>
             ) : null}
 
-            {article.summary ? (
-              <details className="case-article-summary case-article-summary-mobile">
-                <summary><span>Коротко</span><small>Открыть</small></summary>
-                <p>{article.summary}</p>
-              </details>
-            ) : null}
-
             {toc.length >= 3 ? (
-              <details className="case-article-toc-mobile">
-                <summary><ListTree aria-hidden="true" /> Содержание <span aria-hidden="true">⌄</span></summary>
-                <ol>
-                  {toc.map((item, index) => (
-                    <li key={item.id}><a href={`#${item.id}`}><span>{String(index + 1).padStart(2, '0')}</span>{item.text}</a></li>
-                  ))}
-                </ol>
-              </details>
+              <ClientOnly>
+                <details className="case-article-toc-mobile">
+                  <summary><ListTree aria-hidden="true" /> Содержание <span aria-hidden="true">⌄</span></summary>
+                  <ol>
+                    {toc.map((item, index) => (
+                      <li key={item.id}><a href={`#${item.id}`}><span>{String(index + 1).padStart(2, '0')}</span>{item.text}</a></li>
+                    ))}
+                  </ol>
+                </details>
+              </ClientOnly>
             ) : null}
 
-            {Array.isArray(article.keyTakeaways) && article.keyTakeaways.length ? (
-              <section className="case-article-takeaways case-article-takeaways-desktop">
+            {takeawayItems.length ? (
+              <section className="case-article-takeaways">
                 <h2>Ключевые тезисы</h2>
                 <ul>
-                  {article.keyTakeaways.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}
+                  {takeawayItems.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}
                 </ul>
               </section>
-            ) : null}
-
-            {Array.isArray(article.keyTakeaways) && article.keyTakeaways.length ? (
-              <details className="case-article-takeaways case-article-takeaways-mobile">
-                <summary><span>Ключевые тезисы</span><small>{withPlural(article.keyTakeaways.length, ['пункт', 'пункта', 'пунктов'])}</small></summary>
-                <ul>
-                  {article.keyTakeaways.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}
-                </ul>
-              </details>
             ) : null}
 
             <div
@@ -254,11 +277,11 @@ export default function CaseArticleView({
               dangerouslySetInnerHTML={{ __html: articleHtml }}
             />
 
-            {Array.isArray(article.faq) && article.faq.length ? (
+            {faqItems.length ? (
               <section className="case-article-faq">
                 <h2>Частые вопросы</h2>
                 <div>
-                  {article.faq.map((item, index) => (
+                  {faqItems.map((item, index) => (
                     <details key={`${item.question}-${index}`}>
                       <summary>{item.question}<span aria-hidden="true">+</span></summary>
                       <p>{item.answer}</p>
@@ -268,12 +291,14 @@ export default function CaseArticleView({
               </section>
             ) : null}
 
-            <section className="case-article-cta">
-              <span><Sparkles aria-hidden="true" /> Разбор по вашему проекту</span>
-              <h2>Нужно применить это к вашему проекту?</h2>
-              <p>Пришлите ссылку и короткие вводные. Я посмотрю, какие данные нужны и с какого шага разумнее начать.</p>
-              <button type="button" onClick={onContact}>Обсудить проект <ArrowRight aria-hidden="true" /></button>
-            </section>
+            <ClientOnly>
+              <section className="case-article-cta">
+                <span><Sparkles aria-hidden="true" /> Разбор по вашему проекту</span>
+                <h2>Нужно применить это к вашему проекту?</h2>
+                <p>Пришлите ссылку и короткие вводные. Я посмотрю, какие данные нужны и с какого шага разумнее начать.</p>
+                <button type="button" onClick={onContact}>Обсудить проект <ArrowRight aria-hidden="true" /></button>
+              </section>
+            </ClientOnly>
           </article>
 
           {relatedArticles.length ? (

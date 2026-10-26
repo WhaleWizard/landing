@@ -43,7 +43,7 @@ import { useReturnTo, withReturnTo } from '../utils/siteNavigation';
 import { useDialogFocus } from '../components/hooks/useDialogFocus';
 import { articleDisplayDate } from '../utils/articleDate';
 import { useIsomorphicLayoutEffect } from '../utils/isomorphicLayoutEffect';
-import { hasGeneratedFirstScreen } from '../utils/firstScreen';
+import { hasGeneratedFirstScreen, isInitialEntry } from '../utils/firstScreen';
 import { preloadable } from '../utils/preloadable';
 import { loadCaseArticleView } from '../utils/caseArticlePreload';
 import ClientOnly from '../components/ClientOnly';
@@ -450,6 +450,8 @@ function CaseZipWarning({ download, onClose, onConfirm, dialogRef }: {
   );
 }
 
+const articleHtmlCache = new Map<string, { articleHtml: string; toc: { id: string; text: string }[] }>();
+
 function BlogPageComponent() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -457,7 +459,7 @@ function BlogPageComponent() {
   const navigationType = useNavigationType();
   // Страница пришла готовой из HTML (сборка + гидратация): появления через
   // motion не играют, иначе текст уехал бы в разметку с opacity:0.
-  const settledEntrance = hasGeneratedFirstScreen(location.pathname, location.key);
+  const settledEntrance = isInitialEntry(location.key) || hasGeneratedFirstScreen(location.pathname, location.key);
   const isCasesRoute = location.pathname === '/cases' || location.pathname.startsWith('/cases/');
   const routeBase = isCasesRoute ? '/cases' : '/blog';
   const returnTo = useReturnTo(routeBase);
@@ -516,6 +518,32 @@ function BlogPageComponent() {
   const { articleHtml, toc } = useMemo(() => {
     if (!selectedArticle) return { articleHtml: '', toc: [] };
     const content = selectedArticle.content || '';
+
+    // Fast-path for initial SSR hydration: if the server-rendered article content
+    // already exists in the pre-hydrated DOM for this exact article, adopt it directly.
+    // This avoids running two heavy DOMPurify sanitization passes and image AST queries during initial page boot.
+    if (typeof document !== 'undefined') {
+      const firstScreen = document.documentElement.getAttribute('data-ww-first-screen');
+      if (firstScreen && (firstScreen === `/cases/${selectedArticle.slug}` || firstScreen === `/blog/${selectedArticle.slug}`)) {
+        const existingContainer = document.querySelector('.case-article-content, .blog-article-content');
+        if (existingContainer && existingContainer.innerHTML.length > 0) {
+          const headings = Array.from(existingContainer.querySelectorAll('h2'));
+          const items = headings.map((heading, index) => {
+            const text = heading.textContent?.trim() || `Раздел ${index + 1}`;
+            const id = heading.id || `razdel-${index + 1}`;
+            return { id, text };
+          });
+          const result = { articleHtml: existingContainer.innerHTML, toc: items };
+          articleHtmlCache.set(selectedArticle.slug, result);
+          return result;
+        }
+      }
+    }
+
+    if (articleHtmlCache.has(selectedArticle.slug)) {
+      return articleHtmlCache.get(selectedArticle.slug)!;
+    }
+
     try {
       // Первый проход отдаёт уже очищенное дерево: лишний разбор строки через
       // DOMParser между двумя очистками стоил открытию статьи заметный кусок
@@ -894,7 +922,7 @@ function BlogPageComponent() {
                 className="mb-6"
               />
 
-              <m.div initial={settledEntrance ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-5xl space-y-5">
+              <m.div initial={settledEntrance ? false : { opacity: 0, y: 30 }} animate={settledEntrance ? undefined : { opacity: 1, y: 0 }} transition={settledEntrance ? undefined : { delay: 0.1 }} className="max-w-5xl space-y-5">
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                   <span className="rounded-lg border border-primary/25 bg-primary/15 px-3 py-1.5 font-semibold uppercase tracking-[0.04em] text-primary">{selectedArticle.category}</span>
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="h-4 w-4" /><span>{formatReadTime(selectedArticle.readTime)}</span></div>
@@ -904,7 +932,9 @@ function BlogPageComponent() {
                 <p className="max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">{seoDescription}</p>
                 <div className="flex items-center gap-3 border-t border-border/60 pt-5">
                   <img
-                    src="/images/brand/whale-wizard-256.webp"
+                    src="/images/brand/whale-wizard-96.webp"
+                    loading="lazy"
+                    decoding="async"
                     alt=""
                     width="44"
                     height="44"
@@ -919,13 +949,13 @@ function BlogPageComponent() {
             </div>
           </div>
           {hasCustomCover(selectedArticle.image) && (
-            <m.div initial={settledEntrance ? false : { opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 mb-10">
               <div className="blog-hero-cover rounded-2xl overflow-hidden border border-border shadow-2xl">
                 <img
                   {...articleImageAttributes(selectedArticle.image, ARTICLE_IMAGE_SIZES.cover)}
                   alt={selectedArticle.title}
                   loading="eager"
-                  decoding="async"
+                  decoding="auto"
                   fetchpriority="high"
                   className="w-full h-auto object-cover max-h-[500px]"
                   onError={(event) => {
@@ -935,7 +965,7 @@ function BlogPageComponent() {
                   }}
                 />
               </div>
-            </m.div>
+            </div>
           )}
           <m.div initial={settledEntrance ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="blog-reading-wrap mx-auto max-w-6xl px-4 pb-20 sm:px-6">
             <div className="lg:grid lg:grid-cols-[minmax(0,760px)_minmax(230px,290px)] lg:items-start lg:justify-between lg:gap-12">
@@ -1365,14 +1395,14 @@ function BlogPageComponent() {
                       className="grid w-full text-left md:grid-cols-[minmax(0,1.02fr)_minmax(320px,0.98fr)]"
                     >
                       <div className="relative min-h-[230px] overflow-hidden bg-background/50 sm:min-h-[300px]">
-                        <img
+                        <DeferredImage
                           {...(hasCustomCover(featuredArticle.image)
                             ? articleImageAttributes(featuredArticle.image, ARTICLE_IMAGE_SIZES.featured)
                             : { src: '/images/brand/whale-wizard.webp' })}
                           alt=""
-                          loading="eager"
+                          loading="lazy"
                           decoding="async"
-                          fetchpriority="high"
+                          rootMargin="120px 0px"
                           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
                           onError={(event) => {
                             // Набор вариантов сильнее `src`: без его снятия

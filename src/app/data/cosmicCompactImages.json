@@ -11,8 +11,8 @@
   },
   "backgrounds": {
     "sky": {
-      "width": 1400,
-      "quality": 80
+      "width": 800,
+      "quality": 75
     }
   }
 }

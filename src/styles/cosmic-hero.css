@@ -31,9 +31,12 @@
 .cosmic-sky {
   position: absolute;
   inset: -4%;
-  background-image: url('/images/cosmic/sky.webp');
-  background-size: cover;
-  background-position: center;
+  width: 108%;
+  height: 108%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
   will-change: transform;
   animation: cosmic-drift 46s ease-in-out infinite alternate;
 }
@@ -232,7 +235,13 @@
   /* Небо на телефоне — та же картинка в 1400 px (scripts/build-cosmic-compact-images.js):
      сцена здесь не шире 900 CSS px, а именно небо — LCP главной на телефоне.
      Preload в generate-pages.js выбирает тот же файл теми же медиа-условиями. */
-  .cosmic-sky { inset: -2%; background-position: 60% 45%; background-image: url('/images/cosmic/sky-compact.webp'); }
+  .cosmic-sky {
+    inset: -2%;
+    background-position: 60% 45%;
+    background-image: url('/images/cosmic/sky-compact.webp');
+    animation: none;
+    will-change: auto;
+  }
 
   /* Кит уже полосы — вокруг остаётся фон, сферы и кристаллы, и сцена
      выглядит целой картиной, а не вырезанным куском.

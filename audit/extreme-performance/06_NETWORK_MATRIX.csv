@@ -1,0 +1,8 @@
+Profile,Download_Kbps,Upload_Kbps,Latency_ms,CDP_Download_bps,CDP_Upload_bps,Purpose
+Unrestricted,0,0,0,0,0,Baseline control without artificial throttling
+Good Mobile,10000,5000,40,1250000,625000,High quality 4G / LTE connection
+Moderate Mobile,3000,1000,100,375000,125000,Average mobile network conditions
+Slow 4G Simulation,1600,750,150,200000,93750,Throttled 4G or congested urban mobile
+Very Slow Mobile,400,200,300,50000,25000,3G connection or remote cellular zone
+Severe Congestion,200,100,500,25000,12500,Heavily degraded mobile connection
+Extreme Edge Case,100,50,800,12500,6250,Near-offline / high latency edge survival test

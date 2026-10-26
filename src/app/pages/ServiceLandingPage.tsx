@@ -895,7 +895,7 @@ function DeferredSection({
       if (hashTargetsSection(anchorId)) mount();
     };
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const rootMargin = isMobile ? '350px 0px' : '800px 0px';
+    const rootMargin = isMobile ? '120px 0px' : '800px 0px';
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return;

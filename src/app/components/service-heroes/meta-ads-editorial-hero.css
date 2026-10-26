@@ -787,3 +787,20 @@
     -webkit-text-fill-color: currentColor;
   }
 }
+
+
+html[data-ww-first-screen="/meta-ads"] .meta-proof__item,
+html[data-ww-first-screen="/meta-ads"] .meta-proof__underline {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
+@media (max-width: 767px) {
+  .meta-proof__item,
+  .meta-proof__underline {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
