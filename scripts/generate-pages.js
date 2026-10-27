@@ -752,6 +752,7 @@ function buildOrganizationJsonLd() {
   return {
     '@context': 'https://schema.org',
     '@type': 'ProfessionalService',
+    '@id': `${SITE_URL}/#organization`,
     name: 'Whale Wizard',
     url: SITE_URL,
     logo: `${SITE_URL}/images/brand/whale-wizard.png`,
@@ -815,6 +816,7 @@ function buildGlossaryJsonLd(terms = []) {
     hasDefinedTerm: terms.map((term) => ({
       '@type': 'DefinedTerm',
       '@id': `${SITE_URL}/marketing-glossary/#term-${escapeStructuredId(term.id)}`,
+      url: `${SITE_URL}/marketing-glossary/#term-${escapeStructuredId(term.id)}`,
       name: glossaryTermLabel(term),
       ...(term.abbreviation ? { termCode: term.abbreviation } : {}),
       ...(term.aliases?.length ? { alternateName: term.aliases.map((alias) => alias.value).filter(Boolean) } : {}),
@@ -835,6 +837,7 @@ function buildArticleJsonLd(article) {
     '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
     headline: article.seoTitle || article.title,
     description: article.seoDescription || article.description,
+    inLanguage: 'ru',
     // Картинка для поисковика берётся из оптимизированной копии на нашем
     // домене, а не из исходного адреса CMS: раньше в разметке стоял внешний
     // хостинг, и расширенный сниппет Google зависел от чужого сервера.
@@ -850,6 +853,7 @@ function buildArticleJsonLd(article) {
     },
     publisher: {
       '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
       name: 'Whale Wizard',
       logo: {
         '@type': 'ImageObject',
@@ -857,6 +861,7 @@ function buildArticleJsonLd(article) {
       },
     },
     keywords: article.tags || [],
+    ...(isCaseArticle(article) && article.caseData?.niche ? { about: { '@type': 'Thing', name: article.caseData.niche } } : {}),
     articleSection: article.category,
   };
 }
@@ -915,6 +920,7 @@ function buildServiceJsonLd(route, { name, description, serviceType, audience, o
     url: `${SITE_URL}${withTrailingSlashIfStaticRoute(route)}`,
     provider: {
       '@type': 'ProfessionalService',
+    '@id': `${SITE_URL}/#organization`,
       name: 'Whale Wizard',
       url: `${SITE_URL}/`,
     },
@@ -1775,7 +1781,7 @@ function renderGlossaryListHtml(terms = [], sections = [], sources = []) {
               return `
                 <details id="term-${escapeStructuredId(term.id)}" style="${contentStyles.cardBox};scroll-margin-top:96px">
                   <summary style="cursor:pointer;font-weight:700;font-size:15px">
-                    ${escapeHtml(glossaryTermLabel(term))}
+                    <h3 style="margin:0;display:inline;font-size:15px;font-weight:700">${escapeHtml(glossaryTermLabel(term))}</h3>
                     <span style="font-weight:400;${contentStyles.muted}"> · ${escapeHtml(sectionById.get(term.primarySection)?.label || term.primarySection)} · ${escapeHtml(term.category)}</span>
                   </summary>
                   ${term.disambiguation ? `<p style="margin:10px 0 0;${contentStyles.muted}"><strong>Не путать:</strong> ${escapeHtml(term.disambiguation)}</p>` : ''}
@@ -2281,7 +2287,7 @@ async function renderArticlePages(articles, baseHtml, content) {
         baseHtml,
         bodyHtml,
         hydratable: true,
-        afterRootHtml: '<div id="ww-static-shell"></div>',
+        afterRootHtml: renderStaticShellAfterRoot({ sections: [], currentRoute: path }),
         // Версия статьи в разметке: сервер (article-page.ts) подменяет
         // встроенную статью живой, и если владелец правил её после сборки,
         // main.tsx строит страницу заново вместо гидратации старого текста.

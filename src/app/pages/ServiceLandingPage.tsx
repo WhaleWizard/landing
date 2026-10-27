@@ -174,8 +174,8 @@ export const META_APPS_TESTIMONIAL_CONTENT: TestimonialsContent = {
 export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'service' | 'theme'>> = {
   'meta-ads': {
     seo: {
-      title: 'Таргетолог Meta Ads: настройка рекламы в Instagram и Facebook',
-      description: 'Настройка и ведение таргетированной рекламы в Instagram и Facebook под заявки и продажи, а не клики: оффер, креативы, Pixel и Conversions API, статусы лидов из CRM. Удалённо, по всему миру.',
+      title: 'Таргетолог Meta Ads: настройка таргетированной рекламы в Instagram и Facebook',
+      description: 'Настройка и ведение таргетированной рекламы в Instagram и Facebook: оффер, связки, креативы, Meta Pixel, Conversions API (CAPI) и CRM. Заявки и окупаемые продажи. Удалённо по всему миру.',
       url: '/meta-ads/',
     },
     hero: {
@@ -334,8 +334,8 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   'google-ads': {
     seo: {
-      title: 'Настройка и ведение Google Ads: контекстная реклама под заявки',
-      description: 'Специалист по Google Ads: настройка и ведение контекстной рекламы в Google для услуг, B2B и интернет-магазинов — Search, Shopping, Performance Max. Спрос и цену заявки считаю до старта. Удалённо, по всему миру.',
+      title: 'Настройка и ведение Google Ads: контекстная реклама под ключ',
+      description: 'Специалист по Google Ads: настройка контекстной рекламы под ключ для B2B, услуг и e-commerce — Search, Shopping и Performance Max. Аналитика GA4, Enhanced Conversions и CRM. Удалённо по всему миру.',
       url: '/google-ads/',
     },
     hero: {
@@ -489,8 +489,8 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   'meta-apps': {
     seo: {
-      title: 'Продвижение мобильного приложения: реклама в Instagram и Facebook',
-      description: 'Реклама iOS- и Android-приложений в Meta Ads: установки, регистрации, покупки и подписки, а не просто инсталлы. Настраиваю SDK, MMP и Conversions API, готовлю креативы, считаю CPI и цену платящего пользователя.',
+      title: 'Продвижение мобильных приложений в Meta Ads: реклама в Instagram и Facebook',
+      description: 'Продвижение iOS и Android приложений в Meta Ads под ключ: окупаемые установки, регистрации, покупки и подписки. Настройка Meta SDK, MMP (AppsFlyer, Adjust) и Conversions API. Креативы под Reels и Stories.',
       url: '/meta-apps/',
     },
     hero: {
@@ -650,7 +650,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   consult: {
     seo: {
       title: 'Консультация таргетолога и аудит рекламного кабинета — $70',
-      description: 'Консультация по рекламе один на один за $70: аудит кабинета Meta Ads и Google Ads, проверка подрядчика, разбор кампаний для тех, кто ведёт рекламу сам, помощь таргетологам с оффером и ценой. 60–90 минут.',
+      description: 'Консультация по рекламе Meta Ads и Google Ads за $70: глубокий аудит рекламного кабинета, проверка подрядчика, разбор связок и окупаемости. 60–90 минут с пошаговым планом на 30 дней.',
       url: '/consult/',
     },
     hero: {

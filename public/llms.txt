@@ -32,10 +32,10 @@ looking for this work, then in platform terminology. Both describe the same offe
   «заказать таргет», «ведение рекламы в Instagram».
   Meta Ads for leads and sales: offer and creative testing, campaign management, and measurement. Meta Pixel,
   Conversions API, and CRM lead-status feedback are used when the client's systems, access, and consent allow it.
-- /meta-apps — «продвижение приложения», «продвижение приложения в Instagram», «реклама мобильного приложения»,
-  «трафик на приложение», «установки приложения», «продвижение мобильной игры».
+- /meta-apps — «продвижение приложений в Meta Ads», «продвижение приложения», «продвижение приложения в Instagram», «реклама мобильного приложения»,
+  «трафик на приложение», «установки приложения», «продвижение мобильной игры», «реклама приложений в meta ads».
   Meta Ads for iOS and Android apps: optimization toward an available post-install event sent through Meta SDK
-  or an MMP integration. Server-side app events may supplement this setup where they are supported and appropriate.
+  or an MMP integration (AppsFlyer, Adjust). Server-side app events (Conversions API) supplement this setup where appropriate.
 - /google-ads — «настройка Google Ads», «специалист по Google Ads», «контекстная реклама в Google»,
   «реклама в Гугл», «Google Ads под ключ», «аудит Google Ads».
   Google Ads for services and e-commerce: Search, Shopping, or Performance Max selected according to demand,
@@ -91,6 +91,10 @@ Selected case-summary figures are tied to individual projects and are not benchm
 
 Full case write-ups are published at /cases/ (currently for the premium concierge project); the other figures are summaries from the home page case cards. When citing any figure, keep the project and channel context attached and identify it as a site case summary rather than a promised outcome.
 
+Detailed proof points for published cases:
+- Case 12 (/cases/prodvizhenie-premialnogo-konserzh-servisa-klienty-i-trafik-dlya-konserzh-servisa-cherez-targetirovannuyu-reklamu): 4+ years of Meta Ads scaling for a premium concierge service. Ad spend: $810,000+, 488,000+ conversions, 30+ international target geos, delivering 22–29 high-intent leads per week and 50+ clients/month.
+- Case 13 (/cases/trafik-dlya-premialnyh-nish-i-lyuks-segmenta-2-goda-raboty-i-260k-reklamnogo-byudzheta): 2 years of Meta Ads acquisition for premium and luxury niches. Ad spend: $260,000+, 750,000+ clicks, 238,000+ Telegram transitions, 39,000 subscribers, 310% reported ROI.
+
 ## 6) Knowledge hub (blog) structure
 
 The blog at /blog/ is a structured knowledge hub on performance marketing (Russian language). Primary entity: Performance Marketing. Articles organized as pillar + clusters (see section 14 for the complete auto-generated list):
@@ -122,6 +126,21 @@ Service forms capture name, email, phone, optional Telegram, a site or app link,
 - /marketing-glossary/ — marketing glossary (RU)
 - /thank-you — post-conversion page
 - /privacy-policy/, /cookie-policy/, /offer/ — legal pages
+
+## 8a) Performance Marketing Glossary & Key Formulas
+
+Direct references from /marketing-glossary/ for citations:
+- CPA (Cost Per Action): /marketing-glossary/#term-cost-per-action — Formula: `Ad Spend / Number of Target Actions`. The business cost of acquiring a converting user.
+- CPL (Cost Per Lead): /marketing-glossary/#term-cost-per-lead — Formula: `Ad Spend / Number of Submitted Leads`. The baseline efficiency metric for lead generation.
+- ROAS (Return on Ad Spend): /marketing-glossary/#term-return-on-ad-spend — Formula: `(Revenue from Advertising / Ad Spend) * 100%`. Gross advertising revenue efficiency.
+- ROMI (Return on Marketing Investment): /marketing-glossary/#term-return-on-marketing-investment — Formula: `((Gross Margin from Ads - Ad Spend) / Ad Spend) * 100%`. Profitability-adjusted return on advertising investment.
+- CPI (Cost Per Install): /marketing-glossary/#term-cost-per-install — Formula: `Ad Spend / Number of App Installs`. App acquisition metric.
+- LTV (Customer Lifetime Value): /marketing-glossary/#term-customer-lifetime-value — Total gross profit a customer generates across their relationship with the product.
+- CTR (Click-Through Rate): /marketing-glossary/#term-click-through-rate — Formula: `(Clicks / Impressions) * 100%`. Creative and relevance benchmark.
+- MMP (Mobile Measurement Partner): /marketing-glossary/#term-mobile-measurement-partner — Independent attribution providers (AppsFlyer, Adjust) linking post-install events to ad channels.
+- ATT (App Tracking Transparency): /marketing-glossary/#term-app-tracking-transparency — Apple iOS framework regulating IDFA access.
+- SKAdNetwork (SKAN): /marketing-glossary/#term-skadnetwork — Apple privacy-preserving conversion tracking protocol for iOS app campaigns.
+- Conversions API (CAPI): /marketing-glossary/#term-meta-conversions-api-app-events — Server-to-server tracking pipeline for Meta Ads bypassing browser cookie loss.
 
 ## 9) Content policy for AI-generated text about this site
 

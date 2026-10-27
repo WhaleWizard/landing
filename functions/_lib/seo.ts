@@ -155,6 +155,7 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
       '@type': isCaseArticle(article) ? 'Article' : 'BlogPosting',
       headline: buildSeoTitle(article),
       description: buildSeoDescription(article),
+      inLanguage: 'ru',
       image: [image],
       ...(publishedDate ? { datePublished: publishedDate } : {}),
       ...(modifiedDate ? { dateModified: modifiedDate } : {}),
@@ -167,6 +168,7 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
       },
       publisher: {
         '@type': 'Organization',
+        '@id': `${siteUrl}/#organization`,
         name: 'Whale Wizard',
         logo: {
           '@type': 'ImageObject',
@@ -174,6 +176,7 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
         },
       },
       keywords: article.tags || [],
+      ...(isCaseArticle(article) && article.caseData?.niche ? { about: { '@type': 'Thing', name: article.caseData.niche } } : {}),
       articleSection: article.category,
     },
   );
@@ -305,6 +308,19 @@ export function renderArticleHtml(siteUrl: string, article: Article, sectionPath
 ${safeContent}
       </section>
       ${faqItems.length > 0 ? `<section><h2>FAQ</h2>${faqItems.map((item) => `<details><summary>${escapeHtml(item.question)}</summary><p>${escapeHtml(item.answer)}</p></details>`).join('')}</section>` : ''}
+      <footer style="margin-top:40px;padding-top:20px;border-top:1px solid #eee">
+        <h2>Услуги performance-маркетинга и аналитика</h2>
+        <nav aria-label="Связанные услуги и материалы">
+          <ul>
+            <li><a href="/meta-ads/">Таргетированная реклама в Instagram и Facebook (Meta Ads)</a></li>
+            <li><a href="/meta-apps/">Продвижение мобильных приложений в Meta Ads под ключ</a></li>
+            <li><a href="/google-ads/">Контекстная реклама в Google Ads: Поиск, PMax, Ремаркетинг</a></li>
+            <li><a href="/consult/">Разовая консультация маркетолога и аудит рекламы ($70)</a></li>
+            <li><a href="/marketing-glossary/">Глоссарий терминов performance-маркетинга и формулы</a></li>
+            <li><a href="/cases/">Все кейсы и результаты клиентов с подтверждёнными бюджетами</a></li>
+          </ul>
+        </nav>
+      </footer>
     </article>
   </main>
 </body>

@@ -12,6 +12,33 @@
 
 ## 2. Где мы сейчас
 
+**Сделано 27.10.2026 (Сессия SEO, GEO & AEO Full Platform Optimization v8.0):**
+- **РЕАЛИЗОВАН ПЕРВЫЙ ЭТАП СКВОЗНОЙ ОПТИМИЗАЦИИ ПОИСКОВОГО И ИИ-ПРИСУТСТВИЯ (SEO / GEO / AEO):**
+  1. `Калибровка коммерческих метаданных под реальный поисковый спрос`:
+     - `/meta-apps/`: Title переведён в прямое вхождение коммерческого интента `Продвижение мобильных приложений в Meta Ads: реклама в Instagram и Facebook`; Description обогащен LSI-сущностями (iOS/Android под ключ, Meta SDK, MMP AppsFlyer/Adjust, Conversions API, Reels/Stories).
+     - `/meta-ads/`: Title уточнен до `Таргетолог Meta Ads: настройка таргетированной рекламы в Instagram и Facebook`; Description обогащен связками CAPI и CRM.
+     - `/google-ads/`: Title обновлен до `Настройка и ведение Google Ads: контекстная реклама под ключ`; Description дополнен Search, Shopping, Performance Max, GA4, Enhanced Conversions и CRM.
+     - `/consult/`: Description сфокусирован на глубоком аудите кабинета, проверке подрядчика и плане на 30 дней.
+  2. `Усиление GEO и цитируемости в ИИ-поисковиках (public/llms.txt)`:
+     - В раздел 2 добавлены точные запросы по продвижению приложений в Meta Ads и MMP-интеграциям.
+     - В раздел 5 добавлены детальные фактологические выжимки по опубликованным Кейсам 12 ($810 000+ spend, 488 000+ конверсий, 30+ гео) и 13 ($260 000+ spend, 750 000+ кликов, 39 000 подписчиков, 310% ROI) с прямыми URL для цитирования в Perplexity, ChatGPT Search, Claude и Gemini.
+  3. `Семантический граф и Schema.org Knowledge Graph`:
+     - В `ProfessionalService` и `Service` добавлен `@id: https://www.whalewzrd.com/#organization` для бесшовного связывания сущностей организации и услуг в единый Knowledge Graph.
+     - В схемы статей и кейсов `Article` / `BlogPosting` на сервере и клиенте внедрен атрибут `inLanguage: "ru"`.
+  4. `AEO-структурирование Маркетингового Словаря`:
+     - В статическом HTML-рендеринге `#ww-static-shell` заголовки терминов словаря обёрнуты в семантические `<h3>`, превращая все 70+ терминов в иерархическую структуру для поисковых ботов.
+     - В микроразметку `DefinedTerm` внедрено поле `url: https://www.whalewzrd.com/marketing-glossary/#term-{id}` для каждого из 70+ терминов.
+     - В `public/llms.txt` добавлен раздел `8a) Performance Marketing Glossary & Key Formulas` с прямыми формулами и анкорными ссылками для цитирования в ИИ-поисковиках.
+  5. `E-E-A-T связывание Кейсов`:
+     - В схему `Article` для кейсов добавлен узел `about: { '@type': 'Thing', name: article.caseData.niche }`, привязывающий материал к конкретной рыночной нише (консьерж-сервис / люкс).
+  6. `PageRank-закольцовка и внутренняя перелинковка материалов`:
+     - В `functions/_lib/seo.ts` (`renderArticleHtml`) внедрен семантический футер внутри `<article>` с прямыми ссылками на коммерческие услуги (`/meta-ads/`, `/meta-apps/`, `/google-ads/`, `/consult/`), глоссарий (`/marketing-glossary/`) и кейсы (`/cases/`) с каноническими слешами.
+     - В `scripts/generate-pages.js` (`renderArticlePages`) статическая оболочка `#ww-static-shell` для статей и кейсов подключена к `renderStaticShellAfterRoot`, гарантируя передачу веса роботам без выполнения JS.
+  7. `Связывание издателя в Knowledge Graph`:
+     - Узел `publisher` в микроразметке `Article` и `BlogPosting` на сервере (`seo.ts`) и на сборке (`generate-pages.js`) связан с глобальной организацией через `@id: https://www.whalewzrd.com/#organization`.
+  8. `100% сохранение стабильности и скорости платформы`:
+     - `npm run check` (все 46 тестовых наборов, проверка типов TS app/functions, сборка и 15 SEO-контрактов): **100% PASS (Exit code 0)**.
+
 **Сделано 27.10.2026 (Сессия Forensic Performance Engineering v7.0 — Cases CRP, Zero-Shift H1, React Invariant #425 Resolution):**
 - **100% ПУБЛИЧНЫХ МАРШРУТОВ ПЛАТФОРМЫ (17 ИЗ 17) ДОСТИГЛИ 95–99 В MOBILE LIGHTHOUSE И 99–100 В DESKTOP:**
   - Десктоп (17 маршрутов): 14 маршрутов — ровно **100**, 3 маршрута — **99** (медиана 100, LCP <= 852ms, TBT = 0ms).
