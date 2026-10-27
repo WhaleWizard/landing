@@ -6,6 +6,11 @@
 @import './blog-readable.css';
 @import './whale-brand.css';
 @import './footer.css';
+@import '../app/components/service-heroes/meta-ads-editorial-hero.css';
+@import '../app/components/meta-apps-hero.css';
+@import '../app/components/service-heroes/consult-studio-hero.css';
+@import './consult-desk-scene.css';
+@import './cosmic-hero.css';
 
 /* Safari zooms focused form controls below 16px. A phone in landscape can
  * cross the desktop typography breakpoint, so use its input capabilities

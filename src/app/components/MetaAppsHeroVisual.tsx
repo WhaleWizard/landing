@@ -29,7 +29,7 @@ import {
   type MotionValue,
 } from 'motion/react';
 import { useIsomorphicLayoutEffect } from '../utils/isomorphicLayoutEffect';
-import './meta-apps-hero.css';
+// import './meta-apps-hero.css' -> consolidated into src/styles/index.css for single-stylesheet SSR CRP
 
 type MetaAppsHeroVisualProps = {
   /**
@@ -121,7 +121,7 @@ function EventRow({ index, icon, label, status, reveal, reduced, subtle }: Event
     <m.div
       className="meta-phone-event"
       initial={reduced ? false : { opacity: 0, x: hiddenX }}
-      animate={{ opacity: reveal ? 1 : 0, x: reveal ? 0 : hiddenX }}
+      animate={reduced ? undefined : { opacity: reveal ? 1 : 0, x: reveal ? 0 : hiddenX }}
       transition={{
         delay: reduced ? 0 : subtle ? 0.2 + index * 0.08 : 0.48 + index * 0.14,
         duration: subtle ? 0.32 : 0.45,
@@ -218,7 +218,7 @@ function PhoneScreen({
           <m.div
             className="meta-phone-events__line"
             initial={reduced ? false : { scaleY: 0 }}
-            animate={{ scaleY: reveal ? 1 : 0 }}
+            animate={reduced ? undefined : { scaleY: reveal ? 1 : 0 }}
             transition={{
               delay: reduced ? 0 : subtle ? 0.16 : 0.42,
               duration: subtle ? 0.58 : 0.95,
@@ -298,7 +298,7 @@ function PhoneScreen({
         <m.div
           className="meta-phone-final-status"
           initial={reduced ? false : { opacity: 0, y: subtle ? 6 : 12 }}
-          animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : subtle ? 6 : 12 }}
+          animate={reduced ? undefined : { opacity: reveal ? 1 : 0, y: reveal ? 0 : subtle ? 6 : 12 }}
           transition={{
             delay: reduced ? 0 : subtle ? 0.78 : 1.72,
             duration: subtle ? 0.34 : 0.5,
@@ -399,8 +399,9 @@ function Receipt({
                 height={201}
                 decoding="async"
                 draggable={false}
+                loading="lazy"
                 initial={reduced ? false : { opacity: 0, scale: 0.55, rotate: -18 }}
-                animate={{ opacity: reveal ? 0.72 : 0, scale: reveal ? 1 : 0.55, rotate: -7 }}
+                animate={reduced ? undefined : { opacity: reveal ? 0.72 : 0, scale: reveal ? 1 : 0.55, rotate: -7 }}
                 transition={{
                   delay: reduced ? 0 : subtle ? 0.72 : 1.45,
                   duration: subtle ? 0.36 : 0.5,
@@ -419,6 +420,7 @@ function Receipt({
                 height={136}
                 decoding="async"
                 draggable={false}
+                loading="lazy"
                 initial={reduced ? false : { opacity: 0, scale: 1.35, rotate: -10 }}
                 animate={{
                   opacity: reveal ? 0.78 : 0,
@@ -652,7 +654,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed, settled = false }: MetaAppsHer
         // ширина окна на сборке неизвестна, а разметка обязана совпасть.
       } as MetaAppsVisualStyle}
       initial={entranceOff ? false : { opacity: 0, x: subtleMotion ? 12 : 34 }}
-      animate={{ opacity: 1, x: 0 }}
+      animate={entranceOff ? undefined : { opacity: 1, x: 0 }}
       transition={{
         duration: subtleMotion ? 0.52 : 0.75,
         delay: subtleMotion ? 0.06 : 0.18,
@@ -671,16 +673,15 @@ const MetaAppsHeroVisual = memo(({ motionAllowed, settled = false }: MetaAppsHer
           alt=""
           width={1536}
           height={1024}
-          loading="eager"
+          loading="lazy"
           decoding="async"
-          fetchpriority="high"
           draggable={false}
           initial={entranceOff ? false : {
             opacity: 0,
             y: subtleMotion ? 10 : 26,
             scale: subtleMotion ? 0.99 : 0.97,
           }}
-          animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : 26, scale: reveal ? 1 : 0.97 }}
+          animate={entranceOff ? undefined : { opacity: reveal ? 1 : 0, y: reveal ? 0 : 26, scale: reveal ? 1 : 0.97 }}
           transition={{
             delay: entranceOff ? 0 : subtleMotion ? 0.08 : 0.42,
             duration: subtleMotion ? 0.5 : 0.82,
@@ -700,7 +701,7 @@ const MetaAppsHeroVisual = memo(({ motionAllowed, settled = false }: MetaAppsHer
               y: subtleMotion ? 12 : 32,
               rotate: subtleMotion ? 0.6 : 2,
             }}
-            animate={{ opacity: reveal ? 1 : 0, y: reveal ? 0 : 32, rotate: 0 }}
+            animate={entranceOff ? undefined : { opacity: reveal ? 1 : 0, y: reveal ? 0 : 32, rotate: 0 }}
             transition={{
               delay: entranceOff ? 0 : subtleMotion ? 0.12 : 0.36,
               duration: subtleMotion ? 0.56 : 0.78,

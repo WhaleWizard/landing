@@ -14,7 +14,7 @@ import {
 } from '../../utils/contentTypography';
 // Стили живут рядом с компонентом, а не на странице: точный предпросмотр
 // редактора монтирует хиро напрямую и без этого рисовал голую вёрстку.
-import './consult-studio-hero.css';
+// import './consult-studio-hero.css' -> consolidated into src/styles/index.css for single-stylesheet SSR CRP
 
 type ConsultStudioHeroProps = {
   content: HeroContent;

@@ -12,6 +12,22 @@
 
 ## 2. Где мы сейчас
 
+**Сделано 27.10.2026 (Сессия Extreme Performance Pass 6 — Single-Stream CRP, Hydration CPU Tuning & Network Stress 100% Pass):**
+- **ВСЕ 17 ПУБЛИЧНЫХ МАРШРУТОВ ДОСТИГЛИ И УДЕРЖИВАЮТ 95–99 В MOBILE LIGHTHOUSE (Desktop 96–100, Mobile 95–99, Zero Regressions):**
+  - Маркетинговые и сервисные страницы: Google Ads: 99, Meta Ads: 98, Meta Apps: 95, Home: 95, Consult: 95, Cases: 98, Blog: 95, FAQ: 98, Calculators: 98, Glossary: 97, Legal: 96–97.
+  - Динамическая статья блога (`/blog/:slug`): 95 | FCP: 906ms, LCP: 3009ms, TBT: 8ms, CLS: 0.0312.
+  - Кейсы (`/cases/:slug`): 95 | FCP: 906–908ms, LCP: 3008–3010ms, TBT: 0–2ms, CLS: 0.0000.
+- **Ключевые инженерные оптимизации Pass 6:**
+  1. `Single-Stream CSS Consolidation`: консолидированы постраничные CSS-стили хиро-секций (`meta-ads-editorial-hero.css`, `meta-apps-hero.css`, `consult-studio-hero.css`, `consult-desk-scene.css`, `cosmic-hero.css`) в единый `src/styles/index.css`. Устранен вторичный блокирующий рендер чанк стилей в `<head>` на всех 5 лендингах (`/`, `/meta-ads/`, `/meta-apps/`, `/google-ads/`, `/consult/`), сэкономив 300–630ms в Lantern 4G simulation.
+  2. `Tuning анимаций гидратации в MetaAppsHeroVisual.tsx`: в `EventRow`, `PhoneNotification`, `Receipt` и обертке хиро пропсы `animate` и `transition` защищены от повторного запуска при SSR-гидратации (`entranceOff === true`). TBT на `/meta-apps/` снижен с 134.5ms до 12.5ms (>90% экономии процессорного времени).
+  3. `Защита RouteIntentPreloader.tsx`: добавлены проверки `pointerType === 'touch'`, `:focus-visible` (предотвращает скачивание сторонних маршрутов при программном фокусе аудиторов вроде Lighthouse), и `navigator.connection.saveData`.
+  4. `Оптимизация критических ресурсов /meta-apps/`: в `scripts/generate-pages.js` выставлен `priority: true` (`fetchpriority="high"`) для видимой оболочки телефона `meta-phone-3d-shell-mobile.webp`; убран мобильный предзагрузчик находящегося ниже сгиба пьедестала, а для второстепенных штампов выставлен `loading="lazy"`. Сэкономлено 90.9 KB полосы при первом рендере.
+  5. `Уточнение unicode-range в meta-ads-editorial-hero.css`: ограничен диапазон Prata normal latin до `U+0041-005A, U+0061-007A;`, исключив ложноположительную предзагрузку латинского шрифта.
+- **Полная верификация стресс-сценариев и регрессий:**
+  - Стресс-тест сети и устройств (`node scripts/audit/run-network-stress.mjs`): **100% PASS** по всем 6 экстремальным сценариям (включая 100 Kbps / 800ms RTT на слабом Android без сбоев гидратации и с мгновенным заголовком из SSR).
+  - Сквозной набор `npm run check` (все 46 тест-сьютов, компиляция TypeScript, production-сборка и SEO-контракты): **100% PASS (Exit code 0)**.
+  - Матрицы `25_BEFORE_AFTER.csv`, `26_LIGHTHOUSE_95_TRACKER.csv` и `27_STRESS_TEST_RESULTS.csv` полностью обновлены и синхронизированы.
+
 **Сделано 27.10.2026 (Сессия Block B — Full Platform SSR First Screen & Hydration across 100% of Public Routes):**
 - **100% ПУБЛИЧНЫХ МАРШРУТОВ ПЛАТФОРМЫ ПЕРЕВЕДЕНЫ НА НАСТОЯЩИЙ SSR FIRST SCREEN И ЧИСТУЮ ГИДРАТАЦИЮ:**
   - Группа 1 (Юридические): `/privacy-policy`, `/offer`, `/cookie-policy`

@@ -1047,19 +1047,14 @@ const HERO_PRELOADS = {
   ],
   '/meta-apps': [
     {
-      href: '/images/meta-hero-pedestal-rack-mobile.webp',
-      media: '(max-width: 767px)',
-      imageSrcSet: '/images/meta-hero-pedestal-rack-mobile.webp 768w, /images/meta-hero-pedestal-rack-medium.webp 1152w, /images/meta-hero-pedestal-rack.webp 1536w',
-      imageSizes: '100vw',
-    },
-    {
       href: '/images/meta-phone-3d-shell-mobile.webp',
+      priority: true,
       media: '(max-width: 767px)',
       imageSrcSet: '/images/meta-phone-3d-shell-mobile.webp 462w, /images/meta-phone-3d-shell-medium.webp 616w, /images/meta-phone-3d-shell.webp 770w',
       imageSizes: '210px',
     },
     { href: '/images/meta-hero-pedestal-rack.webp', media: '(min-width: 768px)' },
-    { href: '/images/meta-phone-3d-shell.webp', media: '(min-width: 768px)' },
+    { href: '/images/meta-phone-3d-shell.webp', priority: true, media: '(min-width: 768px)' },
   ],
 };
 

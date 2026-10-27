@@ -8,7 +8,7 @@ import {
 } from '../../utils/motionPerformance';
 // Стили рядом с компонентом: точный предпросмотр в админке монтирует хиро
 // напрямую, и без этого сцена приехала бы без раскладки.
-import '../../../styles/consult-desk-scene.css';
+// import '../../../styles/consult-desk-scene.css' -> consolidated into src/styles/index.css for single-stylesheet SSR CRP
 
 type Piece = {
   file: string;

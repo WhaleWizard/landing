@@ -23,7 +23,7 @@ import SectionErrorBoundary from '../components/SectionErrorBoundary';
 // The mobile cosmic stage participates in document flow. Load its geometry
 // with the Home route (rather than the nested lazy scene) so Suspense reserves
 // 320–430px immediately without making non-cosmic service heroes download it.
-import '../../styles/cosmic-hero.css';
+// import '../../styles/cosmic-hero.css' -> consolidated into src/styles/index.css for single-stylesheet SSR CRP
 
 const defaultHomeSeo = {
   title: 'Таргетолог Instagram и Facebook, специалист по Google Ads',

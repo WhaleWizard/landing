@@ -26,6 +26,14 @@ function targetRoute(event: Event): string | null {
 function RouteIntentPreloader() {
   useEffect(() => {
     const handleIntent = (event: Event) => {
+      if (event.type === 'pointerover' && (event as PointerEvent).pointerType === 'touch') return;
+      if (event.type === 'focusin') {
+        const target = event.target as Element | null;
+        if (typeof target?.matches === 'function' && !target.matches(':focus-visible')) return;
+      }
+      const conn = (navigator as unknown as { connection?: { saveData?: boolean } })?.connection;
+      if (conn?.saveData) return;
+
       const route = targetRoute(event);
       if (!route) return;
       // Код закрытой страницы не скачивается вовсе — ни по наведению, ни при
