@@ -78,3 +78,49 @@
   - `notebook.webp`: 123,976 bytes -> 108,178 bytes (-15,798 bytes / -12.7%).
   - Saved 25.8 KB across consult scene assets.
 - **Impact**: Combined with FIX-04 (`desk-v-800.webp`), Consult mobile LCP dropped from 6315ms to 5487ms (-828ms reduction).
+
+---
+
+## FIX-18: Single-Stream Critical Rendering Path CSS Consolidation (`index.css`)
+- **Root Cause**: Vite emitted separate route-specific chunk stylesheets for each service hero component (`meta-ads-editorial-hero.css`, `meta-apps-hero.css`, `consult-studio-hero.css`, `consult-desk-scene.css`, and `cosmic-hero.css`). On mobile simulated 4G networks (1.6 Mbps, 150ms RTT), having a secondary render-blocking stylesheet in `<head>` forced a second round-trip before first paint, adding 300–630ms to FCP and LCP.
+- **Architectural Repair**:
+  - Consolidated all service hero CSS files into `src/styles/index.css`.
+  - Removed local CSS imports from `MetaAdsEditorialHero.tsx`, `MetaAppsHeroVisual.tsx`, `ConsultStudioHero.tsx`, `ConsultDeskScene.tsx`, `Home.tsx`, and `ContentPreview.tsx`.
+  - Added only ~12 KB gzip to the single primary stylesheet (`index-*.css`), which delivers entirely within initial TCP windows.
+- **Impact**: FCP dropped from 1100–1540ms to ~910ms across all service landing pages; all 5 landing routes score 95–99 in Mobile Lighthouse.
+
+---
+
+## FIX-19: Elimination of Hydration Animation CPU Spike (`MetaAppsHeroVisual.tsx`)
+- **Root Cause**: When hydrated from pre-rendered SSR HTML (`settled === true`), Framer Motion components (`EventRow`, `PhoneNotification`, `Receipt`, and hero shell) scheduled active spring/tween entrance animations, triggering expensive style recalculations and layout passes on elements already positioned at opacity 1. This inflated mobile TBT to 134.5ms.
+- **Architectural Repair**:
+  - Guarded `animate` and `transition` props in `EventRow`, `PhoneNotification`, `Receipt`, and the root container with `animate={reduced ? undefined : ...}` and `transition={reduced ? undefined : ...}` when `entranceOff` is active.
+- **Impact**: Total Blocking Time (TBT) dropped from 134.5ms to 12.5ms (>90% reduction); `/meta-apps/` mobile score elevated to 95.
+
+---
+
+## FIX-20: Route Preloader Programmatic Focus and Touch-Scroll Guard (`RouteIntentPreloader.tsx`)
+- **Root Cause**: Automated testing tools (e.g. Lighthouse accessibility audit) systematically traverse focusable DOM elements. In `RouteIntentPreloader`, un-guarded `focusin` events caused eager preloading of foreign routes (e.g. `/`), downloading over 150 KB of unrelated assets (such as the cosmic whale scene) during the `/meta-apps/` audit.
+- **Architectural Repair**:
+  - Added `:focus-visible` check to `focusin` handler.
+  - Ignored `pointerover` events where `pointerType === 'touch'` (touch scrolling gestures).
+  - Respected `navigator.connection.saveData`.
+- **Impact**: Zero foreign route downloads during mobile audits; clean isolated test runs without bandwidth competition.
+
+---
+
+## FIX-21: In-Viewport Shell Priority & Off-Screen Image Lazy Loading (`generate-pages.js`, `MetaAppsHeroVisual.tsx`)
+- **Root Cause**: In `HERO_PRELOADS['/meta-apps']`, the stone pedestal rack (`meta-hero-pedestal-rack-mobile.webp`, located below the fold at y: 944) was preloaded eagerly on mobile, while the true in-viewport shell lacked high priority. Secondary stamp images were also marked with eager loading.
+- **Architectural Repair**:
+  - In `scripts/generate-pages.js`, prioritized `meta-phone-3d-shell-mobile.webp` with `priority: true` (`fetchpriority="high"`).
+  - Removed mobile preload for the below-the-fold pedestal.
+  - Marked pedestal and secondary stamps with `loading="lazy"`.
+- **Impact**: Saved 90.9 KB of competing bandwidth during initial paint on `/meta-apps/`.
+
+---
+
+## FIX-22: Cyrillic Headline Latin Font False-Positive Matching (`meta-ads-editorial-hero.css`)
+- **Root Cause**: The `@font-face` declaration for Prata Normal Latin in `meta-ads-editorial-hero.css` contained a broad unicode-range (`U+0000-00FF`), matching standard ASCII punctuation and triggering a 36.1 KB download of `prata-400-normal-latin.woff2` on Cyrillic landing pages.
+- **Architectural Repair**:
+  - Restricted `unicode-range` to letters only: `U+0041-005A, U+0061-007A;`.
+- **Impact**: Eliminated unneeded Latin font download from the critical path of `/meta-ads/`.
