@@ -1,0 +1,2 @@
+ExperimentID,RelatedHypothesis,ControlCondition,TreatmentCondition,AffectedRoute,TestProfile,RunsCount,MetricBefore,MetricAfter,MedianDelta,VisualImpact,Conclusion
+EXP-01,HYP-01,"Separate CasesPage-*.css chunk imported in CasesPage.tsx","Consolidated cases-finder.css in src/styles/index.css","/cases/","Mobile (Lantern 4G + 4x CPU)",1,"Score: 87, CLS: 0.149, FCP: 1057ms, LCP: 3186ms","PENDING","PENDING","Zero layout shift expected","PENDING"

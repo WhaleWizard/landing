@@ -411,7 +411,7 @@ function RootLayout() {
   );
   const articleInitialLoad = isAdmin
     ? 'manual'
-    : (location.pathname === '/' || location.pathname === '/cases' || location.pathname === '/blog')
+    : ((location.pathname.replace(/\/+$/, '') || '/') === '/' || (location.pathname.replace(/\/+$/, '') || '/') === '/cases' || (location.pathname.replace(/\/+$/, '') || '/') === '/blog')
       ? 'deferred'
       : 'immediate';
   const routeContent = isLocked

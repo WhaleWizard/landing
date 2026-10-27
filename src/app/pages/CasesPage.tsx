@@ -1,6 +1,6 @@
 // Тот же файл стилей, что и у CaseArticleView: кроме .case-article-* в нём
 // лежат все .cases-* правила витрины кейсов, поэтому импорт нужен и здесь.
-import '../../styles/cases-finder.css';
+// import '../../styles/cases-finder.css'; // Consolidated in index.css for single-stream CRP
 import {
   lazy,
   Suspense,
@@ -385,9 +385,9 @@ function CaseResultCard({ item, index, href, onOpen, settledEntrance }: {
 
   return (
     <m.article
-      layout
+      layout={settledEntrance ? false : true}
       initial={settledEntrance ? false : { opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={settledEntrance ? undefined : { opacity: 1, y: 0 }}
       exit={reduceMotion ? undefined : { opacity: 0, y: 8 }}
       transition={reduceMotion ? undefined : { duration: 0.24, delay: Math.min(index, 4) * 0.035 }}
       className={`cases-result-card ${isFeatured ? 'is-featured' : ''}`}
@@ -722,7 +722,7 @@ export default function CasesPage() {
             <div className="cases-finder-intro">
               <m.div
                 initial={settledEntrance ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
+                animate={settledEntrance ? undefined : { opacity: 1, y: 0 }}
               >
                 <span className="cases-finder-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Библиотека кейсов</span>
                 <h1 ref={introTitleFit} data-ww-title-fit={`${INTRO_TITLE_LINES.titleMaxLinesMobile}/${INTRO_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="22">Найдите кейс, похожий&nbsp;на <span>ваш проект</span></h1>
@@ -766,7 +766,7 @@ export default function CasesPage() {
                 <SheetTrigger asChild>
                   <button type="button" className="cases-mobile-filter-button">
                     <Filter className="h-4 w-4" aria-hidden="true" />
-                    Фильтры{filterCount ? ` · ${filterCount}` : ''}
+                    {`Фильтры${filterCount ? ` · ${filterCount}` : ''}`}
                   </button>
                 </SheetTrigger>
                 <SheetContent side="bottom" className="cases-filter-sheet max-h-[88dvh] rounded-t-3xl border-white/10 bg-[#0c0d16] px-0 pb-[max(16px,env(safe-area-inset-bottom))]">
@@ -778,7 +778,7 @@ export default function CasesPage() {
                   <SheetFooter className="cases-filter-sheet-footer border-t border-white/[.08] px-5 pt-4">
                     {hasFilters ? <button type="button" className="cases-filter-sheet-reset" onClick={clearAll}>Сбросить</button> : null}
                     <SheetClose asChild>
-                      <button type="button" className="cases-filter-apply">Показать {filtered.length} {plural(filtered.length, ['кейс', 'кейса', 'кейсов'])}</button>
+                      <button type="button" className="cases-filter-apply">{`Показать ${filtered.length} ${plural(filtered.length, ['кейс', 'кейса', 'кейсов'])}`}</button>
                     </SheetClose>
                   </SheetFooter>
                 </SheetContent>
@@ -814,7 +814,7 @@ export default function CasesPage() {
 
               <div className="min-w-0">
                 <div className="cases-results-toolbar">
-                  <strong role="status" aria-live="polite" aria-atomic="true">Найдено кейсов: {filtered.length}</strong>
+                  <strong role="status" aria-live="polite" aria-atomic="true">{`Найдено кейсов: ${filtered.length}`}</strong>
                   <div className="cases-toolbar-chips">
                     {activeChips.map((chip) => (
                       <button type="button" key={chip.key} onClick={chip.onRemove}>

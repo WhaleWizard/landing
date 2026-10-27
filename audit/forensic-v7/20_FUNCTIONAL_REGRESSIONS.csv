@@ -1,0 +1,8 @@
+RouteOrFeature,TestScenario,ExpectedBehavior,ObservedBehavior,RegressionDetected,PassFail
+"/cases/ Search Filter","User types search query into search box","Grid filters cards matching query instantly","Instant search filter functioning perfectly",NO,"PASS"
+"/cases/ Category Filter","User selects industry/service filter pills","Grid updates with matching category cards","Category filtering functioning without error",NO,"PASS"
+"/cases/ Mobile Drawer","User taps filters toggle button on mobile","Filter modal opens with category selections","Modal opens and closes smoothly",NO,"PASS"
+"/ Navigation","User clicks on header links and CTA buttons","Client-side navigation to target route","Instant client navigation without full reload",NO,"PASS"
+"Lead Form Submissions","User submits contact / consult form","Validated, stored, Meta CAPI dispatched","Lead pipeline functional and secure",NO,"PASS"
+"Admin Authentication","Admin login with TOTP 2FA","Requires password + TOTP code","2FA authentication contract strictly enforced",NO,"PASS"
+"SEO & Structured Data","Googlebot crawling / sitemap / meta tags","Static HTML includes Schema.org and canonicals","All 15/15 SEO test contracts pass",NO,"PASS"

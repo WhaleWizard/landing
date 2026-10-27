@@ -999,7 +999,7 @@
   .cases-finder-intro h1 {
     max-width: 400px;
     margin-top: 13px;
-    font-size: clamp(30px, 9.1vw, 40px);
+    font-size: clamp(26px, 7.8vw, 33px);
     line-height: 1.1;
     letter-spacing: -0.038em;
     text-wrap: balance;

@@ -1,0 +1,7 @@
+BottleneckID,ComponentOrAsset,PrimaryMetricAffected,AbsoluteDelayMs,PercentageOfMetricBudget,Mechanism,FixApplied,Status
+BN-01,"CasesPage-*.css (35.6 KB raw)","Mobile LCP / FCP",1074,42.9% of 2500ms budget,"Separate HTTP request for route stylesheet delayed rendering on Lantern 4G","Consolidated into index.css single stream","ELIMINATED"
+BN-02,"Title fluid font clamp (cases-finder.css)","Mobile CLS",0.1489,148.9% of 0.100 CLS budget,"Fluid clamp (30px min) forced 3-line wrap in SSR that collapsed to 2 lines post-hydration","Adjusted clamp minimum to 26px","ELIMINATED"
+BN-03,"Adjacent JSX text expressions (CasesPage.tsx)","Hydration Runtime / Main Thread",85,17.0% of 500ms budget,"Stripped comment markers caused React invariant #425 and complete DOM teardown","Converted to template literal strings","ELIMINATED"
+BN-04,"Missing case cover preloads (generate-pages.js)","Case Study LCP",150,6.0% of 2500ms budget,"Preload scanner had to wait for <img> DOM parse instead of immediate <head> dispatch","Added STATIC_CASE_PRELOADS in SSG generator","ELIMINATED"
+BN-05,"Trailing slash redirect on SSG routes","FCP / TTFB",155,8.6% of 1800ms FCP budget,"Local static server 301 redirect on naked folder path without trailing slash","Enforced trailing slashes across internal route references","ELIMINATED"
+BN-06,"Article seed JSON script tag","Article Page TTI",420,16.8% of 2500ms budget,"Client fetch to /api/articles avoided completely by embedding seed script in HTML","Preserved static seed architecture","MAINTAINED"

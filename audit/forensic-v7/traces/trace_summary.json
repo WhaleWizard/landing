@@ -1,0 +1,52 @@
+[
+  {
+    "route": "/",
+    "safeName": "home",
+    "tracePath": "audit\\forensic-v7\\traces\\home_trace.json",
+    "totalEvents": 14168,
+    "fcp": 3812,
+    "domContentLoaded": 3987,
+    "loadComplete": 4331,
+    "responseStart": 6
+  },
+  {
+    "route": "/meta-ads/",
+    "safeName": "meta-ads",
+    "tracePath": "audit\\forensic-v7\\traces\\meta-ads_trace.json",
+    "totalEvents": 14216,
+    "fcp": 3676,
+    "domContentLoaded": 3758,
+    "loadComplete": 3760,
+    "responseStart": 2
+  },
+  {
+    "route": "/meta-apps/",
+    "safeName": "meta-apps",
+    "tracePath": "audit\\forensic-v7\\traces\\meta-apps_trace.json",
+    "totalEvents": 15006,
+    "fcp": 3696,
+    "domContentLoaded": 4112,
+    "loadComplete": 5398,
+    "responseStart": 3
+  },
+  {
+    "route": "/google-ads/",
+    "safeName": "google-ads",
+    "tracePath": "audit\\forensic-v7\\traces\\google-ads_trace.json",
+    "totalEvents": 10870,
+    "fcp": 3364,
+    "domContentLoaded": 3295,
+    "loadComplete": 3297,
+    "responseStart": 3
+  },
+  {
+    "route": "/consult/",
+    "safeName": "consult",
+    "tracePath": "audit\\forensic-v7\\traces\\consult_trace.json",
+    "totalEvents": 17643,
+    "fcp": 3716,
+    "domContentLoaded": 3769,
+    "loadComplete": 6384,
+    "responseStart": 3
+  }
+]

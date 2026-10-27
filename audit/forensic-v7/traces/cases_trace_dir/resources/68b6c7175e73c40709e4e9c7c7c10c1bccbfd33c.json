@@ -1,0 +1,38 @@
+{
+    "ip": "195.88.214.184",
+    "success": true,
+    "type": "IPv4",
+    "continent": "Asia",
+    "continent_code": "AS",
+    "country": "Uzbekistan",
+    "country_code": "UZ",
+    "region": "Tashkent",
+    "region_code": "TK",
+    "city": "Tashkent",
+    "latitude": 41.2646471,
+    "longitude": 69.2162682,
+    "is_eu": false,
+    "postal": "100000",
+    "calling_code": "998",
+    "capital": "Tashkent",
+    "borders": "AF,KG,KZ,TJ,TM",
+    "flag": {
+        "img": "https://cdn.ipwhois.io/flags/uz.svg",
+        "emoji": "🇺🇿",
+        "emoji_unicode": "U+1F1FA U+1F1FF"
+    },
+    "connection": {
+        "asn": 49146,
+        "org": "DosTLink Ltd",
+        "isp": "DosTLink Ltd",
+        "domain": "dostlink.net"
+    },
+    "timezone": {
+        "id": "Asia/Tashkent",
+        "abbr": "+05",
+        "is_dst": false,
+        "offset": 18000,
+        "utc": "+05:00"
+    },
+    "readme": "https://ipwhois.io/docs"
+}

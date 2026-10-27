@@ -1,0 +1,19 @@
+NetworkID,ProfileName,Route,Latency_ms,FCP_ms,DOMContentLoaded_ms,Load_ms,TransferredKB,Status
+NET-01,"Fast Fiber/5G","/",40,null,515,669,884,FAIL
+NET-01,"Fast Fiber/5G","/cases/",40,null,990,990,717,FAIL
+NET-01,"Fast Fiber/5G","/blog/analitika-i-atributsiya-v-2026-kak-perestat-sporit-o-lidah-i-schitat-pribyl/",40,952,998,999,778,PASS
+NET-02,"Moderate 4G","/",100,2132,2145,2145,564,PASS
+NET-02,"Moderate 4G","/cases/",100,1976,2136,2144,720,PASS
+NET-02,"Moderate 4G","/blog/analitika-i-atributsiya-v-2026-kak-perestat-sporit-o-lidah-i-schitat-pribyl/",100,2060,2109,2110,455,PASS
+NET-03,"Slow 4G (LH Standard)","/",150,3208,3787,3857,567,PASS
+NET-03,"Slow 4G (LH Standard)","/cases/",150,3484,3670,3680,632,PASS
+NET-03,"Slow 4G (LH Standard)","/blog/analitika-i-atributsiya-v-2026-kak-perestat-sporit-o-lidah-i-schitat-pribyl/",150,3484,3565,3566,410,PASS
+NET-04,"Very Slow 3G","/",300,12604,12832,15254,567,PASS
+NET-04,"Very Slow 3G","/cases/",300,12220,12365,12366,397,PASS
+NET-04,"Very Slow 3G","/blog/analitika-i-atributsiya-v-2026-kak-perestat-sporit-o-lidah-i-schitat-pribyl/",300,11572,12257,12277,413,PASS
+NET-05,"Extreme Edge","/",600,33336,33422,40444,567,PASS
+NET-05,"Extreme Edge","/cases/",600,32012,32161,32164,397,PASS
+NET-05,"Extreme Edge","/blog/analitika-i-atributsiya-v-2026-kak-perestat-sporit-o-lidah-i-schitat-pribyl/",600,31104,31707,31709,410,PASS
+NET-06,"Severe Congestion","/",800,49412,49606,60548,567,PASS
+NET-06,"Severe Congestion","/cases/",800,47380,47936,47937,397,PASS
+NET-06,"Severe Congestion","/blog/analitika-i-atributsiya-v-2026-kak-perestat-sporit-o-lidah-i-schitat-pribyl/",800,47088,47199,47201,410,PASS

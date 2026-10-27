@@ -1,0 +1,8 @@
+DeviceID,Name,Category,ViewportWidth,ViewportHeight,DPR,HasTouch,CPUThrottle,TargetClass
+DEV-01,"Desktop Large","Desktop",1920,1080,1,false,1,"High-end Desktop"
+DEV-02,"Desktop Standard","Desktop",1440,900,1,false,1,"Standard Laptop"
+DEV-03,"Tablet Landscape","Tablet",1024,768,2,true,2,"Mid-tier iPad"
+DEV-04,"Tablet Portrait","Tablet",768,1024,2,true,2,"Mid-tier iPad"
+DEV-05,"Mobile Moto G4 (Benchmark)","Mobile",375,812,3,true,4,"Reference Mobile Benchmark"
+DEV-06,"Mobile iPhone SE (Compact)","Mobile",320,568,2,true,4,"Compact Mobile"
+DEV-07,"Mobile Budget Android","Mobile",360,740,2.6,true,6,"Low-End Budget Android"

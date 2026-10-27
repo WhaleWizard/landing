@@ -1,0 +1,7 @@
+FixID,Priority,TargetFile,Description,PredictedDelta,GateA_Evidence,GateB_Correctness,GateC_Improvement,GateD_NoFuncReg,GateE_NoVisReg,FinalStatus
+FIX-F01,"P0","src/styles/index.css","Consolidate cases-finder.css into primary stylesheet bundle to eliminate secondary render-blocking CSS chunk on Lantern 4G","LCP -1004ms, Score +12","PASS","PASS","PASS","PASS","PASS","DEPLOYED"
+FIX-F02,"P0","src/app/pages/CasesPage.tsx","Convert adjacent text and variable JSX nodes in strong and button tags to unified template literals to prevent React invariant #425 on hydration","Hydration error 0, Saves 85ms DOM rebuild","PASS","PASS","PASS","PASS","PASS","DEPLOYED"
+FIX-F03,"P0","src/styles/cases-finder.css","Lower Mobile H1 font-size clamp from clamp(30px, 9.1vw, 40px) to clamp(26px, 7.8vw, 33px) to prevent 3-to-2 line downscale on 320px-480px viewports","CLS from 0.1489 to 0.0000","PASS","PASS","PASS","PASS","PASS","DEPLOYED"
+FIX-F04,"P1","src/app/pages/CasesPage.tsx","Guard Framer Motion layout props on case cards during settledEntrance phase","Zero animation layout thrash on mount","PASS","PASS","PASS","PASS","PASS","DEPLOYED"
+FIX-F05,"P1","src/app/routes.tsx","Normalize trailing slash in articleInitialLoad check for /cases/ route","Prevent redundant API fetch on catalog visit","PASS","PASS","PASS","PASS","PASS","DEPLOYED"
+FIX-F06,"P1","scripts/generate-pages.js","Inject STATIC_CASE_PRELOADS for case study hero WebP images to eliminate 1 RTT image discovery delay","Case study LCP -150ms","PASS","PASS","PASS","PASS","PASS","DEPLOYED"

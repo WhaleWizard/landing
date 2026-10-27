@@ -1,0 +1,10 @@
+ScreenOrRoute,Viewport,VisualElement,OriginalRendering,PostFixRendering,PixelDelta,VisualShiftDetected,Status
+"/cases/",360x780,"H1 Title + Search Input","2 lines in static, collapsed to 2 lines","Exact 2 lines throughout lifecycle",0,NONE,"PASS"
+"/cases/",412x915,"H1 Title + Search Input","3 lines static, snapped to 2 lines (shift)","Exact 2 lines throughout lifecycle",0,NONE,"PASS"
+"/cases/",1440x900,"Hero Title + Filters + Grid","Desktop grid of 6 cards","Desktop grid of 6 cards",0,NONE,"PASS"
+"/cases/",390x844,"Filter Drawer / Chips","Filter badges and count chips","Filter badges and count chips",0,NONE,"PASS"
+"/cases/:slug",412x915,"Article Hero + Breadcrumbs","Header + hero WebP + meta tags","Header + hero WebP + meta tags",0,NONE,"PASS"
+"/blog/:slug",412x915,"Article Hero + TOC + Body","Article content + headings","Article content + headings",0,NONE,"PASS"
+"/",412x915,"Hero + CTA + Value Props","Original hero layout & styling","Original hero layout & styling",0,NONE,"PASS"
+"/meta-ads/",412x915,"Landing Hero + Service Features","Original hero & badges","Original hero & badges",0,NONE,"PASS"
+"/consult/",412x915,"Consultation Form + Hero","Original hero & contact form","Original hero & contact form",0,NONE,"PASS"
