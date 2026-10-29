@@ -218,6 +218,9 @@
   min-width: 226px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(100deg, var(--meta-blue), var(--meta-violet) 55%, var(--meta-pink));
+  background-origin: border-box;
+  background-clip: border-box;
+  background-repeat: no-repeat;
   color: #fff;
   box-shadow: 0 16px 38px rgba(79, 125, 255, 0.24);
 }
