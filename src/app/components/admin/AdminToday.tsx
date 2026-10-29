@@ -381,6 +381,8 @@ export default function AdminToday({
             detail={Number(data?.summary?.tasksOverdue || 0) > 0
               ? `${formatNumber(data?.summary?.tasksOverdue)} просрочено.`
               : 'Просроченных задач нет.'}
+            spark={series.map((point) => Math.max(0, (point.leads || 0) + (Number(point.visitors || 0) > 0 ? 1 : 0)))}
+            sparkSlot={3}
           />
         </div>
       )}

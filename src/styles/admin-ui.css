@@ -16524,3 +16524,352 @@ body[data-admin-theme] .planner-weekpick {
   outline: 2px solid var(--adm-primary);
   outline-offset: -2px;
 }
+
+
+/* -------------------------------------------------------------------------
+   Phase 4: Global Palette, Shortcuts Modal, CRM Chips, 1-tap Actions, Media Grid, Skeletons
+   ------------------------------------------------------------------------- */
+
+/* Shortcuts Modal */
+.admin-shortcuts-modal__content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90vw;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: var(--adm-fg);
+}
+
+.admin-shortcuts-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--adm-border);
+}
+
+.admin-shortcuts-modal__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--adm-primary-subtle, rgba(59, 130, 246, 0.12));
+}
+
+.admin-shortcuts-modal__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--adm-fg);
+}
+
+.admin-shortcuts-modal__subtitle {
+  font-size: 13px;
+  color: var(--adm-text-muted);
+}
+
+.admin-shortcuts-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--adm-border);
+  background: transparent;
+  color: var(--adm-fg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-shortcuts-modal__close:hover {
+  background: var(--adm-surface-subtle);
+}
+
+.admin-shortcuts-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-shortcuts-group__title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--adm-text-muted);
+  margin-bottom: 8px;
+}
+
+.admin-shortcuts-group__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-shortcuts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--adm-surface-subtle);
+  font-size: 13px;
+}
+
+.admin-shortcuts-row__desc {
+  color: var(--adm-fg);
+}
+
+.admin-shortcuts-row__keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-shortcuts-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.admin-shortcuts-modal__footer {
+  padding-top: 14px;
+  border-top: 1px solid var(--adm-border);
+  text-align: center;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+
+/* CRM Chips */
+.admin-root .admin-crm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-root .admin-crm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.admin-root .admin-crm-chip:hover {
+  border-color: var(--adm-primary);
+  color: var(--adm-fg);
+}
+
+.admin-root .admin-crm-chip.is-active {
+  background: var(--adm-primary-subtle, rgba(59, 130, 246, 0.12));
+  border-color: var(--adm-primary);
+  color: var(--adm-primary);
+}
+
+.admin-root .admin-crm-chip.is-active.is-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.admin-root .admin-crm-chip.is-active.is-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.admin-root .admin-crm-chip.is-active.is-success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.admin-root .admin-crm-chip__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--adm-surface-subtle);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.admin-root .admin-crm-chip--reset {
+  color: var(--adm-text-muted);
+  border-style: dashed;
+}
+
+.admin-root .admin-crm-chip--reset:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+/* CRM Lead 1-tap Actions */
+.admin-root .admin-crm-lead__contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-root .admin-crm-lead__quick-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-root .admin-crm-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--adm-border);
+  background: var(--adm-surface-subtle);
+  color: var(--adm-text-secondary);
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.admin-root .admin-crm-quick-btn:hover {
+  transform: scale(1.08);
+}
+
+.admin-root .admin-crm-quick-btn--call:hover {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.admin-root .admin-crm-quick-btn--wa:hover {
+  background: rgba(37, 211, 102, 0.18);
+  border-color: #25d366;
+  color: #25d366;
+}
+
+.admin-root .admin-crm-quick-btn--tg:hover {
+  background: rgba(41, 182, 246, 0.18);
+  border-color: #29b6f6;
+  color: #29b6f6;
+}
+
+/* Media Grid Sizing & Filters */
+.admin-root .media-grid--s {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+}
+
+.admin-root .media-grid--m {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
+}
+
+.admin-root .media-grid--l {
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)) !important;
+}
+
+.admin-root .media-grid-size-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--adm-surface-subtle);
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.admin-root .media-grid-size-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-root .media-grid-size-btn:hover {
+  color: var(--adm-fg);
+}
+
+.admin-root .media-grid-size-btn.is-active {
+  background: var(--adm-card);
+  color: var(--adm-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.admin-root .media-heavy-toggle {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--adm-border);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-root .media-heavy-toggle:hover {
+  border-color: var(--adm-primary);
+  color: var(--adm-fg);
+}
+
+.admin-root .media-heavy-toggle.is-active {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+/* Detail Skeleton */
+.admin-root .admin-detail-skeleton {
+  min-height: 280px;
+}

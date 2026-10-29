@@ -4,7 +4,7 @@ import {
   NotebookPen, Plus, RefreshCw, Save, Trash2, Upload, UserPlus, Users, X, Briefcase,
 } from 'lucide-react';
 import { AdminDecimalInput, AdminSelect } from './AdminUI';
-import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
+import { AdminBlank, AdminDetailSkeleton, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
 import { toIsoDate } from './plannerModel';
 import { CountUpValue } from './AttributionCharts';
 import CaseBuilderDialog from './CaseBuilderDialog';
@@ -500,7 +500,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
           </div>
         </div>
 
-        {detailLoading && <div className="admin-hint">Загружаю карточку…</div>}
+        {detailLoading && <AdminDetailSkeleton />}
 
         {/* Ниши у клиента в базе нет — владелец вписывает её в самом окне. */}
         {caseBuilderOpen && onCreateCase && (

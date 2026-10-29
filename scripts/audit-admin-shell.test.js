@@ -627,3 +627,45 @@ test('F-PHASE3-CONTENT: витрина статей, сплит-превью, в
   assert.match(contentControlSource, /hiddenSections/, 'массив скрытых секций');
   assert.match(contentControlSource, /sectionOrder/, 'порядок секций');
 });
+
+
+// ---------------------------------------------------------------------------
+// Фаза 4: Глобальная палитра, горячие клавиши, CRM чипсы, 1-тап действия, медиатека и скелетоны
+
+test('F-PHASE4-ALL: палитра расширена, справка по ?, чипсы CRM, 1-тап действия, сетка медиатеки и скелетоны', async () => {
+  // 1. Пункт 14 & 15: Палитра и Горячие клавиши
+  const shortcutsSource = await source('src/app/components/admin/AdminShortcutsModal.tsx');
+  assert.match(shortcutsSource, /ADMIN_SHORTCUT_GROUPS/, 'группы шорткатов объявлены');
+  assert.match(shortcutsSource, /useAdminKeyboardShortcuts/, 'хук глобальных горячих клавиш');
+  assert.match(shortcutsSource, /event\.key === '\?'/, 'справка по знаку вопроса');
+  assert.match(adminSource, /AdminShortcutsModal/, 'модальное окно горячих клавиш вмонтировано');
+  assert.match(adminSource, /heading: 'CRM и Сделки'/, 'группа CRM в командной палитре');
+  assert.match(adminSource, /heading: 'Медиатека и файлы'/, 'группа Медиатеки в командной палитре');
+  assert.match(adminSource, /admin-topbar__shortcuts/, 'кнопка вызова клавиш в шапке');
+
+  // 2. Пункт 16 & 19: CRM Чипсы и 1-тап действия
+  const leadsSource = await source('src/app/components/admin/AdminLeads.tsx');
+  assert.match(leadsSource, /admin-crm-chips/, 'чипсы фильтрации в CRM');
+  assert.match(leadsSource, /admin-crm-chip--reset/, 'кнопка сброса фильтров в чипсах');
+  assert.match(leadsSource, /admin-crm-quick-btn--call/, 'быстрый звонок в один тап');
+  assert.match(leadsSource, /admin-crm-quick-btn--wa/, 'быстрый WhatsApp в один тап');
+  assert.match(leadsSource, /admin-crm-quick-btn--tg/, 'быстрый Telegram в один тап');
+
+  // 3. Пункт 17: Масштабируемая сетка медиатеки
+  const mediaSource = await source('src/app/components/admin/AdminMedia.tsx');
+  assert.match(mediaSource, /ww_admin_media_grid_size/, 'размер сетки сохраняется в localStorage');
+  assert.match(mediaSource, /media-grid-size-toggle/, 'переключатель размера сетки');
+  assert.match(mediaSource, /media-heavy-toggle/, 'фильтр тяжелее 500 КБ');
+  assert.match(mediaSource, /media-grid--\$\{gridSize\}/, 'динамический класс размера сетки');
+
+  // 4. Пункт 18: Спарклайны в AdminToday
+  const todaySource = await source('src/app/components/admin/AdminToday.tsx');
+  assert.match(todaySource, /sparkSlot=\{3\}/, 'четвертая плитка несет спарклайн');
+
+  // 5. Пункт 20: Контурные скелетоны
+  const feedbackSource = await source('src/app/components/admin/AdminFeedback.tsx');
+  assert.match(feedbackSource, /export function AdminDetailSkeleton/, 'компонент детального скелетона');
+  assert.match(leadsSource, /AdminDetailSkeleton/, 'LeadDetail использует AdminDetailSkeleton');
+  const clientsSource = await source('src/app/components/admin/AdminClients.tsx');
+  assert.match(clientsSource, /AdminDetailSkeleton/, 'AdminClients использует AdminDetailSkeleton');
+});

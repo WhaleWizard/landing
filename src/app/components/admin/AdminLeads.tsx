@@ -8,8 +8,10 @@ import {
   CircleDollarSign,
   Clock3,
   Download,
+  Flame,
   Mail,
   MessageCircle,
+  Phone,
   Plus,
   RefreshCw,
   Save,
@@ -35,7 +37,7 @@ import PipelineStepper, { isDealStale } from './PipelineStepper';
 import { confirmAsk, notify } from './AdminFeedback';
 import { findDuplicateGroups } from './leadDuplicates';
 import CrmQuickActions, { type QuickActionPlan } from './CrmQuickActions';
-import { AdminSectionSkeleton } from './AdminFeedback';
+import { AdminDetailSkeleton, AdminSectionSkeleton } from './AdminFeedback';
 import LeadCountryBadge from './LeadCountryBadge';
 import { withPlural } from '../../utils/plural';
 
@@ -213,6 +215,7 @@ interface WorkspaceResponse {
   capabilities?: { correctness?: boolean; requiredMigration?: string | null };
   summary?: {
     stages?: Record<string, number>;
+    priorities?: Record<string, number>;
     reminders?: { overdue?: number; today?: number; without_next_action?: number };
     tasks?: { open?: number; overdue?: number; today?: number };
     values_by_currency?: Array<{ deal_currency: string; open_value: number; won_value: number }>;
@@ -935,7 +938,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
     if (ok) setTagActionId('');
   };
 
-  if (loading) return <div className="admin-crm-detail admin-panel" role="status">Загружаю карточку сделки…</div>;
+  if (loading) return <AdminDetailSkeleton />;
   if (error && !draft) return <div className="admin-crm-detail admin-panel"><div className="admin-notice admin-state--danger">{error}</div><button className="admin-button" type="button" onClick={() => void load()}><RefreshCw aria-hidden="true" /> Повторить</button></div>;
   if (!draft) return null;
 
@@ -965,8 +968,38 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
 
       <div className="admin-crm-detail__meta">
         {lead.email ? <a href={`mailto:${lead.email}`}>{lead.email}</a> : null}
-        {lead.phone ? <a href={`tel:${lead.phone}`}>{lead.phone}</a> : null}
-        {lead.telegram_username ? <a href={`https://t.me/${lead.telegram_username.replace(/^@/, '')}`} target="_blank" rel="noreferrer">@{lead.telegram_username.replace(/^@/, '')}</a> : null}
+        {lead.phone ? (
+          <span className="inline-flex items-center gap-1.5">
+            <a href={`tel:${lead.phone}`}>{lead.phone}</a>
+            <a
+              href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="admin-crm-quick-btn admin-crm-quick-btn--wa !w-5 !h-5"
+              title="Написать в WhatsApp"
+              aria-label="WhatsApp"
+            >
+              <MessageCircle className="w-3 h-3" aria-hidden="true" />
+            </a>
+          </span>
+        ) : null}
+        {lead.telegram_username ? (
+          <span className="inline-flex items-center gap-1.5">
+            <a href={`https://t.me/${lead.telegram_username.replace(/^@/, '')}`} target="_blank" rel="noreferrer">
+              @{lead.telegram_username.replace(/^@/, '')}
+            </a>
+            <a
+              href={`https://t.me/${lead.telegram_username.replace(/^@/, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="admin-crm-quick-btn admin-crm-quick-btn--tg !w-5 !h-5"
+              title="Написать в Telegram"
+              aria-label="Telegram"
+            >
+              <Send className="w-3 h-3" aria-hidden="true" />
+            </a>
+          </span>
+        ) : null}
         <LeadCountryBadge country={lead.country} showCode />
         {lead.budget ? <span>Бюджет: {lead.budget}</span> : null}
         {lead.utm_source ? <span>{lead.utm_source}{lead.utm_medium ? ` / ${lead.utm_medium}` : ''}{lead.utm_campaign ? ` · ${lead.utm_campaign}` : ''}</span> : null}
@@ -1930,6 +1963,65 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
         </button>
       </div>
 
+      <div className="admin-crm-chips" role="group" aria-label="Быстрые пресеты фильтрации">
+        <button
+          type="button"
+          className={`admin-crm-chip ${due === 'overdue' ? 'is-active is-danger' : ''}`}
+          onClick={() => setDue(due === 'overdue' ? 'all' : 'overdue')}
+          aria-pressed={due === 'overdue'}
+        >
+          <Clock3 className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Просроченные</span>
+          {summary?.reminders?.overdue ? <em className="admin-crm-chip__badge">{summary.reminders.overdue}</em> : null}
+        </button>
+        <button
+          type="button"
+          className={`admin-crm-chip ${due === 'none' ? 'is-active is-warning' : ''}`}
+          onClick={() => setDue(due === 'none' ? 'all' : 'none')}
+          aria-pressed={due === 'none'}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Без шага</span>
+          {summary?.reminders?.without_next_action ? <em className="admin-crm-chip__badge">{summary.reminders.without_next_action}</em> : null}
+        </button>
+        <button
+          type="button"
+          className={`admin-crm-chip ${stage === 'won' ? 'is-active is-success' : ''}`}
+          onClick={() => setStage(stage === 'won' ? 'all' : 'won')}
+          aria-pressed={stage === 'won'}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Выигранные</span>
+          {summary?.stages?.won ? <em className="admin-crm-chip__badge">{summary.stages.won}</em> : null}
+        </button>
+        <button
+          type="button"
+          className={`admin-crm-chip ${priority === 'high' ? 'is-active is-primary' : ''}`}
+          onClick={() => setPriority(priority === 'high' ? 'all' : 'high')}
+          aria-pressed={priority === 'high'}
+        >
+          <Flame className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Высокий приоритет</span>
+          {summary?.priorities?.high ? <em className="admin-crm-chip__badge">{summary.priorities.high}</em> : null}
+        </button>
+        {(query || stage !== 'all' || priority !== 'all' || due !== 'all' || sort !== 'recent') && (
+          <button
+            type="button"
+            className="admin-crm-chip admin-crm-chip--reset"
+            onClick={() => {
+              setQuery('');
+              setStage('all');
+              setPriority('all');
+              setDue('all');
+              setSort('recent');
+            }}
+          >
+            <X className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Сбросить фильтры</span>
+          </button>
+        )}
+      </div>
+
       <div className="admin-crm-layout">
         <aside className="admin-crm-list admin-panel" aria-label="Список сделок">
           <div className="admin-crm-list__header">
@@ -2053,9 +2145,47 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                     <p className="admin-crm-lead__service">{lead.service || lead.message}</p>
                   ) : null}
                   {cardFields.contact && (lead.phone || lead.telegram_username || lead.email) ? (
-                    <p className="admin-crm-lead__contact">
-                      {lead.phone || (lead.telegram_username ? `@${lead.telegram_username}` : lead.email)}
-                    </p>
+                    <div className="admin-crm-lead__contact-row">
+                      <p className="admin-crm-lead__contact">
+                        {lead.phone || (lead.telegram_username ? `@${lead.telegram_username}` : lead.email)}
+                      </p>
+                      <div className="admin-crm-lead__quick-actions" onClick={(e) => e.stopPropagation()}>
+                        {lead.phone ? (
+                          <>
+                            <a
+                              href={`tel:${lead.phone}`}
+                              className="admin-crm-quick-btn admin-crm-quick-btn--call"
+                              title={`Позвонить ${lead.phone}`}
+                              aria-label={`Позвонить ${lead.phone}`}
+                            >
+                              <Phone className="w-3.5 h-3.5" aria-hidden="true" />
+                            </a>
+                            <a
+                              href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="admin-crm-quick-btn admin-crm-quick-btn--wa"
+                              title="Написать в WhatsApp"
+                              aria-label="Написать в WhatsApp"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                            </a>
+                          </>
+                        ) : null}
+                        {lead.telegram_username ? (
+                          <a
+                            href={`https://t.me/${lead.telegram_username.replace(/^@/, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="admin-crm-quick-btn admin-crm-quick-btn--tg"
+                            title={`Написать @${lead.telegram_username.replace(/^@/, '')}`}
+                            aria-label={`Написать в Telegram @${lead.telegram_username.replace(/^@/, '')}`}
+                          >
+                            <Send className="w-3.5 h-3.5" aria-hidden="true" />
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
                   ) : null}
                   <div className="admin-crm-lead__states">
                     <span>{stageLabel(lead.pipeline_stage)}</span>

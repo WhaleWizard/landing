@@ -92,6 +92,21 @@ export default function AdminMedia({ password, articles }: { password: string; a
   const [query, setQuery] = useState('');
   const [collection, setCollection] = useState<Collection>('all');
   const [sort, setSort] = useState<SortKey>('new');
+  const [gridSize, setGridSize] = useState<'s' | 'm' | 'l'>(() => {
+    try {
+      const saved = localStorage.getItem('ww_admin_media_grid_size');
+      if (saved === 's' || saved === 'm' || saved === 'l') return saved;
+    } catch {}
+    return 'm';
+  });
+  const [heavyOnly, setHeavyOnly] = useState(false);
+
+  const updateGridSize = (size: 's' | 'm' | 'l') => {
+    setGridSize(size);
+    try {
+      localStorage.setItem('ww_admin_media_grid_size', size);
+    } catch {}
+  };
   // null — «все файлы», '' — файлы вне папок, иначе имя папки.
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -179,6 +194,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
       if (collection === 'documents' && isImage) return false;
       if (collection === 'used' && !used) return false;
       if (collection === 'unused' && used) return false;
+      if (heavyOnly && (file.size || 0) < 500 * 1024) return false;
       return !normalizedQuery || `${file.name} ${file.contentType} ${file.folder}`.toLowerCase().includes(normalizedQuery);
     });
     return filtered.sort((a, b) => {
@@ -187,7 +203,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
       if (sort === 'old') return a.uploaded < b.uploaded ? -1 : 1;
       return a.uploaded < b.uploaded ? 1 : -1;
     });
-  }, [activeFolder, collection, files, mediaUsage, query, sort]);
+  }, [activeFolder, collection, files, heavyOnly, mediaUsage, query, sort]);
 
   const post = useCallback(async (body: Record<string, unknown>): Promise<boolean> => {
     setBusy(true);
@@ -467,7 +483,45 @@ export default function AdminMedia({ password, articles }: { password: string; a
                 </button>
               ))}
             </div>
-            <div className="media-sort">
+            <div className="media-sort flex items-center gap-2">
+              <div className="media-grid-size-toggle" role="group" aria-label="Размер сетки">
+                <button
+                  type="button"
+                  className={`media-grid-size-btn ${gridSize === 's' ? 'is-active' : ''}`}
+                  onClick={() => updateGridSize('s')}
+                  title="Мелкая сетка (S)"
+                  aria-pressed={gridSize === 's'}
+                >
+                  S
+                </button>
+                <button
+                  type="button"
+                  className={`media-grid-size-btn ${gridSize === 'm' ? 'is-active' : ''}`}
+                  onClick={() => updateGridSize('m')}
+                  title="Средняя сетка (M)"
+                  aria-pressed={gridSize === 'm'}
+                >
+                  M
+                </button>
+                <button
+                  type="button"
+                  className={`media-grid-size-btn ${gridSize === 'l' ? 'is-active' : ''}`}
+                  onClick={() => updateGridSize('l')}
+                  title="Крупная сетка (L)"
+                  aria-pressed={gridSize === 'l'}
+                >
+                  L
+                </button>
+              </div>
+              <button
+                type="button"
+                className={`media-heavy-toggle ${heavyOnly ? 'is-active' : ''}`}
+                onClick={() => setHeavyOnly((v) => !v)}
+                title="Показать файлы тяжелее 500 КБ"
+                aria-pressed={heavyOnly}
+              >
+                &gt; 500 КБ
+              </button>
               <AdminSelect
                 ariaLabel="Сортировка файлов"
                 value={sort}
@@ -558,7 +612,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
               />
             )}
 
-            <div className="media-grid">
+            <div className={`media-grid media-grid--${gridSize}`}>
               {visibleFiles.map((file) => {
                 const isImage = file.contentType.startsWith('image/');
                 const references = mediaUsage.get(file.key) || [];

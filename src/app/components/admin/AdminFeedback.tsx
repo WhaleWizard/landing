@@ -186,3 +186,22 @@ export function AdminSectionSkeleton({ tiles = 4, rows = 4 }: { tiles?: number; 
     </div>
   );
 }
+
+/** Контурная заглушка детальной карточки или сайд-панели (CRM, клиенты) */
+export function AdminDetailSkeleton() {
+  return (
+    <div className="admin-detail-skeleton admin-panel space-y-4 p-6" role="status" aria-live="polite" aria-label="Загрузка данных">
+      <div className="admin-skeleton-stack">
+        <AdminSkeleton variant="title" />
+        <AdminSkeleton variant="text" width="45%" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 pt-2">
+        <AdminSkeleton variant="row" count={2} />
+      </div>
+      <div className="admin-skeleton-stack pt-2">
+        <AdminSkeleton variant="row" count={3} />
+      </div>
+    </div>
+  );
+}
+

@@ -23,6 +23,7 @@ import {
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
   Rows2, Rows3, LayoutGrid, Users, Wallet, Lock, Radio, Database,
   PanelLeftClose, PanelLeftOpen,
+  Keyboard, CheckCircle2, Clock3, AlertTriangle,
   type LucideIcon
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
@@ -36,6 +37,7 @@ import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useCo
 import { AdminPromptProvider } from '../components/admin/AdminPrompt';
 import { useDialogFocus, useDialogScrollLock } from '../components/hooks/useDialogFocus';
 import AdminCommandPalette, { type AdminCommandGroup } from '../components/admin/AdminCommandPalette';
+import AdminShortcutsModal, { useAdminKeyboardShortcuts } from '../components/admin/AdminShortcutsModal';
 import WhaleMark from '../components/brand/WhaleMark';
 import SEO from '../components/SEO';
 
@@ -1292,6 +1294,8 @@ export default function Admin() {
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
   const reduceMotion = useReducedMotion();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  useAdminKeyboardShortcuts(useCallback(() => setShortcutsOpen((v) => !v), []));
   const currentArticleSnapshot = useMemo(() => snapshotArticle(editingArticle), [editingArticle]);
   const hasUnsavedChanges = Boolean(editingArticle && currentArticleSnapshot !== savedArticleSnapshot);
   // Через ref читают обработчики списка: так они остаются стабильными и не
@@ -2028,6 +2032,14 @@ export default function Admin() {
       heading: 'Действия',
       items: [
         {
+          id: 'shortcuts',
+          label: 'Горячие клавиши (?)',
+          searchText: 'Горячие клавиши шорткаты справка клавиатура помощь',
+          keywords: ['шорткаты', 'горячие клавиши', 'shortcuts', 'клавиатура', 'help', 'помощь'],
+          icon: <Keyboard />,
+          run: () => setShortcutsOpen(true),
+        },
+        {
           id: 'new-article',
           label: 'Написать статью',
           keywords: ['новая', 'создать', 'пост', 'блог'],
@@ -2072,6 +2084,80 @@ export default function Admin() {
       ],
     },
     {
+      heading: 'CRM и Сделки',
+      items: [
+        {
+          id: 'crm-leads',
+          label: 'Все сделки в CRM',
+          searchText: 'Все сделки в CRM лиды клиенты контакты воронка',
+          keywords: ['crm', 'сделки', 'лиды', 'воронка'],
+          icon: <Inbox />,
+          run: () => { void navigateToAdminSection('leads'); },
+        },
+        {
+          id: 'crm-overdue',
+          label: 'Просроченные напоминания',
+          searchText: 'Просроченные сделки напоминания дедлайн',
+          keywords: ['просроченные', 'дедлайн', 'overdue'],
+          icon: <Clock3 />,
+          run: () => { void navigateToAdminSection('leads'); },
+        },
+        {
+          id: 'crm-nostep',
+          label: 'Сделки без следующего шага',
+          searchText: 'Сделки без следующего шага зависшие касания',
+          keywords: ['без шага', 'зависшие', 'касание'],
+          icon: <AlertTriangle />,
+          run: () => { void navigateToAdminSection('leads'); },
+        },
+        {
+          id: 'crm-won',
+          label: 'Выигранные сделки',
+          searchText: 'Выигранные сделки оплаченные клиенты успех',
+          keywords: ['выиграно', 'успех', 'оплата', 'won'],
+          icon: <CheckCircle2 />,
+          run: () => { void navigateToAdminSection('leads'); },
+        },
+        {
+          id: 'crm-clients',
+          label: 'Постоянные клиенты (Абонентка)',
+          searchText: 'Постоянные клиенты абонентка договор продление',
+          keywords: ['клиенты', 'договор', 'абонентка', 'clients'],
+          icon: <Users />,
+          run: () => { void navigateToAdminSection('clients'); },
+        },
+      ],
+    },
+    {
+      heading: 'Медиатека и файлы',
+      items: [
+        {
+          id: 'media-all',
+          label: 'Открыть медиатеку',
+          searchText: 'Открыть медиатеку все файлы картинки загрузки',
+          keywords: ['медиа', 'картинки', 'изображения', 'файлы', 'media'],
+          icon: <Images />,
+          run: () => { void navigateToAdminSection('media'); },
+        },
+        {
+          id: 'media-heavy',
+          label: 'Тяжёлые файлы (> 500 КБ)',
+          searchText: 'Тяжёлые файлы медиатеки больше 500 КБ оптимизация',
+          keywords: ['тяжелые', 'большие', 'вес', 'оптимизация'],
+          icon: <Images />,
+          run: () => { void navigateToAdminSection('media'); },
+        },
+        {
+          id: 'media-unused',
+          label: 'Неиспользуемые файлы',
+          searchText: 'Неиспользуемые файлы кандидаты на удаление очистка',
+          keywords: ['мусор', 'кандидаты', 'очистка', 'удалить'],
+          icon: <Trash2 />,
+          run: () => { void navigateToAdminSection('media'); },
+        },
+      ],
+    },
+    {
       heading: 'Публикации',
       // Все публикации, а не первые 60: cmdk фильтрует сам, и 600 строк для
       // него немного. Без запроса палитра показывает 60 самых свежих.
@@ -2109,6 +2195,17 @@ export default function Admin() {
           >
             <div className="admin-login__head">
               <WhaleMark size="var(--adm-login-whale-size)" className="admin-brand-whale" priority />
+              <button
+                type="button"
+                onClick={() => setShortcutsOpen(true)}
+                className="admin-button admin-button--quiet admin-topbar__shortcuts"
+                title="Справка по горячим клавишам (?)"
+                aria-label="Справка по горячим клавишам"
+              >
+                <Keyboard aria-hidden="true" />
+                <span className="admin-topbar__label">Клавиши</span>
+                <kbd className="admin-topbar__kbd" aria-hidden="true">?</kbd>
+              </button>
               <AdminThemeToggleButton />
             </div>
             <h1 className="admin-login__title">Вход в админку</h1>
@@ -2169,6 +2266,7 @@ export default function Admin() {
     <AdminThemeProvider>
       <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
       <AdminCommandHost open={paletteOpen} onOpenChange={setPaletteOpen} groups={commandGroups} />
+      <AdminShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <AdminSessionDialog
         open={sessionExpired}
         initialPassword={password}
