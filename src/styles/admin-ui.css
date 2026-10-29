@@ -17992,3 +17992,279 @@ body[data-admin-theme] .planner-weekpick {
   display: flex;
   justify-content: flex-end;
 }
+
+
+/* ==========================================================================
+   Media Smart Cropper & Image Resizer Modal
+   ========================================================================== */
+
+.admin-root .admin-cropper-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-root .admin-cropper-modal {
+  width: min(100%, 860px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-lg, 14px);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.admin-root .admin-cropper-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--adm-border);
+}
+
+.admin-root .admin-cropper-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-root .admin-cropper-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--adm-fg);
+}
+
+.admin-root .admin-cropper-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .admin-cropper-body {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(280px, 340px);
+  gap: 20px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .admin-root .admin-cropper-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-root .admin-cropper-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-root .admin-cropper-canvas-frame {
+  width: 100%;
+  max-width: 380px;
+  min-height: 260px;
+  background: #090a10;
+  border: 1px solid var(--adm-border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.admin-root .admin-cropper-canvas-wrapper {
+  position: relative;
+  display: inline-flex;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.admin-root .admin-cropper-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Сетка третей (Rule of Thirds) */
+.admin-root .admin-cropper-grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.admin-root .admin-cropper-grid-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.admin-root .admin-cropper-grid-line--v1 {
+  left: 33.333%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.admin-root .admin-cropper-grid-line--v2 {
+  left: 66.666%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.admin-root .admin-cropper-grid-line--h1 {
+  top: 33.333%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.admin-root .admin-cropper-grid-line--h2 {
+  top: 66.666%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.admin-root .admin-cropper-error {
+  padding: 24px 16px;
+  text-align: center;
+  color: #ef4444;
+  font-size: 0.8125rem;
+}
+
+.admin-root .admin-cropper-meta-bar {
+  display: flex;
+  gap: 14px;
+  font-size: 0.75rem;
+  color: var(--adm-text-secondary);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.admin-root .admin-cropper-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-root .admin-cropper-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-root .admin-cropper-section-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--adm-fg);
+}
+
+.admin-root .admin-cropper-presets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.admin-root .admin-cropper-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--adm-border);
+  background: var(--adm-surface-subtle);
+  color: var(--adm-fg);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.admin-root .admin-cropper-preset-btn:hover {
+  border-color: var(--adm-primary);
+  background: var(--adm-card);
+}
+
+.admin-root .admin-cropper-preset-btn--active {
+  border-color: var(--adm-primary);
+  background: var(--adm-card);
+  box-shadow: 0 0 0 2px var(--adm-primary);
+}
+
+.admin-root .admin-cropper-preset-ratio {
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--adm-primary);
+}
+
+.admin-root .admin-cropper-preset-desc {
+  font-size: 0.6875rem;
+  color: var(--adm-text-secondary);
+  line-height: 1.3;
+}
+
+.admin-root .admin-cropper-slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .admin-cropper-slider-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--adm-fg);
+}
+
+.admin-root .admin-cropper-slider-val {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: var(--adm-primary);
+}
+
+.admin-root .admin-cropper-range {
+  width: 100%;
+  accent-color: var(--adm-primary);
+  cursor: pointer;
+}
+
+.admin-root .admin-cropper-align-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.admin-root .admin-cropper-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--adm-border);
+  background: var(--adm-surface-subtle);
+}
+
+.admin-root .admin-cropper-footer-right {
+  display: flex;
+  gap: 10px;
+}

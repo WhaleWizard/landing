@@ -721,3 +721,28 @@ test('B2-M3-GSC: Search Console API, KPI-плитки, векторный гра
   assert.match(adminUiCss, /admin-gsc-kpi-grid/, 'Сетка KPI-плиток');
   assert.match(adminUiCss, /admin-gsc-table/, 'Стили таблицы запросов');
 });
+
+// ---------------------------------------------------------------------------
+// Блок 2 / Модуль 4: Smart Cropper & Image Resizer в медиатеке
+
+test('B2-M4-CROPPER: Smart Cropper модалка, пропорции кадрирования, экспорт WebP и интеграция в AdminMedia', async () => {
+  const cropperSource = await source('src/app/components/admin/MediaCropperModal.tsx');
+  assert.match(cropperSource, /export default function MediaCropperModal/, 'Компонент MediaCropperModal экспортирован');
+  assert.match(cropperSource, /16:9/, 'Пресет 16:9 для обложек и баннеров');
+  assert.match(cropperSource, /1:1/, 'Пресет 1:1 для квадратных аватаров и карточек');
+  assert.match(cropperSource, /4:5/, 'Пресет 4:5 для постов Meta Feed');
+  assert.match(cropperSource, /9:16/, 'Пресет 9:16 для Stories/Reels');
+  assert.match(cropperSource, /image\/webp/, 'Экспорт в оптимизированный формат WebP');
+  assert.match(cropperSource, /canvasRef/, 'Холст кадрирования');
+
+  const mediaSource = await source('src/app/components/admin/AdminMedia.tsx');
+  assert.match(mediaSource, /MediaCropperModal/, 'MediaCropperModal импортирован в AdminMedia');
+  assert.match(mediaSource, /croppingFile/, 'Стейт выбранного файла для кадрирования');
+  assert.match(mediaSource, /onSave=\{async \(croppedFile\)/, 'Обработчик сохранения кадрированного изображения');
+
+  const adminUiCss = await source('src/styles/admin-ui.css');
+  assert.match(adminUiCss, /admin-cropper-modal/, 'Стили модального окна кадрирования');
+  assert.match(adminUiCss, /admin-cropper-canvas/, 'Стили канваса кроппера');
+  assert.match(adminUiCss, /admin-cropper-preset-btn/, 'Стили кнопок пресетов пропорций');
+});
+

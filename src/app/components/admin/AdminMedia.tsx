@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Check, Copy, File, FileArchive, FileText, FolderPlus, Folder, FolderOpen,
+  Check, Copy, Crop, File, FileArchive, FileText, FolderPlus, Folder, FolderOpen,
   Image as ImageIcon, Link2Off, RefreshCw, Search, Trash2, Upload, X,
 } from 'lucide-react';
 import { AdminButton, AdminMeta, AdminPanel, AdminSectionHeading, AdminSelect } from './AdminUI';
@@ -11,6 +11,7 @@ import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import { appendImageUpload, formatBytes, prepareImageUpload } from '../../utils/prepareImageUpload';
 import { withPlural } from '../../utils/plural';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
+import MediaCropperModal from './MediaCropperModal';
 
 interface MediaFile {
   key: string;
@@ -89,6 +90,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
+  const [croppingFile, setCroppingFile] = useState<MediaFile | null>(null);
   const [query, setQuery] = useState('');
   const [collection, setCollection] = useState<Collection>('all');
   const [sort, setSort] = useState<SortKey>('new');
@@ -652,6 +654,17 @@ export default function AdminMedia({ password, articles }: { password: string; a
                         </div>
                       ) : <div className="media-card__free">Не используется в публикациях</div>}
                       <div className="media-card__actions">
+                        {isImage && (
+                          <button
+                            type="button"
+                            onClick={() => setCroppingFile(file)}
+                            className="admin-button admin-button--compact"
+                            title="Кадрировать (16:9, 1:1, 4:5)"
+                            aria-label={`Кадрировать ${file.name}`}
+                          >
+                            <Crop className="h-3 w-3" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => void copyUrl(file)}
@@ -753,6 +766,19 @@ export default function AdminMedia({ password, articles }: { password: string; a
                     void moveFile(preview, target).then(() => setPreview(null));
                   }}
                 />
+                {preview.contentType.startsWith('image/') && (
+                  <button
+                    type="button"
+                    className="admin-button"
+                    onClick={() => {
+                      const target = preview;
+                      setPreview(null);
+                      setCroppingFile(target);
+                    }}
+                  >
+                    <Crop aria-hidden="true" /> Кадрировать
+                  </button>
+                )}
                 <button type="button" className="admin-button" onClick={() => void copyUrl(preview)}>
                   <Copy aria-hidden="true" /> Ссылка
                 </button>
@@ -761,6 +787,15 @@ export default function AdminMedia({ password, articles }: { password: string; a
           </div>
         </div>
       )}
+
+      <MediaCropperModal
+        file={croppingFile}
+        isOpen={Boolean(croppingFile)}
+        onClose={() => setCroppingFile(null)}
+        onSave={async (croppedFile) => {
+          await uploadFiles([croppedFile]);
+        }}
+      />
     </div>
   );
 }
