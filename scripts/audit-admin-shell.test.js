@@ -771,4 +771,35 @@ test('B2-M5-LAUNCHPAD: Чек-листы запуска рекламы, шабл
   assert.match(adminUiCss, /admin-launchpad-item/, 'Стили пунктов чек-листа');
 });
 
+// ---------------------------------------------------------------------------
+// Блок 2 / Модуль 7: Калькулятор юнит-экономики и медиапланирования
+
+test('B2-M7-UNIT-ECONOMICS: Калькулятор юнит-экономики, воронка CPL/CAC, пресеты ниш, LTV/CAC и медиаплан', async () => {
+  const econSource = await source('src/app/components/admin/AdminUnitEconomics.tsx');
+  assert.match(econSource, /export default function AdminUnitEconomics/, 'Компонент AdminUnitEconomics экспортирован');
+  assert.match(econSource, /b2b_service/, 'Пресет B2B услуги');
+  assert.match(econSource, /ecom/, 'Пресет E-commerce');
+  assert.match(econSource, /local_clinic/, 'Пресет локальной клиники');
+  assert.match(econSource, /real_estate/, 'Пресет недвижимости');
+  assert.match(econSource, /dealsNeeded/, 'Расчет требуемых продаж');
+  assert.match(econSource, /leadsNeeded/, 'Расчет требуемых лидов');
+  assert.match(econSource, /calculatedCpl/, 'Расчет стоимости лида CPL');
+  assert.match(econSource, /ltvCacRatio/, 'Расчет соотношения LTV/CAC');
+  assert.match(econSource, /breakEvenCpl/, 'Расчет порога безубыточного CPL');
+  assert.match(econSource, /handleCopySummary/, 'Функция копирования медиаплана для клиента');
+
+  const adminSource = await source('src/app/pages/Admin.tsx');
+  assert.match(adminSource, /const AdminUnitEconomics = lazy/, 'Ленивый импорт AdminUnitEconomics');
+  assert.match(adminSource, /key: 'unit_econ', label: 'Юнит-экономика', icon: Calculator/, 'Пункт в навигации админки');
+  assert.match(adminSource, /adminView === 'unit_econ' && <AdminUnitEconomics/, 'Рендер раздела unit_econ');
+  assert.match(adminSource, /unit_econ: \['юнит экономика', 'калькулятор'/, 'Ключевые слова для палитры Ctrl+K');
+
+  const adminUiCss = await source('src/styles/admin-ui.css');
+  assert.match(adminUiCss, /admin-unit-econ-container/, 'Стили контейнера юнит-экономики');
+  assert.match(adminUiCss, /admin-unit-econ-kpi-grid/, 'Стили KPI-плиток');
+  assert.match(adminUiCss, /admin-unit-econ-funnel-steps/, 'Стили шагов каскада воронки');
+  assert.match(adminUiCss, /admin-unit-econ-advice-box/, 'Стили рекомендательного блока');
+});
+
+
 
