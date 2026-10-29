@@ -4,6 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { m, useReducedMotion } from 'motion/react';
 import { AlertTriangle, ChevronLeft, ChevronRight, Clock3, RefreshCw } from 'lucide-react';
 import LeadCountryBadge from './LeadCountryBadge';
+import PipelineStepper, { isDealStale } from './PipelineStepper';
 
 export type PipelineStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
 export type Priority = 'low' | 'normal' | 'high' | 'urgent';
@@ -146,19 +147,26 @@ function BoardCard<T extends BoardLead>({
   const next = index >= 0 && index < BOARD_STAGES.length - 1 ? BOARD_STAGES[index + 1] : null;
   const overdue = isOverdue(lead.next_action_at, lead.pipeline_stage);
   const amount = money(lead.deal_value, lead.deal_currency);
+  const stale = isDealStale(
+    lead.pipeline_stage,
+    (lead as unknown as { last_submitted_at?: string; created_at?: string }).last_submitted_at ||
+      (lead as unknown as { last_submitted_at?: string; created_at?: string }).created_at,
+    lead.next_action_at
+  );
 
   return (
     <m.div
       layout={!reduced}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       ref={ref}
-      className={`crm-card${selected ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}`}
+      className={`crm-card${selected ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}${stale.isStale ? ' is-stale' : ''}`}
       style={{ ['--crm-card-priority' as string]: `var(--adm-priority-${lead.priority})` }}
     >
       <button type="button" className="crm-card__main" onClick={() => onOpen(lead)} aria-label={`Открыть сделку ${lead.name || 'без имени'}`}>
         <span className="crm-card__top">
           <span className={`crm-card__priority is-${lead.priority}`} aria-hidden="true" />
           <strong>{lead.name?.trim() || 'Без имени'}</strong>
+          <PipelineStepper stage={lead.pipeline_stage} />
           {amount ? <span className="crm-card__amount">{amount}</span> : null}
         </span>
         <span className="crm-card__sub">{lead.service || lead.email || lead.phone || 'Без контакта'}</span>
@@ -171,6 +179,11 @@ function BoardCard<T extends BoardLead>({
           ) : (
             <span className="is-idle">нет следующего шага</span>
           )}
+          {stale.isStale ? (
+            <span className="crm-card__stale" title={`Сделка без движения ${stale.days} дн.`}>
+              зависла {stale.days}д
+            </span>
+          ) : null}
           {Number(lead.open_tasks_count || 0) ? <span>{lead.open_tasks_count} задач</span> : null}
           {lead.lead_score ? <span className="crm-card__score">{lead.lead_score}</span> : null}
         </span>

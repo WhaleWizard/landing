@@ -30,6 +30,8 @@ import { toIsoDate } from './plannerModel';
 import { suggestLeadScore } from './leadScore';
 import CrmBoard from './CrmBoard';
 import CrmAnalytics from './CrmAnalytics';
+import CrmCalendar from './CrmCalendar';
+import PipelineStepper, { isDealStale } from './PipelineStepper';
 import { confirmAsk, notify } from './AdminFeedback';
 import { findDuplicateGroups } from './leadDuplicates';
 import CrmQuickActions, { type QuickActionPlan } from './CrmQuickActions';
@@ -99,7 +101,7 @@ interface QualityDeliveryItem {
   current: boolean;
 }
 
-interface LeadRow {
+export interface LeadRow {
   id: number;
   name: string;
   email: string;
@@ -257,18 +259,19 @@ const LOSS_REASONS = [
 const CRM_PAGE_SIZE = 50;
 const CRM_VIEW_KEY = 'ww-admin-crm-view';
 
-type CrmView = 'board' | 'list' | 'analytics';
+type CrmView = 'board' | 'list' | 'calendar' | 'analytics';
 
 const CRM_VIEWS: Array<{ value: CrmView; label: string; hint: string }> = [
   { value: 'board', label: 'Доска', hint: 'Сделки по этапам, этап меняется перетаскиванием' },
   { value: 'list', label: 'Список', hint: 'Поиск, фильтры, сортировка и массовые действия' },
+  { value: 'calendar', label: 'Календарь', hint: 'Расписание касаний, созвонов и сроков по сделкам' },
   { value: 'analytics', label: 'Аналитика', hint: 'Деньги, цикл сделки и здоровье пайплайна' },
 ];
 
 function readStoredView(): CrmView {
   try {
     const stored = localStorage.getItem(CRM_VIEW_KEY);
-    if (stored === 'board' || stored === 'list' || stored === 'analytics') return stored;
+    if (stored === 'board' || stored === 'list' || stored === 'calendar' || stored === 'analytics') return stored;
   } catch {
     // приватный режим браузера — просто открываем доску
   }
@@ -1563,11 +1566,23 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [checkedIds.length]);
+
   const [trashVersion, setTrashVersion] = useState(0);
   const [view, setView] = useState<CrmView>(readStoredView);
   // На доске показывается больше сделок, чем на странице списка, поэтому
   // открытая с доски карточка хранится отдельно от постраничной выборки.
   const [boardLead, setBoardLead] = useState<LeadRow | null>(null);
+
+  useEffect(() => {
+    if (!boardLead) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setBoardLead(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [boardLead]);
 
   useEffect(() => {
     try {
@@ -1789,6 +1804,55 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
 
       {view === 'analytics' ? <CrmAnalytics password={password} refreshToken={trashVersion} /> : null}
 
+      {view === 'calendar' ? (
+        <>
+          <CrmCalendar
+            leads={leads}
+            onOpenLead={(lead) => setBoardLead(lead)}
+            password={password}
+            onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
+          />
+          {boardLead ? (
+            <div className="admin-drawer-portal">
+              <div className="admin-drawer-backdrop" onClick={() => setBoardLead(null)} />
+              <aside className="admin-drawer-container crm-board-detail" role="dialog" aria-modal="true" aria-label="Карточка сделки">
+                <div className="admin-drawer-header crm-board-detail__head">
+                  <div className="admin-drawer-header__title">
+                    <span className={`admin-priority-dot is-${boardLead.priority}`} />
+                    <strong>{boardLead.name?.trim() || 'Сделка без имени'}</strong>
+                    {boardLead.deal_value ? (
+                      <span className="admin-crm-lead__deal-badge">
+                        {formatDealValue(boardLead.deal_value, boardLead.deal_currency)}
+                      </span>
+                    ) : null}
+                    <span className="admin-score">{boardLead.lead_score || 0}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-button admin-button--quiet admin-drawer-close"
+                    onClick={() => setBoardLead(null)}
+                    title="Закрыть панель (Escape)"
+                    aria-label="Закрыть панель"
+                  >
+                    <X aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="admin-drawer-body">
+                  <LeadDetail
+                    key={boardLead.id}
+                    lead={boardLead}
+                    password={password}
+                    editingReady={editingReady}
+                    onOpenClients={onOpenClients}
+                    onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
+                  />
+                </div>
+              </aside>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+
       {view === 'board' ? (
         <>
           <CrmBoard<LeadRow>
@@ -1807,21 +1871,41 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
             }}
           />
           {boardLead ? (
-            <div className="crm-board-detail">
-              <div className="crm-board-detail__head">
-                <strong>Карточка сделки</strong>
-                <button type="button" className="admin-button admin-button--quiet" onClick={() => setBoardLead(null)}>
-                  <X aria-hidden="true" /> Закрыть
-                </button>
-              </div>
-              <LeadDetail
-                key={boardLead.id}
-                lead={boardLead}
-                password={password}
-                editingReady={editingReady}
-                onOpenClients={onOpenClients}
-                onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
-              />
+            <div className="admin-drawer-portal">
+              <div className="admin-drawer-backdrop" onClick={() => setBoardLead(null)} />
+              <aside className="admin-drawer-container crm-board-detail" role="dialog" aria-modal="true" aria-label="Карточка сделки">
+                <div className="admin-drawer-header crm-board-detail__head">
+                  <div className="admin-drawer-header__title">
+                    <span className={`admin-priority-dot is-${boardLead.priority}`} />
+                    <strong>{boardLead.name?.trim() || 'Сделка без имени'}</strong>
+                    {boardLead.deal_value ? (
+                      <span className="admin-crm-lead__deal-badge">
+                        {formatDealValue(boardLead.deal_value, boardLead.deal_currency)}
+                      </span>
+                    ) : null}
+                    <span className="admin-score">{boardLead.lead_score || 0}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-button admin-button--quiet admin-drawer-close"
+                    onClick={() => setBoardLead(null)}
+                    title="Закрыть панель (Escape)"
+                    aria-label="Закрыть панель"
+                  >
+                    <X aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="admin-drawer-body">
+                  <LeadDetail
+                    key={boardLead.id}
+                    lead={boardLead}
+                    password={password}
+                    editingReady={editingReady}
+                    onOpenClients={onOpenClients}
+                    onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
+                  />
+                </div>
+              </aside>
             </div>
           ) : null}
         </>
@@ -1956,6 +2040,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                   <div className="admin-crm-lead__top">
                     <span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} />
                     <strong>{lead.name || 'Без имени'}</strong>
+                    <PipelineStepper stage={lead.pipeline_stage} />
                     {cardFields.dealValue && lead.deal_value ? (
                       <span className="admin-crm-lead__deal-badge" title="Сумма сделки">
                         {formatDealValue(lead.deal_value, lead.deal_currency)}
@@ -1976,6 +2061,14 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                     <span>{stageLabel(lead.pipeline_stage)}</span>
                     <LeadCountryBadge country={lead.country} />
                     {overdue ? <span className="is-overdue">Просрочено</span> : lead.next_action_at ? <span>{formatDate(lead.next_action_at)}</span> : <span>Нет следующего шага</span>}
+                    {(() => {
+                      const stale = isDealStale(lead.pipeline_stage, lead.last_submitted_at || lead.created_at, lead.next_action_at);
+                      return stale.isStale ? (
+                        <span className="is-stale" title={`Сделка без движения ${stale.days} дн.`}>
+                          Зависла {stale.days}д
+                        </span>
+                      ) : null;
+                    })()}
                     {cardFields.createdAt && lead.created_at ? (
                       <span className="admin-crm-lead__date" title={`Заявка от ${formatDate(lead.created_at)}`}>
                         {formatDateShort(lead.created_at)}

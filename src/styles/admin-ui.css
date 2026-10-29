@@ -15969,3 +15969,518 @@ body[data-admin-theme] .planner-weekpick {
   color: #f87171 !important;
   border-color: color-mix(in srgb, #ef4444 25%, transparent) !important;
 }
+
+/* ==========================================================================
+   ФАЗА 2: CRM PRO (Степпер воронки, Slide-over Drawer, Зависшие сделки, Календарь)
+   ========================================================================== */
+
+/* --- Мини-степпер прогресса этапов воронки --- */
+.admin-root .admin-pipeline-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.admin-root .admin-pipeline-stepper__bar {
+  display: inline-block;
+  width: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--adm-text-tertiary) 20%, transparent);
+  transition: background 150ms ease;
+}
+
+.admin-root .admin-pipeline-stepper.step-1 .admin-pipeline-stepper__bar.is-active { background: #3b82f6; }
+.admin-root .admin-pipeline-stepper.step-2 .admin-pipeline-stepper__bar.is-active { background: #6366f1; }
+.admin-root .admin-pipeline-stepper.step-3 .admin-pipeline-stepper__bar.is-active { background: #8b5cf6; }
+.admin-root .admin-pipeline-stepper.step-4 .admin-pipeline-stepper__bar.is-active { background: #d946ef; }
+.admin-root .admin-pipeline-stepper.is-won .admin-pipeline-stepper__bar.is-active { background: #10b981; }
+.admin-root .admin-pipeline-stepper.is-closed .admin-pipeline-stepper__bar { background: #64748b; opacity: 0.4; }
+
+/* --- Индикация зависшей сделки --- */
+.admin-root .is-stale,
+.admin-root .crm-card__stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fb923c !important;
+  background: color-mix(in srgb, #f97316 12%, transparent) !important;
+  border: 1px solid color-mix(in srgb, #f97316 28%, transparent) !important;
+}
+
+.admin-root .crm-card.is-stale {
+  border-left: 3px solid #fb923c;
+}
+
+/* --- Slide-over Drawer для сделок --- */
+.admin-root .admin-drawer-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-root .admin-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: adm-fade-in 180ms ease;
+}
+
+@keyframes adm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.admin-root .admin-drawer-container {
+  position: relative;
+  width: min(620px, 92vw);
+  height: 100vh;
+  background: var(--adm-surface-canvas);
+  border-left: 1px solid var(--adm-border);
+  box-shadow: -12px 0 36px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1;
+  animation: adm-drawer-slide-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes adm-drawer-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.admin-root .admin-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--adm-border);
+  background: var(--adm-surface-elevated);
+  flex: none;
+}
+
+.admin-root .admin-drawer-header__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-root .admin-drawer-header__title strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--adm-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .admin-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--adm-border-subtle);
+  background: var(--adm-surface-subtle);
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+  transition: all 140ms ease;
+  flex: none;
+}
+
+.admin-root .admin-drawer-close:hover {
+  background: var(--adm-surface-elevated);
+  color: var(--adm-text-primary);
+  border-color: var(--adm-border);
+}
+
+.admin-root .admin-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+}
+
+/* --- Календарь касаний и напоминаний (CrmCalendar) --- */
+.admin-root .crm-calendar-view {
+  width: 100%;
+}
+
+.admin-root .crm-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  flex-wrap: wrap;
+}
+
+.admin-root .crm-calendar-head__left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-root .crm-calendar-head__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .crm-calendar-head__title {
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: capitalize;
+  min-width: 150px;
+  text-align: center;
+  color: var(--adm-text-primary);
+}
+
+.admin-root .crm-calendar-today-btn {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.admin-root .crm-calendar-head__stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-root .crm-calendar-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--adm-text-secondary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--adm-surface-subtle);
+  border: 1px solid var(--adm-border-subtle);
+}
+
+.admin-root .crm-calendar-stat.is-danger {
+  color: var(--adm-danger);
+  background: color-mix(in srgb, var(--adm-danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--adm-danger) 25%, transparent);
+}
+
+.admin-root .crm-calendar-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--adm-gutter);
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .admin-root .crm-calendar-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-root .crm-calendar-grid-card {
+  padding: 16px;
+}
+
+.admin-root .crm-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .crm-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.admin-root .crm-calendar-cell {
+  min-height: 78px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--adm-border-subtle);
+  background: color-mix(in srgb, var(--adm-surface-canvas) 80%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: start;
+  cursor: pointer;
+  transition: all 140ms ease;
+  overflow: hidden;
+}
+
+.admin-root .crm-calendar-cell:hover {
+  background: var(--adm-surface-elevated);
+  border-color: var(--adm-border);
+}
+
+.admin-root .crm-calendar-cell.is-today {
+  border-color: var(--adm-primary);
+  box-shadow: 0 0 0 1px var(--adm-primary);
+}
+
+.admin-root .crm-calendar-cell.is-selected {
+  background: color-mix(in srgb, var(--adm-primary) 8%, var(--adm-surface-elevated));
+  border-color: var(--adm-primary);
+}
+
+.admin-root .crm-calendar-cell.is-outside {
+  opacity: 0.35;
+}
+
+.admin-root .crm-calendar-cell.has-overdue {
+  border-color: color-mix(in srgb, var(--adm-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--adm-danger) 5%, transparent);
+}
+
+.admin-root .crm-calendar-cell__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-root .crm-calendar-cell__num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .crm-calendar-cell.is-today .crm-calendar-cell__num {
+  color: var(--adm-primary);
+  font-weight: 700;
+}
+
+.admin-root .crm-calendar-cell__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--adm-surface-subtle);
+  color: var(--adm-text-secondary);
+}
+
+.admin-root .crm-calendar-cell__badge.is-overdue {
+  background: var(--adm-danger);
+  color: #fff;
+}
+
+.admin-root .crm-calendar-cell__items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-root .crm-calendar-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--adm-surface-subtle);
+  font-size: 10.5px;
+  color: var(--adm-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .crm-calendar-pill__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--adm-primary);
+  flex: none;
+}
+
+.admin-root .crm-calendar-pill.is-urgent .crm-calendar-pill__dot { background: var(--adm-danger); }
+.admin-root .crm-calendar-pill.is-high .crm-calendar-pill__dot { background: var(--adm-warning); }
+.admin-root .crm-calendar-pill.is-stale { border-left: 2px solid #fb923c; }
+
+.admin-root .crm-calendar-pill__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-root .crm-calendar-pill__more {
+  font-size: 10px;
+  color: var(--adm-text-tertiary);
+  padding-inline-start: 4px;
+}
+
+/* Боковая панель дня в календаре */
+.admin-root .crm-calendar-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.admin-root .crm-calendar-sidebar__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--adm-border-subtle);
+  padding-bottom: 12px;
+}
+
+.admin-root .crm-calendar-sidebar__date {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--adm-text-primary);
+  text-transform: capitalize;
+  margin: 2px 0 0;
+}
+
+.admin-root .crm-calendar-sidebar__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-root .crm-calendar-item {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--adm-border-subtle);
+  background: var(--adm-surface-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-root .crm-calendar-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-root .crm-calendar-item__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--adm-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.admin-root .crm-calendar-item__time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-root .crm-calendar-item__service {
+  font-size: 12px;
+  color: var(--adm-text-secondary);
+  margin: 0;
+}
+
+.admin-root .crm-calendar-item__action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--adm-primary);
+}
+
+.admin-root .crm-calendar-item__action svg {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-root .crm-calendar-item__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.admin-root .crm-calendar-item__open {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+.admin-root .crm-calendar-item__open svg {
+  width: 12px;
+  height: 12px;
+}
+
+.admin-root .crm-calendar-unscheduled {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--adm-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-root .crm-calendar-unscheduled__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .crm-calendar-unscheduled__head svg {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-root .crm-calendar-unscheduled__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-root .crm-calendar-unscheduled__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--adm-surface-subtle);
+  font-size: 12px;
+}
+
+.admin-root .crm-calendar-unscheduled__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-text-secondary);
+}

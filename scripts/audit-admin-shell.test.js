@@ -583,3 +583,19 @@ test('F-PHASE1-CRM: плавающая панель массовых дейст�
   assert.match(leadsSource, /ww-crm-card-fields/, 'настройки видимости полей карточки сохраняются');
   assert.match(leadsSource, /admin-crm-fields-popover/, 'всплывающее меню настройки полей');
 });
+
+test('F-PHASE2-CRM: Slide-over Drawer, воронка-степпер, календарь касаний и зависшие сделки', async () => {
+  const stepperSource = await source('src/app/components/admin/PipelineStepper.tsx');
+  assert.match(stepperSource, /export function isDealStale/, 'функция выявления зависших сделок экспортирована');
+  assert.match(stepperSource, /admin-pipeline-stepper/, 'мини-степпер этапов воронки');
+
+  const leadsSource = await source('src/app/components/admin/AdminLeads.tsx');
+  assert.match(leadsSource, /admin-drawer-portal/, 'Slide-over Drawer для карточки сделки');
+  assert.match(leadsSource, /admin-drawer-backdrop/, 'backdrop для закрытия Drawer');
+  assert.match(leadsSource, /CrmCalendar/, 'компонент календаря касаний подключен');
+  assert.match(leadsSource, /value: 'calendar'/, 'вид календарь добавлен в CRM_VIEWS');
+
+  const boardSource = await source('src/app/components/admin/CrmBoard.tsx');
+  assert.match(boardSource, /PipelineStepper/, 'степпер воронки встроен в карточку доски');
+  assert.match(boardSource, /crm-card__stale/, 'метка зависшей сделки в карточке доски');
+});
