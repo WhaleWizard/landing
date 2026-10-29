@@ -844,16 +844,13 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       // binary search unless its text, typography or available space changed.
       if (measuredOnce && readFitSignature() === lastFitSignature) return;
 
-      // Первый замер идёт сразу: эффект только начался, и его перезапуск
-      // укладывается в один кадр. Все следующие ждут конца анимации — иначе
-      // загрузка шрифта или собственная подгонка обрывали появление заголовка
-      // на середине и запускали его заново, и это выглядело как рывки.
-      if (measuredOnce) {
-        const running = runningTitleEffects();
-        if (running.length > 0) {
-          waitForTitleEffects(running);
-          return;
-        }
+      // Замер всегда ждёт завершения активных анимаций появления заголовка —
+      // иначе подгонка кегля обрывала появление на середине и перезапускала
+      // эффект через сброс стилей, вызывая мигание и визуальные рывки.
+      const running = runningTitleEffects();
+      if (running.length > 0) {
+        waitForTitleEffects(running);
+        return;
       }
 
       applyingFit = true;

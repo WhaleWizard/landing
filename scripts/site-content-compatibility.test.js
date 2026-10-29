@@ -100,6 +100,23 @@ test('stored reader strips accidental pangolin and inter fonts from meta-ads her
     { text: 'Реклама в Meta:' },
     { text: 'привожу клиентов, а не просто лиды', tone: 'accent' },
   ]);
+
+  // Production snapshot with 3 lines and accidental pangolin on line 1 must also be cleaned.
+  const prodSnapshot = {
+    hero: {
+      titleLines: [
+        { text: 'Реклама в Meta:' },
+        { text: 'привожу клиентов, а не просто лиды', tone: 'accent', font: 'pangolin', effect: 'blur-reveal', speed: 'normal' },
+        { text: 'Instagram и Facebook — с оптимизацией на продажи', tone: 'supporting' },
+      ],
+    },
+  };
+  const storedProd = safeSiteJsonObject('service:meta-ads', JSON.stringify(prodSnapshot));
+  assert.deepEqual(storedProd.hero.titleLines, [
+    { text: 'Реклама в Meta:' },
+    { text: 'привожу клиентов, а не просто лиды', tone: 'accent', effect: 'blur-reveal', speed: 'normal' },
+    { text: 'Instagram и Facebook — с оптимизацией на продажи', tone: 'supporting' },
+  ]);
 });
 
 test('stored reader preserves intentional user font choices on meta-ads hero title lines', async () => {

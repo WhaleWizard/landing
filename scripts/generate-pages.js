@@ -2187,7 +2187,8 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
         imagePreloads: HERO_PRELOADS[page.route] || [],
         fontPreloads: (() => {
           const heroPreloads = resolveHeroFontPreloads(page.hero);
-          return heroPreloads.length > 0 ? heroPreloads : (ROUTE_FONT_PRELOADS[page.route] || []);
+          const routePreloads = ROUTE_FONT_PRELOADS[page.route] || [];
+          return [...new Set([...routePreloads, ...heroPreloads])];
         })(),
         baseHtml,
         bodyHtml,

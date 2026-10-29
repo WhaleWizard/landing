@@ -129,13 +129,12 @@ function dropSupersededStoredFields(key, content) {
 }
 
 function isLegacyAccidentalMetaAdsHeroFonts(lines) {
-  if (!Array.isArray(lines) || lines.length !== 2) return false;
-  const line0 = isRecord(lines[0]) ? lines[0] : {};
-  const line1 = isRecord(lines[1]) ? lines[1] : {};
-  return line0.text === 'Реклама в Meta:'
-    && line0.font === 'inter'
-    && line1.text === 'привожу клиентов, а не просто лиды'
-    && line1.font === 'pangolin';
+  if (!Array.isArray(lines)) return false;
+  return lines.some((line) => {
+    const row = isRecord(line) ? line : {};
+    return (row.text === 'Реклама в Meta:' && row.font === 'inter')
+      || (row.text === 'привожу клиентов, а не просто лиды' && row.font === 'pangolin');
+  });
 }
 
 export function applyStoredSiteContentCompatibility(key, storedContent) {
@@ -143,8 +142,14 @@ export function applyStoredSiteContentCompatibility(key, storedContent) {
   if (key === 'service:meta-ads' && isRecord(content) && isRecord(content.hero) && Array.isArray(content.hero.titleLines) && isLegacyAccidentalMetaAdsHeroFonts(content.hero.titleLines)) {
     const titleLines = content.hero.titleLines.map((line) => {
       if (isRecord(line)) {
-        const { font: _font, ...rest } = line;
-        return rest;
+        if (
+          (line.text === 'Реклама в Meta:' && line.font === 'inter')
+          || (line.text === 'привожу клиентов, а не просто лиды' && line.font === 'pangolin')
+        ) {
+          const { font: _font, ...rest } = line;
+          return rest;
+        }
+        return line;
       }
       return line;
     });

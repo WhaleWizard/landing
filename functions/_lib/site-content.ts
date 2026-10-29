@@ -183,13 +183,12 @@ function dropSupersededStoredFields(key: SiteContentKey, value: UnknownRecord): 
  * can never disappear merely because it resembles an older source version.
  */
 function isLegacyAccidentalMetaAdsHeroFonts(lines: unknown[]): boolean {
-  if (!Array.isArray(lines) || lines.length !== 2) return false;
-  const line0 = object(lines[0]);
-  const line1 = object(lines[1]);
-  return line0.text === 'Реклама в Meta:'
-    && line0.font === 'inter'
-    && line1.text === 'привожу клиентов, а не просто лиды'
-    && line1.font === 'pangolin';
+  if (!Array.isArray(lines)) return false;
+  return lines.some((line) => {
+    const row = object(line);
+    return (row.text === 'Реклама в Meta:' && row.font === 'inter')
+      || (row.text === 'привожу клиентов, а не просто лиды' && row.font === 'pangolin');
+  });
 }
 
 function applyStoredSiteContentCompatibility(
@@ -202,8 +201,15 @@ function applyStoredSiteContentCompatibility(
     if (Array.isArray(hero.titleLines) && isLegacyAccidentalMetaAdsHeroFonts(hero.titleLines)) {
       const titleLines = hero.titleLines.map((line) => {
         if (line && typeof line === 'object' && !Array.isArray(line)) {
-          const { font: _font, ...rest } = line as UnknownRecord;
-          return rest;
+          const row = line as UnknownRecord;
+          if (
+            (row.text === 'Реклама в Meta:' && row.font === 'inter')
+            || (row.text === 'привожу клиентов, а не просто лиды' && row.font === 'pangolin')
+          ) {
+            const { font: _font, ...rest } = row;
+            return rest;
+          }
+          return row;
         }
         return line;
       });

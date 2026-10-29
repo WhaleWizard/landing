@@ -21,6 +21,7 @@ import {
 } from './ServiceLandingPage';
 import { mergeContent } from '../hooks/useServiceContent';
 import {
+  ensureFontLibraryLoaded,
   getContentFontDefinition,
   managedBodyClasses,
   managedBodyStyle,
@@ -157,6 +158,7 @@ function usePreviewFontsReady(payload: ContentPreviewPayload | null): boolean {
     const revision = payload.revision;
 
     const load = async () => {
+      ensureFontLibraryLoaded();
       const fontSet = document.fonts;
       if (fontSet) {
         await Promise.all(requests.map(({ descriptor, sample }) => (

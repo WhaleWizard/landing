@@ -168,8 +168,8 @@
 @keyframes hero-title-blur-reveal {
   from {
     opacity: 0;
-    filter: blur(0.42em);
-    transform: translate3d(0, 0.18em, 0) scale(0.985);
+    filter: blur(0.18em);
+    transform: translate3d(0, 0.16em, 0);
   }
   to {
     opacity: 1;

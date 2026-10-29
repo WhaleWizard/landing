@@ -132,7 +132,6 @@
           {
             "text": "привожу клиентов, а не просто лиды",
             "tone": "accent",
-            "font": "prata",
             "effect": "blur-reveal",
             "speed": "normal"
           },
