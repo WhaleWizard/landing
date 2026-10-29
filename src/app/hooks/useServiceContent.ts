@@ -13,6 +13,7 @@ type ServiceContentCacheEntry = {
   content: Record<string, unknown> | null;
   version: number | null;
   fetchedAt: number;
+  network?: boolean;
 };
 
 const serviceContentCache = new Map<string, ServiceContentCacheEntry>();
@@ -70,14 +71,14 @@ function cacheResponse(
   // A delayed edge response must never downgrade content already observed by
   // this tab at a newer published version.
   if (current && current.version !== null && (version === null || version < current.version)) {
-    serviceContentCache.set(cacheKey, { ...current, fetchedAt: Date.now() });
+    serviceContentCache.set(cacheKey, { ...current, fetchedAt: Date.now(), network: true });
     return current.content;
   }
   if (current && current.version !== null && version === current.version) {
-    serviceContentCache.set(cacheKey, { ...current, fetchedAt: Date.now() });
+    serviceContentCache.set(cacheKey, { ...current, fetchedAt: Date.now(), network: true });
     return current.content;
   }
-  serviceContentCache.set(cacheKey, { content, version, fetchedAt: Date.now() });
+  serviceContentCache.set(cacheKey, { content, version, fetchedAt: Date.now(), network: true });
   return content;
 }
 
@@ -89,13 +90,16 @@ function loadSiteContent(cacheKey: string, revalidate = false): Promise<unknown>
   if (!cached) {
     const seed = readInlineSiteContentSeed(cacheKey);
     if (seed !== undefined) {
-      cached = { content: seed, version: null, fetchedAt: Date.now() };
+      cached = { content: seed, version: null, fetchedAt: 0, network: false };
       serviceContentCache.set(cacheKey, cached);
     }
   }
+  // Статический seed разметки (network !== true) не является подтверждённым
+  // ответом D1: при явной ревалидации на монтировании он обязан запросить живые данные.
+  const isNetworkFresh = Boolean(cached?.network);
   const cacheTtl = revalidate ? SITE_CONTENT_REVALIDATE_COOLDOWN_MS : SITE_CONTENT_CACHE_TTL_MS;
-  if (cached && Date.now() - cached.fetchedAt < cacheTtl) {
-    return Promise.resolve(cached.content);
+  if (isNetworkFresh && Date.now() - cached!.fetchedAt < cacheTtl) {
+    return Promise.resolve(cached!.content);
   }
   const pending = serviceContentPending.get(cacheKey);
   if (pending) return pending;
@@ -153,7 +157,7 @@ export function initialContentOverride(cacheKey: string): unknown {
   if (cached) return cached.content;
   const seed = readInlineSiteContentSeed(cacheKey);
   if (seed !== undefined) {
-    serviceContentCache.set(cacheKey, { content: seed, version: null, fetchedAt: Date.now() });
+    serviceContentCache.set(cacheKey, { content: seed, version: null, fetchedAt: 0 });
     return seed;
   }
   return undefined;
@@ -186,9 +190,17 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
     void loadSiteContent(cacheKey, true)
       .then((loaded) => {
         if (!active) return;
-        setContent(loaded
+        const nextContent = loaded
           ? mergeContent(fallback, loaded)
-          : fallback);
+          : fallback;
+        setContent((prev) => {
+          try {
+            if (JSON.stringify(prev) === JSON.stringify(nextContent)) return prev;
+          } catch {
+            // При циклической структуре или ошибке сериализации применяем новое состояние
+          }
+          return nextContent;
+        });
       })
       .catch(() => {
         // Публичная страница всегда остаётся на статическом проверенном тексте.

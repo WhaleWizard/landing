@@ -624,13 +624,16 @@
   }
 
   .marketing-typography .meta-editorial-hero__title {
-    --meta-title-size: clamp(1.55rem, 7.55vw, 1.95rem);
+    --meta-title-size: clamp(1.4rem, 6.7vw, 1.85rem);
+    font-size: min(var(--meta-title-size), 6.4cqw);
     line-height: 1.01;
     letter-spacing: -0.055em;
   }
 
   .meta-editorial-hero__title-accent {
     padding-bottom: 0.16em;
+    padding-right: 0.12em;
+    margin-right: -0.12em;
   }
 
   .meta-editorial-hero__supporting {

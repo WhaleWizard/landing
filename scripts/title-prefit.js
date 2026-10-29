@@ -58,6 +58,12 @@
   function fits(el, maxLines) {
     if (el.clientWidth <= 0) return true;
     if (el.scrollWidth > el.clientWidth + 1) return false;
+    var range = doc.createRange();
+    range.selectNodeContents(el);
+    var rects = range.getClientRects();
+    for (var i = 0; i < rects.length; i += 1) {
+      if (rects[i].width > el.clientWidth + 0.5) return false;
+    }
     var lines = countLines(el);
     return lines === 0 || lines <= maxLines;
   }
