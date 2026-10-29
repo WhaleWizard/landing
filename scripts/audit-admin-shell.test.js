@@ -689,3 +689,35 @@ test('B2-M1-ATTRIBUTION: каскад конверсий, битва канал�
   assert.match(attrSource, /CopyUtmCell/, 'копирование UTM подключено в ячейки таблицы');
   assert.match(attrSource, /tableFilter === 'romi'/, 'быстрый фильтр положительного ROMI');
 });
+
+
+// ---------------------------------------------------------------------------
+// Блок 2 / Модуль 3: Google Search Console & SEO Monitoring
+
+test('B2-M3-GSC: Search Console API, KPI-плитки, векторный график, запросы, точки роста и каннибализация', async () => {
+  const gscApiSource = await source('functions/api/admin/search-console.ts');
+  assert.match(gscApiSource, /export async function onRequestGet/, 'Эндпоинт GET для данных GSC');
+  assert.match(gscApiSource, /export async function onRequestPost/, 'Эндпоинт POST для сохранения ключа');
+  assert.match(gscApiSource, /getDemoDataset/, 'Реалистичный демо-датасет для whalewzrd.com');
+
+  const gscUiSource = await source('src/app/components/admin/AdminSearchConsole.tsx');
+  assert.match(gscUiSource, /export default function AdminSearchConsole/, 'Компонент AdminSearchConsole экспортирован');
+  assert.match(gscUiSource, /GscSvgChart/, 'Векторный интерактивный график поискового спроса');
+  assert.match(gscUiSource, /activeTab === 'queries'/, 'Вкладка поисковых запросов');
+  assert.match(gscUiSource, /activeTab === 'pages'/, 'Вкладка посадочных страниц');
+  assert.match(gscUiSource, /activeTab === 'growth'/, 'Вкладка точек роста и каннибализации');
+  assert.match(gscUiSource, /activeTab === 'setup'/, 'Вкладка подключения Google API');
+  assert.match(gscUiSource, /admin-gsc-opp-card/, 'Карточки точек роста (Low-hanging fruits)');
+  assert.match(gscUiSource, /admin-gsc-cann-card/, 'Детектор каннибализации поисковых запросов');
+
+  const adminSource = await source('src/app/pages/Admin.tsx');
+  assert.match(adminSource, /const AdminSearchConsole = lazy/, 'Ленивый импорт AdminSearchConsole');
+  assert.match(adminSource, /key: 'seo', label: 'SEO и Поиск'/, 'Пункт SEO и Поиск в навигации');
+  assert.match(adminSource, /adminView === 'seo' && <AdminSearchConsole/, 'Рендер раздела seo');
+  assert.match(adminSource, /seo: \['поиск', 'google', 'search console'/, 'Ключевые слова для палитры Ctrl+K');
+
+  const adminUiCss = await source('src/styles/admin-ui.css');
+  assert.match(adminUiCss, /admin-gsc-container/, 'Стили контейнера GSC');
+  assert.match(adminUiCss, /admin-gsc-kpi-grid/, 'Сетка KPI-плиток');
+  assert.match(adminUiCss, /admin-gsc-table/, 'Стили таблицы запросов');
+});

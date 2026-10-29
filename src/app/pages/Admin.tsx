@@ -21,7 +21,7 @@ import {
   ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3, LayoutGrid, Users, Wallet, Lock, Radio, Database,
+  Rows2, Rows3, LayoutGrid, Users, Wallet, Lock, Radio, Database, Globe,
   PanelLeftClose, PanelLeftOpen,
   Keyboard, CheckCircle2, Clock3, AlertTriangle,
   type LucideIcon
@@ -64,8 +64,9 @@ const AdminContentControl = lazy(() => import('../components/admin/AdminContentC
 const AdminPerformance = lazy(() => import('../components/admin/AdminPerformance'));
 const AdminPlanner = lazy(() => import('../components/admin/AdminPlanner'));
 const ArticleCalendar = lazy(() => import('../components/admin/ArticleCalendar'));
+const AdminSearchConsole = lazy(() => import('../components/admin/AdminSearchConsole'));
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations' | 'seo';
 type AdminNavKey = AdminView | 'cases';
 
 function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
@@ -75,6 +76,7 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
     case 'goals': return import('../components/admin/AdminGoals');
     case 'report': return import('../components/admin/AdminReport');
     case 'attribution': return import('../components/admin/AdminAttribution');
+    case 'seo': return import('../components/admin/AdminSearchConsole');
     case 'meta': return import('../components/admin/AdminMetaCenter');
     case 'performance': return import('../components/admin/AdminPerformance');
     case 'content': return import('../components/admin/AdminContentControl');
@@ -893,6 +895,7 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   goals: ['план', 'выручка', 'бюджет', 'romi'],
   finance: ['счета', 'оплаты', 'налог', 'прибыль', 'часы', 'расходы'],
   attribution: ['атрибуция', 'конверсия', 'источники', 'utm', 'расходы'],
+  seo: ['поиск', 'google', 'search console', 'gsc', 'позиции', 'запросы', 'сео', 'seo', 'клики'],
   meta: ['пиксель', 'события', 'facebook', 'фейсбук'],
   events: ['datalayer', 'gtm', 'tag manager', 'триггер', 'аналитика', 'ga4'],
   migrations: ['база', 'd1', 'схема', 'sql', 'миграция'],
@@ -1890,6 +1893,7 @@ export default function Admin() {
         { key: 'finance', label: 'Финансы', icon: Wallet },
         { key: 'goals', label: 'Цели и деньги', icon: Target },
         { key: 'attribution', label: 'Воронка', icon: BarChart3 },
+        { key: 'seo', label: 'SEO и Поиск', icon: Globe },
         { key: 'meta', label: 'Meta CAPI', icon: Activity },
         { key: 'events', label: 'События', icon: Radio },
         { key: 'performance', label: 'Скорость', icon: Gauge },
@@ -2417,6 +2421,7 @@ export default function Admin() {
               {adminView === 'goals' && <AdminGoals password={password} />}
               {adminView === 'report' && <AdminReport password={password} />}
               {adminView === 'attribution' && <AdminAttribution password={password} />}
+              {adminView === 'seo' && <AdminSearchConsole password={password} />}
               {adminView === 'meta' && <AdminMetaCenter password={password} />}
               {adminView === 'performance' && <AdminPerformance password={password} />}
               {adminView === 'content' && <AdminContentControl password={password} onRegisterLeaveGuard={registerLeaveGuard} />}
