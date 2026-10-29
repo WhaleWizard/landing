@@ -1344,6 +1344,32 @@ test('F-009: медиатека считает использование по �
   assert.ok(!bucket.objects.has(free));
 });
 
+test('CMS Media: медиатека находит ссылки в разделах сайта (site_sections) и блокирует их удаление', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const bucket = new FakeBucket();
+  const { publicUploadUrl } = await loadModule('functions/_lib/media-folders.ts');
+  const landingHeroPic = 'uploads/2026-09-23/hero-landing.webp';
+  await bucket.put(landingHeroPic, new Uint8Array(3), { httpMetadata: { contentType: 'image/webp' }, customMetadata: { originalName: 'hero.webp' } });
+
+  sqlite.prepare(`
+    INSERT INTO site_sections (section_key, page_path, label, draft_json, published_json, status, version)
+    VALUES ('page_meta_ads', '/meta-ads', 'Meta Ads', ?, '{}', 'draft', 1)
+  `).run(JSON.stringify({ hero: { image: publicUploadUrl(R2_HOST, landingHeroPic) } }));
+
+  const env = { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: new D1Database(sqlite), USE_D1_ARTICLES: 'true' };
+  const list = await mediaCall(env, { method: 'GET' });
+  const file = list.payload.files.find((f) => f.key === landingHeroPic);
+  assert.ok(file);
+  assert.deepEqual(file.usage, ['Раздел сайта: Meta Ads']);
+
+  const remove = await mediaCall(env, { body: { action: 'delete', keys: [landingHeroPic] } });
+  assert.equal(remove.status, 409);
+  assert.equal(remove.payload.code, 'MEDIA_IN_USE');
+  assert.match(remove.payload.error, /Meta Ads/);
+  assert.ok(bucket.objects.has(landingHeroPic));
+});
+
 test('F-009: без базы статей медиатека не гадает — поля usage нет, удаление и перенос отложены', async (t) => {
   t.after(installMemoryCache());
   const bucket = new FakeBucket();

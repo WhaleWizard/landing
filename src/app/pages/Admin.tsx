@@ -2233,7 +2233,7 @@ export default function Admin() {
                     )}
                   </div>
 
-                  <SeoAssistant article={editingArticle} />
+                  <SeoAssistant article={editingArticle} knownArticles={articles} />
 
                   {isEditingProtected && (
                     <div className="rounded-xl border border-[var(--adm-primary)]/30 bg-[var(--adm-primary)]/10 px-4 py-3 text-sm text-[var(--adm-fg)]/80">

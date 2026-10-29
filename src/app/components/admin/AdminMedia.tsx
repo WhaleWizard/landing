@@ -478,6 +478,32 @@ export default function AdminMedia({ password, articles }: { password: string; a
             </div>
           </AdminPanel>
 
+          {collection === 'unused' && visibleFiles.length > 0 && selected.length === 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 mb-4" role="status">
+              <div className="text-sm text-[var(--adm-fg)]/90">
+                Нигде не используются: <strong>{visibleFiles.length}</strong> {withPlural(visibleFiles.length, ['файл', 'файла', 'файлов'])} ({formatSize(visibleFiles.reduce((acc, f) => acc + (f.size || 0), 0))})
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="admin-button admin-button--secondary admin-button--compact"
+                  disabled={busy}
+                  onClick={() => setSelected(visibleFiles.map((file) => file.key))}
+                >
+                  Выбрать все ({visibleFiles.length})
+                </button>
+                <button
+                  type="button"
+                  className="admin-button admin-button--danger admin-button--compact"
+                  disabled={busy}
+                  onClick={() => void deleteFiles(visibleFiles)}
+                >
+                  <Trash2 aria-hidden="true" /> Удалить все
+                </button>
+              </div>
+            </div>
+          )}
+
           {selected.length > 0 && (
             <div className="media-bulk" role="status">
               <span>Выбрано: {selected.length}</span>

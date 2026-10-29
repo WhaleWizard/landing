@@ -131,29 +131,58 @@ async function readArticleUsageRows(db: D1Database): Promise<Array<{ slug: strin
   }
 }
 
+async function readSiteSectionUsageRows(db: D1Database): Promise<Array<{ section_key: string; page_path: string | null; label: string | null; draft_json: string | null; published_json: string | null }>> {
+  try {
+    const rows = await db.prepare(
+      'SELECT section_key, page_path, label, draft_json, published_json FROM site_sections',
+    ).all<{ section_key: string; page_path: string | null; label: string | null; draft_json: string | null; published_json: string | null }>();
+    return rows.results || [];
+  } catch (error) {
+    if (/no such table/i.test(error instanceof Error ? error.message : String(error))) return [];
+    throw error;
+  }
+}
+
 /**
- * Публикации для проверки использования. `null` — проверить не удалось:
- * база статей недоступна или запрос упал. Это не «ничего не используется».
+ * Публикации и разделы сайта для проверки использования. `null` — проверить не удалось:
+ * база данных недоступна или запрос упал. Это не «ничего не используется».
  */
 async function readUsageSources(env: Env, request: Request): Promise<UsageSource[] | null> {
   try {
     if (shouldUseD1Articles(env)) {
       if (!env.DB) return null;
-      const rows = await readArticleUsageRows(env.DB);
-      return rows.map((row) => ({
+      const [articleRows, siteSectionRows] = await Promise.all([
+        readArticleUsageRows(env.DB),
+        readSiteSectionUsageRows(env.DB),
+      ]);
+      const articleSources: UsageSource[] = articleRows.map((row) => ({
         title: String(row.title || row.slug || ''),
         haystack: [row.image, row.content, row.case_data_json].filter(Boolean).join('\n'),
       }));
+      const siteSources: UsageSource[] = siteSectionRows.map((row) => ({
+        title: `Раздел сайта: ${row.label || row.page_path || row.section_key}`,
+        haystack: [row.draft_json, row.published_json].filter(Boolean).join('\n'),
+      }));
+      return [...articleSources, ...siteSources];
     }
     // Статьи живут в JSONBin: читаем тем же путём, что публичный сайт. Пустой
     // список здесь означает, что ни один источник не ответил (JSONBin пустой
     // продолжает цепочку, а недоступный seed даёт пусто), а не «статей нет».
     const articles = await fetchArticlesWithFallback(env, request);
     if (articles.length === 0) return null;
-    return articles.map((article) => ({
+    const articleSources: UsageSource[] = articles.map((article) => ({
       title: String(article.title || article.slug || ''),
       haystack: [article.image, article.content, article.caseData ? JSON.stringify(article.caseData) : ''].filter(Boolean).join('\n'),
     }));
+    let siteSources: UsageSource[] = [];
+    if (env.DB) {
+      const siteSectionRows = await readSiteSectionUsageRows(env.DB).catch(() => []);
+      siteSources = siteSectionRows.map((row) => ({
+        title: `Раздел сайта: ${row.label || row.page_path || row.section_key}`,
+        haystack: [row.draft_json, row.published_json].filter(Boolean).join('\n'),
+      }));
+    }
+    return [...articleSources, ...siteSources];
   } catch (error) {
     console.error('[media] usage check failed', error instanceof Error ? error.message : error);
     return null;

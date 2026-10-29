@@ -438,6 +438,45 @@ test('F-062: ссылка на страницу услуги считается 
   assert.equal(noLinks.level, 'warn');
 });
 
+test('Broken Link Checker: валидация ссылок выявляет битые 404, лишние слеши и опечатки в протоколе', async () => {
+  const plural = await compilePlain('src/app/utils/plural.ts');
+  const seo = await loadWithStubs('src/app/components/admin/SeoAssistant.tsx', { '/plural': plural });
+  const { validateContentLinks, runChecks } = seo;
+
+  const validHtml = '<p><a href="/meta-ads">Услуга</a> и <a href="/blog/hello-world">статья</a> и <a href="https://example.com">внешняя</a></p>';
+  const validResult = validateContentLinks(validHtml, { knownSlugs: new Set(['hello-world']) });
+  assert.equal(validResult.total, 3);
+  assert.equal(validResult.internal, 2);
+  assert.equal(validResult.external, 1);
+  assert.equal(validResult.issues.length, 0);
+
+  const brokenHtml = '<p><a href="/meta-ads/">Слеш</a> <a href="/blog/missing-404">Битая</a> <a href="htp://broken.com">Опечатка</a> <a href="http://insecure.com">Незащищённая</a></p>';
+  const brokenResult = validateContentLinks(brokenHtml, { knownSlugs: new Set(['hello-world']) });
+  assert.equal(brokenResult.issues.length, 4);
+
+  const slashIssue = brokenResult.issues.find((i) => i.href === '/meta-ads/');
+  assert.equal(slashIssue.level, 'warn');
+  assert.match(slashIssue.reason, /Лишний завершающий слеш/);
+
+  const missingIssue = brokenResult.issues.find((i) => i.href === '/blog/missing-404');
+  assert.equal(missingIssue.level, 'fail');
+  assert.match(missingIssue.reason, /404/);
+
+  const typoIssue = brokenResult.issues.find((i) => i.href === 'htp://broken.com');
+  assert.equal(typoIssue.level, 'fail');
+  assert.match(typoIssue.reason, /Опечатка/);
+
+  const insecureIssue = brokenResult.issues.find((i) => i.href === 'http://insecure.com');
+  assert.equal(insecureIssue.level, 'warn');
+  assert.match(insecureIssue.reason, /http:\/\//);
+
+  // runChecks возвращает проверку 'link-health'
+  const checks = runChecks({ content: brokenHtml }, { knownSlugs: new Set(['hello-world']) });
+  const linkHealth = checks.find((c) => c.id === 'link-health');
+  assert.ok(linkHealth);
+  assert.equal(linkHealth.level, 'fail');
+});
+
 // ---------------------------------------------------------------------------
 // F-063: календарь не показывает черновики как вышедшие
 
@@ -496,4 +535,32 @@ test('CMS: фоновая сборка Cloudflare Pages отображается
   assert.match(contentControlSource, /Сборка в процессе \(\{Math\.max\(0, PAGES_BUILD_ESTIMATED_SECONDS/, 'бейдж процесса с обратным отсчётом');
   assert.match(contentControlSource, /Сборка завершена/, 'бейдж успешного завершения сборки');
   assert.match(contentControlSource, /Сбой сборки/, 'бейдж ошибки вызова Deploy Hook');
+});
+
+// ---------------------------------------------------------------------------
+// Оффлайн-черновики и защита от потери данных в редакторе сайта
+
+test('CMS: оффлайн-черновики страниц сохраняются в localStorage и предлагают восстановление', async () => {
+  const contentControl = await loadWithStubs('src/app/components/admin/AdminContentControl.tsx');
+  assert.equal(contentControl.siteContentBackupKey('page_meta_ads'), 'ww_site_content_backup:page_meta_ads');
+
+  const storage = fakeStorage();
+  const sampleBackup = {
+    key: 'page_meta_ads',
+    page: 'meta-ads',
+    label: 'Meta Ads',
+    content: { hero: { titlePrefix: 'Тест', titleAccent: 'Акцент', titleLines: [] } },
+    savedAt: 1700000000000,
+  };
+  storage.setItem(contentControl.siteContentBackupKey('page_meta_ads'), JSON.stringify(sampleBackup));
+
+  const read = contentControl.readSiteContentBackups(storage);
+  assert.equal(read.length, 1);
+  assert.equal(read[0].key, 'page_meta_ads');
+  assert.equal(read[0].page, 'meta-ads');
+  assert.equal(read[0].content.hero.titlePrefix, 'Тест');
+
+  assert.match(contentControlSource, /SITE_CONTENT_BACKUP_PREFIX = 'ww_site_content_backup:'/);
+  assert.match(contentControlSource, /Найден локальный автосохранённый черновик/);
+  assert.match(contentControlSource, /Локальный черновик восстановлен/);
 });

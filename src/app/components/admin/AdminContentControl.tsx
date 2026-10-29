@@ -1105,6 +1105,55 @@ function persistBuildState(state: PagesBuildState): void {
 
 export type LeaveGuard = () => Promise<boolean>;
 
+export type SiteContentBackup = {
+  key: string;
+  page: EditorPage;
+  label: string;
+  content: EditableContent;
+  savedAt: number;
+};
+
+export const SITE_CONTENT_BACKUP_PREFIX = 'ww_site_content_backup:';
+
+export function siteContentBackupKey(pageKey: string): string {
+  return `${SITE_CONTENT_BACKUP_PREFIX}${pageKey}`;
+}
+
+export function parseSiteContentBackup(raw: string | null): SiteContentBackup | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<SiteContentBackup> | null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (typeof parsed.key !== 'string' || typeof parsed.savedAt !== 'number' || !parsed.content) return null;
+    return {
+      key: parsed.key,
+      page: (parsed.page as EditorPage) || 'home',
+      label: parsed.label || parsed.key,
+      content: parsed.content as EditableContent,
+      savedAt: parsed.savedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function readSiteContentBackups(storage?: Pick<Storage, 'getItem' | 'key' | 'length'>): SiteContentBackup[] {
+  const store = storage || (typeof window !== 'undefined' ? window.localStorage : null);
+  if (!store) return [];
+  const backups: SiteContentBackup[] = [];
+  try {
+    for (let i = 0; i < store.length; i += 1) {
+      const key = store.key(i);
+      if (!key || !key.startsWith(SITE_CONTENT_BACKUP_PREFIX)) continue;
+      const backup = parseSiteContentBackup(store.getItem(key));
+      if (backup) backups.push(backup);
+    }
+  } catch {
+    return [];
+  }
+  return backups.sort((a, b) => b.savedAt - a.savedAt);
+}
+
 export default function AdminContentControl({ password, onRegisterLeaveGuard }: {
   password: string;
   /**
@@ -1130,6 +1179,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   const [migration, setMigration] = useState('');
   const [buildState, setBuildState] = useState<PagesBuildState>(() => readSavedBuildState());
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [activeBackup, setActiveBackup] = useState<SiteContentBackup | null>(null);
 
   useEffect(() => {
     if (buildState.status === 'idle') return;
@@ -1250,6 +1300,19 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       setContent(next);
       setBaseline(next);
       setHydratedKey(pageMeta.key);
+
+      try {
+        const stored = parseSiteContentBackup(localStorage.getItem(siteContentBackupKey(pageMeta.key)));
+        if (stored && JSON.stringify(stored.content) !== JSON.stringify(next)) {
+          setActiveBackup(stored);
+        } else {
+          if (stored) localStorage.removeItem(siteContentBackupKey(pageMeta.key));
+          setActiveBackup(null);
+        }
+      } catch {
+        setActiveBackup(null);
+      }
+
       return true;
     } catch (error) {
       if (requestId !== loadSequence.current) return false;
@@ -1329,7 +1392,28 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     setNotice('');
     setPublishArmed(false);
     setHydratedKey(null);
+    setActiveBackup(null);
   };
+
+  // Автосохранение черновика в localStorage при наличии несохранённых изменений
+  useEffect(() => {
+    if (!isHydrated || !isDirty) return undefined;
+    const timer = window.setTimeout(() => {
+      try {
+        const backup: SiteContentBackup = {
+          key: pageMeta.key,
+          page,
+          label: pageMeta.label,
+          content,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(siteContentBackupKey(pageMeta.key), JSON.stringify(backup));
+      } catch {
+        // quota exceeded or unavailable
+      }
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [content, isDirty, isHydrated, page, pageMeta.key, pageMeta.label]);
 
   const update = (path: Array<string | number>, value: unknown) => {
     setContent((current) => setAtPath(current, path, value));
@@ -1396,6 +1480,12 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       if (JSON.stringify(contentRef.current) !== JSON.stringify(savedContent)) {
         setNotice('Версия на момент нажатия сохранена. Более новые изменения остались в редакторе.');
       } else {
+        try {
+          localStorage.removeItem(siteContentBackupKey(pageMeta.key));
+        } catch {
+          // ignore
+        }
+        setActiveBackup(null);
         const refreshed = await load(true);
         if (refreshed) {
           if (action === 'publish' && payload.seoBuild?.triggered) {
@@ -1524,8 +1614,42 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
           ) : null}
         </div>
         <button className="admin-button admin-button--secondary" type="button" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
-        {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); setBaseline(restored); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}
+        {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); setBaseline(restored); try { localStorage.removeItem(siteContentBackupKey(pageMeta.key)); } catch {} setActiveBackup(null); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}
       </div>
+
+      {activeBackup && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3" role="status">
+          <div className="text-sm text-[var(--adm-fg)]/90">
+            Найден локальный автосохранённый черновик страницы «{activeBackup.label}» от {new Date(activeBackup.savedAt).toLocaleString('ru-RU')}.
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="admin-button admin-button--primary admin-button--compact"
+              onClick={() => {
+                setContent(activeBackup.content);
+                setActiveBackup(null);
+                setNotice('Локальный черновик восстановлен в редакторе.');
+              }}
+            >
+              Восстановить
+            </button>
+            <button
+              type="button"
+              className="admin-button admin-button--quiet admin-button--compact"
+              onClick={() => {
+                try {
+                  localStorage.removeItem(siteContentBackupKey(pageMeta.key));
+                } catch {}
+                setActiveBackup(null);
+                setNotice('Локальный черновик удалён.');
+              }}
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
+      )}
 
       {migration ? (
         <div className="admin-notice admin-notice--warning" role="status">

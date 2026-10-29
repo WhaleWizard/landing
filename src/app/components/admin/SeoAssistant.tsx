@@ -83,17 +83,158 @@ export function countInternalLinks(content = ''): number {
   return count;
 }
 
+export const CANONICAL_STATIC_ROUTES = new Set([
+  '/',
+  '/meta-ads',
+  '/meta-apps',
+  '/google-ads',
+  '/consult',
+  '/privacy',
+  '/terms',
+  '/data-deletion',
+  '/blog',
+  '/cases',
+  '/glossary',
+  '/faq',
+  '/calculator',
+  '/roi-calculator',
+  '/unit-economics',
+  '/client-report',
+]);
+
+export interface LinkIssue {
+  href: string;
+  reason: string;
+  level: 'fail' | 'warn';
+}
+
+export interface LinkValidationResult {
+  total: number;
+  internal: number;
+  external: number;
+  issues: LinkIssue[];
+}
+
+export function validateContentLinks(
+  content = '',
+  options?: { knownSlugs?: Set<string> | string[] },
+): LinkValidationResult {
+  const issues: LinkIssue[] = [];
+  const slugsSet = options?.knownSlugs instanceof Set
+    ? options.knownSlugs
+    : new Set(options?.knownSlugs || []);
+  let total = 0;
+  let internal = 0;
+  let external = 0;
+
+  for (const match of String(content).matchAll(/href\s*=\s*["']([^"']+)["']/gi)) {
+    const rawHref = match[1].trim();
+    if (!rawHref) {
+      issues.push({ href: '""', reason: 'Пустая ссылка href', level: 'fail' });
+      continue;
+    }
+    total += 1;
+
+    if (rawHref.startsWith('#')) {
+      if (rawHref === '#') {
+        issues.push({ href: '#', reason: 'Пустой якорь без ID секции', level: 'warn' });
+      }
+      continue;
+    }
+
+    if (/^(?:mailto:|tel:)/i.test(rawHref)) {
+      continue;
+    }
+
+    if (/^https?\/\//i.test(rawHref) || /^htps?:\/\//i.test(rawHref)) {
+      issues.push({ href: rawHref, reason: 'Опечатка в схеме протокола', level: 'fail' });
+      continue;
+    }
+
+    const path = internalPath(rawHref);
+    if (path) {
+      internal += 1;
+
+      if (/^\/api\//i.test(path) || /^\/admin(?:[/?#]|$)/i.test(path)) {
+        issues.push({ href: rawHref, reason: 'Ссылка ведёт на служебный или закрытый раздел', level: 'warn' });
+        continue;
+      }
+
+      const [pathname] = path.split(/[?#]/);
+
+      if (pathname.length > 1 && pathname.endsWith('/')) {
+        issues.push({
+          href: rawHref,
+          reason: `Лишний завершающий слеш (канонический адрес: ${pathname.replace(/\/+$/, '')})`,
+          level: 'warn',
+        });
+        continue;
+      }
+
+      if (pathname.includes('//')) {
+        issues.push({ href: rawHref, reason: 'Двойная косая черта в пути', level: 'fail' });
+        continue;
+      }
+
+      if (CANONICAL_STATIC_ROUTES.has(pathname)) {
+        continue;
+      }
+
+      const articleMatch = /^\/(?:blog|cases)\/([a-z0-9-]+)$/i.exec(pathname);
+      if (articleMatch) {
+        const slug = articleMatch[1].toLowerCase();
+        if (slugsSet.size > 0 && !slugsSet.has(slug)) {
+          issues.push({
+            href: rawHref,
+            reason: `Статья или кейс «${slug}» не найдены (битая ссылка 404)`,
+            level: 'fail',
+          });
+          continue;
+        }
+        continue;
+      }
+
+      issues.push({
+        href: rawHref,
+        reason: 'Несуществующий раздел сайта (битая ссылка 404)',
+        level: 'fail',
+      });
+    } else {
+      external += 1;
+      if (/^http:\/\//i.test(rawHref)) {
+        issues.push({
+          href: rawHref,
+          reason: 'Незащищённый протокол http:// (рекомендуется https://)',
+          level: 'warn',
+        });
+      } else if (!/^https:\/\//i.test(rawHref)) {
+        issues.push({
+          href: rawHref,
+          reason: 'Некорректный адрес внешней ссылки',
+          level: 'warn',
+        });
+      }
+    }
+  }
+
+  return { total, internal, external, issues };
+}
+
 /**
  * Проверки перед публикацией. Раньше в редакторе был короткий список
  * «чего не хватает», но без чисел и без объяснения, почему это важно —
  * по нему нельзя было понять, что именно исправлять.
  */
-export function runChecks(article: ArticleLike): CheckResult[] {
+export function runChecks(
+  article: ArticleLike,
+  options?: { knownSlugs?: Set<string> | string[] },
+): CheckResult[] {
   const text = stripHtml(article.content || '');
   const words = countWords(text);
   const title = (article.seoTitle || article.title || '').trim();
   const description = (article.seoDescription || article.description || '').trim();
   const internalLinks = countInternalLinks(article.content);
+  const linkStats = validateContentLinks(article.content, options);
   const headings = (String(article.content || '').match(/<h2/gi) || []).length;
 
   const checks: CheckResult[] = [
@@ -132,6 +273,18 @@ export function runChecks(article: ArticleLike): CheckResult[] {
       level: internalLinks === 0 ? 'warn' : 'ok',
     },
     {
+      id: 'link-health',
+      label: 'Целостность ссылок',
+      detail: linkStats.issues.length === 0
+        ? (linkStats.total === 0 ? 'Ссылок нет' : `Все ${linkStats.total} ${plural(linkStats.total, ['ссылка', 'ссылки', 'ссылок'])} корректны`)
+        : linkStats.issues.slice(0, 2).map((i) => `${i.reason} (${i.href})`).join('; ') + (linkStats.issues.length > 2 ? ` и ещё ${linkStats.issues.length - 2}` : ''),
+      level: linkStats.issues.some((i) => i.level === 'fail')
+        ? 'fail'
+        : linkStats.issues.length > 0
+          ? 'warn'
+          : 'ok',
+    },
+    {
       id: 'slug',
       label: 'Адрес страницы',
       detail: !article.slug?.trim()
@@ -156,8 +309,19 @@ export function runChecks(article: ArticleLike): CheckResult[] {
   return checks;
 }
 
-export default function SeoAssistant({ article }: { article: ArticleLike }) {
-  const checks = useMemo(() => runChecks(article), [article]);
+export default function SeoAssistant({
+  article,
+  knownArticles,
+}: {
+  article: ArticleLike;
+  knownArticles?: Array<{ slug?: string }>;
+}) {
+  const knownSlugs = useMemo(() => {
+    if (!knownArticles) return undefined;
+    return new Set(knownArticles.map((a) => (a.slug || '').trim().toLowerCase()).filter(Boolean));
+  }, [knownArticles]);
+
+  const checks = useMemo(() => runChecks(article, { knownSlugs }), [article, knownSlugs]);
   const failed = checks.filter((check) => check.level === 'fail').length;
   const warned = checks.filter((check) => check.level === 'warn').length;
   const passed = checks.length - failed - warned;
