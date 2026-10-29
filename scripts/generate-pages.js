@@ -2185,7 +2185,10 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
             : '',
         ].filter(Boolean).join('\n'),
         imagePreloads: HERO_PRELOADS[page.route] || [],
-        fontPreloads: ROUTE_FONT_PRELOADS[page.route] || resolveHeroFontPreloads(page.hero),
+        fontPreloads: (() => {
+          const heroPreloads = resolveHeroFontPreloads(page.hero);
+          return heroPreloads.length > 0 ? heroPreloads : (ROUTE_FONT_PRELOADS[page.route] || []);
+        })(),
         baseHtml,
         bodyHtml,
         hydratable,

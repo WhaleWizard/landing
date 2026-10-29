@@ -65,6 +65,18 @@ export function isBodySafeContentFont(value: unknown): boolean {
   return getContentFontDefinition(value).bodySafe;
 }
 
+export function ensureFontLibraryLoaded(): void {
+  if (typeof document === 'undefined') return;
+  if (document.querySelector('link[data-ww-font-library]')) return;
+  const existing = document.querySelector('link[href*="/fonts/library.css"]');
+  if (existing) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/fonts/library.css';
+  link.setAttribute('data-ww-noncritical', '1');
+  link.setAttribute('data-ww-font-library', '1');
+  document.head.appendChild(link);
+}
 export function fontFamilyForContent(
   value: ContentFontId | string | null | undefined,
   role: 'title' | 'body' = 'title',
@@ -72,6 +84,9 @@ export function fontFamilyForContent(
   const font = getContentFontDefinition(value);
   if (font.id === 'auto' || (role === 'body' && !font.bodySafe)) {
     return role === 'body' ? BODY_AUTO_FAMILY : TITLE_AUTO_FAMILY;
+  }
+  if (font.id !== 'inter') {
+    ensureFontLibraryLoaded();
   }
 
   const fallback = font.category === 'mono'
@@ -293,7 +308,7 @@ export function managedTitleStyle(typography: ContentTypography | undefined): Ma
   if (typeof normalized.titleDesktop === 'number') {
     style['--ww-content-title-size-desktop'] = `${normalized.titleDesktop}px`;
   }
-  if (typography.titleFont) {
+  if (typography.titleFont && normalized.titleFont !== 'auto') {
     style.fontFamily = fontFamilyForContent(normalized.titleFont, 'title');
   }
   if (normalized.titleWeight !== 'auto') style.fontWeight = normalized.titleWeight;
@@ -316,7 +331,7 @@ export function managedBodyStyle(typography: ContentTypography | undefined): Man
   if (normalized.bodyDesktop !== undefined) {
     style['--ww-content-body-size-desktop'] = `${normalized.bodyDesktop}px`;
   }
-  if (typography.bodyFont) {
+  if (typography.bodyFont && normalized.bodyFont !== 'auto') {
     style.fontFamily = fontFamilyForContent(normalized.bodyFont, 'body');
   }
   return style;
