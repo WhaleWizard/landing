@@ -21,14 +21,14 @@ import {
   ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3, Users, Wallet, Lock, Radio, Database,
+  Rows2, Rows3, LayoutGrid, Users, Wallet, Lock, Radio, Database,
   PanelLeftClose, PanelLeftOpen,
   type LucideIcon
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { HOME_ARTICLES_LIMIT } from '../utils/homeArticles';
 import { appendImageUpload, prepareImageUpload } from '../utils/prepareImageUpload';
-import { ARTICLE_CATEGORY_VALUES, sectionForCategory } from '../data/blogSections';
+import { ARTICLE_CATEGORY_VALUES, sectionForCategory, sectionOfArticle, BLOG_SECTIONS } from '../data/blogSections';
 import { withPlural } from '../utils/plural';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
@@ -1068,6 +1068,168 @@ const AdminArticleItem = memo(function AdminArticleItem({ article, featuredIndex
   );
 });
 
+export const AdminArticleCard = memo(function AdminArticleCard({
+  article,
+  featuredIndex,
+  featuredCount,
+  canFeature,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  onToggleFeatured,
+  onMoveFeatured,
+  locked,
+}: AdminArticleItemProps) {
+  const staleDays = daysSinceUpdate(article);
+  const isFeatured = featuredIndex !== null;
+  const isCase = article.category === CASES_CATEGORY;
+  const badgeLabel = isCase
+    ? (article.caseData?.niche || 'Кейс')
+    : (sectionOfArticle(article)?.short || article.category || 'Блог');
+
+  const statusLabel = article.status === 'draft'
+    ? 'черновик'
+    : article.publishedAt && new Date(article.publishedAt) > new Date()
+      ? 'план'
+      : 'опубл.';
+
+  const statusBadgeClass = article.status === 'draft'
+    ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+    : article.publishedAt && new Date(article.publishedAt) > new Date()
+      ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+
+  return (
+    <m.div
+      layout
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className="admin-article-card group flex flex-col justify-between rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] overflow-hidden hover:border-[var(--adm-primary)]/40 hover:shadow-md transition-all"
+    >
+      <div>
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--adm-muted)]">
+          {article.image ? (
+            <img
+              src={article.image}
+              alt={article.title}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--adm-primary)]/10 via-[var(--adm-card)] to-[var(--adm-muted)] p-4 text-center">
+              <Newspaper className="h-8 w-8 text-[var(--adm-fg)]/20" />
+            </div>
+          )}
+
+          <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-1 pointer-events-none">
+            <span className="pointer-events-auto max-w-[70%] truncate rounded-md border border-black/20 bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white/90 backdrop-blur-md">
+              {badgeLabel}
+            </span>
+            <div className="pointer-events-auto flex items-center gap-1">
+              {locked && (
+                <span className="rounded-md border border-[var(--adm-primary)]/30 bg-[var(--adm-primary)]/80 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-md">
+                  защита
+                </span>
+              )}
+              <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold backdrop-blur-md ${statusBadgeClass}`}>
+                {statusLabel}
+              </span>
+            </div>
+          </div>
+
+          {isFeatured && (
+            <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-[var(--adm-primary-solid)] px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
+              <Pin className="h-3 w-3" />
+              <span>Главная #{featuredIndex + 1}</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMoveFeatured(article, -1); }}
+                disabled={featuredIndex === 0}
+                className="p-0.5 rounded hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Выше на главной"
+                aria-label="Выше на главной"
+              >
+                <ArrowUp className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMoveFeatured(article, 1); }}
+                disabled={featuredIndex >= featuredCount - 1}
+                className="p-0.5 rounded hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Ниже на главной"
+                aria-label="Ниже на главной"
+              >
+                <ArrowDown className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="p-3">
+          <button
+            type="button"
+            onClick={() => onEdit(article)}
+            className="text-left w-full font-semibold text-sm text-[var(--adm-fg)] line-clamp-2 hover:text-[var(--adm-primary)] transition-colors leading-snug"
+            aria-label={`Редактировать: ${article.title}`}
+          >
+            {article.title}
+          </button>
+          <div className="mt-1 flex items-center gap-2 text-xs text-[var(--adm-fg)]/50">
+            <span className="font-mono truncate max-w-[180px]">{article.slug}</span>
+            <span>·</span>
+            <span>{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString('ru-RU') : 'Черновик'}</span>
+          </div>
+
+          {staleDays !== null && staleDays >= STALE_AFTER_DAYS && article.status !== 'draft' && (
+            <div className="mt-2 text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md inline-block">
+              не обновлялась {formatStaleAge(staleDays)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-[var(--adm-border)]/60 bg-[var(--adm-surface-subtle)] px-3 py-2 text-xs">
+        <button
+          type="button"
+          onClick={() => onEdit(article)}
+          className="font-medium text-[var(--adm-primary)] hover:underline flex items-center gap-1"
+        >
+          Редактировать
+        </button>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onToggleFeatured(article)}
+            disabled={!canFeature}
+            className={`p-1.5 rounded-lg ${isFeatured ? 'text-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'text-[var(--adm-fg)]/50 hover:bg-[var(--adm-muted)]'} ${!canFeature ? 'opacity-40 cursor-not-allowed' : ''}`}
+            title={!canFeature ? 'Кейсы на главную не закрепляются' : isFeatured ? 'Убрать с главной' : 'Закрепить на главной'}
+          >
+            {isFeatured ? <Pin className="w-3.5 h-3.5" /> : <PinOff className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicate(article)}
+            disabled={locked}
+            className="p-1.5 rounded-lg text-[var(--adm-fg)]/60 hover:bg-[var(--adm-muted)] disabled:opacity-40"
+            title="Дублировать"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(article.slug)}
+            disabled={locked}
+            className="p-1.5 rounded-lg text-[var(--adm-danger)] hover:bg-[var(--adm-danger)]/10 disabled:opacity-40"
+            title="Удалить"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </m.div>
+  );
+});
+
 function useFilteredArticles(articles: Article[]) {
   const [query, setQuery] = useState('');
   // Поле откликается сразу, список догоняет: фильтр по сотням статей не
@@ -1111,6 +1273,22 @@ export default function Admin() {
 
   const { query, setQuery, filtered } = useFilteredArticles(articles);
   const [adminSectionFilter, setAdminSectionFilter] = useState<'all' | 'blog' | 'cases'>('all');
+  const [articleSubFilter, setArticleSubFilter] = useState<string>('');
+  const [articleViewMode, setArticleViewMode] = useState<'list' | 'grid'>(() => {
+    try {
+      return (localStorage.getItem('ww_admin_articles_view') as 'list' | 'grid') || 'list';
+    } catch {
+      return 'list';
+    }
+  });
+  const [articleSort, setArticleSort] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'stale'>('date-desc');
+
+  const changeArticleViewMode = (mode: 'list' | 'grid') => {
+    setArticleViewMode(mode);
+    try {
+      localStorage.setItem('ww_admin_articles_view', mode);
+    } catch {}
+  };
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
   const reduceMotion = useReducedMotion();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -1140,14 +1318,40 @@ export default function Admin() {
     )
   );
   const filteredBySection = useMemo(() => {
-    return filtered.filter((article) => (
+    const list = filtered.filter((article) => (
       adminSectionFilter === 'all'
         ? true
         : adminSectionFilter === 'cases'
           ? article.category === CASES_CATEGORY
           : article.category !== CASES_CATEGORY
     ));
-  }, [adminSectionFilter, filtered]);
+    if (!articleSubFilter) return list;
+    if (adminSectionFilter === 'cases') {
+      return list.filter((a) => (a.caseData?.niche || '').trim() === articleSubFilter);
+    }
+    if (adminSectionFilter === 'blog') {
+      return list.filter((a) => sectionOfArticle(a)?.id === articleSubFilter);
+    }
+    return list;
+  }, [adminSectionFilter, articleSubFilter, filtered]);
+
+  const sortedArticles = useMemo(() => {
+    const copy = [...filteredBySection];
+    switch (articleSort) {
+      case 'date-desc':
+        return copy.sort((a, b) => new Date(b.publishedAt || b.updatedAt || '').getTime() - new Date(a.publishedAt || a.updatedAt || '').getTime());
+      case 'date-asc':
+        return copy.sort((a, b) => new Date(a.publishedAt || a.updatedAt || '').getTime() - new Date(b.publishedAt || b.updatedAt || '').getTime());
+      case 'title-asc':
+        return copy.sort((a, b) => a.title.localeCompare(b.title, 'ru'));
+      case 'title-desc':
+        return copy.sort((a, b) => b.title.localeCompare(a.title, 'ru'));
+      case 'stale':
+        return copy.sort((a, b) => (daysSinceUpdate(b) ?? -1) - (daysSinceUpdate(a) ?? -1));
+      default:
+        return copy;
+    }
+  }, [filteredBySection, articleSort]);
   const articleStats = useMemo(() => {
     const drafts = articles.filter((article) => article.status === 'draft').length;
     const planned = articles.filter((article) => (
@@ -2174,11 +2378,96 @@ export default function Admin() {
                   <div className="admin-meta">план</div>
                 </div>
               </div>
-              <div className="mb-3 flex gap-2">
-                <button type="button" aria-pressed={adminSectionFilter === 'all'} onClick={() => setAdminSectionFilter('all')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='all' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Все</button>
-                <button type="button" aria-pressed={adminSectionFilter === 'blog'} onClick={() => setAdminSectionFilter('blog')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='blog' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Блог</button>
-                <button type="button" aria-pressed={adminSectionFilter === 'cases'} onClick={() => setAdminSectionFilter('cases')} className={`px-3 py-1.5 rounded-lg border text-xs ${adminSectionFilter==='cases' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70'}`}>Кейсы</button>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <button type="button" aria-pressed={adminSectionFilter === 'all'} onClick={() => { setAdminSectionFilter('all'); setArticleSubFilter(''); }} className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${adminSectionFilter==='all' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]'}`}>Все</button>
+                  <button type="button" aria-pressed={adminSectionFilter === 'blog'} onClick={() => { setAdminSectionFilter('blog'); setArticleSubFilter(''); }} className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${adminSectionFilter==='blog' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]'}`}>Блог</button>
+                  <button type="button" aria-pressed={adminSectionFilter === 'cases'} onClick={() => { setAdminSectionFilter('cases'); setArticleSubFilter(''); }} className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${adminSectionFilter==='cases' ? 'bg-[var(--adm-primary)]/20 border-[var(--adm-primary)] text-[var(--adm-primary)]' : 'border-[var(--adm-border)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]'}`}>Кейсы</button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="Сортировка публикаций"
+                    value={articleSort}
+                    onChange={(e) => setArticleSort(e.target.value as any)}
+                    className="text-xs px-2.5 py-1.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--adm-primary)]"
+                  >
+                    <option value="date-desc">Сначала новые</option>
+                    <option value="date-asc">Сначала старые</option>
+                    <option value="title-asc">По алфавиту (А–Я)</option>
+                    <option value="title-desc">По алфавиту (Я–А)</option>
+                    <option value="stale">Требуют обновления</option>
+                  </select>
+
+                  <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-card)]">
+                    <button
+                      type="button"
+                      onClick={() => changeArticleViewMode('list')}
+                      aria-pressed={articleViewMode === 'list'}
+                      className={`p-1.5 rounded-md transition-colors ${articleViewMode === 'list' ? 'bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/50 hover:text-[var(--adm-fg)]'}`}
+                      title="Вид: Список"
+                      aria-label="Вид: Список"
+                    >
+                      <Rows3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => changeArticleViewMode('grid')}
+                      aria-pressed={articleViewMode === 'grid'}
+                      className={`p-1.5 rounded-md transition-colors ${articleViewMode === 'grid' ? 'bg-[var(--adm-primary)]/20 text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/50 hover:text-[var(--adm-fg)]'}`}
+                      title="Вид: Витрина / Карточки"
+                      aria-label="Вид: Карточки"
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
+
+              {adminSectionFilter === 'blog' && (
+                <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setArticleSubFilter('')}
+                    className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${!articleSubFilter ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                  >
+                    Все темы
+                  </button>
+                  {BLOG_SECTIONS.map((sec) => (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => setArticleSubFilter(articleSubFilter === sec.id ? '' : sec.id)}
+                      className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${articleSubFilter === sec.id ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                    >
+                      {sec.short}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {adminSectionFilter === 'cases' && knownNiches.length > 0 && (
+                <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setArticleSubFilter('')}
+                    className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${!articleSubFilter ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                  >
+                    Все ниши
+                  </button>
+                  {knownNiches.map((niche) => (
+                    <button
+                      key={niche}
+                      type="button"
+                      onClick={() => setArticleSubFilter(articleSubFilter === niche ? '' : niche)}
+                      className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${articleSubFilter === niche ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                    >
+                      {niche}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--adm-fg)]/40" />
                 <input
@@ -2190,34 +2479,55 @@ export default function Admin() {
                   className="w-full pl-10 pr-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/40 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                 />
               </div>
+
               {loading ? (
                 <p className="text-sm text-[var(--adm-fg)]/60">Загрузка...</p>
+              ) : sortedArticles.length === 0 ? (
+                <div className="adm-inset p-4 text-sm text-[var(--adm-fg)]/60">
+                  Ничего не найдено. Проверьте поиск или фильтр раздела.
+                </div>
+              ) : articleViewMode === 'grid' ? (
+                <div className="admin-article-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5 max-h-[640px] overflow-y-auto scrollbar-brand p-1">
+                  {sortedArticles.map((article) => {
+                    const featuredIndex = featuredSlugs.indexOf(article.slug);
+                    return (
+                      <AdminArticleCard
+                        key={article.slug}
+                        article={article}
+                        featuredIndex={featuredIndex >= 0 ? featuredIndex : null}
+                        featuredCount={featuredSlugs.length}
+                        canFeature={article.category !== CASES_CATEGORY}
+                        onEdit={openArticleForEdit}
+                        onDuplicate={duplicateArticle}
+                        onDelete={handleDelete}
+                        onToggleFeatured={toggleFeatured}
+                        onMoveFeatured={moveFeatured}
+                        locked={isProtectedArticle(article)}
+                      />
+                    );
+                  })}
+                </div>
               ) : (
-                  <div className="admin-article-list space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
-                    {filteredBySection.length === 0 && (
-                      <div className="adm-inset p-4 text-sm text-[var(--adm-fg)]/60">
-                        Ничего не найдено. Проверьте поиск или фильтр раздела.
-                      </div>
-                    )}
-                    {filteredBySection.map((article) => {
-                      const featuredIndex = featuredSlugs.indexOf(article.slug);
-                      return (
-                        <AdminArticleItem
-                          key={article.slug}
-                          article={article}
-                          featuredIndex={featuredIndex >= 0 ? featuredIndex : null}
-                          featuredCount={featuredSlugs.length}
-                          canFeature={article.category !== CASES_CATEGORY}
-                          onEdit={openArticleForEdit}
-                          onDuplicate={duplicateArticle}
-                          onDelete={handleDelete}
-                          onToggleFeatured={toggleFeatured}
-                          onMoveFeatured={moveFeatured}
-                          locked={isProtectedArticle(article)}
-                        />
-                      );
-                    })}
-                  </div>
+                <div className="admin-article-list space-y-2 max-h-[600px] overflow-y-auto scrollbar-brand">
+                  {sortedArticles.map((article) => {
+                    const featuredIndex = featuredSlugs.indexOf(article.slug);
+                    return (
+                      <AdminArticleItem
+                        key={article.slug}
+                        article={article}
+                        featuredIndex={featuredIndex >= 0 ? featuredIndex : null}
+                        featuredCount={featuredSlugs.length}
+                        canFeature={article.category !== CASES_CATEGORY}
+                        onEdit={openArticleForEdit}
+                        onDuplicate={duplicateArticle}
+                        onDelete={handleDelete}
+                        onToggleFeatured={toggleFeatured}
+                        onMoveFeatured={moveFeatured}
+                        locked={isProtectedArticle(article)}
+                      />
+                    );
+                  })}
+                </div>
               )}
 
               {/* Окупаемость и календарь стоят под списком и свёрнуты: раньше

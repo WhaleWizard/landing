@@ -20,6 +20,10 @@ import {
   Trash2,
   Type,
   WandSparkles,
+  GitCompare,
+  Eye,
+  EyeOff,
+  X,
 } from 'lucide-react';
 import { META_APPS_TESTIMONIAL_CONTENT, pageConfigs, type ServiceType } from '../../pages/ServiceLandingPage';
 import { defaultHeroContent } from '../Hero';
@@ -1154,6 +1158,201 @@ export function readSiteContentBackups(storage?: Pick<Storage, 'getItem' | 'key'
   return backups.sort((a, b) => b.savedAt - a.savedAt);
 }
 
+interface DiffEntry {
+  field: string;
+  label: string;
+  oldVal: string;
+  newVal: string;
+}
+
+interface SectionDiff {
+  section: EditorSection;
+  label: string;
+  changes: DiffEntry[];
+}
+
+function computeSectionDiff(_section: EditorSection, baseSec: unknown, currSec: unknown): DiffEntry[] {
+  const entries: DiffEntry[] = [];
+  const baseObj = (baseSec && typeof baseSec === 'object' ? baseSec : {}) as Record<string, unknown>;
+  const currObj = (currSec && typeof currSec === 'object' ? currSec : {}) as Record<string, unknown>;
+
+  const allKeys = Array.from(new Set([...Object.keys(baseObj), ...Object.keys(currObj)]));
+  for (const key of allKeys) {
+    if (key === 'typography' || key === 'titleAnimation') continue;
+    const bVal = baseObj[key];
+    const cVal = currObj[key];
+    if (JSON.stringify(bVal) === JSON.stringify(cVal)) continue;
+
+    if (typeof bVal === 'string' || typeof cVal === 'string' || typeof bVal === 'number' || typeof cVal === 'number') {
+      entries.push({
+        field: key,
+        label: key === 'title' ? 'Заголовок' : key === 'titlePrefix' ? 'Префикс заголовка' : key === 'titleAccent' ? 'Акцент заголовка' : key === 'description' ? 'Описание' : key === 'badge' ? 'Бейдж' : key,
+        oldVal: String(bVal ?? ''),
+        newVal: String(cVal ?? ''),
+      });
+    } else if (Array.isArray(bVal) || Array.isArray(cVal)) {
+      const bArr = Array.isArray(bVal) ? bVal : [];
+      const cArr = Array.isArray(cVal) ? cVal : [];
+      const maxLen = Math.max(bArr.length, cArr.length);
+      for (let i = 0; i < maxLen; i++) {
+        const bItem = bArr[i];
+        const cItem = cArr[i];
+        if (JSON.stringify(bItem) === JSON.stringify(cItem)) continue;
+        if (typeof bItem === 'string' || typeof cItem === 'string') {
+          entries.push({
+            field: `${key}[${i}]`,
+            label: `${key === 'paragraphs' ? 'Абзац' : 'Элемент'} #${i + 1}`,
+            oldVal: String(bItem ?? ''),
+            newVal: String(cItem ?? ''),
+          });
+        } else if (typeof bItem === 'object' || typeof cItem === 'object') {
+          const bIObj = (bItem || {}) as Record<string, unknown>;
+          const cIObj = (cItem || {}) as Record<string, unknown>;
+          const subKeys = Array.from(new Set([...Object.keys(bIObj), ...Object.keys(cIObj)]));
+          for (const subKey of subKeys) {
+            if (JSON.stringify(bIObj[subKey]) !== JSON.stringify(cIObj[subKey])) {
+              entries.push({
+                field: `${key}[${i}].${subKey}`,
+                label: `Элемент #${i + 1} → ${subKey === 'title' ? 'Заголовок' : subKey === 'text' || subKey === 'description' ? 'Текст' : subKey}`,
+                oldVal: String(bIObj[subKey] ?? ''),
+                newVal: String(cIObj[subKey] ?? ''),
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return entries;
+}
+
+export function AdminContentDiffModal({
+  isOpen,
+  onClose,
+  pageLabel,
+  content,
+  baseline,
+  changedSections,
+  onRevertSection,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  pageLabel: string;
+  content: EditableContent;
+  baseline: EditableContent;
+  changedSections: Set<EditorSection>;
+  onRevertSection: (sec: EditorSection) => void;
+}) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const diffs: SectionDiff[] = Array.from(changedSections).map((sec) => {
+    const baseVal = (baseline as unknown as Record<string, unknown>)[sec];
+    const currVal = (content as unknown as Record<string, unknown>)[sec];
+    return {
+      section: sec,
+      label: SECTION_LABELS[sec],
+      changes: computeSectionDiff(sec, baseVal, currVal),
+    };
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-3xl max-h-[85vh] flex flex-col rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] shadow-2xl overflow-hidden text-[var(--adm-fg)]">
+        <div className="flex items-center justify-between border-b border-[var(--adm-border)] px-5 py-4 bg-[var(--adm-surface-subtle)]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-[var(--adm-primary)]/15 text-[var(--adm-primary)]">
+              <GitCompare className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base leading-tight">Сравнение изменений: {pageLabel}</h3>
+              <p className="text-xs text-[var(--adm-fg)]/60 mt-0.5">
+                {diffs.length > 0 ? `Изменено блоков: ${diffs.length}` : 'Все блоки совпадают с сохранённой версией'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-[var(--adm-fg)]/60 hover:text-[var(--adm-fg)] hover:bg-[var(--adm-muted)] transition-colors"
+            aria-label="Закрыть diff"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-brand">
+          {diffs.length === 0 ? (
+            <div className="adm-inset p-8 text-center text-sm text-[var(--adm-fg)]/60">
+              Текущее состояние полностью совпадает с сохранённой версией в базе данных. Изменений нет.
+            </div>
+          ) : (
+            diffs.map((d) => (
+              <div key={d.section} className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--adm-border)] bg-[var(--adm-card)]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{d.label}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                      {d.changes.length} {d.changes.length === 1 ? 'изменение' : d.changes.length < 5 ? 'изменения' : 'изменений'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onRevertSection(d.section)}
+                    className="text-xs font-medium text-[var(--adm-primary)] hover:underline flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Вернуть блок
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {d.changes.length === 0 ? (
+                    <p className="text-xs text-[var(--adm-fg)]/50 italic">Изменены параметры оформления или анимации.</p>
+                  ) : (
+                    d.changes.map((change, idx) => (
+                      <div key={idx} className="space-y-1.5 text-xs">
+                        <span className="font-medium text-[var(--adm-fg)]/70">{change.label}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono">
+                          <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 overflow-x-auto whitespace-pre-wrap">
+                            <span className="text-[10px] text-rose-400/80 font-sans block mb-1 font-bold">− БЫЛО</span>
+                            {change.oldVal || <span className="opacity-40 italic">пусто</span>}
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 overflow-x-auto whitespace-pre-wrap">
+                            <span className="text-[10px] text-emerald-400/80 font-sans block mb-1 font-bold">+ СТАЛО</span>
+                            {change.newVal || <span className="opacity-40 italic">пусто</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="border-t border-[var(--adm-border)] px-5 py-3.5 bg-[var(--adm-surface-subtle)] flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)] text-sm font-medium transition-colors"
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminContentControl({ password, onRegisterLeaveGuard }: {
   password: string;
   /**
@@ -1180,6 +1379,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   const [buildState, setBuildState] = useState<PagesBuildState>(() => readSavedBuildState());
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [activeBackup, setActiveBackup] = useState<SiteContentBackup | null>(null);
+  const [diffOpen, setDiffOpen] = useState(false);
 
   useEffect(() => {
     if (buildState.status === 'idle') return;
@@ -1224,10 +1424,43 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
 
   const pageMeta = useMemo(() => PAGES.find((item) => item.value === page) || PAGES[0], [page]);
   // Блок отзывов есть и на страницах услуг — раньше он был только у главной.
-  const availableSections = useMemo<EditorSection[]>(
+  const DEFAULT_SECTIONS = useMemo<EditorSection[]>(
     () => ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact'],
     [],
   );
+
+  const availableSections = useMemo<EditorSection[]>(() => {
+    const order = (content as unknown as Record<string, unknown>).sectionOrder as EditorSection[] | undefined;
+    if (!Array.isArray(order) || order.length === 0) return DEFAULT_SECTIONS;
+    const ordered = order.filter((s) => DEFAULT_SECTIONS.includes(s));
+    DEFAULT_SECTIONS.forEach((s) => {
+      if (!ordered.includes(s)) ordered.push(s);
+    });
+    return ordered;
+  }, [DEFAULT_SECTIONS, content]);
+
+  const hiddenSections = useMemo<EditorSection[]>(() => {
+    return ((content as unknown as Record<string, unknown>).hiddenSections as EditorSection[] | undefined) || [];
+  }, [content]);
+
+  const toggleSectionVisibility = (sec: EditorSection) => {
+    const isHidden = hiddenSections.includes(sec);
+    const nextHidden = isHidden
+      ? hiddenSections.filter((s) => s !== sec)
+      : [...hiddenSections, sec];
+    update(['hiddenSections'], nextHidden);
+    setNotice(isHidden ? `Секция «${SECTION_LABELS[sec]}» снова видна на сайте.` : `Секция «${SECTION_LABELS[sec]}» скрыта на сайте.`);
+  };
+
+  const moveSection = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 1 || targetIndex >= availableSections.length || index < 1) return;
+    const next = [...availableSections];
+    const item = next[index];
+    next.splice(index, 1);
+    next.splice(targetIndex, 0, item);
+    update(['sectionOrder'], next);
+  };
   const isDirty = contentSignature !== baselineSignature;
   const isHydrated = hydratedKey === pageMeta.key;
   const hasUnpublishedDraft = section?.status === 'draft';
@@ -1614,6 +1847,20 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
           ) : null}
         </div>
         <button className="admin-button admin-button--secondary" type="button" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
+        <button
+          className="admin-button admin-button--secondary"
+          type="button"
+          onClick={() => setDiffOpen(true)}
+          title="Визуальное сравнение текущих правок с сохранённой версией (Diff)"
+        >
+          <GitCompare aria-hidden="true" />
+          <span>Сравнить (Diff)</span>
+          {changedSections.size > 0 && (
+            <span className="ml-1 px-1.5 py-0.2 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300">
+              {changedSections.size}
+            </span>
+          )}
+        </button>
         {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); setBaseline(restored); try { localStorage.removeItem(siteContentBackupKey(pageMeta.key)); } catch {} setActiveBackup(null); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}
       </div>
 
@@ -1704,22 +1951,72 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                   ))}
                 </div>
               ) : null}
-              {availableSections.map((value, index) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-current={activeSection === value ? 'step' : undefined}
-                  data-changed={changedSections.has(value) ? 'true' : undefined}
-                  onClick={() => setActiveSection(value)}
-                >
-                  <span>{value === 'seo' ? 'SEO' : String(index)}</span>
-                  <span>
-                    <strong>{SECTION_LABELS[value]}</strong>
-                    <small>{changedSections.has(value) ? 'Изменён, не сохранён' : sectionSummary(content, value)}</small>
-                  </span>
-                  <ChevronRight aria-hidden="true" />
-                </button>
-              ))}
+              {availableSections.map((value, index) => {
+                const isHidden = hiddenSections.includes(value);
+                return (
+                  <div
+                    key={value}
+                    className={`group relative flex items-center justify-between rounded-xl border transition-all mb-1 ${activeSection === value ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10 text-[var(--adm-primary)]' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'} ${isHidden ? 'opacity-55' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="flex-1 text-left px-3 py-2 flex items-center gap-2.5 min-w-0"
+                      aria-current={activeSection === value ? 'step' : undefined}
+                      data-changed={changedSections.has(value) ? 'true' : undefined}
+                      onClick={() => setActiveSection(value)}
+                    >
+                      <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-[var(--adm-muted)] text-[var(--adm-fg)]/60">
+                        {value === 'seo' ? 'SEO' : String(index)}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="flex items-center gap-1.5">
+                          <strong className="text-xs font-semibold truncate text-[var(--adm-fg)]">{SECTION_LABELS[value]}</strong>
+                          {isHidden && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-medium">Скрыт</span>
+                          )}
+                        </span>
+                        <small className="block text-[11px] text-[var(--adm-fg)]/50 truncate">
+                          {changedSections.has(value) ? 'Изменён, не сохранён' : sectionSummary(content, value)}
+                        </small>
+                      </span>
+                    </button>
+
+                    {value !== 'seo' && (
+                      <div className="flex items-center pr-2 gap-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(value); }}
+                          className={`p-1 rounded-md transition-colors ${isHidden ? 'text-amber-400 hover:bg-amber-500/10' : 'text-[var(--adm-fg)]/40 hover:text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]'}`}
+                          title={isHidden ? 'Показать секцию на сайте' : 'Скрыть секцию на сайте'}
+                          aria-label={isHidden ? 'Показать секцию на сайте' : 'Скрыть секцию на сайте'}
+                        >
+                          {isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); moveSection(index, -1); }}
+                          disabled={index <= 1}
+                          className="p-1 rounded-md text-[var(--adm-fg)]/40 hover:text-[var(--adm-fg)] hover:bg-[var(--adm-muted)] disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Переместить выше"
+                          aria-label="Переместить выше"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); moveSection(index, 1); }}
+                          disabled={index >= availableSections.length - 1}
+                          className="p-1 rounded-md text-[var(--adm-fg)]/40 hover:text-[var(--adm-fg)] hover:bg-[var(--adm-muted)] disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Переместить ниже"
+                          aria-label="Переместить ниже"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </nav>
             <div className="admin-block-nav-mobile">
               <AdminSelect label="Редактируемый блок" value={activeSection} options={availableSections.map((value, index) => ({ value, label: value === 'seo' ? `SEO · ${SECTION_LABELS[value]}` : `${index}. ${SECTION_LABELS[value]}` }))} onValueChange={(value) => setActiveSection(value as EditorSection)} />
@@ -2077,6 +2374,15 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         </aside>
       </div>
       </>}
+      <AdminContentDiffModal
+        isOpen={diffOpen}
+        onClose={() => setDiffOpen(false)}
+        pageLabel={pageMeta.label}
+        content={content}
+        baseline={baseline}
+        changedSections={changedSections}
+        onRevertSection={revertSection}
+      />
     </div>
   );
 }

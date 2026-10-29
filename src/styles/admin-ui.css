@@ -16484,3 +16484,43 @@ body[data-admin-theme] .planner-weekpick {
   white-space: nowrap;
   color: var(--adm-text-secondary);
 }
+
+/* -------------------------------------------------------------------------
+   Phase 3: Articles Grid, Split-Preview, and Section Reorder Styles
+   ------------------------------------------------------------------------- */
+
+.admin-root .admin-article-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.admin-root .admin-article-card {
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-root .admin-article-card:hover {
+  transform: translateY(-2px);
+}
+
+.admin-root .admin-editor-split-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 1280px) {
+  .admin-root .admin-editor-split-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.admin-root .admin-section-nav-row {
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.admin-root .admin-section-nav-row button:focus-visible {
+  outline: 2px solid var(--adm-primary);
+  outline-offset: -2px;
+}

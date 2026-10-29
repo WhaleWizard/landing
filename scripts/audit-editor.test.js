@@ -529,3 +529,29 @@ test('F-064: в режиме Markdown сочетания блоков молча
   assert.ok(hint.includes('не в поле ввода'), 'подсказка объясняет, когда работает отмена');
   await view.unmount();
 });
+
+test('F-PHASE3-EDITOR: переключение режимов Редактор / Сплит / Предпросмотр и вьюпортов устройств', async () => {
+  const onChange = changeSpy();
+  const view = await mount(editor.ArticleEditor, { content: '<p>Тест предпросмотра</p>', onChange });
+  
+  // Кнопки режимов присутствуют
+  assert.ok(buttonByText(view.container, 'Редактор'), 'кнопка Редактор');
+  assert.ok(buttonByText(view.container, 'Сплит (50/50)'), 'кнопка Сплит');
+  assert.ok(buttonByText(view.container, 'Предпросмотр'), 'кнопка Предпросмотр');
+
+  // В режиме сплита отображается контейнер сплита и предпросмотр
+  assert.ok(view.container.querySelector('.admin-editor-split-layout'), 'сплит-лейаут отображается');
+  assert.ok(view.container.querySelector('.blog-article-content'), 'живой предпросмотр доступен');
+
+  // Переключение в режим "Только редактор" скрывает предпросмотр
+  await click(buttonByText(view.container, 'Редактор'));
+  assert.equal(view.container.querySelector('.admin-editor-split-layout'), null, 'сплит скрыт в режиме редактора');
+  assert.equal(view.container.querySelector('.blog-article-content'), null, 'предпросмотр скрыт в режиме редактора');
+
+  // Переключение в "Предпросмотр" показывает предпросмотр без блоков
+  await click(buttonByText(view.container, 'Предпросмотр'));
+  assert.ok(view.container.querySelector('.blog-article-content'), 'предпросмотр виден');
+  assert.equal(view.container.querySelector('.admin-block-palette'), null, 'палитра блоков скрыта в режиме предпросмотра');
+
+  await view.unmount();
+});

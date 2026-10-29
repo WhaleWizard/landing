@@ -599,3 +599,31 @@ test('F-PHASE2-CRM: Slide-over Drawer, воронка-степпер, кален
   assert.match(boardSource, /PipelineStepper/, 'степпер воронки встроен в карточку доски');
   assert.match(boardSource, /crm-card__stale/, 'метка зависшей сделки в карточке доски');
 });
+
+// ---------------------------------------------------------------------------
+// Фаза 3: Витрина статей, сплит-превью, визуальный Diff и управление секциями
+
+test('F-PHASE3-CONTENT: витрина статей, сплит-превью, визуальный Diff и управление секциями', async () => {
+  // 1. Пункт 10: витрина статей
+  assert.match(adminSource, /AdminArticleCard/, 'карточка витрины экспортирована');
+  assert.match(adminSource, /ww_admin_articles_view/, 'режим витрины сохраняется в localStorage');
+  assert.match(adminSource, /admin-article-grid/, 'CSS-сетка карточек витрины');
+  assert.match(adminSource, /articleSort/, 'мультисортировка статей');
+
+  // 2. Пункт 11: сплит-превью в редакторе
+  const editorSource = await source('src/app/components/ArticleEditor.tsx');
+  assert.match(editorSource, /ww_editor_view_mode/, 'режим редактора сохраняется в localStorage');
+  assert.match(editorSource, /admin-editor-split-layout/, 'двухколоночный сплит-лейаут');
+  assert.match(editorSource, /previewViewport/, 'переключатель вьюпорта устройств');
+
+  // 3. Пункт 12: визуальный Diff
+  assert.match(contentControlSource, /AdminContentDiffModal/, 'модальное окно визуального diff');
+  assert.match(contentControlSource, /computeSectionDiff/, 'расчёт различий между версиями');
+  assert.match(contentControlSource, /Сравнить \(Diff\)/, 'кнопка вызова Diff в тулбаре');
+
+  // 4. Пункт 13: порядок секций и скрытие (глазок)
+  assert.match(contentControlSource, /toggleSectionVisibility/, 'переключатель видимости секций');
+  assert.match(contentControlSource, /moveSection/, 'изменение порядка секций');
+  assert.match(contentControlSource, /hiddenSections/, 'массив скрытых секций');
+  assert.match(contentControlSource, /sectionOrder/, 'порядок секций');
+});

@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upload, List, ListOrdered } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upload, List, ListOrdered, Columns2, Monitor, Tablet, Smartphone, PanelLeft, Eye } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
@@ -669,6 +669,36 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [markdownMode, setMarkdownMode] = useState(false);
   const [mdText, setMdText] = useState('');
+
+  const [viewMode, setViewMode] = useState<'editor' | 'split' | 'preview'>(() => {
+    try {
+      return (localStorage.getItem('ww_editor_view_mode') as 'editor' | 'split' | 'preview') || 'split';
+    } catch {
+      return 'split';
+    }
+  });
+
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'tablet' | 'mobile'>(() => {
+    try {
+      return (localStorage.getItem('ww_editor_preview_viewport') as 'desktop' | 'tablet' | 'mobile') || 'desktop';
+    } catch {
+      return 'desktop';
+    }
+  });
+
+  const changeViewMode = (mode: 'editor' | 'split' | 'preview') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('ww_editor_view_mode', mode);
+    } catch {}
+  };
+
+  const changePreviewViewport = (vp: 'desktop' | 'tablet' | 'mobile') => {
+    setPreviewViewport(vp);
+    try {
+      localStorage.setItem('ww_editor_preview_viewport', vp);
+    } catch {}
+  };
   const isLocalSyncRef = useRef(false);
   const isExternalSyncRef = useRef(false);
   // Поднимается, когда владелец сам менял блоки (правка, отмена, markdown), и
@@ -943,87 +973,190 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     );
   }
 
-  return (
-      <div className="admin-article-editor space-y-4">
-        <div className="admin-panel p-3 sm:p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-sm text-[var(--adm-fg)]/60">Добавить блок</span>
-            <div className="inline-flex items-center gap-1">
-              {/* В режиме Markdown блоки спрятаны, а поле — источник правды: отмена и
-                  добавление блока меняли бы блоки в обход текста, и живая синхронизация
-                  тут же затирала бы их. */}
-              <button type="button" onClick={undo} disabled={markdownMode || history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)" aria-label="Отменить изменение"><Undo2 className="h-4 w-4" /></button>
-              <button type="button" onClick={redo} disabled={markdownMode || history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)" aria-label="Повторить изменение"><Redo2 className="h-4 w-4" /></button>
-              <button type="button" onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-2 px-2 hover:bg-[var(--adm-primary)]/10">
-                {markdownMode ? 'Визуальный' : 'Markdown'}
-              </button>
-            </div>
-          </div>
-          <div className="admin-block-palette flex flex-wrap gap-2">
-            {BLOCK_TYPES.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => addBlock(type)}
-                disabled={markdownMode}
-                title={markdownMode ? 'В режиме Markdown блоки добавляются текстом — вернитесь в «Визуальный»' : undefined}
-                className="inline-flex items-center gap-1 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-sm hover:border-[var(--adm-primary)]/50 hover:bg-[var(--adm-primary)]/10 transition disabled:opacity-40"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {getBlockLabel(type)}
-              </button>
-            ))}
-          </div>
-          <p className="admin-meta mt-2">
-            Горячие клавиши: Alt+Shift+↑/↓ (переместить выбранный блок), Ctrl+Enter (новый блок после него), Ctrl+Z/Y (отменить и вернуть, когда курсор не в поле ввода). Markdown: нажмите кнопку для переключения.
-          </p>
+  const renderEditorPane = () => (
+    <div className="admin-editor-pane space-y-4">
+      <div className="admin-panel p-3 sm:p-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-[var(--adm-fg)]/80">Добавить блок</span>
+          <span className="text-xs text-[var(--adm-fg)]/50">{blocks.length} {blocks.length === 1 ? 'блок' : blocks.length < 5 ? 'блока' : 'блоков'}</span>
         </div>
+        <div className="admin-block-palette flex flex-wrap gap-2">
+          {BLOCK_TYPES.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => addBlock(type)}
+              disabled={markdownMode}
+              title={markdownMode ? 'В режиме Markdown блоки добавляются текстом — вернитесь в «Визуальный»' : undefined}
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-sm hover:border-[var(--adm-primary)]/50 hover:bg-[var(--adm-primary)]/10 transition disabled:opacity-40"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {getBlockLabel(type)}
+            </button>
+          ))}
+        </div>
+        <p className="admin-meta mt-2">
+          Горячие клавиши: Alt+Shift+↑/↓ (переместить выбранный блок), Ctrl+Enter (новый блок после него), Ctrl+Z/Y (отменить и вернуть, когда курсор не в поле ввода). Markdown: нажмите кнопку для переключения.
+        </p>
+      </div>
 
-        {markdownMode ? (
-          <div className="admin-panel p-4">
-            {/* Клик по «Сохранить» или «Отмена» сначала снимает фокус с поля: по
-                blur текст применяется и уходит родителю прямо в событии, не
-                дожидаясь задержки и не завися от того, успеет ли между blur и
-                click пройти задача планировщика. */}
-            <textarea
-              aria-label="Markdown-разметка статьи"
-              value={mdText}
-              onChange={(e) => setMdText(e.target.value)}
-              onBlur={() => applyMarkdown(mdText)}
-              className="w-full h-64 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm font-mono resize-y"
-              placeholder="# Заголовок..."
-            />
-            <button type="button" onClick={toggleMarkdown} className="admin-button admin-button--primary mt-2">Применить разметку</button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {blocks.map((block, index) => (
-              <DraggableBlockItem
-                key={block.id}
-                block={block}
-                index={index}
-                selected={selectedBlockId === block.id}
-                onSelect={setSelectedBlockId}
-                onMove={moveBlock}
-                onDuplicate={duplicateById}
-                onDelete={removeBlock}
-                onMoveArrow={moveBlockByArrow}
-                onInsertAfter={insertBlockAfter}
-                onUpdate={updateBlock}
-                onUpload={onUpload}
-              />
-            ))}
-          </div>
-        )}
-
+      {markdownMode ? (
         <div className="admin-panel p-4">
-          <div className="mb-3 text-sm font-medium text-[var(--adm-fg)]">Предпросмотр (как будет выглядеть статья на сайте)</div>
-          {/* data-blog-ui даёт реальные тёмные стили блога независимо от темы админки */}
-          <div data-blog-ui="true" className="rounded-xl p-4 sm:p-6">
+          <textarea
+            aria-label="Markdown-разметка статьи"
+            value={mdText}
+            onChange={(e) => setMdText(e.target.value)}
+            onBlur={() => applyMarkdown(mdText)}
+            className="w-full h-80 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm font-mono resize-y"
+            placeholder="# Заголовок..."
+          />
+          <button type="button" onClick={toggleMarkdown} className="admin-button admin-button--primary mt-2">Применить разметку</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {blocks.map((block, index) => (
+            <DraggableBlockItem
+              key={block.id}
+              block={block}
+              index={index}
+              selected={selectedBlockId === block.id}
+              onSelect={setSelectedBlockId}
+              onMove={moveBlock}
+              onDuplicate={duplicateById}
+              onDelete={removeBlock}
+              onMoveArrow={moveBlockByArrow}
+              onInsertAfter={insertBlockAfter}
+              onUpdate={updateBlock}
+              onUpload={onUpload}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPreviewPane = (isSticky = false) => {
+    const viewportWidthClass = previewViewport === 'mobile'
+      ? 'max-w-[375px] mx-auto'
+      : previewViewport === 'tablet'
+        ? 'max-w-[768px] mx-auto'
+        : 'w-full';
+
+    return (
+      <div className={`admin-panel p-4 ${isSticky ? 'sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-brand' : ''}`}>
+        <div className="mb-3 flex items-center justify-between gap-2 border-b border-[var(--adm-border)]/60 pb-2 text-xs">
+          <span className="font-semibold text-[var(--adm-fg)]">Живой предпросмотр статьи</span>
+          <span className="font-mono text-[var(--adm-fg)]/60 bg-[var(--adm-muted)] px-2 py-0.5 rounded">
+            {previewViewport === 'desktop' ? 'Десктоп (100%)' : previewViewport === 'tablet' ? 'Планшет (768px)' : 'Телефон (375px)'}
+          </span>
+        </div>
+        <div className={`transition-all duration-200 ${viewportWidthClass} ${previewViewport !== 'desktop' ? 'border border-[var(--adm-border)]/80 rounded-2xl shadow-xl overflow-hidden' : ''}`}>
+          <div data-blog-ui="true" className="rounded-xl p-4 sm:p-6 bg-[#090b10]">
             <div className="blog-article-content max-w-none" dangerouslySetInnerHTML={{ __html: htmlOutput }} />
           </div>
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="admin-article-editor space-y-4">
+      <div className="admin-editor-toolbar flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)]">
+        <div className="flex items-center gap-2">
+          {/* Переключатель режимов: Редактор / Сплит / Предпросмотр */}
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] text-xs">
+            <button
+              type="button"
+              onClick={() => changeViewMode('editor')}
+              aria-pressed={viewMode === 'editor'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${viewMode === 'editor' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
+              title="Только редактор блоков"
+            >
+              <PanelLeft className="w-3.5 h-3.5" />
+              <span>Редактор</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => changeViewMode('split')}
+              aria-pressed={viewMode === 'split'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${viewMode === 'split' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
+              title="Сплит-скрин: редактор и живой предпросмотр бок о бок"
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+              <span>Сплит (50/50)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => changeViewMode('preview')}
+              aria-pressed={viewMode === 'preview'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${viewMode === 'preview' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
+              title="Только предпросмотр статьи"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Предпросмотр</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Вьюпорт экрана для предпросмотра */}
+          {viewMode !== 'editor' && (
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] text-xs">
+              <button
+                type="button"
+                onClick={() => changePreviewViewport('desktop')}
+                aria-pressed={previewViewport === 'desktop'}
+                className={`p-1.5 rounded-md transition-colors ${previewViewport === 'desktop' ? 'bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] font-semibold' : 'text-[var(--adm-fg)]/50 hover:text-[var(--adm-fg)]'}`}
+                title="Десктоп (100%)"
+                aria-label="Десктоп (100%)"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => changePreviewViewport('tablet')}
+                aria-pressed={previewViewport === 'tablet'}
+                className={`p-1.5 rounded-md transition-colors ${previewViewport === 'tablet' ? 'bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] font-semibold' : 'text-[var(--adm-fg)]/50 hover:text-[var(--adm-fg)]'}`}
+                title="Планшет (768px)"
+                aria-label="Планшет (768px)"
+              >
+                <Tablet className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => changePreviewViewport('mobile')}
+                aria-pressed={previewViewport === 'mobile'}
+                className={`p-1.5 rounded-md transition-colors ${previewViewport === 'mobile' ? 'bg-[var(--adm-primary)]/20 text-[var(--adm-primary)] font-semibold' : 'text-[var(--adm-fg)]/50 hover:text-[var(--adm-fg)]'}`}
+                title="Телефон (375px)"
+                aria-label="Телефон (375px)"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Инструменты истории и Markdown */}
+          <div className="inline-flex items-center gap-1">
+            <button type="button" onClick={undo} disabled={markdownMode || history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)" aria-label="Отменить изменение"><Undo2 className="h-4 w-4" /></button>
+            <button type="button" onClick={redo} disabled={markdownMode || history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)" aria-label="Повторить изменение"><Redo2 className="h-4 w-4" /></button>
+            <button type="button" onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-1 px-2.5 hover:bg-[var(--adm-primary)]/10">
+              {markdownMode ? 'Визуальный' : 'Markdown'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {viewMode === 'split' ? (
+        <div className="admin-editor-split-layout grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+          <div className="min-w-0">{renderEditorPane()}</div>
+          <div className="min-w-0">{renderPreviewPane(true)}</div>
+        </div>
+      ) : viewMode === 'editor' ? (
+        renderEditorPane()
+      ) : (
+        renderPreviewPane(false)
+      )}
+    </div>
   );
 }
 
