@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  SlidersHorizontal,
   Send,
   Tag,
   Target,
@@ -34,6 +35,43 @@ import { findDuplicateGroups } from './leadDuplicates';
 import CrmQuickActions, { type QuickActionPlan } from './CrmQuickActions';
 import { AdminSectionSkeleton } from './AdminFeedback';
 import LeadCountryBadge from './LeadCountryBadge';
+import { withPlural } from '../../utils/plural';
+
+
+interface CrmCardFields {
+  service: boolean;
+  dealValue: boolean;
+  utm: boolean;
+  contact: boolean;
+  createdAt: boolean;
+  metaStatus: boolean;
+  tags: boolean;
+}
+
+const DEFAULT_CARD_FIELDS: CrmCardFields = {
+  service: true,
+  dealValue: true,
+  utm: true,
+  contact: true,
+  createdAt: true,
+  metaStatus: true,
+  tags: true,
+};
+
+function formatDealValue(value?: number | null, currency?: string): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '';
+  const num = Number(value);
+  return `${new Intl.NumberFormat('ru-RU').format(num)} ${currency || 'USD'}`;
+}
+
+function formatDateShort(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  } catch {
+    return iso;
+  }
+}
 
 type PipelineStage = 'new' | 'contacted' | 'discovery' | 'proposal' | 'won' | 'lost' | 'archived';
 type Priority = 'low' | 'normal' | 'high' | 'urgent';
@@ -1124,6 +1162,7 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [checkedIds, setCheckedIds] = useState<number[]>([]);
+
   const [confirming, setConfirming] = useState<TrashConfirm | null>(null);
 
   const fetchPage = useCallback(async (offset: number): Promise<TrashListResponse> => {
@@ -1483,6 +1522,47 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
   const [correctnessMigration, setCorrectnessMigration] = useState('');
   const [checkedIds, setCheckedIds] = useState<number[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [cardFields, setCardFields] = useState<CrmCardFields>(() => {
+    try {
+      const raw = localStorage.getItem('ww-crm-card-fields');
+      if (raw) return { ...DEFAULT_CARD_FIELDS, ...JSON.parse(raw) };
+    } catch {}
+    return DEFAULT_CARD_FIELDS;
+  });
+  const [fieldsMenuOpen, setFieldsMenuOpen] = useState(false);
+  const fieldsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleCardField = useCallback((key: keyof CrmCardFields) => {
+    setCardFields((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem('ww-crm-card-fields', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!fieldsMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (fieldsMenuRef.current && !fieldsMenuRef.current.contains(e.target as Node)) {
+        setFieldsMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [fieldsMenuOpen]);
+
+  useEffect(() => {
+    if (!checkedIds.length) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setCheckedIds([]);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [checkedIds.length]);
   const [trashVersion, setTrashVersion] = useState(0);
   const [view, setView] = useState<CrmView>(readStoredView);
   // На доске показывается больше сделок, чем на странице списка, поэтому
@@ -1783,11 +1863,162 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
             ) : null}
             <strong>{total} сделок</strong>
             <span>{pageStart}–{pageEnd}</span>
+            <div className="admin-crm-fields-wrap" ref={fieldsMenuRef}>
+              <button
+                type="button"
+                className={`admin-button admin-button--quiet admin-crm-fields-btn${fieldsMenuOpen ? ' is-active' : ''}`}
+                onClick={() => setFieldsMenuOpen((v) => !v)}
+                title="Настроить отображение полей карточки"
+                aria-expanded={fieldsMenuOpen}
+              >
+                <SlidersHorizontal aria-hidden="true" />
+                <span className="admin-crm-fields-btn__label">Поля</span>
+              </button>
+              {fieldsMenuOpen && (
+                <div className="admin-crm-fields-popover" role="dialog" aria-label="Поля карточки">
+                  <div className="admin-crm-fields-popover__title">Отображать в карточке</div>
+                  <label className="admin-crm-fields-popover__item">
+                    <input
+                      type="checkbox"
+                      checked={cardFields.dealValue}
+                      onChange={() => toggleCardField('dealValue')}
+                    />
+                    <span>Сумма сделки</span>
+                  </label>
+                  <label className="admin-crm-fields-popover__item">
+                    <input
+                      type="checkbox"
+                      checked={cardFields.service}
+                      onChange={() => toggleCardField('service')}
+                    />
+                    <span>Услуга / запрос</span>
+                  </label>
+                  <label className="admin-crm-fields-popover__item">
+                    <input
+                      type="checkbox"
+                      checked={cardFields.contact}
+                      onChange={() => toggleCardField('contact')}
+                    />
+                    <span>Прямой контакт</span>
+                  </label>
+                  <label className="admin-crm-fields-popover__item">
+                    <input
+                      type="checkbox"
+                      checked={cardFields.createdAt}
+                      onChange={() => toggleCardField('createdAt')}
+                    />
+                    <span>Дата создания</span>
+                  </label>
+                  <label className="admin-crm-fields-popover__item">
+                    <input
+                      type="checkbox"
+                      checked={cardFields.utm}
+                      onChange={() => toggleCardField('utm')}
+                    />
+                    <span>Рекламный источник (UTM)</span>
+                  </label>
+                  <label className="admin-crm-fields-popover__item">
+                    <input
+                      type="checkbox"
+                      checked={cardFields.metaStatus}
+                      onChange={() => toggleCardField('metaStatus')}
+                    />
+                    <span>Статус Meta CAPI</span>
+                  </label>
+                  <label className="admin-crm-fields-popover__item">
+                    <input
+                      type="checkbox"
+                      checked={cardFields.tags}
+                      onChange={() => toggleCardField('tags')}
+                    />
+                    <span>CRM-теги</span>
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
-          {checkedIds.length ? (
-            <div className="admin-crm-list__bulk" role="status">
-              <span>Выбрано: {checkedIds.length}</span>
-              <button className="admin-button admin-button--quiet" type="button" onClick={() => setCheckedIds([])} disabled={bulkBusy}>Снять</button>
+          <div className="admin-crm-list__items">
+            {leads.length ? leads.map((lead) => {
+              const overdue = isOpenStage(lead.pipeline_stage) && isOverdue(lead.next_action_at);
+              const checked = checkedIds.includes(lead.id);
+              return <div className="admin-crm-lead-row" key={lead.id}>
+                <label className="admin-crm-lead__check" title="Выбрать для действий">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    aria-label={`Выбрать заявку ${leadLabel(lead)}`}
+                    onChange={(event) => setCheckedIds((current) => event.target.checked
+                      ? [...current, lead.id]
+                      : current.filter((id) => id !== lead.id))}
+                  />
+                </label>
+                <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} onClick={() => setSelectedId(lead.id)}>
+                  <div className="admin-crm-lead__top">
+                    <span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} />
+                    <strong>{lead.name || 'Без имени'}</strong>
+                    {cardFields.dealValue && lead.deal_value ? (
+                      <span className="admin-crm-lead__deal-badge" title="Сумма сделки">
+                        {formatDealValue(lead.deal_value, lead.deal_currency)}
+                      </span>
+                    ) : null}
+                    <span className="admin-score" title={`Оценка: ${lead.lead_score || 0}`}>{lead.lead_score || 0}</span>
+                    <ChevronRight aria-hidden="true" />
+                  </div>
+                  {cardFields.service && (lead.service || lead.message) ? (
+                    <p className="admin-crm-lead__service">{lead.service || lead.message}</p>
+                  ) : null}
+                  {cardFields.contact && (lead.phone || lead.telegram_username || lead.email) ? (
+                    <p className="admin-crm-lead__contact">
+                      {lead.phone || (lead.telegram_username ? `@${lead.telegram_username}` : lead.email)}
+                    </p>
+                  ) : null}
+                  <div className="admin-crm-lead__states">
+                    <span>{stageLabel(lead.pipeline_stage)}</span>
+                    <LeadCountryBadge country={lead.country} />
+                    {overdue ? <span className="is-overdue">Просрочено</span> : lead.next_action_at ? <span>{formatDate(lead.next_action_at)}</span> : <span>Нет следующего шага</span>}
+                    {cardFields.createdAt && lead.created_at ? (
+                      <span className="admin-crm-lead__date" title={`Заявка от ${formatDate(lead.created_at)}`}>
+                        {formatDateShort(lead.created_at)}
+                      </span>
+                    ) : null}
+                    {cardFields.utm && lead.utm_source ? (
+                      <span className="admin-crm-lead__utm" title={`UTM: ${lead.utm_source}`}>
+                        {lead.utm_source}
+                      </span>
+                    ) : null}
+                    {cardFields.metaStatus && lead.quality_meta_status ? (
+                      <span className={`admin-crm-lead__capi is-${lead.quality_meta_status}`} title={`Meta CAPI: ${lead.quality_meta_status}`}>
+                        CAPI: {lead.quality_meta_status}
+                      </span>
+                    ) : null}
+                    {Number(lead.open_tasks_count || 0) ? <span>{lead.open_tasks_count} задач</span> : null}
+                  </div>
+                  {cardFields.tags && lead.crm_tags?.length ? (
+                    <div className="admin-tag-list">
+                      {lead.crm_tags.slice(0, 3).map((item) => (
+                        <span key={item.slug || item.name} style={{ '--tag-color': item.color || '#8b5cf6' } as CSSProperties}>
+                          {item.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </button>
+              </div>;
+            }) : <div className="admin-empty"><div><strong>Ничего не найдено</strong><p>Измените поиск или фильтры.</p></div></div>}
+          </div>
+          {total > CRM_PAGE_SIZE ? <nav className="admin-crm-pagination" aria-label="Страницы списка сделок"><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasPreviousPage} onClick={() => setOffset((value) => Math.max(0, value - CRM_PAGE_SIZE))}>Назад</button><span>{pageStart}–{pageEnd} из {total}</span><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasNextPage} onClick={() => setOffset((value) => value + CRM_PAGE_SIZE)}>Далее</button></nav> : null}
+        </aside>
+        <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }} editingReady={editingReady} onOpenClients={onOpenClients} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
+      </div>
+        {checkedIds.length ? (
+          <div className="admin-floating-bulk admin-crm-list__bulk" role="status" aria-label="Массовые действия над выбранными сделками">
+            <div className="admin-floating-bulk__info">
+              <span className="admin-floating-bulk__count">{checkedIds.length}</span>
+              <span className="admin-floating-bulk__text">
+                {withPlural(checkedIds.length, ['сделка выбрана', 'сделки выбрано', 'сделок выбрано'])}
+              </span>
+            </div>
+            <div className="admin-floating-bulk__actions">
               <button
                 type="button"
                 className="admin-button admin-button--quiet"
@@ -1831,31 +2062,19 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
               >
                 <Trash2 aria-hidden="true" /> В корзину
               </button>
+              <button
+                className="admin-button admin-button--quiet admin-floating-bulk__dismiss"
+                type="button"
+                onClick={() => setCheckedIds([])}
+                disabled={bulkBusy}
+                title="Снять выбор (Escape)"
+              >
+                Снять (Esc)
+              </button>
             </div>
-          ) : null}
-          <div className="admin-crm-list__items">
-            {leads.length ? leads.map((lead) => {
-              const overdue = isOpenStage(lead.pipeline_stage) && isOverdue(lead.next_action_at);
-              const checked = checkedIds.includes(lead.id);
-              return <div className="admin-crm-lead-row" key={lead.id}>
-                <label className="admin-crm-lead__check" title="Выбрать для удаления">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    aria-label={`Выбрать заявку ${leadLabel(lead)}`}
-                    onChange={(event) => setCheckedIds((current) => event.target.checked
-                      ? [...current, lead.id]
-                      : current.filter((id) => id !== lead.id))}
-                  />
-                </label>
-                <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} onClick={() => setSelectedId(lead.id)}><div className="admin-crm-lead__top"><span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} /><strong>{lead.name || 'Без имени'}</strong><span className="admin-score">{lead.lead_score || 0}</span><ChevronRight aria-hidden="true" /></div><p>{lead.service || lead.email || lead.phone || 'Без контакта'}</p><div className="admin-crm-lead__states"><span>{stageLabel(lead.pipeline_stage)}</span><LeadCountryBadge country={lead.country} />{overdue ? <span className="is-overdue">Просрочено</span> : lead.next_action_at ? <span>{formatDate(lead.next_action_at)}</span> : <span>Нет следующего шага</span>}{Number(lead.open_tasks_count || 0) ? <span>{lead.open_tasks_count} задач</span> : null}</div>{lead.crm_tags?.length ? <div className="admin-tag-list">{lead.crm_tags.slice(0, 3).map((item) => <span key={item.slug || item.name} style={{ '--tag-color': item.color || '#8b5cf6' } as CSSProperties}>{item.name}</span>)}</div> : null}</button>
-              </div>;
-            }) : <div className="admin-empty"><div><strong>Ничего не найдено</strong><p>Измените поиск или фильтры.</p></div></div>}
           </div>
-          {total > CRM_PAGE_SIZE ? <nav className="admin-crm-pagination" aria-label="Страницы списка сделок"><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasPreviousPage} onClick={() => setOffset((value) => Math.max(0, value - CRM_PAGE_SIZE))}>Назад</button><span>{pageStart}–{pageEnd} из {total}</span><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasNextPage} onClick={() => setOffset((value) => value + CRM_PAGE_SIZE)}>Далее</button></nav> : null}
-        </aside>
-        <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }} editingReady={editingReady} onOpenClients={onOpenClients} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
-      </div>
+        ) : null}
+
       <TrashPanel password={password} onChanged={() => void load(true)} refreshToken={trashVersion} />
       {facets?.services?.length ? <p className="admin-meta">Источники в текущей базе: {facets.services.slice(0, 5).map((item) => `${item.value} · ${item.count}`).join(', ')}</p> : null}
       </>

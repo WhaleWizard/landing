@@ -22,6 +22,7 @@ import {
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
   Rows2, Rows3, Users, Wallet, Lock, Radio, Database,
+  PanelLeftClose, PanelLeftOpen,
   type LucideIcon
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
@@ -568,6 +569,9 @@ interface AdminThemeContextValue {
   toggleMode: () => void;
   density: AdminDensity;
   setDensity: (value: AdminDensity) => void;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (value: boolean) => void;
 }
 
 const AdminThemeContext = createContext<AdminThemeContextValue | null>(null);
@@ -580,6 +584,9 @@ function useAdminTheme() {
       toggleMode: () => {},
       density: 'cozy' as const,
       setDensity: () => {},
+      sidebarCollapsed: false,
+      toggleSidebar: () => {},
+      setSidebarCollapsed: () => {},
     };
   }
   return context;
@@ -761,9 +768,31 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
     writeAdminSetting('ww-admin-density', density);
   }, [density]);
 
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => (
+    readAdminSetting('ww-admin-sidebar-collapsed') === 'true'
+  ));
+
+  const setSidebarCollapsed = useCallback((value: boolean) => setSidebarCollapsedState(value), []);
+  const toggleSidebar = useCallback(() => setSidebarCollapsedState((c) => !c), []);
+
+  useEffect(() => {
+    writeAdminSetting('ww-admin-sidebar-collapsed', sidebarCollapsed ? 'true' : 'false');
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        e.preventDefault();
+        setSidebarCollapsedState((c) => !c);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
-    <AdminThemeContext.Provider value={{ mode, toggleMode, density, setDensity }}>
-      <div style={{ minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode} data-density={density}>
+    <AdminThemeContext.Provider value={{ mode, toggleMode, density, setDensity, sidebarCollapsed, toggleSidebar, setSidebarCollapsed }}>
+      <div style={{ minHeight: '100vh' }} className="admin-root transition-colors duration-300" data-theme={mode} data-density={density} data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}>
         <div className="admin-shell bg-[var(--adm-bg)] text-[var(--adm-fg)] min-h-screen">
           <AdminConfirmProvider><AdminPromptProvider>{children}</AdminPromptProvider></AdminConfirmProvider>
           <AdminToaster theme={mode} />
@@ -788,6 +817,22 @@ function AdminThemeToggleButton() {
   );
 }
 
+function AdminSidebarCollapseButton() {
+  const { sidebarCollapsed, toggleSidebar } = useAdminTheme();
+  return (
+    <button
+      type="button"
+      className="admin-sidebar__collapse-btn"
+      onClick={toggleSidebar}
+      title={sidebarCollapsed ? 'Развернуть меню (Ctrl+[)' : 'Свернуть меню (Ctrl+[)'}
+      aria-label={sidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
+      aria-expanded={!sidebarCollapsed}
+    >
+      {sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+    </button>
+  );
+}
+
 
 
 /**
@@ -799,11 +844,19 @@ function AdminCommandHost({ open, onOpenChange, groups }: {
   onOpenChange: (value: boolean) => void;
   groups: AdminCommandGroup[];
 }) {
-  const { mode, toggleMode, density, setDensity } = useAdminTheme();
+  const { mode, toggleMode, density, setDensity, sidebarCollapsed, toggleSidebar } = useAdminTheme();
   const withTheme = groups.map((group) => (group.heading !== 'Действия' ? group : {
     ...group,
     items: [
       ...group.items,
+      {
+        id: 'sidebar-collapse',
+        label: sidebarCollapsed ? 'Развернуть боковое меню' : 'Свернуть боковое меню',
+        searchText: 'Боковое меню сайдбар свернуть развернуть навигация',
+        keywords: ['sidebar', 'меню', 'сайдбар', 'навигация'],
+        icon: sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />,
+        run: toggleSidebar,
+      },
       {
         id: 'density',
         label: density === 'compact' ? 'Просторные списки' : 'Плотные списки',
@@ -1982,24 +2035,37 @@ export default function Admin() {
 
         <div className="admin-app__body">
           <aside className="admin-sidebar">
+            <div className="admin-sidebar__head">
+              <span className="admin-sidebar__head-label">Разделы</span>
+              <AdminSidebarCollapseButton />
+            </div>
             <nav aria-label="Разделы админки" className="admin-sidebar__nav">
               {adminNavGroups.map((group) => (
                 <div className="admin-sidebar__group" key={group.title}>
                   <p className="admin-sidebar__group-title">{group.title}</p>
-                  {group.items.map((item) => (
-                    <button
-                      type="button"
-                      key={item.key}
-                      onClick={() => { void navigateToAdminSection(item.key); }}
-                      onPointerEnter={() => { void preloadAdminSection(item.key); }}
-                      onFocus={() => { void preloadAdminSection(item.key); }}
-                      aria-current={currentNavKey === item.key ? 'page' : undefined}
-                      className="admin-sidebar__link"
-                    >
-                      <span className="admin-sidebar__icon" aria-hidden="true"><item.icon /></span>
-                      <span className="admin-sidebar__label">{item.label}</span>
-                    </button>
-                  ))}
+                  {group.items.map((item) => {
+                    const badgeCount = item.key === 'articles' && articleStats.drafts > 0 ? articleStats.drafts : undefined;
+                    return (
+                      <button
+                        type="button"
+                        key={item.key}
+                        onClick={() => { void navigateToAdminSection(item.key); }}
+                        onPointerEnter={() => { void preloadAdminSection(item.key); }}
+                        onFocus={() => { void preloadAdminSection(item.key); }}
+                        aria-current={currentNavKey === item.key ? 'page' : undefined}
+                        className="admin-sidebar__link"
+                        title={item.label}
+                      >
+                        <span className="admin-sidebar__icon" aria-hidden="true"><item.icon /></span>
+                        <span className="admin-sidebar__label">{item.label}</span>
+                        {badgeCount !== undefined ? (
+                          <span className="admin-sidebar__badge" aria-label={`Черновиков: ${badgeCount}`}>
+                            {badgeCount}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </nav>

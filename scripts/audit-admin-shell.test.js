@@ -564,3 +564,22 @@ test('CMS: оффлайн-черновики страниц сохраняютс
   assert.match(contentControlSource, /Найден локальный автосохранённый черновик/);
   assert.match(contentControlSource, /Локальный черновик восстановлен/);
 });
+
+// ---------------------------------------------------------------------------
+// Фаза 1: Сворачиваемый сайдбар, плавающая панель и селектор полей CRM
+
+test('F-PHASE1-NAV: сворачиваемый сайдбар, хоткей Ctrl+[, бейджи черновиков и data-sidebar-collapsed', () => {
+  assert.match(adminSource, /ww-admin-sidebar-collapsed/, 'состояние сайдбара сохраняется в localStorage');
+  assert.match(adminSource, /data-sidebar-collapsed={sidebarCollapsed \? 'true' : 'false'}/, 'data-атрибут управляет шириной');
+  assert.match(adminSource, /e\.key === '\['/, 'глобальный хоткей Ctrl+[ / Cmd+[');
+  assert.match(adminSource, /AdminSidebarCollapseButton/, 'кнопка сворачивания встроена в сайдбар');
+  assert.match(adminSource, /admin-sidebar__badge/, 'бейдж черновиков отображается на статьях');
+});
+
+test('F-PHASE1-CRM: плавающая панель массовых действий (Floating Action Bar), сброс по Escape и селектор полей карточки', async () => {
+  const leadsSource = await source('src/app/components/admin/AdminLeads.tsx');
+  assert.match(leadsSource, /admin-floating-bulk/, 'плавающая панель массовых действий');
+  assert.match(leadsSource, /event\.key === 'Escape'/, 'сброс выделения по нажатию Escape');
+  assert.match(leadsSource, /ww-crm-card-fields/, 'настройки видимости полей карточки сохраняются');
+  assert.match(leadsSource, /admin-crm-fields-popover/, 'всплывающее меню настройки полей');
+});
