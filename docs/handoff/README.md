@@ -13,13 +13,17 @@
 ## 2. Где мы сейчас
 
 **Сделано 29.10.2026 (Сессия Hero Typography, Mobile Overflow, CMS Custom Sizes & CRM Upgrades):**
+- **ПОЛНАЯ ЛИКВИДАЦИЯ МИГАНИЯ ШРИФТА (FOUT) И ОБЕСПЕЧЕНИЕ 100% ОТОБРАЖЕНИЯ С ПЕРВОГО КАДРА:**
+  1. Вскрыта причина «сначала базовый шрифт, затем переключение»: декларации `@font-face` для шрифтов из библиотеки CMS находились в `public/fonts/library.css`, загрузка которого была искусственно отложена на 2500 мс после события `load`. В результате браузер не имел правил `@font-face` в момент первого рендера и принудительно отображал системный шрифт с засечками (Prata/Bradley Hand).
+  2. В `scripts/generate-pages.js` реализована функция `resolveHeroFontFaceCss`: на сборке точные правила `@font-face` для всех выбранных в Hero шрифтов извлекаются из библиотеки и встраиваются прямо в `<head>` в `<style id="ww-hero-fonts">` вместе с `<link rel="preload" as="font">` и директивой `font-display: block`.
+  3. Шрифт (например, Pangolin) декодируется в первом сетевом пакете и отображается с самого первого кадра без малейшего мигания, прыжков или задержек на десктопе и мобильных устройствах.
+- **ВОССТАНОВЛЕНИЕ КРУПНОГО, ЧИТАЕМОГО И ПРОПОРЦИОНАЛЬНОГО ЗАГОЛОВКА НА МОБИЛЬНЫХ УСТРОЙСТВАХ:**
+  1. Удалено искусственное сжатие `--meta-title-size: clamp(1.05rem, 4.8cqw, 1.35rem)` (16px) из `src/app/components/service-heroes/meta-ads-editorial-hero.css`. Возвращен полноценный заголовочный кегль `clamp(1.4rem, 6.7vw, 1.85rem)` (22.4px – 29.6px).
+  2. В `src/app/components/service-heroes/meta-ads-editorial-hero.css` для `@media (max-width: 640px)` добавлено `white-space: normal; overflow-wrap: break-word;` для строк заголовка: длинные строки автора (например, «привожу клиентов, а не просто лиды» из 34 символов) на узких экранах 320–375px аккуратно переносятся по словам, полностью сохраняя буквы от обрезания и удерживая крупный размер шрифта.
+  3. Из `src/app/components/service-heroes/MetaAdsEditorialHero.tsx` удалены атрибуты `data-ww-title-fit="2/0"` и `data-ww-title-fit-min`, которые ошибочно пытались ужать заголовок с 3 визуальными строками до 13px. Кегль заголовка управляется надежными CSS fluid-правилами.
+  4. В `src/app/utils/contentTypography.ts` и `scripts/title-prefit.js` алгоритм подгонки кегля возвращен к строгому соблюдению `minFontSize` автора без деструктивного спуска до 12px.
 - **ИСПРАВЛЕН СБРОС ВЫБРАННОГО ШРИФТА СТРОКИ ЗАГОЛОВКА В АДМИНКЕ:**
   1. В `functions/_lib/site-content.ts` и `scripts/site-content-sync.js` изолирован устаревший фильтр `isLegacyAccidentalMetaAdsHeroFonts`: он срабатывает строго на старый 2-строчный слепок без эффектов. Любой выбор пользователя (включая Pangolin, Inter и любые другие шрифты из библиотеки для любых строк с эффектами и без) на 100% сохраняется в D1 и больше никогда не стирается при чтении.
-  2. Добавлен автоматический предзагрузчик шрифтов строк заголовка в `scripts/generate-pages.js` (`resolveHeroFontPreloads`), исключающий FOUT (Flash of Unstyled Text) и рывки анимации.
-- **УСТРАНЕНО ПЕРЕПОЛНЕНИЕ И ОБРЕЗАНИЕ ВТОРОЙ СТРОКИ НА ТЕЛЕФОНАХ:**
-  1. В `src/app/components/service-heroes/meta-ads-editorial-hero.css` для вьюпортов `<= 480px` размер заголовка переведён на `--meta-title-size: clamp(1.05rem, 4.8cqw, 1.35rem); font-size: min(var(--meta-title-size), 4.8cqw); max-width: 100%;`. Строка «привожу клиентов, а не просто лиды» (34 символа) гарантированно укладывается в контейнер на экранах 320–390px с запасом в 40+ px.
-  2. В `MetaAdsEditorialHero.tsx` нижняя граница подгонки `minFontSize` снижена с 18 до 13 (`data-ww-title-fit-min="13"`).
-  3. В `src/app/utils/contentTypography.ts` (`useManagedTitleFit`) и `scripts/title-prefit.js` алгоритм подгонки кегля дополнен безопасным бинарным спуском до `safeFloor` (до 12px), исключая сброс в авторский 24px-размер при переполнении.
 - **РЕАЛИЗОВАН КОНТРОЛ РАЗМЕРА ДЛЯ КАЖДОЙ СТРОКИ ЗАГОЛОВКА («РАЗМЕР СТРОКИ»):**
   1. В `src/app/components/HeroTitleEffect.tsx` внедрена поддержка `size?: 'inherit' | 'compact' | 'normal' | 'large'` в `HeroTitleLine`, вычисляющая масштаб `0.82em` / `1em` / `1.2em`.
   2. В `src/app/components/admin/AdminContentControl.tsx` добавлен селектор «Размер строки» в `TitleLineStyleControls`, сохранение поля `size` в дефолтах и санитизаторе.
@@ -39,6 +43,7 @@
   - `test:audit-admin-crm-ui` — 27/27 PASS (100%).
   - `test:site-content-compatibility` — 7/7 PASS (100%).
   - `test:audit-regressions` — 108/108 PASS (100%).
+  - `npm run check` — 100% PASS (все 46 сьютов).
 
 **Сделано 27.10.2026 (Сессия SEO, GEO & AEO Full Platform Optimization v8.0):**
 - **РЕАЛИЗОВАН ПЕРВЫЙ ЭТАП СКВОЗНОЙ ОПТИМИЗАЦИИ ПОИСКОВОГО И ИИ-ПРИСУТСТВИЯ (SEO / GEO / AEO):**

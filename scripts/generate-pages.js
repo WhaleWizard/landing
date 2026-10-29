@@ -1080,6 +1080,19 @@ const ROUTE_FONT_PRELOADS = {
 };
 
 const FONT_LIBRARY_BY_ID = new Map(FONT_LIBRARY.map((font) => [font.id, font]));
+const CONTENT_FONT_LIBRARY_CSS_PATH = join(SCRIPTS_DIR, '..', 'src', 'styles', 'content-font-library.css');
+const FONT_FACE_BY_FAMILY = new Map();
+if (existsSync(CONTENT_FONT_LIBRARY_CSS_PATH)) {
+  const content = readFileSync(CONTENT_FONT_LIBRARY_CSS_PATH, 'utf8');
+  const blocks = content.split(/\/\*\s*([A-Za-z0-9\s-]+)\s*\*\//g);
+  for (let i = 1; i < blocks.length; i += 2) {
+    const familyKey = blocks[i].trim().toLowerCase().replace(/\s+/g, '-');
+    const rules = blocks[i + 1].trim();
+    if (rules) {
+      FONT_FACE_BY_FAMILY.set(familyKey, rules);
+    }
+  }
+}
 const DISPLAY_SERIF_FONT_IDS = new Set([
   'prata',
   'cormorant-garamond',
@@ -1188,6 +1201,43 @@ function renderFontPreloads(preloads = []) {
     .join('\n  ');
 }
 
+function resolveHeroFontFaceCss(hero = {}) {
+  const typography = hero?.typography || {};
+  const requestedFamilies = new Set();
+  const add = (fontId) => {
+    if (!fontId || fontId === 'auto' || fontId === 'inter') return;
+    const font = FONT_LIBRARY_BY_ID.get(fontId);
+    if (!font) return;
+    const key = font.family.toLowerCase().replace(/\s+/g, '-');
+    requestedFamilies.add(key);
+  };
+
+  add(typography.titleFont);
+  if (FONT_LIBRARY_BY_ID.get(typography.bodyFont)?.bodySafe) {
+    add(typography.bodyFont);
+  }
+  if (Array.isArray(hero.titleLines)) {
+    for (const line of hero.titleLines) {
+      add(line?.font);
+    }
+  }
+
+  const cssBlocks = [];
+  for (const familyKey of requestedFamilies) {
+    const rules = FONT_FACE_BY_FAMILY.get(familyKey);
+    if (rules) {
+      // font-display: block для критического шрифта первого экрана:
+      // файл шрифта уже объявлен preload-ом и скачивается в первом же сетевом
+      // пакете. block не даёт браузеру показать чужой системный шрифт и устроить
+      // скачок (FOUT) посередине анимации появления.
+      const adjusted = rules.replace(/font-display:\s*swap;/g, 'font-display: block;');
+      cssBlocks.push(adjusted);
+    }
+  }
+
+  return cssBlocks.join('\n\n');
+}
+
 function renderImagePreloads(preloads = []) {
   return preloads
     .map(({ href, priority, media, imageSrcSet, imageSizes }) => {
@@ -1215,6 +1265,7 @@ function htmlTemplate({
   extraJsonLd = [],
   imagePreloads = [],
   fontPreloads = [],
+  heroFontCss = '',
   articlePublishedTime,
   articleModifiedTime,
   articleSection,
@@ -1286,11 +1337,13 @@ function htmlTemplate({
     html = html.replace(match[0], '');
   }
 
+  const heroFontTag = heroFontCss ? `<style id="ww-hero-fonts">\n${heroFontCss}\n</style>` : '';
   const criticalHeadBlock = [
     globalCssMatch?.[0]?.trim(),
     routeStylesheetHtml?.trim(),
     preloadHtml?.trim(),
     fontPreloadHtml?.trim(),
+    heroFontTag?.trim(),
   ].filter(Boolean).join('\n  ');
 
   if (criticalHeadBlock) {
@@ -2193,6 +2246,7 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
           const routePreloads = ROUTE_FONT_PRELOADS[page.route] || [];
           return [...new Set([...routePreloads, ...heroPreloads])];
         })(),
+        heroFontCss: resolveHeroFontFaceCss(page.hero),
         baseHtml,
         bodyHtml,
         hydratable,

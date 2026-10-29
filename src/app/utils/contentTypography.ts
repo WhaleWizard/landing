@@ -691,7 +691,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       }
 
       const floor = Math.min(authoredSize, minFontSize);
-      const safeFloor = Math.max(8, Math.min(floor, 12));
+      const safeFloor = floor;
       let low = floor;
       let high = authoredSize;
       let best = floor;

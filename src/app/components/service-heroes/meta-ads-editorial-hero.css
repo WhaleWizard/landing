@@ -625,9 +625,15 @@
 
   .marketing-typography .meta-editorial-hero__title {
     --meta-title-size: clamp(1.4rem, 6.7vw, 1.85rem);
-    font-size: min(var(--meta-title-size), 6.4cqw);
-    line-height: 1.01;
-    letter-spacing: -0.055em;
+    font-size: var(--meta-title-size);
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+  }
+
+  .meta-editorial-hero__title > span {
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 
   .meta-editorial-hero__title-accent {
@@ -638,12 +644,6 @@
 }
 
 @media (max-width: 480px) {
-  .marketing-typography .meta-editorial-hero__title {
-    --meta-title-size: clamp(1.05rem, 4.8cqw, 1.35rem);
-    font-size: min(var(--meta-title-size), 4.8cqw);
-    max-width: 100%;
-  }
-
   .meta-editorial-hero__supporting {
     margin-top: 10px;
     font-size: 14px;

@@ -95,8 +95,6 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                 <h1
                   ref={titleRef}
                   id="meta-editorial-title"
-                  data-ww-title-fit="2/0"
-                  data-ww-title-fit-min="13"
                   className={`meta-editorial-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
                   style={managedTitleStyle(content.typography)}
                 >
