@@ -7,6 +7,13 @@ import { AdminSelect } from './AdminUI';
 import AdminAdSpend from './AdminAdSpend';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import {
+  ConversionCascade,
+  ChannelBattleCards,
+  CohortHeatmapMatrix,
+  CopyUtmCell,
+  aggregateChannels,
+} from './AttributionVisualPro';
+import {
   CountUpValue, DeltaBadge, FunnelChart, StatTile, TrendGroup,
   formatMoney, formatNumber, formatPercent,
   type FunnelStep, type SeriesPoint,
@@ -199,6 +206,7 @@ export default function AdminAttribution({ password }: { password: string }) {
   const [sortKey, setSortKey] = useState<SortKey>('leads');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showAll, setShowAll] = useState(false);
+  const [tableFilter, setTableFilter] = useState<'all' | 'leads' | 'spend' | 'romi'>('all');
   const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -245,12 +253,27 @@ export default function AdminAttribution({ password }: { password: string }) {
 
   const columns = useMemo(() => (active ? COLUMNS.filter((column) => column.visible(active)) : []), [active]);
 
+  const channelStats = useMemo(() => {
+    if (!data?.dimensions) return [];
+    const sourceDim = data.dimensions.find((d) => d.key === 'source') || data.dimensions.find((d) => d.key === 'utm');
+    if (!sourceDim) return [];
+    return aggregateChannels(sourceDim.rows, summary?.leads || 0);
+  }, [data?.dimensions, summary?.leads]);
+
   const visibleRows = useMemo(() => {
     if (!active) return [];
+    let list = active.rows;
+    if (tableFilter === 'leads') {
+      list = list.filter((row) => row.leads > 0);
+    } else if (tableFilter === 'spend') {
+      list = list.filter((row) => row.spend !== null && row.spend > 0);
+    } else if (tableFilter === 'romi') {
+      list = list.filter((row) => row.romi !== null && row.romi > 0);
+    }
     const normalized = query.trim().toLowerCase();
-    const filtered = normalized ? active.rows.filter((row) => row.key.toLowerCase().includes(normalized)) : active.rows;
+    const filtered = normalized ? list.filter((row) => row.key.toLowerCase().includes(normalized)) : list;
     return [...filtered].sort((a, b) => compareRows(a, b, sortKey, sortDirection));
-  }, [active, query, sortDirection, sortKey]);
+  }, [active, query, sortDirection, sortKey, tableFilter]);
 
   const shownRows = showAll ? visibleRows : visibleRows.slice(0, 12);
 
@@ -328,6 +351,23 @@ export default function AdminAttribution({ password }: { password: string }) {
           {data?.checkedAt && <p className="admin-meta">Обновлено: {formatDate(data.checkedAt)}</p>}
         </div>
         <div className="adm-attribution__controls">
+          <div className="flex items-center gap-1.5 mr-1" role="group" aria-label="Быстрый выбор периода">
+            {[7, 14, 30, 90].map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`admin-crm-chip ${days === d ? 'is-active is-primary' : ''}`}
+                onClick={() => {
+                  if (days !== d) {
+                    setData(null);
+                    setDays(d);
+                  }
+                }}
+              >
+                {d}д
+              </button>
+            ))}
+          </div>
           <div className="adm-attribution__period">
             <Filter aria-hidden="true" />
             <AdminSelect
@@ -337,6 +377,7 @@ export default function AdminAttribution({ password }: { password: string }) {
               compact
               options={[
                 { value: '7', label: '7 дней' },
+                { value: '14', label: '14 дней' },
                 { value: '30', label: '30 дней' },
                 { value: '90', label: '90 дней' },
               ]}
@@ -422,6 +463,17 @@ export default function AdminAttribution({ password }: { password: string }) {
             />
           </div>
 
+          <ChannelBattleCards channels={channelStats} currency={currency} />
+
+          <ConversionCascade
+            visitors={summary.visitors}
+            leads={summary.leads}
+            qualified={summary.qualified}
+            won={summary.won}
+            revenue={summary.revenue}
+            currency={currency}
+          />
+
           {coverage?.spendAvailable ? (
             <div className="adm-tiles adm-tiles--money">
               <StatTile
@@ -491,40 +543,7 @@ export default function AdminAttribution({ password }: { password: string }) {
           </div>
 
           {(data.cohorts || []).length > 1 && (
-            <section className="admin-panel adm-card">
-              <header className="adm-card__head">
-                <h3 className="admin-card-title">Когорты по неделям</h3>
-                <p className="admin-hint">
-                  Заявки сгруппированы по неделе прихода. Свежая неделя всегда выглядит хуже старой — сделкам по ней ещё не хватило времени закрыться.
-                </p>
-              </header>
-              <ul className="cohorts">
-                {(data.cohorts || []).map((cohort) => {
-                  const max = Math.max(...(data.cohorts || []).map((item) => item.leads), 1);
-                  return (
-                    <li key={cohort.week}>
-                      <span className="cohorts__week">{new Date(`${cohort.week}T00:00:00Z`).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', timeZone: 'UTC' })}</span>
-                      <span className="cohorts__track">
-                        <span className="cohorts__leads" style={{ width: `${(cohort.leads / max) * 100}%` }} />
-                        {cohort.won !== null && cohort.won > 0 && (
-                          <span className="cohorts__won" style={{ width: `${(cohort.won / max) * 100}%` }} />
-                        )}
-                      </span>
-                      <span className="cohorts__numbers">
-                        <span title="Заявок за неделю">{formatNumber(cohort.leads)}</span>
-                        <span title="Целевых">{formatNumber(cohort.qualified)}</span>
-                        <span title="Дошло до сделки" className={cohort.won ? 'is-good' : ''}>{formatNumber(cohort.won)}</span>
-                        <span title="Доля дошедших до сделки">{formatPercent(cohort.conversion)}</span>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className="cohorts__legend">
-                <span><i className="is-leads" aria-hidden="true" /> заявки</span>
-                <span><i className="is-won" aria-hidden="true" /> дошли до сделки</span>
-              </p>
-            </section>
+            <CohortHeatmapMatrix cohorts={data.cohorts || []} />
           )}
 
           <section className="admin-panel adm-card">
@@ -553,6 +572,41 @@ export default function AdminAttribution({ password }: { password: string }) {
             {active?.reason && (
               <p className="adm-card__note"><Info aria-hidden="true" /> {active.reason}</p>
             )}
+
+            <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Быстрые фильтры таблицы">
+              <button
+                type="button"
+                className={`admin-crm-chip ${tableFilter === 'all' ? 'is-active is-primary' : ''}`}
+                onClick={() => setTableFilter('all')}
+              >
+                Все строки ({active?.rows.length || 0})
+              </button>
+              <button
+                type="button"
+                className={`admin-crm-chip ${tableFilter === 'leads' ? 'is-active' : ''}`}
+                onClick={() => setTableFilter('leads')}
+              >
+                Только с заявками
+              </button>
+              {active?.hasSpend && (
+                <button
+                  type="button"
+                  className={`admin-crm-chip ${tableFilter === 'spend' ? 'is-active' : ''}`}
+                  onClick={() => setTableFilter('spend')}
+                >
+                  С расходом
+                </button>
+              )}
+              {active?.hasSpend && (
+                <button
+                  type="button"
+                  className={`admin-crm-chip ${tableFilter === 'romi' ? 'is-active is-success' : ''}`}
+                  onClick={() => setTableFilter('romi')}
+                >
+                  Положительный ROMI
+                </button>
+              )}
+            </div>
 
             <div className="adm-table-toolbar">
               <label className="adm-table-search">
@@ -605,7 +659,11 @@ export default function AdminAttribution({ password }: { password: string }) {
                           className={`${column.numeric ? 'is-numeric' : 'is-key'} ${column.tone?.(row) || ''}`.trim()}
                           title={column.key === 'key' ? row.key : undefined}
                         >
-                          {column.format(row, currency)}
+                          {column.key === 'key' && (selected === 'utm' || selected === 'source' || selected === 'campaign') ? (
+                            <CopyUtmCell text={row.key} />
+                          ) : (
+                            column.format(row, currency)
+                          )}
                         </td>
                       ))}
                     </tr>

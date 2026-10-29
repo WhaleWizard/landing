@@ -669,3 +669,23 @@ test('F-PHASE4-ALL: палитра расширена, справка по ?, ч
   const clientsSource = await source('src/app/components/admin/AdminClients.tsx');
   assert.match(clientsSource, /AdminDetailSkeleton/, 'AdminClients использует AdminDetailSkeleton');
 });
+
+
+// ---------------------------------------------------------------------------
+// Блок 2 / Модуль 1: Сквозная UTM-аналитика и когортная воронка
+
+test('B2-M1-ATTRIBUTION: каскад конверсий, битва каналов, когортная матрица и копирование UTM', async () => {
+  const visualProSource = await source('src/app/components/admin/AttributionVisualPro.tsx');
+  assert.match(visualProSource, /export function ConversionCascade/, 'компонент каскада конверсий и отсева');
+  assert.match(visualProSource, /export function ChannelBattleCards/, 'компонент битвы рекламных каналов');
+  assert.match(visualProSource, /export function CohortHeatmapMatrix/, 'компонент когортной тепловой матрицы');
+  assert.match(visualProSource, /export function CopyUtmCell/, 'компонент копирования UTM');
+  assert.match(visualProSource, /aggregateChannels/, 'функция группировки трафика по каналам');
+
+  const attrSource = await source('src/app/components/admin/AdminAttribution.tsx');
+  assert.match(attrSource, /ConversionCascade/, 'каскад воронки вмонтирован в аналитику');
+  assert.match(attrSource, /ChannelBattleCards/, 'карточки каналов вмонтированы');
+  assert.match(attrSource, /CohortHeatmapMatrix/, 'когортная матрица вмонтирована');
+  assert.match(attrSource, /CopyUtmCell/, 'копирование UTM подключено в ячейки таблицы');
+  assert.match(attrSource, /tableFilter === 'romi'/, 'быстрый фильтр положительного ROMI');
+});
