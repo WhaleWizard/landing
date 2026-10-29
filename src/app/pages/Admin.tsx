@@ -21,7 +21,7 @@ import {
   ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
   Activity, BarChart3, PanelsTopLeft, Gauge, CalendarCheck, RefreshCw, Target, FileText,
-  Rows2, Rows3, LayoutGrid, Users, Wallet, Lock, Radio, Database, Globe, Rocket, Calculator,
+  Rows2, Rows3, LayoutGrid, Users, Wallet, Lock, Radio, Database, Globe, Rocket, Calculator, Bell,
   PanelLeftClose, PanelLeftOpen,
   Keyboard, CheckCircle2, Clock3, AlertTriangle,
   type LucideIcon
@@ -67,8 +67,9 @@ const ArticleCalendar = lazy(() => import('../components/admin/ArticleCalendar')
 const AdminSearchConsole = lazy(() => import('../components/admin/AdminSearchConsole'));
 const AdminLaunchpad = lazy(() => import('../components/admin/AdminLaunchpad'));
 const AdminUnitEconomics = lazy(() => import('../components/admin/AdminUnitEconomics'));
+const AdminAlerts = lazy(() => import('../components/admin/AdminAlerts'));
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations' | 'seo' | 'launchpad' | 'unit_econ';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations' | 'seo' | 'launchpad' | 'unit_econ' | 'alerts';
 type AdminNavKey = AdminView | 'cases';
 
 function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
@@ -81,6 +82,7 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
     case 'seo': return import('../components/admin/AdminSearchConsole');
     case 'launchpad': return import('../components/admin/AdminLaunchpad');
     case 'unit_econ': return import('../components/admin/AdminUnitEconomics');
+    case 'alerts': return import('../components/admin/AdminAlerts');
     case 'meta': return import('../components/admin/AdminMetaCenter');
     case 'performance': return import('../components/admin/AdminPerformance');
     case 'content': return import('../components/admin/AdminContentControl');
@@ -902,6 +904,7 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   seo: ['поиск', 'google', 'search console', 'gsc', 'позиции', 'запросы', 'сео', 'seo', 'клики'],
   launchpad: ['запуск', 'чек-лист', 'префлайт', 'проверка кампании', 'launchpad', 'meta', 'google', 'трафик'],
   unit_econ: ['юнит экономика', 'калькулятор', 'cpl', 'cac', 'ltv', 'медиаплан', 'бюджет', 'окупаемость', 'unit economics'],
+  alerts: ['уведомления', 'алерты', 'сообщения', 'telegram', 'звонки', 'alerts', 'колокольчик', 'важное'],
   meta: ['пиксель', 'события', 'facebook', 'фейсбук'],
   events: ['datalayer', 'gtm', 'tag manager', 'триггер', 'аналитика', 'ga4'],
   migrations: ['база', 'd1', 'схема', 'sql', 'миграция'],
@@ -1920,6 +1923,7 @@ export default function Admin() {
     {
       title: 'Система',
       items: [
+        { key: 'alerts', label: 'Уведомления', icon: Bell },
         { key: 'access', label: 'Доступ к страницам', icon: Lock },
         { key: 'migrations', label: 'Миграции', icon: Database },
         { key: 'health', label: 'Проверка', icon: Stethoscope },
@@ -2322,6 +2326,16 @@ export default function Admin() {
             <div className="admin-topbar__actions">
               <button
                 type="button"
+                onClick={() => { void navigateToAdminSection('alerts'); }}
+                className={`admin-button admin-button--quiet ${adminView === 'alerts' ? 'admin-button--active' : ''}`}
+                title="Центр уведомлений и алертов"
+                aria-label="Центр уведомлений и алертов"
+              >
+                <Bell aria-hidden="true" />
+                <span className="admin-topbar__label">Алерты</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setPaletteOpen(true)}
                 className="admin-button admin-button--quiet admin-topbar__search"
                 title="Поиск и команды (Ctrl+K)"
@@ -2428,6 +2442,12 @@ export default function Admin() {
               {adminView === 'planner' && <AdminPlanner password={password} />}
               {adminView === 'launchpad' && <AdminLaunchpad />}
               {adminView === 'unit_econ' && <AdminUnitEconomics />}
+              {adminView === 'alerts' && (
+                <AdminAlerts
+                  password={password}
+                  onNavigate={(destination) => { void navigateToAdminSection(destination as AdminNavKey); }}
+                />
+              )}
               {adminView === 'goals' && <AdminGoals password={password} />}
               {adminView === 'report' && <AdminReport password={password} />}
               {adminView === 'attribution' && <AdminAttribution password={password} />}

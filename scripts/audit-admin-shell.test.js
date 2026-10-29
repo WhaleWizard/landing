@@ -801,5 +801,28 @@ test('B2-M7-UNIT-ECONOMICS: Калькулятор юнит-экономики, 
   assert.match(adminUiCss, /admin-unit-econ-advice-box/, 'Стили рекомендательного блока');
 });
 
+// ---------------------------------------------------------------------------
+// Блок 2 / Модуль 8: Центр уведомлений и алертов в Telegram для критических событий
+
+test('B2-M8-ALERTS: Интеграция AdminAlerts, кнопка колокольчика в топбаре, навигация и алерты Telegram', async () => {
+  const alertsSource = await source('src/app/components/admin/AdminAlerts.tsx');
+  assert.match(alertsSource, /export default function AdminAlerts/, 'Компонент AdminAlerts экспортирован');
+  assert.match(alertsSource, /SEVERITY_UI/, 'Разметка уровней срочности (critical/attention/info)');
+  assert.match(alertsSource, /action: 'notify'/, 'Действие отправки алертов в Telegram');
+  assert.match(alertsSource, /action: 'dismiss'/, 'Действие скрытия алерта');
+
+  const adminSource = await source('src/app/pages/Admin.tsx');
+  assert.match(adminSource, /const AdminAlerts = lazy/, 'Ленивый импорт AdminAlerts');
+  assert.match(adminSource, /key: 'alerts', label: 'Уведомления', icon: Bell/, 'Пункт в навигации админки');
+  assert.match(adminSource, /admin-topbar__bell|navigateToAdminSection\('alerts'\)/, 'Кнопка колокольчика в топбаре');
+  assert.match(adminSource, /adminView === 'alerts' && \(\s*<AdminAlerts/, 'Рендер раздела alerts');
+  assert.match(adminSource, /alerts: \['уведомления', 'алерты'/, 'Ключевые слова для палитры Ctrl+K');
+
+  const alertsApiSource = await source('functions/api/admin/alerts.ts');
+  assert.match(alertsApiSource, /export const onRequestGet/, 'Эндпоинт GET для сбора алертов');
+  assert.match(alertsApiSource, /export const onRequestPost/, 'Эндпоинт POST для уведомлений в Telegram');
+});
+
+
 
 
