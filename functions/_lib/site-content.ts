@@ -182,6 +182,16 @@ function dropSupersededStoredFields(key: SiteContentKey, value: UnknownRecord): 
  * still goes through sanitizeSiteContent unchanged, so a newly submitted block
  * can never disappear merely because it resembles an older source version.
  */
+function isLegacyAccidentalMetaAdsHeroFonts(lines: unknown[]): boolean {
+  if (!Array.isArray(lines) || lines.length !== 2) return false;
+  const line0 = object(lines[0]);
+  const line1 = object(lines[1]);
+  return line0.text === 'Реклама в Meta:'
+    && line0.font === 'inter'
+    && line1.text === 'привожу клиентов, а не просто лиды'
+    && line1.font === 'pangolin';
+}
+
 function applyStoredSiteContentCompatibility(
   key: SiteContentKey,
   value: UnknownRecord,
@@ -189,9 +199,9 @@ function applyStoredSiteContentCompatibility(
   let current = dropSupersededStoredFields(key, value);
   if (key === 'service:meta-ads' && current.hero && typeof current.hero === 'object' && !Array.isArray(current.hero)) {
     const hero = current.hero as UnknownRecord;
-    if (Array.isArray(hero.titleLines)) {
+    if (Array.isArray(hero.titleLines) && isLegacyAccidentalMetaAdsHeroFonts(hero.titleLines)) {
       const titleLines = hero.titleLines.map((line) => {
-        if (line && typeof line === 'object' && !Array.isArray(line) && ((line as UnknownRecord).font === 'pangolin' || (line as UnknownRecord).font === 'inter')) {
+        if (line && typeof line === 'object' && !Array.isArray(line)) {
           const { font: _font, ...rest } = line as UnknownRecord;
           return rest;
         }

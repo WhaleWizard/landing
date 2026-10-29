@@ -12,6 +12,19 @@
 
 ## 2. Где мы сейчас
 
+**Сделано 29.10.2026 (Сессия CMS Realtime Build Tracker & Meta Ads Font Fix):**
+- **РЕАЛИЗОВАН ИНДИКАТОР ФОНОВОЙ СБОРКИ CLOUDFLARE PAGES В РЕАЛЬНОМ ВРЕМЕНИ В РЕДАКТОРЕ САЙТА:**
+  1. В `src/app/components/admin/AdminContentControl.tsx` добавлен таймер и бейджи фоновой сборки (`ww_pages_build_state` в localStorage, таймаут 90 секунд).
+  2. Поддержан ответ `payload.seoBuild?.triggered` (старт анимации «Сборка в процессе (~Nс)») и `payload.seoBuild?.error` («Сбой сборки»).
+  3. В `scripts/audit-admin-shell.test.js` добавлен регрессионный тест на контракт статуса сборки.
+- **УСТРАНЕН СБОЙ СБРОСА ШРИФТА СТРОКИ ЗАГОЛОВКА НА СТРАНИЦЕ META ADS:**
+  1. Корневая причина: деструктивный фильтр `applyStoredSiteContentCompatibility` в `functions/_lib/site-content.ts` и `scripts/site-content-sync.js` безусловно вырезал `font: 'inter'` и `font: 'pangolin'` из любых строк заголовка при `key === 'service:meta-ads'`. При `load(true)` админка запрашивала D1, сервер стирал выбранный Inter, и поле в UI сбрасывалось в «Как у заголовка».
+  2. Исправление: введён строгий предикат `isLegacyAccidentalMetaAdsHeroFonts`, проверяющий точную сигнатуру устаревшего тестового слепка (длина 2, строка 0 = Inter, строка 1 = Pangolin). Осознанный выбор Inter или любого библиотечного шрифта теперь сохраняется и публикуется без искажений.
+  3. В `src/app/utils/contentTypography.ts` функция `ensureFontLibraryLoaded()` дополнена немедленным переключением `media = 'all'` для тега `/fonts/library.css`.
+  4. В `scripts/site-content-compatibility.test.js` добавлен тест на сохранение осознанного выбора шрифтов.
+- **ВЕРИФИКАЦИЯ:**
+  - Полный сквозной прогон `npm run check` (все 46 тест-сьютов, TypeScript app/functions, сборка, SEO-контракты): **100% PASS (Exit code 0)**.
+
 **Сделано 27.10.2026 (Сессия SEO, GEO & AEO Full Platform Optimization v8.0):**
 - **РЕАЛИЗОВАН ПЕРВЫЙ ЭТАП СКВОЗНОЙ ОПТИМИЗАЦИИ ПОИСКОВОГО И ИИ-ПРИСУТСТВИЯ (SEO / GEO / AEO):**
   1. `Калибровка коммерческих метаданных под реальный поисковый спрос`:

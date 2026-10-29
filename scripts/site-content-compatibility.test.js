@@ -102,6 +102,34 @@ test('stored reader strips accidental pangolin and inter fonts from meta-ads her
   ]);
 });
 
+test('stored reader preserves intentional user font choices on meta-ads hero title lines', async () => {
+  const { safeSiteJsonObject } = await siteContentModule;
+  // Intentional selection of Inter on line 2 (line 1 has no font) must not be stripped.
+  const contentWithInter = {
+    hero: {
+      titleLines: [
+        { text: 'Реклама в Meta:' },
+        { text: 'привожу клиентов, а не просто лиды', tone: 'accent', font: 'inter' },
+      ],
+    },
+  };
+  const storedInter = safeSiteJsonObject('service:meta-ads', JSON.stringify(contentWithInter));
+  assert.equal(storedInter.hero.titleLines[1].font, 'inter');
+
+  // Custom font library selection (e.g. comfortaa or prata) must always survive.
+  const contentWithCustom = {
+    hero: {
+      titleLines: [
+        { text: 'Реклама в Meta:' },
+        { text: 'привожу клиентов, а не просто лиды', tone: 'accent', font: 'comfortaa' },
+        { text: 'Instagram и Facebook — с оптимизацией на продажи', tone: 'supporting' },
+      ],
+    },
+  };
+  const storedCustom = safeSiteJsonObject('service:meta-ads', JSON.stringify(contentWithCustom));
+  assert.equal(storedCustom.hero.titleLines[1].font, 'comfortaa');
+});
+
 test('stored reader recognizes the editor-normalized form of the old block', async () => {
   const { safeSiteJsonObject } = await siteContentModule;
   const cases = legacyMetaAdsCases();

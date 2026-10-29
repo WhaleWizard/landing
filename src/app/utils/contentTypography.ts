@@ -67,9 +67,17 @@ export function isBodySafeContentFont(value: unknown): boolean {
 
 export function ensureFontLibraryLoaded(): void {
   if (typeof document === 'undefined') return;
-  if (document.querySelector('link[data-ww-font-library]')) return;
-  const existing = document.querySelector('link[href*="/fonts/library.css"]');
-  if (existing) return;
+  const libraryLink = document.querySelector('link[data-ww-font-library]') as HTMLLinkElement | null;
+  if (libraryLink) {
+    if (libraryLink.media && libraryLink.media !== 'all') libraryLink.media = 'all';
+    return;
+  }
+  const existing = document.querySelector('link[href*="/fonts/library.css"]') as HTMLLinkElement | null;
+  if (existing) {
+    existing.setAttribute('data-ww-font-library', '1');
+    if (existing.media && existing.media !== 'all') existing.media = 'all';
+    return;
+  }
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = '/fonts/library.css';

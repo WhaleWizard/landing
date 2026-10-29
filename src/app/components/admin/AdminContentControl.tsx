@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   Check,
@@ -7,6 +8,7 @@ import {
   Clock3,
   ExternalLink,
   GripVertical,
+  Loader2,
   Minus,
   Play,
   Plus,
@@ -1032,6 +1034,61 @@ function HeroEffectControls({
 }
 
 /** Вопрос «уйти и потерять правки?» — отвечает true, если уходить можно. */
+type PagesBuildState =
+  | { status: 'idle' }
+  | { status: 'building'; triggeredAt: number; pagePath: string }
+  | { status: 'done'; completedAt: number; pagePath: string }
+  | { status: 'error'; error: string; pagePath: string };
+
+const STORAGE_KEY_BUILD = 'ww_pages_build_state';
+const PAGES_BUILD_ESTIMATED_SECONDS = 90;
+
+function readSavedBuildState(): PagesBuildState {
+  if (typeof window === 'undefined') return { status: 'idle' };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_BUILD);
+    if (!raw) return { status: 'idle' };
+    const parsed = JSON.parse(raw) as Partial<PagesBuildState>;
+    if (parsed.status === 'building' && typeof parsed.triggeredAt === 'number') {
+      const elapsed = (Date.now() - parsed.triggeredAt) / 1000;
+      if (elapsed < PAGES_BUILD_ESTIMATED_SECONDS) {
+        return { status: 'building', triggeredAt: parsed.triggeredAt, pagePath: String(parsed.pagePath || '/') };
+      }
+      if (elapsed < PAGES_BUILD_ESTIMATED_SECONDS + 45) {
+        return { status: 'done', completedAt: parsed.triggeredAt + PAGES_BUILD_ESTIMATED_SECONDS * 1000, pagePath: String(parsed.pagePath || '/') };
+      }
+      localStorage.removeItem(STORAGE_KEY_BUILD);
+      return { status: 'idle' };
+    }
+    if (parsed.status === 'done' && typeof parsed.completedAt === 'number') {
+      if (Date.now() - parsed.completedAt < 45_000) {
+        return { status: 'done', completedAt: parsed.completedAt, pagePath: String(parsed.pagePath || '/') };
+      }
+      localStorage.removeItem(STORAGE_KEY_BUILD);
+      return { status: 'idle' };
+    }
+    if (parsed.status === 'error') {
+      return { status: 'error', error: String(parsed.error || 'Ошибка'), pagePath: String(parsed.pagePath || '/') };
+    }
+  } catch {
+    // Ignore restricted or unparseable storage
+  }
+  return { status: 'idle' };
+}
+
+function persistBuildState(state: PagesBuildState): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (state.status === 'idle') {
+      localStorage.removeItem(STORAGE_KEY_BUILD);
+    } else {
+      localStorage.setItem(STORAGE_KEY_BUILD, JSON.stringify(state));
+    }
+  } catch {
+    // Ignore storage issues
+  }
+}
+
 export type LeaveGuard = () => Promise<boolean>;
 
 export default function AdminContentControl({ password, onRegisterLeaveGuard }: {
@@ -1057,6 +1114,35 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   // Отдельно от notice: «нужна миграция» — не ошибка редактора, а недоделанная
   // настройка базы, и подсказка должна пережить любое следующее сообщение.
   const [migration, setMigration] = useState('');
+  const [buildState, setBuildState] = useState<PagesBuildState>(() => readSavedBuildState());
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (buildState.status === 'idle') return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setCurrentTime(now);
+
+      if (buildState.status === 'building') {
+        const elapsed = (now - buildState.triggeredAt) / 1000;
+        if (elapsed >= PAGES_BUILD_ESTIMATED_SECONDS) {
+          const doneState: PagesBuildState = {
+            status: 'done',
+            completedAt: now,
+            pagePath: buildState.pagePath,
+          };
+          setBuildState(doneState);
+          persistBuildState(doneState);
+        }
+      } else if (buildState.status === 'done') {
+        if (now - buildState.completedAt >= 45_000) {
+          setBuildState({ status: 'idle' });
+          persistBuildState({ status: 'idle' });
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [buildState]);
   // Счётчик живёт здесь: кнопку повтора нажимают в настройках эффекта,
   // а перезапускать анимацию надо в кадре предпросмотра.
   const [replayKey, setReplayKey] = useState(0);
@@ -1299,8 +1385,22 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         const refreshed = await load(true);
         if (refreshed) {
           if (action === 'publish' && payload.seoBuild?.triggered) {
+            const nextState: PagesBuildState = {
+              status: 'building',
+              triggeredAt: Date.now(),
+              pagePath: pageMeta.path,
+            };
+            setBuildState(nextState);
+            persistBuildState(nextState);
             setNotice('Опубликовано: версия уже доступна из D1, production-сборка SEO-HTML запущена автоматически.');
           } else if (action === 'publish' && payload.seoBuild?.configured) {
+            const nextState: PagesBuildState = {
+              status: 'error',
+              error: payload.seoBuild.error || 'Не удалось запустить сборку',
+              pagePath: pageMeta.path,
+            };
+            setBuildState(nextState);
+            persistBuildState(nextState);
             setNotice(`Текст опубликован, но SEO-сборку запустить не удалось${payload.seoBuild.error ? `: ${payload.seoBuild.error}` : '.'}`);
           } else if (action === 'publish') {
             setNotice('Текст опубликован. Для автоматического обновления SEO-HTML добавьте секрет CF_PAGES_DEPLOY_HOOK_URL.');
@@ -1383,6 +1483,31 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
               Не сохранено: {[...changedSections].map((value) => SECTION_LABELS[value]).join(', ')}
             </span>
           ) : <span className="admin-state">{isHydrated ? 'Редактор синхронизирован' : 'Редактор пока недоступен'}</span>}
+          {buildState.status === 'building' ? (
+            <span
+              className="admin-state admin-state--warning"
+              title={`Cloudflare Pages выполняет фоновую сборку статического SEO-HTML (${buildState.pagePath}). Публичный сайт уже отдаёт новый текст из D1.`}
+            >
+              <Loader2 className="animate-spin" aria-hidden="true" />
+              Сборка в процессе ({Math.max(0, PAGES_BUILD_ESTIMATED_SECONDS - Math.floor((currentTime - buildState.triggeredAt) / 1000))}с)
+            </span>
+          ) : buildState.status === 'done' ? (
+            <span
+              className="admin-state admin-state--success"
+              title="Фоновая сборка Cloudflare Pages завершена: статический SEO-HTML и edge-кэш синхронизированы."
+            >
+              <Check aria-hidden="true" />
+              Сборка завершена
+            </span>
+          ) : buildState.status === 'error' ? (
+            <span
+              className="admin-state admin-state--danger"
+              title={`Ошибка вызова Deploy Hook: ${buildState.error}`}
+            >
+              <AlertTriangle aria-hidden="true" />
+              Сбой сборки
+            </span>
+          ) : null}
         </div>
         <button className="admin-button admin-button--secondary" type="button" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
         {isDirty ? <button className="admin-button admin-button--quiet" type="button" onClick={() => { const next = editableDefaults(page); const restored = section?.draft ? mergeContent(next, normalizeStored(page, section.draft)) : next; setContent(restored); setBaseline(restored); setNotice('Несохранённые изменения отменены.'); }}>Отменить изменения</button> : null}

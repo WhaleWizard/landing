@@ -483,3 +483,17 @@ test('F-009: медиатека верит серверу об использо�
   assert.match(mediaSource, /usage\?: string\[\]/);
   assert.match(mediaSource, /referencesForFile\(file, articles\)/);
 });
+
+
+// ---------------------------------------------------------------------------
+// Фоновая сборка Cloudflare Pages: статус сборки в реальном времени
+
+test('CMS: фоновая сборка Cloudflare Pages отображается бейджами «Сборка в процессе» и «Сборка завершена»', () => {
+  assert.match(contentControlSource, /type PagesBuildState\s*=/, 'определены типы состояния сборки');
+  assert.match(contentControlSource, /STORAGE_KEY_BUILD = 'ww_pages_build_state'/, 'состояние сборки кэшируется в localStorage');
+  assert.match(contentControlSource, /PAGES_BUILD_ESTIMATED_SECONDS = 90/, 'таймаут фоновой сборки Cloudflare Pages зафиксирован');
+  assert.match(contentControlSource, /action === 'publish' && payload\.seoBuild\?\.triggered/, 'старт сборки слушает ответ seoBuild.triggered');
+  assert.match(contentControlSource, /Сборка в процессе \(\{Math\.max\(0, PAGES_BUILD_ESTIMATED_SECONDS/, 'бейдж процесса с обратным отсчётом');
+  assert.match(contentControlSource, /Сборка завершена/, 'бейдж успешного завершения сборки');
+  assert.match(contentControlSource, /Сбой сборки/, 'бейдж ошибки вызова Deploy Hook');
+});
