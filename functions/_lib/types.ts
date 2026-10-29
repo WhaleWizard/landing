@@ -84,6 +84,7 @@ export interface Env {
   CF_CACHE_PURGE_TOKEN?: string;
   // Production deploy hook: publishing site text triggers a fresh static SEO build.
   CF_PAGES_DEPLOY_HOOK_URL?: string;
+  CF_PAGES_DEPLOY_HOOK_URI?: string;
   // Коммит текущей выкладки — Cloudflare Pages подставляет сам. Нужен, чтобы
   // кэш замеров PageSpeed в админке сбрасывался с каждой новой версией сайта.
   CF_PAGES_COMMIT_SHA?: string;

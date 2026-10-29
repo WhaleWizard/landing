@@ -44,7 +44,7 @@ async function purgeCloudflareUrls(env: Env, urls: string[]): Promise<{ configur
 }
 
 async function triggerSeoBuild(env: Env): Promise<{ configured: boolean; triggered: boolean; status?: number; error?: string }> {
-  const rawUrl = String(env.CF_PAGES_DEPLOY_HOOK_URL || '').trim();
+  const rawUrl = String(env.CF_PAGES_DEPLOY_HOOK_URL || env.CF_PAGES_DEPLOY_HOOK_URI || '').trim();
   if (!rawUrl) return { configured: false, triggered: false };
 
   let hookUrl: URL;
