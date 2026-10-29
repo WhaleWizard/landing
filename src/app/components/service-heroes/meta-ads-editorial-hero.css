@@ -28,8 +28,8 @@
   overflow-x: clip;
   color: var(--meta-ink);
   background:
-    radial-gradient(circle at 77% 18%, rgba(79, 125, 255, 0.14), transparent 31rem),
-    radial-gradient(circle at 18% 78%, rgba(176, 77, 255, 0.11), transparent 29rem),
+    radial-gradient(circle at 77% 18%, rgba(79, 125, 255, 0.18), transparent 31rem),
+    radial-gradient(circle at 18% 78%, rgba(176, 77, 255, 0.15), transparent 29rem),
     #08090e;
   font-family: var(--ww-font-text);
 }
@@ -55,7 +55,7 @@
   height: 34rem;
   border-radius: 999px;
   filter: blur(110px);
-  opacity: 0.13;
+  opacity: 0.22;
   pointer-events: none;
 }
 
@@ -107,12 +107,12 @@
   align-items: center;
   gap: 8px;
   min-height: 28px;
-  padding: 4px 12px;
+  padding: 4px 14px;
   margin-bottom: 19px;
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.08);
-  border: 1px solid rgba(96, 165, 250, 0.2);
-  color: #cbd5e1;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  color: #e2e8f0;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
@@ -122,8 +122,8 @@
 .meta-editorial-hero__kicker svg {
   width: 14px;
   height: 14px;
-  color: #60a5fa;
-  opacity: 0.95;
+  color: #ff5eaa;
+  opacity: 1;
 }
 
 .marketing-typography .meta-editorial-hero__title {
@@ -161,11 +161,13 @@
 
 .meta-editorial-hero__title-accent {
   padding: 0.04em 0 0.12em;
-  background: linear-gradient(92deg, #93c5fd 0%, #c084fc 48%, #f472b6 100%);
+  background: linear-gradient(92deg, #4f80ff 0%, #a855f7 38%, #ff2a85 76%, #ff7ab6 100%);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 .meta-editorial-hero__supporting {
@@ -194,14 +196,27 @@
 }
 
 .meta-editorial-hero__paragraphs .meta-editorial-hero__data-note {
-  padding: 12px 18px;
+  position: relative;
+  overflow: hidden;
+  padding: 13px 18px 13px 20px;
   color: #e2e8f0;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-left: 3px solid #60a5fa;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 12px;
   font-size: 15px;
   line-height: 1.6;
+}
+
+.meta-editorial-hero__paragraphs .meta-editorial-hero__data-note::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3.5px;
+  background: linear-gradient(to bottom, #4f7dff, #a855f7, #ff5eaa);
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
 }
 
 .meta-editorial-hero__actions {
@@ -222,17 +237,17 @@
 
 .meta-editorial-hero__primary {
   min-width: 226px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(100deg, #3875ff 0%, #9055ff 48%, #ff459b 100%);
   color: #fff;
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.28);
-  transition: all 180ms ease;
+  box-shadow: 0 14px 34px rgba(144, 85, 255, 0.35), 0 4px 14px rgba(56, 117, 255, 0.25);
+  transition: all 200ms ease;
 }
 
 .meta-editorial-hero__primary:hover {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 55%, #2563eb 100%);
-  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.4);
-  filter: none;
+  background: linear-gradient(100deg, #4f88ff 0%, #a066ff 48%, #ff5eaa 100%);
+  box-shadow: 0 18px 42px rgba(255, 69, 155, 0.42), 0 6px 18px rgba(56, 117, 255, 0.35);
+  filter: brightness(1.06);
 }
 
 .meta-editorial-hero__primary svg {
@@ -244,7 +259,7 @@
 }
 
 .meta-editorial-hero__secondary {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.04);
   color: #f4f1f7;
   backdrop-filter: blur(12px);
@@ -252,8 +267,8 @@
 }
 
 .meta-editorial-hero__secondary:hover {
-  border-color: rgba(96, 165, 250, 0.45);
-  background: rgba(96, 165, 250, 0.08);
+  border-color: rgba(176, 77, 255, 0.5);
+  background: rgba(176, 77, 255, 0.12);
   color: #fff;
 }
 
@@ -670,7 +685,7 @@
 @media (max-width: 480px) {
   .meta-editorial-hero__supporting {
     margin-top: 12px;
-    color: #94a3b8;
+    color: #cbd5e1;
     font-size: 15px;
     font-weight: 400;
     line-height: 1.45;
@@ -688,7 +703,7 @@
   }
 
   .meta-editorial-hero__paragraphs .meta-editorial-hero__data-note {
-    padding: 10px 14px;
+    padding: 10px 14px 10px 16px;
     font-size: 13.5px;
     line-height: 1.5;
   }
