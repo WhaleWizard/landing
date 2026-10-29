@@ -68,8 +68,9 @@ const AdminSearchConsole = lazy(() => import('../components/admin/AdminSearchCon
 const AdminLaunchpad = lazy(() => import('../components/admin/AdminLaunchpad'));
 const AdminUnitEconomics = lazy(() => import('../components/admin/AdminUnitEconomics'));
 const AdminAlerts = lazy(() => import('../components/admin/AdminAlerts'));
+const AdminAuditTrail = lazy(() => import('../components/admin/AdminAuditTrail'));
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations' | 'seo' | 'launchpad' | 'unit_econ' | 'alerts';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations' | 'seo' | 'launchpad' | 'unit_econ' | 'alerts' | 'audit';
 type AdminNavKey = AdminView | 'cases';
 
 function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
@@ -83,6 +84,7 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
     case 'launchpad': return import('../components/admin/AdminLaunchpad');
     case 'unit_econ': return import('../components/admin/AdminUnitEconomics');
     case 'alerts': return import('../components/admin/AdminAlerts');
+    case 'audit': return import('../components/admin/AdminAuditTrail');
     case 'meta': return import('../components/admin/AdminMetaCenter');
     case 'performance': return import('../components/admin/AdminPerformance');
     case 'content': return import('../components/admin/AdminContentControl');
@@ -905,6 +907,7 @@ const ADMIN_NAV_KEYWORDS: Record<string, string[]> = {
   launchpad: ['запуск', 'чек-лист', 'префлайт', 'проверка кампании', 'launchpad', 'meta', 'google', 'трафик'],
   unit_econ: ['юнит экономика', 'калькулятор', 'cpl', 'cac', 'ltv', 'медиаплан', 'бюджет', 'окупаемость', 'unit economics'],
   alerts: ['уведомления', 'алерты', 'сообщения', 'telegram', 'звонки', 'alerts', 'колокольчик', 'важное'],
+  audit: ['аудит', 'журнал', 'история', 'действия', 'логи', 'хронология', 'кто изменил', 'audit trail'],
   meta: ['пиксель', 'события', 'facebook', 'фейсбук'],
   events: ['datalayer', 'gtm', 'tag manager', 'триггер', 'аналитика', 'ga4'],
   migrations: ['база', 'd1', 'схема', 'sql', 'миграция'],
@@ -1924,6 +1927,7 @@ export default function Admin() {
       title: 'Система',
       items: [
         { key: 'alerts', label: 'Уведомления', icon: Bell },
+        { key: 'audit', label: 'Журнал аудита', icon: History },
         { key: 'access', label: 'Доступ к страницам', icon: Lock },
         { key: 'migrations', label: 'Миграции', icon: Database },
         { key: 'health', label: 'Проверка', icon: Stethoscope },
@@ -2442,6 +2446,12 @@ export default function Admin() {
               {adminView === 'planner' && <AdminPlanner password={password} />}
               {adminView === 'launchpad' && <AdminLaunchpad />}
               {adminView === 'unit_econ' && <AdminUnitEconomics />}
+              {adminView === 'audit' && (
+                <AdminAuditTrail
+                  password={password}
+                  onOpenLead={() => { void navigateToAdminSection('leads'); }}
+                />
+              )}
               {adminView === 'alerts' && (
                 <AdminAlerts
                   password={password}

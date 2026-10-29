@@ -823,6 +823,35 @@ test('B2-M8-ALERTS: Интеграция AdminAlerts, кнопка колоко�
   assert.match(alertsApiSource, /export const onRequestPost/, 'Эндпоинт POST для уведомлений в Telegram');
 });
 
+// ---------------------------------------------------------------------------
+// Блок 2 / Модуль 6: Журнал аудита действий (Audit Trail)
+
+test('B2-M6-AUDIT: Журнал аудита CRM, история действий, экспорт в CSV и навигация', async () => {
+  const auditApiSource = await source('functions/api/admin/audit.ts');
+  assert.match(auditApiSource, /export const onRequestGet/, 'Эндпоинт GET для получения журнала аудита');
+  assert.match(auditApiSource, /lead_activity/, 'Чтение из таблицы lead_activity');
+  assert.match(auditApiSource, /getMockAuditTrail/, 'Демо-данные для локального окружения');
+
+  const auditUiSource = await source('src/app/components/admin/AdminAuditTrail.tsx');
+  assert.match(auditUiSource, /export default function AdminAuditTrail/, 'Компонент AdminAuditTrail экспортирован');
+  assert.match(auditUiSource, /handleExportCsv/, 'Экспорт журнала действий в CSV');
+  assert.match(auditUiSource, /formatTimeAgo/, 'Относительное время действий');
+  assert.match(auditUiSource, /STATUS_NAMES/, 'Справочник названий статусов');
+
+  const adminSource = await source('src/app/pages/Admin.tsx');
+  assert.match(adminSource, /const AdminAuditTrail = lazy/, 'Ленивый импорт AdminAuditTrail');
+  assert.match(adminSource, /key: 'audit', label: 'Журнал аудита', icon: History/, 'Пункт в навигации админки');
+  assert.match(adminSource, /adminView === 'audit' && \(\s*<AdminAuditTrail/, 'Рендер раздела audit');
+  assert.match(adminSource, /audit: \['аудит', 'журнал'/, 'Ключевые слова для палитры Ctrl+K');
+
+  const adminUiCss = await source('src/styles/admin-ui.css');
+  assert.match(adminUiCss, /admin-audit-container/, 'Стили контейнера аудита');
+  assert.match(adminUiCss, /admin-audit-card/, 'Стили карточки события аудита');
+  assert.match(adminUiCss, /admin-audit-actor-avatar/, 'Стили аватара исполнителя');
+  assert.match(adminUiCss, /admin-audit-type-badge/, 'Стили бейджа типа действия');
+});
+
+
 
 
 
