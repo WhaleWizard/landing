@@ -635,6 +635,14 @@
     padding-right: 0.12em;
     margin-right: -0.12em;
   }
+}
+
+@media (max-width: 480px) {
+  .marketing-typography .meta-editorial-hero__title {
+    --meta-title-size: clamp(1.05rem, 4.8cqw, 1.35rem);
+    font-size: min(var(--meta-title-size), 4.8cqw);
+    max-width: 100%;
+  }
 
   .meta-editorial-hero__supporting {
     margin-top: 10px;

@@ -129,12 +129,15 @@ function dropSupersededStoredFields(key, content) {
 }
 
 function isLegacyAccidentalMetaAdsHeroFonts(lines) {
-  if (!Array.isArray(lines)) return false;
-  return lines.some((line) => {
-    const row = isRecord(line) ? line : {};
-    return (row.text === 'Реклама в Meta:' && row.font === 'inter')
-      || (row.text === 'привожу клиентов, а не просто лиды' && row.font === 'pangolin');
-  });
+  if (!Array.isArray(lines) || lines.length !== 2) return false;
+  const line0 = isRecord(lines[0]) ? lines[0] : {};
+  const line1 = isRecord(lines[1]) ? lines[1] : {};
+  return line0.text === 'Реклама в Meta:'
+    && line0.font === 'inter'
+    && !line0.effect
+    && line1.text === 'привожу клиентов, а не просто лиды'
+    && line1.font === 'pangolin'
+    && !line1.effect;
 }
 
 export function applyStoredSiteContentCompatibility(key, storedContent) {

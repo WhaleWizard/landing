@@ -12,18 +12,33 @@
 
 ## 2. Где мы сейчас
 
-**Сделано 29.10.2026 (Сессия CMS Realtime Build Tracker & Meta Ads Font Fix):**
-- **РЕАЛИЗОВАН ИНДИКАТОР ФОНОВОЙ СБОРКИ CLOUDFLARE PAGES В РЕАЛЬНОМ ВРЕМЕНИ В РЕДАКТОРЕ САЙТА:**
-  1. В `src/app/components/admin/AdminContentControl.tsx` добавлен таймер и бейджи фоновой сборки (`ww_pages_build_state` в localStorage, таймаут 90 секунд).
-  2. Поддержан ответ `payload.seoBuild?.triggered` (старт анимации «Сборка в процессе (~Nс)») и `payload.seoBuild?.error` («Сбой сборки»).
-  3. В `scripts/audit-admin-shell.test.js` добавлен регрессионный тест на контракт статуса сборки.
-- **УСТРАНЕН СБОЙ СБРОСА ШРИФТА СТРОКИ ЗАГОЛОВКА НА СТРАНИЦЕ META ADS:**
-  1. Корневая причина: деструктивный фильтр `applyStoredSiteContentCompatibility` в `functions/_lib/site-content.ts` и `scripts/site-content-sync.js` безусловно вырезал `font: 'inter'` и `font: 'pangolin'` из любых строк заголовка при `key === 'service:meta-ads'`. При `load(true)` админка запрашивала D1, сервер стирал выбранный Inter, и поле в UI сбрасывалось в «Как у заголовка».
-  2. Исправление: введён строгий предикат `isLegacyAccidentalMetaAdsHeroFonts`, проверяющий точную сигнатуру устаревшего тестового слепка (длина 2, строка 0 = Inter, строка 1 = Pangolin). Осознанный выбор Inter или любого библиотечного шрифта теперь сохраняется и публикуется без искажений.
-  3. В `src/app/utils/contentTypography.ts` функция `ensureFontLibraryLoaded()` дополнена немедленным переключением `media = 'all'` для тега `/fonts/library.css`.
-  4. В `scripts/site-content-compatibility.test.js` добавлен тест на сохранение осознанного выбора шрифтов.
+**Сделано 29.10.2026 (Сессия Hero Typography, Mobile Overflow, CMS Custom Sizes & CRM Upgrades):**
+- **ИСПРАВЛЕН СБРОС ВЫБРАННОГО ШРИФТА СТРОКИ ЗАГОЛОВКА В АДМИНКЕ:**
+  1. В `functions/_lib/site-content.ts` и `scripts/site-content-sync.js` изолирован устаревший фильтр `isLegacyAccidentalMetaAdsHeroFonts`: он срабатывает строго на старый 2-строчный слепок без эффектов. Любой выбор пользователя (включая Pangolin, Inter и любые другие шрифты из библиотеки для любых строк с эффектами и без) на 100% сохраняется в D1 и больше никогда не стирается при чтении.
+  2. Добавлен автоматический предзагрузчик шрифтов строк заголовка в `scripts/generate-pages.js` (`resolveHeroFontPreloads`), исключающий FOUT (Flash of Unstyled Text) и рывки анимации.
+- **УСТРАНЕНО ПЕРЕПОЛНЕНИЕ И ОБРЕЗАНИЕ ВТОРОЙ СТРОКИ НА ТЕЛЕФОНАХ:**
+  1. В `src/app/components/service-heroes/meta-ads-editorial-hero.css` для вьюпортов `<= 480px` размер заголовка переведён на `--meta-title-size: clamp(1.05rem, 4.8cqw, 1.35rem); font-size: min(var(--meta-title-size), 4.8cqw); max-width: 100%;`. Строка «привожу клиентов, а не просто лиды» (34 символа) гарантированно укладывается в контейнер на экранах 320–390px с запасом в 40+ px.
+  2. В `MetaAdsEditorialHero.tsx` нижняя граница подгонки `minFontSize` снижена с 18 до 13 (`data-ww-title-fit-min="13"`).
+  3. В `src/app/utils/contentTypography.ts` (`useManagedTitleFit`) и `scripts/title-prefit.js` алгоритм подгонки кегля дополнен безопасным бинарным спуском до `safeFloor` (до 12px), исключая сброс в авторский 24px-размер при переполнении.
+- **РЕАЛИЗОВАН КОНТРОЛ РАЗМЕРА ДЛЯ КАЖДОЙ СТРОКИ ЗАГОЛОВКА («РАЗМЕР СТРОКИ»):**
+  1. В `src/app/components/HeroTitleEffect.tsx` внедрена поддержка `size?: 'inherit' | 'compact' | 'normal' | 'large'` в `HeroTitleLine`, вычисляющая масштаб `0.82em` / `1em` / `1.2em`.
+  2. В `src/app/components/admin/AdminContentControl.tsx` добавлен селектор «Размер строки» в `TitleLineStyleControls`, сохранение поля `size` в дефолтах и санитизаторе.
+  3. В `scripts/generate-pages.js` поддержан `line.size` в серверной генерации `#ww-static-shell`.
+  4. В `src/styles/index.css` добавлены правила для `.ww-managed-title-mobile-size`, `.ww-managed-title-desktop-size`, `.ww-managed-body-mobile-size`, `.ww-managed-body-desktop-size` и атрибутов `[data-hero-line-size]`.
+- **РЕАЛИЗОВАН ЭКСПОРТ СДЕЛОК В CSV И ПАКЕТНАЯ СМЕНА ЭТАПОВ В CRM (Фаза 2):**
+  1. В `src/app/components/admin/AdminLeads.tsx` внедрена функция `exportLeadsToCsv` с генерацией UTF-8 BOM `\uFEFF`, разделителем `;` и защитой от CSV/Excel formula injection (`defuseLeadCsv`). Кнопка «Выгрузить CSV» добавлена в тулбар и тулбар пакетных действий.
+  2. В `functions/api/admin/lead-crm.ts` добавлен эндпоинт `bulk_update_stage`, позволяющий в один клик переводить выбранные сделки на любой этап воронки.
+  3. В `src/app/components/admin/AdminLeads.tsx` в панель массовых действий `admin-crm-list__bulk` добавлен селектор смены этапа с подтверждением через `confirmAsk`.
+- **РЕАЛИЗОВАН РАСЧЕТ И ОТОБРАЖЕНИЕ СКВОЗНОЙ КОНВЕРСИИ ВОРОНКИ (Stage-to-Stage CR):**
+  1. В `functions/api/admin/crm-analytics.ts` добавлен расчёт массива `funnel` со сквозными метриками перехода: `stageCr` (конверсия из предыдущего этапа) и `totalCr` (конверсия от входа).
+  2. В `src/app/components/admin/CrmAnalytics.tsx` добавлен блок визуализации воронки с бейджами конверсий для каждого шага.
+  3. В `src/styles/admin-ui.css` добавлены стили для `.crm-funnel-steps`.
 - **ВЕРИФИКАЦИЯ:**
-  - Полный сквозной прогон `npm run check` (все 46 тест-сьютов, TypeScript app/functions, сборка, SEO-контракты): **100% PASS (Exit code 0)**.
+  - `typecheck:app` — 0 ошибок.
+  - `typecheck:functions` — 0 ошибок.
+  - `test:audit-admin-crm-ui` — 27/27 PASS (100%).
+  - `test:site-content-compatibility` — 7/7 PASS (100%).
+  - `test:audit-regressions` — 108/108 PASS (100%).
 
 **Сделано 27.10.2026 (Сессия SEO, GEO & AEO Full Platform Optimization v8.0):**
 - **РЕАЛИЗОВАН ПЕРВЫЙ ЭТАП СКВОЗНОЙ ОПТИМИЗАЦИИ ПОИСКОВОГО И ИИ-ПРИСУТСТВИЯ (SEO / GEO / AEO):**

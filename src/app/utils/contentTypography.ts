@@ -691,6 +691,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       }
 
       const floor = Math.min(authoredSize, minFontSize);
+      const safeFloor = Math.max(8, Math.min(floor, 12));
       let low = floor;
       let high = authoredSize;
       let best = floor;
@@ -744,7 +745,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
           return;
         }
 
-        element.style.setProperty('font-size', `${floor}px`, 'important');
+        element.style.setProperty('font-size', `${safeFloor}px`, 'important');
         if (withinWidth()) {
           low = floor;
           high = authoredSize;
@@ -772,10 +773,11 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
        * уменьшаем ровно до той величины, при которой он помещается.
        */
       if (!withinWidth()) {
-        let safeLow = floor;
+
+        let safeLow = safeFloor;
         let safeHigh = best;
-        let safeBest = floor;
-        element.style.setProperty('font-size', `${floor}px`, 'important');
+        let safeBest = safeFloor;
+        element.style.setProperty('font-size', `${safeFloor}px`, 'important');
         if (withinWidth()) {
           for (let iteration = 0; iteration < 12 && safeHigh - safeLow > 0.1; iteration += 1) {
             const candidate = (safeLow + safeHigh) / 2;

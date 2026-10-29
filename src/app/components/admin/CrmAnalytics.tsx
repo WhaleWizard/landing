@@ -21,6 +21,7 @@ interface AnalyticsResponse {
   checkedAt?: string;
   currency?: string;
   stages?: StageRow[];
+  funnel?: Array<{ stage: string; label: string; count: number; stageCr: number | null; totalCr: number | null }>;
   totals?: {
     leads: number; open: number; won: number; lost: number;
     winRate: number | null;
@@ -373,6 +374,42 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
           />
         </section>
       </div>
+
+      {data.funnel && data.funnel.length > 0 ? (
+        <section className="admin-panel adm-card">
+          <header className="adm-card__head">
+            <h3 className="admin-card-title"><TrendingUp aria-hidden="true" /> Воронка и конверсия этапов (CR)</h3>
+            <p className="admin-hint">
+              Сквозной путь сделок: процент перехода на следующий шаг и общая конверсия от входа.
+            </p>
+          </header>
+          <div className="crm-funnel-steps">
+            {data.funnel.map((step, idx) => (
+              <div key={step.stage} className="crm-funnel-step">
+                <div className="crm-funnel-step__head">
+                  <span className="crm-funnel-step__index">{idx + 1}</span>
+                  <strong className="crm-funnel-step__name">{step.label}</strong>
+                  <span className="crm-funnel-step__count">{formatNumber(step.count)} сделок</span>
+                </div>
+                <div className="crm-funnel-step__metrics">
+                  {step.stageCr !== null ? (
+                    <span className="crm-funnel-step__badge" title="Конверсия из предыдущего шага">
+                      Конверсия шага: {formatPercent(step.stageCr)}
+                    </span>
+                  ) : (
+                    <span className="crm-funnel-step__badge crm-funnel-step__badge--start">Начало</span>
+                  )}
+                  {step.totalCr !== null ? (
+                    <span className="crm-funnel-step__badge crm-funnel-step__badge--total" title="Общая конверсия от входа">
+                      Сквозная: {formatPercent(step.totalCr)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="admin-panel adm-card adm-card--quiet">
         <header className="adm-card__head">

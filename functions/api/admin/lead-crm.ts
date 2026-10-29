@@ -1055,9 +1055,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'D1 is not configured' }, { status: 503, headers: noStore });
   }
 
+  const action = String(body.action || 'update_lead');
+  if (action === 'bulk_update_stage') {
+    const rawIds = Array.isArray(body.ids) ? body.ids : [];
+    const ids = rawIds.map((item) => Number(item)).filter((id) => Number.isInteger(id) && id > 0);
+    if (!ids.length) {
+      return json({ success: false, error: 'Требуется непустой список идентификаторов сделок' }, { status: 400, headers: noStore });
+    }
+    const targetStage = String(body.pipeline_stage || '').trim();
+    const validStages = new Set(['new', 'contacted', 'discovery', 'proposal', 'won', 'lost', 'archived']);
+    if (!validStages.has(targetStage)) {
+      return json({ success: false, error: 'Недопустимый этап сделки' }, { status: 400, headers: noStore });
+    }
+    try {
+      await assertAdminCrmSchema(env.DB, 'base');
+      const placeholders = ids.map(() => '?').join(',');
+      await env.DB.prepare(
+        `UPDATE leads SET pipeline_stage = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`
+      ).bind(targetStage, ...ids).run();
+      return json({ success: true, action: 'bulk_update_stage', count: ids.length, pipeline_stage: targetStage }, { headers: noStore });
+    } catch (error) {
+      return handleError(error, 'Failed to bulk update stage');
+    }
+  }
+
   const leadId = parsePositiveInteger(body.lead_id ?? body.id);
   if (!leadId) return json({ success: false, error: 'A valid lead_id is required' }, { status: 400, headers: noStore });
-  const action = String(body.action || 'update_lead');
   try {
     const requirement = action === 'update_lead' ? 'base' : 'correctness';
     const capabilities = await assertAdminCrmSchema(env.DB, requirement);

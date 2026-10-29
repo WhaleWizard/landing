@@ -54,6 +54,9 @@ export const HERO_TITLE_EFFECT_SPEED_OPTIONS = HERO_TITLE_EFFECT_SPEEDS.map((val
   label: HERO_TITLE_EFFECT_SPEED_LABELS[value],
 }));
 
+export const HERO_TITLE_LINE_SIZES = ['inherit', 'compact', 'normal', 'large'] as const;
+export type HeroTitleLineSize = (typeof HERO_TITLE_LINE_SIZES)[number];
+
 export type HeroTitleTone = 'default' | 'accent' | 'supporting';
 
 /**
@@ -68,6 +71,7 @@ export type HeroTitleLine = {
   font?: ContentFontId;
   effect?: HeroTitleEffect;
   speed?: HeroTitleEffectSpeed;
+  size?: HeroTitleLineSize;
 };
 
 export type HeroTitleAnimation = {
@@ -107,6 +111,14 @@ export function heroTitleLineFontStyle(font: unknown): CSSProperties | undefined
   return { fontFamily: fontFamilyForContent(font, 'title') };
 }
 
+/** Размер конкретной строки; inherit и undefined дают наследование кегля всего заголовка. */
+export function heroTitleLineSizeStyle(size: unknown): CSSProperties | undefined {
+  if (size === 'compact') return { fontSize: '0.82em' };
+  if (size === 'normal') return { fontSize: '1em' };
+  if (size === 'large') return { fontSize: '1.2em' };
+  return undefined;
+}
+
 export type ResolvedHeroTitleLine<T extends HeroTitleLine = HeroTitleLine> = {
   line: T;
   effect: HeroTitleEffect;
@@ -130,18 +142,23 @@ export function resolveHeroTitleLines<T extends HeroTitleLine>(
     const effect = normalizeHeroTitleEffect(line.effect, normalizeHeroTitleEffect(source.effect));
     const speed = normalizeHeroTitleEffectSpeed(line.speed, normalizeHeroTitleEffectSpeed(source.speed));
     const fontStyle = heroTitleLineFontStyle(line.font);
+    const sizeStyle = heroTitleLineSizeStyle(line.size);
     const lineDelay = currentDelay;
 
     if (effect !== 'none') {
       currentDelay += heroTitleSequenceGapMs(effect, speed);
     }
 
+    const mergedStyle = baseStyle || fontStyle || sizeStyle
+      ? { ...baseStyle, ...fontStyle, ...sizeStyle }
+      : undefined;
+
     return {
       line,
       effect,
       speed,
       delayMs: lineDelay,
-      style: baseStyle || fontStyle ? { ...baseStyle, ...fontStyle } : undefined,
+      style: mergedStyle,
     };
   });
 }
@@ -159,11 +176,15 @@ export function resolveHeroTitleLine(
 } {
   const source = animation || {};
   const fontStyle = heroTitleLineFontStyle(line?.font);
+  const sizeStyle = heroTitleLineSizeStyle(line?.size);
+  const mergedStyle = baseStyle || fontStyle || sizeStyle
+    ? { ...baseStyle, ...fontStyle, ...sizeStyle }
+    : undefined;
   return {
     effect: normalizeHeroTitleEffect(line?.effect, normalizeHeroTitleEffect(source.effect)),
     speed: normalizeHeroTitleEffectSpeed(line?.speed, normalizeHeroTitleEffectSpeed(source.speed)),
     delayMs: source.delayMs,
-    style: baseStyle || fontStyle ? { ...baseStyle, ...fontStyle } : undefined,
+    style: mergedStyle,
   };
 }
 

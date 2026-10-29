@@ -59,7 +59,7 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
   const { scrollToWhenReady } = useScrollTo();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 18 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 13 });
   const titleAnimation = content.titleAnimation || {};
 
   const scrollTo = (elementId: 'contact' | 'cases') => {
@@ -96,7 +96,7 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                   ref={titleRef}
                   id="meta-editorial-title"
                   data-ww-title-fit="2/0"
-                  data-ww-title-fit-min="18"
+                  data-ww-title-fit-min="13"
                   className={`meta-editorial-hero__title ${managedTitleClasses(content.typography, 'hero')}`}
                   style={managedTitleStyle(content.typography)}
                 >

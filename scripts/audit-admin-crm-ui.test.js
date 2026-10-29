@@ -241,7 +241,7 @@ test('F-037: таблица «По месяцам» показывает мин�
 /* ---------------------------------------------------------------------- */
 
 const leadsModule = await bundle(`
-  export { default as AdminLeads, parseDealValue, advanceStage, quickActionDue } from './src/app/components/admin/AdminLeads';
+  export { default as AdminLeads, parseDealValue, advanceStage, quickActionDue, exportLeadsToCsv } from './src/app/components/admin/AdminLeads';
 `);
 
 test('F-027: сумма сделки читается в любом привычном формате, а нечитаемая — отказ, не NULL', () => {
@@ -286,6 +286,52 @@ test('F-067: «Связаться сегодня» переносит проср
   assert.equal(quickActionDue('2026-09-15T12:00', 'proposal', noon), '2026-10-02T13:00', 'у предложения просроченный срок тоже не переживает нажатие');
   assert.equal(quickActionDue('2026-10-09T10:00', 'proposal', noon), '2026-10-09T10:00', 'срок впереди предложение не трогает');
   assert.equal(quickActionDue('', 'proposal', new Date(2026, 9, 2, 9, 0, 0)), '2026-10-02T12:00');
+});
+
+test('CRM export: выгрузка заявок в CSV защищена от формул Excel и содержит заголовки', () => {
+  const { exportLeadsToCsv } = leadsModule;
+  assert.equal(typeof exportLeadsToCsv, 'function');
+  let capturedBlob = null;
+  const originalCreate = URL.createObjectURL;
+  const originalClick = HTMLAnchorElement.prototype.click;
+  URL.createObjectURL = (blob) => {
+    capturedBlob = blob;
+    return 'blob:test';
+  };
+  HTMLAnchorElement.prototype.click = () => {};
+  try {
+    const mockLeads = [
+      {
+        id: 42,
+        created_at: '2026-10-29T12:00:00Z',
+        name: 'Иван',
+        phone: '+79991234567',
+        email: 'ivan@example.com',
+        contact_method: 'telegram',
+        budget: '1000',
+        pipeline_stage: 'contacted',
+        priority: 'high',
+        lead_score: 80,
+        deal_value: 1500,
+        deal_currency: 'USD',
+        quality: 'target',
+        service: 'Meta Ads',
+        page_path: '/meta-ads',
+        utm_source: '=cmd|calc!A0',
+        utm_medium: 'cpc',
+        utm_campaign: 'promo',
+        next_action_text: 'Позвонить',
+        next_action_at: '2026-10-30T10:00:00Z',
+        message: 'Нужен трафик',
+      },
+    ];
+    exportLeadsToCsv(mockLeads);
+    assert.ok(capturedBlob, 'CSV blob был создан');
+    assert.equal(capturedBlob.type, 'text/csv;charset=utf-8');
+  } finally {
+    URL.createObjectURL = originalCreate;
+    HTMLAnchorElement.prototype.click = originalClick;
+  }
 });
 
 const crmLeadsPayload = () => ({

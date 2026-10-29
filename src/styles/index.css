@@ -762,3 +762,35 @@ input[type='number']::-webkit-outer-spin-button {
     animation: none;
   }
 }
+
+.ww-managed-title-mobile-size {
+  font-size: var(--ww-content-title-size-mobile) !important;
+}
+
+@media (min-width: 768px) {
+  .ww-managed-title-desktop-size {
+    font-size: var(--ww-content-title-size-desktop) !important;
+  }
+}
+
+.ww-managed-body-mobile-size {
+  font-size: var(--ww-content-body-size-mobile) !important;
+}
+
+@media (min-width: 768px) {
+  .ww-managed-body-desktop-size {
+    font-size: var(--ww-content-body-size-desktop) !important;
+  }
+}
+
+[data-hero-line-size="compact"] {
+  font-size: 0.82em !important;
+}
+
+[data-hero-line-size="normal"] {
+  font-size: 1em !important;
+}
+
+[data-hero-line-size="large"] {
+  font-size: 1.2em !important;
+}

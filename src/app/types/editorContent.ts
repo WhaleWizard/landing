@@ -1,6 +1,6 @@
 import type { ServiceType } from '../pages/ServiceLandingPage';
 import type { ContentFontId, NormalizedContentTypography } from '../utils/contentTypography';
-import type { HeroTitleEffect, HeroTitleEffectSpeed } from '../components/HeroTitleEffect';
+import type { HeroTitleEffect, HeroTitleEffectSpeed, HeroTitleLineSize } from '../components/HeroTitleEffect';
 
 export type TypographySettings = NormalizedContentTypography;
 
@@ -24,6 +24,7 @@ export type EditableContent = {
       font?: ContentFontId;
       effect?: HeroTitleEffect;
       speed?: HeroTitleEffectSpeed;
+      size?: HeroTitleLineSize;
     }>;
     paragraphs: string[];
     primaryButton: string;

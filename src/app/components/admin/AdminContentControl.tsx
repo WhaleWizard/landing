@@ -47,6 +47,7 @@ import {
   HERO_TITLE_EFFECT_SPEED_OPTIONS,
   type HeroTitleEffect,
   type HeroTitleEffectSpeed,
+  type HeroTitleLineSize,
 } from '../HeroTitleEffect';
 import AdminFaqControl from './AdminFaqControl';
 import AdminDisclosure from './AdminDisclosure';
@@ -171,6 +172,7 @@ function homeDefaults(): EditableContent {
         font: line.font,
         effect: line.effect,
         speed: line.speed,
+        size: line.size,
       })),
       paragraphs: defaultHeroContent.paragraphs.map(String),
       primaryButton: defaultHeroContent.primaryButton,
@@ -223,6 +225,7 @@ function serviceDefaults(service: ServiceType): EditableContent {
         font: line.font,
         effect: line.effect,
         speed: line.speed,
+        size: line.size,
       })),
       paragraphs: (source.hero.paragraphs || []).map(String),
       primaryButton: source.hero.primaryButton || '',
@@ -334,7 +337,7 @@ function validateEditableContent(content: EditableContent): { section: EditorSec
 }
 
 const SEARCHABLE_TEXT_SKIP_KEYS = new Set([
-  'typography', 'titleAnimation', 'visualSlot', 'tone', 'font', 'effect', 'speed',
+  'typography', 'titleAnimation', 'visualSlot', 'tone', 'font', 'effect', 'speed', 'size',
 ]);
 
 /** Все текстовые значения блока — для поиска «где это написано». */
@@ -769,6 +772,17 @@ function TitleLineStyleControls({
         sample={line.text || 'Пример строки'}
         inheritLabel={blockFontLabel ? `Как у заголовка · ${blockFontLabel}` : 'Как у заголовка'}
         onChange={(font) => onChange({ font: font === 'auto' ? undefined : font })}
+      />
+      <AdminSelect
+        label="Размер строки"
+        value={line.size ?? 'inherit'}
+        options={[
+          { value: 'inherit', label: 'Как у заголовка' },
+          { value: 'compact', label: 'Компактный (82%)' },
+          { value: 'normal', label: 'Обычный (100%)' },
+          { value: 'large', label: 'Крупный (120%)' },
+        ]}
+        onValueChange={(next) => onChange({ size: next === 'inherit' ? undefined : next as HeroTitleLineSize })}
       />
       <AdminSelect
         label="Эффект строки"

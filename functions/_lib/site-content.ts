@@ -183,12 +183,15 @@ function dropSupersededStoredFields(key: SiteContentKey, value: UnknownRecord): 
  * can never disappear merely because it resembles an older source version.
  */
 function isLegacyAccidentalMetaAdsHeroFonts(lines: unknown[]): boolean {
-  if (!Array.isArray(lines)) return false;
-  return lines.some((line) => {
-    const row = object(line);
-    return (row.text === 'Реклама в Meta:' && row.font === 'inter')
-      || (row.text === 'привожу клиентов, а не просто лиды' && row.font === 'pangolin');
-  });
+  if (!Array.isArray(lines) || lines.length !== 2) return false;
+  const line0 = object(lines[0]);
+  const line1 = object(lines[1]);
+  return line0.text === 'Реклама в Meta:'
+    && line0.font === 'inter'
+    && !line0.effect
+    && line1.text === 'привожу клиентов, а не просто лиды'
+    && line1.font === 'pangolin'
+    && !line1.effect;
 }
 
 function applyStoredSiteContentCompatibility(
@@ -352,6 +355,7 @@ function sanitizeHero(value: unknown): UnknownRecord | undefined {
       if (typeof row.font === 'string' && CONTENT_TITLE_FONTS.has(row.font)) line.font = row.font;
       if (typeof row.effect === 'string' && HERO_EFFECTS.has(row.effect)) line.effect = row.effect;
       if (typeof row.speed === 'string' && HERO_SPEEDS.has(row.speed)) line.speed = row.speed;
+      if (typeof row.size === 'string' && ['compact', 'normal', 'large'].includes(row.size)) line.size = row.size;
       return line;
     }).filter(Boolean);
     // Пустой массив осмыслен: он переключает Hero обратно на две части

@@ -1506,6 +1506,9 @@ function renderHeroShellTitle(hero, fallbackTitle) {
     const lineStyle = ['display:block'];
     const lineFamily = shellFontFamily(line?.font);
     if (lineFamily) lineStyle.push(`font-family:${lineFamily}`);
+    if (line?.size === 'compact') lineStyle.push('font-size:0.82em');
+    else if (line?.size === 'normal') lineStyle.push('font-size:1em');
+    else if (line?.size === 'large') lineStyle.push('font-size:1.2em');
     if (line?.tone === 'accent') {
       lineStyle.push('background:linear-gradient(90deg,#8b5cf6,#38bdf8,#60a5fa)', 'background-clip:text', '-webkit-background-clip:text', 'color:transparent', 'padding-bottom:.18em', 'margin-bottom:-.18em');
     }

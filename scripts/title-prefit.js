@@ -87,6 +87,21 @@
     if (!fits(el, maxLines)) {
       // Даже минимальный кегль не укладывает текст в лимит — хук в этом случае
       // оставляет авторский размер. Делаем то же самое.
+      var safeFloor = Math.max(4, Math.min(floor, 12));
+      el.style.setProperty('font-size', safeFloor + 'px', 'important');
+      if (fits(el, maxLines)) {
+        var sLow = safeFloor;
+        var sHigh = floor;
+        var sBest = safeFloor;
+        for (var si = 0; si < 12 && sHigh - sLow > 0.1; si += 1) {
+          var sCandidate = (sLow + sHigh) / 2;
+          el.style.setProperty('font-size', sCandidate + 'px', 'important');
+          if (fits(el, maxLines)) { sBest = sCandidate; sLow = sCandidate; } else { sHigh = sCandidate; }
+        }
+        el.style.setProperty('font-size', Math.floor(sBest * 10) / 10 + 'px', 'important');
+        el.setAttribute(DONE_ATTR, '');
+        return;
+      }
       el.style.removeProperty('font-size');
       el.setAttribute(DONE_ATTR, '');
       return;

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
+  Download,
   Mail,
   MessageCircle,
   Plus,
@@ -369,6 +370,70 @@ export function quickActionDue(current: string, kind: 'today' | 'proposal', now:
   const inFuture = valid && existing.getTime() > now.getTime();
   if (kind === 'proposal') return inFuture ? current : todaySlot(now, 12);
   return inFuture && toIsoDate(existing) === toIsoDate(now) ? current : todaySlot(now, 18);
+}
+
+function defuseLeadCsv(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value).trim();
+  if (!str) return '';
+  const first = str[0];
+  if (first === '-' && /^-?[\d\s.,]+%?$/.test(str)) return str;
+  return '=+-@\t\r'.includes(first) ? `'${str}` : str;
+}
+
+function escapeCsvCell(value: unknown): string {
+  const safe = defuseLeadCsv(value);
+  return /[";\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+export function exportLeadsToCsv(rows: LeadRow[]): void {
+  if (!rows.length) return;
+  const headers = [
+    'ID', 'Дата создания', 'Имя', 'Телефон', 'Email',
+    'Способ связи', 'Бюджет', 'Этап', 'Приоритет', 'Оценка',
+    'Сумма', 'Валюта', 'Качество', 'Услуга', 'Страница',
+    'UTM Source', 'UTM Medium', 'UTM Campaign',
+    'Следующий шаг', 'Дата шага', 'Сообщение'
+  ];
+  const headerLine = headers.map(escapeCsvCell).join(';');
+  const dataLines = rows.map((lead) => [
+    lead.id,
+    lead.created_at || '',
+    lead.name || '',
+    lead.phone || '',
+    lead.email || '',
+    lead.contact_method || '',
+    lead.budget || '',
+    stageLabel(lead.pipeline_stage),
+    priorityLabel(lead.priority),
+    lead.lead_score || 0,
+    lead.deal_value ?? '',
+    lead.deal_currency || '',
+    lead.quality || '',
+    lead.service || '',
+    lead.page_path || '',
+    lead.utm_source || '',
+    lead.utm_medium || '',
+    lead.utm_campaign || '',
+    lead.next_action_text || '',
+    lead.next_action_at || '',
+    lead.message || ''
+  ].map(escapeCsvCell).join(';'));
+
+  const csvContent = [headerLine, ...dataLines].join('\n');
+  const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+  try {
+    link.click();
+  } catch {
+    // jsdom navigation stub
+  }
+  if (typeof URL.revokeObjectURL === 'function') {
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
 }
 
 const LEAD_QUALITY_CONSENT_MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000;
@@ -1494,6 +1559,35 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  const bulkUpdateStage = async (newStage: PipelineStage) => {
+    if (!checkedIds.length) return;
+    const confirmed = await confirmAsk({
+      title: `Перевести ${checkedIds.length} сделок на этап «${stageLabel(newStage)}»?`,
+      description: 'Этап обновится у всех выбранных сделок.',
+      confirmLabel: 'Перевести',
+    });
+    if (!confirmed) return;
+    setBulkBusy(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/lead-crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'bulk_update_stage', ids: checkedIds, pipeline_stage: newStage }),
+      });
+      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
+      notify.success('Этап обновлён', `${checkedIds.length} сделок переведено на «${stageLabel(newStage)}».`);
+      setCheckedIds([]);
+      await load(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось обновить этап');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   /**
    * Слияние группы: все дубли по очереди складываются в первую заявку.
    * Ничего не удаляется — дубли уходят в корзину, и любой можно вернуть.
@@ -1661,6 +1755,15 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
         <AdminSelect ariaLabel="Приоритет" value={priority} options={[{ value: 'all', label: 'Все приоритеты' }, ...PRIORITIES]} onValueChange={setPriority} />
         <AdminSelect ariaLabel="Следующее действие" value={due} options={[{ value: 'all', label: 'Любой срок' }, { value: 'overdue', label: 'Просрочено' }, { value: 'today', label: 'Сегодня' }, { value: 'upcoming', label: 'Запланировано' }, { value: 'none', label: 'Без следующего шага' }]} onValueChange={setDue} />
         <AdminSelect ariaLabel="Сортировка" value={sort} options={[{ value: 'recent', label: 'Сначала новые' }, { value: 'next_action', label: 'По следующему действию' }, { value: 'priority', label: 'По приоритету' }, { value: 'score', label: 'По оценке лида' }, { value: 'value', label: 'По сумме сделки' }, { value: 'oldest', label: 'Сначала старые' }]} onValueChange={setSort} />
+        <button
+          type="button"
+          className="admin-button admin-button--quiet"
+          onClick={() => exportLeadsToCsv(checkedIds.length ? leads.filter((item) => checkedIds.includes(item.id)) : leads)}
+          disabled={!leads.length}
+          title="Выгрузить заявки в CSV (UTF-8 BOM ;)"
+        >
+          <Download aria-hidden="true" /> CSV
+        </button>
       </div>
 
       <div className="admin-crm-layout">
@@ -1685,6 +1788,23 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
             <div className="admin-crm-list__bulk" role="status">
               <span>Выбрано: {checkedIds.length}</span>
               <button className="admin-button admin-button--quiet" type="button" onClick={() => setCheckedIds([])} disabled={bulkBusy}>Снять</button>
+              <button
+                type="button"
+                className="admin-button admin-button--quiet"
+                onClick={() => exportLeadsToCsv(leads.filter((item) => checkedIds.includes(item.id)))}
+                disabled={bulkBusy}
+                title="Экспорт выбранных в CSV"
+              >
+                <Download aria-hidden="true" /> CSV
+              </button>
+              <AdminSelect
+                ariaLabel="Сменить этап для выбранных"
+                value="default"
+                options={[{ value: 'default', label: 'Сменить этап…' }, ...PIPELINE_STAGES]}
+                onValueChange={(val) => {
+                  if (val !== 'default') void bulkUpdateStage(val as PipelineStage);
+                }}
+              />
               <button
                 className="admin-button admin-button--danger"
                 type="button"

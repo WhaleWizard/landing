@@ -202,12 +202,33 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const openPriced = openStages.reduce((sum, stage) => sum + stage.pricedDeals, 0);
     const openWithoutValue = Math.max(0, openCount - openPriced - openStages.reduce((sum, stage) => sum + stage.otherCurrencyDeals, 0));
 
+    const funnelProgression = [
+      { stage: 'new', label: 'Новые', count: stages.filter((s) => ['new', 'contacted', 'discovery', 'proposal', 'won', 'lost'].includes(s.stage)).reduce((acc, s) => acc + s.count, 0) },
+      { stage: 'contacted', label: 'В работе', count: stages.filter((s) => ['contacted', 'discovery', 'proposal', 'won'].includes(s.stage)).reduce((acc, s) => acc + s.count, 0) },
+      { stage: 'discovery', label: 'Квалификация', count: stages.filter((s) => ['discovery', 'proposal', 'won'].includes(s.stage)).reduce((acc, s) => acc + s.count, 0) },
+      { stage: 'proposal', label: 'Предложение', count: stages.filter((s) => ['proposal', 'won'].includes(s.stage)).reduce((acc, s) => acc + s.count, 0) },
+      { stage: 'won', label: 'Выиграны', count: wonCount },
+    ];
+    const funnel = funnelProgression.map((step, idx, arr) => {
+      const prevCount = idx > 0 ? arr[idx - 1].count : null;
+      const stageCr = prevCount && prevCount > 0 ? round((step.count / prevCount) * 100, 1) : null;
+      const totalCr = arr[0].count > 0 ? round((step.count / arr[0].count) * 100, 1) : null;
+      return {
+        stage: step.stage,
+        label: step.label,
+        count: step.count,
+        stageCr,
+        totalCr,
+      };
+    });
+
     return json({
       success: true,
       checkedAt: new Date().toISOString(),
       currency,
       otherCurrencies: others,
       stages,
+      funnel,
       totals: {
         leads: totalLeads,
         open: number(health?.open_deals),
