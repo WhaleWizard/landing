@@ -746,3 +746,29 @@ test('B2-M4-CROPPER: Smart Cropper модалка, пропорции кадри
   assert.match(adminUiCss, /admin-cropper-preset-btn/, 'Стили кнопок пресетов пропорций');
 });
 
+// ---------------------------------------------------------------------------
+// Блок 2 / Модуль 5: Launchpad — Интерактивные чек-листы запуска рекламы
+
+test('B2-M5-LAUNCHPAD: Чек-листы запуска рекламы, шаблоны Meta/Google, префлайт-отчет, критичные блокираторы и навигация', async () => {
+  const launchpadSource = await source('src/app/components/admin/AdminLaunchpad.tsx');
+  assert.match(launchpadSource, /export default function AdminLaunchpad/, 'Компонент AdminLaunchpad экспортирован');
+  assert.match(launchpadSource, /meta_leads/, 'Шаблон чек-листа Meta Ads Лидогенерация');
+  assert.match(launchpadSource, /google_search/, 'Шаблон чек-листа Google Ads');
+  assert.match(launchpadSource, /express_audit/, 'Шаблон экспресс-аудита клиента');
+  assert.match(launchpadSource, /handleCopyReport/, 'Функция генерации и копирования префлайт-отчета');
+  assert.match(launchpadSource, /hasCriticalPending/, 'Контроль критических блокираторов');
+
+  const adminSource = await source('src/app/pages/Admin.tsx');
+  assert.match(adminSource, /const AdminLaunchpad = lazy/, 'Ленивый импорт AdminLaunchpad');
+  assert.match(adminSource, /key: 'launchpad', label: 'Чек-листы запуска', icon: Rocket/, 'Пункт в навигации админки');
+  assert.match(adminSource, /adminView === 'launchpad' && <AdminLaunchpad/, 'Рендер раздела launchpad');
+  assert.match(adminSource, /launchpad: \['запуск', 'чек-лист', 'префлайт'/, 'Ключевые слова для палитры Ctrl+K');
+
+  const adminUiCss = await source('src/styles/admin-ui.css');
+  assert.match(adminUiCss, /admin-launchpad-container/, 'Стили контейнера launchpad');
+  assert.match(adminUiCss, /admin-launchpad-template-card/, 'Стили карточек шаблонов');
+  assert.match(adminUiCss, /admin-launchpad-progress-bar-fill/, 'Стили прогресс-бара готовности');
+  assert.match(adminUiCss, /admin-launchpad-item/, 'Стили пунктов чек-листа');
+});
+
+
