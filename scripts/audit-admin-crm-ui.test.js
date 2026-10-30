@@ -82,6 +82,66 @@ const reactModule = await bundle(`
 `);
 const { createElement, act, createRoot } = reactModule;
 
+const unitEconModule = await bundle(`export { default as AdminUnitEconomics } from './src/app/components/admin/AdminUnitEconomics';`);
+
+test('PA-01: zero or cleared unit-economics input shows guidance instead of NaN and disables export', async () => {
+  localStorage.removeItem('ww_unit_economics_state');
+  const view = await mount(unitEconModule.AdminUnitEconomics, {});
+  const target = view.container.querySelector('#unit-target-revenue');
+  for (const value of ['0', '', '-10']) {
+    await type(target, value);
+    assert.match(view.container.textContent, /Укажите параметры для расчёта/);
+    assert.doesNotMatch(view.container.textContent, /NaN|Infinity|Отличная юнит-экономика/);
+    const copy = [...view.container.querySelectorAll('button')].find(b => b.textContent.includes('Копировать план'));
+    assert.equal(copy.disabled, true);
+  }
+  await type(target, '10000');
+  assert.match(view.container.textContent, /CPL не выше \$56\.16/);
+  assert.doesNotMatch(view.container.textContent, /56\.16 - \$30/);
+  await view.unmount();
+  localStorage.removeItem('ww_unit_economics_state');
+});
+
+test('PA-02: all unit-economics presets keep number fields and sliders on the same valid step', async () => {
+  localStorage.removeItem('ww_unit_economics_state');
+  const view = await mount(unitEconModule.AdminUnitEconomics, {});
+  const presets = [...view.container.querySelectorAll('.admin-unit-econ-preset-chip')];
+  for (const preset of presets) {
+    await click(preset);
+    for (const field of view.container.querySelectorAll('.admin-unit-econ-field')) {
+      const number = field.querySelector('input[type="number"]');
+      const range = field.querySelector('input[type="range"]');
+      if (number) assert.equal(range.value, number.value, preset.textContent);
+      const steps = (Number(range.value) - Number(range.min)) / Number(range.step);
+      assert.ok(Math.abs(steps - Math.round(steps)) < 1e-7, preset.textContent);
+    }
+  }
+  await view.unmount();
+  localStorage.removeItem('ww_unit_economics_state');
+});
+
+test('PA-03: exported plan does not recommend scaling a first-purchase loss despite high LTV', async () => {
+  localStorage.removeItem('ww_unit_economics_state');
+  let exported = '';
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { exported = text; } } });
+  const view = await mount(unitEconModule.AdminUnitEconomics, {});
+  try {
+    await type(view.container.querySelector('#unit-cpc'), '6');
+    assert.match(view.container.textContent, /Экономика убыточна/);
+    assert.match(view.container.textContent, /CPC \$5\.61/);
+    await click([...view.container.querySelectorAll('button')].find(b => b.textContent.includes('Копировать план')));
+    assert.match(exported, /высокий риск при масштабировании/);
+    assert.doesNotMatch(exported, /Экономика сходится с запасом/);
+    assert.match(exported, /до остальных расходов и налогов/);
+  } finally {
+    await view.unmount();
+    localStorage.removeItem('ww_unit_economics_state');
+    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
+    else delete navigator.clipboard;
+  }
+});
+
 /** Рисует компонент в jsdom и возвращает корень вместе с контейнером. */
 async function mount(Component, props) {
   const container = document.createElement('div');

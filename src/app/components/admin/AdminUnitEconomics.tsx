@@ -14,6 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
+import { calculateAdminUnitEconomics } from '../../utils/adminUnitEconomics';
 
 export interface UnitEconPreset {
   id: string;
@@ -174,82 +175,14 @@ export default function AdminUnitEconomics() {
     notify.success(`Применен пресет: ${preset.name}`);
   };
 
-  // Calculations
-  const calculations = useMemo(() => {
-    const safeCheck = Math.max(averageCheck, 1);
-    const safeMargin = Math.max(marginPercent, 1) / 100;
-    const safeLeadDealRate = Math.max(leadToDealPercent, 0.1) / 100;
-    const safeSiteConv = Math.max(siteConvPercent, 0.1) / 100;
-    const safeCpc = Math.max(cpc, 0.01);
-    const safeRepeats = Math.max(repeatPurchases, 1);
-
-    // 1. Sales required
-    const dealsNeeded = Math.ceil(targetRevenue / safeCheck);
-
-    // 2. Leads required
-    const leadsNeeded = Math.ceil(dealsNeeded / safeLeadDealRate);
-
-    // 3. Traffic required
-    const clicksNeeded = Math.ceil(leadsNeeded / safeSiteConv);
-
-    // 4. Advertising budget
-    const estimatedBudget = Math.round(clicksNeeded * safeCpc);
-
-    // 5. CPL & CAC
-    const calculatedCpl = Number((safeCpc / safeSiteConv).toFixed(2));
-    const calculatedCac = Number((calculatedCpl / safeLeadDealRate).toFixed(2));
-
-    // 6. Revenue & Gross Profit
-    const actualRevenue = dealsNeeded * safeCheck;
-    const grossProfit = Math.round(actualRevenue * safeMargin);
-
-    // 7. Net Profit & ROMI
-    const netProfit = grossProfit - estimatedBudget;
-    const romi = estimatedBudget > 0 ? Math.round(((netProfit) / estimatedBudget) * 100) : 0;
-    const roas = estimatedBudget > 0 ? Number((actualRevenue / estimatedBudget).toFixed(2)) : 0;
-
-    // 8. Unit Economics & LTV
-    const grossProfitPerDeal = safeCheck * safeMargin;
-    const ltv = Math.round(grossProfitPerDeal * safeRepeats);
-    const ltvCacRatio = calculatedCac > 0 ? Number((ltv / calculatedCac).toFixed(1)) : 0;
-
-    // 9. Break-even thresholds
-    // Break-even CAC: gross profit per single purchase
-    const breakEvenCac = Math.round(grossProfitPerDeal);
-    const breakEvenCpl = Number((breakEvenCac * safeLeadDealRate).toFixed(2));
-    // Target CPL at ROMI 150%
-    const targetCplForRomi150 = Number((breakEvenCpl / 2.5).toFixed(2));
-
-    return {
-      dealsNeeded,
-      leadsNeeded,
-      clicksNeeded,
-      estimatedBudget,
-      calculatedCpl,
-      calculatedCac,
-      actualRevenue,
-      grossProfit,
-      netProfit,
-      romi,
-      roas,
-      ltv,
-      ltvCacRatio,
-      breakEvenCac,
-      breakEvenCpl,
-      targetCplForRomi150,
-    };
-  }, [
-    targetRevenue,
-    averageCheck,
-    marginPercent,
-    leadToDealPercent,
-    siteConvPercent,
-    cpc,
-    repeatPurchases,
-  ]);
+  const calculations = useMemo(() => calculateAdminUnitEconomics({
+    targetRevenue, averageCheck, marginPercent, leadToDealPercent,
+    siteConvPercent, cpc, repeatPurchases,
+  }), [targetRevenue, averageCheck, marginPercent, leadToDealPercent, siteConvPercent, cpc, repeatPurchases]);
 
   // Copy proposal summary
   const handleCopySummary = async () => {
+    if (!calculations) return;
     let report = `📊 МЕДИАПЛАН И РАСЧЕТ ЮНИТ-ЭКОНОМИКИ (${scenarioName})\n`;
     report += `--------------------------------------------------\n`;
     report += `🎯 Целевая выручка: $${targetRevenue.toLocaleString('en-US')}\n`;
@@ -268,12 +201,12 @@ export default function AdminUnitEconomics() {
     report += `• Предельный CPL безубыточности: $${calculations.breakEvenCpl}\n`;
     report += `• Стоимость привлечения клиента (CAC): $${calculations.calculatedCac}\n`;
     report += `• Валовая прибыль: $${calculations.grossProfit.toLocaleString('en-US')}\n`;
-    report += `• Чистая прибыль с учетом рекламы: $${calculations.netProfit.toLocaleString('en-US')}\n`;
+    report += `• Прибыль после рекламы (до остальных расходов и налогов): $${calculations.netProfit.toLocaleString('en-US')}\n`;
     report += `• Ожидаемый ROMI: ${calculations.romi}%\n`;
     report += `• LTV / CAC соотношение: ${calculations.ltvCacRatio}x (LTV = $${calculations.ltv})\n\n`;
 
     report += `💡 ВЫВОД: ${
-      calculations.ltvCacRatio >= 3.0
+      calculations.netProfit >= 0 && calculations.ltvCacRatio >= 3.0
         ? 'Модель устойчива и масштабируема. Экономика сходится с запасом.'
         : 'Внимание: высокий риск при масштабировании. Рекомендуется поднять конверсию отдела продаж или средний чек.'
     }\n`;
@@ -312,6 +245,7 @@ export default function AdminUnitEconomics() {
             type="button"
             className="admin-button"
             onClick={handleCopySummary}
+            disabled={!calculations}
             title="Скопировать готовый медиаплан для КП или отчета"
           >
             <Copy className="h-4 w-4 mr-1.5" />
@@ -362,23 +296,25 @@ export default function AdminUnitEconomics() {
             {/* Target Revenue */}
             <div className="admin-unit-econ-field">
               <div className="admin-unit-econ-field-top">
-                <label className="admin-unit-econ-label">
+                <label className="admin-unit-econ-label" htmlFor="unit-target-revenue">
                   Целевая выручка в месяц ($)
                 </label>
                 <input
+                  id="unit-target-revenue"
                   type="number"
-                  min={500}
-                  step={500}
+                  min={0}
+                  step={0.01}
                   className="admin-unit-econ-num-input"
                   value={targetRevenue}
                   onChange={(e) => setTargetRevenue(Number(e.target.value) || 0)}
                 />
               </div>
               <input
+                aria-label="Ползунок: Целевая выручка в месяц ($)"
                 type="range"
-                min={1000}
-                max={100000}
-                step={1000}
+                min={0}
+                max={Math.max(100000, targetRevenue || 0)}
+                step={0.01}
                 className="admin-unit-econ-slider"
                 value={targetRevenue}
                 onChange={(e) => setTargetRevenue(Number(e.target.value))}
@@ -388,23 +324,25 @@ export default function AdminUnitEconomics() {
             {/* Average Check */}
             <div className="admin-unit-econ-field">
               <div className="admin-unit-econ-field-top">
-                <label className="admin-unit-econ-label">
+                <label className="admin-unit-econ-label" htmlFor="unit-average-check">
                   Средний чек одной покупки ($)
                 </label>
                 <input
+                  id="unit-average-check"
                   type="number"
-                  min={10}
-                  step={10}
+                  min={0}
+                  step={0.01}
                   className="admin-unit-econ-num-input"
                   value={averageCheck}
                   onChange={(e) => setAverageCheck(Number(e.target.value) || 0)}
                 />
               </div>
               <input
+                aria-label="Ползунок: Средний чек одной покупки ($)"
                 type="range"
-                min={20}
-                max={10000}
-                step={50}
+                min={0}
+                max={Math.max(10000, averageCheck || 0)}
+                step={0.01}
                 className="admin-unit-econ-slider"
                 value={averageCheck}
                 onChange={(e) => setAverageCheck(Number(e.target.value))}
@@ -414,12 +352,13 @@ export default function AdminUnitEconomics() {
             {/* Margin Percent */}
             <div className="admin-unit-econ-field">
               <div className="admin-unit-econ-field-top">
-                <label className="admin-unit-econ-label">
+                <label className="admin-unit-econ-label" htmlFor="unit-margin">
                   Маржинальность бизнеса (%)
                 </label>
                 <div className="admin-unit-econ-inline-val">{marginPercent}%</div>
               </div>
               <input
+                  id="unit-margin"
                 type="range"
                 min={5}
                 max={95}
@@ -433,12 +372,13 @@ export default function AdminUnitEconomics() {
             {/* Lead to Deal Conv % */}
             <div className="admin-unit-econ-field">
               <div className="admin-unit-econ-field-top">
-                <label className="admin-unit-econ-label">
+                <label className="admin-unit-econ-label" htmlFor="unit-lead-conversion">
                   Конверсия лида в продажу (%)
                 </label>
                 <div className="admin-unit-econ-inline-val">{leadToDealPercent}%</div>
               </div>
               <input
+                  id="unit-lead-conversion"
                 type="range"
                 min={1}
                 max={90}
@@ -455,12 +395,13 @@ export default function AdminUnitEconomics() {
             {/* Site Conversion % */}
             <div className="admin-unit-econ-field">
               <div className="admin-unit-econ-field-top">
-                <label className="admin-unit-econ-label">
+                <label className="admin-unit-econ-label" htmlFor="unit-site-conversion">
                   Конверсия посадочной страницы (%)
                 </label>
                 <div className="admin-unit-econ-inline-val">{siteConvPercent}%</div>
               </div>
               <input
+                  id="unit-site-conversion"
                 type="range"
                 min={0.5}
                 max={20}
@@ -477,24 +418,25 @@ export default function AdminUnitEconomics() {
             {/* CPC */}
             <div className="admin-unit-econ-field">
               <div className="admin-unit-econ-field-top">
-                <label className="admin-unit-econ-label">
+                <label className="admin-unit-econ-label" htmlFor="unit-cpc">
                   Ожидаемая цена клика CPC ($)
                 </label>
                 <input
+                  id="unit-cpc"
                   type="number"
-                  min={0.05}
-                  max={50}
-                  step={0.05}
+                  min={0}
+                  step={0.01}
                   className="admin-unit-econ-num-input"
                   value={cpc}
                   onChange={(e) => setCpc(Number(e.target.value) || 0)}
                 />
               </div>
               <input
+                aria-label="Ползунок: Ожидаемая цена клика CPC ($)"
                 type="range"
-                min={0.1}
-                max={10}
-                step={0.05}
+                min={0}
+                max={Math.max(50, cpc || 0)}
+                step={0.01}
                 className="admin-unit-econ-slider"
                 value={cpc}
                 onChange={(e) => setCpc(Number(e.target.value))}
@@ -504,12 +446,13 @@ export default function AdminUnitEconomics() {
             {/* Repeat Purchases (LTV multiplier) */}
             <div className="admin-unit-econ-field">
               <div className="admin-unit-econ-field-top">
-                <label className="admin-unit-econ-label">
+                <label className="admin-unit-econ-label" htmlFor="unit-repeat-purchases">
                   Повторные покупки за жизненный цикл (LTV)
                 </label>
                 <div className="admin-unit-econ-inline-val">{repeatPurchases}x</div>
               </div>
               <input
+                  id="unit-repeat-purchases"
                 type="range"
                 min={1}
                 max={15}
@@ -523,7 +466,7 @@ export default function AdminUnitEconomics() {
         </div>
 
         {/* Right Column: Calculated Funnel & Economics */}
-        <div className="admin-unit-econ-results">
+        {calculations ? <div className="admin-unit-econ-results">
           {/* KPI Dashboard Grid */}
           <div className="admin-unit-econ-kpi-grid">
             {/* Target Budget */}
@@ -554,10 +497,10 @@ export default function AdminUnitEconomics() {
               </span>
             </div>
 
-            {/* Net Profit */}
+            {/* Contribution after media spend */}
             <div className="admin-unit-econ-kpi-card">
               <div className="admin-unit-econ-kpi-top">
-                <span className="admin-unit-econ-kpi-label">Чистая прибыль</span>
+                <span className="admin-unit-econ-kpi-label">Прибыль после рекламы</span>
                 <TrendingUp className="h-4 w-4 text-emerald-400" />
               </div>
               <div
@@ -568,7 +511,7 @@ export default function AdminUnitEconomics() {
                 ${calculations.netProfit.toLocaleString('en-US')}
               </div>
               <span className="admin-unit-econ-kpi-sub">
-                ROMI: {calculations.romi}% (ROAS {calculations.roas}x)
+                ROMI: {calculations.romi}% (ROAS {calculations.roas}x) · до остальных расходов и налогов
               </span>
             </div>
 
@@ -643,7 +586,7 @@ export default function AdminUnitEconomics() {
             className={`admin-unit-econ-advice-box ${
               calculations.netProfit < 0
                 ? 'danger'
-                : calculations.ltvCacRatio < 2.0
+                : calculations.ltvCacRatio < 3.0
                 ? 'warning'
                 : 'success'
             }`}
@@ -651,7 +594,7 @@ export default function AdminUnitEconomics() {
             <div className="admin-unit-econ-advice-header">
               {calculations.netProfit < 0 ? (
                 <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
-              ) : calculations.ltvCacRatio < 2.0 ? (
+              ) : calculations.ltvCacRatio < 3.0 ? (
                 <HelpCircle className="h-5 w-5 text-amber-400 flex-shrink-0" />
               ) : (
                 <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
@@ -659,7 +602,7 @@ export default function AdminUnitEconomics() {
               <div className="admin-unit-econ-advice-title">
                 {calculations.netProfit < 0
                   ? 'Экономика убыточна при текущих ставках'
-                  : calculations.ltvCacRatio < 2.0
+                  : calculations.ltvCacRatio < 3.0
                   ? 'Пограничная зона эффективности'
                   : 'Отличная юнит-экономика для масштабирования'}
               </div>
@@ -670,10 +613,10 @@ export default function AdminUnitEconomics() {
                 <>
                   При цене клика ${cpc} стоимость привлечения продажи (${calculations.calculatedCac})
                   превышает валовую прибыль (${Math.round(averageCheck * (marginPercent / 100))}).
-                  Чтобы выйти в плюс: снизьте CPC до ${ (cpc * 0.7).toFixed(2) }, поднимите конверсию
-                  сайта до { (siteConvPercent * 1.5).toFixed(1) }% или увеличьте конверсию отдела продаж.
+                  Порог безубыточности первой покупки — CPC ${calculations.breakEvenCpc}.
+                  Для запаса снижайте цену клика ниже этого порога или улучшайте конверсию и маржу.
                 </>
-              ) : calculations.ltvCacRatio < 2.0 ? (
+              ) : calculations.ltvCacRatio < 3.0 ? (
                 <>
                   Кампания окупается, но соотношение LTV/CAC ({calculations.ltvCacRatio}x) не оставляет
                   запаса на колебания рекламных аукционов. Рекомендуется работать над повторными продажами
@@ -681,14 +624,17 @@ export default function AdminUnitEconomics() {
                 </>
               ) : (
                 <>
-                  Каждый вложенный в рекламу $1 приносит ${(calculations.actualRevenue / calculations.estimatedBudget).toFixed(2)} выручки
+                  Каждый вложенный в рекламу $1 приносит ${calculations.roas.toFixed(2)} выручки
                   и LTV клиента покрывает затраты на привлечение в {calculations.ltvCacRatio} раза.
-                  Целевой ориентир для таргетолога в Ads Manager: удерживать CPL в пределах ${calculations.targetCplForRomi150} - ${calculations.calculatedCpl}.
+                  Целевой ориентир для таргетолога в Ads Manager: CPL не выше ${calculations.targetCplForRomi150} для ROMI 150%. Прогноз при текущих параметрах — ${calculations.calculatedCpl}.
                 </>
               )}
             </p>
           </div>
-        </div>
+        </div> : <div className="admin-panel adm-card" role="status">
+          <h3 className="admin-card-title">Укажите параметры для расчёта</h3>
+          <p className="admin-subtitle">Выручка, средний чек и CPC должны быть положительными, проценты — больше 0 и не более 100, число покупок — не меньше 1. Расчёт появится после корректного ввода.</p>
+        </div>}
       </div>
     </div>
   );

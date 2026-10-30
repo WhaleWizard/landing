@@ -23,6 +23,47 @@ const {
   calculateQuote,
 } = calculatorModule.exports;
 
+const adminSource = await readFile(new URL('../src/app/utils/adminUnitEconomics.ts', import.meta.url), 'utf8');
+const adminCompiled = await transform(adminSource, { loader: 'ts', format: 'cjs', target: 'node20' });
+const adminModule = { exports: {} };
+new Function('module', 'exports', adminCompiled.code)(adminModule, adminModule.exports);
+const { calculateAdminUnitEconomics } = adminModule.exports;
+const adminBase = { targetRevenue: 10000, averageCheck: 1200, marginPercent: 65, leadToDealPercent: 18, siteConvPercent: 4, cpc: 1.2, repeatPurchases: 5.5 };
+
+test('admin unit economics: independently checked B2B funnel and contribution', () => {
+  const result = calculateAdminUnitEconomics(adminBase);
+  assert.deepEqual([result.dealsNeeded, result.leadsNeeded, result.clicksNeeded], [9, 50, 1250]);
+  assert.equal(result.estimatedBudget, 1500);
+  assert.equal(result.actualRevenue, 10800);
+  assert.equal(result.grossProfit, 7020);
+  assert.equal(result.netProfit, 5520);
+  assert.equal(result.romi, 368);
+  assert.equal(result.roas, 7.2);
+  assert.equal(result.calculatedCpl, 30);
+  assert.equal(result.calculatedCac, 166.67);
+  assert.equal(result.ltv, 4290);
+  assert.equal(result.breakEvenCpc, 5.61);
+  assert.equal(result.targetCplForRomi150, 56.16);
+});
+
+test('admin unit economics: incomplete or invalid plans cannot produce a recommendation', () => {
+  for (const [key, values] of Object.entries({ targetRevenue: [0,-1,NaN,Infinity], averageCheck: [0,-1], cpc: [0,-1], marginPercent: [0,101], siteConvPercent: [0,101], leadToDealPercent: [0,101], repeatPurchases: [0] })) {
+    for (const value of values) assert.equal(calculateAdminUnitEconomics({ ...adminBase, [key]: value }), null, key);
+  }
+  assert.equal(calculateAdminUnitEconomics({ ...adminBase, targetRevenue: Number.MAX_VALUE }), null);
+});
+
+test('admin unit economics: fractional media spend and thresholds retain cents', () => {
+  const result = calculateAdminUnitEconomics({ targetRevenue: 1, averageCheck: 1, marginPercent: 50, leadToDealPercent: 100, siteConvPercent: 100, cpc: 0.01, repeatPurchases: 1 });
+  assert.equal(result.estimatedBudget, 0.01);
+  assert.equal(result.netProfit, 0.49);
+  assert.equal(result.roas, 100);
+  assert.equal(result.romi, 4900);
+  assert.equal(result.breakEvenCpl, 0.5);
+  assert.equal(result.breakEvenCac, 0.5);
+  assert.equal(result.targetCplForRomi150, 0.2);
+});
+
 test('financials calculate ROAS, full-cost ROMI and break-even points', () => {
   const result = calculateFinancials({
     mediaSpend: 1_000,
