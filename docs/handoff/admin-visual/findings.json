@@ -1,7 +1,7 @@
 {
   "startedAt": "2026-10-30",
   "scope": "admin visual and usability",
-  "status": "paused_checkpoint_desktop_review_incomplete",
+  "status": "desktop_local_verified_delivery_in_progress",
   "findings": [
     {
       "id": "AV-01",
@@ -9,7 +9,7 @@
       "section": "articles,cases",
       "problem": "В узкой колонке списка бейджи и действия сжимают названия статей до ширины 0 px.",
       "evidence": "15-articles-dark-1440.png; DOM measurement: admin-article-row__main width=0 on first three rows",
-      "status": "fixed_verified_desktop_1440_responsive_pending"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-02",
@@ -17,7 +17,7 @@
       "section": "content",
       "problem": "Новые кнопки порядка и видимости секций выходят из колонки навигации и перекрывают поля редактора.",
       "evidence": "17-content-dark-1440-fields.png; 17-content-dark-1440-typography.png",
-      "status": "fixed_verified_desktop_1440_responsive_pending"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-03",
@@ -25,7 +25,7 @@
       "section": "alerts",
       "problem": "Раздел уведомлений при отсутствии поводов полностью пустой: нет заголовка, сообщения и обновления.",
       "evidence": "19-alerts-dark-1440.png; AdminAlerts returns null when alerts.length=0",
-      "status": "fixed_verified_desktop_1440"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-04",
@@ -41,7 +41,7 @@
       "section": "all",
       "problem": "Цветные рамки, ореолы, диагональные подкраски и фон конкурируют с рабочим содержимым; повторяются даже у вложенных поверхностей.",
       "evidence": "01-today-dark-1440-top.png; 07-goals-dark-1440.png; 23-health-dark-1440-lower.png",
-      "status": "implemented_pending_final_review"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-06",
@@ -49,7 +49,7 @@
       "section": "launchpad,unit_econ,audit",
       "problem": "Действия новых разделов используют несуществующие admin-btn стили: иконки стоят над подписью, отсутствуют согласованные поля кнопки и видимый главный акцент.",
       "evidence": "03-launchpad-dark-1440-top.png; 08-unit-economics-dark-1440.png; 20-audit-dark-1440.png",
-      "status": "implemented_pending_final_review"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-07",
@@ -57,7 +57,7 @@
       "section": "unit_econ,attribution,report",
       "problem": "Количество колонок не соответствует количеству KPI: схемы 3+1, 4+1 и 4+4+1 оставляют пустые области.",
       "evidence": "08-unit-economics-dark-1440.png; 09-attribution-dark-1440-top.png; 14-report-dark-1440.png",
-      "status": "fixed_verified_desktop_1440_responsive_pending"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-08",
@@ -65,7 +65,7 @@
       "section": "meta",
       "problem": "Две широкие таблицы за сутки и неделю поставлены рядом; уже при desktop 1440 полнота сигналов спрятана горизонтальной прокруткой.",
       "evidence": "11-meta-dark-1440.png",
-      "status": "fixed_verified_desktop_1440"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-09",
@@ -73,7 +73,7 @@
       "section": "events",
       "problem": "Три длинные текстовые карточки в ряд создают узкие колонки чтения, а три фильтра занимают три полные строки.",
       "evidence": "12-events-dark-1440.png",
-      "status": "fixed_verified_desktop_1440"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-10",
@@ -81,7 +81,7 @@
       "section": "seo",
       "problem": "У переключателей графика и фильтров отсутствуют согласованные интервалы и подложки; текст кнопок слипается. В таблице нет достаточного отступа первой колонки.",
       "evidence": "10-seo-dark-1440-top.png; 10-seo-dark-1440-table.png",
-      "status": "fixed_verified_desktop_1440"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-11",
@@ -89,7 +89,7 @@
       "section": "leads",
       "problem": "CSV оторван от остальных фильтров и занимает случайную вторую строку. Пустая карточка сделки занимает большую конкурирующую поверхность.",
       "evidence": "04-leads-list-dark-1440.png",
-      "status": "fixed_verified_desktop_1440"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-12",
@@ -97,7 +97,7 @@
       "section": "media",
       "problem": "В тулбаре поиска тесно, кнопка тяжёлых файлов переносит короткую подпись на три строки, размеры действий отличаются.",
       "evidence": "18-media-dark-1440.png",
-      "status": "implemented_pending_final_review"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-13",
@@ -105,7 +105,7 @@
       "section": "content",
       "problem": "Редактор в три колонки при desktop 1440 оставляет полям около 525 px; названия эффектов обрезаются, вложенные настройки тесные.",
       "evidence": "17-content-dark-1440-typography.png; DOM measurement editor width=524.97px",
-      "status": "fixed_verified_desktop_1440_responsive_pending"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-14",
@@ -113,7 +113,7 @@
       "section": "goals,report,attribution,clients,health",
       "problem": "Иконки некоторых заголовков и пояснений становятся отдельной строкой; размеры одноуровневых заголовков расходятся между разделами.",
       "evidence": "07-goals-dark-1440.png; 14-report-dark-1440.png; 05-clients-dark-1440.png",
-      "status": "implemented_pending_final_review"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-15",
@@ -121,7 +121,7 @@
       "section": "audit",
       "problem": "Повторяющиеся действия занимают чрезмерно высокие карточки, служебные идентификаторы и сырые названия типов конкурируют с содержанием.",
       "evidence": "20-audit-dark-1440.png",
-      "status": "implemented_pending_final_review"
+      "status": "fixed_verified_dark_desktop_tested_states"
     },
     {
       "id": "AV-16",
@@ -129,7 +129,7 @@
       "section": "articles,cases",
       "problem": "Сплит-редактор внутри master/detail оставлял предпросмотру 218 px, длинные заголовки становились вертикальной колонкой.",
       "evidence": "16-case-editor-top-dark-1440.png and geometry",
-      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "status": "fixed_verified_dark_desktop_tested_states",
       "fix": "Редактор занимает всю рабочую ширину; возврат к списку сверху; split зависит от ширины контейнера; палитра блоков раскрывается по запросу."
     },
     {
@@ -138,7 +138,7 @@
       "section": "leads",
       "problem": "На заполненной доске имя сделки сжималось до 34 px; в списке сумма выходила за край карточки.",
       "evidence": "04-fixture-board-dark-1440.png and 04-fixture-list-detail-dark-1440.png",
-      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "status": "fixed_verified_dark_desktop_tested_states",
       "fix": "Имя занимает отдельную строку, этап и деньги ниже. Скриншоты refined без клипа."
     },
     {
@@ -147,7 +147,7 @@
       "section": "leads",
       "problem": "Шесть KPI аналитики складывались в 5+1, суммы переносились отдельно от валюты.",
       "evidence": "04-fixture-analytics-dark-1440.png",
-      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "status": "fixed_verified_dark_desktop_tested_states",
       "fix": "Сетка 3x2. Для шести признаков здоровья также задана сетка 3x2, последний вариант ждёт повтора."
     },
     {
@@ -156,9 +156,91 @@
       "section": "planner",
       "problem": "При заполненном графике подпись максимального столбца заходила на описание над графиком.",
       "evidence": "02-fixture-planner-dark-1440.png",
-      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "status": "fixed_verified_dark_desktop_tested_states",
       "fix": "Зарезервированы 24 px сверху графика; refined screenshot проверен."
+    },
+    {
+      "id": "AV-20",
+      "priority": "P1",
+      "section": "launchpad",
+      "problem": "Форма добавления пункта выводилась внизу длинной страницы: классы admin-modal-overlay/card/header не имели правил модального размещения.",
+      "evidence": "03-launchpad-dialog-1280.png; DOM heading top=2028px in 900px viewport.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "fix": "Существующий Radix Dialog с порталом, фокусом, Escape и ограничением высоты; 03-launchpad-dialog-fixed-1280.png. Дополнительно общий AdminOverlay выносит собственные фиксированные окна за размерный контейнер контента."
+    },
+    {
+      "id": "AV-21",
+      "priority": "P2",
+      "section": "content",
+      "problem": "Владелец отклонил карточки навигации: нижняя отдельная полоса из трёх иконок делает их тяжёлыми и неэстетичными.",
+      "evidence": "Owner screenshot 30.10; 17-block-navigation-refined-1440.png.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "fix": "Спокойный список, компактная строка с названием и сводкой, действия в меню справа. Проверены открытие меню, disabled верхней позиции и Escape. Исправлено согласование чисел через существующий withPlural.",
+      "verification": "17-nav-actions-menu-1280.png; 17-final-block-menu-1440.png; Escape restores focus to trigger."
+    },
+    {
+      "id": "AV-22",
+      "priority": "P2",
+      "section": "shared",
+      "problem": "На узком ПК блоки показателей давали случайные ряды 3+1 и 4+1; длинные описания шапок аналитики сжимались в узкую левую колонку.",
+      "evidence": "matrix-1024-sheet-01/05/09/13.jpg; matrix-1280-sheet-05/13.jpg.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "fix": "Четыре KPI до 960px рабочей ширины идут 2x2; пять до 960px — сбалансированно 3+2. Кольца целей — 2x2. Шапки с длинной панелью действий перестраиваются вертикально; фильтры медиатеки переносятся целыми кнопками. Дополнительно: шаблоны чек-листа одной колонкой до 880px, форма заглушки в две колонки.",
+      "verification": "01-final-today-1024.png; 03-final-launchpad-1024.png; 07-final-goals-filled-1024.png; 11-final-meta-header-fixed-1024.png; 14-final-report-1024.png; 21-access-form-grid-refined-1280.png."
+    },
+    {
+      "id": "AV-23",
+      "priority": "P1",
+      "section": "leads",
+      "problem": "В боковой карточке CRM две узкие колонки задач/заметок не учитывали ширину панели. Поля и кнопка задачи налезали на заметки, длинное название переносилось по слову; автооценка была узким высоким столбцом.",
+      "evidence": "04-fixture-drawer-tasks-1280.png; 04-fixture-drawer-form-1280.png.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "fix": "Размерный контейнер карточки, последовательные модули до 900px, форма задачи в собственной сетке. Полная строка оценки, дата рядом с суммой, следующее действие в textarea. Проверены 04-fixture-drawer-tasks-fixed-1280.png и form-fixed."
+    },
+    {
+      "id": "AV-24",
+      "priority": "P2",
+      "section": "shared_text",
+      "problem": "Длинные тексты отзывов занимали половину формы; у двухстрочных названий публикаций оставалось одно слово в последней строке; смешанная валюта могла оставлять EUR отдельно от суммы.",
+      "evidence": "17-google-ads-last-review-1440.png; 15-articles-list-dense-1280.png; reflow-720-sheet-05.jpg.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "fix": "Многострочные Field занимают полную ширину, заголовки списка используют text-wrap:balance, суммы разных валют клиентов показаны отдельными неразрывными строками.",
+      "verification": "05-client-currency-stack-1024/1280.png; 05-client-names-grid-1024.png; 15-articles-list-dense-1280.png and final publication list; editor group screenshots."
+    },
+    {
+      "id": "AV-25",
+      "priority": "P1",
+      "section": "shortcuts",
+      "problem": "Диалог горячих клавиш существовал в DOM, но был невидим под собственной затемняющей подложкой: content z=1000, overlay z=10050.",
+      "evidence": "00-keyboard-shortcuts-1280.png + DOM geometry; 00-keyboard-shortcuts-fixed-1280.png.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "fix": "Content z=10051, согласованы радиус, шрифт и цвет описания. Окно визуально проверено и закрыто Escape."
+    },
+    {
+      "id": "AV-26",
+      "priority": "P2",
+      "section": "articles",
+      "problem": "Витрина загружала тяжёлые внешние оригиналы; несколько видимых обложек долго оставались пустыми.",
+      "evidence": "DOM: naturalWidth=0, complete=false, external i.ibb.co src; earlier matrix/reflow cards.",
+      "fix": "Существующий articleImageAttributes с готовыми WebP и srcset, async decoding; неизвестные новые адреса сохраняют fallback.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "verification": "15-final-webp-cards-1280.png; six visible covers complete=true, local 480.webp."
+    },
+    {
+      "id": "AV-27",
+      "priority": "P1",
+      "section": "finance",
+      "problem": "На 1024 сумма отделяла валюту на вторую строку, дата разрывалась; длинная строка расхода выходила за карточку и скрывала действие.",
+      "evidence": "06-final-finance-table-1024.png; 06-final-finance-totals-1024.png.",
+      "fix": "Неразрывные служебные колонки таблиц с локальным скроллом; minmax(0,1fr) у списка; в узкой рабочей области описание отдельной строкой, дата/сумма/действие ниже.",
+      "status": "fixed_verified_dark_desktop_tested_states",
+      "verification": "06-final-finance-table-fixed-1024.png; 06-final-finance-actions-1024.png; 06-final-finance-totals-fixed-1024.png; 06-final-finance-time-1024.png."
     }
   ],
-  "note": "Визуальные находки добавляются только после просмотра текущих скриншотов. Гипотезы по исходникам не считаются подтверждёнными дефектами."
+  "note": "Визуальные находки добавляются только после просмотра текущих скриншотов. Гипотезы по исходникам не считаются подтверждёнными дефектами.",
+  "acceptanceLimits": [
+    "AV-04 light theme deferred by owner.",
+    "Screenshots and geometry cover tested states; not every data permutation.",
+    "Production mutations were not performed."
+  ]
 }

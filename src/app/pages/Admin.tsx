@@ -31,6 +31,7 @@ import { HOME_ARTICLES_LIMIT } from '../utils/homeArticles';
 import { appendImageUpload, prepareImageUpload } from '../utils/prepareImageUpload';
 import { ARTICLE_CATEGORY_VALUES, sectionForCategory, sectionOfArticle, BLOG_SECTIONS } from '../data/blogSections';
 import { withPlural } from '../utils/plural';
+import { articleImageAttributes } from '../utils/articleImages';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
@@ -809,6 +810,7 @@ function AdminThemeProvider({ children }: { children: React.ReactNode }) {
           <AdminConfirmProvider><AdminPromptProvider>{children}</AdminPromptProvider></AdminConfirmProvider>
           <AdminToaster theme={mode} />
         </div>
+        <div id="ww-admin-overlays" />
       </div>
     </AdminThemeContext.Provider>
   );
@@ -1126,9 +1128,10 @@ export const AdminArticleCard = memo(function AdminArticleCard({
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--adm-muted)]">
           {article.image ? (
             <img
-              src={article.image}
+              {...articleImageAttributes(article.image, '(max-width: 639px) 90vw, 420px')}
               alt={article.title}
               loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (

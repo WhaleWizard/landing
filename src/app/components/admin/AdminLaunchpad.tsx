@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 
 export type LaunchpadCategory = 'tracking' | 'landing' | 'creatives' | 'campaign' | 'legal';
 export type LaunchpadPriority = 'critical' | 'important' | 'recommended';
@@ -773,22 +774,9 @@ export default function AdminLaunchpad() {
       </div>
 
       {/* Modal for Adding Custom Item */}
-      {isAddingItem && (
-        <div className="admin-modal-overlay" onClick={() => setIsAddingItem(false)}>
-          <div
-            className="admin-modal-card admin-launchpad-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="admin-modal-header">
-              <h3 className="admin-modal-title">Добавить пункт в чек-лист</h3>
-              <button
-                type="button"
-                className="admin-icon-button"
-                onClick={() => setIsAddingItem(false)}
-              >
-                ✕
-              </button>
-            </div>
+      <Dialog open={isAddingItem} onOpenChange={setIsAddingItem}>
+          <DialogContent className="admin-root admin-launchpad-modal" aria-describedby={undefined}>
+            <DialogTitle>Добавить пункт в чек-лист</DialogTitle>
 
             <form onSubmit={handleAddCustomItem} className="admin-launchpad-modal-form">
               <div className="admin-form-group">
@@ -857,9 +845,8 @@ export default function AdminLaunchpad() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }

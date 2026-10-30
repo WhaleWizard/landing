@@ -47,6 +47,7 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   lead_trashed: { label: 'В корзину', color: '' },
   lead_restored: { label: 'Восстановлен', color: '' },
   lead_submitted: { label: 'Новая заявка', color: '' },
+  lead_resubmitted: { label: 'Повторная заявка', color: '' },
   lead_merged: { label: 'Заявки объединены', color: '' },
   quality_changed: { label: 'Качество заявки', color: '' },
   note_created: { label: 'Заметка добавлена', color: '' },

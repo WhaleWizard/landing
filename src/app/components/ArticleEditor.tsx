@@ -3,6 +3,7 @@ import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upl
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
+import { withPlural } from '../utils/plural';
 
 type BlockType = 'heading' | 'paragraph' | 'accent' | 'list' | 'card' | 'quote' | 'code' | 'image' | 'separator' | 'spacer' | 'rawHtml' | 'video' | 'gallery' | 'downloadButton';
 type HeadingLevel = 2 | 3;
@@ -64,6 +65,10 @@ const BLOCK_LABELS: Record<Exclude<BlockType, 'list' | 'separator'>, string> = {
 };
 
 const BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'accent', 'list', 'card', 'quote', 'code', 'image', 'video', 'gallery', 'downloadButton', 'separator', 'spacer', 'rawHtml'];
+const BLOCK_SHORT_LABELS: Partial<Record<BlockType, string>> = {
+  accent: 'Акцент', card: 'Карточка', gallery: 'Галерея',
+  downloadButton: 'Кнопка файла', rawHtml: 'HTML',
+};
 
 function getBlockLabel(type: BlockType): string {
   if (type === 'list') return 'Список';
@@ -978,20 +983,21 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
       <details className="admin-panel admin-block-picker p-3 sm:p-4">
         <summary className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-[var(--adm-fg)]/80">Добавить блок</span>
-          <span className="text-xs text-[var(--adm-fg)]/50">{blocks.length} {blocks.length === 1 ? 'блок' : blocks.length < 5 ? 'блока' : 'блоков'}</span>
+          <span className="text-xs text-[var(--adm-fg)]/50">{withPlural(blocks.length, ['блок', 'блока', 'блоков'])}</span>
         </summary>
-        <div className="admin-block-palette flex flex-wrap gap-2">
+        <div className="admin-block-palette">
           {BLOCK_TYPES.map((type) => (
             <button
               key={type}
               type="button"
               onClick={() => addBlock(type)}
               disabled={markdownMode}
-              title={markdownMode ? 'В режиме Markdown блоки добавляются текстом — вернитесь в «Визуальный»' : undefined}
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--adm-border)] px-3 py-1.5 text-sm hover:border-[var(--adm-primary)]/50 hover:bg-[var(--adm-primary)]/10 transition disabled:opacity-40"
+              title={markdownMode ? 'В режиме Markdown блоки добавляются текстом — вернитесь в «Визуальный»' : getBlockLabel(type)}
+              aria-label={getBlockLabel(type)}
+              className="admin-button admin-button--compact"
             >
               <Plus className="h-3.5 w-3.5" />
-              {getBlockLabel(type)}
+              {BLOCK_SHORT_LABELS[type] || getBlockLabel(type)}
             </button>
           ))}
         </div>

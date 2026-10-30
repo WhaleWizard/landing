@@ -863,12 +863,12 @@ const clientFixture = () => ({
   health: 'ok', healthReasons: [], lastReportMonth: null,
 });
 
-function clientsServer({ months = [], access = [], setAccessDelay = 0 } = {}) {
+function clientsServer({ months = [], access = [], accessGate = null } = {}) {
   const calls = mockFetch([
     ['/api/admin/clients', async (address, init) => {
       if ((init.method || 'GET') === 'POST') {
         const body = JSON.parse(init.body);
-        if ((body.action === 'set_access' || body.action === 'seed_access') && setAccessDelay) await new Promise((resolve) => setTimeout(resolve, setAccessDelay));
+        if ((body.action === 'set_access' || body.action === 'seed_access') && accessGate) await accessGate;
         return { success: true, id: 1 };
       }
       const params = new URL(address, 'https://www.whalewzrd.com').searchParams;
@@ -943,7 +943,11 @@ test('F-041: «Добавить месяц» при занятом текуще�
 });
 
 test('F-070: повторное нажатие «Создать чек-лист» не плодит дубли доступов', async () => {
-  const calls = clientsServer({ setAccessDelay: 15 });
+  // Keep the request pending until both clicks have been checked. A 15 ms
+  // timer could finish during React's act() flush on a busy machine.
+  let releaseAccess;
+  const accessGate = new Promise((resolve) => { releaseAccess = resolve; });
+  const calls = clientsServer({ accessGate });
   const view = await mount(clientsModule.AdminClients, { password: 'x' });
   await settle();
   await click([...view.container.querySelectorAll('.clients__list button')].find((node) => node.textContent.includes('Ива Петрова')));
@@ -955,7 +959,8 @@ test('F-070: повторное нажатие «Создать чек-лист�
   assert.equal(button.disabled, true, 'на время запросов кнопка заперта');
   assert.equal(button.textContent.trim(), 'Создаю…');
   await click(button);
-  await wait(200);
+  await act(async () => { releaseAccess(); });
+  await settle();
 
   // После стыка F-070 набор уходит одним запросом seed_access, а дубли отсекает сервер (WHERE NOT EXISTS).
   const seeds = calls.filter((call) => call.method === 'POST' && call.body?.action === 'seed_access');

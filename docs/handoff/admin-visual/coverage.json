@@ -26,19 +26,30 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "01-final-reflow-ready-1152.png",
+        "01-final-reflow-ready-720.png",
+        "01-final-reflow-ready-960.png",
+        "01-final-today-1024.png",
         "01-today-dark-1440-in-progress.png"
       ],
       "reviewedStates": [
-        "Основной экран и нижние блоки (первый проход)"
+        "Основной экран и нижние блоки (первый проход)",
+        "Финальный загруженный экран 1024; reflow 720/960/1152 после удаления появления по очереди."
       ],
-      "pendingStates": [
-        "Финальный повтор после последних общих стилей"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -55,12 +66,19 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "02-final-planner-ready-1920.png",
+        "02-final-progress-table-1024.png",
+        "02-final-progress-table-complete-1024.png",
+        "02-final-week-picker-1024.png",
         "02-fixture-planner-dark-1440.png",
         "02-fixture-planner-days-dark-1440.png",
         "02-fixture-planner-habits-dark-1440.png",
@@ -73,10 +91,14 @@
       ],
       "reviewedStates": [
         "Пустая неделя, дни и дневник",
-        "Тестовая заполненная неделя: задачи, заметки, график, привычки, дневник"
+        "Тестовая заполненная неделя: задачи, заметки, график, привычки, дневник",
+        "Заполненный планер 1920 после загрузки; календарь недели и раскрытая таблица 1024."
       ],
-      "pendingStates": [
-        "Выбор недели и раскрытая таблица графика на узком ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -93,22 +115,32 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "03-final-launchpad-1024.png",
         "03-launchpad-dark-1440.png",
+        "03-launchpad-dialog-1280.png",
         "03-launchpad-dialog-dark-1440.png",
+        "03-launchpad-dialog-fixed-1280.png",
         "03-launchpad-refined-dark-1440.png"
       ],
       "reviewedStates": [
         "Основной список чек-листа, фильтры",
-        "Диалог добавления открыт, нужен корректный повторный снимок"
+        "Диалог добавления открыт, нужен корректный повторный снимок",
+        "Диалог Radix 1280 и шаблоны одной колонкой 1024; поля и нижние действия видны."
       ],
-      "pendingStates": [
-        "Повторить диалог с native screenshot; 3 шаблона на 1280"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -126,16 +158,27 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "Production data mostly empty; filled CRM and client states require isolated fixtures.",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "04-final-filled-calendar-1280.png",
+        "04-final-trash-open-1280.png",
+        "04-final-trash-ready-1280.png",
         "04-fixture-analytics-dark-1440.png",
         "04-fixture-analytics-refined-dark-1440.png",
         "04-fixture-board-dark-1440.png",
         "04-fixture-board-refined-dark-1440.png",
+        "04-fixture-drawer-form-1280.png",
+        "04-fixture-drawer-form-fixed-1280.png",
+        "04-fixture-drawer-portal-1280.png",
+        "04-fixture-drawer-tasks-1280.png",
+        "04-fixture-drawer-tasks-fixed-1280.png",
         "04-fixture-list-detail-dark-1440.png",
         "04-fixture-list-refined-dark-1440.png",
         "04-leads-analytics-dark-1440.png",
@@ -145,10 +188,14 @@
       ],
       "reviewedStates": [
         "Реальные пустые доска/список/календарь/аналитика",
-        "Тестовые длинные карточки доски и списка, аналитика 3x2"
+        "Тестовые длинные карточки доски и списка, аналитика 3x2",
+        "Заполненные доска/список/аналитика, карточка 1280: оценка, дата, сумма, задачи, заметки, теги; календарь и реальная корзина после загрузки. Записей не выполнялось."
       ],
-      "pendingStates": [
-        "Карточка сделки ниже сгиба, поля/корзина и заполненный календарь"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -163,16 +210,24 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "Production data mostly empty; filled CRM and client states require isolated fixtures.",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "05-case-builder-portal-1280.png",
+        "05-client-currency-stack-1024.png",
+        "05-client-currency-stack-1280.png",
         "05-client-form-dark-1440.png",
         "05-client-form-lower-dark-1440.png",
+        "05-client-names-grid-1024.png",
         "05-clients-dark-1440.png",
         "05-fixture-case-builder-dark-1440.png",
+        "05-fixture-client-detail-1280.png",
         "05-fixture-client-detail-dark-1440.png",
         "05-fixture-client-month-dark-1440.png",
         "05-fixture-client-tables-dark-1440.png",
@@ -180,10 +235,14 @@
       ],
       "reviewedStates": [
         "Пустой список и новая карточка",
-        "Тестовые клиенты, форма месяца, таблица результатов, доступы, памятки, сборка кейса"
+        "Тестовые клиенты, форма месяца, таблица результатов, доступы, памятки, сборка кейса",
+        "Длинные имена и названия компаний 1024/1280, валюты цельными строками, карточка/сборка кейса 1280."
       ],
-      "pendingStates": [
-        "Проверка длинных значений на 1280"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -198,14 +257,24 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "Production data mostly empty; filled CRM and client states require isolated fixtures.",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
         "06-expense-form-dark-1440.png",
+        "06-final-finance-actions-1024.png",
+        "06-final-finance-table-1024.png",
+        "06-final-finance-table-fixed-1024.png",
+        "06-final-finance-time-1024.png",
+        "06-final-finance-totals-1024.png",
+        "06-final-finance-totals-fixed-1024.png",
         "06-finance-dark-1440.png",
+        "06-fixture-finance-settings-1280.png",
         "06-fixture-invoices-dark-1440.png",
         "06-fixture-time-dark-1440.png",
         "06-fixture-totals-dark-1440.png",
@@ -214,10 +283,14 @@
       ],
       "reviewedStates": [
         "Пустая сводка, счёт, расход, время",
-        "Тестовые заполненные счета, итоги, часы"
+        "Тестовые заполненные счета, итоги, часы",
+        "Счета 1024: суммы, даты и месяцы без переноса; локальная прокрутка до правых действий. Итоги, настройки, длинные расходы и время после исправления выхода строки."
       ],
-      "pendingStates": [
-        "Повторить компактную кнопку настроек после align-self fix и узкие таблицы"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -233,20 +306,30 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "07-final-goals-1024.png",
+        "07-final-goals-filled-1024.png",
+        "07-final-goals-money-1024.png",
         "07-goals-dark-1440.png",
         "07-goals-table-dark-1440.png"
       ],
       "reviewedStates": [
-        "Цели месяца, форма и история"
+        "Цели месяца, форма и история",
+        "1024: пустая цель октября и сохранённая цель августа, кольца 2x2, пять показателей 3+2, форма и история."
       ],
-      "pendingStates": [
-        "Месяц с заданной целью на узком ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -262,21 +345,28 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
         "08-unit-economics-dark-1440.png",
         "08-unit-economics-lower-dark-1440.png",
         "08-unit-economics-refined-dark-1440.png"
       ],
       "reviewedStates": [
-        "Калькулятор, сетка KPI 2x2 и ползунки"
+        "Калькулятор, сетка KPI 2x2 и ползунки",
+        "Основные состояния 1024/1280/1920 и reflow; сетка расчёта и ползунки в первом подробном проходе."
       ],
-      "pendingStates": [
-        "Узкое окно ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -292,20 +382,28 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
         "09-attribution-dark-1440-table.png",
-        "09-attribution-dark-1440.png"
+        "09-attribution-dark-1440.png",
+        "09-final-funnel-lower-1024.png"
       ],
       "reviewedStates": [
-        "Пять KPI, источники и таблица"
+        "Пять KPI, источники и таблица",
+        "Основные ширины и нижние таблицы; узкий ПК 1024: длинные страницы, расходы, покрытие."
       ],
-      "pendingStates": [
-        "Все нижние аналитические таблицы на узком ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -321,22 +419,32 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [
+        "Ключ GSC не подключён: таблицы показаны в явно обозначенном демо-режиме приложения."
+      ],
       "afterScreens": [
+        "10-final-seo-table-1024.png",
         "10-seo-api-dark-1440.png",
         "10-seo-dark-1440.png",
         "10-seo-opportunities-dark-1440.png",
         "10-seo-pages-dark-1440.png"
       ],
       "reviewedStates": [
-        "Запросы, страницы, точки роста, подключение API"
+        "Запросы, страницы, точки роста, подключение API",
+        "Основные ширины, вкладки первого прохода; таблица длинных поисковых запросов 1024."
       ],
-      "pendingStates": [
-        "Таблицы на узком ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -352,20 +460,31 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [
+        "Активных ошибок/очереди на момент осмотра нет: заполненное состояние ошибок не принято как проверенное."
+      ],
       "afterScreens": [
+        "11-final-meta-header-1024.png",
+        "11-final-meta-header-fixed-1024.png",
         "11-meta-dark-1440-second-period.png",
         "11-meta-dark-1440.png"
       ],
       "reviewedStates": [
-        "Статусы и две таблицы периодов со всеми столбцами"
+        "Статусы и две таблицы периодов со всеми столбцами",
+        "Основные ширины, периоды и таблицы; финальная шапка 1024: описание полной ширины, действия ниже."
       ],
-      "pendingStates": [
-        "Раскрытые ошибки/очередь при наличии данных"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -380,19 +499,27 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
-        "12-events-dark-1440.png"
+        "12-events-dark-1440.png",
+        "12-final-event-parameters-1024.png"
       ],
       "reviewedStates": [
-        "Две колонки событий и фильтры"
+        "Две колонки событий и фильтры",
+        "Основные ширины; параметры и длинные пояснения событий 1024."
       ],
-      "pendingStates": [
-        "Финальные параметры событий после CSS сетки"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -408,20 +535,29 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "13-final-expanded-metrics-1024.png",
+        "13-final-long-url-expanded-1024.png",
         "13-performance-dark-1440.png",
         "13-performance-details-dark-1440.png"
       ],
       "reviewedStates": [
-        "Реальные метрики, история, все раскрытые URL без запуска проверок"
+        "Реальные метрики, история, все раскрытые URL без запуска проверок",
+        "Раскрытый длинный URL 1024, метрики Mobile/Desktop и полный адрес; новые замеры не запускались."
       ],
-      "pendingStates": [
-        "Узкий ПК: длинные URL и раскрытые результаты"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -437,21 +573,32 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [
+        "Нативный диалог печати и полученный PDF не проверены; экранная версия проверена."
+      ],
       "afterScreens": [
+        "14-final-report-1024.png",
+        "14-final-report-lower-1024.png",
         "14-report-dark-1440.png",
         "14-report-lower-dark-1440.png",
         "14-report-refined-dark-1440.png"
       ],
       "reviewedStates": [
-        "Отчёт: группы 4 и 5 KPI, таблицы и пояснения"
+        "Отчёт: группы 4 и 5 KPI, таблицы и пояснения",
+        "1024: сетки показателей 2x2 и 3+2, нижние источники/страницы/пояснения."
       ],
-      "pendingStates": [
-        "Печать/PDF и узкий ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -467,19 +614,34 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
-        "15-articles-dark-1440-in-progress.png"
+        "15-article-palette-grid-1280.png",
+        "15-article-split-1280.png",
+        "15-article-split-palette-1280.png",
+        "15-articles-calendar-1280.png",
+        "15-articles-dark-1440-in-progress.png",
+        "15-articles-list-dense-1280.png",
+        "15-articles-schedule-empty-1280.png",
+        "15-final-markdown-1280.png",
+        "15-final-webp-cards-1280.png"
       ],
       "reviewedStates": [
-        "Первый проход списка: названия снова видны"
+        "Первый проход списка: названия снова видны",
+        "Плотный список, витрина с загруженными WebP, календарь/расписание; 1280: split, палитра блоков и Markdown без сохранения."
       ],
-      "pendingStates": [
-        "Финальный список/витрина, календарь, Markdown и свёрнутая палитра блоков"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -492,27 +654,36 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
         "16-case-blocks-wide-dark-1440.png",
+        "16-case-editor-checkpoint-top-1440.png",
         "16-case-editor-top-dark-1440.png",
         "16-case-editor-wide-dark-1440.png",
         "16-case-editor-wide-final-dark-1440.png",
         "16-case-fields-wide-dark-1440.png",
+        "16-case-markdown-checkpoint-1440.png",
         "16-case-split-wide-dark-1440.png",
         "16-cases-cards-dark-1440.png",
         "16-cases-dark-1440.png"
       ],
       "reviewedStates": [
         "Длинные названия списка и карточек",
-        "Полноширинный редактор, поля кейса, split-preview"
+        "Полноширинный редактор, поля кейса, split-preview",
+        "Список и витрина на основных ширинах, поля кейса, полноширинный редактор, split и Markdown на 1440. Общая палитра повторно проверена в статье на 1280."
       ],
-      "pendingStates": [
-        "Повтор после свёртывания палитры блоков, Markdown и 1280"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -529,12 +700,24 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "17-block-navigation-menu-1440.png",
+        "17-block-navigation-refined-1440.png",
+        "17-consult-group-0-1440.png",
+        "17-consult-group-1-1440.png",
+        "17-consult-group-2-1440.png",
+        "17-consult-group-3-1440.png",
+        "17-consult-group-4-1440.png",
+        "17-consult-group-5-1440.png",
+        "17-consult-group-6-1440.png",
         "17-content-cases-dark-1440.png",
         "17-content-contact-dark-1440.png",
         "17-content-cta-dark-1440.png",
@@ -546,23 +729,48 @@
         "17-content-services-dark-1440.png",
         "17-content-short-list-refined-dark-1440.png",
         "17-content-testimonials-dark-1440.png",
+        "17-diff-local-change-1280.png",
         "17-faq-dark-1440.png",
         "17-faq-fields-dark-1440.png",
+        "17-final-block-menu-1440.png",
+        "17-final-editor-navigation-1440.png",
+        "17-final-editor-navigation-clean-1440.png",
         "17-font-picker-dark-1440.png",
+        "17-google-ads-group-0-1440.png",
+        "17-google-ads-group-1-1440.png",
+        "17-google-ads-group-2-1440.png",
+        "17-google-ads-group-3-1440.png",
+        "17-google-ads-group-4-1440.png",
+        "17-google-ads-group-5-1440.png",
+        "17-google-ads-group-6-1440.png",
+        "17-google-ads-hero-1440.png",
+        "17-google-ads-last-review-1440.png",
         "17-line-effect-menu-dark-1440.png",
         "17-line-effect-open-menu-dark-1440.png",
+        "17-meta-apps-diff-portal-1440.png",
+        "17-meta-apps-group-0-1440.png",
+        "17-meta-apps-group-1-1440.png",
+        "17-meta-apps-group-2-1440.png",
+        "17-meta-apps-group-3-1440.png",
+        "17-meta-apps-group-4-1440.png",
+        "17-meta-apps-group-5-1440.png",
+        "17-meta-apps-group-6-1440.png",
+        "17-meta-apps-lines-1440.png",
         "17-meta-line-controls-dark-1440.png",
-        "17-meta-title-lines-dark-1440-in-progress.png"
+        "17-meta-title-lines-dark-1440-in-progress.png",
+        "17-nav-actions-menu-1280.png"
       ],
       "reviewedStates": [
         "Главная и Meta Ads, все шесть общих групп настроек",
         "Построчная типографика, каталог шрифтов, меню эффектов",
-        "FAQ: список и поля, diff без изменений, полноэкранный preview"
+        "FAQ: список и поля, diff без изменений, полноэкранный preview",
+        "Google Ads/Консультация/Meta Apps: все 7 групп на 1440; меню 1280/1440 и Escape с возвратом фокуса; Diff с локальным изменением 1280, затем откат, сохранение неактивно."
       ],
-      "pendingStates": [
-        "Страницы Meta Apps, Google Ads, Консультация",
-        "Diff с локальными изменениями без сохранения",
-        "Узкий ПК и меню на краях"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -577,20 +785,35 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [
+        "Кадрирование: геометрия окна и CORS error state проверены; реальное преобразование/сохранение не проверялось."
+      ],
       "afterScreens": [
+        "18-final-media-L-1280.png",
+        "18-final-new-folder-dialog-1280.png",
+        "18-media-S-1280.png",
+        "18-media-checkpoint-M-1440.png",
+        "18-media-cropper-portal-1280.png",
         "18-media-dark-1440.png",
-        "18-media-detail-dark-1440.png"
+        "18-media-detail-dark-1440.png",
+        "18-media-portal-preview-1280.png"
       ],
       "reviewedStates": [
-        "Первый проход карточек, просмотр файла"
+        "Первый проход карточек, просмотр файла",
+        "Сетки S/M/L, предпросмотр, окно кадрирования и диалог новой папки 1280; создание/загрузка/сохранение не выполнялись."
       ],
-      "pendingStates": [
-        "Повтор сеток S/M/L после изменения минимумов и кнопок"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -605,21 +828,28 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
         "19-alerts-dark-1440.png",
         "19-fixture-alerts-dark-1440.png"
       ],
       "reviewedStates": [
         "Реальное пустое состояние",
-        "Тестовые длинные уведомления"
+        "Тестовые длинные уведомления",
+        "Пустое реальное и длинное заполненное локальное состояние, основные ширины и reflow."
       ],
-      "pendingStates": [
-        "Узкий ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -634,20 +864,30 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
+        "20-audit-checkpoint-1280.png",
         "20-audit-dark-1440.png",
-        "20-audit-refined-dark-1440.png"
+        "20-audit-details-1280.png",
+        "20-audit-refined-dark-1440.png",
+        "20-final-audit-details-1024.png"
       ],
       "reviewedStates": [
-        "Первый повторный проход компактного журнала"
+        "Первый повторный проход компактного журнала",
+        "Финальный журнал 1024: этапы, переведённый тип повторной заявки, раскрытые детали и ID."
       ],
-      "pendingStates": [
-        "Повтор после последнего исправления переходов этапов и раскрытия ID"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -662,22 +902,31 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "Первый снимок после HMR был отклонён; корректный список переснят. Предпросмотр заглушки пока не принят: POST рендера был заблокирован стендом; теперь endpoint проверен как читающий и разрешён.",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
         "21-access-dark-1440.png",
         "21-access-editor-dark-1440.png",
+        "21-access-form-grid-refined-1280.png",
+        "21-access-preview-1280.png",
         "21-access-preview-refined-dark-1440.png"
       ],
       "reviewedStates": [
         "Список маршрутов, форма заглушки",
-        "Читающий renderer разрешён; srcDoc 14444 символа, HTML заглушки отрисован"
+        "Читающий renderer разрешён; srcDoc 14444 символа, HTML заглушки отрисован",
+        "Форма 2x2 и реально отрисованный HTML preview 1280; переключатели доступа не менялись."
       ],
-      "pendingStates": [
-        "Корректный native viewport screenshot нижнего preview"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -692,19 +941,26 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [],
       "afterScreens": [
         "22-migrations-dark-1440.png"
       ],
       "reviewedStates": [
-        "Статусы 43 миграций и фильтр неприменённых"
+        "Статусы 43 миграций и фильтр неприменённых",
+        "43 применённые миграции, длинные имена файлов, основные ширины и reflow. Режима раскрытия SQL в реализации нет."
       ],
-      "pendingStates": [
-        "Узкий ПК и длинные имена SQL"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     },
     {
@@ -720,25 +976,34 @@
         "dark"
       ],
       "widthsAfter": [
-        1440
+        1024,
+        1280,
+        1440,
+        1920
       ],
-      "nestedStates": "partially_reviewed",
-      "status": "desktop_review_in_progress",
-      "limits": "",
+      "nestedStates": "substantial_states_reviewed_with_limits",
+      "status": "desktop_local_visual_reviewed",
+      "limits": [
+        "Повторный вход/изменение защиты не проверялись, текущая сессия сохранена."
+      ],
       "afterScreens": [
         "23-health-dark-1440.png",
         "23-health-details-dark-1440.png",
         "23-health-security-refined-dark-1440.png"
       ],
       "reviewedStates": [
-        "Компактная форма защиты, диагностические сообщения"
+        "Компактная форма защиты, диагностические сообщения",
+        "Защита и диагностические сообщения на основных ширинах и reflow; выход/изменение 2FA/Telegram не запускались."
       ],
-      "pendingStates": [
-        "Узкий ПК"
+      "pendingStates": [],
+      "primaryWidthsMeasured": [
+        1024,
+        1280,
+        1920
       ]
     }
   ],
-  "note": "Not complete: no full 1024/1280/1920 or zoom acceptance yet. Lower clip/full-page images may place fixed chrome at document scroll offset; use native viewport screenshots for sticky/overlay acceptance. All production write actions remain untested and were not performed.",
+  "note": "Основные экраны 23 разделов и существенные вложенные состояния просмотрены. Это ограниченная визуальная приёмка тёмного desktop, не проверка каждого сочетания данных. Production-записи не выполнялись. Нативный зум заменён проверкой reflow; печать/PDF, заполненные ошибки Meta и успешное кадрирование не подтверждены.",
   "checks": [
     {
       "command": "npm run check",
@@ -757,19 +1022,117 @@
       "exitCode": 0,
       "log": "output/admin-visual-2026-10-30/desktop-check-wave3.log",
       "scope": "Intermediate; later refinements followed"
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-resume.log"
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-layout-wave4.log"
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 1,
+      "log": "output/admin-visual-2026-10-30/desktop-check-wave5.log",
+      "reason": "F-070 15ms request-delay race; replaced with manually released response gate."
+    },
+    {
+      "command": "npm run test:audit-admin-crm-ui",
+      "exitCode": 0,
+      "tests": 27
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-wave6.log",
+      "note": "Later palette/typography refinements need final run."
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-acceptance.log",
+      "note": "Полная цепочка закончилась test:seo-output 15/15; позднее уточнены finance/reflow стили."
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-delivery.log",
+      "exitFile": "output/admin-visual-2026-10-30/desktop-check-delivery.exit",
+      "note": "После уточнения 960px KPI требуется последний сборочный прогон."
+    },
+    {
+      "command": "npm run check",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-final-release.log",
+      "exitFile": "output/admin-visual-2026-10-30/desktop-check-final-release.exit"
     }
   ],
-  "pausedByOwner": true,
-  "pausedAt": "2026-10-30",
+  "pausedByOwner": false,
   "automation": {
     "id": "whale-wizard",
-    "status": "PAUSED",
-    "reason": "Owner asked to finish current checkpoint and pause until they return."
+    "status": "ACTIVE",
+    "firstRun": "2026-10-30T13:35:00+05:00",
+    "intervalMinutes": 303,
+    "reason": "Owner resumed work and supplied new reset screenshot: 13:32."
   },
   "checkpointCheck": {
     "command": "npm run check",
     "exitCode": 0,
     "log": "output/admin-visual-2026-10-30/desktop-check-checkpoint.log"
   },
-  "checkpointMemo": "docs/handoff/ADMIN_VISUAL_CHECKPOINT.md"
+  "checkpointMemo": "docs/handoff/ADMIN_VISUAL_CHECKPOINT.md",
+  "resumedAt": "2026-10-30",
+  "primaryDesktopSweep": {
+    "widths": [
+      1024,
+      1280,
+      1920
+    ],
+    "sectionCount": 23,
+    "geometry": "No document overflow or clipped button/label/table-heading text in measured states.",
+    "screens": "output/admin-visual-2026-10-30/after/matrix-*.png",
+    "visualReview": "Все контактные листы 1024/1280/1920 просмотрены; затронутые финальными правками сетки и открытые состояния повторены отдельно.",
+    "limits": [
+      "Не все сочетания состояний на каждой ширине; подробные ограничения записаны по разделам."
+    ]
+  },
+  "currentCheck": {
+    "command": "npm run check",
+    "status": "passed",
+    "exitCode": 0,
+    "log": "output/admin-visual-2026-10-30/desktop-check-final-release.log",
+    "exitFile": "output/admin-visual-2026-10-30/desktop-check-final-release.exit"
+  },
+  "reflowSweep": {
+    "widths": [
+      720,
+      960,
+      1152
+    ],
+    "sectionCount": 23,
+    "geometry": "No document overflow or non-scrollable controls outside right viewport edge.",
+    "method": "Effective-width reflow only; native browser zoom did not respond.",
+    "visualReview": "Все контактные листы 720/960/1152 просмотрены. Ранние загрузочные/анимированные кадры Today заменены отдельными готовыми снимками; последующие изменения проверены адресно.",
+    "filledScenario": true
+  },
+  "editorGroupsSweep": {
+    "pages": [
+      "google-ads",
+      "consult",
+      "meta-apps"
+    ],
+    "groupsPerPage": 7,
+    "width": 1440,
+    "geometry": "No control overlaps after excluding closed details and sticky action row.",
+    "screens": "17-*-group-*-1440.png and contact sheets reviewed."
+  },
+  "status": "desktop_local_verified_delivery_in_progress",
+  "delivery": {
+    "status": "not_pushed_yet",
+    "productionDataWrites": false
+  }
 }

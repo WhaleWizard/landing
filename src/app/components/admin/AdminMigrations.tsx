@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, CheckCircle2, Clock, Copy, Database, RefreshCw } from 'lucide-react';
 import { AdminBlank, AdminSectionSkeleton, notify } from './AdminFeedback';
 import { AdminButton, AdminPanel, AdminSectionHeading } from './AdminUI';
+import { withPlural } from '../../utils/plural';
 
 /**
  * Раздел «Миграции»: что применено в базе, а что ещё ждёт.
@@ -100,7 +101,7 @@ function MigrationCard({ row, password, isNext }: { row: MigrationRow; password:
 
       {row.state === 'applied' ? (
         <p className="admin-mig-card__note admin-mig-card__note--quiet">
-          Все {row.checked} изменений схемы на месте.
+          {withPlural(row.checked, ['изменение', 'изменения', 'изменений'])} схемы на месте.
         </p>
       ) : (
         <div className="admin-mig-card__missing">
@@ -208,7 +209,7 @@ export default function AdminMigrations({ password }: { password: string }) {
           <CheckCircle2 aria-hidden="true" />
           <div>
             <strong>База в актуальном состоянии</strong>
-            <p>Все {data.total} миграций применены. Применять нечего.</p>
+            <p>Все миграции применены. Применять нечего.</p>
           </div>
         </AdminPanel>
       ) : (

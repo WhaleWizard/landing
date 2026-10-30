@@ -341,7 +341,7 @@ export default function AdminAttribution({ password }: { password: string }) {
 
   return (
     <div className="admin-stack admin-stack--lg adm-attribution">
-      <div className="admin-section-header">
+      <div className="admin-section-header admin-section-header--wide-actions">
         <div>
           <p className="admin-eyebrow">Аналитика</p>
           <h2 className="admin-title"><BarChart3 aria-hidden="true" /> Воронка и атрибуция</h2>

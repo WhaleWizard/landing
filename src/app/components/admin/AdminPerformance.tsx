@@ -606,7 +606,7 @@ export default function AdminPerformance({ password }: { password: string }) {
     <div className="admin-stack admin-stack--lg">
       <RealUserVitals password={password} />
 
-      <div className="admin-section-header">
+      <div className="admin-section-header admin-section-header--wide-actions">
         <div>
           <p className="admin-eyebrow">PageSpeed Insights</p>
           <h2 className="admin-title">Скорость всех страниц</h2>

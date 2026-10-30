@@ -1,3 +1,4 @@
+import AdminOverlay from './AdminOverlay';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check, Copy, Crop, File, FileArchive, FileText, FolderPlus, Folder, FolderOpen,
@@ -697,7 +698,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
       </div>
 
       {preview && (
-        <div
+        <AdminOverlay><div
           className="media-lightbox"
           role="dialog"
           aria-modal="true"
@@ -785,7 +786,7 @@ export default function AdminMedia({ password, articles }: { password: string; a
               </div>
             </div>
           </div>
-        </div>
+        </div></AdminOverlay>
       )}
 
       <MediaCropperModal

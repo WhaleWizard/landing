@@ -874,9 +874,9 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
         <div className="adm-tiles">
           <div className="adm-tile">
             <span className="adm-tile__title">Регулярный доход в месяц</span>
-            <strong className="adm-tile__value">
+            <strong className="adm-tile__value admin-money-stack">
               {summary.recurring.length
-                ? summary.recurring.map((item) => formatMoney(item.amount, item.currency)).join(' · ')
+                ? summary.recurring.map((item) => <span key={item.currency}>{formatMoney(item.amount, item.currency)}</span>)
                 : '—'}
             </strong>
             <span className="admin-hint">

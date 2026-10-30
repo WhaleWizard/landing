@@ -1,3 +1,4 @@
+import AdminOverlay from './AdminOverlay';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Check, Crop, Download, RefreshCw, X, ZoomIn,
@@ -291,7 +292,7 @@ export default function MediaCropperModal({
   const currentConfig = PRESETS.find((p) => p.id === selectedPreset) || PRESETS[0];
 
   return (
-    <div
+    <AdminOverlay><div
       className="admin-cropper-backdrop"
       role="dialog"
       aria-modal="true"
@@ -508,6 +509,6 @@ export default function MediaCropperModal({
           </div>
         </div>
       </div>
-    </div>
+    </div></AdminOverlay>
   );
 }

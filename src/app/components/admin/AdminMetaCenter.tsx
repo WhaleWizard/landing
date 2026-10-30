@@ -415,7 +415,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="admin-section-header">
+      <div className="admin-section-header admin-section-header--wide-actions">
         <div>
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-[var(--adm-primary)]" />

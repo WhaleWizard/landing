@@ -138,6 +138,7 @@ body[data-admin-theme],
 
 .admin-root,
 body[data-admin-theme] .admin-cmdk,
+body[data-admin-theme] .admin-shortcuts-modal__content,
 body[data-admin-theme] .admin-select-content,
 body[data-admin-theme] .admin-confirm,
 body[data-admin-theme] .planner-weekpick {

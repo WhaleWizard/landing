@@ -1,3 +1,4 @@
+import AdminOverlay from './AdminOverlay';
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Briefcase, Info, X } from 'lucide-react';
 import { AdminButton } from './AdminUI';
@@ -78,7 +79,7 @@ export default function CaseBuilderDialog({ clientNiche, months, onClose, onCrea
   };
 
   return (
-    <div className="case-builder__overlay" role="dialog" aria-modal="true" aria-label="Сборка кейса из результатов клиента">
+    <AdminOverlay><div className="case-builder__overlay" role="dialog" aria-modal="true" aria-label="Сборка кейса из результатов клиента">
       <div ref={dialogRef} tabIndex={-1} className="case-builder">
         <header className="case-builder__head">
           <div className="min-w-0">
@@ -237,6 +238,6 @@ export default function CaseBuilderDialog({ clientNiche, months, onClose, onCrea
           </AdminButton>
         </footer>
       </div>
-    </div>
+    </div></AdminOverlay>
   );
 }

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AdminOverlay from './AdminOverlay';
+import { withPlural } from '../../utils/plural';
 import {
   AlertTriangle,
   ArrowDown,
@@ -10,6 +12,7 @@ import {
   GripVertical,
   Loader2,
   Minus,
+  MoreHorizontal,
   Play,
   Plus,
   RefreshCw,
@@ -57,6 +60,7 @@ import AdminFaqControl from './AdminFaqControl';
 import AdminDisclosure from './AdminDisclosure';
 import { AdminSectionSkeleton, confirmAsk } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import AdminContentPreview from './AdminContentPreview';
 import {
   Dialog,
@@ -375,12 +379,12 @@ function sectionTexts(content: EditableContent, section: EditorSection): string[
 /** Короткая сводка блока для списка слева: сразу видно, где сколько всего. */
 function sectionSummary(content: EditableContent, section: EditorSection): string {
   if (section === 'seo') return 'Поисковая выдача';
-  if (section === 'hero') return `${content.hero.paragraphs.length} абз. · ${content.hero.stats.length} цифр`;
+  if (section === 'hero') return `${content.hero.paragraphs.length} абз. · ${withPlural(content.hero.stats.length, ['цифра', 'цифры', 'цифр'])}`;
   if (section === 'services') return `${content.services.cards.length} карт. · ${content.services.detailed.sections.length} разд.`;
-  if (section === 'cases') return `${content.cases.items.length} карточек`;
+  if (section === 'cases') return withPlural(content.cases.items.length, ['карточка', 'карточки', 'карточек']);
   if (section === 'cta') return 'Заголовок и кнопка';
-  if (section === 'testimonials') return `${content.testimonials.items.length} отзывов · ${content.testimonials.stats.length} цифр`;
-  return `${content.contact.bullets.length + content.contact.benefits.length} пунктов`;
+  if (section === 'testimonials') return `${withPlural(content.testimonials.items.length, ['отзыв', 'отзыва', 'отзывов'])} · ${withPlural(content.testimonials.stats.length, ['цифра', 'цифры', 'цифр'])}`;
+  return withPlural(content.contact.bullets.length + content.contact.benefits.length, ['пункт', 'пункта', 'пунктов']);
 }
 
 function highlightSnippet(text: string, query: string): string {
@@ -460,7 +464,7 @@ function Field({ id, label, value, onChange, multiline = false, hint, maxLength 
   const countState = usage >= 1 ? 'is-full' : usage >= 0.9 ? 'is-near' : '';
 
   return (
-    <label className="admin-field" htmlFor={id}>
+    <label className={`admin-field${multiline ? ' admin-field--wide' : ''}`} htmlFor={id}>
       <span className="admin-label-row">
         <span className="admin-label">{label}</span>
         <span className={`admin-char-count ${countState}`}>{value.length}/{maxLength}</span>
@@ -1268,7 +1272,7 @@ export function AdminContentDiffModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <AdminOverlay><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-3xl max-h-[85vh] flex flex-col rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-card)] shadow-2xl overflow-hidden text-[var(--adm-fg)]">
         <div className="flex items-center justify-between border-b border-[var(--adm-border)] px-5 py-4 bg-[var(--adm-surface-subtle)]">
           <div className="flex items-center gap-2.5">
@@ -1352,7 +1356,7 @@ export function AdminContentDiffModal({
           </button>
         </div>
       </div>
-    </div>
+    </div></AdminOverlay>
   );
 }
 
@@ -1370,6 +1374,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   const [section, setSection] = useState<SectionPayload | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('hero');
+  const [sectionActions, setSectionActions] = useState<EditorSection | null>(null);
   const blockEditorRef = useRef<HTMLFieldSetElement>(null);
   const selectSection = (value: EditorSection) => {
     setActiveSection(value);
@@ -1990,37 +1995,37 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                     </button>
 
                     {value !== 'seo' && (
-                      <div className="admin-block-nav__actions">
+                      <Popover open={sectionActions === value} onOpenChange={(open) => setSectionActions(open ? value : null)}>
+                        <PopoverTrigger asChild>
+                          <button type="button" className="admin-block-nav__more" aria-label={`Действия блока: ${SECTION_LABELS[value]}`}>
+                            <MoreHorizontal aria-hidden="true" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="admin-block-actions" align="start" side="right" sideOffset={8} aria-label={`Действия блока: ${SECTION_LABELS[value]}`}>
+                        <p>{SECTION_LABELS[value]}</p>
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(value); }}
-                          className={`admin-icon-button${isHidden ? ' is-hidden' : ''}`}
-                          title={isHidden ? 'Показать секцию на сайте' : 'Скрыть секцию на сайте'}
-                          aria-label={isHidden ? 'Показать секцию на сайте' : 'Скрыть секцию на сайте'}
+                          onClick={() => { toggleSectionVisibility(value); setSectionActions(null); }}
                         >
-                          {isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          {isHidden ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
+                          {isHidden ? 'Показать на сайте' : 'Скрыть на сайте'}
                         </button>
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); moveSection(index, -1); }}
+                          onClick={() => { moveSection(index, -1); setSectionActions(null); }}
                           disabled={index <= 1}
-                          className="admin-icon-button"
-                          title="Переместить выше"
-                          aria-label="Переместить выше"
                         >
-                          <ArrowUp className="w-3.5 h-3.5" />
+                          <ArrowUp aria-hidden="true" /> Переместить выше
                         </button>
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); moveSection(index, 1); }}
+                          onClick={() => { moveSection(index, 1); setSectionActions(null); }}
                           disabled={index >= availableSections.length - 1}
-                          className="admin-icon-button"
-                          title="Переместить ниже"
-                          aria-label="Переместить ниже"
                         >
-                          <ArrowDown className="w-3.5 h-3.5" />
+                          <ArrowDown aria-hidden="true" /> Переместить ниже
                         </button>
-                      </div>
+                        </PopoverContent>
+                      </Popover>
                     )}
                   </div>
                 );

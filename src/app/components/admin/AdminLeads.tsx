@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import AdminOverlay from './AdminOverlay';
 import {
   AlertTriangle,
   CalendarClock,
@@ -1048,7 +1049,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
       <div className="admin-crm-form-grid">
         <AdminSelect label="Этап сделки" value={draft.pipeline_stage} options={PIPELINE_STAGES} onValueChange={(value) => setDraft({ ...draft, pipeline_stage: value as PipelineStage })} />
         <AdminSelect label="Приоритет" value={draft.priority} options={PRIORITIES} onValueChange={(value) => setDraft({ ...draft, priority: value as Priority })} />
-        <label className="admin-field"><span className="admin-label-row"><span className="admin-label">Оценка лида</span><span className="admin-score-value">{draft.lead_score}/100</span></span><input type="range" min="0" max="100" step="5" value={draft.lead_score} onChange={(event) => setDraft({ ...draft, lead_score: Number(event.target.value) })} />
+        <label className="admin-field admin-field--wide"><span className="admin-label-row"><span className="admin-label">Оценка лида</span><span className="admin-score-value">{draft.lead_score}/100</span></span><input type="range" min="0" max="100" step="5" value={draft.lead_score} onChange={(event) => setDraft({ ...draft, lead_score: Number(event.target.value) })} />
           <span className="lead-autoscore">
             <span className="lead-autoscore__row">
               <span>Автооценка по данным заявки: <strong>{autoScore.score}</strong></span>
@@ -1068,8 +1069,8 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
           </span>
         </label>
         <label className="admin-field"><span className="admin-label">Следующее действие · дата</span><input className="admin-input" type="datetime-local" value={draft.next_action_at} onChange={(event) => setDraft({ ...draft, next_action_at: event.target.value })} /></label>
-        <label className="admin-field admin-field--wide"><span className="admin-label">Что сделать следующим</span><input className="admin-input" maxLength={240} value={draft.next_action_text} onChange={(event) => setDraft({ ...draft, next_action_text: event.target.value })} placeholder="Например: отправить медиаплан и согласовать созвон" /></label>
         <label className="admin-field"><span className="admin-label">Сумма сделки, $</span><input className="admin-input" inputMode="decimal" value={draft.deal_value} onChange={(event) => setDraft({ ...draft, deal_value: event.target.value.replace(/[^\d.,]/g, '') })} placeholder="0" /></label>
+        <label className="admin-field admin-field--wide admin-crm-next-action"><span className="admin-label">Что сделать следующим</span><textarea className="admin-input" rows={2} maxLength={240} value={draft.next_action_text} onChange={(event) => setDraft({ ...draft, next_action_text: event.target.value })} placeholder="Например: отправить медиаплан и согласовать созвон" /></label>
         {(draft.pipeline_stage === 'lost' || draft.loss_reason) ? (
           <div className="admin-field admin-field--wide">
             <span className="admin-label">Причина проигрыша</span>
@@ -1846,7 +1847,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
             onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
           />
           {boardLead ? (
-            <div className="admin-drawer-portal">
+            <AdminOverlay><div className="admin-drawer-portal">
               <div className="admin-drawer-backdrop" onClick={() => setBoardLead(null)} />
               <aside className="admin-drawer-container crm-board-detail" role="dialog" aria-modal="true" aria-label="Карточка сделки">
                 <div className="admin-drawer-header crm-board-detail__head">
@@ -1881,7 +1882,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                   />
                 </div>
               </aside>
-            </div>
+            </div></AdminOverlay>
           ) : null}
         </>
       ) : null}
@@ -1904,7 +1905,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
             }}
           />
           {boardLead ? (
-            <div className="admin-drawer-portal">
+            <AdminOverlay><div className="admin-drawer-portal">
               <div className="admin-drawer-backdrop" onClick={() => setBoardLead(null)} />
               <aside className="admin-drawer-container crm-board-detail" role="dialog" aria-modal="true" aria-label="Карточка сделки">
                 <div className="admin-drawer-header crm-board-detail__head">
@@ -1939,7 +1940,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                   />
                 </div>
               </aside>
-            </div>
+            </div></AdminOverlay>
           ) : null}
         </>
       ) : null}
@@ -2236,7 +2237,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
         <div className="admin-crm-detail-slot">{selected ? <LeadDetail key={selected.id} lead={selected} password={password} onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }} editingReady={editingReady} onOpenClients={onOpenClients} /> : <div className="admin-empty"><div><strong>Выберите сделку</strong><p>Карточка откроется здесь.</p></div></div>}</div>
       </div>
         {checkedIds.length ? (
-          <div className="admin-floating-bulk admin-crm-list__bulk" role="status" aria-label="Массовые действия над выбранными сделками">
+          <AdminOverlay><div className="admin-floating-bulk admin-crm-list__bulk" role="status" aria-label="Массовые действия над выбранными сделками">
             <div className="admin-floating-bulk__info">
               <span className="admin-floating-bulk__count">{checkedIds.length}</span>
               <span className="admin-floating-bulk__text">
@@ -2297,7 +2298,7 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                 Снять (Esc)
               </button>
             </div>
-          </div>
+          </div></AdminOverlay>
         ) : null}
 
       <TrashPanel password={password} onChanged={() => void load(true)} refreshToken={trashVersion} />
