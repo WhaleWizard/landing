@@ -35,6 +35,7 @@
       "status": "desktop_local_visual_reviewed",
       "limits": [],
       "afterScreens": [
+        "01-final-reflow-960-grid-fixed.png",
         "01-final-reflow-ready-1152.png",
         "01-final-reflow-ready-720.png",
         "01-final-reflow-ready-960.png",
@@ -1074,10 +1075,8 @@
   "pausedByOwner": false,
   "automation": {
     "id": "whale-wizard",
-    "status": "ACTIVE",
-    "firstRun": "2026-10-30T13:35:00+05:00",
-    "intervalMinutes": 303,
-    "reason": "Owner resumed work and supplied new reset screenshot: 13:32."
+    "status": "DELETED",
+    "reason": "Основная тёмная ПК-версия завершена; повторные запуски больше не нужны."
   },
   "checkpointCheck": {
     "command": "npm run check",
@@ -1130,9 +1129,62 @@
     "geometry": "No control overlaps after excluding closed details and sticky action row.",
     "screens": "17-*-group-*-1440.png and contact sheets reviewed."
   },
-  "status": "desktop_local_verified_delivery_in_progress",
+  "status": "dark_desktop_completed_with_limits",
   "delivery": {
-    "status": "not_pushed_yet",
+    "commit": "6934b6e940b8a91eeed97fba9d678a8f54ac8dcb",
+    "deployment": "561049f0-9386-44d6-9dda-9f23ba2ee4e7",
+    "cloudflareCheck": "success",
+    "entry": "/assets/index-7EzzViVK.js",
+    "assets": [
+      {
+        "asset": "Admin-BT3Nvotb.css",
+        "bytes": 450132,
+        "sha256": "6c18291d3a6a9515471db7dc86bd7b49c6f92a1ef5d870613089ac6d82d2780d",
+        "matchesLocal": true,
+        "newNav": true,
+        "overlayHost": false,
+        "responsiveCovers": false
+      },
+      {
+        "asset": "Admin-C9QYOOO2.js",
+        "bytes": 152351,
+        "sha256": "b7f760449486a9bc3c6b9a41e590ac6f208c1c86fb0c11b1bdc6d93a6ae7917d",
+        "matchesLocal": false,
+        "newNav": false,
+        "overlayHost": true,
+        "responsiveCovers": true
+      }
+    ],
+    "protectedUi": "login only; full authenticated visual review was on local read-only proxy",
+    "status": "deployed_verified",
+    "smoke": [
+      {
+        "path": "/admin/",
+        "status": 200,
+        "exit": 0
+      },
+      {
+        "path": "/blog/",
+        "status": 200,
+        "exit": 0
+      },
+      {
+        "path": "/cases/",
+        "status": 200,
+        "exit": 0
+      },
+      {
+        "path": "/api/articles",
+        "status": 200,
+        "exit": 0
+      },
+      {
+        "path": "/sitemap.xml",
+        "status": 200,
+        "exit": 0
+      }
+    ],
     "productionDataWrites": false
-  }
+  },
+  "completedAt": "2026-10-30"
 }
