@@ -1199,5 +1199,20 @@
     "report": "docs/handoff/ADMIN_PRODUCTION_ACCEPTANCE.md",
     "followupFixCommit": "6f34e85",
     "limits": "Primary production states and selected nested states; real writes and nonempty finance unavailable."
+  },
+  "designRestoration": {
+    "date": "2026-10-30",
+    "reason": "Owner rejected muted design; restore Deep Glass without reverting layout fixes",
+    "status": "local_verified_check_passed_production_delivery_recorded_in_evidence",
+    "evidence": "output/admin-design-restoration-2026-10-30/",
+    "primarySectionsCaptured": 23,
+    "width": 1440,
+    "ownerAestheticApproval": "pending",
+    "additionalWidths": [
+      1280,
+      1024
+    ],
+    "checkExitCode": 0,
+    "deliveryRecord": "output/admin-design-restoration-2026-10-30/delivery.json"
   }
 }

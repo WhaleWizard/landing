@@ -1,7 +1,7 @@
 {
   "startedAt": "2026-10-30",
   "scope": "admin visual and usability",
-  "status": "dark_desktop_completed_with_limits",
+  "status": "dark_desktop_restored_pending_owner_aesthetic_review",
   "findings": [
     {
       "id": "AV-01",
@@ -235,6 +235,16 @@
       "fix": "Неразрывные служебные колонки таблиц с локальным скроллом; minmax(0,1fr) у списка; в узкой рабочей области описание отдельной строкой, дата/сумма/действие ниже.",
       "status": "fixed_verified_dark_desktop_tested_states",
       "verification": "06-final-finance-table-fixed-1024.png; 06-final-finance-actions-1024.png; 06-final-finance-totals-fixed-1024.png; 06-final-finance-time-1024.png."
+    },
+    {
+      "id": "AV-28",
+      "priority": "P1",
+      "section": "all_dark_desktop",
+      "problem": "Приглушённая визуальная чистка удалила выразительный Deep Glass; владелец отклонил результат как тусклый.",
+      "evidence": "Сравнение темы 4e7f07f и production; output/admin-design-restoration-2026-10-30/01-before-today-1440.png",
+      "status": "fixed_verified_dark_desktop_owner_aesthetic_review_pending",
+      "fix": "Возвращены цветное стекло, градиенты, контуры, глубина и акценты навигации; геометрия и функциональные исправления сохранены.",
+      "verification": "23 primary sections at 1440; editor menu, launchpad dialog, command palette, shortcuts and synthetic CRM at 1280; four representative sections at 1024; npm run check exit 0."
     }
   ],
   "note": "Визуальные находки добавляются только после просмотра текущих скриншотов. Гипотезы по исходникам не считаются подтверждёнными дефектами.",
