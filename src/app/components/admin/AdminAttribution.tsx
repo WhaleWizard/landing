@@ -406,7 +406,7 @@ export default function AdminAttribution({ password }: { password: string }) {
 
       {data?.success && summary && (
         <>
-          <div className="adm-tiles">
+          <div className="adm-tiles adm-tiles--funnel">
             <StatTile
               icon={<Users aria-hidden="true" />}
               title="Уникальные"
@@ -456,7 +456,7 @@ export default function AdminAttribution({ password }: { password: string }) {
               title="Выиграно"
               value={<CountUpValue value={summary.won} />}
               detail={coverage?.wonAvailable
-                ? `Текущий этап среди лидов периода · ${coverage.wonSource}.`
+                ? 'Выигранные сделки среди заявок выбранного периода.'
                 : 'Нет однозначного этапа сделки — число не вычисляется.'}
               delta={<DeltaBadge current={summary.won} previous={previous?.won} label="Выиграно" />}
               tone={summary.won === null ? 'muted' : 'default'}

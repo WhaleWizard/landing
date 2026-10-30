@@ -94,8 +94,7 @@ function EventCard({ event }: { event: DataLayerEventDoc }) {
             {event.params.map((param) => (
               <li key={param.name}>
                 <code>{param.name}</code>
-                <span>{param.description}</span>
-                {param.optional ? <em className="admin-dl-optional">не всегда</em> : null}
+                <span>{param.description}{param.optional ? <em className="admin-dl-optional"> · не всегда</em> : null}</span>
               </li>
             ))}
           </ul>

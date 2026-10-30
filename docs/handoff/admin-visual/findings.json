@@ -1,0 +1,164 @@
+{
+  "startedAt": "2026-10-30",
+  "scope": "admin visual and usability",
+  "status": "paused_checkpoint_desktop_review_incomplete",
+  "findings": [
+    {
+      "id": "AV-01",
+      "priority": "P1",
+      "section": "articles,cases",
+      "problem": "В узкой колонке списка бейджи и действия сжимают названия статей до ширины 0 px.",
+      "evidence": "15-articles-dark-1440.png; DOM measurement: admin-article-row__main width=0 on first three rows",
+      "status": "fixed_verified_desktop_1440_responsive_pending"
+    },
+    {
+      "id": "AV-02",
+      "priority": "P1",
+      "section": "content",
+      "problem": "Новые кнопки порядка и видимости секций выходят из колонки навигации и перекрывают поля редактора.",
+      "evidence": "17-content-dark-1440-fields.png; 17-content-dark-1440-typography.png",
+      "status": "fixed_verified_desktop_1440_responsive_pending"
+    },
+    {
+      "id": "AV-03",
+      "priority": "P1",
+      "section": "alerts",
+      "problem": "Раздел уведомлений при отсутствии поводов полностью пустой: нет заголовка, сообщения и обновления.",
+      "evidence": "19-alerts-dark-1440.png; AdminAlerts returns null when alerts.length=0",
+      "status": "fixed_verified_desktop_1440"
+    },
+    {
+      "id": "AV-04",
+      "priority": "P1",
+      "section": "launchpad",
+      "problem": "Светлая тема содержит тёмные полупрозрачные поверхности и светлые подписи с очень низкой различимостью.",
+      "evidence": "03-launchpad-light-1440.png",
+      "status": "light_acceptance_deferred_by_owner"
+    },
+    {
+      "id": "AV-05",
+      "priority": "P2",
+      "section": "all",
+      "problem": "Цветные рамки, ореолы, диагональные подкраски и фон конкурируют с рабочим содержимым; повторяются даже у вложенных поверхностей.",
+      "evidence": "01-today-dark-1440-top.png; 07-goals-dark-1440.png; 23-health-dark-1440-lower.png",
+      "status": "implemented_pending_final_review"
+    },
+    {
+      "id": "AV-06",
+      "priority": "P2",
+      "section": "launchpad,unit_econ,audit",
+      "problem": "Действия новых разделов используют несуществующие admin-btn стили: иконки стоят над подписью, отсутствуют согласованные поля кнопки и видимый главный акцент.",
+      "evidence": "03-launchpad-dark-1440-top.png; 08-unit-economics-dark-1440.png; 20-audit-dark-1440.png",
+      "status": "implemented_pending_final_review"
+    },
+    {
+      "id": "AV-07",
+      "priority": "P2",
+      "section": "unit_econ,attribution,report",
+      "problem": "Количество колонок не соответствует количеству KPI: схемы 3+1, 4+1 и 4+4+1 оставляют пустые области.",
+      "evidence": "08-unit-economics-dark-1440.png; 09-attribution-dark-1440-top.png; 14-report-dark-1440.png",
+      "status": "fixed_verified_desktop_1440_responsive_pending"
+    },
+    {
+      "id": "AV-08",
+      "priority": "P2",
+      "section": "meta",
+      "problem": "Две широкие таблицы за сутки и неделю поставлены рядом; уже при desktop 1440 полнота сигналов спрятана горизонтальной прокруткой.",
+      "evidence": "11-meta-dark-1440.png",
+      "status": "fixed_verified_desktop_1440"
+    },
+    {
+      "id": "AV-09",
+      "priority": "P2",
+      "section": "events",
+      "problem": "Три длинные текстовые карточки в ряд создают узкие колонки чтения, а три фильтра занимают три полные строки.",
+      "evidence": "12-events-dark-1440.png",
+      "status": "fixed_verified_desktop_1440"
+    },
+    {
+      "id": "AV-10",
+      "priority": "P2",
+      "section": "seo",
+      "problem": "У переключателей графика и фильтров отсутствуют согласованные интервалы и подложки; текст кнопок слипается. В таблице нет достаточного отступа первой колонки.",
+      "evidence": "10-seo-dark-1440-top.png; 10-seo-dark-1440-table.png",
+      "status": "fixed_verified_desktop_1440"
+    },
+    {
+      "id": "AV-11",
+      "priority": "P2",
+      "section": "leads",
+      "problem": "CSV оторван от остальных фильтров и занимает случайную вторую строку. Пустая карточка сделки занимает большую конкурирующую поверхность.",
+      "evidence": "04-leads-list-dark-1440.png",
+      "status": "fixed_verified_desktop_1440"
+    },
+    {
+      "id": "AV-12",
+      "priority": "P2",
+      "section": "media",
+      "problem": "В тулбаре поиска тесно, кнопка тяжёлых файлов переносит короткую подпись на три строки, размеры действий отличаются.",
+      "evidence": "18-media-dark-1440.png",
+      "status": "implemented_pending_final_review"
+    },
+    {
+      "id": "AV-13",
+      "priority": "P2",
+      "section": "content",
+      "problem": "Редактор в три колонки при desktop 1440 оставляет полям около 525 px; названия эффектов обрезаются, вложенные настройки тесные.",
+      "evidence": "17-content-dark-1440-typography.png; DOM measurement editor width=524.97px",
+      "status": "fixed_verified_desktop_1440_responsive_pending"
+    },
+    {
+      "id": "AV-14",
+      "priority": "P3",
+      "section": "goals,report,attribution,clients,health",
+      "problem": "Иконки некоторых заголовков и пояснений становятся отдельной строкой; размеры одноуровневых заголовков расходятся между разделами.",
+      "evidence": "07-goals-dark-1440.png; 14-report-dark-1440.png; 05-clients-dark-1440.png",
+      "status": "implemented_pending_final_review"
+    },
+    {
+      "id": "AV-15",
+      "priority": "P2",
+      "section": "audit",
+      "problem": "Повторяющиеся действия занимают чрезмерно высокие карточки, служебные идентификаторы и сырые названия типов конкурируют с содержанием.",
+      "evidence": "20-audit-dark-1440.png",
+      "status": "implemented_pending_final_review"
+    },
+    {
+      "id": "AV-16",
+      "priority": "P1",
+      "section": "articles,cases",
+      "problem": "Сплит-редактор внутри master/detail оставлял предпросмотру 218 px, длинные заголовки становились вертикальной колонкой.",
+      "evidence": "16-case-editor-top-dark-1440.png and geometry",
+      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "fix": "Редактор занимает всю рабочую ширину; возврат к списку сверху; split зависит от ширины контейнера; палитра блоков раскрывается по запросу."
+    },
+    {
+      "id": "AV-17",
+      "priority": "P1",
+      "section": "leads",
+      "problem": "На заполненной доске имя сделки сжималось до 34 px; в списке сумма выходила за край карточки.",
+      "evidence": "04-fixture-board-dark-1440.png and 04-fixture-list-detail-dark-1440.png",
+      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "fix": "Имя занимает отдельную строку, этап и деньги ниже. Скриншоты refined без клипа."
+    },
+    {
+      "id": "AV-18",
+      "priority": "P2",
+      "section": "leads",
+      "problem": "Шесть KPI аналитики складывались в 5+1, суммы переносились отдельно от валюты.",
+      "evidence": "04-fixture-analytics-dark-1440.png",
+      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "fix": "Сетка 3x2. Для шести признаков здоровья также задана сетка 3x2, последний вариант ждёт повтора."
+    },
+    {
+      "id": "AV-19",
+      "priority": "P2",
+      "section": "planner",
+      "problem": "При заполненном графике подпись максимального столбца заходила на описание над графиком.",
+      "evidence": "02-fixture-planner-dark-1440.png",
+      "status": "fixed_verified_desktop_1440_responsive_pending",
+      "fix": "Зарезервированы 24 px сверху графика; refined screenshot проверен."
+    }
+  ],
+  "note": "Визуальные находки добавляются только после просмотра текущих скриншотов. Гипотезы по исходникам не считаются подтверждёнными дефектами."
+}

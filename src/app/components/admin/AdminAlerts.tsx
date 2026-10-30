@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, BellRing, CircleAlert, RefreshCw, Send, X } from 'lucide-react';
 import { notify } from './AdminFeedback';
+import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
+import { AdminButton, AdminSectionHeading } from './AdminUI';
 
 type Severity = 'critical' | 'attention' | 'info';
 
@@ -48,18 +50,22 @@ function since(raw: string): string {
 export default function AdminAlerts({
   password,
   onNavigate,
+  standalone = false,
 }: {
   password: string;
   onNavigate: (destination: string) => void;
+  standalone?: boolean;
 }) {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [telegram, setTelegram] = useState(false);
   const [migration, setMigration] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const response = await fetch(`/api/admin/alerts?timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
@@ -69,6 +75,7 @@ export default function AdminAlerts({
       const payload = await response.json().catch(() => null) as AlertsResponse | null;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
+        if (!payload?.migration) setError('Не удалось загрузить уведомления. Попробуйте обновить список.');
         setAlerts([]);
         return;
       }
@@ -76,6 +83,7 @@ export default function AdminAlerts({
       setAlerts(payload.alerts || []);
       setTelegram(Boolean(payload.telegramConfigured));
     } catch {
+      setError('Не удалось связаться с сервером. Попробуйте обновить список.');
       setAlerts([]);
     } finally {
       setLoading(false);
@@ -105,11 +113,26 @@ export default function AdminAlerts({
     }
   };
 
-  if (loading && !alerts.length && !migration) return null;
+  const pageHeading = standalone ? (
+    <AdminSectionHeading
+      title="Уведомления"
+      description="То, что требует внимания: задачи, заявки и состояние системы."
+      action={<AdminButton onClick={() => void load()} disabled={loading || busy}><RefreshCw aria-hidden="true" /> Обновить</AdminButton>}
+    />
+  ) : null;
+
+  if (loading && !alerts.length && !migration) {
+    return standalone ? <div>{pageHeading}<AdminSectionSkeleton tiles={0} rows={3} /></div> : null;
+  }
+
+  if (error) {
+    return <div>{pageHeading}<div className="admin-notice admin-notice--warning" role="alert">{error}</div></div>;
+  }
 
   if (migration) {
     return (
-      <section className="admin-panel adm-card">
+      <section>
+        {pageHeading}
         <div className="admin-notice admin-notice--warning" role="status">
           Примените миграцию <code>{migration}</code> — до неё уведомления негде хранить.
         </div>
@@ -117,11 +140,20 @@ export default function AdminAlerts({
     );
   }
 
-  if (!alerts.length) return null;
+  if (!alerts.length) {
+    return standalone ? (
+      <div>
+        {pageHeading}
+        <AdminBlank title="Новых уведомлений нет" text="Когда появятся задачи или проблемы, требующие внимания, они будут здесь." />
+      </div>
+    ) : null;
+  }
 
   const critical = alerts.filter((alert) => alert.severity === 'critical').length;
 
   return (
+    <div>
+    {pageHeading}
     <section className={`admin-panel adm-card alerts${critical ? ' has-critical' : ''}`} aria-label="Требует внимания">
       <header className="adm-card__head adm-card__head--row">
         <div>
@@ -201,5 +233,6 @@ export default function AdminAlerts({
         })}
       </ul>
     </section>
+    </div>
   );
 }

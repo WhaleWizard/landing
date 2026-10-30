@@ -153,14 +153,14 @@ export default function AdminSecurity() {
 
   if (loading) {
     return (
-      <AdminPanel className="p-6 admin-stack">
+      <AdminPanel className="p-6 admin-stack admin-security-panel">
         <AdminSectionHeading title="Вход в админку" description="Проверяю настройки…" />
       </AdminPanel>
     );
   }
 
   return (
-    <AdminPanel className="p-6 admin-stack">
+    <AdminPanel className="p-6 admin-stack admin-security-panel">
       <AdminSectionHeading
         title="Вход в админку"
         description="Пароль плюс одноразовый код из приложения на телефоне."
@@ -173,8 +173,8 @@ export default function AdminSecurity() {
           продолжает работать.
         </p>
       ) : state?.enabled ? (
-        <div className="admin-stack">
-          <p className="admin-meta">
+        <div className="admin-security-form">
+          <p className="admin-meta admin-security-status">
             <ShieldCheck aria-hidden="true" /> Защита включена. Резервных кодов осталось: {state.backupCodesLeft}.
           </p>
           <div className="admin-field">

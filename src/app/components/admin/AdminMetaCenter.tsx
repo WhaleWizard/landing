@@ -415,11 +415,11 @@ export default function AdminMetaCenter({ password }: { password: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="admin-section-header">
         <div>
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-[var(--adm-primary)]" />
-            <h2 className="text-lg font-semibold tracking-tight">Центр Meta CAPI</h2>
+            <h2 className="admin-title">Центр Meta CAPI</h2>
           </div>
           <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--adm-fg)]/58">
             Фактическое состояние D1, очереди повторных отправок и ответов Meta — без токенов, payload и персональных данных.
@@ -583,7 +583,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
             />
           </div>
 
-          <div className="admin-grid-pair">
+          <div className="admin-meta-periods">
             <PeriodCard label="24 часа" data={data.periods?.['24h']} />
             <PeriodCard label="7 дней" data={data.periods?.['7d']} />
           </div>

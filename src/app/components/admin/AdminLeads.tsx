@@ -2132,6 +2132,9 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                   <div className="admin-crm-lead__top">
                     <span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} />
                     <strong>{lead.name || 'Без имени'}</strong>
+                    <ChevronRight aria-hidden="true" />
+                  </div>
+                  <div className="admin-crm-lead__deal">
                     <PipelineStepper stage={lead.pipeline_stage} />
                     {cardFields.dealValue && lead.deal_value ? (
                       <span className="admin-crm-lead__deal-badge" title="Сумма сделки">
@@ -2139,7 +2142,6 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
                       </span>
                     ) : null}
                     <span className="admin-score" title={`Оценка: ${lead.lead_score || 0}`}>{lead.lead_score || 0}</span>
-                    <ChevronRight aria-hidden="true" />
                   </div>
                   {cardFields.service && (lead.service || lead.message) ? (
                     <p className="admin-crm-lead__service">{lead.service || lead.message}</p>

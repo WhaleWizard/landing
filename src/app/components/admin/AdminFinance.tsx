@@ -717,7 +717,7 @@ export default function AdminFinance({ password }: { password: string }) {
                 <AdminDecimalInput className="admin-input" value={settings.target_hourly_rate} onValueChange={(rate) => setSettings({ ...settings, target_hourly_rate: rate ?? 0 })} />
               </label>
             </div>
-            <button type="button" className="admin-button admin-button--primary" disabled={busy}
+            <button type="button" className="admin-button admin-button--primary fin-settings-save" disabled={busy}
               onClick={() => void request({ action: 'save_settings', ...settings }, 'Настройки сохранены')}>
               <Save aria-hidden="true" /> Сохранить настройки
             </button>

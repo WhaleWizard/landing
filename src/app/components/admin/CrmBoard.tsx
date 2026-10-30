@@ -166,6 +166,8 @@ function BoardCard<T extends BoardLead>({
         <span className="crm-card__top">
           <span className={`crm-card__priority is-${lead.priority}`} aria-hidden="true" />
           <strong>{lead.name?.trim() || 'Без имени'}</strong>
+        </span>
+        <span className="crm-card__deal">
           <PipelineStepper stage={lead.pipeline_stage} />
           {amount ? <span className="crm-card__amount">{amount}</span> : null}
         </span>

@@ -650,6 +650,7 @@ function FontPicker({
   role,
   sample,
   inheritLabel,
+  compact = false,
   onChange,
 }: {
   label: string;
@@ -658,6 +659,7 @@ function FontPicker({
   sample: string;
   /** Чем подписать вариант «auto» — у строки это «как у заголовка». */
   inheritLabel?: string;
+  compact?: boolean;
   onChange: (value: ContentFontId) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -689,11 +691,11 @@ function FontPicker({
         }}
       >
         <DialogTrigger asChild>
-          <button type="button" className="admin-font-trigger">
+          <button type="button" className={`admin-font-trigger${compact ? ' admin-font-trigger--compact' : ''}`} aria-label={`${label}: ${inheritLabel && selected.id === 'auto' ? inheritLabel : selected.label}`}>
             <span style={{ fontFamily: fontFamilyForContent(selected.id, role) }}>
               {inheritLabel && selected.id === 'auto' ? inheritLabel : selected.label}
             </span>
-            <small>{selected.description}</small>
+            {compact ? <ChevronRight aria-hidden="true" /> : <small>{selected.description}</small>}
           </button>
         </DialogTrigger>
         <DialogContent className="admin-font-dialog">
@@ -771,6 +773,7 @@ function TitleLineStyleControls({
     <div className="admin-line-style">
       <FontPicker
         label="Шрифт строки"
+        compact
         value={line.font ?? 'auto'}
         role="title"
         sample={line.text || 'Пример строки'}
@@ -915,8 +918,8 @@ function TypographyControls({
       </div>
 
       <div className="admin-font-role-grid">
-        <FontPicker label="Шрифт заголовка" value={normalized.titleFont} role="title" sample={sample} onChange={(titleFont) => update({ titleFont, titleWeight: 'auto' })} />
-        <FontPicker label="Шрифт основного текста" value={normalized.bodyFont} role="body" sample="Понятный текст помогает принять решение" onChange={(bodyFont) => update({ bodyFont })} />
+        <FontPicker compact label="Шрифт заголовка" value={normalized.titleFont} role="title" sample={sample} onChange={(titleFont) => update({ titleFont, titleWeight: 'auto' })} />
+        <FontPicker compact label="Шрифт основного текста" value={normalized.bodyFont} role="body" sample="Понятный текст помогает принять решение" onChange={(bodyFont) => update({ bodyFont })} />
       </div>
 
       <div className="admin-typography-subsection">
@@ -1367,6 +1370,11 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   const [section, setSection] = useState<SectionPayload | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('hero');
+  const blockEditorRef = useRef<HTMLFieldSetElement>(null);
+  const selectSection = (value: EditorSection) => {
+    setActiveSection(value);
+    requestAnimationFrame(() => blockEditorRef.current?.scrollIntoView({ block: 'start', inline: 'nearest' }));
+  };
   const [loading, setLoading] = useState(true);
   const [hydratedKey, setHydratedKey] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -1944,7 +1952,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                   {searchHits.length === 0 ? (
                     <p className="admin-meta">Ничего не нашлось на этой странице.</p>
                   ) : searchHits.map((hit) => (
-                    <button key={hit.section} type="button" className="admin-block-search__hit" onClick={() => { setActiveSection(hit.section); setSearch(''); }}>
+                    <button key={hit.section} type="button" className="admin-block-search__hit" onClick={() => { selectSection(hit.section); setSearch(''); }}>
                       <strong>{SECTION_LABELS[hit.section]}</strong>
                       <span>{hit.snippet}</span>
                     </button>
@@ -1956,37 +1964,37 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                 return (
                   <div
                     key={value}
-                    className={`group relative flex items-center justify-between rounded-xl border transition-all mb-1 ${activeSection === value ? 'border-[var(--adm-primary)] bg-[var(--adm-primary)]/10 text-[var(--adm-primary)]' : 'border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50'} ${isHidden ? 'opacity-55' : ''}`}
+                    className={`admin-block-nav__item${activeSection === value ? ' is-active' : ''}${isHidden ? ' is-hidden' : ''}`}
                   >
                     <button
                       type="button"
-                      className="flex-1 text-left px-3 py-2 flex items-center gap-2.5 min-w-0"
+                      className="admin-block-nav__select"
                       aria-current={activeSection === value ? 'step' : undefined}
                       data-changed={changedSections.has(value) ? 'true' : undefined}
-                      onClick={() => setActiveSection(value)}
+                      onClick={() => selectSection(value)}
                     >
-                      <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-[var(--adm-muted)] text-[var(--adm-fg)]/60">
+                      <span className="admin-block-nav__number">
                         {value === 'seo' ? 'SEO' : String(index)}
                       </span>
-                      <span className="flex-1 min-w-0">
-                        <span className="flex items-center gap-1.5">
-                          <strong className="text-xs font-semibold truncate text-[var(--adm-fg)]">{SECTION_LABELS[value]}</strong>
+                      <span className="admin-block-nav__copy">
+                        <span className="admin-block-nav__label">
+                          <strong>{SECTION_LABELS[value]}</strong>
                           {isHidden && (
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-medium">Скрыт</span>
+                            <span className="admin-badge">Скрыт</span>
                           )}
                         </span>
-                        <small className="block text-[11px] text-[var(--adm-fg)]/50 truncate">
+                        <small>
                           {changedSections.has(value) ? 'Изменён, не сохранён' : sectionSummary(content, value)}
                         </small>
                       </span>
                     </button>
 
                     {value !== 'seo' && (
-                      <div className="flex items-center pr-2 gap-0.5">
+                      <div className="admin-block-nav__actions">
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(value); }}
-                          className={`p-1 rounded-md transition-colors ${isHidden ? 'text-amber-400 hover:bg-amber-500/10' : 'text-[var(--adm-fg)]/40 hover:text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]'}`}
+                          className={`admin-icon-button${isHidden ? ' is-hidden' : ''}`}
                           title={isHidden ? 'Показать секцию на сайте' : 'Скрыть секцию на сайте'}
                           aria-label={isHidden ? 'Показать секцию на сайте' : 'Скрыть секцию на сайте'}
                         >
@@ -1996,7 +2004,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                           type="button"
                           onClick={(e) => { e.stopPropagation(); moveSection(index, -1); }}
                           disabled={index <= 1}
-                          className="p-1 rounded-md text-[var(--adm-fg)]/40 hover:text-[var(--adm-fg)] hover:bg-[var(--adm-muted)] disabled:opacity-20 disabled:cursor-not-allowed"
+                          className="admin-icon-button"
                           title="Переместить выше"
                           aria-label="Переместить выше"
                         >
@@ -2006,7 +2014,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                           type="button"
                           onClick={(e) => { e.stopPropagation(); moveSection(index, 1); }}
                           disabled={index >= availableSections.length - 1}
-                          className="p-1 rounded-md text-[var(--adm-fg)]/40 hover:text-[var(--adm-fg)] hover:bg-[var(--adm-muted)] disabled:opacity-20 disabled:cursor-not-allowed"
+                          className="admin-icon-button"
                           title="Переместить ниже"
                           aria-label="Переместить ниже"
                         >
@@ -2019,10 +2027,10 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
               })}
             </nav>
             <div className="admin-block-nav-mobile">
-              <AdminSelect label="Редактируемый блок" value={activeSection} options={availableSections.map((value, index) => ({ value, label: value === 'seo' ? `SEO · ${SECTION_LABELS[value]}` : `${index}. ${SECTION_LABELS[value]}` }))} onValueChange={(value) => setActiveSection(value as EditorSection)} />
+              <AdminSelect label="Редактируемый блок" value={activeSection} options={availableSections.map((value, index) => ({ value, label: value === 'seo' ? `SEO · ${SECTION_LABELS[value]}` : `${index}. ${SECTION_LABELS[value]}` }))} onValueChange={(value) => selectSection(value as EditorSection)} />
             </div>
 
-            <fieldset className="admin-block-editor admin-editor-fields" disabled={loading}>
+            <fieldset ref={blockEditorRef} className="admin-block-editor admin-editor-fields" disabled={loading}>
               <div className="admin-block-editor__heading">
                 <span>{activeSection === 'seo' ? 'SEO' : availableSections.indexOf(activeSection)}</span>
                 <div><p className="admin-eyebrow">Редактируемый блок</p><h3>{SECTION_LABELS[activeSection]}</h3></div>

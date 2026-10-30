@@ -16,6 +16,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
+import { AdminSelect } from './AdminUI';
 
 export type LaunchpadCategory = 'tracking' | 'landing' | 'creatives' | 'campaign' | 'legal';
 export type LaunchpadPriority = 'critical' | 'important' | 'recommended';
@@ -495,8 +496,7 @@ export default function AdminLaunchpad() {
           </div>
           <div>
             <div className="admin-launchpad-badge-row">
-              <span className="admin-launchpad-pill">Launchpad 2.0</span>
-              <span className="admin-launchpad-badge-sub">Префлайт-контроль</span>
+              <span className="admin-launchpad-badge-sub">Подготовка рекламы</span>
             </div>
             <h2 className="admin-launchpad-heading">Чек-листы запуска рекламы</h2>
           </div>
@@ -505,7 +505,7 @@ export default function AdminLaunchpad() {
         <div className="admin-launchpad-actions">
           <button
             type="button"
-            className="admin-btn admin-btn-secondary"
+            className="admin-button"
             onClick={handleCopyReport}
             title="Скопировать текстовый отчет для клиента или рабочего чата"
           >
@@ -514,7 +514,7 @@ export default function AdminLaunchpad() {
           </button>
           <button
             type="button"
-            className="admin-btn admin-btn-secondary"
+            className="admin-button"
             onClick={handleResetChecklist}
             title="Сбросить все отметки в текущем чек-листе"
           >
@@ -523,7 +523,7 @@ export default function AdminLaunchpad() {
           </button>
           <button
             type="button"
-            className="admin-btn admin-btn-primary"
+            className="admin-button admin-button--primary"
             onClick={() => setIsAddingItem(true)}
           >
             <Plus className="h-4 w-4 mr-1.5" />
@@ -629,33 +629,37 @@ export default function AdminLaunchpad() {
         <div className="admin-launchpad-filters">
           <div className="admin-launchpad-filter-group">
             <Filter className="h-3.5 w-3.5 text-slate-400 mr-1.5" />
-            <select
+            <AdminSelect
+              ariaLabel="Приоритет пунктов чек-листа"
               className="admin-launchpad-select"
               value={priorityFilter}
-              onChange={(e) =>
-                setPriorityFilter(e.target.value as 'all' | 'critical' | 'pending')
+              onValueChange={(value) =>
+                setPriorityFilter(value as 'all' | 'critical' | 'pending')
               }
-            >
-              <option value="all">Все приоритеты</option>
-              <option value="critical">Только критичные 🛑</option>
-              <option value="pending">Незавершенные ⏳</option>
-            </select>
+              options={[
+                { value: 'all', label: 'Все приоритеты' },
+                { value: 'critical', label: 'Только критичные' },
+                { value: 'pending', label: 'Незавершённые' },
+              ]}
+            />
           </div>
 
           <div className="admin-launchpad-filter-group">
             <Layers className="h-3.5 w-3.5 text-slate-400 mr-1.5" />
-            <select
+            <AdminSelect
+              ariaLabel="Категория пунктов чек-листа"
               className="admin-launchpad-select"
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="all">Все категории</option>
-              <option value="tracking">Трекинг и CAPI</option>
-              <option value="landing">Посадочная страница</option>
-              <option value="creatives">Креативы и оффер</option>
-              <option value="campaign">Кампания и биллинг</option>
-              <option value="legal">Юридические</option>
-            </select>
+              onValueChange={setCategoryFilter}
+              options={[
+                { value: 'all', label: 'Все категории' },
+                { value: 'tracking', label: 'Трекинг и CAPI' },
+                { value: 'landing', label: 'Посадочная страница' },
+                { value: 'creatives', label: 'Креативы и оффер' },
+                { value: 'campaign', label: 'Кампания и биллинг' },
+                { value: 'legal', label: 'Юридические' },
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -779,7 +783,7 @@ export default function AdminLaunchpad() {
               <h3 className="admin-modal-title">Добавить пункт в чек-лист</h3>
               <button
                 type="button"
-                className="admin-btn-icon"
+                className="admin-icon-button"
                 onClick={() => setIsAddingItem(false)}
               >
                 ✕
@@ -843,12 +847,12 @@ export default function AdminLaunchpad() {
               <div className="admin-modal-actions mt-4">
                 <button
                   type="button"
-                  className="admin-btn admin-btn-secondary"
+                  className="admin-button"
                   onClick={() => setIsAddingItem(false)}
                 >
                   Отмена
                 </button>
-                <button type="submit" className="admin-btn admin-btn-primary">
+                <button type="submit" className="admin-button admin-button--primary">
                   Сохранить пункт
                 </button>
               </div>

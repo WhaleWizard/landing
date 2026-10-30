@@ -1,0 +1,775 @@
+{
+  "startedAt": "2026-10-30",
+  "baselineCheck": {
+    "command": "npm run check",
+    "exitCode": 0,
+    "log": "output/admin-visual-2026-10-30/baseline-check.log"
+  },
+  "reviewServer": {
+    "url": "http://localhost:4175/admin",
+    "mode": "read_only_production_data",
+    "ownerLoggedIn": true,
+    "fixtureUrl": "http://localhost:4175/admin?visual-scenario=filled",
+    "fixtureScope": "Synthetic planner, alerts, CRM, clients and finance; labelled local banner; writes blocked."
+  },
+  "sections": [
+    {
+      "order": 1,
+      "key": "dashboard",
+      "label": "Сегодня",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "01-today-dark-1440-lower.png",
+        "01-today-dark-1440-top.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "01-today-dark-1440-in-progress.png"
+      ],
+      "reviewedStates": [
+        "Основной экран и нижние блоки (первый проход)"
+      ],
+      "pendingStates": [
+        "Финальный повтор после последних общих стилей"
+      ]
+    },
+    {
+      "order": 2,
+      "key": "planner",
+      "label": "Планер",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "02-planner-dark-1440-days.png",
+        "02-planner-dark-1440-diary.png",
+        "02-planner-dark-1440-top.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "02-fixture-planner-dark-1440.png",
+        "02-fixture-planner-days-dark-1440.png",
+        "02-fixture-planner-habits-dark-1440.png",
+        "02-fixture-planner-journal-dark-1440.png",
+        "02-fixture-planner-open-days-dark-1440.png",
+        "02-fixture-planner-refined-dark-1440.png",
+        "02-planner-dark-1440.png",
+        "02-planner-days-dark-1440.png",
+        "02-planner-diary-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Пустая неделя, дни и дневник",
+        "Тестовая заполненная неделя: задачи, заметки, график, привычки, дневник"
+      ],
+      "pendingStates": [
+        "Выбор недели и раскрытая таблица графика на узком ПК"
+      ]
+    },
+    {
+      "order": 3,
+      "key": "launchpad",
+      "label": "Чек-листы запуска",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "03-launchpad-dark-1440-top.png",
+        "03-launchpad-light-1440.png",
+        "03-launchpad-light-current-viewport.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "03-launchpad-dark-1440.png",
+        "03-launchpad-dialog-dark-1440.png",
+        "03-launchpad-refined-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Основной список чек-листа, фильтры",
+        "Диалог добавления открыт, нужен корректный повторный снимок"
+      ],
+      "pendingStates": [
+        "Повторить диалог с native screenshot; 3 шаблона на 1280"
+      ]
+    },
+    {
+      "order": 4,
+      "key": "leads",
+      "label": "Заявки",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "04-leads-analytics-dark-1440.png",
+        "04-leads-calendar-dark-1440.png",
+        "04-leads-dark-1440.png",
+        "04-leads-list-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "Production data mostly empty; filled CRM and client states require isolated fixtures.",
+      "afterScreens": [
+        "04-fixture-analytics-dark-1440.png",
+        "04-fixture-analytics-refined-dark-1440.png",
+        "04-fixture-board-dark-1440.png",
+        "04-fixture-board-refined-dark-1440.png",
+        "04-fixture-list-detail-dark-1440.png",
+        "04-fixture-list-refined-dark-1440.png",
+        "04-leads-analytics-dark-1440.png",
+        "04-leads-board-dark-1440.png",
+        "04-leads-calendar-dark-1440.png",
+        "04-leads-list-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Реальные пустые доска/список/календарь/аналитика",
+        "Тестовые длинные карточки доски и списка, аналитика 3x2"
+      ],
+      "pendingStates": [
+        "Карточка сделки ниже сгиба, поля/корзина и заполненный календарь"
+      ]
+    },
+    {
+      "order": 5,
+      "key": "clients",
+      "label": "Клиенты",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "05-clients-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "Production data mostly empty; filled CRM and client states require isolated fixtures.",
+      "afterScreens": [
+        "05-client-form-dark-1440.png",
+        "05-client-form-lower-dark-1440.png",
+        "05-clients-dark-1440.png",
+        "05-fixture-case-builder-dark-1440.png",
+        "05-fixture-client-detail-dark-1440.png",
+        "05-fixture-client-month-dark-1440.png",
+        "05-fixture-client-tables-dark-1440.png",
+        "05-fixture-clients-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Пустой список и новая карточка",
+        "Тестовые клиенты, форма месяца, таблица результатов, доступы, памятки, сборка кейса"
+      ],
+      "pendingStates": [
+        "Проверка длинных значений на 1280"
+      ]
+    },
+    {
+      "order": 6,
+      "key": "finance",
+      "label": "Финансы",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "06-finance-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "Production data mostly empty; filled CRM and client states require isolated fixtures.",
+      "afterScreens": [
+        "06-expense-form-dark-1440.png",
+        "06-finance-dark-1440.png",
+        "06-fixture-invoices-dark-1440.png",
+        "06-fixture-time-dark-1440.png",
+        "06-fixture-totals-dark-1440.png",
+        "06-invoice-form-dark-1440.png",
+        "06-time-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Пустая сводка, счёт, расход, время",
+        "Тестовые заполненные счета, итоги, часы"
+      ],
+      "pendingStates": [
+        "Повторить компактную кнопку настроек после align-self fix и узкие таблицы"
+      ]
+    },
+    {
+      "order": 7,
+      "key": "goals",
+      "label": "Цели и деньги",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "07-goals-dark-1440-lower.png",
+        "07-goals-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "07-goals-dark-1440.png",
+        "07-goals-table-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Цели месяца, форма и история"
+      ],
+      "pendingStates": [
+        "Месяц с заданной целью на узком ПК"
+      ]
+    },
+    {
+      "order": 8,
+      "key": "unit_econ",
+      "label": "Юнит-экономика",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "08-unit-economics-dark-1440-lower.png",
+        "08-unit-economics-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "08-unit-economics-dark-1440.png",
+        "08-unit-economics-lower-dark-1440.png",
+        "08-unit-economics-refined-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Калькулятор, сетка KPI 2x2 и ползунки"
+      ],
+      "pendingStates": [
+        "Узкое окно ПК"
+      ]
+    },
+    {
+      "order": 9,
+      "key": "attribution",
+      "label": "Воронка",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "09-attribution-dark-1440-middle.png",
+        "09-attribution-dark-1440-top.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "09-attribution-dark-1440-table.png",
+        "09-attribution-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Пять KPI, источники и таблица"
+      ],
+      "pendingStates": [
+        "Все нижние аналитические таблицы на узком ПК"
+      ]
+    },
+    {
+      "order": 10,
+      "key": "seo",
+      "label": "SEO и Поиск",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "10-seo-dark-1440-table.png",
+        "10-seo-dark-1440-top.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "10-seo-api-dark-1440.png",
+        "10-seo-dark-1440.png",
+        "10-seo-opportunities-dark-1440.png",
+        "10-seo-pages-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Запросы, страницы, точки роста, подключение API"
+      ],
+      "pendingStates": [
+        "Таблицы на узком ПК"
+      ]
+    },
+    {
+      "order": 11,
+      "key": "meta",
+      "label": "Meta CAPI",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "11-meta-dark-1440-lower.png",
+        "11-meta-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "11-meta-dark-1440-second-period.png",
+        "11-meta-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Статусы и две таблицы периодов со всеми столбцами"
+      ],
+      "pendingStates": [
+        "Раскрытые ошибки/очередь при наличии данных"
+      ]
+    },
+    {
+      "order": 12,
+      "key": "events",
+      "label": "События",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "12-events-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "12-events-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Две колонки событий и фильтры"
+      ],
+      "pendingStates": [
+        "Финальные параметры событий после CSS сетки"
+      ]
+    },
+    {
+      "order": 13,
+      "key": "performance",
+      "label": "Скорость",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "13-performance-dark-1440-lower.png",
+        "13-performance-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "13-performance-dark-1440.png",
+        "13-performance-details-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Реальные метрики, история, все раскрытые URL без запуска проверок"
+      ],
+      "pendingStates": [
+        "Узкий ПК: длинные URL и раскрытые результаты"
+      ]
+    },
+    {
+      "order": 14,
+      "key": "report",
+      "label": "Отчёт за месяц",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "14-report-dark-1440-lower.png",
+        "14-report-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "14-report-dark-1440.png",
+        "14-report-lower-dark-1440.png",
+        "14-report-refined-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Отчёт: группы 4 и 5 KPI, таблицы и пояснения"
+      ],
+      "pendingStates": [
+        "Печать/PDF и узкий ПК"
+      ]
+    },
+    {
+      "order": 15,
+      "key": "articles",
+      "label": "Статьи",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "15-articles-cards-dark-1440.png",
+        "15-articles-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "15-articles-dark-1440-in-progress.png"
+      ],
+      "reviewedStates": [
+        "Первый проход списка: названия снова видны"
+      ],
+      "pendingStates": [
+        "Финальный список/витрина, календарь, Markdown и свёрнутая палитра блоков"
+      ]
+    },
+    {
+      "order": 16,
+      "key": "cases",
+      "label": "Кейсы",
+      "baseline": "needs_recapture",
+      "baselineScreens": [],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "16-case-blocks-wide-dark-1440.png",
+        "16-case-editor-top-dark-1440.png",
+        "16-case-editor-wide-dark-1440.png",
+        "16-case-editor-wide-final-dark-1440.png",
+        "16-case-fields-wide-dark-1440.png",
+        "16-case-split-wide-dark-1440.png",
+        "16-cases-cards-dark-1440.png",
+        "16-cases-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Длинные названия списка и карточек",
+        "Полноширинный редактор, поля кейса, split-preview"
+      ],
+      "pendingStates": [
+        "Повтор после свёртывания палитры блоков, Markdown и 1280"
+      ]
+    },
+    {
+      "order": 17,
+      "key": "content",
+      "label": "Редактор сайта",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "17-content-dark-1440-fields.png",
+        "17-content-dark-1440-top.png",
+        "17-content-dark-1440-typography.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "17-content-cases-dark-1440.png",
+        "17-content-contact-dark-1440.png",
+        "17-content-cta-dark-1440.png",
+        "17-content-dark-1440-fields-in-progress.png",
+        "17-content-dark-1440-overview-in-progress.png",
+        "17-content-diff-dark-1440.png",
+        "17-content-home-refined-dark-1440.png",
+        "17-content-preview-full-dark-1440.png",
+        "17-content-services-dark-1440.png",
+        "17-content-short-list-refined-dark-1440.png",
+        "17-content-testimonials-dark-1440.png",
+        "17-faq-dark-1440.png",
+        "17-faq-fields-dark-1440.png",
+        "17-font-picker-dark-1440.png",
+        "17-line-effect-menu-dark-1440.png",
+        "17-line-effect-open-menu-dark-1440.png",
+        "17-meta-line-controls-dark-1440.png",
+        "17-meta-title-lines-dark-1440-in-progress.png"
+      ],
+      "reviewedStates": [
+        "Главная и Meta Ads, все шесть общих групп настроек",
+        "Построчная типографика, каталог шрифтов, меню эффектов",
+        "FAQ: список и поля, diff без изменений, полноэкранный preview"
+      ],
+      "pendingStates": [
+        "Страницы Meta Apps, Google Ads, Консультация",
+        "Diff с локальными изменениями без сохранения",
+        "Узкий ПК и меню на краях"
+      ]
+    },
+    {
+      "order": 18,
+      "key": "media",
+      "label": "Медиатека",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "18-media-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "18-media-dark-1440.png",
+        "18-media-detail-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Первый проход карточек, просмотр файла"
+      ],
+      "pendingStates": [
+        "Повтор сеток S/M/L после изменения минимумов и кнопок"
+      ]
+    },
+    {
+      "order": 19,
+      "key": "alerts",
+      "label": "Уведомления",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "19-alerts-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "19-alerts-dark-1440.png",
+        "19-fixture-alerts-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Реальное пустое состояние",
+        "Тестовые длинные уведомления"
+      ],
+      "pendingStates": [
+        "Узкий ПК"
+      ]
+    },
+    {
+      "order": 20,
+      "key": "audit",
+      "label": "Журнал аудита",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "20-audit-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "20-audit-dark-1440.png",
+        "20-audit-refined-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Первый повторный проход компактного журнала"
+      ],
+      "pendingStates": [
+        "Повтор после последнего исправления переходов этапов и раскрытия ID"
+      ]
+    },
+    {
+      "order": 21,
+      "key": "access",
+      "label": "Доступ к страницам",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "21-page-access-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "Первый снимок после HMR был отклонён; корректный список переснят. Предпросмотр заглушки пока не принят: POST рендера был заблокирован стендом; теперь endpoint проверен как читающий и разрешён.",
+      "afterScreens": [
+        "21-access-dark-1440.png",
+        "21-access-editor-dark-1440.png",
+        "21-access-preview-refined-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Список маршрутов, форма заглушки",
+        "Читающий renderer разрешён; srcDoc 14444 символа, HTML заглушки отрисован"
+      ],
+      "pendingStates": [
+        "Корректный native viewport screenshot нижнего preview"
+      ]
+    },
+    {
+      "order": 22,
+      "key": "migrations",
+      "label": "Миграции",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "22-migrations-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "22-migrations-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Статусы 43 миграций и фильтр неприменённых"
+      ],
+      "pendingStates": [
+        "Узкий ПК и длинные имена SQL"
+      ]
+    },
+    {
+      "order": 23,
+      "key": "health",
+      "label": "Проверка",
+      "baseline": "primary_captured",
+      "baselineScreens": [
+        "23-health-dark-1440-lower.png",
+        "23-health-dark-1440.png"
+      ],
+      "themesAfter": [
+        "dark"
+      ],
+      "widthsAfter": [
+        1440
+      ],
+      "nestedStates": "partially_reviewed",
+      "status": "desktop_review_in_progress",
+      "limits": "",
+      "afterScreens": [
+        "23-health-dark-1440.png",
+        "23-health-details-dark-1440.png",
+        "23-health-security-refined-dark-1440.png"
+      ],
+      "reviewedStates": [
+        "Компактная форма защиты, диагностические сообщения"
+      ],
+      "pendingStates": [
+        "Узкий ПК"
+      ]
+    }
+  ],
+  "note": "Not complete: no full 1024/1280/1920 or zoom acceptance yet. Lower clip/full-page images may place fixed chrome at document scroll offset; use native viewport screenshots for sticky/overlay acceptance. All production write actions remain untested and were not performed.",
+  "checks": [
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-wave1.log",
+      "scope": "Before later refinements; final check pending"
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-wave2.log",
+      "scope": "Intermediate; later refinements followed"
+    },
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "log": "output/admin-visual-2026-10-30/desktop-check-wave3.log",
+      "scope": "Intermediate; later refinements followed"
+    }
+  ],
+  "pausedByOwner": true,
+  "pausedAt": "2026-10-30",
+  "automation": {
+    "id": "whale-wizard",
+    "status": "PAUSED",
+    "reason": "Owner asked to finish current checkpoint and pause until they return."
+  },
+  "checkpointCheck": {
+    "command": "npm run check",
+    "exitCode": 0,
+    "log": "output/admin-visual-2026-10-30/desktop-check-checkpoint.log"
+  },
+  "checkpointMemo": "docs/handoff/ADMIN_VISUAL_CHECKPOINT.md"
+}

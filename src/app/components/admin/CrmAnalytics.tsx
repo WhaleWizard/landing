@@ -222,7 +222,7 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
 
   return (
     <div className="admin-stack admin-stack--lg crm-analytics">
-      <div className="adm-tiles">
+      <div className="adm-tiles adm-tiles--crm-analytics">
         <StatTile
           icon={<CircleDollarSign aria-hidden="true" />}
           title="В работе"

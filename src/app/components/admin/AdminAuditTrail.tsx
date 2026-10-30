@@ -15,6 +15,7 @@ import {
   User,
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
+import { AdminSelect } from './AdminUI';
 
 export interface AuditRecord {
   id: number;
@@ -42,11 +43,26 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   note_added: { label: 'Заметка CRM', color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' },
   trashed: { label: 'В корзину', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
   restored: { label: 'Восстановлен', color: 'text-teal-400 bg-teal-500/10 border-teal-500/20' },
+  pipeline_stage_changed: { label: 'Смена этапа', color: '' },
+  lead_trashed: { label: 'В корзину', color: '' },
+  lead_restored: { label: 'Восстановлен', color: '' },
+  lead_submitted: { label: 'Новая заявка', color: '' },
+  lead_merged: { label: 'Заявки объединены', color: '' },
+  quality_changed: { label: 'Качество заявки', color: '' },
+  note_created: { label: 'Заметка добавлена', color: '' },
+  note_updated: { label: 'Заметка изменена', color: '' },
+  note_deleted: { label: 'Заметка удалена', color: '' },
+  task_updated: { label: 'Задача изменена', color: '' },
+  task_deleted: { label: 'Задача удалена', color: '' },
+  tags_updated: { label: 'Теги изменены', color: '' },
 };
 
 const STATUS_NAMES: Record<string, string> = {
   new: 'Новый',
   contacted: 'Контакт',
+  discovery: 'Обсуждение',
+  proposal: 'Предложение',
+  archived: 'Архив',
   qualified: 'Квалифицирован',
   in_progress: 'В работе',
   won: 'Выигран',
@@ -183,17 +199,16 @@ export default function AdminAuditTrail({
           </div>
           <div>
             <div className="admin-audit-badge-row">
-              <span className="admin-audit-pill">Audit Trail Pro</span>
               <span className="admin-audit-badge-sub">Журнал всех действий и изменений</span>
             </div>
-            <h2 className="admin-audit-heading">Журнал аудита и действий CRM</h2>
+            <h2 className="admin-audit-heading">Журнал действий</h2>
           </div>
         </div>
 
         <div className="admin-audit-actions">
           <button
             type="button"
-            className="admin-btn admin-btn-secondary"
+            className="admin-button"
             onClick={handleExportCsv}
             disabled={activities.length === 0}
             title="Экспорт журнала действий в файл CSV"
@@ -203,7 +218,7 @@ export default function AdminAuditTrail({
           </button>
           <button
             type="button"
-            className="admin-btn admin-btn-secondary"
+            className="admin-button"
             onClick={() => void fetchAudit()}
             disabled={loading}
             title="Обновить журнал"
@@ -248,30 +263,31 @@ export default function AdminAuditTrail({
         <div className="admin-audit-filters">
           <div className="admin-audit-filter-group">
             <User className="h-3.5 w-3.5 text-slate-400 mr-1.5" />
-            <select
+            <AdminSelect
+              ariaLabel="Автор действия"
               className="admin-audit-select"
               value={actorFilter}
-              onChange={(e) => setActorFilter(e.target.value)}
-            >
-              <option value="all">Все авторы</option>
-              <option value="admin">Администратор (admin)</option>
-              <option value="system">Система (system)</option>
-            </select>
+              onValueChange={setActorFilter}
+              options={[
+                { value: 'all', label: 'Все авторы' },
+                { value: 'admin', label: 'Администратор' },
+                { value: 'system', label: 'Система' },
+              ]}
+            />
           </div>
 
           <div className="admin-audit-filter-group">
             <Filter className="h-3.5 w-3.5 text-slate-400 mr-1.5" />
-            <select
+            <AdminSelect
+              ariaLabel="Тип действия"
               className="admin-audit-select"
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            >
-              <option value="all">Все типы действий</option>
-              <option value="status_change">Смена статуса</option>
-              <option value="lead_intake">Новая заявка</option>
-              <option value="task_created">Создание задачи</option>
-              <option value="note_added">Добавление заметки</option>
-            </select>
+              onValueChange={setTypeFilter}
+              options={[
+                { value: 'all', label: 'Все типы действий' },
+                ...Object.entries(TYPE_LABELS).map(([value, item]) => ({ value, label: item.label })),
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -342,7 +358,7 @@ export default function AdminAuditTrail({
                   </div>
 
                   {/* Status Change Transition Chips */}
-                  {act.type === 'status_change' && (act.from_val || act.to_val) && (
+                  {['status_change', 'pipeline_stage_changed'].includes(act.type) && (act.from_val || act.to_val) && (
                     <div className="admin-audit-transition-row">
                       <span className="admin-audit-status-chip from">
                         {STATUS_NAMES[act.from_val] || act.from_val || '—'}
@@ -359,9 +375,10 @@ export default function AdminAuditTrail({
 
                   {/* Card Bottom Meta */}
                   <div className="admin-audit-card-footer">
-                    <span className="admin-audit-action-id">
-                      ID действия: <code>{act.action_id || `#${act.id}`}</code>
-                    </span>
+                    <details className="admin-audit-action-id">
+                      <summary>Детали действия</summary>
+                      <code>{act.action_id || `#${act.id}`}</code>
+                    </details>
 
                     {act.lead_id && onOpenLead && (
                       <button

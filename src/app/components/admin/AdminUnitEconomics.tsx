@@ -301,8 +301,7 @@ export default function AdminUnitEconomics() {
           </div>
           <div>
             <div className="admin-unit-econ-badge-row">
-              <span className="admin-unit-econ-pill">Unit Economics Pro</span>
-              <span className="admin-unit-econ-badge-sub">Медиапланирование & Воронка</span>
+              <span className="admin-unit-econ-badge-sub">Медиапланирование</span>
             </div>
             <h2 className="admin-unit-econ-heading">Калькулятор юнит-экономики и CPL</h2>
           </div>
@@ -311,7 +310,7 @@ export default function AdminUnitEconomics() {
         <div className="admin-unit-econ-actions">
           <button
             type="button"
-            className="admin-btn admin-btn-secondary"
+            className="admin-button"
             onClick={handleCopySummary}
             title="Скопировать готовый медиаплан для КП или отчета"
           >
@@ -320,7 +319,7 @@ export default function AdminUnitEconomics() {
           </button>
           <button
             type="button"
-            className="admin-btn admin-btn-secondary"
+            className="admin-button"
             onClick={handleReset}
             title="Сбросить к базовому сценарию"
           >

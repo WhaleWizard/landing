@@ -187,7 +187,7 @@ export default function AdminReport({ password }: { password: string }) {
             </button>
           </div>
 
-          <div className="adm-tiles">
+          <div className="adm-tiles adm-tiles--report">
             {[
               { label: 'Посетители', value: formatNumber(current?.visitors ?? null), note: change(current?.visitors ?? null, previous?.visitors ?? null) },
               { label: 'Заявки', value: formatNumber(current?.leads ?? null), note: change(current?.leads ?? null, previous?.leads ?? null) },

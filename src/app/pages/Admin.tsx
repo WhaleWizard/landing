@@ -2423,7 +2423,7 @@ export default function Admin() {
               <m.div
                 key={adminView}
                 className="min-w-0"
-                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: reduceMotion ? 0 : 0.26, ease: [0.22, 0.61, 0.36, 1] }}
               >
@@ -2454,6 +2454,7 @@ export default function Admin() {
               )}
               {adminView === 'alerts' && (
                 <AdminAlerts
+                  standalone
                   password={password}
                   onNavigate={(destination) => { void navigateToAdminSection(destination as AdminNavKey); }}
                 />
@@ -2489,36 +2490,37 @@ export default function Admin() {
               )}
 
               {adminView === 'articles' && (
-          <div className="admin-editor-layout">
+          <div className={`admin-editor-layout ${editingArticle ? 'is-editing' : 'is-browsing'}`}>
             <div className="admin-editor-list p-4 h-fit rounded-2xl bg-[var(--adm-card)] border border-[var(--adm-border)]">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-sm font-semibold text-[var(--adm-fg)]/90">
+              <div className="admin-publications-header">
+                <h2 className="admin-title">
                   {adminSectionFilter === 'cases' ? 'Кейсы' : adminSectionFilter === 'all' ? 'Все публикации' : 'Статьи'}
                 </h2>
                 <button onClick={() => {
                   // Раздел новой статьи подстраивается под активный фильтр:
                   // включён фильтр «Кейсы» — сразу создаём кейс
                   void createArticleDraft(adminSectionFilter === 'cases' ? CASES_CATEGORY : '');
-                }} className="admin-button h-10 w-10 p-0 text-[var(--adm-primary)]" aria-label="Создать публикацию" title="Создать публикацию">
+                }} className="admin-button admin-button--primary admin-publications-create" aria-label="Создать публикацию" title="Создать публикацию">
                   <Plus className="w-4 h-4" />
+                  <span>Создать публикацию</span>
                 </button>
               </div>
-              <div className="mb-3 grid grid-cols-4 gap-2 text-center">
-                <div className="adm-inset px-2 py-1.5">
-                  <div className="text-sm font-semibold">{articleStats.total}</div>
-                  <div className="admin-meta">всего</div>
+              <div className="admin-publication-stats" aria-label="Сводка публикаций">
+                <div>
+                  <strong>{articleStats.total}</strong>
+                  <span>всего</span>
                 </div>
-                <div className="adm-inset px-2 py-1.5">
-                  <div className="text-sm font-semibold">{articleStats.shown}</div>
-                  <div className="admin-meta">видно</div>
+                <div>
+                  <strong>{articleStats.shown}</strong>
+                  <span>в разделе</span>
                 </div>
-                <div className="adm-inset px-2 py-1.5">
-                  <div className="text-sm font-semibold">{articleStats.drafts}</div>
-                  <div className="admin-meta">черн.</div>
+                <div>
+                  <strong>{articleStats.drafts}</strong>
+                  <span>черновиков</span>
                 </div>
-                <div className="adm-inset px-2 py-1.5">
-                  <div className="text-sm font-semibold">{articleStats.planned}</div>
-                  <div className="admin-meta">план</div>
+                <div>
+                  <strong>{articleStats.planned}</strong>
+                  <span>в плане</span>
                 </div>
               </div>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -2529,18 +2531,18 @@ export default function Admin() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <select
-                    aria-label="Сортировка публикаций"
+                  <AdminSelect
+                    ariaLabel="Сортировка публикаций"
                     value={articleSort}
-                    onChange={(e) => setArticleSort(e.target.value as any)}
-                    className="text-xs px-2.5 py-1.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--adm-primary)]"
-                  >
-                    <option value="date-desc">Сначала новые</option>
-                    <option value="date-asc">Сначала старые</option>
-                    <option value="title-asc">По алфавиту (А–Я)</option>
-                    <option value="title-desc">По алфавиту (Я–А)</option>
-                    <option value="stale">Требуют обновления</option>
-                  </select>
+                    onValueChange={(value) => setArticleSort(value as typeof articleSort)}
+                    options={[
+                      { value: 'date-desc', label: 'Сначала новые' },
+                      { value: 'date-asc', label: 'Сначала старые' },
+                      { value: 'title-asc', label: 'По алфавиту (А–Я)' },
+                      { value: 'title-desc', label: 'По алфавиту (Я–А)' },
+                      { value: 'stale', label: 'Требуют обновления' },
+                    ]}
+                  />
 
                   <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-card)]">
                     <button
@@ -2630,7 +2632,7 @@ export default function Admin() {
                   Ничего не найдено. Проверьте поиск или фильтр раздела.
                 </div>
               ) : articleViewMode === 'grid' ? (
-                <div className="admin-article-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5 max-h-[640px] overflow-y-auto scrollbar-brand p-1">
+                <div className="admin-article-grid scrollbar-brand">
                   {sortedArticles.map((article) => {
                     const featuredIndex = featuredSlugs.indexOf(article.slug);
                     return (
@@ -2690,7 +2692,7 @@ export default function Admin() {
                 </div>
               </details>
 
-              <details className="admin-disclosure mt-2" open>
+              <details className="admin-disclosure mt-2">
                 <summary>
                   <span>Календарь публикаций</span>
                   <span className="admin-meta">{articleStats.planned} в плане</span>
@@ -2725,6 +2727,7 @@ export default function Admin() {
               {editingArticle ? (
                 <div className="space-y-4">
                   <div className="admin-editor-toolbar adm-inset flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <button type="button" onClick={closeArticleEditor} className="admin-button admin-button--quiet">К списку публикаций</button>
                     <div>
                       <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                         <span>{editingArticle.id ? 'Редактирование статьи' : 'Новая статья'}</span>
@@ -2766,7 +2769,7 @@ export default function Admin() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Заголовок</label>
-                      <input aria-label="Заголовок публикации" type="text" value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                      <textarea aria-label="Заголовок публикации" rows={2} value={editingArticle.title} onChange={(e) => handleTitleChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] placeholder:text-[var(--adm-fg)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all resize-y" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Раздел публикации</label>

@@ -1164,6 +1164,36 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   display: none;
 }
 
+.admin-root .admin-content-control .admin-content-layout { grid-template-columns: minmax(0, 1fr); }
+.admin-root .admin-content-control .admin-content-aside { position: static; }
+.admin-root .admin-content-control .admin-editor-workspace { grid-template-columns: 224px minmax(0,1fr); gap: 24px; }
+.admin-root .admin-block-nav__item { display: grid; min-width: 0; width: 100%; border: 1px solid var(--adm-border-subtle); border-radius: 8px; background: var(--adm-surface-raised); }
+.admin-root .admin-block-nav__item.is-active { border-color: var(--adm-primary); background: var(--adm-primary-tint); }
+.admin-root .admin-block-nav__item.is-hidden { border-style: dashed; }
+.admin-root .admin-block-nav__select { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 10px; text-align: left; }
+.admin-root .admin-block-nav__number { flex: none; display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 4px; border-radius: 5px; background: var(--adm-surface-subtle); color: var(--adm-text-secondary); font-size: 12px; }
+.admin-root .admin-block-nav__copy { min-width: 0; flex: 1; }
+.admin-root .admin-block-nav__copy strong { display: block; color: var(--adm-text-primary); font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.admin-root .admin-block-nav__copy small { display: block; color: var(--adm-text-tertiary); font-size: 12px; line-height: 1.4; margin-top: 2px; }
+.admin-root .admin-block-nav__label { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.admin-root .admin-block-nav__actions { display: flex; justify-content: flex-end; gap: 4px; padding: 0 6px 6px; }
+.admin-root .admin-block-nav__actions .admin-icon-button { width: 30px; height: 30px; min-height: 30px; }
+.admin-root .admin-block-nav__actions .admin-icon-button svg { width: 14px; height: 14px; }
+.admin-root .admin-block-nav__actions .is-hidden { color: var(--adm-warning); }
+.admin-root .admin-block-nav .admin-block-search { min-width: 0; width: 100%; }
+.admin-root .admin-block-nav .admin-block-search input { min-width: 0; }
+.admin-root .admin-block-nav__select[data-changed='true'] .admin-block-nav__number { color: var(--adm-warning); }
+.admin-root .admin-block-nav__select[data-changed='true'] small { color: var(--adm-warning); }
+@container admin-main (max-width: 760px) {
+  .admin-root .admin-content-control .admin-editor-workspace { grid-template-columns: minmax(0,1fr); }
+  .admin-root .admin-content-control .admin-block-nav { display: none; }
+  .admin-root .admin-content-control .admin-block-nav-mobile { display: block; }
+}
+@container admin-main (min-width: 1440px) {
+  .admin-root .admin-content-control .admin-content-layout { grid-template-columns: minmax(0, 1fr) 280px; }
+}
+
+
 .admin-root .admin-block-editor {
   min-width: 0;
 }
@@ -1390,6 +1420,17 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
   -webkit-line-clamp: 1;
 }
 
+.admin-root .admin-font-trigger--compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--adm-control-height);
+  padding: 0 12px;
+  gap: 8px;
+}
+.admin-root .admin-font-trigger--compact > span { min-width: 0; font-size: 14px; line-height: 1.4; }
+.admin-root .admin-font-trigger--compact > svg { flex: none; width: 14px; height: 14px; transform: rotate(90deg); color: var(--adm-text-tertiary); }
+
 .admin-root .admin-typography-subsection {
   display: grid;
   gap: 10px;
@@ -1446,6 +1487,7 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 }
 
 .admin-root .admin-size-control input[type='range'] {
+  appearance: none;
   width: 100%;
   min-width: 0;
   height: 44px;
@@ -1460,17 +1502,17 @@ body[data-admin-theme] .admin-select-item[data-state='checked'] {
 .admin-root .admin-size-control input[type='range']::-webkit-slider-runnable-track {
   height: 5px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--adm-primary) 38%, var(--adm-surface-subtle));
+  background: var(--adm-border-strong);
 }
 
 .admin-root .admin-size-control input[type='range']::-webkit-slider-thumb {
-  width: 18px;
-  height: 18px;
-  margin-top: -6.5px;
-  border: 3px solid var(--adm-surface-elevated);
+  width: 14px;
+  height: 14px;
+  margin-top: -4.5px;
+  border: 0;
   border-radius: 50%;
   background: var(--adm-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--adm-primary) 60%, transparent);
+  box-shadow: none;
   -webkit-appearance: none;
 }
 
@@ -2190,13 +2232,14 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
 /* Свой шрифт и свой эффект для одной строки заголовка. */
 .admin-root .admin-line-style {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  align-items: start;
   margin-top: 8px;
-  padding: 10px;
-  border: 1px dashed var(--adm-border-subtle);
+  padding: 14px;
+  border: 1px solid var(--adm-border-subtle);
   border-radius: var(--adm-radius-md);
-  background: var(--adm-surface-subtle);
+  background: transparent;
 }
 
 .admin-root .admin-line-style > * {
@@ -2692,7 +2735,7 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
 
 .admin-root .admin-crm-toolbar {
   display: grid;
-  grid-template-columns: minmax(240px, 1.55fr) repeat(4, minmax(132px, 0.72fr));
+  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(118px, .7fr)) auto;
   align-items: center;
   gap: 8px;
   padding: 9px;
@@ -4409,47 +4452,48 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
  * Десктоп — одна строка, телефон — карточка: заголовок в две строки,
  * статус и действия уезжают на отдельный ряд вместо обрезки за краем экрана.
  */
+
+
+/* Publication rows size themselves to the list, including the narrow editor rail. */
 .admin-root .admin-article-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  grid-template-areas: "main main main" "pin badges actions";
   align-items: center;
   gap: 8px;
-}
-
-.admin-root .admin-article-row__main {
-  display: block;
+  padding: var(--adm-density-article, 10px) 12px;
   min-width: 0;
-  text-align: left;
 }
-
-.admin-root .admin-article-row__title {
-  display: block;
-  overflow: hidden;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.admin-root .admin-article-row__main { grid-area: main; display: block; min-width: 0; text-align: left; }
+.admin-root .admin-article-row__title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font-size: 14px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.admin-root .admin-article-row__slug { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--adm-text-tertiary); font-size: 12px; margin-top: 3px; }
+.admin-root .admin-article-row__grab { grid-area: pin; display: inline-flex; align-items: center; justify-content: center; width: 32px; min-height: 32px; }
+.admin-root .admin-article-row__badges { grid-area: badges; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.admin-root .admin-article-row__actions { grid-area: actions; display: flex; align-items: center; gap: 4px; }
+.admin-root .admin-article-row__actions > button { display: inline-flex; align-items: center; justify-content: center; width: 32px; min-width: 32px; min-height: 32px; }
+.admin-root .admin-editor-layout.is-browsing { grid-template-columns: minmax(0, 1fr); }
+.admin-root .admin-editor-layout.is-editing { grid-template-columns: minmax(0,1fr); }
+.admin-root .admin-editor-layout.is-editing > .admin-editor-list { display: none; }
+.admin-root .admin-editor-main { min-width: 0; container: article-workspace / inline-size; }
+.admin-root .admin-block-picker > summary { cursor: pointer; min-height: 28px; list-style: none; }
+.admin-root .admin-block-picker > summary::-webkit-details-marker { display: none; }
+.admin-root .admin-block-picker > summary::after { content: '+'; color: var(--adm-primary); font-size: 20px; line-height: 1; }
+.admin-root .admin-block-picker[open] > summary::after { content: '−'; }
+.admin-root .admin-block-picker .admin-block-palette { margin-top: 12px; }
+.admin-root .admin-editor-layout.is-browsing > .admin-editor-main { display: none; }
+.admin-root .admin-article-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 16px; min-width: 0; }
+.admin-root .admin-editor-layout.is-editing .admin-article-grid { grid-template-columns: minmax(0, 1fr); max-height: 680px; overflow-y: auto; padding: 2px; }
+.admin-root .admin-content { container: admin-main / inline-size; }
+@container admin-main (min-width: 850px) {
+  .admin-root .admin-editor-layout.is-browsing .admin-article-row {
+    grid-template-columns: 32px minmax(240px, 1fr) minmax(0, auto) auto;
+    grid-template-areas: "pin main badges actions";
+  }
 }
-
-.admin-root .admin-article-row__slug {
-  display: block;
-  overflow: hidden;
-  color: color-mix(in srgb, var(--adm-fg) 60%, transparent);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.admin-root .admin-article-row__badges {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.admin-root .admin-article-row__actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+@media (max-width: 767px) {
+  .admin-root .admin-article-row__grab,
+  .admin-root .admin-article-row__actions > button { min-width: 44px; width: 44px; min-height: 44px; }
+  .admin-root .admin-article-row { grid-template-columns: 44px minmax(0,1fr) auto; }
 }
 
 /*
@@ -4559,44 +4603,9 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     padding: 14px;
   }
 
-  .admin-root .admin-article-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 10px;
-    padding: 12px;
-  }
+/* Перетаскивание списка работает только мышью — на телефоне хэндл занимал место зря. */
 
-  .admin-root .admin-article-row__main {
-    grid-column: 1;
-  }
-
-  .admin-root .admin-article-row__title {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
-  .admin-root .admin-article-row__badges {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .admin-root .admin-article-row__actions {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-items: center;
-    gap: 4px;
-  }
-
-  /* Перетаскивание списка работает только мышью — на телефоне хэндл занимал место зря. */
-  .admin-root .admin-article-row__grab {
-    display: none;
-  }
-
-  .admin-root .admin-article-row__actions > button {
+.admin-root .admin-article-row__actions > button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -5204,11 +5213,12 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   position: relative;
   height: 196px;
   padding-left: 26px;
+  padding-top: 24px;
 }
 
 .admin-root .planner-chart__grid {
   position: absolute;
-  top: 0;
+  top: 24px;
   right: 0;
   bottom: 24px;
   left: 26px;
@@ -6652,10 +6662,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .planner-day[data-today] {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--adm-primary) 16%, transparent),
-    0 14px 34px -22px color-mix(in srgb, var(--adm-primary) 85%, transparent),
-    var(--adm-shadow-xs);
+  box-shadow: none;
 }
 
 .admin-root .planner-day__head {
@@ -6839,6 +6846,20 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-width: 0;
 }
 
+.admin-root .adm-tile__figure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.admin-root .adm-tile__figure .adm-delta { margin-inline-start: 0; }
+.admin-root .adm-tile.has-spark { position: relative; padding-bottom: 48px; }
+.admin-root .adm-spark { position: absolute; inset-inline: 0; bottom: 0; display: block; width: 100%; pointer-events: none; opacity: .65; }
+.admin-root .adm-spark__line { stroke: var(--adm-spark-color, var(--adm-viz-1)); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+
 /*
  * Значок метрики без цветной плашки. Десять подсвеченных квадратов в ряд
  * не сообщают ничего, но забирают внимание у самих чисел — а число здесь
@@ -6865,9 +6886,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   font-size: 13px;
   font-weight: 600;
   color: var(--adm-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .admin-root .adm-tile__value {
@@ -7259,7 +7279,10 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   background: var(--adm-surface-elevated);
   border-bottom: 1px solid var(--adm-border);
   white-space: nowrap;
+  text-align: start;
 }
+
+.admin-root .adm-data-table thead th:not(:has(button)) { padding: 10px 8px; }
 
 .admin-root .adm-data-table thead th button {
   display: inline-flex;
@@ -7820,7 +7843,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .crm-board {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(248px, 1fr);
+  grid-auto-columns: minmax(280px, 1fr);
   gap: 10px;
   padding-bottom: 8px;
   overflow-x: auto;
@@ -7980,20 +8003,25 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 .admin-root .crm-card__top {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 7px minmax(0,1fr);
+  align-items: baseline;
   gap: 7px;
   min-width: 0;
 }
 
 .admin-root .crm-card__top strong {
-  flex: 1;
   min-width: 0;
   font-size: 13.5px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  line-height: 1.5;
 }
+
+.admin-root .crm-card__deal { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 
 .admin-root .crm-card__priority {
   width: 7px;
@@ -8843,6 +8871,9 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: 6px;
   margin-top: 2px;
 }
+
+.admin-root .media-card__actions .admin-button--compact { min-width: 0; padding-inline: 8px; gap: 6px; }
+.admin-root .media-card__actions .admin-icon-button { width: 32px; min-width: 32px; }
 
 /* --- Просмотр файла --- */
 
@@ -12272,10 +12303,6 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   padding: var(--adm-density-row);
 }
 
-.admin-root .admin-article-row {
-  padding: var(--adm-density-article) 10px;
-}
-
 /* Специфичность выше, чем у Tailwind-утилиты space-y-2 на самом списке. */
 .admin-root .admin-article-list > :not([hidden]) ~ :not([hidden]) {
   margin-top: var(--adm-density-gap);
@@ -14686,7 +14713,8 @@ body[data-admin-theme] .planner-weekpick {
 }
 
 .admin-root .admin-dl-filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, .55fr) minmax(150px, .5fr);
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
@@ -14730,7 +14758,7 @@ body[data-admin-theme] .planner-weekpick {
    бы рваным. */
 .admin-root .admin-dl-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--adm-density-gap, 16px);
   align-items: stretch;
 }
@@ -14842,14 +14870,16 @@ body[data-admin-theme] .planner-weekpick {
 }
 
 .admin-root .admin-dl-params li {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 138px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--adm-text-secondary);
 }
+
+.admin-root .admin-dl-params li > code { justify-self: start; }
 
 .admin-root :is(.admin-dl-params, .admin-dl-targets, .admin-dl-where) code {
   padding: 1px 6px;
@@ -16510,9 +16540,9 @@ body[data-admin-theme] .planner-weekpick {
   gap: 20px;
 }
 
-@media (min-width: 1280px) {
+@container article-workspace (min-width: 940px) {
   .admin-root .admin-editor-split-layout {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
   }
 }
 
@@ -16796,11 +16826,11 @@ body[data-admin-theme] .planner-weekpick {
 
 /* Media Grid Sizing & Filters */
 .admin-root .media-grid--s {
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)) !important;
 }
 
 .admin-root .media-grid--m {
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)) !important;
 }
 
 .admin-root .media-grid--l {
@@ -16846,7 +16876,10 @@ body[data-admin-theme] .planner-weekpick {
 .admin-root .media-heavy-toggle {
   display: inline-flex;
   align-items: center;
-  height: 28px;
+  min-height: var(--adm-control-height);
+  flex: none;
+  white-space: nowrap;
+  gap: 6px;
   padding: 0 10px;
   border-radius: 8px;
   border: 1px solid var(--adm-border);
@@ -17579,6 +17612,15 @@ body[data-admin-theme] .planner-weekpick {
   border-collapse: collapse;
 }
 
+.admin-root .admin-gsc-table :is(th, td) { padding: 12px 16px; border-bottom: 1px solid var(--adm-border-subtle); line-height: 1.5; }
+.admin-root .admin-gsc-table th { text-align: right; color: var(--adm-text-secondary); font-size: 12px; font-weight: 600; background: var(--adm-surface-raised); }
+.admin-root .admin-gsc-table th:first-child { text-align: left; }
+.admin-root .admin-gsc-chart-controls,
+.admin-root .admin-gsc-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-root .admin-pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--adm-border-subtle); border-radius: var(--adm-radius-control); background: var(--adm-surface-raised); color: var(--adm-text-secondary); font-size: 12px; line-height: 1.4; white-space: nowrap; }
+.admin-root .admin-pill:hover { background: var(--adm-surface-subtle); color: var(--adm-text-primary); }
+.admin-root .admin-pill--active { background: var(--adm-primary-tint); border-color: var(--adm-primary); color: var(--adm-primary); }
+
 .admin-root .admin-gsc-th-query {
   width: 40%;
 }
@@ -18273,164 +18315,164 @@ body[data-admin-theme] .planner-weekpick {
    Блок 2 / Модуль 5: Launchpad — Интерактивные чек-листы запуска рекламы
    ========================================================================== */
 
-.admin-launchpad-container {
+.admin-root .admin-launchpad-container {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   width: 100%;
 }
 
-.admin-launchpad-header {
+.admin-root .admin-launchpad-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  background: rgba(15, 23, 42, 0.65);
+  background: var(--adm-surface-raised);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 1rem;
 }
 
-.admin-launchpad-title-group {
+.admin-root .admin-launchpad-title-group {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.admin-launchpad-icon-wrap {
+.admin-root .admin-launchpad-icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: color-mix(in srgb, var(--adm-info) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-info) 25%, transparent);
   border-radius: 0.75rem;
 }
 
-.admin-launchpad-badge-row {
+.admin-root .admin-launchpad-badge-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.25rem;
 }
 
-.admin-launchpad-pill {
+.admin-root .admin-launchpad-pill {
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: var(--adm-info);
+  background: color-mix(in srgb, var(--adm-info) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-info) 30%, transparent);
   padding: 0.15rem 0.5rem;
   border-radius: 9999px;
 }
 
-.admin-launchpad-badge-sub {
+.admin-root .admin-launchpad-badge-sub {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-launchpad-heading {
+.admin-root .admin-launchpad-heading {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
   margin: 0;
   letter-spacing: -0.01em;
 }
 
-.admin-launchpad-actions {
+.admin-root .admin-launchpad-actions {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   flex-wrap: wrap;
 }
 
-.admin-launchpad-templates {
+.admin-root .admin-launchpad-templates {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 0.875rem;
 }
 
-.admin-launchpad-template-card {
+.admin-root .admin-launchpad-template-card {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 1rem 1.25rem;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.875rem;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.admin-launchpad-template-card:hover {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(96, 165, 250, 0.3);
-  transform: translateY(-1px);
+.admin-root .admin-launchpad-template-card:hover {
+  background: var(--adm-surface-subtle);
+  border-color: color-mix(in srgb, var(--adm-info) 30%, transparent);
+  transform: none;
 }
 
-.admin-launchpad-template-card.active {
-  background: rgba(30, 58, 138, 0.25);
-  border-color: #3b82f6;
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+.admin-root .admin-launchpad-template-card.active {
+  background: color-mix(in srgb, var(--adm-info) 25%, transparent);
+  border-color: var(--adm-info);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--adm-info) 15%, transparent);
 }
 
-.admin-launchpad-tmpl-top {
+.admin-root .admin-launchpad-tmpl-top {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-.admin-launchpad-tmpl-name {
+.admin-root .admin-launchpad-tmpl-name {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--adm-text-primary);
 }
 
-.admin-launchpad-template-card.active .admin-launchpad-tmpl-name {
-  color: #93c5fd;
+.admin-root .admin-launchpad-template-card.active .admin-launchpad-tmpl-name {
+  color: var(--adm-info);
 }
 
-.admin-launchpad-tmpl-target {
+.admin-root .admin-launchpad-tmpl-target {
   font-size: 0.6875rem;
   font-weight: 600;
   padding: 0.125rem 0.45rem;
   border-radius: 0.375rem;
-  background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
+  background: var(--adm-border-subtle);
+  color: var(--adm-text-tertiary);
 }
 
-.admin-launchpad-template-card.active .admin-launchpad-tmpl-target {
-  background: rgba(59, 130, 246, 0.25);
+.admin-root .admin-launchpad-template-card.active .admin-launchpad-tmpl-target {
+  background: color-mix(in srgb, var(--adm-info) 25%, transparent);
   color: #bfdbfe;
 }
 
-.admin-launchpad-tmpl-desc {
+.admin-root .admin-launchpad-tmpl-desc {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
   margin: 0;
   line-height: 1.4;
 }
 
-.admin-launchpad-status-card {
+.admin-root .admin-launchpad-status-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.6) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, var(--adm-surface-raised) 0%, var(--adm-surface-subtle) 100%);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 1rem;
 }
 
-.admin-launchpad-status-main {
+.admin-root .admin-launchpad-status-main {
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -18438,7 +18480,7 @@ body[data-admin-theme] .planner-weekpick {
   min-width: 280px;
 }
 
-.admin-launchpad-progress-ring-box {
+.admin-root .admin-launchpad-progress-ring-box {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -18446,96 +18488,96 @@ body[data-admin-theme] .planner-weekpick {
   width: 4rem;
   height: 4rem;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.9);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  background: var(--adm-surface-raised);
+  border: 2px solid color-mix(in srgb, var(--adm-info) 30%, transparent);
   flex-shrink: 0;
 }
 
-.admin-launchpad-progress-num {
+.admin-root .admin-launchpad-progress-num {
   font-size: 1.125rem;
   font-weight: 800;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
   line-height: 1;
 }
 
-.admin-launchpad-progress-label {
+.admin-root .admin-launchpad-progress-label {
   font-size: 0.5625rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
   margin-top: 0.2rem;
 }
 
-.admin-launchpad-progress-details {
+.admin-root .admin-launchpad-progress-details {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   flex: 1;
 }
 
-.admin-launchpad-progress-bar-wrap {
+.admin-root .admin-launchpad-progress-bar-wrap {
   width: 100%;
   height: 0.5rem;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--adm-border-subtle);
   border-radius: 9999px;
   overflow: hidden;
 }
 
-.admin-launchpad-progress-bar-fill {
+.admin-root .admin-launchpad-progress-bar-fill {
   height: 100%;
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease;
 }
 
-.admin-launchpad-progress-bar-fill.progressing {
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+.admin-root .admin-launchpad-progress-bar-fill.progressing {
+  background: linear-gradient(90deg, var(--adm-info) 0%, var(--adm-info) 100%);
 }
 
-.admin-launchpad-progress-bar-fill.danger {
-  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+.admin-root .admin-launchpad-progress-bar-fill.danger {
+  background: linear-gradient(90deg, var(--adm-warning) 0%, var(--adm-danger) 100%);
 }
 
-.admin-launchpad-progress-bar-fill.complete {
-  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+.admin-root .admin-launchpad-progress-bar-fill.complete {
+  background: linear-gradient(90deg, var(--adm-success) 0%, var(--adm-success) 100%);
 }
 
-.admin-launchpad-stats-row {
+.admin-root .admin-launchpad-stats-row {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   font-size: 0.8125rem;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
   flex-wrap: wrap;
 }
 
-.admin-launchpad-stat-item strong {
-  color: #f1f5f9;
+.admin-root .admin-launchpad-stat-item strong {
+  color: var(--adm-text-primary);
 }
 
-.admin-launchpad-stat-divider {
-  color: #475569;
+.admin-root .admin-launchpad-stat-divider {
+  color: var(--adm-text-tertiary);
 }
 
-.admin-launchpad-client-input-wrap {
+.admin-root .admin-launchpad-client-input-wrap {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
   min-width: 260px;
 }
 
-.admin-launchpad-client-label {
+.admin-root .admin-launchpad-client-label {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-launchpad-client-input {
+.admin-root .admin-launchpad-client-input {
   font-size: 0.8125rem;
   padding: 0.45rem 0.75rem;
 }
 
-.admin-launchpad-toolbar {
+.admin-root .admin-launchpad-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -18543,167 +18585,167 @@ body[data-admin-theme] .planner-weekpick {
   gap: 0.75rem;
 }
 
-.admin-launchpad-search {
+.admin-root .admin-launchpad-search {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.75rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.5rem;
   flex: 1;
   min-width: 240px;
   max-width: 420px;
 }
 
-.admin-launchpad-search-input {
+.admin-root .admin-launchpad-search-input {
   background: transparent;
   border: none;
   outline: none;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
   font-size: 0.8125rem;
   width: 100%;
 }
 
-.admin-launchpad-search-input::placeholder {
-  color: #64748b;
+.admin-root .admin-launchpad-search-input::placeholder {
+  color: var(--adm-text-tertiary);
 }
 
-.admin-launchpad-filters {
+.admin-root .admin-launchpad-filters {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   flex-wrap: wrap;
 }
 
-.admin-launchpad-filter-group {
+.admin-root .admin-launchpad-filter-group {
   display: flex;
   align-items: center;
   padding: 0.25rem 0.5rem 0.25rem 0.65rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.5rem;
 }
 
-.admin-launchpad-select {
+.admin-root .admin-launchpad-select {
   background: transparent;
   border: none;
   outline: none;
-  color: #cbd5e1;
+  color: var(--adm-text-secondary);
   font-size: 0.8125rem;
   cursor: pointer;
 }
 
-.admin-launchpad-select option {
-  background: #0f172a;
-  color: #f8fafc;
+.admin-root .admin-launchpad-select option {
+  background: var(--adm-surface-raised);
+  color: var(--adm-text-primary);
 }
 
-.admin-launchpad-items-list {
+.admin-root .admin-launchpad-items-list {
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
 }
 
-.admin-launchpad-empty {
+.admin-root .admin-launchpad-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 3rem 1.5rem;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px dashed rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px dashed var(--adm-border-subtle);
   border-radius: 1rem;
   text-align: center;
 }
 
-.admin-launchpad-item {
+.admin-root .admin-launchpad-item {
   display: flex;
   align-items: flex-start;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
 }
 
-.admin-launchpad-item:hover {
-  background: rgba(30, 41, 59, 0.65);
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: translateY(-1px);
+.admin-root .admin-launchpad-item:hover {
+  background: var(--adm-surface-subtle);
+  border-color: var(--adm-border-subtle);
+  transform: none;
 }
 
-.admin-launchpad-item:focus-visible {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+.admin-root .admin-launchpad-item:focus-visible {
+  border-color: var(--adm-info);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--adm-info) 30%, transparent);
 }
 
-.admin-launchpad-item.done {
-  background: rgba(15, 23, 42, 0.3);
-  border-color: rgba(255, 255, 255, 0.04);
+.admin-root .admin-launchpad-item.done {
+  background: var(--adm-surface-raised);
+  border-color: var(--adm-border-subtle);
   opacity: 0.75;
 }
 
-.admin-launchpad-item.critical-pending {
-  border-left: 3px solid #ef4444;
+.admin-root .admin-launchpad-item.critical-pending {
+  border-left: 3px solid var(--adm-danger);
 }
 
-.admin-launchpad-item-check-col {
+.admin-root .admin-launchpad-item-check-col {
   padding-top: 0.125rem;
 }
 
-.admin-launchpad-item-content {
+.admin-root .admin-launchpad-item-content {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   flex: 1;
 }
 
-.admin-launchpad-item-header {
+.admin-root .admin-launchpad-item-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.admin-launchpad-item-title {
+.admin-root .admin-launchpad-item-title {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--adm-text-primary);
   line-height: 1.35;
 }
 
-.admin-launchpad-item-badges {
+.admin-root .admin-launchpad-item-badges {
   display: flex;
   align-items: center;
   gap: 0.375rem;
   flex-shrink: 0;
 }
 
-.admin-launchpad-badge-crit {
+.admin-root .admin-launchpad-badge-crit {
   display: inline-flex;
   align-items: center;
   font-size: 0.6875rem;
   font-weight: 700;
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--adm-danger);
+  background: color-mix(in srgb, var(--adm-danger) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-danger) 30%, transparent);
   padding: 0.125rem 0.45rem;
   border-radius: 0.375rem;
 }
 
-.admin-launchpad-badge-cat {
+.admin-root .admin-launchpad-badge-cat {
   font-size: 0.6875rem;
-  color: #94a3b8;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--adm-text-tertiary);
+  background: var(--adm-border-subtle);
   padding: 0.125rem 0.45rem;
   border-radius: 0.375rem;
 }
 
-.admin-launchpad-btn-del {
+.admin-root .admin-launchpad-btn-del {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -18715,17 +18757,17 @@ body[data-admin-theme] .planner-weekpick {
   transition: background 0.15s ease;
 }
 
-.admin-launchpad-btn-del:hover {
-  background: rgba(239, 68, 68, 0.15);
+.admin-root .admin-launchpad-btn-del:hover {
+  background: color-mix(in srgb, var(--adm-danger) 15%, transparent);
 }
 
-.admin-launchpad-item-desc {
+.admin-root .admin-launchpad-item-desc {
   font-size: 0.8125rem;
   line-height: 1.45;
   margin: 0;
 }
 
-.admin-launchpad-item-footer {
+.admin-root .admin-launchpad-item-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -18733,39 +18775,39 @@ body[data-admin-theme] .planner-weekpick {
   gap: 0.5rem;
   margin-top: 0.35rem;
   padding-top: 0.35rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--adm-border-subtle);
 }
 
-.admin-launchpad-item-tip {
+.admin-root .admin-launchpad-item-tip {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-launchpad-item-tip strong {
-  color: #cbd5e1;
+.admin-root .admin-launchpad-item-tip strong {
+  color: var(--adm-text-secondary);
 }
 
-.admin-launchpad-item-link {
+.admin-root .admin-launchpad-item-link {
   display: inline-flex;
   align-items: center;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #60a5fa;
+  color: var(--adm-info);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
-.admin-launchpad-item-link:hover {
-  color: #93c5fd;
+.admin-root .admin-launchpad-item-link:hover {
+  color: var(--adm-info);
   text-decoration: underline;
 }
 
-.admin-launchpad-modal {
+.admin-root .admin-launchpad-modal {
   max-width: 520px;
   width: 95%;
 }
 
-.admin-launchpad-modal-form {
+.admin-root .admin-launchpad-modal-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -18775,150 +18817,150 @@ body[data-admin-theme] .planner-weekpick {
    Блок 2 / Модуль 7: Калькулятор юнит-экономики и медиапланирования (AdminUnitEconomics)
    ========================================================================== */
 
-.admin-unit-econ-container {
+.admin-root .admin-unit-econ-container {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   width: 100%;
 }
 
-.admin-unit-econ-header {
+.admin-root .admin-unit-econ-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  background: rgba(15, 23, 42, 0.65);
+  background: var(--adm-surface-raised);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 1rem;
 }
 
-.admin-unit-econ-title-group {
+.admin-root .admin-unit-econ-title-group {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.admin-unit-econ-icon-wrap {
+.admin-root .admin-unit-econ-icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: color-mix(in srgb, var(--adm-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-success) 25%, transparent);
   border-radius: 0.75rem;
 }
 
-.admin-unit-econ-badge-row {
+.admin-root .admin-unit-econ-badge-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.25rem;
 }
 
-.admin-unit-econ-pill {
+.admin-root .admin-unit-econ-pill {
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: var(--adm-success);
+  background: color-mix(in srgb, var(--adm-success) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-success) 30%, transparent);
   padding: 0.15rem 0.5rem;
   border-radius: 9999px;
 }
 
-.admin-unit-econ-badge-sub {
+.admin-root .admin-unit-econ-badge-sub {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-unit-econ-heading {
+.admin-root .admin-unit-econ-heading {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
   margin: 0;
   letter-spacing: -0.01em;
 }
 
-.admin-unit-econ-actions {
+.admin-root .admin-unit-econ-actions {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   flex-wrap: wrap;
 }
 
-.admin-unit-econ-presets {
+.admin-root .admin-unit-econ-presets {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
   padding: 0.75rem 1rem;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.75rem;
 }
 
-.admin-unit-econ-preset-label {
+.admin-root .admin-unit-econ-preset-label {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-unit-econ-preset-list {
+.admin-root .admin-unit-econ-preset-list {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.admin-unit-econ-preset-chip {
+.admin-root .admin-unit-econ-preset-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #cbd5e1;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--adm-text-secondary);
+  background: var(--adm-border-subtle);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 9999px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
-.admin-unit-econ-preset-chip:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
-  border-color: rgba(255, 255, 255, 0.15);
+.admin-root .admin-unit-econ-preset-chip:hover {
+  background: var(--adm-border-subtle);
+  color: var(--adm-text-primary);
+  border-color: var(--adm-text-secondary);
 }
 
-.admin-unit-econ-preset-chip.active {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(52, 211, 153, 0.4);
-  color: #6ee7b7;
+.admin-root .admin-unit-econ-preset-chip.active {
+  background: color-mix(in srgb, var(--adm-success) 18%, transparent);
+  border-color: color-mix(in srgb, var(--adm-success) 40%, transparent);
+  color: var(--adm-success);
   font-weight: 600;
 }
 
-.admin-unit-econ-preset-badge {
+.admin-root .admin-unit-econ-preset-badge {
   font-size: 0.625rem;
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
+  background: var(--adm-border-subtle);
+  color: var(--adm-text-tertiary);
 }
 
-.admin-unit-econ-preset-chip.active .admin-unit-econ-preset-badge {
-  background: rgba(52, 211, 153, 0.25);
+.admin-root .admin-unit-econ-preset-chip.active .admin-unit-econ-preset-badge {
+  background: color-mix(in srgb, var(--adm-success) 25%, transparent);
   color: #a7f3d0;
 }
 
-.admin-unit-econ-main-grid {
+.admin-root .admin-unit-econ-main-grid {
   display: grid;
   grid-template-columns: minmax(320px, 420px) 1fr;
   gap: 1.25rem;
@@ -18926,162 +18968,168 @@ body[data-admin-theme] .planner-weekpick {
 }
 
 @media (max-width: 1024px) {
-  .admin-unit-econ-main-grid {
+  .admin-root .admin-unit-econ-main-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.admin-unit-econ-card {
+.admin-root .admin-unit-econ-card {
   padding: 1.25rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 1rem;
 }
 
-.admin-unit-econ-card-header {
+.admin-root .admin-unit-econ-card-header {
   display: flex;
   align-items: center;
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--adm-border-subtle);
 }
 
-.admin-unit-econ-card-title {
+.admin-root .admin-unit-econ-card-title {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--adm-text-primary);
   margin: 0;
 }
 
-.admin-unit-econ-inputs {
+.admin-root .admin-unit-econ-inputs {
   display: flex;
   flex-direction: column;
   gap: 1.125rem;
 }
 
-.admin-unit-econ-field {
+.admin-root .admin-unit-econ-field {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
 }
 
-.admin-unit-econ-field-top {
+.admin-root .admin-unit-econ-field-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
-.admin-unit-econ-label {
+.admin-root .admin-unit-econ-label {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #cbd5e1;
+  color: var(--adm-text-secondary);
 }
 
-.admin-unit-econ-num-input {
+.admin-root .admin-unit-econ-num-input {
   width: 90px;
   padding: 0.25rem 0.5rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #f8fafc;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--adm-text-primary);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.375rem;
   text-align: right;
   outline: none;
 }
 
-.admin-unit-econ-num-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+.admin-root .admin-unit-econ-num-input:focus {
+  border-color: var(--adm-info);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--adm-info) 20%, transparent);
 }
 
-.admin-unit-econ-inline-val {
+.admin-root .admin-unit-econ-inline-val {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #60a5fa;
+  color: var(--adm-info);
 }
 
-.admin-unit-econ-slider {
+.admin-root .admin-unit-econ-slider {
   width: 100%;
   height: 0.375rem;
-  accent-color: #3b82f6;
+  accent-color: var(--adm-info);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--adm-border-subtle);
   border-radius: 9999px;
 }
 
-.admin-unit-econ-hint {
+.admin-root .admin-unit-econ-slider { appearance: none; -webkit-appearance: none; height: 20px; background: transparent; cursor: pointer; }
+.admin-root .admin-unit-econ-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--adm-border-strong); }
+.admin-root .admin-unit-econ-slider::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border: 2px solid var(--adm-primary-solid); border-radius: 50%; background: var(--adm-primary); }
+.admin-root .admin-unit-econ-slider::-moz-range-track { height: 4px; border-radius: 2px; background: var(--adm-border-strong); }
+.admin-root .admin-unit-econ-slider::-moz-range-thumb { width: 12px; height: 12px; border: 2px solid var(--adm-primary-solid); border-radius: 50%; background: var(--adm-primary); }
+
+.admin-root .admin-unit-econ-hint {
   font-size: 0.6875rem;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
   line-height: 1.35;
 }
 
-.admin-unit-econ-results {
+.admin-root .admin-unit-econ-results {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-.admin-unit-econ-kpi-grid {
+.admin-root .admin-unit-econ-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.875rem;
 }
 
-.admin-unit-econ-kpi-card {
+.admin-root .admin-unit-econ-kpi-card {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   padding: 1rem 1.125rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.875rem;
 }
 
-.admin-unit-econ-kpi-card.highlight {
-  background: rgba(30, 58, 138, 0.2);
-  border-color: rgba(59, 130, 246, 0.3);
+.admin-root .admin-unit-econ-kpi-card.highlight {
+  background: color-mix(in srgb, var(--adm-info) 20%, transparent);
+  border-color: color-mix(in srgb, var(--adm-info) 30%, transparent);
 }
 
-.admin-unit-econ-kpi-top {
+.admin-root .admin-unit-econ-kpi-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.admin-unit-econ-kpi-label {
+.admin-root .admin-unit-econ-kpi-label {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-unit-econ-kpi-val {
+.admin-root .admin-unit-econ-kpi-val {
   font-size: 1.375rem;
   font-weight: 800;
   line-height: 1.2;
 }
 
-.admin-unit-econ-kpi-sub {
+.admin-root .admin-unit-econ-kpi-sub {
   font-size: 0.6875rem;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-unit-econ-funnel-card {
+.admin-root .admin-unit-econ-funnel-card {
   padding: 1.25rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 1rem;
 }
 
-.admin-unit-econ-funnel-title {
+.admin-root .admin-unit-econ-funnel-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--adm-text-secondary);
   margin: 0 0 1rem 0;
 }
 
-.admin-unit-econ-funnel-steps {
+.admin-root .admin-unit-econ-funnel-steps {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -19089,38 +19137,38 @@ body[data-admin-theme] .planner-weekpick {
   flex-wrap: wrap;
 }
 
-.admin-unit-econ-step {
+.admin-root .admin-unit-econ-step {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.75rem 1rem;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--adm-surface-subtle);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.75rem;
   flex: 1;
   min-width: 120px;
 }
 
-.admin-unit-econ-step-badge {
+.admin-root .admin-unit-econ-step-badge {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-unit-econ-step-val {
+.admin-root .admin-unit-econ-step-val {
   font-size: 1.25rem;
   font-weight: 800;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
 }
 
-.admin-unit-econ-step-desc {
+.admin-root .admin-unit-econ-step-desc {
   font-size: 0.6875rem;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-unit-econ-step-arrow {
+.admin-root .admin-unit-econ-step-arrow {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -19128,16 +19176,16 @@ body[data-admin-theme] .planner-weekpick {
   flex-shrink: 0;
 }
 
-.admin-unit-econ-conv-badge {
+.admin-root .admin-unit-econ-conv-badge {
   font-size: 0.6875rem;
   font-weight: 700;
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.12);
+  color: var(--adm-info);
+  background: color-mix(in srgb, var(--adm-info) 12%, transparent);
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
 }
 
-.admin-unit-econ-advice-box {
+.admin-root .admin-unit-econ-advice-box {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -19146,37 +19194,37 @@ body[data-admin-theme] .planner-weekpick {
   border: 1px solid;
 }
 
-.admin-unit-econ-advice-box.success {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(52, 211, 153, 0.25);
+.admin-root .admin-unit-econ-advice-box.success {
+  background: color-mix(in srgb, var(--adm-success) 8%, transparent);
+  border-color: color-mix(in srgb, var(--adm-success) 25%, transparent);
 }
 
-.admin-unit-econ-advice-box.warning {
-  background: rgba(245, 158, 11, 0.08);
+.admin-root .admin-unit-econ-advice-box.warning {
+  background: color-mix(in srgb, var(--adm-warning) 8%, transparent);
   border-color: rgba(251, 191, 36, 0.25);
 }
 
-.admin-unit-econ-advice-box.danger {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(248, 113, 113, 0.25);
+.admin-root .admin-unit-econ-advice-box.danger {
+  background: color-mix(in srgb, var(--adm-danger) 8%, transparent);
+  border-color: color-mix(in srgb, var(--adm-danger) 25%, transparent);
 }
 
-.admin-unit-econ-advice-header {
+.admin-root .admin-unit-econ-advice-header {
   display: flex;
   align-items: center;
   gap: 0.625rem;
 }
 
-.admin-unit-econ-advice-title {
+.admin-root .admin-unit-econ-advice-title {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
 }
 
-.admin-unit-econ-advice-desc {
+.admin-root .admin-unit-econ-advice-desc {
   font-size: 0.8125rem;
   line-height: 1.5;
-  color: #cbd5e1;
+  color: var(--adm-text-secondary);
   margin: 0;
 }
 
@@ -19184,107 +19232,107 @@ body[data-admin-theme] .planner-weekpick {
    Блок 2 / Модуль 6: Журнал аудита действий (AdminAuditTrail)
    ========================================================================== */
 
-.admin-audit-container {
+.admin-root .admin-audit-container {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   width: 100%;
 }
 
-.admin-audit-header {
+.admin-root .admin-audit-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  background: rgba(15, 23, 42, 0.65);
+  background: var(--adm-surface-raised);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 1rem;
 }
 
-.admin-audit-title-group {
+.admin-root .admin-audit-title-group {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.admin-audit-icon-wrap {
+.admin-root .admin-audit-icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: color-mix(in srgb, var(--adm-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-primary) 25%, transparent);
   border-radius: 0.75rem;
 }
 
-.admin-audit-badge-row {
+.admin-root .admin-audit-badge-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.25rem;
 }
 
-.admin-audit-pill {
+.admin-root .admin-audit-pill {
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #a5b4fc;
-  background: rgba(99, 102, 241, 0.15);
+  color: var(--adm-primary);
+  background: color-mix(in srgb, var(--adm-primary) 15%, transparent);
   border: 1px solid rgba(165, 180, 252, 0.3);
   padding: 0.15rem 0.5rem;
   border-radius: 9999px;
 }
 
-.admin-audit-badge-sub {
+.admin-root .admin-audit-badge-sub {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-audit-heading {
+.admin-root .admin-audit-heading {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
   margin: 0;
   letter-spacing: -0.01em;
 }
 
-.admin-audit-actions {
+.admin-root .admin-audit-actions {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   flex-wrap: wrap;
 }
 
-.admin-audit-notice-box {
+.admin-root .admin-audit-notice-box {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: color-mix(in srgb, var(--adm-info) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-info) 20%, transparent);
   border-radius: 0.75rem;
   font-size: 0.8125rem;
   color: #bfdbfe;
 }
 
-.admin-audit-error-box {
+.admin-root .admin-audit-error-box {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.25);
+  background: color-mix(in srgb, var(--adm-danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-danger) 25%, transparent);
   border-radius: 0.75rem;
   font-size: 0.8125rem;
-  color: #fca5a5;
+  color: var(--adm-danger);
 }
 
-.admin-audit-toolbar {
+.admin-root .admin-audit-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -19292,103 +19340,103 @@ body[data-admin-theme] .planner-weekpick {
   gap: 0.75rem;
 }
 
-.admin-audit-search {
+.admin-root .admin-audit-search {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.75rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.5rem;
   flex: 1;
   min-width: 260px;
   max-width: 440px;
 }
 
-.admin-audit-search-input {
+.admin-root .admin-audit-search-input {
   background: transparent;
   border: none;
   outline: none;
-  color: #f8fafc;
+  color: var(--adm-text-primary);
   font-size: 0.8125rem;
   width: 100%;
 }
 
-.admin-audit-search-input::placeholder {
-  color: #64748b;
+.admin-root .admin-audit-search-input::placeholder {
+  color: var(--adm-text-tertiary);
 }
 
-.admin-audit-filters {
+.admin-root .admin-audit-filters {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   flex-wrap: wrap;
 }
 
-.admin-audit-filter-group {
+.admin-root .admin-audit-filter-group {
   display: flex;
   align-items: center;
   padding: 0.25rem 0.5rem 0.25rem 0.65rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.5rem;
 }
 
-.admin-audit-select {
+.admin-root .admin-audit-select {
   background: transparent;
   border: none;
   outline: none;
-  color: #cbd5e1;
+  color: var(--adm-text-secondary);
   font-size: 0.8125rem;
   cursor: pointer;
 }
 
-.admin-audit-select option {
-  background: #0f172a;
-  color: #f8fafc;
+.admin-root .admin-audit-select option {
+  background: var(--adm-surface-raised);
+  color: var(--adm-text-primary);
 }
 
-.admin-audit-list {
+.admin-root .admin-audit-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.admin-audit-loading,
-.admin-audit-empty {
+.admin-root .admin-audit-loading,
+.admin-root .admin-audit-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 3rem 1.5rem;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px dashed rgba(255, 255, 255, 0.08);
+  background: var(--adm-surface-raised);
+  border: 1px dashed var(--adm-border-subtle);
   border-radius: 1rem;
   text-align: center;
 }
 
-.admin-audit-card {
+.admin-root .admin-audit-card {
   display: flex;
   align-items: flex-start;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border-subtle);
   border-radius: 0.875rem;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.admin-audit-card:hover {
-  background: rgba(30, 41, 59, 0.65);
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: translateY(-1px);
+.admin-root .admin-audit-card:hover {
+  background: var(--adm-surface-subtle);
+  border-color: var(--adm-border-subtle);
+  transform: none;
 }
 
-.admin-audit-card-icon-col {
+.admin-root .admin-audit-card-icon-col {
   padding-top: 0.25rem;
 }
 
-.admin-audit-actor-avatar {
+.admin-root .admin-audit-actor-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19398,26 +19446,26 @@ body[data-admin-theme] .planner-weekpick {
   font-size: 0.75rem;
 }
 
-.admin-audit-actor-avatar.admin {
-  background: rgba(99, 102, 241, 0.15);
+.admin-root .admin-audit-actor-avatar.admin {
+  background: color-mix(in srgb, var(--adm-primary) 15%, transparent);
   border: 1px solid rgba(129, 140, 248, 0.3);
-  color: #a5b4fc;
+  color: var(--adm-primary);
 }
 
-.admin-audit-actor-avatar.system {
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(96, 165, 250, 0.3);
-  color: #93c5fd;
+.admin-root .admin-audit-actor-avatar.system {
+  background: color-mix(in srgb, var(--adm-info) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--adm-info) 30%, transparent);
+  color: var(--adm-info);
 }
 
-.admin-audit-card-main {
+.admin-root .admin-audit-card-main {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   flex: 1;
 }
 
-.admin-audit-card-header {
+.admin-root .admin-audit-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -19425,77 +19473,77 @@ body[data-admin-theme] .planner-weekpick {
   gap: 0.625rem;
 }
 
-.admin-audit-card-title-row {
+.admin-root .admin-audit-card-title-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.admin-audit-type-badge {
+.admin-root .admin-audit-type-badge {
   font-size: 0.6875rem;
   font-weight: 600;
   padding: 0.125rem 0.45rem;
   border-radius: 0.375rem;
 }
 
-.admin-audit-actor-tag {
+.admin-root .admin-audit-actor-tag {
   font-size: 0.6875rem;
-  color: #94a3b8;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--adm-text-tertiary);
+  background: var(--adm-border-subtle);
   padding: 0.125rem 0.4rem;
   border-radius: 0.25rem;
 }
 
-.admin-audit-lead-link-chip {
+.admin-root .admin-audit-lead-link-chip {
   display: inline-flex;
   align-items: center;
   font-size: 0.75rem;
-  color: #f1f5f9;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--adm-text-primary);
+  background: var(--adm-border-subtle);
   padding: 0.15rem 0.5rem;
   border-radius: 0.375rem;
 }
 
-.admin-audit-card-time {
+.admin-root .admin-audit-card-time {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
   flex-shrink: 0;
 }
 
-.admin-audit-transition-row {
+.admin-root .admin-audit-transition-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0.2rem 0;
 }
 
-.admin-audit-status-chip {
+.admin-root .admin-audit-status-chip {
   font-size: 0.6875rem;
   font-weight: 600;
   padding: 0.1rem 0.45rem;
   border-radius: 0.25rem;
 }
 
-.admin-audit-status-chip.from {
-  background: rgba(255, 255, 255, 0.05);
-  color: #94a3b8;
+.admin-root .admin-audit-status-chip.from {
+  background: var(--adm-border-subtle);
+  color: var(--adm-text-tertiary);
 }
 
-.admin-audit-status-chip.to {
-  background: rgba(59, 130, 246, 0.2);
-  color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+.admin-root .admin-audit-status-chip.to {
+  background: color-mix(in srgb, var(--adm-info) 20%, transparent);
+  color: var(--adm-info);
+  border: 1px solid color-mix(in srgb, var(--adm-info) 30%, transparent);
 }
 
-.admin-audit-note-text {
+.admin-root .admin-audit-note-text {
   font-size: 0.8125rem;
-  color: #cbd5e1;
+  color: var(--adm-text-secondary);
   line-height: 1.45;
   margin: 0.15rem 0 0 0;
 }
 
-.admin-audit-card-footer {
+.admin-root .admin-audit-card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -19503,31 +19551,133 @@ body[data-admin-theme] .planner-weekpick {
   gap: 0.5rem;
   margin-top: 0.35rem;
   padding-top: 0.35rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--adm-border-subtle);
 }
 
-.admin-audit-action-id {
+.admin-root .admin-audit-action-id {
   font-size: 0.6875rem;
-  color: #64748b;
+  color: var(--adm-text-tertiary);
 }
 
-.admin-audit-action-id code {
-  color: #94a3b8;
+.admin-root .admin-audit-action-id code {
+  color: var(--adm-text-tertiary);
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 6px;
 }
 
-.admin-audit-open-lead-btn {
+.admin-root .admin-audit-action-id > summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; }
+
+.admin-root .admin-audit-open-lead-btn {
   display: inline-flex;
   align-items: center;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #818cf8;
+  color: var(--adm-primary);
   background: transparent;
   border: none;
   cursor: pointer;
   transition: color 0.15s ease;
 }
 
-.admin-audit-open-lead-btn:hover {
-  color: #a5b4fc;
+.admin-root .admin-audit-open-lead-btn:hover {
+  color: var(--adm-primary);
   text-decoration: underline;
+}
+
+
+/* Layout contracts shared by the audited analytical screens. */
+.admin-root .admin-block-editor { scroll-margin-top: var(--adm-sticky-top); }
+.admin-root .admin-list-editor__item > textarea[rows='2'] { field-sizing: content; min-height: 44px; max-height: 240px; }
+.admin-root :is(.admin-meta,.admin-hint) > svg { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-inline-end: 5px; }
+.admin-root .admin-crm-detail__header > div:first-child { min-width: 0; flex: 1; }
+.admin-root .admin-crm-detail__header h2 { font-size: 22px; line-height: 1.35; overflow-wrap: break-word; }
+.admin-root .admin-crm-lead__top { display: grid; grid-template-columns: 7px minmax(0,1fr) 16px; align-items: baseline; }
+.admin-root .admin-crm-lead__top strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; line-height: 1.5; overflow: hidden; }
+.admin-root .admin-crm-lead__deal { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; margin-block: 8px; }
+.admin-root .admin-crm-lead__deal .admin-crm-lead__deal-badge { margin-inline-start: auto; }
+.admin-root .admin-security-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; max-width: 860px; }
+.admin-root .admin-security-status { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.admin-root .admin-security-status svg { width: 18px; height: 18px; flex: none; }
+.admin-root .admin-security-form > button { grid-column: 1 / -1; justify-self: start; }
+@container admin-main (max-width: 650px) {
+  .admin-root .admin-security-form { grid-template-columns: minmax(0,1fr); }
+}
+.admin-root .fin-settings-save { align-self: start; justify-self: start; width: fit-content; }
+.admin-root .admin-meta-periods { display: grid; grid-template-columns: minmax(0,1fr); gap: 20px; }
+.admin-root .adm-tiles--report { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.admin-root .adm-tiles--funnel { grid-template-columns: repeat(5, minmax(0,1fr)); }
+.admin-root .adm-tiles--crm-analytics { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.admin-root .crm-analytics .crm-health { grid-template-columns: repeat(3,minmax(0,1fr)); }
+@container admin-main (max-width: 760px) {
+  .admin-root .adm-tiles--crm-analytics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-root .crm-analytics .crm-health { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@container admin-main (min-width: 1450px) {
+  .admin-root .admin-meta-periods { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@container admin-main (max-width: 900px) {
+  .admin-root .adm-tiles--funnel { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .admin-root .admin-dl-list { grid-template-columns: minmax(0,1fr); }
+  .admin-root .admin-dl-filters { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .admin-root .admin-dl-search { grid-column: 1 / -1; }
+}
+@container admin-main (max-width: 580px) {
+  .admin-root .adm-tiles--report, .admin-root .adm-tiles--funnel { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-root .admin-dl-filters { grid-template-columns: minmax(0,1fr); }
+}
+@container admin-main (max-width: 360px) {
+  .admin-root .adm-tiles--report, .admin-root .adm-tiles--funnel { grid-template-columns: minmax(0,1fr); }
+}
+
+/* Publication library controls share the same rhythm as the rest of admin. */
+.admin-root .admin-publications-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.admin-root .admin-publication-stats { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--adm-border-subtle); }
+.admin-root .admin-publication-stats > div { display: inline-flex; align-items: baseline; gap: 6px; }
+.admin-root .admin-publication-stats strong { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.admin-root .admin-publication-stats span { color: var(--adm-text-tertiary); font-size: 12px; }
+.admin-root .admin-editor-layout.is-editing .admin-publications-create { width: 40px; padding: 0; flex: none; }
+.admin-root .admin-editor-layout.is-editing .admin-publications-create span { display: none; }
+.admin-root .admin-editor-layout.is-editing .admin-publication-stats { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.admin-root .admin-editor-layout.is-editing .admin-publication-stats > div { flex-wrap: wrap; }
+.admin-root .admin-launchpad-filter-group,
+.admin-root .admin-audit-filter-group { border: 0; background: transparent; padding: 0; min-width: 0; gap: 6px; }
+.admin-root .admin-launchpad-filter-group .admin-launchpad-select,
+.admin-root .admin-audit-filter-group .admin-audit-select { background: var(--adm-surface-raised); border: 1px solid var(--adm-border-subtle); min-width: 0; }
+.admin-root .admin-unit-econ-num-input { background: var(--adm-input-bg); border-color: var(--adm-border-subtle); }
+.admin-root .admin-audit-list { gap: 0; border: 1px solid var(--adm-border-subtle); border-radius: var(--adm-radius-card); overflow: hidden; }
+.admin-root .admin-audit-card { padding: 14px 18px; border: 0; border-bottom: 1px solid var(--adm-border-subtle); border-radius: 0; background: var(--adm-surface-raised); }
+.admin-root .admin-audit-card:last-child { border-bottom: 0; }
+.admin-root .admin-audit-card:nth-child(even) { background: var(--adm-surface-raised); }
+.admin-root .admin-audit-card-main { gap: 6px; }
+.admin-root .admin-audit-open-lead-btn { min-height: 28px; }
+.admin-root .admin-audit-card-footer { padding-top: 8px; margin-top: 0; }
+.admin-root .admin-audit-type-badge { color: var(--adm-text-secondary); background: var(--adm-surface-subtle); border-color: var(--adm-border-subtle); }
+@container admin-main (max-width: 960px) {
+  .admin-root .admin-unit-econ-main-grid { grid-template-columns: minmax(0,1fr); }
+  .admin-root .admin-crm-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-root .admin-crm-search { grid-column: 1 / -1; }
+  .admin-root .admin-crm-toolbar > .admin-button:last-child { justify-self: start; }
+}
+@container admin-main (max-width: 480px) {
+  .admin-root .admin-publications-header { align-items: start; }
+  .admin-root .admin-publications-create { width: 44px; min-width: 44px; padding: 0; }
+  .admin-root .admin-publications-create span { display: none; }
+  .admin-root .admin-publication-stats { gap: 8px 16px; }
+  .admin-root .admin-launchpad-header,
+  .admin-root .admin-unit-econ-header,
+  .admin-root .admin-audit-header { flex-direction: column; align-items: stretch; padding: 16px; }
+  .admin-root .admin-launchpad-title-group,
+  .admin-root .admin-unit-econ-title-group,
+  .admin-root .admin-audit-title-group { min-width: 0; }
+  .admin-root .admin-launchpad-actions,
+  .admin-root .admin-unit-econ-actions,
+  .admin-root .admin-audit-actions { justify-content: start; }
+  .admin-root .admin-unit-econ-kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-root .admin-launchpad-search,
+  .admin-root .admin-audit-search { min-width: 0; flex-basis: 100%; max-width: none; }
+  .admin-root .admin-launchpad-filters,
+  .admin-root .admin-audit-filters { display: grid; grid-template-columns: minmax(0,1fr); width: 100%; }
+  .admin-root .admin-launchpad-filter-group > svg,
+  .admin-root .admin-audit-filter-group > svg { display: none; }
 }

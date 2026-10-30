@@ -975,11 +975,11 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
 
   const renderEditorPane = () => (
     <div className="admin-editor-pane space-y-4">
-      <div className="admin-panel p-3 sm:p-4">
-        <div className="mb-2 flex items-center justify-between gap-2">
+      <details className="admin-panel admin-block-picker p-3 sm:p-4">
+        <summary className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-[var(--adm-fg)]/80">Добавить блок</span>
           <span className="text-xs text-[var(--adm-fg)]/50">{blocks.length} {blocks.length === 1 ? 'блок' : blocks.length < 5 ? 'блока' : 'блоков'}</span>
-        </div>
+        </summary>
         <div className="admin-block-palette flex flex-wrap gap-2">
           {BLOCK_TYPES.map((type) => (
             <button
@@ -998,7 +998,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
         <p className="admin-meta mt-2">
           Горячие клавиши: Alt+Shift+↑/↓ (переместить выбранный блок), Ctrl+Enter (новый блок после него), Ctrl+Z/Y (отменить и вернуть, когда курсор не в поле ввода). Markdown: нажмите кнопку для переключения.
         </p>
-      </div>
+      </details>
 
       {markdownMode ? (
         <div className="admin-panel p-4">
