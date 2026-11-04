@@ -1,3 +1,5 @@
+import { useWorkspaceNavigation } from './workspace/useWorkspaceGuard';
+import { WorkspaceClient } from './AdminWorkspace';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft, CalendarClock, CircleDollarSign, ExternalLink, FileText, KeyRound,
@@ -58,6 +60,8 @@ interface Client {
   lastReportMonth?: string | null;
   health?: Health;
   healthReasons?: string[];
+  relationship_type?: string;
+  workspaceSummary?: {titles:string[];recurring:Array<{currency:string;amount:number}>}|null;
 }
 
 interface ClientMonth {
@@ -186,12 +190,18 @@ function emptyClient(): Client {
   };
 }
 
-export default function AdminClients({ password, onOpenLead, onCreateCase }: {
+export default function AdminClients({ password, onOpenLead, onCreateCase, target, onNavigate, onRegisterLeaveGuard }: {
   password: string;
+  target?: import('../../../../shared/admin-workspace').WorkspaceTarget;
+  onNavigate?: (target: import('../../../../shared/admin-workspace').WorkspaceTarget) => void;
+  onRegisterLeaveGuard?: (guard: (() => Promise<boolean>) | null) => void;
   onOpenLead?: (leadId: number) => void;
   onCreateCase?: (payload: { caseData: CaseDataDraft; outline: string; title: string }) => void;
 }) {
+  const beforeNavigate=useWorkspaceNavigation(onRegisterLeaveGuard);
   const [clients, setClients] = useState<Client[]>([]);
+  const [connectedWorkspace, setConnectedWorkspace] = useState(false);
+  const [workspaceOverview, setWorkspaceOverview] = useState(true);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -273,7 +283,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => null) as {
-        success?: boolean; error?: string; migration?: string; clients?: Client[]; summary?: Summary;
+        success?: boolean; error?: string; migration?: string; clients?: Client[]; summary?: Summary; connectedWorkspace?: boolean;
       } | null;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
@@ -281,6 +291,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
       }
       setMigration('');
       setClients(payload.clients || []);
+      setConnectedWorkspace(payload.connectedWorkspace === true);
       setSummary(payload.summary || null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить клиентов');
@@ -305,6 +316,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
   }, [password]);
 
   const openClient = useCallback(async (id: number) => {
+    setWorkspaceOverview(true);
     setSelectedId(id);
     setDetailLoading(true);
     try {
@@ -320,6 +332,12 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
       setDetailLoading(false);
     }
   }, [fetchDetails]);
+
+  useEffect(() => {
+    if (target?.section !== 'clients') return;
+    const id = target.clientId || clients.find(c => c.lead_id === target.leadId)?.id;
+    if (id) void openClient(id);
+  }, [target?.nonce, target?.clientId, target?.leadId, target?.section, clients.length, openClient]);
 
   /**
    * Перечитать списки карточки, не трогая заполняемую форму.
@@ -470,15 +488,19 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
   }
 
   // ---------- Карточка клиента ----------
+  if (selectedId && draft && connectedWorkspace && workspaceOverview) {
+    return <div className="admin-stack admin-stack--lg"><div><button type="button" className="admin-button admin-button--quiet" onClick={() => beforeNavigate(() => { setSelectedId(null); setDraft(null); })}><ArrowLeft />К списку клиентов</button></div><WorkspaceClient key={selectedId} password={password} clientId={selectedId} onNavigate={onNavigate} onEdit={() => setWorkspaceOverview(false)} onRegisterLeaveGuard={onRegisterLeaveGuard} /></div>;
+  }
   if (selectedId !== null && draft) {
     const localTime = clientLocalTime(draft.timezone_offset);
     return (
       <div className="admin-stack admin-stack--lg clients">
         <div className="clients__detail-head">
-          <button type="button" className="admin-button admin-button--quiet" onClick={() => { setSelectedId(null); setDraft(null); }}>
+          <button type="button" className="admin-button admin-button--quiet" onClick={() => beforeNavigate(() => { setSelectedId(null); setDraft(null); })}>
             <ArrowLeft aria-hidden="true" /> К списку
           </button>
           <div className="clients__detail-actions">
+            {connectedWorkspace && draft.id > 0 && <button type="button" className="admin-button admin-button--quiet" onClick={() => setWorkspaceOverview(true)}>Обзор клиента</button>}
             {draft.lead_id && onOpenLead && (
               <button type="button" className="admin-button admin-button--quiet" onClick={() => onOpenLead(draft.lead_id as number)}>
                 Открыть сделку
@@ -851,7 +873,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
     <div className="admin-stack admin-stack--lg clients">
       <div className="admin-section-header">
         <div>
-          <p className="admin-eyebrow">Абонентка</p>
+          <p className="admin-eyebrow">Отношения с клиентами</p>
           <h2 className="admin-title">Клиенты</h2>
           <p className="admin-subtitle">
             Договор, отчёты, доступы и продления. Раздел сам показывает, за кого пора взяться,
@@ -882,7 +904,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
             <span className="admin-hint">
               {summary.withoutRetainer
                 ? `Без заполненного чека: ${summary.withoutRetainer} — эти клиенты в сумму не попадают.`
-                : 'Считается по активным клиентам с заполненным чеком.'}
+                : 'Активные проекты и общая абонентка клиентов без проектов. Разовые услуги сюда не входят.'}
             </span>
           </div>
           <div className="adm-tile">
@@ -929,15 +951,15 @@ export default function AdminClients({ password, onOpenLead, onCreateCase }: {
                   {client.company && <em>{client.company}</em>}
                 </span>
                 <span className="clients__services">
-                  {client.services.length ? client.services.map((service) => service.name).join(', ') : 'услуги не заданы'}
+                  {client.workspaceSummary ? client.workspaceSummary.titles.join(' · ') : client.services.length ? client.services.map((service) => service.name).join(', ') : client.relationship_type==='one_off' ? 'Разовые услуги и консультации' : 'услуги не заданы'}
                 </span>
                 <span className="clients__money">
-                  {client.retainer_amount > 0 ? formatMoney(client.retainer_amount, client.retainer_currency) : '—'}
+                  {client.workspaceSummary ? client.workspaceSummary.recurring.map(m=>formatMoney(m.amount,m.currency)).join(' · ') || '—' : client.relationship_type!=='one_off' && client.retainer_amount > 0 ? formatMoney(client.retainer_amount, client.retainer_currency) : '—'}
                 </span>
                 <span className="clients__meta">
                   {client.status === 'paused' ? 'на паузе'
                     : client.status === 'finished' ? 'завершён'
-                    : client.lastReportMonth ? `отчёт за ${client.lastReportMonth}` : 'отчётов не было'}
+                    : client.workspaceSummary ? 'отчёты в проектах' : client.relationship_type==='one_off' ? 'разовые обращения' : client.lastReportMonth ? `отчёт за ${client.lastReportMonth}` : 'отчётов не было'}
                 </span>
               </button>
               {client.healthReasons && client.healthReasons.length > 0 && (

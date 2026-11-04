@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { WorkspacePayments } from './workspace/WorkspacePayments';
+import { useWorkspaceGuard } from './workspace/useWorkspaceGuard';
+import { invoiceReceipts, invoiceReceived, invoiceOutstanding, type WorkPayment, type WorkspaceTarget } from '../../../../shared/admin-workspace';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
-  Clock3, CircleDollarSign, Handshake, Plus, Receipt, RefreshCw, Save, Trash2, Wallet,
+  Clock3, CircleDollarSign, Handshake, Plus, Receipt, RefreshCw, Save, Trash2, Wallet, Pencil,
 } from 'lucide-react';
 import { AdminDecimalInput, AdminSelect } from './AdminUI';
 import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
@@ -16,7 +19,7 @@ import { AdminBlank, AdminSectionSkeleton, confirmAsk, notify } from './AdminFee
  * превратил бы прибыль в фантазию.
  */
 
-type Tab = 'invoices' | 'totals' | 'time';
+type Tab = 'control' | 'invoices' | 'totals' | 'time';
 type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
 
 /**
@@ -39,6 +42,8 @@ const KIND_OPTIONS = (Object.keys(KIND_LABEL) as InvoiceKind[]).map((value) => (
 const ONE_OFF_KINDS = new Set<InvoiceKind>(['consultation', 'audit', 'setup', 'other']);
 
 interface Invoice {
+  work_id?: number | null;
+  payments?: WorkPayment[];
   id: number;
   client_id: number | null;
   number: string;
@@ -66,6 +71,7 @@ interface Expense {
 
 interface TimeEntry {
   id: number;
+  work_id?: number | null;
   client_id: number | null;
   day: string;
   hours: number;
@@ -74,6 +80,7 @@ interface TimeEntry {
 
 /** Черновик разовой продажи: минимум полей, чтобы записать её за десять секунд. */
 interface OneOffSale {
+  client_id?: number | null;
   kind: InvoiceKind;
   payer: string;
   amount: number;
@@ -90,6 +97,7 @@ interface FinanceClient {
   retainer_currency: string;
   billing_day: number | null;
 }
+type FinanceWork = {id:number;client_id:number;title:string;status:string;billing:string;amount:number;currency:string};
 
 interface Settings {
   tax_rate: number;
@@ -118,12 +126,12 @@ function addMoney(target: Money, currency: string, amount: number): void {
 function formatMoney(money: Money): string {
   if (!money.size) return '—';
   return [...money.entries()]
-    .map(([currency, amount]) => `${Math.round(amount).toLocaleString('ru-RU')} ${currency}`)
+    .map(([currency, amount]) => `${amount.toLocaleString('ru-RU',{maximumFractionDigits:2})} ${currency}`)
     .join(' · ');
 }
 
 function formatOne(amount: number, currency: string): string {
-  return `${Math.round(amount).toLocaleString('ru-RU')} ${currency}`;
+  return `${amount.toLocaleString('ru-RU',{maximumFractionDigits:2})} ${currency}`;
 }
 
 function monthOf(day: string | null): string {
@@ -186,7 +194,13 @@ function isOverdue(invoice: Invoice, today: string): boolean {
   return invoice.status === 'issued' && Boolean(invoice.due_at) && (invoice.due_at as string) < today;
 }
 
-export default function AdminFinance({ password }: { password: string }) {
+export default function AdminFinance({ password, target, onNavigate, onRegisterLeaveGuard }: { password: string; target?: WorkspaceTarget; onNavigate?: (t:WorkspaceTarget)=>void; onRegisterLeaveGuard?: (g:(()=>Promise<boolean>)|null)=>void }) {
+  const [connectedWorkspace, setConnectedWorkspace] = useState(false);
+  const [work, setWork] = useState<FinanceWork[]>([]);
+  const [historyFrom, setHistoryFrom] = useState('');
+  const [paymentTarget, setPaymentTarget] = useState<WorkspaceTarget|undefined>(target);
+  const [newClientName,setNewClientName] = useState('');
+  const requestKeys=useRef(new Map<string,string>()),requestLock=useRef(false);
   const [tab, setTab] = useState<Tab>('invoices');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -231,7 +245,7 @@ export default function AdminFinance({ password }: { password: string }) {
         success?: boolean; error?: string; migration?: string;
         invoices?: Invoice[]; expenses?: Expense[]; timeEntries?: TimeEntry[];
         clients?: FinanceClient[]; settings?: Settings; today?: string;
-        oneOffSales?: boolean; oneOffSalesMigration?: string;
+        oneOffSales?: boolean; oneOffSalesMigration?: string; connectedWorkspace?: boolean; historyFrom?:string; work?:FinanceWork[];
       } | null;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
@@ -245,6 +259,8 @@ export default function AdminFinance({ password }: { password: string }) {
       if (payload.settings) setSettings(payload.settings);
       if (payload.today) setToday(payload.today);
       setOneOffSales(payload.oneOffSales === true);
+      setConnectedWorkspace(payload.connectedWorkspace === true);
+      setWork(payload.work || []);setHistoryFrom(payload.historyFrom || '');
       setOneOffMigration(payload.oneOffSalesMigration || '');
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить финансы');
@@ -253,22 +269,27 @@ export default function AdminFinance({ password }: { password: string }) {
     }
   }, [password]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); const refresh=()=>void load(); window.addEventListener('ww-workspace-changed',refresh); return()=>window.removeEventListener('ww-workspace-changed',refresh); }, [load]);
+  useEffect(()=>{if(target?.section==='finance'){setPaymentTarget(target);setTab(target.tab==='time'?'time':'control');if(target.tab==='time')setTimeDraft({id:0,client_id:target.clientId||null,work_id:target.workId||null,day:new Date().toLocaleDateString('sv-SE'),hours:1,note:''});}},[target]);
+  useWorkspaceGuard(Boolean(invoiceDraft||expenseDraft||timeDraft||saleDraft),onRegisterLeaveGuard);
 
   const request = useCallback(async (payload: Record<string, unknown>, success?: string) => {
+    if(requestLock.current)return null;requestLock.current=true;
+    const fingerprint=JSON.stringify(payload),key=requestKeys.current.get(fingerprint)||crypto.randomUUID();requestKeys.current.set(fingerprint,key);
     setBusy(true);
     try {
       const response = await fetch(`/api/admin/finance?timezone_offset=${new Date().getTimezoneOffset()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({...payload,request_key:key}),
       });
       const result = await response.json().catch(() => null) as Record<string, unknown> | null;
       if (!response.ok || !result?.success) {
         if (result?.migration) setMigration(String(result.migration));
         throw new Error(String(result?.error || `HTTP ${response.status}`));
       }
+      requestKeys.current.delete(fingerprint);
       if (success) notify.success(success);
       await load();
       return result;
@@ -276,7 +297,7 @@ export default function AdminFinance({ password }: { password: string }) {
       notify.error('Не получилось', requestError instanceof Error ? requestError.message : undefined);
       return null;
     } finally {
-      setBusy(false);
+      requestLock.current=false;setBusy(false);
     }
   }, [load, password]);
 
@@ -291,12 +312,10 @@ export default function AdminFinance({ password }: { password: string }) {
 
     invoices.forEach((invoice) => {
       if (invoice.status === 'issued') {
-        addMoney(outstanding, invoice.currency, invoice.amount);
-        if (isOverdue(invoice, today)) addMoney(overdue, invoice.currency, invoice.amount);
+        addMoney(outstanding, invoice.currency, invoiceOutstanding(invoice));
+        if (isOverdue(invoice, today)) addMoney(overdue, invoice.currency, invoiceOutstanding(invoice));
       }
-      if (invoice.status === 'paid' && monthOf(invoice.paid_at) === month) {
-        addMoney(receivedThisMonth, invoice.currency, invoice.amount);
-      }
+      invoiceReceipts(invoice).forEach(p=>{if(monthOf(p.day)===month)addMoney(receivedThisMonth,invoice.currency,p.amount);});
     });
     expenses.forEach((expense) => {
       if (monthOf(expense.day) === month) addMoney(spentThisMonth, expense.currency, expense.amount);
@@ -325,9 +344,10 @@ export default function AdminFinance({ password }: { password: string }) {
     invoices.forEach((invoice) => {
       const kind = invoice.kind || 'retainer';
       if (!ONE_OFF_KINDS.has(kind)) return;
-      if (invoice.status !== 'paid' || monthOf(invoice.paid_at) !== month) return;
+      const receipts=invoiceReceipts(invoice).filter(p=>monthOf(p.day)===month);
+      if (!receipts.length) return;
       count += 1;
-      addMoney(money, invoice.currency, invoice.amount);
+      receipts.forEach(p=>addMoney(money, invoice.currency, p.amount));
       byKind.set(kind, (byKind.get(kind) || 0) + 1);
     });
 
@@ -349,8 +369,7 @@ export default function AdminFinance({ password }: { password: string }) {
       return created;
     };
     invoices.forEach((invoice) => {
-      if (invoice.status !== 'paid' || !invoice.paid_at) return;
-      addMoney(ensure(monthOf(invoice.paid_at)).received, invoice.currency, invoice.amount);
+      invoiceReceipts(invoice).forEach(p=>{if(p.day)addMoney(ensure(monthOf(p.day)).received, invoice.currency, p.amount);});
     });
     expenses.forEach((expense) => addMoney(ensure(monthOf(expense.day)).spent, expense.currency, expense.amount));
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12);
@@ -359,9 +378,10 @@ export default function AdminFinance({ password }: { password: string }) {
   const byClient = useMemo(() => {
     const map = new Map<number, Money>();
     invoices.forEach((invoice) => {
-      if (invoice.status !== 'paid' || invoice.client_id === null) return;
+      if (!invoiceReceived(invoice) || invoice.client_id === null) return;
       const money = map.get(invoice.client_id) || new Map();
-      addMoney(money, invoice.currency, invoice.amount);
+      invoiceReceipts(invoice).filter(p=>p.day && p.day>=historyFrom).forEach(p=>addMoney(money,invoice.currency,p.amount));
+      if (!money.size) return;
       map.set(invoice.client_id, money);
     });
     // Порядок в списке «кто сколько принёс» — по основной валюте, а не по
@@ -375,7 +395,7 @@ export default function AdminFinance({ password }: { password: string }) {
     return [...map.entries()]
       .map(([id, money]) => ({ id, name: clientName(id), money, primaryTotal: money.get(primary) || 0 }))
       .sort((a, b) => b.primaryTotal - a.primaryTotal || a.name.localeCompare(b.name, 'ru'));
-  }, [clientName, invoices, settings.main_currency]);
+  }, [clientName, invoices, settings.main_currency, historyFrom]);
 
   const hoursByClient = useMemo(() => {
     const month = currentMonth();
@@ -384,20 +404,27 @@ export default function AdminFinance({ password }: { password: string }) {
       if (monthOf(entry.day) !== month) return;
       map.set(entry.client_id, (map.get(entry.client_id) || 0) + entry.hours);
     });
-    return [...map.entries()].map(([id, hours]) => {
+    return [...map.entries()].flatMap(([id, hours]) => {
       const client = clients.find((item) => item.id === id);
-      const rate = client && client.retainer_amount > 0 && hours > 0 ? client.retainer_amount / hours : null;
+      const monthly = work.filter(w=>w.client_id===id && w.billing==='monthly');
+      const amounts = new Map<string,number>();
+      if(monthly.length) monthly.filter(w=>w.status==='active').forEach(w=>addMoney(amounts,w.currency,w.amount));
+      else if(client) addMoney(amounts,client.retainer_currency,client.retainer_amount);
+      if(!amounts.size) amounts.set('',0);
+      return [...amounts].map(([currency,retainer])=>{
+      const rate = retainer > 0 && hours > 0 ? retainer / hours : null;
       return {
         id,
+        key: `${id}:${currency}`,
         name: clientName(id),
         hours,
-        retainer: client?.retainer_amount || 0,
-        currency: client?.retainer_currency || '',
+        retainer,
+        currency,
         rate,
-        low: rate !== null && settings.target_hourly_rate > 0 && rate < settings.target_hourly_rate,
-      };
+        low: currency === settings.main_currency && rate !== null && settings.target_hourly_rate > 0 && rate < settings.target_hourly_rate,
+      };});
     }).sort((a, b) => b.hours - a.hours);
-  }, [clientName, clients, settings.target_hourly_rate, timeEntries]);
+  }, [clientName, clients, work, settings.main_currency, settings.target_hourly_rate, timeEntries]);
 
   const clientOptions = useMemo(() => (
     [{ value: '0', label: 'Без клиента' }, ...clients.map((client) => ({ value: String(client.id), label: client.name }))]
@@ -466,12 +493,15 @@ export default function AdminFinance({ password }: { password: string }) {
       </div>
 
       <div className="crm-view-switch" role="group" aria-label="Разделы финансов">
+        {connectedWorkspace && <button type="button" aria-pressed={tab==='control'} className={tab==='control'?'is-active':''} onClick={()=>{setPaymentTarget(undefined);setTab('control');}}>Контроль оплат</button>}
         {([['invoices', 'Счета'], ['totals', 'Итоги'], ['time', 'Время']] as const).map(([value, label]) => (
           <button key={value} type="button" aria-pressed={tab === value} className={tab === value ? 'is-active' : ''} onClick={() => setTab(value)}>
             {label}
           </button>
         ))}
       </div>
+
+      {tab==='control' && <WorkspacePayments password={password} target={paymentTarget} onNavigate={onNavigate} onRegisterLeaveGuard={onRegisterLeaveGuard}/>}
 
       {/* ---------- Счета ---------- */}
       {tab === 'invoices' && (
@@ -484,7 +514,7 @@ export default function AdminFinance({ password }: { password: string }) {
             <div className="finance__head-actions">
               {oneOffSales && (
                 <button type="button" className="admin-button admin-button--compact" onClick={() => setSaleDraft({
-                  kind: 'consultation', payer: '', amount: 0, day: today, paid: true, note: '',
+                  kind: 'consultation', payer: '', client_id: null, amount: 0, day: today, paid: true, note: '',
                 })}>
                   <Handshake aria-hidden="true" /> Продал консультацию
                 </button>
@@ -538,10 +568,10 @@ export default function AdminFinance({ password }: { password: string }) {
           {saleDraft && (
             <div className="finance__form">
               <p className="admin-hint">
-                Разовая продажа: человек пришёл, получил разбор и заплатил. Карточку клиента заводить не нужно —
-                достаточно имени или телеграма, чтобы потом вспомнить, кому именно продано.
+                {connectedWorkspace ? 'Выберите клиента: консультация и её оплата появятся в его общей истории. Новый клиент создаётся здесь, без большого проекта.' : 'Запишите имя или контакт покупателя, услугу и сумму.'}
               </p>
               <div className="admin-crm-form-grid">
+                {connectedWorkspace && <><AdminSelect label="Клиент" value={String(saleDraft.client_id||0)} options={[{value:'0',label:'Выберите клиента'},...clients.map(c=>({value:String(c.id),label:c.name}))]} onValueChange={v=>setSaleDraft({...saleDraft,client_id:Number(v)||null})}/><div className="admin-field"><span className="admin-label">Новый клиент</span><input className="admin-input" placeholder="Имя или компания" value={newClientName} onChange={e=>setNewClientName(e.target.value)}/><button type="button" className="admin-button admin-button--quiet" disabled={busy||!newClientName.trim()} onClick={async()=>{setBusy(true);try{const fingerprint='client:'+newClientName,key=requestKeys.current.get(fingerprint)||crypto.randomUUID();requestKeys.current.set(fingerprint,key);const r=await fetch('/api/admin/workspace',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':password},body:JSON.stringify({action:'create_client',name:newClientName,relationship_type:'one_off',request_key:key})});const p=await r.json();if(!r.ok||!p.success)throw new Error(p.error);await load();setSaleDraft(d=>d?{...d,client_id:p.id}:d);setNewClientName('');requestKeys.current.delete(fingerprint);}catch(e){notify.error('Не удалось создать клиента',String(e));}finally{setBusy(false);}}}>Создать и выбрать</button></div></>}
                 <AdminSelect label="За что" value={saleDraft.kind}
                   options={KIND_OPTIONS.filter((option) => option.value !== 'retainer')}
                   onValueChange={(value) => setSaleDraft({ ...saleDraft, kind: value as InvoiceKind })} />
@@ -569,6 +599,7 @@ export default function AdminFinance({ password }: { password: string }) {
               </div>
               <div className="finance__form-actions">
                 <button type="button" className="admin-button admin-button--primary" disabled={busy} onClick={async () => {
+                  if (connectedWorkspace && !saleDraft.client_id) { notify.error('Выберите клиента или создайте нового'); return; }
                   if (saleDraft.amount <= 0) {
                     notify.error('Нужна сумма', 'Продажа без суммы ничего не добавит в итоги месяца.');
                     return;
@@ -576,7 +607,7 @@ export default function AdminFinance({ password }: { password: string }) {
                   const saved = await request({
                     action: 'save_invoice',
                     id: 0,
-                    client_id: null,
+                    client_id: saleDraft.client_id || null,
                     kind: saleDraft.kind,
                     payer: saleDraft.payer.trim(),
                     number: '',
@@ -602,11 +633,12 @@ export default function AdminFinance({ password }: { password: string }) {
             <div className="finance__form">
               <div className="admin-crm-form-grid">
                 {oneOffSales && (
-                  <AdminSelect label="За что" value={invoiceDraft.kind || 'retainer'} options={KIND_OPTIONS}
+                <AdminSelect label="За что" value={invoiceDraft.kind || 'retainer'} options={KIND_OPTIONS}
                     onValueChange={(value) => setInvoiceDraft({ ...invoiceDraft, kind: value as InvoiceKind })} />
                 )}
                 <AdminSelect label="Клиент" value={String(invoiceDraft.client_id || 0)} options={clientOptions}
-                  onValueChange={(value) => setInvoiceDraft({ ...invoiceDraft, client_id: Number(value) || null })} />
+                  onValueChange={(value) => setInvoiceDraft({ ...invoiceDraft, client_id: Number(value) || null, work_id:null })} />
+                {connectedWorkspace && <AdminSelect label="Проект или услуга" value={String(invoiceDraft.work_id||0)} options={[{value:'0',label:'Общий счёт клиента'},...work.filter(w=>w.client_id===invoiceDraft.client_id).map(w=>({value:String(w.id),label:w.title}))]} onValueChange={value=>setInvoiceDraft({...invoiceDraft,work_id:Number(value)||null})}/>}
                 {oneOffSales && !invoiceDraft.client_id && (
                   <label className="admin-field"><span className="admin-label">Кому продано</span>
                     <input className="admin-input" maxLength={120} placeholder="имя или @телеграм" value={invoiceDraft.payer || ''}
@@ -616,8 +648,8 @@ export default function AdminFinance({ password }: { password: string }) {
                 <label className="admin-field"><span className="admin-label">За месяц</span>
                   <input className="admin-input" type="month" value={invoiceDraft.period} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, period: e.target.value })} />
                 </label>
-                <label className="admin-field"><span className="admin-label">Сумма, $</span>
-                  <AdminDecimalInput className="admin-input" value={invoiceDraft.amount} onValueChange={(amount) => setInvoiceDraft({ ...invoiceDraft, amount: amount ?? 0 })} />
+                <label className="admin-field"><span className="admin-label">Сумма, {invoiceDraft.currency || 'USD'}</span>
+                  <AdminDecimalInput className="admin-input" disabled={Boolean(invoiceDraft.payments?.length)} value={invoiceDraft.amount} onValueChange={(amount) => setInvoiceDraft({ ...invoiceDraft, amount: amount ?? 0 })} />
                 </label>
                 <label className="admin-field"><span className="admin-label">Выставлен</span>
                   <input className="admin-input" type="date" value={invoiceDraft.issued_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, issued_at: e.target.value || null })} />
@@ -625,11 +657,11 @@ export default function AdminFinance({ password }: { password: string }) {
                 <label className="admin-field"><span className="admin-label">Оплатить до</span>
                   <input className="admin-input" type="date" value={invoiceDraft.due_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, due_at: e.target.value || null })} />
                 </label>
-                <AdminSelect label="Статус" value={invoiceDraft.status} options={STATUS_OPTIONS}
+                <AdminSelect label="Статус" value={invoiceDraft.status} options={STATUS_OPTIONS} disabled={Boolean(invoiceDraft.payments?.length)}
                   onValueChange={(value) => setInvoiceDraft(withInvoiceStatus(invoiceDraft, value as InvoiceStatus, today))} />
                 {invoiceDraft.status === 'paid' && (
                   <label className="admin-field"><span className="admin-label">Оплачен</span>
-                    <input className="admin-input" type="date" value={invoiceDraft.paid_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, paid_at: e.target.value || null })} />
+                    <input className="admin-input" type="date" disabled={Boolean(invoiceDraft.payments?.length)} value={invoiceDraft.paid_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, paid_at: e.target.value || null })} />
                   </label>
                 )}
                 <label className="admin-field"><span className="admin-label">Номер</span>
@@ -643,6 +675,7 @@ export default function AdminFinance({ password }: { password: string }) {
                 }}>
                   <Save aria-hidden="true" /> Сохранить
                 </button>
+                {Boolean(invoiceDraft.payments?.length) && <span className="admin-hint">Поступления и исправления оплат — в «Контроле оплат».</span>}
                 <button type="button" className="admin-button admin-button--quiet" onClick={() => setInvoiceDraft(null)}>Отмена</button>
               </div>
             </div>
@@ -652,10 +685,10 @@ export default function AdminFinance({ password }: { password: string }) {
             <AdminBlank inline title="Счетов пока нет" text="Выставьте счета за месяц одной кнопкой — по всем активным клиентам с заполненным чеком." />
           ) : (
             <div className="adm-table-scroll" role="region" aria-label="Счета" tabIndex={0}>
-              <table className="adm-data-table">
+              <table className="adm-data-table finance__invoices">
                 <thead>
                   <tr>
-                    <th>Клиент</th>{oneOffSales && <th>За что</th>}<th>За месяц</th><th className="is-numeric">Сумма</th>
+                    <th>Клиент / проект</th>{oneOffSales && <th>За что</th>}<th>За месяц</th><th className="is-numeric">Сумма</th>
                     <th>Срок</th><th>Статус</th><th />
                   </tr>
                 </thead>
@@ -664,26 +697,29 @@ export default function AdminFinance({ password }: { password: string }) {
                     const overdue = isOverdue(invoice, today);
                     return (
                       <tr key={invoice.id}>
-                        <td>{invoiceParty(invoice)}</td>
+                        <td>
+                          {connectedWorkspace && invoice.client_id ? <button type="button" className="ws-text-button" onClick={()=>onNavigate?.({section:'clients',clientId:invoice.client_id!,returnTo:{section:'finance',invoiceId:invoice.id}})}>{invoiceParty(invoice)}</button> : invoiceParty(invoice)}
+                          {invoice.work_id && <span className="admin-meta ws-cell-note">{work.find(w=>w.id===invoice.work_id)?.title}</span>}
+                        </td>
                         {oneOffSales && <td>{KIND_LABEL[invoice.kind || 'retainer']}</td>}
                         <td>{invoice.period ? formatMonthLabel(invoice.period) : '—'}</td>
                         <td className="is-numeric">{formatOne(invoice.amount, invoice.currency)}</td>
-                        <td className={overdue ? 'is-bad' : ''}>{invoice.due_at || '—'}</td>
+                        <td className={overdue ? 'is-bad' : ''}>{invoice.due_at ? new Date(invoice.due_at+'T12:00:00Z').toLocaleDateString('ru-RU') : '—'}</td>
                         <td className={overdue ? 'is-bad' : invoice.status === 'paid' ? 'is-good' : ''}>
-                          {overdue ? 'просрочен' : STATUS_LABEL[invoice.status]}
+                          {overdue ? 'просрочен' : invoice.status==='issued' && invoiceReceived(invoice)>0 ? 'частично оплачен' : STATUS_LABEL[invoice.status]}
                         </td>
                         <td>
                           <div className="finance__row-actions">
-                            {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+                            {connectedWorkspace ? <button type="button" className="admin-icon-button" aria-label="Открыть оплаты" title="Счёт и история оплат" onClick={()=>{setPaymentTarget({section:'finance',invoiceId:invoice.id,nonce:Date.now()});setTab('control');}}><Receipt aria-hidden="true"/></button> : invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
                               <button type="button" className="admin-button admin-button--compact" disabled={busy}
-                                onClick={() => void request({ action: 'mark_paid', id: invoice.id }, 'Оплата отмечена')}>
-                                Оплачен
+                                onClick={() => connectedWorkspace ? (setPaymentTarget({section:'finance',invoiceId:invoice.id,nonce:Date.now()}),setTab('control')) : void request({ action: 'mark_paid', id: invoice.id }, 'Оплата отмечена')}>
+                                {connectedWorkspace ? 'Открыть оплаты' : 'Оплачен'}
                               </button>
                             )}
-                            <button type="button" className="admin-icon-button" aria-label="Изменить счёт" onClick={() => setInvoiceDraft(invoice)}>
-                              <RefreshCw aria-hidden="true" />
+                            <button type="button" className="admin-icon-button" aria-label="Изменить счёт" title="Изменить реквизиты счёта" onClick={() => setInvoiceDraft(invoice)}>
+                              <Pencil aria-hidden="true" />
                             </button>
-                            <button type="button" className="admin-icon-button" aria-label="Удалить счёт" onClick={async () => {
+                            <button type="button" className="admin-icon-button" aria-label="Удалить счёт" disabled={connectedWorkspace && Boolean(invoice.payments?.length)} title={invoice.payments?.length ? 'Счёт с историей оплат сохраняется в учёте' : 'Удалить счёт'} onClick={async () => {
                               const confirmed = await confirmAsk({ title: 'Удалить счёт?', description: 'Восстановить его будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' });
                               if (confirmed) void request({ action: 'delete_invoice', id: invoice.id }, 'Счёт удалён');
                             }}>
@@ -815,7 +851,7 @@ export default function AdminFinance({ password }: { password: string }) {
             <section className="admin-panel adm-card">
               <header className="adm-card__head">
                 <h3 className="admin-card-title">Кто сколько принёс</h3>
-                <p className="admin-hint">Только оплаченные счета за последний год.</p>
+                <p className="admin-hint">Фактические поступления за последний год, включая частичные оплаты. Общая история — в карточке клиента.</p>
               </header>
               <ul className="finance__list">
                 {byClient.map((row) => (
@@ -850,7 +886,8 @@ export default function AdminFinance({ password }: { password: string }) {
               <div className="finance__form">
                 <div className="admin-crm-form-grid">
                   <AdminSelect label="Клиент" value={String(timeDraft.client_id || 0)} options={clientOptions}
-                    onValueChange={(value) => setTimeDraft({ ...timeDraft, client_id: Number(value) || null })} />
+                    onValueChange={(value) => setTimeDraft({ ...timeDraft, client_id: Number(value) || null, work_id:null })} />
+                  {connectedWorkspace && <AdminSelect label="Проект или услуга" value={String(timeDraft.work_id||0)} options={[{value:'0',label:'Общее по клиенту'},...work.filter(w=>w.client_id===timeDraft.client_id).map(w=>({value:String(w.id),label:w.title}))]} onValueChange={v=>setTimeDraft({...timeDraft,work_id:Number(v)||null})}/>}
                   <label className="admin-field"><span className="admin-label">Дата</span>
                     <input className="admin-input" type="date" value={timeDraft.day} onChange={(e) => setTimeDraft({ ...timeDraft, day: e.target.value })} />
                   </label>
@@ -879,7 +916,7 @@ export default function AdminFinance({ password }: { password: string }) {
                   <thead><tr><th>Клиент</th><th className="is-numeric">Часов за месяц</th><th className="is-numeric">Чек</th><th className="is-numeric">Ставка в час</th></tr></thead>
                   <tbody>
                     {hoursByClient.map((row) => (
-                      <tr key={String(row.id)}>
+                      <tr key={row.key}>
                         <td>{row.name}</td>
                         <td className="is-numeric">{row.hours.toLocaleString('ru-RU')}</td>
                         <td className="is-numeric">{row.retainer > 0 ? formatOne(row.retainer, row.currency) : '—'}</td>

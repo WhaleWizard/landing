@@ -12,6 +12,9 @@ import '../../styles/admin-tailwind.css';
 import '../../styles/admin-ui.css';
 // Строго после admin-ui.css: слой темы переопределяет её поверхности.
 import '../../styles/admin-theme.css';
+import '../../styles/admin-workspace.css';
+import type { WorkspaceTarget } from '../../../shared/admin-workspace';
+import { WorkspaceGuardContext } from '../components/admin/workspace/useWorkspaceGuard';
 import { lazy, memo, Suspense, useEffect, useState, useMemo, useCallback, useDeferredValue, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import { m, useReducedMotion } from 'motion/react';
@@ -47,6 +50,7 @@ const PublishSchedulePanel = lazy(() => import('../components/admin/PublishSched
 const CaseFieldsEditor = lazy(() => import('../components/CaseFieldsEditor'));
 const AdminLeads = lazy(() => import('../components/admin/AdminLeads'));
 const AdminClients = lazy(() => import('../components/admin/AdminClients'));
+const AdminWorkspace = lazy(() => import('../components/admin/AdminWorkspace'));
 const AdminFinance = lazy(() => import('../components/admin/AdminFinance'));
 const AdminMedia = lazy(() => import('../components/admin/AdminMedia'));
 const AdminHealth = lazy(() => import('../components/admin/AdminHealth'));
@@ -71,7 +75,7 @@ const AdminUnitEconomics = lazy(() => import('../components/admin/AdminUnitEcono
 const AdminAlerts = lazy(() => import('../components/admin/AdminAlerts'));
 const AdminAuditTrail = lazy(() => import('../components/admin/AdminAuditTrail'));
 
-type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations' | 'seo' | 'launchpad' | 'unit_econ' | 'alerts' | 'audit';
+type AdminView = 'dashboard' | 'planner' | 'articles' | 'leads' | 'clients' | 'projects' | 'finance' | 'media' | 'health' | 'access' | 'meta' | 'attribution' | 'content' | 'performance' | 'goals' | 'report' | 'events' | 'migrations' | 'seo' | 'launchpad' | 'unit_econ' | 'alerts' | 'audit';
 type AdminNavKey = AdminView | 'cases';
 
 function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
@@ -91,6 +95,7 @@ function preloadAdminSection(destination: AdminNavKey): Promise<unknown> {
     case 'content': return import('../components/admin/AdminContentControl');
     case 'leads': return import('../components/admin/AdminLeads');
     case 'clients': return import('../components/admin/AdminClients');
+    case 'projects': return import('../components/admin/AdminWorkspace');
     case 'finance': return import('../components/admin/AdminFinance');
     case 'media': return import('../components/admin/AdminMedia');
     case 'health': return import('../components/admin/AdminHealth');
@@ -1310,6 +1315,7 @@ export default function Admin() {
     } catch {}
   };
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
+  const [workspaceTarget, setWorkspaceTarget] = useState<WorkspaceTarget | undefined>();
   const reduceMotion = useReducedMotion();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1901,6 +1907,7 @@ export default function Admin() {
         { key: 'launchpad', label: 'Чек-листы запуска', icon: Rocket },
         { key: 'leads', label: 'Заявки', icon: Inbox },
         { key: 'clients', label: 'Клиенты', icon: Users },
+        { key: 'projects', label: 'Проекты', icon: Briefcase },
       ],
     },
     {
@@ -1957,12 +1964,22 @@ export default function Admin() {
     leaveGuardRef.current ? leaveGuardRef.current() : true
   ), []);
 
+  const navigateWorkspace = useCallback((target: WorkspaceTarget) => {
+    void (async () => {
+      if (!(await confirmLeaveSection())) return;
+      setWorkspaceTarget({ ...target, nonce: Date.now() });
+      setAdminView(target.section);
+    })();
+  }, [confirmLeaveSection]);
+
   const navigateToAdminSection = async (destination: AdminNavKey) => {
     void preloadAdminSection(destination);
     // Клик по уже открытому разделу уходом не считается. У мобильного
     // AdminSelect значение привязано к currentNavKey, поэтому при отказе оно
     // само возвращается на прежний раздел.
-    if (destination !== currentNavKey && !(await confirmLeaveSection())) return;
+    if (destination === currentNavKey) return;
+    if (!(await confirmLeaveSection())) return;
+    setWorkspaceTarget(undefined);
     if (destination === 'articles' || destination === 'cases') {
       setAdminSectionFilter(destination === 'cases' ? 'cases' : 'blog');
       setAdminView('articles');
@@ -2422,6 +2439,8 @@ export default function Admin() {
                 виден в шапке, там боковое меню скрыто.
               */}
 
+            <WorkspaceGuardContext.Provider value={registerLeaveGuard}>
+            {workspaceTarget?.returnTo && <button type="button" className="admin-button admin-button--quiet ws-return" onClick={()=>navigateWorkspace(workspaceTarget.returnTo!)}>← Вернуться к предыдущему экрану</button>}
             <Suspense fallback={<AdminSectionSkeleton />}>
               <m.div
                 key={adminView}
@@ -2433,6 +2452,7 @@ export default function Admin() {
               {adminView === 'dashboard' && (
                 <AdminToday
                   password={password}
+                  onWorkspaceNavigate={navigateWorkspace}
                   onNavigate={(destination) => {
                     void (async () => {
                       if (!(await confirmLeaveSection())) return;
@@ -2446,7 +2466,8 @@ export default function Admin() {
                   }}
                 />
               )}
-              {adminView === 'planner' && <AdminPlanner password={password} />}
+              {adminView === 'planner' && <AdminPlanner password={password} onWorkspaceNavigate={navigateWorkspace} />}
+              {adminView === 'projects' && <AdminWorkspace password={password} target={workspaceTarget} onNavigate={navigateWorkspace} onRegisterLeaveGuard={registerLeaveGuard} />}
               {adminView === 'launchpad' && <AdminLaunchpad />}
               {adminView === 'unit_econ' && <AdminUnitEconomics />}
               {adminView === 'audit' && (
@@ -2469,16 +2490,19 @@ export default function Admin() {
               {adminView === 'meta' && <AdminMetaCenter password={password} />}
               {adminView === 'performance' && <AdminPerformance password={password} />}
               {adminView === 'content' && <AdminContentControl password={password} onRegisterLeaveGuard={registerLeaveGuard} />}
-              {adminView === 'leads' && <AdminLeads password={password} onOpenClients={() => setAdminView('clients')} />}
+              {adminView === 'leads' && <AdminLeads password={password} target={workspaceTarget} onOpenClients={(leadId) => navigateWorkspace({ section: 'clients', leadId })} />}
               {adminView === 'clients' && (
                 <AdminClients
                   password={password}
-                  onOpenLead={() => setAdminView('leads')}
+                  target={workspaceTarget}
+                  onNavigate={navigateWorkspace}
+                  onRegisterLeaveGuard={registerLeaveGuard}
+                  onOpenLead={(leadId) => navigateWorkspace({ section: 'leads', leadId })}
                   onCreateCase={createCaseFromClient}
                 />
               )}
-              {adminView === 'finance' && <AdminFinance password={password} />}
-              {adminView === 'media' && <AdminMedia password={password} articles={articles} />}
+              {adminView === 'finance' && <AdminFinance password={password} target={workspaceTarget} onNavigate={navigateWorkspace} onRegisterLeaveGuard={registerLeaveGuard} />}
+              {adminView === 'media' && <AdminMedia password={password} articles={articles} target={workspaceTarget} />}
               {adminView === 'access' && <AdminPageLocks password={password} />}
               {adminView === 'events' && <AdminDataLayer />}
               {adminView === 'migrations' && <AdminMigrations password={password} />}
@@ -3039,6 +3063,7 @@ export default function Admin() {
               )}
               </m.div>
             </Suspense>
+            </WorkspaceGuardContext.Provider>
             </div>
           </main>
         </div>

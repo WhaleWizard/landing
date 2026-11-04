@@ -590,7 +590,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
   password: string;
   onChanged: () => void;
   editingReady: boolean;
-  onOpenClients?: () => void;
+  onOpenClients?: (leadId: number) => void;
 }) {
   // Автооценка пересчитывается из самой заявки и ничего не перезаписывает:
   // ручной ползунок остаётся главным, кнопка «Применить» — предложением.
@@ -1036,7 +1036,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
           </span>
         </div>
         {clientLink ? (
-          <button type="button" className="admin-button admin-button--quiet" onClick={() => onOpenClients?.()} disabled={!onOpenClients}>
+          <button type="button" className="admin-button admin-button--quiet" onClick={() => onOpenClients?.(lead.id)} disabled={!onOpenClients}>
             <Users aria-hidden="true" /> Открыть карточку клиента
           </button>
         ) : (
@@ -1540,8 +1540,8 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
   );
 }
 
-export default function AdminLeads({ password, onOpenClients }: { password: string; onOpenClients?: () => void }) {
-  const [query, setQuery] = useState('');
+export default function AdminLeads({ password, onOpenClients, target }: { target?: import('../../../../shared/admin-workspace').WorkspaceTarget; password: string; onOpenClients?: (leadId: number) => void }) {
+  const [query, setQuery] = useState(target?.leadId ? String(target.leadId) : '');
   const [stage, setStage] = useState('all');
   const [priority, setPriority] = useState('all');
   const [due, setDue] = useState('all');
@@ -1631,6 +1631,8 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
   const duplicateGroups = useMemo(() => findDuplicateGroups(leads), [leads]);
   const [merging, setMerging] = useState(0);
 
+  useEffect(() => { if (target?.section === 'leads' && target.leadId) { setQuery(String(target.leadId)); setStage('all'); setPriority('all'); setDue('all'); setView('list'); setSelectedId(target.leadId); } }, [target?.nonce, target?.leadId, target?.section]);
+
   const params = useMemo(() => {
     const value = new URLSearchParams({
       limit: String(CRM_PAGE_SIZE),
@@ -1638,12 +1640,13 @@ export default function AdminLeads({ password, onOpenClients }: { password: stri
       sort,
       timezone_offset: String(new Date().getTimezoneOffset()),
     });
-    if (query.trim()) value.set('q', query.trim());
+    if (target?.leadId && query === String(target.leadId)) value.set('id', String(target.leadId));
+    else if (query.trim()) value.set('q', query.trim());
     if (stage !== 'all') value.set('pipeline_stage', stage);
     if (priority !== 'all') value.set('priority', priority);
     if (due !== 'all') value.set('due', due);
     return value.toString();
-  }, [due, offset, priority, query, sort, stage]);
+  }, [due, offset, priority, query, sort, stage, target?.leadId]);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);

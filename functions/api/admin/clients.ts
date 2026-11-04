@@ -1,3 +1,6 @@
+import { hasWorkspace } from '../../_lib/admin-workspace';
+import { readClientWorkSummary, type WorkSummaryRow } from '../../_lib/client-work-summary';
+import { moneyGroups } from '../../../shared/admin-workspace';
 import { json, readRequestText } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
@@ -64,6 +67,7 @@ interface ClientRow {
   media_folder: string;
   created_at: string;
   updated_at: string;
+  relationship_type?: string;
 }
 
 function isMissingTableError(error: unknown): boolean {
@@ -181,7 +185,7 @@ function computeHealth(
   // старое поведение, чтобы не потерять тревогу у старых карточек.
   const startedMonth = String(client.started_at || '').slice(0, 7);
   const workedPreviousMonth = !/^\d{4}-\d{2}$/.test(startedMonth) || startedMonth <= previousMonth;
-  if (client.status === 'active' && dayOfMonthOf(todayIso) > 10 && !previousMonthReported && workedPreviousMonth) {
+  if (client.status === 'active' && client.relationship_type !== 'one_off' && dayOfMonthOf(todayIso) > 10 && !previousMonthReported && workedPreviousMonth) {
     reasons.push(`Отчёт за ${previousMonth} не отправлен`);
     raise('critical');
   }
@@ -251,30 +255,35 @@ function toHealthMonth(row: {
  * никогда. Владелец видел светофор только точкой в списке, а зачем она горит,
  * узнать было негде.
  */
-function healthOf(client: ClientRow, months: HealthMonth[], todayIso: string): { health: Health; reasons: string[]; lastReportMonth: string | null } {
+function healthOf(client: ClientRow, months: HealthMonth[], todayIso: string, work: WorkSummaryRow[] = []): { health: Health; reasons: string[]; lastReportMonth: string | null } {
   const previousMonthKey = previousMonthOf(todayIso);
   const withCpl = months.filter((item) => item.cpl !== null);
   // Два месяца сравниваются только внутри одной валюты. Иначе смена валюты
   // в таблице месяцев рисовала бы «цена лида выросла на 12 000%» — число,
   // за которым нет ничего, кроме разных единиц измерения.
   const comparable = withCpl[1] && withCpl[0] && withCpl[1].currency === withCpl[0].currency;
-  const { health, reasons } = computeHealth(
-    client,
+  let { health, reasons } = computeHealth(
+    work.length ? { ...client, relationship_type: 'one_off' } : client,
     months.some((item) => item.month === previousMonthKey && item.reported),
     { current: withCpl[0]?.cpl ?? null, previous: comparable ? withCpl[1].cpl : null },
     todayIso,
   );
+  if (client.status === 'active' && dayOfMonthOf(todayIso) > 10) {
+    const missing = work.filter(w => w.status==='active' && w.created_at.slice(0,7)<=previousMonthKey && !w.reported);
+    if(missing.length){health='critical';reasons.push(...missing.map(w=>`Отчёт за ${previousMonthKey} не отправлен: ${w.title}`));}
+  }
   return { health, reasons, lastReportMonth: months.find((item) => item.reported)?.month || null };
 }
 
 async function listClients(env: Env, todayIso: string): Promise<Response> {
   const db = env.DB as D1Database;
-  const [clientRows, monthRows] = await Promise.all([
+  const [clientRows, monthRows, work] = await Promise.all([
     db.prepare('SELECT * FROM clients ORDER BY (status = \'finished\'), name COLLATE NOCASE').all<ClientRow>(),
     db.prepare(
       `SELECT client_id, month, report_sent_at, spend, spend_currency, leads
        FROM client_months ORDER BY month DESC`,
     ).all<{ client_id: number; month: string; report_sent_at: string | null; spend: number | null; spend_currency: string | null; leads: number | null }>(),
+    readClientWorkSummary(db,todayIso),
   ]);
 
   const monthsByClient = new Map<number, HealthMonth[]>();
@@ -286,7 +295,8 @@ async function listClients(env: Env, todayIso: string): Promise<Response> {
 
   const clients = (clientRows.results || []).map((client) => {
     const months = monthsByClient.get(client.id) || [];
-    const { health, reasons, lastReportMonth } = healthOf(client, months, todayIso);
+    const clientWork = work?.filter(w=>w.client_id===client.id);
+    const { health, reasons, lastReportMonth } = healthOf(client, months, todayIso,clientWork);
     return {
       ...client,
       services: (() => { try { return JSON.parse(client.services); } catch { return []; } })(),
@@ -294,6 +304,10 @@ async function listClients(env: Env, todayIso: string): Promise<Response> {
       monthsTracked: months.length,
       health,
       healthReasons: reasons,
+      workspaceSummary: clientWork?.length ? {
+        titles: clientWork.map(w=>w.title),
+        recurring: moneyGroups(clientWork.filter(w=>w.status==='active')),
+      } : null,
     };
   });
 
@@ -307,6 +321,9 @@ async function listClients(env: Env, todayIso: string): Promise<Response> {
     // «Активных» — это про статус. Клиент без заполненного чека всё равно
     // активный: он просто не попадает в сумму регулярного дохода.
     activeCount += 1;
+    const monthly = work?.filter(w=>w.client_id===client.id) || [];
+    if(monthly.length){for(const w of monthly.filter(w=>w.status==='active')){if(w.amount>0)recurring.set(w.currency,(recurring.get(w.currency)||0)+w.amount);else withoutRetainer+=1;}continue;}
+    if(client.relationship_type==='one_off')continue;
     if (client.retainer_amount <= 0) {
       withoutRetainer += 1;
       continue;
@@ -330,6 +347,7 @@ async function listClients(env: Env, todayIso: string): Promise<Response> {
   return json({
     success: true,
     clients,
+    connectedWorkspace: work !== null,
     summary: {
       recurring: [...recurring.entries()].map(([currency, amount]) => ({ currency, amount })),
       activeCount,
@@ -359,7 +377,8 @@ async function getClient(env: Env, id: number, todayIso: string): Promise<Respon
   const monthRows = (months.results || []) as Array<{
     month: string; report_sent_at: string | null; spend: number | null; leads: number | null; spend_currency: string | null;
   }>;
-  const { health, reasons, lastReportMonth } = healthOf(client, monthRows.map(toHealthMonth), todayIso);
+  const work = await readClientWorkSummary(db,todayIso);
+  const { health, reasons, lastReportMonth } = healthOf(client, monthRows.map(toHealthMonth), todayIso,work?.filter(w=>w.client_id===client.id));
 
   return json({
     success: true,
@@ -626,6 +645,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'delete') {
+      if(await hasWorkspace(db)){
+        const linked=await db.prepare('SELECT (SELECT count(*) FROM client_work WHERE client_id=?) + (SELECT count(*) FROM client_tasks WHERE client_id=?) + (SELECT count(*) FROM invoices WHERE client_id=?) AS n').bind(id,id,id).first<{n:number}>();
+        if(linked?.n)return json({success:false,error:'У клиента есть связанные проекты, задачи или счета. Переведите карточку в «Завершён», чтобы сохранить историю.'},{status:409,headers:noStore});
+      }
       // Карточка клиента — это история отношений; удаление уносит и её,
       // поэтому оно всегда осознанное действие из интерфейса с подтверждением.
       await db.batch([

@@ -83,7 +83,7 @@ function formatDate(iso: string): string {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString('ru-RU');
 }
 
-export default function AdminMedia({ password, articles }: { password: string; articles: Article[] }) {
+export default function AdminMedia({ password, articles, target }: { password: string; articles: Article[]; target?: import('../../../../shared/admin-workspace').WorkspaceTarget }) {
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [folders, setFolders] = useState<MediaFolder[]>([]);
   const [error, setError] = useState('');
@@ -112,6 +112,13 @@ export default function AdminMedia({ password, articles }: { password: string; a
   };
   // null — «все файлы», '' — файлы вне папок, иначе имя папки.
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  useEffect(() => {
+    if (target?.section !== 'media') return;
+    setActiveFolder(target.folder || null);
+    setQuery('');
+    setCollection('all');
+    setHeavyOnly(false);
+  }, [target?.nonce, target?.folder, target?.section]);
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<MediaFile | null>(null);
   const previewDialogRef = useDialogFocus<HTMLDivElement>(Boolean(preview), () => setPreview(null));

@@ -1,3 +1,4 @@
+import { WorkspaceFocus } from './workspace/WorkspacePayments';
 import {
   useCallback,
   useEffect,
@@ -764,7 +765,7 @@ function HabitRow({
 
 /* ---------- Экран ---------- */
 
-export default function AdminPlanner({ password }: { password: string }) {
+export default function AdminPlanner({ password, onWorkspaceNavigate }: { password: string; onWorkspaceNavigate?: (target: import('../../../../shared/admin-workspace').WorkspaceTarget) => void }) {
   const [weekStart, setWeekStart] = useState(() => currentWeekStart());
   const [data, setData] = useState<PlannerWeekData>(() => emptyWeek());
   const [loading, setLoading] = useState(true);
@@ -1356,6 +1357,8 @@ export default function AdminPlanner({ password }: { password: string }) {
           </p>
         )}
       </section>
+      <WorkspaceFocus password={password} onNavigate={onWorkspaceNavigate} all />
+
 
       {loading && (
         <div className="admin-empty" role="status">

@@ -1,3 +1,4 @@
+import { WorkspaceFocus } from './workspace/WorkspacePayments';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, CalendarCheck,
@@ -177,9 +178,11 @@ function buildSeries(
 export default function AdminToday({
   password,
   onNavigate,
+  onWorkspaceNavigate,
 }: {
   password: string;
   onNavigate: (destination: Destination) => void;
+  onWorkspaceNavigate?: (target: import('../../../../shared/admin-workspace').WorkspaceTarget) => void;
 }) {
   const [data, setData] = useState<TodayResponse | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
@@ -273,7 +276,7 @@ export default function AdminToday({
     if (focus.length > 0) {
       return `Срочного нет, в работе ${focus.length} ${plural(focus.length, ['дело', 'дела', 'дел'])}.`;
     }
-    return 'Всё под контролем — срочных дел нет.';
+    return 'Сводка сайта и ближайшие рабочие задачи.';
   }, [data?.success, focus, items]);
 
   const plannerProgress = data?.planner && data.planner.total > 0
@@ -387,6 +390,7 @@ export default function AdminToday({
         </div>
       )}
 
+      <WorkspaceFocus password={password} onNavigate={onWorkspaceNavigate} />
       <AdminAlerts password={password} onNavigate={(destination) => onNavigate(destination as Destination)} />
 
       {/* Широкий монитор: слева работа с делами и графиком, справа —
@@ -412,8 +416,8 @@ export default function AdminToday({
               <div className="admin-empty admin-empty--success">
                 <CheckCircle2 aria-hidden="true" />
                 <div>
-                  <strong>На сегодня ничего не горит</strong>
-                  <p>Просроченных шагов и задач нет, новые заявки обработаны.</p>
+                  <strong>В заявках срочных дел нет</strong>
+                  <p>Просроченных шагов CRM нет, новые заявки обработаны. Задачи проектов и оплаты показаны выше.</p>
                 </div>
               </div>
             ) : (

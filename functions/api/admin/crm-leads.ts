@@ -182,6 +182,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const values: Array<string | number> = [];
     const appliedFilters: Record<string, unknown> = {};
 
+    const exactLeadId = url.searchParams.get('id');
+    if (exactLeadId) { const id=integerParam(exactLeadId,0,1,Number.MAX_SAFE_INTEGER,'id'); where.push('l.id = ?'); values.push(id); }
     const q = String(url.searchParams.get('q') || '').trim().slice(0, 120);
     if (q) {
       // Регистр кириллицы: LIKE в SQLite не различает регистр только у

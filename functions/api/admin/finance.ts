@@ -5,6 +5,7 @@ import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoneyOrZero } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 import { localTodayIso } from '../../_lib/local-day';
+import { hasWorkspace, readLedgerInvoices, workspaceMutation, WorkspaceError } from '../../_lib/admin-workspace';
 
 /**
  * Финансы: счета, свои расходы, часы по клиентам и настройки.
@@ -133,6 +134,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const oneOffSales = await hasOneOffSales(db);
+    const connectedWorkspace = await hasWorkspace(db);
     const [invoices, expenses, times, settings] = await Promise.all([
       // Выставленный, но не оплаченный счёт приходит всегда, сколько бы ему
       // ни было: иначе через год он пропадал из «Ждём оплаты» и «Просрочено»,
@@ -163,7 +165,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     return json({
       success: true,
-      invoices: invoices.results || [],
+      invoices: connectedWorkspace ? (await readLedgerInvoices(db)).filter(invoice =>
+        !invoice.issued_at || invoice.issued_at >= since || invoice.status === 'issued' ||
+        invoice.payments?.some(payment => !payment.voided_at && payment.paid_on && payment.paid_on >= since)
+      ) : invoices.results || [],
+      connectedWorkspace,
+      historyFrom: since,
+      work: connectedWorkspace ? (await db.prepare('SELECT id,client_id,title,status,billing,amount,currency FROM client_work ORDER BY title').all()).results || [] : [],
       expenses: expenses.results || [],
       timeEntries: times.results || [],
       clients,
@@ -207,6 +215,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const id = Number(body.id || 0);
 
   try {
+    if (['save_invoice','mark_paid','delete_invoice','issue_month','save_time'].includes(action) && await hasWorkspace(db)) {
+      return json(await workspaceMutation(db, { ...body, request_key: body.request_key || crypto.randomUUID() }, localTodayIso(request)), { headers: noStore });
+    }
     if (action === 'save_invoice') {
       const clientId = Number(body.client_id || 0) || null;
       const status = cleanInvoiceStatus(body.status);
@@ -390,7 +401,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (isMissingTableError(error)) return migrationResponse();
     return json(
       { success: false, error: error instanceof Error ? error.message : 'Не удалось сохранить' },
-      { status: 500, headers: noStore },
+      { status: error instanceof WorkspaceError ? error.status : /PAYMENT_|INVOICE_HAS_PAYMENTS|constraint/i.test(String(error)) ? 409 : 500, headers: noStore },
     );
   }
 };
