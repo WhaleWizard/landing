@@ -1,0 +1,34 @@
+@layer components {
+  [data-card-icon] {
+    --card-icon-box: 40px;
+    --card-icon-glyph: 20px;
+    --card-icon-radius: 11px;
+    display: inline-grid;
+    inline-size: var(--card-icon-box);
+    block-size: var(--card-icon-box);
+    flex: none;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+    border-radius: var(--card-icon-radius);
+    background-color: color-mix(in srgb, var(--background) 55%, transparent);
+    color: #e9edf9;
+  }
+
+  [data-card-icon='tile'] { --card-icon-box: 52px; --card-icon-glyph: 26px; --card-icon-radius: 12px; }
+  [data-card-icon='compact'] { --card-icon-box: 28px; --card-icon-glyph: 14px; --card-icon-radius: 8px; }
+  [data-card-icon='marker'] { --card-icon-box: 20px; --card-icon-glyph: 11px; --card-icon-radius: 6px; }
+
+  [data-card-icon] > svg {
+    inline-size: var(--card-icon-glyph);
+    block-size: var(--card-icon-glyph);
+  }
+
+  [data-card-icon] > .platform-mark { --platform-responsive-size: var(--card-icon-glyph); }
+
+  @media (min-width: 768px) {
+    [data-card-icon='tile'] { --card-icon-box: 64px; --card-icon-glyph: 30px; --card-icon-radius: 16px; }
+    [data-card-icon='regular'] { --card-icon-box: 48px; --card-icon-glyph: 24px; --card-icon-radius: 12px; }
+    [data-card-icon='compact'] { --card-icon-box: 36px; --card-icon-glyph: 18px; --card-icon-radius: 10px; }
+    [data-card-icon='marker'] { --card-icon-box: 24px; --card-icon-glyph: 12px; }
+  }
+}

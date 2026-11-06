@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { ArrowRight, ChartNoAxesColumnIncreasing, SlidersHorizontal, Target } from 'lucide-react';
+import CardIcon from '../components/brand/CardIcon';
 import { Link, useLocation } from 'react-router';
 import ClientOnly from '../components/ClientOnly';
 import Navbar from '../components/Navbar';
@@ -63,7 +64,7 @@ export function AboutBody({ content, previewSection }: { content: AboutContent; 
                 const Icon = WORK_ICONS[visualSlot % WORK_ICONS.length] || WORK_ICONS[0];
                 return (
                   <li key={index} className="about-work-step">
-                    <span className="about-work-icon" aria-hidden="true"><Icon size={24} /></span>
+                    <CardIcon><Icon /></CardIcon>
                     <div><h3>{title}</h3><p><AboutText text={text} linkState={linkState} /></p></div>
                   </li>
                 );

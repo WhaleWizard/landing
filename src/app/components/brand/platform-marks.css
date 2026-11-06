@@ -18,6 +18,8 @@
   background: radial-gradient(ellipse 50% 44% at 50% 55%, color-mix(in srgb, var(--platform-color) 25%, transparent), transparent 100%);
 }
 
+[data-card-icon] > .platform-mark::before { content: none; }
+
 .platform-mark__ink, .platform-mark > img {
   display: block;
   width: 100%;

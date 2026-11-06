@@ -17,6 +17,7 @@ import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { PlatformMark, type Platform, type PlatformTone } from './brand/PlatformMark';
+import CardIcon from './brand/CardIcon';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -120,19 +121,17 @@ export const defaultServicesContent: ServicesContent = {
   detailed: detailedContent,
 };
 
-function ServiceCardIcon({ card, tone, compact = false }: {
+function ServiceCardIcon({ card, tone }: {
   card: ServiceCardContent;
   tone: PlatformTone;
-  compact?: boolean;
 }) {
-  const size = compact ? 26 : 30;
   const Icon = card.icon;
   return (
-    <div className={`service-card-icon grid shrink-0 place-items-center border border-foreground/15 bg-background/55 shadow-lg ${compact ? 'size-[52px] rounded-xl' : 'size-16 rounded-2xl'}`}>
+    <CardIcon size="tile" className="service-card-icon shadow-lg">
       {card.platform
-        ? <PlatformMark platform={card.platform} tone={tone} size={size} />
-        : <Icon aria-hidden="true" size={size} className="text-[#e9edf9]" />}
-    </div>
+        ? <PlatformMark platform={card.platform} tone={tone} />
+        : <Icon />}
+    </CardIcon>
   );
 }
 
@@ -331,9 +330,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
                           viewport={{ once: true }}
                           transition={{ delay: index * 0.1 + idx * 0.05 }}
                         >
-                          <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
-                            <Sparkles className="w-3 h-3 text-primary" />
-                          </div>
+                          <CardIcon size="marker"><Sparkles /></CardIcon>
                           <span className="min-w-0 break-words text-pretty text-sm leading-snug text-foreground/80">{feature}</span>
                         </m.div>
                       ))}
@@ -352,9 +349,9 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
                     </button>
                   </div>
 
-                  <div className="absolute bottom-4 right-4 w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 backdrop-blur-sm border border-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Zap className="w-5 h-5 text-primary animate-pulse" />
-                  </div>
+                  <CardIcon className="pointer-events-none absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Zap />
+                  </CardIcon>
                 </div>
               </m.div>
             ))}
@@ -397,7 +394,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
 
                         <div className="relative z-10 min-w-0">
                           <div className="flex items-center justify-between mb-4">
-                            <ServiceCardIcon card={service} tone={platformTone} compact />
+                            <ServiceCardIcon card={service} tone={platformTone} />
                             <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">
                               <span className="text-xs font-bold text-primary">{index + 1}/{serviceCards.length}</span>
                             </div>
@@ -413,9 +410,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
                           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2">
                             {service.features.map((feature, idx) => (
                               <div key={idx} className="flex min-w-0 items-center gap-2 p-2.5 min-[390px]:p-2 rounded-lg bg-card/35 border border-primary/15">
-                                <div className="flex-shrink-0 w-5 h-5 rounded bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
-                                  <Sparkles className="w-2.5 h-2.5 text-primary" />
-                                </div>
+                                <CardIcon size="marker"><Sparkles /></CardIcon>
                                 <span className="min-w-0 break-words text-pretty text-[11px] sm:text-xs text-foreground/80 leading-snug font-normal">{feature}</span>
                               </div>
                             ))}
@@ -510,9 +505,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
             return (
               <div key={idx} className="group/section">
                 <div className="flex min-w-0 items-start gap-3 mb-3 sm:mb-4">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/30 group-hover/section:scale-110 transition-transform">
-                    <Icon className="w-5 h-5 text-primary" />
-                  </div>
+                  <CardIcon><Icon /></CardIcon>
                   <h3 className={`min-w-0 break-words text-base md:text-xl font-semibold md:font-bold leading-tight text-balance bg-gradient-to-r ${gradientClasses[idx % gradientClasses.length]} bg-clip-text text-transparent`}>
                     {section.title}
                   </h3>

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { m } from 'motion/react';
 import { Calculator, TrendingUp, ArrowRight } from 'lucide-react';
+import CardIcon from './brand/CardIcon';
 import Modal from './Modal';
 
 const BudgetCalculatorPopup = lazy(() => import('./BudgetCalculatorPopup'));
@@ -53,9 +54,7 @@ export default function CalculatorButtons() {
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl group-hover:opacity-100 opacity-0 transition-opacity" />
             <div className="relative z-10">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Calculator className="w-7 h-7 text-primary" />
-              </div>
+              <CardIcon size="tile" className="mb-4"><Calculator /></CardIcon>
               <h3 className="text-xl md:text-2xl font-bold mb-2">Оценить стоимость ведения</h3>
               <p className="text-muted-foreground text-sm mb-4">Ориентир с учётом площадок, рекламного бюджета и целей</p>
               <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
@@ -78,9 +77,7 @@ export default function CalculatorButtons() {
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-accent/10 to-transparent rounded-full blur-2xl group-hover:opacity-100 opacity-0 transition-opacity" />
             <div className="relative z-10">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-accent/20 to-secondary/20 border border-accent/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-7 h-7 text-accent" />
-              </div>
+              <CardIcon size="tile" className="mb-4"><TrendingUp /></CardIcon>
               <h3 className="text-xl md:text-2xl font-bold mb-2">Посчитать ROAS и ROMI</h3>
               <p className="text-muted-foreground text-sm mb-4">Расчёт по выручке, марже и числу оплаченных заказов</p>
               <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
@@ -103,9 +100,7 @@ export default function CalculatorButtons() {
               className="group relative w-full overflow-hidden rounded-2xl border border-primary/25 bg-card/50 p-5 text-left backdrop-blur-md transition-all duration-300 hover:border-primary/50"
             >
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/20 to-accent/20">
-                  <Calculator className="h-6 w-6 text-primary" />
-                </div>
+                <CardIcon size="tile"><Calculator /></CardIcon>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-lg font-bold">Стоимость и медиаплан</h3>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -129,9 +124,7 @@ export default function CalculatorButtons() {
               className="group relative w-full overflow-hidden rounded-2xl border border-accent/25 bg-card/50 p-5 text-left backdrop-blur-md transition-all duration-300 hover:border-accent/50"
             >
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-gradient-to-br from-accent/20 to-secondary/20">
-                  <TrendingUp className="h-6 w-6 text-accent" />
-                </div>
+                <CardIcon size="tile"><TrendingUp /></CardIcon>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-lg font-bold">ROAS и полный ROMI</h3>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">

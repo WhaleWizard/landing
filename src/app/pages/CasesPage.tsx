@@ -28,6 +28,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
+import CardIcon from '../components/brand/CardIcon';
 import SEO from '../components/SEO';
 import { isCaseArticle } from '../utils/articleCategory';
 import { formatReadTime } from '../utils/articleMeta';
@@ -455,7 +456,7 @@ function CaseResultCard({ item, index, href, onOpen, settledEntrance }: {
 function StatCard({ icon: Icon, value, label }: { icon: ComponentType<{ className?: string }>; value: string; label: string }) {
   return (
     <div className="cases-stat-card">
-      <span className="cases-stat-icon" aria-hidden="true"><Icon className="h-5 w-5" /></span>
+      <CardIcon size="compact" className="cases-stat-icon"><Icon /></CardIcon>
       <div>
         <strong>{value}</strong>
         <span>{label}</span>
