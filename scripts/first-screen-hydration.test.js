@@ -74,10 +74,10 @@ const GLOBALS = ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'N
   'sessionStorage', 'location', 'history', 'matchMedia', 'HTMLCanvasElement', 'HTMLScriptElement', 'HTMLImageElement', 'HTMLAnchorElement',
   'Image', 'DOMRect', 'SVGElement', 'self'];
 
-function installDom(route, html, { head = '', attributes = '', trailingSlash = true } = {}) {
+function installDom(route, html, { head = '', attributes = '', trailingSlash = true, hash = '' } = {}) {
   const dom = new JSDOM(
     `<!doctype html><html lang="ru" data-ww-first-screen="${route}" data-ww-prehydrate="1"${attributes}><head><title>t</title>${head}</head><body><div id="root">${html}</div><div id="ww-static-shell">seo</div></body></html>`,
-    { url: `https://www.whalewzrd.com${route === '/' ? '' : route}${trailingSlash ? '/' : ''}`, pretendToBeVisual: true },
+    { url: `https://www.whalewzrd.com${route === '/' ? '' : route}${trailingSlash ? '/' : ''}${hash}`, pretendToBeVisual: true },
   );
   const { window } = dom;
   const media = new Map();
@@ -130,8 +130,10 @@ function installDom(route, html, { head = '', attributes = '', trailingSlash = t
   };
 }
 
-for (const route of SSR_ROUTES) {
-  test(`hydrates ${route} without rebuilding the generated first screen`, async () => {
+const hydrationCases = [...SSR_ROUTES.map(route => [route, '']), ['/', '#social'], ['/', '#contact'], ['/google-ads', '#contact']];
+
+for (const [route, hash] of hydrationCases) {
+  test(`hydrates ${route}${hash} without rebuilding the generated first screen`, async () => {
     const isListRoute = route === '/blog' || route === '/cases';
     const listSeed = isListRoute ? ARTICLES.map(toInlineArticleSummary) : null;
     const key = route === '/' ? 'site:home' : route === '/faq' ? 'site:faq' : `service:${route.slice(1)}`;
@@ -140,7 +142,7 @@ for (const route of SSR_ROUTES) {
       articleSeed: listSeed,
     });
     const headExtra = listSeed ? `<script type="application/json" id="ww-article-seed">${JSON.stringify(listSeed)}</script>` : '';
-    const { window, restore } = installDom(route, html, { head: headExtra });
+    const { window, restore } = installDom(route, html, { head: headExtra, hash });
     const logged = [];
     const originalError = console.error;
     const originalWarn = console.warn;

@@ -876,7 +876,7 @@ function DeferredSection({
   // а не перестраивает. Браузер без IntersectionObserver и прямой переход по
   // якорю поднимают секцию сразу после монтирования (эффект ниже).
   const [shouldRender, setShouldRender] = useState(() => {
-    if (hashTargetsSection(anchorId)) return true;
+    if (!hasGeneratedFirstScreen(location.pathname, location.key) && hashTargetsSection(anchorId)) return true;
     if (typeof navigator !== 'undefined' && isBotUserAgent(navigator.userAgent)) return true;
     return false;
   });
