@@ -458,9 +458,9 @@ function ContentPreviewSurface({
       {section === 'hero' ? (
         hero && (page === 'meta-ads' ? <MetaAdsEditorialHero content={hero} />
           : page === 'consult' ? <ConsultStudioHero content={hero} />
-            : <Hero content={hero} visual={PREVIEW_HERO_VISUALS[page] ?? 'default'} staticMotion />)
+            : <Hero content={hero} visual={PREVIEW_HERO_VISUALS[page] ?? 'default'} google={page === 'google-ads'} staticMotion />)
       ) : null}
-      {section === 'services' && services ? <Services content={services} /> : null}
+      {section === 'services' && services ? <Services content={services} platformTone={page === 'google-ads' ? 'color' : 'white'} /> : null}
       {/* moreHref повторяет ссылку живой страницы: без неё в кадре не было
           кнопки «Перейти ко всем кейсам», и высота блока не сходилась. */}
       {section === 'cases' && cases ? (

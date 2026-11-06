@@ -224,6 +224,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Pixel, CAPI и CRM',
           description: 'Проверяю, что браузерные и серверные события не дублируются. При наличии CRM возвращаю статусы заявок, чтобы видеть, какие кампании приводят клиентов.',
           features: ['Meta Pixel', 'Conversions API', 'Дедупликация', 'Статусы лидов'],
+          platform: 'meta',
           gradient: 'from-secondary to-primary',
         },
         {
@@ -365,6 +366,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Поиск по намерению',
           description: 'Разделяю брендовый и небрендовый спрос, группирую запросы по намерению и исключаю нерелевантные показы по фактическим данным.',
           features: ['Структура спроса', 'Объявления', 'Минус-слова', 'Посадочные'],
+          platform: 'search',
           gradient: 'from-primary to-accent',
         },
         {
@@ -372,6 +374,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Shopping и PMax',
           description: 'Настраиваю Merchant Center, товарный фид и группы активов. Контролирую цели, брендовый трафик и исключения в PMax.',
           features: ['Merchant Center', 'Товарный фид', 'Группы активов', 'Контроль бренда'],
+          platform: 'ads',
           gradient: 'from-accent to-secondary',
         },
         {
@@ -379,6 +382,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'Конверсии и данные',
           description: 'Проверяю Google tag, GTM и GA4, убираю дубли целей, подключаю Enhanced Conversions и, если возможно, статусы из CRM.',
           features: ['Google tag', 'GA4 / GTM', 'Enhanced Conversions', 'CRM-статусы'],
+          platform: 'analytics',
           gradient: 'from-secondary to-primary',
         },
         {
@@ -532,6 +536,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
           title: 'SDK, MMP и CAPI',
           description: 'Сверяю Meta SDK, MMP и CAPI: какие события дошли, где появились дубли и что потерялось. Если нужна доработка, даю разработчику карту событий и конкретное ТЗ.',
           features: ['Meta SDK', 'MMP', 'Conversions API', 'Дедупликация'],
+          platform: 'meta',
           gradient: 'from-accent to-secondary',
         },
         {
@@ -1138,6 +1143,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
           <Hero
             content={config.hero}
             visual={service === 'meta-apps' ? 'meta-apps' : 'default'}
+            google={service === 'google-ads'}
             settledEntrance={settledEntrance}
           />
         )}
@@ -1149,7 +1155,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
         anchorId="services"
         heights={{ mobile: 1075, tablet: 1585, desktop: 1585 }}
       >
-        <Services content={config.services} />
+        <Services content={config.services} platformTone={service === 'google-ads' ? 'color' : 'white'} />
       </DeferredSection>
       <DeferredSection
         anchorId="cases"

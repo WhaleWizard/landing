@@ -1,0 +1,78 @@
+.platform-mark {
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--platform-responsive-size, var(--platform-size));
+  block-size: var(--platform-responsive-size, var(--platform-size));
+  flex: 0 0 var(--platform-responsive-size, var(--platform-size));
+  vertical-align: middle;
+}
+
+.platform-mark::before {
+  content: '';
+  position: absolute;
+  inset: -36%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 50% 44% at 50% 55%, color-mix(in srgb, var(--platform-color) 25%, transparent), transparent 100%);
+}
+
+.platform-mark__ink, .platform-mark > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.platform-mark__ink {
+  background: #e9edf9;
+  mask: var(--platform-mask) center / contain no-repeat;
+}
+
+.platform-mark[data-tone='color'] .platform-mark__ink { background: var(--platform-color); }
+.platform-mark[data-tone='color'][data-platform='meta'] .platform-mark__ink {
+  background: linear-gradient(115deg, #5aaaff, #377eff 60%, #75baff);
+}
+
+.platform-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  list-style: none;
+  border-block: 1px solid #cdd8ff27;
+}
+
+.platform-strip > li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  color: #e1e5f4;
+  font: 600 11px/1.2 system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.platform-strip > li + li { border-inline-start: 1px solid #cdd8ff27; }
+.platform-strip[data-group='meta'] { margin-bottom: 14px; }
+.platform-strip[data-group='google'] { border: 0; gap: 7px 10px; }
+.platform-strip[data-group='google'] > li { border: 0; padding: 4px 0; }
+.platform-strip[data-group='google'] > li:first-child {
+  padding: 7px 11px;
+  border: 1px solid #80aaff65;
+  border-radius: 100px;
+  background: radial-gradient(ellipse at 18% 95%, #80aaff42, #111623 82%);
+}
+
+@media (max-width: 639px) {
+  .platform-strip[data-group='google'] { gap: 5px 9px; }
+  .platform-strip[data-group='google'] > li { gap: 5px; }
+  .platform-strip[data-group='google'] .platform-mark { --platform-responsive-size: 18px; }
+}
+
+@media (forced-colors: active) {
+  .platform-mark .platform-mark__ink { background: CanvasText; forced-color-adjust: none; }
+}

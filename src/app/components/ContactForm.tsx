@@ -10,8 +10,6 @@ import {
   Sparkles,
   TrendingUp,
   Zap,
-  MessageCircle,
-  Phone,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -30,6 +28,8 @@ import {
 } from '../consent/consent';
 import Modal from './Modal';
 import FormNotice, { type FormNoticeData } from './FormNotice';
+import ContactMethodPicker, { type ContactMethod } from './ContactMethodPicker';
+import { PlatformMark } from './brand/PlatformMark';
 // Тексты политики и оферты (~65 КБ кода) нужны только при открытии модалок —
 // грузим лениво, а не в общем чанке формы на каждом визите.
 const PrivacyPolicyContent = lazy(() => import('./legal/PrivacyPolicyContent'));
@@ -124,7 +124,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
     budget: '',
     message: '',
   });
-  const [contactMethod, setContactMethod] = useState<'telegram' | 'whatsapp'>('telegram');
+  const [contactMethod, setContactMethod] = useState<ContactMethod>('telegram');
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE_CODE);
   const [telegramUsername, setTelegramUsername] = useState('');
   const [hpTrap, setHpTrap] = useState(''); // honeypot
@@ -407,7 +407,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
     setTelegramUsername(e.target.value);
   }, [trackFirstFormInteraction]);
 
-  const handleSetContactMethod = useCallback((method: 'telegram' | 'whatsapp') => {
+  const handleSetContactMethod = useCallback((method: ContactMethod) => {
     trackFirstFormInteraction('contactMethod');
     setContactMethod(method);
   }, [trackFirstFormInteraction]);
@@ -722,38 +722,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                       </div>
                     </div>
 
-                    {/* Способ связи */}
-                    <div>
-                      <p className="block text-sm mb-2 font-medium">Предпочитаемый способ связи</p>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleSetContactMethod('telegram')}
-                          aria-pressed={contactMethod === 'telegram'}
-                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl border transition-all ${
-                            contactMethod === 'telegram'
-                              ? 'bg-primary/20 border-primary shadow-lg shadow-primary/20'
-                              : 'bg-background/50 border-border hover:border-primary/50'
-                          }`}
-                        >
-                          <MessageCircle className="w-4 h-4 text-primary" />
-                          <span>Telegram</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSetContactMethod('whatsapp')}
-                          aria-pressed={contactMethod === 'whatsapp'}
-                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl border transition-all ${
-                            contactMethod === 'whatsapp'
-                              ? 'bg-primary/20 border-primary shadow-lg shadow-primary/20'
-                              : 'bg-background/50 border-border hover:border-primary/50'
-                          }`}
-                        >
-                          <Phone className="w-4 h-4 text-primary" />
-                          <span>WhatsApp</span>
-                        </button>
-                      </div>
-                    </div>
+                    <ContactMethodPicker value={contactMethod} onChange={handleSetContactMethod} />
 
                     {/* Условный блок */}
                     <div className="min-h-[70px] md:min-h-[60px] transition-all duration-300">
@@ -844,7 +813,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                             rel="noreferrer"
                             className="underline underline-offset-4 font-medium"
                           >
-                            Telegram @white_rsh
+                            <PlatformMark platform="telegram" tone="color" size={15} />{' '}Telegram @white_rsh
                           </a>
                         </p>
                       </div>

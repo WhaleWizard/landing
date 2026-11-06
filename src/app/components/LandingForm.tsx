@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Check,
   Loader2,
-  MessageCircle,
   Mail,
   Phone,
   User,
@@ -23,6 +22,8 @@ import CountryFlag from './CountryFlag';
 import { createEventId, getAnalyticsClientIds, getMetaBrowserContext, rememberMetaLeadIdentifiers, trackEngagedView, trackFormStart, trackLead, trackLeadFormView } from '../consent/consent';
 import Modal from './Modal';
 import FormNotice, { type FormNoticeData } from './FormNotice';
+import ContactMethodPicker, { type ContactMethod } from './ContactMethodPicker';
+import { PlatformMark } from './brand/PlatformMark';
 import LegalConsentCopy from './LegalConsentCopy';
 import { useTurnstile } from './hooks/useTurnstile';
 // Тексты политики и оферты (~65 КБ кода) нужны только при открытии модалок —
@@ -64,37 +65,17 @@ const formCopy: Record<ServiceType, { title: string; button: string }> = {
   consult: { title: 'Записаться на разбор', button: 'Отправить запрос' },
 };
 
-/**
- * Что человек написал в поле «Telegram, если удобнее».
- *
- * Поле необязательное и подписано однозначно, поэтому всё, что в него попало,
- * считается телеграм-контактом. Исключение одно — почта: её могли вписать по
- * ошибке, и лучше отдать её как почту, чем как ник.
- *
- * Раньше здесь стояла проверка «похоже на телефон» (восемь и более цифр), и
- * номер, вписанный в это поле, **отбрасывался целиком**: телефон тут же
- * перезаписывался значением из обязательного поля телефона, а `contactMethod`
- * молча переключался с телеграма на WhatsApp. Между тем аккаунт Telegram
- * заводится как раз на номер, и написать его сюда — обычное дело: владелец
- * терял и второй контакт, и понимание, куда человек ждёт ответ.
- *
- * Почта и телефон из обязательных полей формы всё равно идут отдельно, поэтому
- * возвращать их отсюда незачем.
- */
-function normalizeContactForLead(contact: string): {
-  email?: string;
+// Ник, ссылка или номер из поля Telegram передаются отдельно от телефона.
+// При выборе WhatsApp ранее введённое значение Telegram остаётся только в форме.
+function normalizeContactForLead(contact: string, contactMethod: ContactMethod): {
   telegramUsername?: string;
-  contactMethod: 'telegram' | 'whatsapp';
+  contactMethod: ContactMethod;
 } {
   const value = contact.trim();
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const looksLikeEmail = emailPattern.test(value);
-  const hasTelegramContact = Boolean(value) && !looksLikeEmail;
-
   return {
-    email: looksLikeEmail ? value : undefined,
-    telegramUsername: hasTelegramContact ? value : undefined,
-    contactMethod: hasTelegramContact ? 'telegram' : 'whatsapp',
+    telegramUsername: contactMethod === 'telegram' && value && !emailPattern.test(value) ? value : undefined,
+    contactMethod,
   };
 }
 
@@ -142,6 +123,7 @@ function LandingForm({
     problem: '',
   });
   const [hpTrap, setHpTrap] = useState('');
+  const [contactMethod, setContactMethod] = useState<ContactMethod>('telegram');
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE_CODE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -217,6 +199,11 @@ function LandingForm({
     formStartTrackedRef.current = trackFormStart(service, { form_field: fieldName });
   }, [service]);
 
+  const handleSetContactMethod = useCallback((method: ContactMethod) => {
+    trackFirstFormInteraction('contactMethod');
+    setContactMethod(method);
+  }, [trackFirstFormInteraction]);
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       trackFirstFormInteraction(e.target.name);
@@ -249,7 +236,7 @@ function LandingForm({
         const eventId = typeof createEventId === 'function' ? createEventId() : crypto.randomUUID();
         const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
         const analyticsClientIds = await getAnalyticsClientIds();
-        const contactPayload = normalizeContactForLead(formData.contact);
+        const contactPayload = normalizeContactForLead(formData.contact, contactMethod);
         const email = formData.email.trim();
         const phone = buildFullPhone(phoneCode, formData.phone);
         const websiteDomain = extractWebsiteDomain(formData.website);
@@ -411,7 +398,7 @@ function LandingForm({
         setIsSubmitting(false);
       }
     },
-    [formData, navigate, agreed, service, hpTrap, phoneCode, getTurnstileToken],
+    [formData, contactMethod, navigate, agreed, service, hpTrap, phoneCode, getTurnstileToken],
   );
 
   const renderField = (
@@ -424,7 +411,7 @@ function LandingForm({
   ) => (
     <div className="relative">
       <label htmlFor={`field-${name}`} className="flex min-w-0 items-start gap-2 text-sm mb-2 font-medium leading-snug">
-        <span className="mt-0.5 shrink-0">{icon}</span>
+        {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
         <span className="min-w-0 text-pretty">{label} {required && '*'}</span>
       </label>
       <div className="relative">
@@ -522,11 +509,10 @@ function LandingForm({
               {renderField('email', 'Email', <Mail className="w-4 h-4 text-primary" />, 'you@example.com', true, 'email')}
 
               {/* Phone */}
-              {/* Regression marker for Meta CAPI smoke-tests: renderField('phone', 'Телефон / WhatsApp' */}
               <div className="relative">
                 <label htmlFor="landing-phone" className="block text-sm mb-2 font-medium flex items-center gap-2">
                   <Phone className="w-4 h-4 text-primary" />
-                  Телефон / WhatsApp *
+                  Телефон *
                 </label>
                 <div className="group relative flex items-stretch gap-2 rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-1.5 backdrop-blur-md transition-all focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/20">
                   <div className="w-[116px] shrink-0 sm:w-[220px]">
@@ -575,13 +561,13 @@ function LandingForm({
                 </div>
               </div>
 
-              {/* Contact */}
-              {renderField(
-                'contact',
-                'Telegram, если удобнее',
-                <MessageCircle className="w-4 h-4 text-primary" />,
-                '@username или ссылка на Telegram',
-                false
+              <ContactMethodPicker value={contactMethod} onChange={handleSetContactMethod} />
+              {contactMethod === 'telegram' ? (
+                renderField('contact', 'Telegram, если удобнее', null, '@username или ссылка на Telegram', false)
+              ) : (
+                <p className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                  Сообщение придёт на WhatsApp, привязанный к указанному выше номеру.
+                </p>
               )}
 
               {/* Service-specific fields */}
@@ -726,7 +712,7 @@ function LandingForm({
                       rel="noreferrer"
                       className="underline underline-offset-4 font-medium"
                     >
-                      Telegram @white_rsh
+                      <PlatformMark platform="telegram" tone="color" size={15} />{' '}Telegram @white_rsh
                     </a>
                   </p>
                 </div>

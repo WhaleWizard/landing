@@ -26,6 +26,7 @@ export type { HeroTitleLine } from './HeroTitleEffect';
 
 import { preloadable } from '../utils/preloadable';
 import { loadCosmicHeroScene, loadMetaAppsHeroVisual } from '../utils/heroVisualPreload';
+import { PlatformMark, PlatformStrip } from './brand/PlatformMark';
 
 const MetaAppsHeroVisual = preloadable(loadMetaAppsHeroVisual);
 const CosmicHeroScene = preloadable(loadCosmicHeroScene);
@@ -165,7 +166,7 @@ function valueSizeClass(value: string) {
   return 'text-[17px] sm:text-2xl md:text-3xl leading-none';
 }
 
-const StatsRow = memo(({ stats, settledEntrance = false }: { stats: HeroStat[]; settledEntrance?: boolean }) => {
+const StatsRow = memo(({ stats, settledEntrance = false, google = false }: { stats: HeroStat[]; settledEntrance?: boolean; google?: boolean }) => {
   return (
   <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 pt-5 md:pt-8">
     <m.div
@@ -175,7 +176,7 @@ const StatsRow = memo(({ stats, settledEntrance = false }: { stats: HeroStat[]; 
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 backdrop-blur-sm overflow-hidden"
     >
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-primary/20 flex items-center justify-center pointer-events-none">
-        <Sparkles className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-primary" />
+        {google ? <PlatformMark platform="search" tone="color" size={14} /> : <Sparkles className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-primary" />}
       </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[0]?.value ?? '')} font-semibold md:font-bold text-primary tracking-[-0.02em]`}>{stats[0]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[0]?.label}</div>
@@ -188,7 +189,7 @@ const StatsRow = memo(({ stats, settledEntrance = false }: { stats: HeroStat[]; 
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 backdrop-blur-sm overflow-hidden"
     >
       <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-accent/20 flex items-center justify-center pointer-events-none">
-        <TrendingUp className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-accent" />
+        {google ? <PlatformMark platform="ads" tone="color" size={14} /> : <TrendingUp className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-accent" />}
       </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[1]?.value ?? '')} font-semibold md:font-bold text-accent tracking-[-0.02em]`}>{stats[1]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[1]?.label}</div>
@@ -279,6 +280,7 @@ interface LeftContentProps {
   onScrollToCases:   () => void;
   content: HeroContent;
   mobileFirst?: boolean;
+  google?: boolean;
   staticMotion?: boolean;
   settledEntrance?: boolean;
   statsVariant?: 'default' | 'meta-apps' | 'hidden';
@@ -290,6 +292,7 @@ const LeftContent = memo(({
   onScrollToCases,
   content,
   mobileFirst = false,
+  google = false,
   staticMotion = false,
   settledEntrance = false,
   statsVariant = 'default',
@@ -313,9 +316,11 @@ const LeftContent = memo(({
       className="relative inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm"
     >
       {!staticMotion ? <span className="ww-hero-glow-loop ww-ambient-motion absolute inset-0 -z-10 rounded-full" aria-hidden="true" /> : null}
-      <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary" />
+      {mobileFirst ? <PlatformMark platform="meta" size={17} /> : <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary" />}
       <span className="text-xs md:text-sm text-primary">{content.badge}</span>
     </m.div>
+
+    {google ? <PlatformStrip group="google" /> : mobileFirst ? <PlatformStrip group="apps" /> : null}
 
     {content.titleLines?.length ? (
       // Поясняющая строка («supporting») стоит под заголовком отдельным
@@ -436,7 +441,7 @@ const LeftContent = memo(({
       )}
     </div>
 
-    {statsVariant === 'default' && <StatsRow stats={content.stats} settledEntrance={settledEntrance} />}
+    {statsVariant === 'default' && <StatsRow stats={content.stats} settledEntrance={settledEntrance} google={google} />}
     {statsVariant === 'meta-apps' && (
       <MetaAppsStatsStrip
         stats={content.stats}
@@ -474,11 +479,12 @@ Particles.displayName = 'Particles';
 
 interface RightPanelProps {
   showCards?: boolean;
+  google?: boolean;
   /** Первый экран уже лежит в HTML сборки: карточки видны сразу, без появления. */
   settledEntrance?: boolean;
 }
 
-const RightPanel = memo(({ showCards = true, settledEntrance = false }: RightPanelProps) => {
+const RightPanel = memo(({ showCards = true, settledEntrance = false, google = false }: RightPanelProps) => {
   const isTouch = useTouchDevice();
 
   // Опционально: отключаем hover-анимации на тач-устройствах
@@ -613,7 +619,7 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false }: RightPan
               className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
               {...hoverProps}
             >
-              <Target className="w-3 h-3 md:w-4 md:h-4 text-primary" />
+              <PlatformMark platform="ads" tone={google ? 'color' : 'white'} size={18} />
             </m.div>
           </div>
           <m.div
@@ -729,7 +735,7 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false }: RightPan
               className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-secondary/10 flex items-center justify-center border border-secondary/30"
               {...hoverProps}
             >
-              <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-secondary" />
+              <PlatformMark platform="meta" tone={google ? 'color' : 'white'} size={18} />
             </m.div>
           </div>
           <m.div
@@ -846,6 +852,7 @@ export type HeroVisual = 'default' | 'meta-apps' | 'portrait' | 'cosmic';
 function Hero({
   content: contentProp = defaultHeroContent,
   visual = 'default',
+  google = false,
   contentKey = null,
   staticMotion: staticMotionProp = false,
   settledEntrance = false,
@@ -853,6 +860,7 @@ function Hero({
 }: {
   content?: HeroContent;
   visual?: HeroVisual;
+  google?: boolean;
   contentKey?: string | null;
   /**
    * Замораживает фоновое движение: частицы, кольца, пульсацию пятен. Нужен
@@ -956,6 +964,7 @@ function Hero({
             onScrollToCases={scrollToCases}
             content={content}
             mobileFirst={isMetaApps}
+            google={google}
             staticMotion={freezeMotion}
             settledEntrance={settledEntrance}
             statsVariant={isMetaApps ? 'meta-apps' : 'default'}
@@ -966,7 +975,7 @@ function Hero({
               <MetaAppsHeroVisual motionAllowed={motionAllowed} settled={settledEntrance} />
             </Suspense>
           ) : (
-            <RightPanel showCards={visual !== 'portrait'} settledEntrance={settledEntrance} />
+            <RightPanel showCards={visual !== 'portrait'} settledEntrance={settledEntrance} google={google} />
           )}
           {isMetaApps && (
             <MetaAppsStatsStrip

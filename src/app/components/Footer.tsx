@@ -1,4 +1,3 @@
-import { Mail, MessageSquare } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
@@ -6,6 +5,7 @@ import { withReturnTo } from '../utils/siteNavigation';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import WhaleMark from './brand/WhaleMark';
+import { PlatformMark } from './brand/PlatformMark';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -25,6 +25,7 @@ const footerLegalLinkClass =
 function Footer() {
   const navigate = useNavigate();
   const location = useLocation();
+  const platformTone = location.pathname.replace(/\/$/, '') === '/google-ads' ? 'color' : 'white';
   // Ссылки на закрытые страницы из подвала убираются. Юридические ссылки —
   // исключение: их требуют и закон, и модерация рекламных кабинетов, поэтому
   // они остаются на месте, даже если страницу временно закрыли.
@@ -136,7 +137,7 @@ function Footer() {
               {!isHiddenInNav('/meta-ads') && (
                 <li>
                   <Link to="/meta-ads/" state={linkState} className={footerLinkClass}>
-                    Meta Ads — Facebook и Instagram
+                    <PlatformMark platform="meta" tone={platformTone} size={14} />{' '}Meta Ads — Facebook и Instagram
                   </Link>
                 </li>
               )}
@@ -152,7 +153,7 @@ function Footer() {
               {!isHiddenInNav('/google-ads') && (
                 <li>
                   <Link to="/google-ads/" state={linkState} className={footerLinkClass}>
-                    Google Ads
+                    <PlatformMark platform="ads" tone={platformTone} size={14} />{' '}Google Ads
                   </Link>
                 </li>
               )}
@@ -267,7 +268,7 @@ function Footer() {
                   className={`${footerContactLinkClass} min-w-0`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <Mail className="w-4 h-4" />
+                    <PlatformMark platform="gmail" tone={platformTone} size={15} />
                   </div>
                   <span className="min-w-0 break-words [overflow-wrap:anywhere]">whalewzrd@gmail.com</span>
                 </a>
@@ -282,7 +283,7 @@ function Footer() {
                   className={footerContactLinkClass}
                 >
                   <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-                    <MessageSquare className="w-4 h-4" />
+                    <PlatformMark platform="telegram" tone={platformTone} size={16} />
                   </div>
                   Telegram
                 </a>

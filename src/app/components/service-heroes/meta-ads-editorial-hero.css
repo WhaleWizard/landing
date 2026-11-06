@@ -126,18 +126,9 @@
   margin: 0;
   color: var(--meta-ink);
   font-family: 'WW Prata', Georgia, serif;
-  /*
-   * Кегль считается от ширины самой колонки, а не от ширины окна.
-   *
-   * Строки заголовка идут с запретом переноса, и раньше их размер подбирал
-   * скрипт замером. Замер зависел от того, в какой момент он попал: на части
-   * загрузок он решал, что всё помещается, и вторая строка уезжала под
-   * обрезку. Доля от ширины колонки даёт тот же результат всегда и не зависит
-   * от порядка событий: 7,1 % ширины — это ровно тот размер, при котором самая
-   * длинная строка укладывается в колонку.
-   */
+  /* Кегль зависит от ширины колонки. Длинные строки могут переноситься. */
   --meta-title-size: clamp(3.25rem, 4.4vw, 4.1rem);
-  font-size: min(var(--meta-title-size), 7.1cqw);
+  font-size: min(var(--meta-title-size), 5.55cqw);
   font-weight: 400;
   line-height: 0.99;
   letter-spacing: -0.052em;
@@ -146,13 +137,7 @@
 
 .meta-editorial-hero__title > span {
   display: block;
-  /*
-   * Запрет переноса обязателен: заголовок разбит на строки автором, и каждая
-   * авторская строка должна остаться одной строкой. Если строка не помещается
-   * по ширине, уменьшается кегль — переносить её нельзя, иначе строк станет
-   * больше, чем задумано.
-   */
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .meta-editorial-hero__title-accent {
@@ -628,6 +613,7 @@
 
   .marketing-typography .meta-editorial-hero__title {
     --meta-title-size: clamp(1.55rem, 7.55vw, 1.95rem);
+    font-size: min(var(--meta-title-size), 6.9cqw);
     line-height: 1.01;
     letter-spacing: -0.055em;
   }

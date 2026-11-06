@@ -1,16 +1,16 @@
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { HeroContent } from '../../types/hero';
 import HeroTitleEffect, { resolveHeroTitleLines } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
 import { Button } from '../ui/button';
+import { PlatformMark, PlatformStrip } from '../brand/PlatformMark';
 import {
   managedBodyClasses,
   managedBodyStyle,
   managedTitleClasses,
   managedTitleStyle,
   useManagedTitleFit,
-  withMobileTitleLines,
 } from '../../utils/contentTypography';
 // Стили живут рядом с компонентом, а не на странице: точный предпросмотр
 // редактора монтирует хиро напрямую и без этого рисовал голую вёрстку.
@@ -59,7 +59,7 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
   const { scrollToWhenReady } = useScrollTo();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
-  const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 13 });
+  const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 13 });
   const titleAnimation = content.titleAnimation || {};
 
   const scrollTo = (elementId: 'contact' | 'cases') => {
@@ -74,9 +74,10 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
       <div className="meta-editorial-hero__inner">
         <div className="meta-editorial-hero__copy">
           <div className="meta-editorial-hero__kicker">
-            <Sparkles aria-hidden="true" />
+            <PlatformMark platform="meta" size={17} />
             <span>{content.badge}</span>
           </div>
+          <PlatformStrip group="meta" />
 
           {(() => {
             const rawLines = titleLines?.length

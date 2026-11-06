@@ -16,11 +16,13 @@ import {
 import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { preferredScrollBehavior } from '../utils/motionPreference';
+import { PlatformMark, type Platform, type PlatformTone } from './brand/PlatformMark';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
 export type ServiceCardContent = {
   icon: LucideIcon;
+  platform?: Platform;
   title: string;
   description: string;
   features: string[];
@@ -50,6 +52,7 @@ export type ServicesContent = {
 const servicesData: ServiceCardContent[] = [
   {
     icon: BarChart3,
+    platform: 'ads',
     title: 'Google Ads',
     description: 'Поиск и Shopping — под сформированный спрос; Performance Max и YouTube — для дополнительного охвата. Все форматы связываю с конверсиями и допустимой стоимостью клиента.',
     features: ['Поиск', 'Shopping', 'PMax', 'YouTube'],
@@ -57,6 +60,7 @@ const servicesData: ServiceCardContent[] = [
   },
   {
     icon: Users,
+    platform: 'meta',
     title: 'Meta Ads',
     description: 'Facebook и Instagram: оффер, креативы и ретаргетинг с передачей событий через Meta Pixel и Conversions API.',
     features: ['Креативы', 'Аудитории', 'Ретаргетинг', 'Pixel + CAPI'],
@@ -64,6 +68,7 @@ const servicesData: ServiceCardContent[] = [
   },
   {
     icon: Globe,
+    platform: 'analytics',
     title: 'Аналитика и события',
     description: 'Настраиваю GA4/GTM, Метрику и конверсии рекламных систем. Если есть CRM, сверяю заявки с квалификацией и продажами.',
     features: ['GA4 + GTM', 'Метрика', 'CRM', 'События'],
@@ -115,7 +120,11 @@ export const defaultServicesContent: ServicesContent = {
   detailed: detailedContent,
 };
 
-function Services({ content, contentKey = null }: { content?: ServicesContent; contentKey?: string | null }) {
+function Services({ content, contentKey = null, platformTone = 'white' }: {
+  content?: ServicesContent;
+  contentKey?: string | null;
+  platformTone?: PlatformTone;
+}) {
   const sectionContent = useSiteSection(contentKey, 'services', content ?? defaultServicesContent);
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(sectionContent.typography), { minFontSize: 16 });
   const serviceCards = sectionContent.cards;
@@ -286,8 +295,8 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
                   
                   <div className="relative z-10 min-w-0 flex-1">
                     <div className="relative inline-flex mb-6">
-                      <div className={`p-4 rounded-2xl bg-gradient-to-br ${service.gradient} shadow-lg group-hover:shadow-2xl transition-shadow duration-300`}>
-                        <service.icon className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                      <div className={`grid h-16 w-16 place-items-center rounded-2xl shadow-lg transition-shadow duration-300 group-hover:shadow-2xl ${service.platform ? 'border border-foreground/15 bg-background/55' : `bg-gradient-to-br ${service.gradient}`}`}>
+                        {service.platform ? <PlatformMark platform={service.platform} tone={platformTone} size={30} /> : <service.icon className="h-8 w-8 text-white" />}
                       </div>
                       <m.div
                         className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-50 blur-xl`}
@@ -378,8 +387,8 @@ function Services({ content, contentKey = null }: { content?: ServicesContent; c
 
                         <div className="relative z-10 min-w-0">
                           <div className="flex items-center justify-between mb-4">
-                            <div className={`p-3 rounded-xl bg-gradient-to-br ${service.gradient} shadow-lg`}>
-                              <service.icon className="w-7 h-7 text-white" />
+                            <div className={`grid h-[52px] w-[52px] place-items-center rounded-xl shadow-lg ${service.platform ? 'border border-foreground/15 bg-background/55' : `bg-gradient-to-br ${service.gradient}`}`}>
+                              {service.platform ? <PlatformMark platform={service.platform} tone={platformTone} size={26} /> : <service.icon className="h-7 w-7 text-white" />}
                             </div>
                             <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">
                               <span className="text-xs font-bold text-primary">{index + 1}/{serviceCards.length}</span>

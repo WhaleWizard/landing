@@ -1,32 +1,23 @@
 import { m } from 'motion/react';
-import {
-  Instagram,
-  Youtube,
-  Send,
-  Twitter,
-  MessageCircle,
-  Music,
-  Mail,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef, memo, useCallback } from 'react';
 import { trackContact } from '../consent/consent';
 import { useDragScroll } from '../hooks/useDragScroll';
 import { preferredScrollBehavior } from '../utils/motionPreference';
+import { PlatformMark } from './brand/PlatformMark';
 
 const socials = [
   // Один адрес Telegram на весь сайт — тот же, что в подвале, на «спасибо» и в
   // юридических текстах (@white_rsh). Второй адрес вёл на тот же аккаунт,
   // но два разных ника на одном сайте читались как ошибка.
-  { icon: Send, href: 'https://t.me/white_rsh', label: 'Telegram', color: '#26A5E4' },
-  { icon: Instagram, href: 'https://instagram.com/whalewzrd', label: 'Instagram', color: '#E4405F' },
-  { icon: Youtube, href: 'https://youtube.com/@whalewzrd', label: 'YouTube', color: '#FF0000' },
-  { icon: Twitter, href: 'https://twitter.com/whalewzrd', label: 'X', color: '#1DA1F2' },
-  { icon: MessageCircle, href: 'https://threads.net/@whalewzrd', label: 'Threads', color: '#8A2BE2' },
-  { icon: Music, href: 'https://tiktok.com/@whalewzrd', label: 'TikTok', color: '#FE2C55' },
-  { icon: Mail, href: 'mailto:whalewzrd@gmail.com', label: 'Email', color: '#8B5CF6' },
-];
+  { platform: 'telegram', href: 'https://t.me/white_rsh', label: 'Telegram' },
+  { platform: 'instagram', href: 'https://instagram.com/whalewzrd', label: 'Instagram' },
+  { platform: 'youtube', href: 'https://youtube.com/@whalewzrd', label: 'YouTube' },
+  { platform: 'x', href: 'https://twitter.com/whalewzrd', label: 'X' },
+  { platform: 'threads', href: 'https://threads.net/@whalewzrd', label: 'Threads' },
+  { platform: 'tiktok', href: 'https://tiktok.com/@whalewzrd', label: 'TikTok' },
+  { platform: 'gmail', href: 'mailto:whalewzrd@gmail.com', label: 'Email' },
+] as const;
 
 function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | 'phone' | 'social' {
   const normalized = label.toLowerCase();
@@ -78,7 +69,7 @@ function SocialDock() {
             </p>
           </div>
 
-          <div className="hidden sm:flex lg:hidden gap-2 flex-shrink-0">
+          <div className="hidden shrink-0 gap-2 min-[480px]:flex min-[606px]:hidden">
             <button
               onClick={() => scrollByCard('prev')}
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-card/50 border border-border hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all"
@@ -96,39 +87,23 @@ function SocialDock() {
           </div>
         </div>
 
-        <div
-          ref={scrollerRef}
-          className="scrollbar-brand flex gap-4 overflow-x-auto scroll-smooth pb-5 pt-1 lg:justify-center"
-          style={{ WebkitOverflowScrolling: 'touch', cursor: 'grab' }}
-        >
-          {socials.map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <m.a
+        <div ref={scrollerRef} className="scrollbar-brand cursor-grab overflow-x-auto pb-4" role="group" aria-label="Социальные сети">
+          <div className="mx-auto flex w-max border-y border-foreground/15">
+            {socials.map((s) => (
+              <a
                 key={s.label}
                 data-social-card
                 href={s.href}
                 onClick={() => trackContact(getContactChannel(s.label), 'social_bar', { social_label: s.label })}
                 target="_blank"
                 rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04, duration: 0.3 }}
-                whileTap={{ scale: 0.95 }}
-                className={`social-card social-card-${i} group flex-shrink-0 flex flex-col items-center gap-2.5 w-[84px] md:w-[96px] rounded-2xl border border-border/70 bg-card/40 backdrop-blur-sm p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
+                className="flex min-h-16 w-[82px] shrink-0 flex-col items-center justify-center gap-2 border-r border-foreground/15 px-1 text-foreground transition-colors last:border-r-0 hover:bg-foreground/7 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none md:w-24"
               >
-                <Icon
-                  className="social-icon w-6 h-6 md:w-7 md:h-7 transition-colors duration-300"
-                  style={{ color: s.color }}
-                  aria-hidden="true"
-                />
-                <span className="text-[11px] md:text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors whitespace-nowrap">
-                  {s.label}
-                </span>
-              </m.a>
-            );
-          })}
+                <PlatformMark platform={s.platform} />
+                <span className="whitespace-nowrap text-[11px] font-semibold md:text-xs">{s.label}</span>
+              </a>
+            ))}
+          </div>
         </div>
 
         <div className="text-center text-xs text-muted-foreground/60 mt-2">
@@ -136,15 +111,6 @@ function SocialDock() {
         </div>
       </div>
 
-      <style>{`
-        ${socials.map((s, i) => `
-        .social-card-${i}:hover {
-          border-color: ${s.color}80;
-          background-color: ${s.color}1f;
-          box-shadow: 0 12px 28px -14px ${s.color}99;
-        }
-        `).join('')}
-      `}</style>
     </m.section>
   );
 }

@@ -171,7 +171,7 @@ mustContain('Landing form email and context', files.landingForm, [
   "email: ''",
   "phone: ''",
   "renderField('email', 'Email'",
-  "renderField('phone', 'Телефон / WhatsApp'",
+  'name="phone"',
   'website_domain: websiteDomain',
   "form_id: 'service_landing_form'",
   "form_variant: 'service_landing_v1'",

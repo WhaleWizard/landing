@@ -1,10 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { m } from 'motion/react';
 import {
-  Instagram,
-  MessageCircle,
-  Mail,
-  Youtube,
   ArrowRight,
   ArrowLeft,
   ArrowDown,
@@ -18,6 +14,7 @@ import { trackContact, trackThankYouConversion } from '../consent/consent';
 import Navbar from '../components/Navbar';
 import SEO from '../components/SEO';
 import ThanksCosmicScene from '../components/ThanksCosmicScene';
+import { PlatformMark } from '../components/brand/PlatformMark';
 import { useScrollTo } from '../components/hooks/useScrollTo';
 import { readLeadContext, type LeadContactChannel, type LeadServiceSlug } from '../utils/leadContext';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
@@ -90,11 +87,11 @@ const ORIGIN: Record<LeadServiceSlug, { path: string; label: string }> = {
 };
 
 const socialLinks = [
-  { name: 'Telegram', icon: MessageCircle, link: TELEGRAM_LINK },
-  { name: 'Instagram', icon: Instagram, link: 'https://instagram.com/whalewzrd' },
-  { name: 'YouTube', icon: Youtube, link: 'https://www.youtube.com/@whalewzrd' },
-  { name: 'Email', icon: Mail, link: 'mailto:whalewzrd@gmail.com' },
-];
+  { name: 'Telegram', platform: 'telegram', link: TELEGRAM_LINK },
+  { name: 'Instagram', platform: 'instagram', link: 'https://instagram.com/whalewzrd' },
+  { name: 'YouTube', platform: 'youtube', link: 'https://www.youtube.com/@whalewzrd' },
+  { name: 'Email', platform: 'gmail', link: 'mailto:whalewzrd@gmail.com' },
+] as const;
 
 export default function ThankYou() {
   // Контекст читается один раз при монтировании: он уже лежит в хранилище к
@@ -200,7 +197,7 @@ export default function ThankYou() {
                   className="group relative inline-flex min-h-12 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-primary to-accent px-6 font-semibold text-white shadow-lg shadow-primary/30 transition-transform hover:scale-[1.03]"
                 >
                   <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-[120%]" />
-                  <MessageCircle className="relative h-4 w-4" />
+                  <PlatformMark platform="telegram" size={16} />
                   <span className="relative">Написать в Telegram</span>
                 </a>
 
@@ -361,7 +358,7 @@ export default function ThankYou() {
                       rel="noopener noreferrer"
                       className="ths-social-link"
                     >
-                      <social.icon className="h-4 w-4 text-primary" />
+                      <PlatformMark platform={social.platform} size={16} />
                       {social.name}
                     </a>
                   ))}
