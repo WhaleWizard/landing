@@ -15,6 +15,18 @@ import {
 
 const silentLogger = { warn() {} };
 
+test('the first About release can build in strict mode against the older production API', async () => {
+  const sections = await loadPublishedSiteContent({
+    endpoint: 'https://example.test/api/site-content',
+    strict: true,
+    logger: silentLogger,
+    fetchImpl: async (url) => url.searchParams.get('key') === 'site:about'
+      ? Response.json({ success: false, error: 'Unknown section key' }, { status: 400 })
+      : Response.json({ success: true, source: 'static', content: null }),
+  });
+  assert.deepEqual(sections, {});
+});
+
 test('published partial content uses the same safe merge rules as the live React page', () => {
   const base = {
     seo: { title: 'Source title', description: 'Source description', url: '/fixed' },

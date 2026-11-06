@@ -4,6 +4,7 @@ import { isPathLocked } from '../utils/pageLocks';
 
 const SITE_CONTENT_KEY_BY_PATH: Record<string, string> = {
   '/': 'site:home',
+  '/about': 'site:about',
   '/meta-ads': 'service:meta-ads',
   '/google-ads': 'service:google-ads',
   '/consult': 'service:consult',

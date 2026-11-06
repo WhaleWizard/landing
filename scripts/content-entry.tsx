@@ -1,4 +1,5 @@
 export { FAQ_CATEGORIES, FAQ_SEO, faqs } from '../src/app/pages/FAQPage';
+export { ABOUT_DEFAULTS } from '../src/app/data/about';
 export {
   GLOSSARY_SECTIONS,
   MARKETING_GLOSSARY_SEO,

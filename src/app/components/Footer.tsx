@@ -242,6 +242,13 @@ function Footer() {
                   Контакты
                 </button>
               </li>
+              {!isHiddenInNav('/about') && (
+                <li>
+                  <Link to="/about/" state={linkState} className={footerLinkClass}>
+                    Обо мне
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
 

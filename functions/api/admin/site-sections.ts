@@ -195,10 +195,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     }
     const defaultPath = body.key === 'site:faq'
       ? '/faq'
+      : body.key === 'site:about'
+        ? '/about'
       : body.key === 'site:home'
         ? '/'
         : `/${body.key.replace('service:', '')}`;
-    const pagePath = String(body.pagePath || defaultPath).slice(0, 120);
+    const pagePath = body.key === 'site:about' ? defaultPath : String(body.pagePath || defaultPath).slice(0, 120);
     const label = String(body.label || body.key).replace(/[<>]/g, '').slice(0, 120);
     const existing = await db.prepare(
       'SELECT draft_json, published_json FROM site_sections WHERE section_key=? LIMIT 1',

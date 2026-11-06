@@ -9,7 +9,8 @@ export const SERVICE_CONTENT_KEYS = [
 
 export const FAQ_CONTENT_KEY = 'site:faq' as const;
 export const HOME_CONTENT_KEY = 'site:home' as const;
-export const SITE_CONTENT_KEYS = [...SERVICE_CONTENT_KEYS, HOME_CONTENT_KEY, FAQ_CONTENT_KEY] as const;
+export const ABOUT_CONTENT_KEY = 'site:about' as const;
+export const SITE_CONTENT_KEYS = [...SERVICE_CONTENT_KEYS, HOME_CONTENT_KEY, FAQ_CONTENT_KEY, ABOUT_CONTENT_KEY] as const;
 
 export type ServiceContentKey = typeof SERVICE_CONTENT_KEYS[number];
 export type SiteContentKey = typeof SITE_CONTENT_KEYS[number];
@@ -659,7 +660,56 @@ export function sanitizeFaqContent(value: unknown): UnknownRecord {
   return target;
 }
 
+const ABOUT_SECTIONS = ['aboutStory', 'aboutWork', 'aboutProjects', 'aboutFocus', 'aboutExtra', 'aboutInvitation'];
+
+function sanitizeAboutContent(value: unknown): UnknownRecord {
+  const source = object(value);
+  const target: UnknownRecord = {};
+  const seo = sanitizeSeo(source.seo);
+  if (seo) target.seo = seo;
+
+  for (const key of ['aboutIntro', ...ABOUT_SECTIONS]) {
+    const block = object(source[key]);
+    const clean: UnknownRecord = {};
+    assignText(clean, block, 'title', 140);
+    if (key === 'aboutIntro') {
+      assignText(clean, block, 'lead', 300);
+      assignText(clean, block, 'imageAlt', 240);
+    }
+    if (key === 'aboutInvitation') assignText(clean, block, 'text', 1_600);
+    if (key === 'aboutWork') assignClearableText(clean, block, 'payment', 1_600);
+    if (key === 'aboutInvitation' || key === 'aboutProjects') assignClearableText(clean, block, 'button', 80);
+    if (['aboutIntro', 'aboutStory', 'aboutProjects', 'aboutFocus'].includes(key) && Array.isArray(block.paragraphs)) {
+      clean.paragraphs = texts(block.paragraphs, 12, 1_600) || [];
+    }
+    if (['aboutWork', 'aboutProjects', 'aboutExtra'].includes(key) && Array.isArray(block.items)) {
+      clean.items = block.items.slice(0, 12).flatMap((item) => {
+        const row = object(item);
+        const title = text(row.title, 140);
+        const body = text(row.text, 1_600);
+        if (!title || !body) return [];
+        const entry: UnknownRecord = { title, text: body };
+        if (key === 'aboutWork') assignVisualSlot(entry, row);
+        if (key === 'aboutProjects') {
+          const href = text(row.href, 250) || '';
+          entry.href = /^\/cases\/[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(href) ? href : '';
+          entry.linkLabel = entry.href ? text(row.linkLabel, 80) || '' : '';
+        }
+        return [entry];
+      });
+    }
+    if (Object.keys(clean).length) target[key] = clean;
+  }
+
+  for (const key of ['sectionOrder', 'hiddenSections']) {
+    const sections = source[key];
+    if (Array.isArray(sections)) target[key] = [...new Set(sections.filter((section) => ABOUT_SECTIONS.includes(section)))];
+  }
+  return target;
+}
+
 export function sanitizeSiteContent(key: SiteContentKey, value: unknown): UnknownRecord {
+  if (key === ABOUT_CONTENT_KEY) return sanitizeAboutContent(value);
   if (key === FAQ_CONTENT_KEY) return sanitizeFaqContent(value);
   if (key === HOME_CONTENT_KEY) return sanitizeHomeContent(value);
   return sanitizeServiceContent(value);

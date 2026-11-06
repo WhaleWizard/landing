@@ -10,6 +10,7 @@ import { bindSanitizerWindow } from '../src/app/utils/sanitizeHtml';
 import { isCaseArticle } from '../src/app/utils/articleCategory';
 import type { Article } from '../src/app/components/hooks/useArticlesApi';
 import {
+  loadAboutPage,
   loadBlogPage,
   loadCalculator,
   loadCaseArticleView,
@@ -46,6 +47,7 @@ export const SSR_ROUTES = [
   '/meta-apps',
   '/google-ads',
   '/consult',
+  '/about',
   '/privacy-policy',
   '/offer',
   '/cookie-policy',
@@ -97,6 +99,7 @@ async function preloadFirstScreenModules(): Promise<void> {
     loadCalculator(),
     loadRoiPage(),
     loadFaqPage(),
+    loadAboutPage(),
     loadMarketingGlossaryPage(),
     loadCasesPage(),
   ]);

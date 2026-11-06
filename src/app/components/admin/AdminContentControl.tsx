@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { META_APPS_TESTIMONIAL_CONTENT, pageConfigs, type ServiceType } from '../../pages/ServiceLandingPage';
+import { ABOUT_CONTENT_KEY, ABOUT_DEFAULTS, ABOUT_SECTIONS, type AboutSection, type AboutTextBlock } from '../../data/about';
 import { defaultHeroContent } from '../Hero';
 import { defaultServicesContent, type ServicesContent } from '../Services';
 import { defaultCasesContent } from '../Cases';
@@ -116,6 +117,7 @@ const HOME_SEO = {
 
 const PAGES: Array<{ value: EditorPage; label: string; path: string; key: string }> = [
   { value: 'home', label: 'Главная', path: '/', key: 'site:home' },
+  { value: 'about', label: 'Обо мне', path: '/about/', key: ABOUT_CONTENT_KEY },
   { value: 'meta-ads', label: 'Meta Ads', path: '/meta-ads', key: 'service:meta-ads' },
   { value: 'meta-apps', label: 'Meta Apps', path: '/meta-apps', key: 'service:meta-apps' },
   { value: 'google-ads', label: 'Google Ads', path: '/google-ads', key: 'service:google-ads' },
@@ -130,7 +132,18 @@ const SECTION_LABELS: Record<EditorSection, string> = {
   cta: 'CTA',
   testimonials: 'Отзывы и доверие',
   contact: 'Форма и контакт',
+  aboutIntro: 'Первый экран',
+  aboutStory: 'Как я пришёл в рекламу',
+  aboutWork: 'Как я работаю',
+  aboutProjects: 'Проекты',
+  aboutFocus: 'Текущий фокус',
+  aboutExtra: 'Дополнительные блоки',
+  aboutInvitation: 'Приглашение к диалогу',
 };
+
+function isAboutSection(section: EditorSection): section is AboutSection {
+  return ABOUT_SECTIONS.includes(section as AboutSection);
+}
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -276,6 +289,7 @@ function serviceDefaults(service: ServiceType): EditableContent {
 }
 
 function editableDefaults(page: EditorPage): EditableContent {
+  if (page === 'about') return { ...homeDefaults(), ...clone(ABOUT_DEFAULTS) };
   return page === 'home' ? homeDefaults() : serviceDefaults(page);
 }
 
@@ -286,15 +300,33 @@ function normalizeStored(page: EditorPage, raw: Record<string, unknown> | undefi
 }
 
 function serializeContent(page: EditorPage, content: EditableContent): Record<string, unknown> {
+  if (page === 'about') {
+    const source = content as unknown as Record<string, unknown>;
+    return Object.fromEntries(['seo', ...ABOUT_SECTIONS, 'sectionOrder', 'hiddenSections'].map((key) => [key, source[key]]));
+  }
   if (page !== 'home') return clone(content) as unknown as Record<string, unknown>;
   const { cta, ...rest } = clone(content);
   return { ...rest, callToAction: cta } as unknown as Record<string, unknown>;
 }
 
-function validateEditableContent(content: EditableContent): { section: EditorSection; message: string } | null {
+function validateEditableContent(content: EditableContent, page?: EditorPage): { section: EditorSection; message: string } | null {
   const blank = (value: string) => !value.trim();
   if (blank(content.seo.title) || blank(content.seo.description)) {
     return { section: 'seo', message: 'заполните SEO-заголовок и SEO-описание' };
+  }
+  if (page === 'about') {
+    for (const section of ABOUT_SECTIONS) {
+      const block = content[section]!;
+      if ('title' in block && blank(block.title)) return { section, message: 'заполните заголовок блока' };
+      if ('lead' in block && (blank(block.lead) || blank(block.imageAlt))) return { section, message: 'заполните вступление и описание фотографии' };
+      if ('text' in block && blank(block.text)) return { section, message: 'заполните текст блока' };
+      if ('paragraphs' in block && block.paragraphs.some(blank)) return { section, message: 'удалите пустой абзац или заполните его' };
+      if ('items' in block && block.items.some((item) => blank(item.title) || blank(item.text))) return { section, message: 'заполните заголовок и текст каждого элемента' };
+      if (section === 'aboutProjects' && content.aboutProjects!.items.some(({ href, linkLabel }) => Boolean(href.trim()) !== Boolean(linkLabel.trim()) || (href.trim() && !/^\/cases\/[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(href.trim())))) {
+        return { section, message: 'укажите подпись и адрес кейса в формате /cases/название латиницей' };
+      }
+    }
+    return null;
   }
   if (content.hero.titleLines.length > 0) {
     if (content.hero.titleLines.some((line) => blank(line.text))) {
@@ -379,6 +411,12 @@ function sectionTexts(content: EditableContent, section: EditorSection): string[
 /** Короткая сводка блока для списка слева: сразу видно, где сколько всего. */
 function sectionSummary(content: EditableContent, section: EditorSection): string {
   if (section === 'seo') return 'Поисковая выдача';
+  if (isAboutSection(section)) {
+    const block = content[section];
+    if (block && 'items' in block) return withPlural(block.items.length, ['элемент', 'элемента', 'элементов']);
+    if (block && 'paragraphs' in block) return withPlural(block.paragraphs.length, ['абзац', 'абзаца', 'абзацев']);
+    return 'Заголовок, текст и кнопка';
+  }
   if (section === 'hero') return `${content.hero.paragraphs.length} абз. · ${withPlural(content.hero.stats.length, ['цифра', 'цифры', 'цифр'])}`;
   if (section === 'services') return `${content.services.cards.length} карт. · ${content.services.detailed.sections.length} разд.`;
   if (section === 'cases') return withPlural(content.cases.items.length, ['карточка', 'карточки', 'карточек']);
@@ -479,12 +517,13 @@ function Field({ id, label, value, onChange, multiline = false, hint, maxLength 
   );
 }
 
-function StringListEditor({ label, singular, values, maxItems, maxLength, onChange }: {
+function StringListEditor({ label, singular, values, maxItems, maxLength, minItems = 1, onChange }: {
   label: string;
   singular: string;
   values: string[];
   maxItems: number;
   maxLength: number;
+  minItems?: number;
   onChange: (values: string[]) => void;
 }) {
   const move = (index: number, direction: -1 | 1) => {
@@ -505,7 +544,7 @@ function StringListEditor({ label, singular, values, maxItems, maxLength, onChan
               <div>
                 <button type="button" className="admin-icon-button" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`Поднять ${singular.toLowerCase()} ${index + 1}`}><ArrowUp aria-hidden="true" /></button>
                 <button type="button" className="admin-icon-button" onClick={() => move(index, 1)} disabled={index === values.length - 1} aria-label={`Опустить ${singular.toLowerCase()} ${index + 1}`}><ArrowDown aria-hidden="true" /></button>
-                <button type="button" className="admin-icon-button admin-icon-button--danger" onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} disabled={values.length <= 1} aria-label={`Удалить ${singular.toLowerCase()} ${index + 1}`}><Trash2 aria-hidden="true" /></button>
+                <button type="button" className="admin-icon-button admin-icon-button--danger" onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} disabled={values.length <= minItems} aria-label={`Удалить ${singular.toLowerCase()} ${index + 1}`}><Trash2 aria-hidden="true" /></button>
               </div>
             </div>
             <textarea
@@ -573,6 +612,66 @@ function AddItemButton({ label, count, maxItems, onAdd }: {
     <button type="button" className="admin-button admin-button--secondary admin-list-editor__add" disabled={count >= maxItems} onClick={onAdd}>
       <Plus aria-hidden="true" /> {label}
     </button>
+  );
+}
+
+function AboutFields({ content, section, update }: {
+  content: EditableContent;
+  section: AboutSection;
+  update: (path: Array<string | number>, value: unknown) => void;
+}) {
+  const block = content[section]!;
+  const setField = (key: string, value: unknown) => update([section, key], value);
+  const field = (key: string, label: string, value: string, maxLength: number, multiline = false) => (
+    <Field id={section + '-' + key} label={label} value={value} maxLength={maxLength} multiline={multiline} onChange={(next) => setField(key, next)} />
+  );
+  const itemLabel = section === 'aboutProjects' ? 'Проект' : section === 'aboutWork' ? 'Этап' : 'Блок';
+  const renderItems = (items: AboutTextBlock[]) => (
+    <div className="admin-list-editor">
+      {items.map((item, index) => (
+        <div key={index} className="admin-list-editor__item">
+          <OrderedItemHeader label={itemLabel} index={index} count={items.length} minItems={0}
+            onMove={(direction) => setField('items', moveItem(items, index, direction))}
+            onDelete={() => setField('items', items.filter((_, itemIndex) => itemIndex !== index))} />
+          <div className="admin-form-grid">
+            <Field id={section + '-item-title-' + index} label="Заголовок" value={item.title} maxLength={140}
+              onChange={(value) => update([section, 'items', index, 'title'], value)} />
+            <Field id={section + '-item-text-' + index} label="Текст" value={item.text} multiline maxLength={1600}
+              onChange={(value) => update([section, 'items', index, 'text'], value)} />
+            {'href' in item && 'linkLabel' in item && <>
+              <Field id={section + '-item-href-' + index} label="Адрес кейса" value={String(item.href)} maxLength={250}
+                hint="Например, /cases/nazvanie-keisa. Можно оставить пустым."
+                onChange={(value) => update([section, 'items', index, 'href'], value)} />
+              <Field id={section + '-item-link-' + index} label="Подпись ссылки" value={String(item.linkLabel)} maxLength={80}
+                onChange={(value) => update([section, 'items', index, 'linkLabel'], value)} />
+            </>}
+          </div>
+        </div>
+      ))}
+      <AddItemButton label={'Добавить ' + itemLabel.toLocaleLowerCase('ru')} count={items.length} maxItems={12}
+        onAdd={() => setField('items', [...items, {
+          title: '',
+          text: '',
+          ...(section === 'aboutWork' ? { visualSlot: items.length % 3 } : {}),
+          ...(section === 'aboutProjects' ? { href: '', linkLabel: '' } : {}),
+        }])} />
+    </div>
+  );
+  return (
+    <div className="admin-stack admin-stack--lg">
+      <div className="admin-form-grid">
+        {'title' in block && field('title', 'Заголовок', block.title, 140)}
+        {'lead' in block && field('lead', 'Вступление', block.lead, 300, true)}
+        {'imageAlt' in block && field('imageAlt', 'Описание фотографии', block.imageAlt, 240)}
+        {'text' in block && field('text', 'Текст', block.text, 1600, true)}
+        {'button' in block && field('button', 'Подпись кнопки', block.button, 80)}
+        {'payment' in block && field('payment', 'Условия оплаты', block.payment, 1600, true)}
+      </div>
+      {'paragraphs' in block && <StringListEditor label="Абзацы" singular="Абзац" values={block.paragraphs} minItems={0}
+        maxItems={12} maxLength={1600} onChange={(next) => setField('paragraphs', next)} />}
+      {'items' in block && renderItems(block.items)}
+      <p className="admin-hint">В тексте можно выделить <code>**важные слова**</code> и поставить внутреннюю ссылку <code>[подпись](/meta-apps/)</code>.</p>
+    </div>
   );
 }
 
@@ -1438,19 +1537,21 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   const pageMeta = useMemo(() => PAGES.find((item) => item.value === page) || PAGES[0], [page]);
   // Блок отзывов есть и на страницах услуг — раньше он был только у главной.
   const DEFAULT_SECTIONS = useMemo<EditorSection[]>(
-    () => ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact'],
-    [],
+    () => page === 'about' ? ['seo', ...ABOUT_SECTIONS] : ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact'],
+    [page],
   );
 
   const availableSections = useMemo<EditorSection[]>(() => {
     const order = (content as unknown as Record<string, unknown>).sectionOrder as EditorSection[] | undefined;
     if (!Array.isArray(order) || order.length === 0) return DEFAULT_SECTIONS;
-    const ordered = order.filter((s) => DEFAULT_SECTIONS.includes(s));
+    const ordered = page === 'about'
+      ? ['seo' as const, 'aboutIntro' as const, ...order.filter((s) => isAboutSection(s) && s !== 'aboutIntro')]
+      : order.filter((s) => DEFAULT_SECTIONS.includes(s));
     DEFAULT_SECTIONS.forEach((s) => {
       if (!ordered.includes(s)) ordered.push(s);
     });
     return ordered;
-  }, [DEFAULT_SECTIONS, content]);
+  }, [DEFAULT_SECTIONS, content, page]);
 
   const hiddenSections = useMemo<EditorSection[]>(() => {
     return ((content as unknown as Record<string, unknown>).hiddenSections as EditorSection[] | undefined) || [];
@@ -1467,7 +1568,8 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
 
   const moveSection = (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;
-    if (targetIndex < 1 || targetIndex >= availableSections.length || index < 1) return;
+    const firstMovable = page === 'about' ? 2 : 1;
+    if (targetIndex < firstMovable || targetIndex >= availableSections.length || index < firstMovable) return;
     const next = [...availableSections];
     const item = next[index];
     next.splice(index, 1);
@@ -1634,7 +1736,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     setBaseline(next);
     setSection(null);
     setVersions([]);
-    setActiveSection('hero');
+    setActiveSection(nextPage === 'about' ? 'aboutIntro' : 'hero');
     setNotice('');
     setPublishArmed(false);
     setHydratedKey(null);
@@ -1700,7 +1802,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       return;
     }
     const savedContent = clone(content);
-    const validationIssue = validateEditableContent(savedContent);
+    const validationIssue = validateEditableContent(savedContent, page);
     if (validationIssue) {
       setActiveSection(validationIssue.section);
       setPublishArmed(false);
@@ -1994,7 +2096,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                       </span>
                     </button>
 
-                    {value !== 'seo' && (
+                    {value !== 'seo' && value !== 'aboutIntro' && (
                       <Popover open={sectionActions === value} onOpenChange={(open) => setSectionActions(open ? value : null)}>
                         <PopoverTrigger asChild>
                           <button type="button" className="admin-block-nav__more" aria-label={`Действия блока: ${SECTION_LABELS[value]}`}>
@@ -2013,7 +2115,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                         <button
                           type="button"
                           onClick={() => { moveSection(index, -1); setSectionActions(null); }}
-                          disabled={index <= 1}
+                          disabled={index <= (page === 'about' ? 2 : 1)}
                         >
                           <ArrowUp aria-hidden="true" /> Переместить выше
                         </button>
@@ -2055,6 +2157,8 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                 <Field id="seo-description" label="SEO-описание" value={content.seo.description} multiline maxLength={220} hint="Рекомендуемая длина — примерно 120–170 знаков." onChange={(value) => update(['seo', 'description'], value)} />
                 <div className="admin-notice admin-field--wide">Canonical URL, robots, Open Graph URL и техническая разметка защищены кодом. Здесь меняется только текст сниппета и его синхронизированная SEO-копия.</div>
               </div> : null}
+
+              {isAboutSection(activeSection) && <AboutFields content={content} section={activeSection} update={update} />}
 
               {activeSection === 'hero' ? <div className="admin-stack admin-stack--lg">
                 <div className="admin-form-grid">

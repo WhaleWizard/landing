@@ -1,0 +1,310 @@
+.about-page {
+  --about-muted: #c2c0cd;
+  --about-accent: #b99aff;
+  --about-border: rgb(167 139 250 / 19%);
+  background: #0a0a0f;
+  color: #f5f5f7;
+  padding: clamp(5.5rem, 8vw, 8.5rem) clamp(1.25rem, 5vw, 4.5rem) clamp(3rem, 7vw, 6rem);
+}
+
+.about-wrap {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+}
+
+.about-page-nav {
+  margin-bottom: clamp(1.4rem, 3vw, 2.5rem);
+}
+
+.about-preview {
+  padding-top: clamp(1.25rem, 4vw, 3rem);
+}
+
+.about-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  align-items: center;
+  gap: clamp(1.5rem, 4vw, 3.75rem);
+  padding-bottom: clamp(2.75rem, 7vw, 6rem);
+}
+
+.about-page h1,
+.about-page h2,
+.about-page h3 {
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.about-page h1 {
+  margin: 0 0 1.2rem;
+  font-size: clamp(3rem, 6vw, 5.5rem);
+  line-height: 1.02;
+}
+
+.about-hero p {
+  max-width: 35rem;
+  margin: 0;
+  color: var(--about-muted);
+  font-size: clamp(1rem, 1.25vw, 1.16rem);
+  line-height: 1.6;
+}
+
+.about-hero .about-hero-lead {
+  margin-bottom: 1rem;
+  font-size: clamp(1.25rem, 2vw, 1.72rem);
+  color: #f5f5f7;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.about-hero-copy::after {
+  display: block;
+  content: '';
+  width: min(8.5rem, 35%);
+  height: 3px;
+  margin-top: 1.75rem;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #9b55ff, #338bff);
+}
+
+.about-hero-visual {
+  width: 100%;
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.about-hero-visual img {
+  display: block;
+  width: 100%;
+  height: auto;
+  mask-image: linear-gradient(to right, transparent, #000 13%), linear-gradient(to bottom, #000 88%, transparent);
+  mask-composite: intersect;
+}
+
+.about-section {
+  padding-block: clamp(2rem, 4.5vw, 4rem);
+  border-top: 1px solid var(--about-border);
+}
+
+.about-hero + .about-section {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.about-page h2 {
+  margin: 0 0 1.3rem;
+  font-size: clamp(1.8rem, 4vw, 3.1rem);
+  line-height: 1.13;
+}
+
+.about-page h3 {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.12rem, 1.65vw, 1.45rem);
+  line-height: 1.25;
+}
+
+.about-section p {
+  margin: 0;
+  color: var(--about-muted);
+  line-height: 1.65;
+  font-size: clamp(1rem, 1.3vw, 1.125rem);
+}
+
+.about-prose p,
+.about-payment,
+.about-contact p {
+  max-width: 67ch;
+}
+
+.about-prose p + p {
+  margin-top: 0.95rem;
+}
+
+.about-page strong {
+  color: #f5f5f7;
+}
+
+.about-work-steps {
+  --rail-indent: clamp(1.8rem, 5vw, 4.2rem);
+  position: relative;
+  display: grid;
+  gap: 0.9rem;
+  margin: 1.6rem 0;
+  padding: 0 0 0 var(--rail-indent);
+  list-style: none;
+}
+
+.about-work-steps::before {
+  content: '';
+  position: absolute;
+  inset: -0.5rem auto -0.5rem 0.42rem;
+  width: 2px;
+  background: linear-gradient(transparent, #a478ff 14%, #804de5 84%, transparent);
+}
+
+.about-work-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(0.65rem, 2vw, 1.35rem);
+  align-items: start;
+  padding: clamp(0.9rem, 2.3vw, 1.5rem);
+  border-radius: 0.9rem;
+  border: 1px solid var(--about-border);
+  background: linear-gradient(115deg, #191427, #111118);
+}
+
+.about-work-step::before,
+.about-work-step::after {
+  content: '';
+  position: absolute;
+  top: clamp(1.9rem, 4vw, 2.9rem);
+}
+
+.about-work-step::before {
+  right: 100%;
+  width: calc(var(--rail-indent) - 0.42rem);
+  height: 1px;
+  background: #7650b2;
+}
+
+.about-work-step::after {
+  left: calc(0.42rem - var(--rail-indent));
+  width: 0.65rem;
+  height: 0.65rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #a674ff;
+  background: #eee4ff;
+  box-shadow: 0 0 0 3px #522f83, 0 0 14px #a269ff;
+}
+
+.about-work-icon {
+  display: grid;
+  place-items: center;
+  width: clamp(2.2rem, 4.5vw, 3.25rem);
+  aspect-ratio: 1;
+  border-radius: 0.75rem;
+  border: 1px solid var(--about-border);
+  background: #231a38;
+  color: var(--about-accent);
+}
+
+.about-work-icon svg {
+  max-width: 62%;
+}
+
+.about-projects {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 2rem;
+  margin: 1.55rem 0 0.8rem;
+}
+
+.about-project {
+  padding-block: 1rem;
+  border-top: 1px solid var(--about-border);
+}
+
+.about-section a {
+  color: var(--about-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.about-project a,
+.about-text-link {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  font-weight: 650;
+}
+
+.about-section a:hover {
+  color: #ded0ff;
+}
+
+.about-section a:focus-visible {
+  outline: 2px solid var(--about-accent);
+  outline-offset: 4px;
+}
+
+.about-contact:last-child {
+  padding-bottom: 0;
+}
+
+.about-section .about-contact-link {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  margin-top: 1.35rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(105deg, #6d38ca, #4a49bb);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.about-section .about-contact-link:hover {
+  background: #5931a6;
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  .about-hero,
+  .about-projects {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .about-hero {
+    gap: 1.5rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .about-page h1 span {
+    background: linear-gradient(100deg, #a074ff, #5b8bff);
+    background-clip: text;
+    color: transparent;
+  }
+
+  .about-hero-copy::after {
+    display: none;
+  }
+
+  .about-hero-visual {
+    width: calc(100% + 2 * clamp(1.25rem, 5vw, 4.5rem));
+    margin-inline: calc(-1 * clamp(1.25rem, 5vw, 4.5rem));
+    border-radius: 0;
+  }
+
+  .about-hero-visual img {
+    mask-image: linear-gradient(to bottom, #000 91%, transparent);
+  }
+
+  .about-work-step {
+    gap: 0.65rem;
+  }
+
+  .about-work-step > div {
+    display: contents;
+  }
+
+  .about-work-step h3 {
+    align-self: center;
+    margin: 0;
+  }
+
+  .about-work-step p {
+    grid-column: 1 / -1;
+  }
+
+  .about-section .about-contact-link {
+    width: 100%;
+  }
+}

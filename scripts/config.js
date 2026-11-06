@@ -29,6 +29,7 @@ export const STATIC_ROUTES = [
   '/',
   '/blog',
   '/cases',
+  '/about',
   '/faq',
   '/marketing-glossary',
   '/calculator',

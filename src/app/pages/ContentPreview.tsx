@@ -14,6 +14,8 @@ import Testimonials, {
 import MetaAdsEditorialHero from '../components/service-heroes/MetaAdsEditorialHero';
 import ConsultStudioHero from '../components/service-heroes/ConsultStudioHero';
 import SEO from '../components/SEO';
+import { ABOUT_DEFAULTS, ABOUT_SECTIONS } from '../data/about';
+import { AboutBody } from './AboutPage';
 import {
   META_APPS_TESTIMONIAL_CONTENT,
   pageConfigs,
@@ -78,7 +80,7 @@ const SERVICE_THEMES: Record<ServiceType, {
   },
 };
 
-const PREVIEW_PAGES = new Set(['home', 'meta-ads', 'meta-apps', 'google-ads', 'consult']);
+const PREVIEW_PAGES = new Set(['home', 'meta-ads', 'meta-apps', 'google-ads', 'consult', 'about']);
 
 /**
  * Какую картинку хиро рисует живая страница. Держать это списком, а не
@@ -95,7 +97,7 @@ const PREVIEW_HERO_VISUALS: Record<string, HeroVisual> = {
   'meta-apps': 'meta-apps',
   'google-ads': 'default',
 };
-const PREVIEW_SECTIONS = new Set(['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact']);
+const PREVIEW_SECTIONS = new Set(['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact', ...ABOUT_SECTIONS]);
 
 type PreviewFontRequest = {
   descriptor: string;
@@ -375,8 +377,8 @@ function ContentPreviewSurface({
   fontsReady: boolean;
 }) {
   const { page, section, content, replayKey = 0 } = payload;
-  const source = page === 'home' ? null : pageConfigs[page];
-  const theme = page === 'home' ? null : SERVICE_THEMES[page];
+  const source = page === 'home' || page === 'about' ? null : pageConfigs[page];
+  const theme = page === 'home' || page === 'about' ? null : SERVICE_THEMES[page];
   const style = theme ? {
     '--primary': theme.primary,
     '--accent': theme.accent,
@@ -474,7 +476,7 @@ function ContentPreviewSurface({
       {section === 'contact' ? (
         page === 'home'
           ? <HomeContactCopy content={content.contact} />
-          : <ServiceContactCopy page={page} content={content.contact} />
+          : page !== 'about' ? <ServiceContactCopy page={page} content={content.contact} /> : null
       ) : null}
     </main>
   );
@@ -629,7 +631,13 @@ export default function ContentPreview() {
   return (
     <>
       <SEO title="Предпросмотр редактора" description="Внутренний предпросмотр редактора сайта" url="/admin/content-preview" noIndex />
-      {payload ? <ContentPreviewSurface payload={payload} fontsReady={fontsReady} /> : waiting}
+      {payload?.page === 'about' ? (
+        <div className="ww-content-preview-page" style={{ pointerEvents: 'none' }}>
+          {payload.section === 'seo'
+            ? <SeoPreview content={payload.content.seo} />
+            : <AboutBody content={{ ...ABOUT_DEFAULTS, ...payload.content }} previewSection={payload.section} />}
+        </div>
+      ) : payload ? <ContentPreviewSurface payload={payload} fontsReady={fontsReady} /> : waiting}
     </>
   );
 }

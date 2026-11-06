@@ -7,6 +7,7 @@ export const SITE_CONTENT_KEYS = [
   'service:google-ads',
   'service:consult',
   'site:faq',
+  'site:about',
 ];
 
 const MAX_RESPONSE_BYTES = 100_000;
@@ -250,7 +251,7 @@ export function writeSiteContentSnapshot(pathname, sections) {
   writeFileSync(pathname, `${JSON.stringify({ schemaVersion: 1, fetchedAt: new Date().toISOString(), sections: safeSections }, null, 2)}\n`, 'utf8');
 }
 
-async function fetchSection({ endpoint, key, fetchImpl, timeoutMs, buildToken }) {
+async function fetchSection({ endpoint, key, fetchImpl, timeoutMs, buildToken, allowUnknownKey }) {
   const url = new URL(endpoint);
   url.searchParams.set('key', key);
   // A unique build URL avoids reusing the public endpoint's short edge cache
@@ -269,11 +270,18 @@ async function fetchSection({ endpoint, key, fetchImpl, timeoutMs, buildToken })
       cache: 'no-store',
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok && !(allowUnknownKey && response.status === 400)) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
     const raw = await response.text();
     if (raw.length > MAX_RESPONSE_BYTES) throw new Error('response is too large');
     const payload = JSON.parse(raw);
+    // The release introducing this key builds against the previous public API.
+    if (allowUnknownKey && response.status === 400 && payload?.error === 'Unknown section key') {
+      return { key, status: 'static', content: null };
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     if (!payload?.success) throw new Error('endpoint returned success=false');
 
     // `source: static` is an authoritative answer that no published D1
@@ -320,6 +328,7 @@ export async function loadPublishedSiteContent({
     fetchImpl,
     timeoutMs: effectiveTimeoutMs,
     buildToken,
+    allowUnknownKey: key === 'site:about' && !previous[key],
   })));
 
   let successfulRequests = 0;

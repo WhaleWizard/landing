@@ -128,6 +128,25 @@ test('every secondary hydratable route renders a complete first screen without e
   }
 });
 
+test('About renders the published block edits for clients without JavaScript', async () => {
+  const html = await renderRoute('/about', { siteContent: { key: 'site:about', content: {
+    seo: { title: 'Новый заголовок выдачи' },
+    aboutIntro: { title: 'О Руслане' },
+    aboutStory: { title: 'Моя история', paragraphs: ['Новый **абзац**.'] },
+    aboutWork: { items: [] },
+    aboutExtra: { items: [{ title: 'Новый раздел', text: 'Мой текст.' }] },
+    hiddenSections: ['aboutFocus'],
+    sectionOrder: ['aboutExtra', 'aboutStory'],
+  } } });
+  const { document } = parseHTML(html);
+  assert.equal(document.querySelector('h1').textContent, 'О Руслане');
+  assert.deepEqual([...document.querySelectorAll('.about-page h2')].slice(0, 2).map((el) => el.textContent), ['Новый раздел', 'Моя история']);
+  assert.equal(document.querySelector('#about-story + p strong').textContent, 'абзац');
+  assert.equal(document.querySelector('.about-work-steps'), null);
+  assert.equal(document.querySelector('#about-focus'), null);
+  assert.equal(JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent).name, 'Новый заголовок выдачи');
+});
+
 test('a route outside the hydratable list is refused instead of rendered half-way', async () => {
   await assert.rejects(() => renderRoute('/admin'), /not server-rendered/);
 });

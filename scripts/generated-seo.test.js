@@ -239,6 +239,13 @@ test('every generated HTML route has one coherent SEO contract', () => {
     }
     if (route === '/faq') assert.ok(types.includes('FAQPage'), '/faq: missing FAQPage schema');
     if (route === '/marketing-glossary') assert.ok(types.includes('DefinedTermSet'), '/marketing-glossary: missing DefinedTermSet schema');
+    if (route === '/about') {
+      const profile = parseJsonLd(html, route).find(({ value }) => value?.['@type'] === 'ProfilePage');
+      assert.equal(profile?.value.mainEntity.name, 'Руслан');
+      assert.equal(profile?.value.mainEntity.alternateName, 'Whale Wizard');
+      assert.match(html, /data-ww-first-screen="\/about"/);
+      assert.match(head, /"key":"site:about"/);
+    }
   }
 
   const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');

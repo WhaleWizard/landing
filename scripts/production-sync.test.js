@@ -35,9 +35,10 @@ test('only published D1 page overrides enter the local production snapshot', () 
     ['service:google-ads', { success: true, source: 'static', content: null }],
     ['service:consult', { success: true, source: 'static', content: null }],
     ['site:faq', { success: true, source: 'static', content: null }],
+    ['site:about', { success: true, source: 'd1', content: { aboutStory: { title: 'Моя история' } } }],
   ]);
   const payload = normalizeProductionSiteContent(rows, '2026-08-13T00:00:00.000Z');
-  assert.deepEqual(Object.keys(payload.sections), ['service:meta-ads']);
+  assert.deepEqual(Object.keys(payload.sections), ['service:meta-ads', 'site:about']);
 });
 
 test('article covers and body images are retained as production media references', () => {
@@ -144,7 +145,7 @@ test('end-to-end sync validates every response before writing all three snapshot
     });
 
     assert.deepEqual(result, { articles: 1, siteSections: 0, mediaReferences: 0 });
-    assert.equal(seenSignals.length, 7);
+    assert.equal(seenSignals.length, 8);
     assert.ok(seenSignals.every((signal) => signal instanceof AbortSignal));
     const privateArticles = JSON.parse(readFileSync(join(root, 'data', 'articles.local.json'), 'utf8'));
     const publicArticles = JSON.parse(readFileSync(join(root, 'public', 'articles.seed.json'), 'utf8'));

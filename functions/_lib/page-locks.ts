@@ -55,6 +55,7 @@ export const PAGE_LOCK_ROUTES: readonly PageLockRoute[] = [
   { path: '/consult', label: 'Консультация', group: 'Услуги', suggest: ['/cases', '/meta-ads', '/google-ads'] },
   { path: '/blog', label: 'Блог', group: 'Контент', hasChildren: true, suggest: ['/cases', '/marketing-glossary', '/faq'] },
   { path: '/cases', label: 'Кейсы', group: 'Контент', hasChildren: true, suggest: ['/meta-ads', '/google-ads', '/consult'] },
+  { path: '/about', label: 'Обо мне', group: 'Контент', suggest: ['/cases', '/consult'] },
   { path: '/faq', label: 'FAQ', group: 'Контент', suggest: ['/consult', '/marketing-glossary', '/cases'] },
   { path: '/marketing-glossary', label: 'Словарь метрик', group: 'Контент', suggest: ['/blog', '/calculator', '/faq'] },
   { path: '/calculator', label: 'Калькулятор бюджета', group: 'Инструменты', suggest: ['/roi-calculator', '/consult', '/cases'] },

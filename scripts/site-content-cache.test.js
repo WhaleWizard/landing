@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { build } from 'esbuild';
+import { loadPublishedSiteContent } from './site-content-sync.js';
 
 async function bundleTypeScript(path) {
   const result = await build({
@@ -58,6 +61,77 @@ test('site-content API separates browser revalidation from Cloudflare edge cachi
   });
   assert.equal(revalidated.status, 304);
   assert.equal(await revalidated.text(), '');
+});
+
+test('About drafts stay private and the SEO build reads the published About revision', async (t) => {
+  const originalCaches = globalThis.caches;
+  const originalFetch = globalThis.fetch;
+  const hook = 'https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/local-test-only';
+  let buildRequests = 0;
+  globalThis.caches = { default: { match: async () => undefined, put: async () => {}, delete: async () => true } };
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, hook);
+    assert.equal(options.method, 'POST');
+    buildRequests += 1;
+    return new Response(null, { status: 200 });
+  };
+  t.after(() => { globalThis.caches = originalCaches; globalThis.fetch = originalFetch; });
+  const [admin, publicApi] = await Promise.all([
+    bundleTypeScript('functions/api/admin/site-sections.ts'),
+    bundleTypeScript('functions/api/site-content.ts'),
+  ]);
+  const sqlite = new DatabaseSync(':memory:');
+  t.after(() => sqlite.close());
+  sqlite.exec(readFileSync('migrations/0013_site_sections.sql', 'utf8'));
+  const db = {
+    prepare(sql) {
+      const statement = sqlite.prepare(sql);
+      return { bind: (...args) => ({
+        first: async () => statement.get(...args) ?? null,
+        all: async () => ({ results: statement.all(...args) }),
+        run: async () => statement.run(...args),
+      }) };
+    },
+    batch: async (statements) => Promise.all(statements.map((statement) => statement.run())),
+  };
+  const env = { DB: db, ADMIN_PASSWORD: 'local-test-only', CF_PAGES_DEPLOY_HOOK_URL: hook };
+  const endpoint = 'https://example.test/api/site-content';
+  const publicRead = (url = endpoint + '?key=site%3Aabout') => publicApi.onRequestGet({ request: new Request(url), env });
+  const write = async (action, title) => {
+    const response = await admin.onRequestPost({
+      env, waitUntil: () => {},
+      request: new Request('https://example.test/api/admin/site-sections', {
+        method: 'POST',
+        headers: { 'X-Admin-Password': env.ADMIN_PASSWORD, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action, key: 'site:about', pagePath: '/unrelated',
+          content: {
+            seo: { title, description: 'Отредактированное описание' },
+            aboutStory: { title, paragraphs: [] },
+            aboutProjects: { items: [{ title: 'Проект', text: 'Текст', href: 'javascript:alert(1)', linkLabel: 'Ссылка' }] },
+            hiddenSections: ['aboutWork', 'aboutIntro', 'unknown'],
+          },
+        }),
+      }),
+    });
+    const payload = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(payload));
+    assert.equal(Boolean(payload.seoBuild?.triggered), action === 'publish');
+  };
+
+  await write('save', 'Только черновик');
+  assert.equal((await (await publicRead()).json()).source, 'static');
+  await write('publish', 'На сайте');
+  await write('save', 'Следующий черновик');
+  assert.equal(buildRequests, 1);
+  const live = await (await publicRead()).json();
+  assert.equal(live.version, 2);
+  assert.deepEqual(live.content.aboutStory, { title: 'На сайте', paragraphs: [] });
+  assert.deepEqual(live.content.hiddenSections, ['aboutWork']);
+  assert.equal(live.content.aboutProjects.items[0].href, '');
+  assert.equal(sqlite.prepare('SELECT page_path FROM site_sections').get().page_path, '/about');
+  const content = await loadPublishedSiteContent({ endpoint, strict: true, fetchImpl: publicRead, logger: { warn() {} } });
+  assert.deepEqual(content['site:about'], live.content);
 });
 
 test('parallel preloads share one request and cache an authoritative null response', async (t) => {

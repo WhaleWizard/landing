@@ -13,6 +13,7 @@ import { preloadable } from './utils/preloadable';
 import { focusRouteHeading } from './utils/routeFocus';
 import { useIsomorphicLayoutEffect } from './utils/isomorphicLayoutEffect';
 import {
+  loadAboutPage,
   loadAdmin,
   loadBlogPage,
   loadCalculator,
@@ -49,6 +50,7 @@ const PrivacyPolicy = preloadable(loadPrivacyPolicy);
 const Offer = preloadable(loadOffer);
 const CookiePolicy = preloadable(loadCookiePolicy);
 const FAQPage = preloadable(loadFaqPage);
+const AboutPage = preloadable(loadAboutPage);
 const MarketingGlossaryPage = preloadable(loadMarketingGlossaryPage);
 const NotFound = preloadable(loadNotFound);
 
@@ -490,6 +492,7 @@ export const routes: RouteObject[] = [
       { path: 'offer', element: <LazyWrapper><Offer /></LazyWrapper> },
       { path: 'cookie-policy', element: <LazyWrapper><CookiePolicy /></LazyWrapper> },
       { path: 'faq', element: <LazyWrapper><FAQPage /></LazyWrapper> },
+      { path: 'about', element: <LazyWrapper><AboutPage /></LazyWrapper> },
       { path: 'marketing-glossary', element: <LazyWrapper><MarketingGlossaryPage /></LazyWrapper> },
       { path: 'meta-ads', element: <LazyWrapper><MetaAdsPage /></LazyWrapper> },
       { path: 'meta-apps', element: <LazyWrapper><MetaAppsPage /></LazyWrapper> },

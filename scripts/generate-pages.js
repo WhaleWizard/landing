@@ -303,6 +303,7 @@ const ROUTE_ENTRY_MODULES = {
   ],
   '/blog': ['src/app/pages/BlogPage.tsx'],
   '/cases': ['src/app/pages/CasesPage.tsx'],
+  '/about': ['src/app/pages/AboutPage.tsx'],
   '/faq': ['src/app/pages/FAQPage.tsx'],
   '/marketing-glossary': ['src/app/pages/MarketingGlossaryPage.tsx'],
   '/calculator': ['src/app/pages/Calculator.tsx'],
@@ -1688,6 +1689,7 @@ const SHELL_NAV_LINKS = [
   { href: '/marketing-glossary/', label: 'Словарь метрик' },
   { href: '/calculator/', label: 'Калькулятор бюджета' },
   { href: '/roi-calculator/', label: 'Калькулятор окупаемости' },
+  { href: '/about/', label: 'Обо мне' },
 ];
 
 function renderShellNavHtml(currentRoute) {
@@ -1992,6 +1994,7 @@ const SERVICE_SCHEMA_DETAILS = {
 const BREADCRUMB_LABELS = {
   '/blog': 'Блог',
   '/cases': 'Кейсы',
+  '/about': 'Обо мне',
   '/faq': 'Вопросы и ответы',
   '/marketing-glossary': 'Словарь маркетинга',
   '/calculator': 'Калькулятор бюджета',
@@ -2047,6 +2050,8 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
   };
 
   const homeOverride = publishedContent['site:home'];
+  const aboutOverride = publishedContent['site:about'];
+  const about = mergePublishedContent(content.ABOUT_DEFAULTS, aboutOverride);
   const homeContent = {
     hero: mergePublishedContent(content.defaultHeroContent, homeOverride?.hero),
     services: mergePublishedContent(content.defaultServicesContent, homeOverride?.services),
@@ -2111,6 +2116,14 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
     serviceStaticPage('meta-apps'),
     serviceStaticPage('google-ads'),
     serviceStaticPage('consult'),
+    {
+      route: '/about',
+      title: documentTitle(about.seo.title),
+      description: about.seo.description,
+      h1: about.aboutIntro.title,
+      lead: about.aboutIntro.lead,
+      siteContentSeed: { key: 'site:about', content: aboutOverride ?? null },
+    },
     {
       route: '/faq',
       title: documentTitle(faqSeo.title),

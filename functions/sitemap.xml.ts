@@ -6,7 +6,7 @@ import { xml } from './_lib/http';
 import { headFromGet } from './_lib/article-page';
 import type { Env } from './_lib/types';
 
-const STATIC_ROUTES = ['/', '/blog', '/cases', '/faq', '/marketing-glossary', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy', '/meta-ads', '/meta-apps', '/google-ads', '/consult'];
+const STATIC_ROUTES = ['/', '/blog', '/cases', '/about', '/faq', '/marketing-glossary', '/calculator', '/roi-calculator', '/privacy-policy', '/offer', '/cookie-policy', '/meta-ads', '/meta-apps', '/google-ads', '/consult'];
 
 function getSiteUrl(env: Env, request: Request): string {
   if (env.SITE_URL) return env.SITE_URL.replace(/\/$/, '');

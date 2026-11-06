@@ -1,4 +1,5 @@
 import type { ServiceType } from '../pages/ServiceLandingPage';
+import type { AboutContent, AboutSection } from '../data/about';
 import type { ContentFontId, NormalizedContentTypography } from '../utils/contentTypography';
 import type { HeroTitleEffect, HeroTitleEffectSpeed, HeroTitleLineSize } from '../components/HeroTitleEffect';
 
@@ -63,7 +64,7 @@ export type EditableContent = {
     bullets: string[];
     benefits: Array<{ title: string; description: string }>;
   };
-};
+} & Partial<Pick<AboutContent, AboutSection>>;
 
-export type EditorPage = ServiceType | 'home';
-export type EditorSection = 'seo' | 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact';
+export type EditorPage = ServiceType | 'home' | 'about';
+export type EditorSection = 'seo' | 'hero' | 'services' | 'cases' | 'cta' | 'testimonials' | 'contact' | AboutSection;

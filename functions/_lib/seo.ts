@@ -318,6 +318,7 @@ ${safeContent}
             <li><a href="/consult/">Разовая консультация маркетолога и аудит рекламы ($70)</a></li>
             <li><a href="/marketing-glossary/">Глоссарий терминов performance-маркетинга и формулы</a></li>
             <li><a href="/cases/">Все кейсы и результаты клиентов с подтверждёнными бюджетами</a></li>
+            <li><a href="/about/">Обо мне</a></li>
           </ul>
         </nav>
       </footer>

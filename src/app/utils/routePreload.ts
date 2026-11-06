@@ -23,6 +23,7 @@ export const loadPrivacyPolicy = memoizedImport(() => import('../pages/PrivacyPo
 export const loadOffer = memoizedImport(() => import('../pages/Offer'));
 export const loadCookiePolicy = memoizedImport(() => import('../pages/CookiePolicy'));
 export const loadFaqPage = memoizedImport(() => import('../pages/FAQPage'));
+export const loadAboutPage = memoizedImport(() => import('../pages/AboutPage'));
 export const loadMarketingGlossaryPage = memoizedImport(() => import('../pages/MarketingGlossaryPage'));
 export const loadNotFound = memoizedImport(() => import('../pages/NotFound'));
 export const loadServiceLandingPage = memoizedImport(() => import('../pages/ServiceLandingPage'));
@@ -53,6 +54,7 @@ function routeLoader(pathname: string): { key: string; loader: RouteLoader } | n
   if (pathname === '/offer' || pathname === '/offer/') return { key: 'offer', loader: loadOffer };
   if (pathname === '/cookie-policy' || pathname === '/cookie-policy/') return { key: 'cookie', loader: loadCookiePolicy };
   if (pathname === '/faq' || pathname === '/faq/') return { key: 'faq', loader: loadFaqPage };
+  if (pathname === '/about' || pathname === '/about/') return { key: 'about', loader: loadAboutPage };
   if (pathname === '/marketing-glossary' || pathname === '/marketing-glossary/') {
     return { key: 'glossary', loader: loadMarketingGlossaryPage };
   }
