@@ -5,7 +5,7 @@ const colors = {
   telegram: '#3ebbf5', instagram: '#fb648a', youtube: '#ff4649', x: '#c1d4fa',
   threads: '#bf9eff', tiktok: '#52e8e7', gmail: '#ea5d60', whatsapp: '#46d98a',
   meta: '#5ba1ff', facebook: '#5b98ff', ads: '#80aaff', search: '#6b9dff',
-  analytics: '#ffae42', tag: '#7ba8ff', play: '#56d5a5', apple: '#c4cef0',
+  analytics: '#ffae42', tag: '#7ba8ff', play: '#56d5a5', apple: '#c4cef0', appstore: '#70aaff',
 } as const;
 
 export type Platform = keyof typeof colors;

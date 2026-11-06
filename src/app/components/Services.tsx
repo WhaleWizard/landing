@@ -120,6 +120,22 @@ export const defaultServicesContent: ServicesContent = {
   detailed: detailedContent,
 };
 
+function ServiceCardIcon({ card, tone, compact = false }: {
+  card: ServiceCardContent;
+  tone: PlatformTone;
+  compact?: boolean;
+}) {
+  const size = compact ? 26 : 30;
+  const Icon = card.icon;
+  return (
+    <div className={`service-card-icon grid shrink-0 place-items-center border border-foreground/15 bg-background/55 shadow-lg ${compact ? 'size-[52px] rounded-xl' : 'size-16 rounded-2xl'}`}>
+      {card.platform
+        ? <PlatformMark platform={card.platform} tone={tone} size={size} />
+        : <Icon aria-hidden="true" size={size} className="text-[#e9edf9]" />}
+    </div>
+  );
+}
+
 function Services({ content, contentKey = null, platformTone = 'white' }: {
   content?: ServicesContent;
   contentKey?: string | null;
@@ -294,14 +310,8 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
                   />
                   
                   <div className="relative z-10 min-w-0 flex-1">
-                    <div className="relative inline-flex mb-6">
-                      <div className={`grid h-16 w-16 place-items-center rounded-2xl shadow-lg transition-shadow duration-300 group-hover:shadow-2xl ${service.platform ? 'border border-foreground/15 bg-background/55' : `bg-gradient-to-br ${service.gradient}`}`}>
-                        {service.platform ? <PlatformMark platform={service.platform} tone={platformTone} size={30} /> : <service.icon className="h-8 w-8 text-white" />}
-                      </div>
-                      <m.div
-                        className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-50 blur-xl`}
-                        transition={{ duration: 0.3 }}
-                      />
+                    <div className="mb-6">
+                      <ServiceCardIcon card={service} tone={platformTone} />
                     </div>
 
                     <h3 className={`min-h-[3.25rem] text-balance font-bold leading-tight mb-3 group-hover:text-primary transition-colors ${service.title.length > 20 ? 'text-lg md:text-xl' : 'text-xl md:text-2xl'}`}>
@@ -387,9 +397,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
 
                         <div className="relative z-10 min-w-0">
                           <div className="flex items-center justify-between mb-4">
-                            <div className={`grid h-[52px] w-[52px] place-items-center rounded-xl shadow-lg ${service.platform ? 'border border-foreground/15 bg-background/55' : `bg-gradient-to-br ${service.gradient}`}`}>
-                              {service.platform ? <PlatformMark platform={service.platform} tone={platformTone} size={26} /> : <service.icon className="h-7 w-7 text-white" />}
-                            </div>
+                            <ServiceCardIcon card={service} tone={platformTone} compact />
                             <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">
                               <span className="text-xs font-bold text-primary">{index + 1}/{serviceCards.length}</span>
                             </div>
