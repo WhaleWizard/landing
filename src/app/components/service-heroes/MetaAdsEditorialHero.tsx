@@ -209,9 +209,9 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                       width={item.width}
                       height={item.height}
                       alt={item.alt}
-                      loading="lazy"
+                      loading={index === 0 ? 'eager' : 'lazy'}
                       decoding="async"
-                      fetchpriority="low"
+                      fetchpriority={index === 0 ? 'high' : 'low'}
                       className="meta-proof__photo"
                     />
                   </div>

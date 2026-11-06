@@ -73,6 +73,20 @@
   .platform-strip[data-group='google'] .platform-mark { --platform-responsive-size: 18px; }
 }
 
+@media (min-width: 351px) and (max-width: 389px) {
+  .platform-strip[data-group='google'] { gap: 4px 6px; }
+  .platform-strip[data-group='google'] > li {
+    gap: 4px;
+    font-size: 10.5px;
+  }
+  .platform-strip[data-group='google'] > li:first-child {
+    padding: 5px 8px;
+  }
+  .platform-strip[data-group='google'] .platform-mark {
+    --platform-responsive-size: 16px;
+  }
+}
+
 @media (forced-colors: active) {
   .platform-mark .platform-mark__ink { background: CanvasText; forced-color-adjust: none; }
 }

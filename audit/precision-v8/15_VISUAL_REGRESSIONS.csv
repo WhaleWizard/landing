@@ -1,0 +1,7 @@
+Route,Viewport,Component,Metric,Expected,Observed,Status
+/meta-apps,375x667,MetaAppsHeroVisual,Visual Identity,Preserved,Identical,PASS_ZERO_REGRESSION
+/about,375x667,AboutPage,Visual Identity,Preserved,Identical,PASS_ZERO_REGRESSION
+/,1440x900,Hero,Visual Identity,Preserved,Identical,PASS_ZERO_REGRESSION
+/,375x667,Hero,Visual Identity,Preserved,Identical,PASS_ZERO_REGRESSION
+/cases,375x667,CasesList,Visual Identity,Preserved,Identical,PASS_ZERO_REGRESSION
+/blog,375x667,BlogList,Visual Identity,Preserved,Identical,PASS_ZERO_REGRESSION

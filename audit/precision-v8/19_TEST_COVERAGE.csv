@@ -1,0 +1,7 @@
+Area,Suite,FilesCovered,Assertions,Status
+AppTypes,typecheck:app,src/**,TypeScript strict,Passed
+FunctionsTypes,typecheck:functions,functions/**,TypeScript strict,Passed
+MetaCAPI,test:meta-capi,functions/_lib/meta-*,3 tests,Passed
+LeadReliability,test:lead-reliability,src/app/components/*Form.tsx,22 tests,Passed
+AdminIntegrity,test:admin-*,functions/api/admin/*,40+ tests,Passed
+SEORoutes,test:seo-output,dist/*.html,15 tests,Passed

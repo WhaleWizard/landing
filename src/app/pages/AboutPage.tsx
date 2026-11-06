@@ -44,6 +44,9 @@ export function AboutBody({ content, previewSection }: { content: AboutContent; 
               width={1440}
               height={960}
               alt={intro.imageAlt}
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
             />
           </div>
         </header>

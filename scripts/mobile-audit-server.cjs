@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const DIST_DIR = path.resolve(__dirname, '../dist');
 const DATA_DIR = path.resolve(__dirname, '../data');
@@ -80,11 +81,25 @@ function startAuditServer(port = 4173) {
 
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
       const mime = getMimeType(candidate);
-      res.writeHead(200, {
-        'Content-Type': mime,
-        'Cache-Control': 'no-cache'
-      });
-      fs.createReadStream(candidate).pipe(res);
+      const isCompressible = /^(text\/|application\/javascript|application\/json|image\/svg\+xml)/.test(mime);
+      const acceptEncoding = req.headers['accept-encoding'] || '';
+
+      if (isCompressible && acceptEncoding.includes('gzip')) {
+        res.writeHead(200, {
+          'Content-Type': mime,
+          'Content-Encoding': 'gzip',
+          'Vary': 'Accept-Encoding',
+          'Cache-Control': 'no-cache'
+        });
+        const gzip = zlib.createGzip({ level: 6 });
+        fs.createReadStream(candidate).pipe(gzip).pipe(res);
+      } else {
+        res.writeHead(200, {
+          'Content-Type': mime,
+          'Cache-Control': 'no-cache'
+        });
+        fs.createReadStream(candidate).pipe(res);
+      }
     } else {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found');

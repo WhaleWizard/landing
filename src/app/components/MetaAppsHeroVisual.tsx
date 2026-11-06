@@ -378,7 +378,7 @@ function Receipt({
           >
             <div className="meta-receipt__header">
               <span>EVENT RECEIPT</span>
-              <span>№ {number}</span>
+              <span>{`№ ${number}`}</span>
             </div>
             <div className="meta-receipt__rule" />
             <strong className="meta-receipt__event">{event}</strong>

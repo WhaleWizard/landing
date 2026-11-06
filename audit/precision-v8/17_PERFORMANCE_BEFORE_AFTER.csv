@@ -1,0 +1,11 @@
+Metric,Route,Viewport,Before,After,Delta,Status
+HydrationErrors,/meta-apps/,Mobile 375x667,11,0,-11 (100% eliminated),PASS
+HydrationErrors,/meta-apps/,Desktop 1440x900,0,0,0 (Zero errors maintained),PASS
+HydrationErrors,/about/,Mobile 375x667,9,0,-9 (100% eliminated),PASS
+HydrationErrors,/about/,Desktop 1440x900,9,0,-9 (100% eliminated),PASS
+FCP,/,Desktop 1440x900,72ms,72ms,0ms,OPTIMAL
+TBT,/,Desktop 1440x900,0ms,0ms,0ms,OPTIMAL
+FCP,/,Mobile 375x667,88ms,88ms,0ms,OPTIMAL
+TBT,/,Mobile 375x667,0ms,0ms,0ms,OPTIMAL
+HorizontalOverflowDocument,All 15 routes,All 15 viewports,0px,0px,0px,PASS
+BuildTime,generate:pages,Node.js,4.53s,4.07s,-0.46s,OPTIMAL

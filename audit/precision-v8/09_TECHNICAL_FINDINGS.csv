@@ -1,0 +1,4 @@
+ID,Category,Severity,Route,Component,File,Line,Summary,Status
+TECH-001,HYDRATION,CRITICAL,ALL,generate-pages.js,scripts/generate-pages.js,270;1401,Static page generator regex stripped empty comments (`<!-- -->`) used by React 18 SSR to delimit adjacent text nodes causing browser DOM parser to merge adjacent text nodes resulting in React Minified Error #425 and client re-render fallback,RESOLVED
+TECH-002,HYDRATION,HIGH,/meta-apps,MetaAppsHeroVisual,src/app/components/MetaAppsHeroVisual.tsx,381,Receipt header used `<span>№ {number}</span>` emitting separate text nodes susceptible to node merging during static HTML post-processing,RESOLVED
+TECH-003,PERFORMANCE,MEDIUM,/,CosmicHeroScene,src/app/components/CosmicHeroScene.tsx,Desktop,Desktop cold start requests 14 separate cosmic WebP images simultaneously with initial bundles on initial unprimed edge cache miss,DOCUMENTED_VERIFIED

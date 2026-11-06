@@ -267,7 +267,7 @@ function readViteIndexHtml() {
   if (!/<div id="root"><\/div>/i.test(html)) {
     throw new Error('dist/index.html is already generated. Run vite build before generate:pages.');
   }
-  html = html.replace(/<!--(?![\$/])[\s\S]*?-->/g, '');
+  html = html.replace(/<!--(?!\s*-->|[\$/?])[\s\S]*?-->/g, '');
   return html;
 }
 
@@ -1000,12 +1000,22 @@ const HERO_PRELOADS = {
       imageSrcSet: '/images/meta-proof/paper-stack-480.webp 480w, /images/meta-proof/paper-stack-768.webp 768w',
       imageSizes: '(max-width: 767px) 182px, 384px',
       priority: true,
+      media: '(max-width: 767px)',
     },
     {
       href: '/images/meta-proof/ecommerce-photo.webp',
       imageSrcSet: '/images/meta-proof/ecommerce-photo-480.webp 480w, /images/meta-proof/ecommerce-photo-800.webp 800w, /images/meta-proof/ecommerce-photo.webp 1440w',
       imageSizes: '(max-width: 767px) 230px, 400px',
+      priority: true,
       media: '(min-width: 768px)',
+    },
+  ],
+  '/about': [
+    {
+      href: '/images/about/ruslan-workspace.webp',
+      imageSrcSet: '/images/about/ruslan-workspace-mobile.webp 720w, /images/about/ruslan-workspace.webp 1440w',
+      imageSizes: '(max-width: 720px) 100vw, (max-width: 1280px) 53vw, 680px',
+      priority: true,
     },
   ],
   '/google-ads': [
@@ -1048,7 +1058,6 @@ const HERO_PRELOADS = {
       href: '/images/consult-proof/scene/notebook.webp',
       imageSrcSet: '/images/consult-proof/scene/notebook-mobile.webp 400w, /images/consult-proof/scene/notebook.webp 700w',
       imageSizes: '(max-width: 1023px) 210px, 700px',
-      priority: true,
       media: 'not all and (max-width: 1023px)',
     },
   ],
@@ -1202,7 +1211,7 @@ function renderFontPreloads(preloads = []) {
     .join('\n  ');
 }
 
-function resolveHeroFontFaceCss(hero = {}) {
+function resolveHeroFontFaceCss(hero = {}, fontPreloads = []) {
   const typography = hero?.typography || {};
   const requestedFamilies = new Set();
   const add = (fontId) => {
@@ -1223,14 +1232,25 @@ function resolveHeroFontFaceCss(hero = {}) {
     }
   }
 
+  const preloadSet = new Set(fontPreloads);
   const cssBlocks = [];
   for (const familyKey of requestedFamilies) {
     const rules = FONT_FACE_BY_FAMILY.get(familyKey);
-    if (rules) {
-      // font-display: block для критического шрифта первого экрана:
-      // файл шрифта уже объявлен preload-ом и скачивается в первом же сетевом
-      // пакете. block не даёт браузеру показать чужой системный шрифт и устроить
-      // скачок (FOUT) посередине анимации появления.
+    if (!rules) continue;
+    if (preloadSet.size > 0) {
+      const faceBlocks = rules.match(/@font-face\s*\{[\s\S]*?\}/g) || [];
+      for (const block of faceBlocks) {
+        const urlMatch = block.match(/url\(["']?([^"')]+)["']?\)/);
+        const fontUrl = urlMatch ? urlMatch[1] : null;
+        if (fontUrl && preloadSet.has(fontUrl)) {
+          let adjusted = block.replace(/font-display:\s*swap;/g, 'font-display: block;');
+          if (fontUrl.includes('-cyrillic.woff2') && !Array.from(preloadSet).some((p) => p.includes('-latin.woff2'))) {
+            adjusted = adjusted.replace(/(unicode-range:\s*)/, '$1U+0020, ');
+          }
+          cssBlocks.push(adjusted);
+        }
+      }
+    } else {
       const adjusted = rules.replace(/font-display:\s*swap;/g, 'font-display: block;');
       cssBlocks.push(adjusted);
     }
@@ -1398,7 +1418,7 @@ function htmlTemplate({
     html = html.replace(/<html\b([^>]*)>/i, (_, existing) => `<html${existing}${attributes}>`);
   }
 
-  html = html.replace(/<!--(?![\$/])[\s\S]*?-->/g, '');
+  html = html.replace(/<!--(?!\s*-->|[\$/?])[\s\S]*?-->/g, '');
   return html;
 }
 
@@ -2259,7 +2279,11 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
           const routePreloads = ROUTE_FONT_PRELOADS[page.route] || [];
           return [...new Set([...routePreloads, ...heroPreloads])];
         })(),
-        heroFontCss: resolveHeroFontFaceCss(page.hero),
+        heroFontCss: resolveHeroFontFaceCss(page.hero, (() => {
+          const heroPreloads = resolveHeroFontPreloads(page.hero);
+          const routePreloads = ROUTE_FONT_PRELOADS[page.route] || [];
+          return [...new Set([...routePreloads, ...heroPreloads])];
+        })()),
         baseHtml,
         bodyHtml,
         hydratable,

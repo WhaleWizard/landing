@@ -1,0 +1,3 @@
+ID,FindingID,File,Component,ChangeType,Description,Gate1_DesignLock,Gate2_IsolatedVerification,Gate3_NoRegressions,Gate4_PerfVerification,Gate5_Docs,Status
+FIX-001,TECH-001,scripts/generate-pages.js,readViteIndexHtml;htmlTemplate,LOGIC,Preserve React 18 SSR text delimiter comments `<!-- -->` and boundary comments `<!--?-->` by refining regex to `/<!--(?!\s*-->|[\$/?])[\s\S]*?-->/g`,PASS,PASS,PASS,PASS,PASS,APPLIED_VERIFIED
+FIX-002,TECH-002,src/app/components/MetaAppsHeroVisual.tsx,Receipt,LOGIC,Convert `<span>№ {number}</span>` to atomic string template literal `<span>{\`№ \${number}\`}</span>`,PASS,PASS,PASS,PASS,PASS,APPLIED_VERIFIED

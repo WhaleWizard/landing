@@ -1,0 +1,4 @@
+ID,Type,Route,Component,Severity,Description,Resolution
+NEW-V8-001,BUG,/meta-apps,MetaAppsHeroVisual,HIGH,Hydration failure on mobile due to text node merging in Receipt header,FIXED (converted to atomic string)
+NEW-V8-002,BUG,ALL,generate-pages.js,CRITICAL,Hydration fallback across routes caused by comment stripper stripping React 18 text delimiters,FIXED (regex refined)
+NEW-V8-003,PERF,/,CosmicHeroScene,MEDIUM,Desktop cold load network request contention from 14 cosmic image fragments,DOCUMENTED (mitigated by asset preloads and async decoding)

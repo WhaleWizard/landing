@@ -67,33 +67,36 @@ const PIECE_DIMENSIONS: Record<string, { width: number; height: number }> = {
 function Layer({ items }: { items: Piece[] }) {
   return (
     <>
-      {items.map((p) => (
-        <img
-          key={p.file}
-          className={`cds-obj ${p.cls}`}
-          src={`/images/consult-proof/scene/${p.file}.webp`}
-          srcSet={
-            p.file === 'laptop'
-              ? '/images/consult-proof/scene/laptop-mobile.webp 480w, /images/consult-proof/scene/laptop.webp 720w'
-              : p.file === 'notebook'
-              ? '/images/consult-proof/scene/notebook-mobile.webp 400w, /images/consult-proof/scene/notebook.webp 700w'
-              : undefined
-          }
-          sizes={
-            p.file === 'laptop'
-              ? '(max-width: 1023px) 240px, 720px'
-              : p.file === 'notebook'
-              ? '(max-width: 1023px) 210px, 700px'
-              : undefined
-          }
-          width={PIECE_DIMENSIONS[p.file]?.width}
-          height={PIECE_DIMENSIONS[p.file]?.height}
-          alt=""
-          loading="lazy"
-          fetchpriority="low"
-          decoding="async"
-        />
-      ))}
+      {items.map((p) => {
+        const isLcp = p.file === 'laptop';
+        return (
+          <img
+            key={p.file}
+            className={`cds-obj ${p.cls}`}
+            src={`/images/consult-proof/scene/${p.file}.webp`}
+            srcSet={
+              p.file === 'laptop'
+                ? '/images/consult-proof/scene/laptop-mobile.webp 480w, /images/consult-proof/scene/laptop.webp 720w'
+                : p.file === 'notebook'
+                ? '/images/consult-proof/scene/notebook-mobile.webp 400w, /images/consult-proof/scene/notebook.webp 700w'
+                : undefined
+            }
+            sizes={
+              p.file === 'laptop'
+                ? '(max-width: 1023px) 240px, 720px'
+                : p.file === 'notebook'
+                ? '(max-width: 1023px) 210px, 700px'
+                : undefined
+            }
+            width={PIECE_DIMENSIONS[p.file]?.width}
+            height={PIECE_DIMENSIONS[p.file]?.height}
+            alt=""
+            loading="eager"
+            fetchpriority={isLcp ? 'high' : 'low'}
+            decoding="async"
+          />
+        );
+      })}
     </>
   );
 }

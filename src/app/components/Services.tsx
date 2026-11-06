@@ -410,9 +410,9 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
                             {service.description}
                           </p>
 
-                          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-2">
                             {service.features.map((feature, idx) => (
-                              <div key={idx} className="flex min-w-0 items-center gap-2 p-2.5 min-[390px]:p-2 rounded-lg bg-card/35 border border-primary/15">
+                              <div key={idx} className="flex min-w-0 items-center gap-2 p-2.5 min-[440px]:p-2 rounded-lg bg-card/35 border border-primary/15">
                                 <div className="flex-shrink-0 w-5 h-5 rounded bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
                                   <Sparkles className="w-2.5 h-2.5 text-primary" />
                                 </div>

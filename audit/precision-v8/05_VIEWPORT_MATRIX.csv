@@ -1,0 +1,22 @@
+Category,Viewport,Width,Height,DPR,UserAgent_Device
+Mobile_Extreme,320x568,320,568,2,iPhone SE (1st gen)
+Mobile_Compact,344x882,344,882,2.625,Galaxy Z Fold (outer)
+Mobile_Standard,360x800,360,800,3,Galaxy S20/S21
+Mobile_Standard,375x667,375,667,2,iPhone 8 / SE2
+Mobile_Popular,390x844,390,844,3,iPhone 12/13/14
+Mobile_Popular,393x852,393,852,3,iPhone 14/15/16 Pro
+Mobile_Large,412x915,412,915,2.625,Pixel 7 / Galaxy S23
+Mobile_Large,414x896,414,896,3,iPhone XR / 11
+Mobile_Max,430x932,430,932,3,iPhone 14/15/16 Pro Max
+Mobile_Wide,480x854,480,854,2,Wide Mobile
+Breakpoint_SM_Minus,639x900,639,900,2,Small Boundary Sub-sm
+Breakpoint_SM,640x900,640,900,2,Tailwind sm
+Breakpoint_MD_Minus,767x1024,767,1024,2,Tablet Boundary Sub-md
+Tablet_Portrait,768x1024,768,1024,2,iPad Mini / Air
+Tablet_Landscape,1024x768,1024,768,2,iPad Landscape / Sub-desktop
+Desktop_HD,1280x720,1280,720,1,Desktop HD
+Desktop_Standard,1366x768,1366,768,1,Most Common Laptop
+Desktop_MacBook,1440x900,1440,900,2,MacBook Air / Pro 13
+Desktop_FHD_Scale,1536x864,1536,864,1.25,Windows Laptop 125%
+Desktop_FHD,1920x1080,1920,1080,1,Standard Full HD
+Desktop_QHD,2560x1440,2560,1440,1,2K / QHD Display

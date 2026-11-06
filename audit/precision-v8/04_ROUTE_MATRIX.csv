@@ -1,0 +1,19 @@
+Route,Type,Component,SourcePath,SSR_Prerendered,LCP_Candidate,Hero_Style
+/,Marketing,HomePage,src/app/pages/Home.tsx,Yes,Hero Title / Visual,Cosmic / Meta Ads
+/meta-ads,Marketing,ServiceLandingPage,src/app/pages/ServiceLandingPage.tsx,Yes,Hero Title,Editorial Hero
+/meta-apps,Marketing,ServiceLandingPage,src/app/pages/ServiceLandingPage.tsx,Yes,Hero Title,Apps Hero Scene
+/google-ads,Marketing,ServiceLandingPage,src/app/pages/ServiceLandingPage.tsx,Yes,Hero Title,Google Ads Studio
+/consult,Marketing,ServiceLandingPage,src/app/pages/ServiceLandingPage.tsx,Yes,Hero Title,Consult Desk Scene
+/blog,Content,BlogPage,src/app/pages/BlogPage.tsx,Yes,Heading / Filter,Card Grid
+/cases,Content,BlogPage,src/app/pages/BlogPage.tsx,Yes,Heading / Filter,Card Grid
+/about,Marketing,AboutPage,src/app/pages/AboutPage.tsx,Yes,Hero Title,About Scene
+/faq,Utility,FAQPage,src/app/pages/FAQPage.tsx,Yes,Heading,Accordion List
+/marketing-glossary,Utility,MarketingGlossaryPage,src/app/pages/MarketingGlossaryPage.tsx,Yes,Heading,Glossary Index
+/calculator,Tool,MarketingCalculator,src/app/pages/MarketingCalculator.tsx,Yes,Heading,Interactive Tool
+/roi-calculator,Tool,RoiCalculatorPage,src/app/pages/RoiCalculatorPage.tsx,Yes,Heading,Interactive Tool
+/privacy-policy,Legal,LegalPage,src/app/pages/LegalPage.tsx,Yes,Heading,Text Document
+/offer,Legal,LegalPage,src/app/pages/LegalPage.tsx,Yes,Heading,Text Document
+/cookie-policy,Legal,LegalPage,src/app/pages/LegalPage.tsx,Yes,Heading,Text Document
+/blog/:slug,Article,BlogPage,src/app/pages/BlogPage.tsx,Yes,Cover / H1,Article Layout
+/cases/:slug,Article,BlogPage,src/app/pages/BlogPage.tsx,Yes,Cover / H1,Case Layout
+/admin,Admin,Admin,src/app/pages/Admin.tsx,No,Login / Dashboard,Deep Glass CRM
