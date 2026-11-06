@@ -356,6 +356,23 @@
   border-left: 1px solid var(--cases-line);
 }
 
+.case-article-proof-icon {
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 10px;
+  color: #c05cff;
+  background: rgba(139, 92, 246, 0.09);
+}
+
+.case-article-proof-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
 .case-article-proof p {
   min-width: 0;
   margin: 0;
@@ -1039,6 +1056,11 @@
 
   .case-article-proof-icon {
     display: none;
+  }
+
+  .case-article-proof-icon svg {
+    width: 17px;
+    height: 17px;
   }
 
   .case-article-proof strong {

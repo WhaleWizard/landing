@@ -1,7 +1,6 @@
 import { useTouchDevice } from '../hooks/useTouchDevice';
 import { m } from 'motion/react';
 import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
-import CardIcon from './brand/CardIcon';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useState, useRef, memo, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -212,6 +211,7 @@ function Cases({
 
   // Отключаем hover-анимации на тач-устройствах
   const desktopHover = !staticMotion && !isTouch ? { whileHover: { scale: 1.05 } } : {};
+  const cardHover = !staticMotion && !isTouch ? { whileHover: { scale: 1.1 } } : {};
 
   // Бесконечная пульсация рамки только на десктопе. За «секция видна» отвечает
   // CSS: класс ww-ambient-motion внутри секции с data-ambient="off" встаёт на
@@ -284,7 +284,13 @@ function Cases({
               style={{ transform: 'translateZ(0)' }}
             >
               <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/20 to-transparent opacity-0 blur-2xl pointer-events-none ${staticMotion ? '' : 'group-hover:opacity-100 transition-opacity duration-500'}`} />
-              <CardIcon size="compact" className={`pointer-events-none absolute top-4 left-4 z-10 opacity-0 ${staticMotion ? '' : 'group-hover:opacity-100 transition-opacity'}`}><BarChart3 /></CardIcon>
+              <m.div
+                className={`absolute top-4 left-4 w-10 h-10 rounded-lg bg-primary/10 backdrop-blur-sm border border-primary/30 flex items-center justify-center opacity-0 z-10 ${staticMotion ? '' : 'group-hover:opacity-100 transition-opacity'}`}
+                initial={staticMotion ? false : { scale: 0.8 }}
+                {...cardHover}
+              >
+                <BarChart3 className="w-5 h-5 text-primary" />
+              </m.div>
 
               <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
                 <ImageWithFallback
@@ -302,7 +308,7 @@ function Cases({
                   }`}
                 />
                 <div className="absolute top-4 right-4 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center gap-2">
-                  <Target className="size-3.5 shrink-0 text-[#e9edf9]" aria-hidden="true" />
+                  <Target className="w-3 h-3 md:w-4 md:h-4 shrink-0 text-primary" />
                   <span className="text-xs md:text-sm text-primary font-semibold">{item.category}</span>
                 </div>
               </div>
@@ -326,7 +332,9 @@ function Cases({
                         transition={staticMotion ? undefined : { duration: 0.2 }}
                         style={{ transform: 'translateZ(0)' }}
                       >
-                        <CardIcon size="marker" className="absolute top-1 right-1"><Sparkles /></CardIcon>
+                        <div className="absolute top-1 right-1 w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
+                          <Sparkles className="w-2 h-2 text-primary" />
+                        </div>
                         <div className="min-h-8 break-words [overflow-wrap:anywhere] pr-6 text-pretty text-xs leading-tight text-muted-foreground">{stat.label}</div>
                         <div className="break-words text-sm md:text-base font-bold leading-tight text-primary">{stat.value}</div>
                       </m.div>
@@ -379,7 +387,7 @@ function Cases({
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
                       <div className="absolute top-3 right-3 flex max-w-[68%] min-w-0 items-center gap-2 rounded-full border border-primary/30 bg-background/90 px-3 py-1.5 backdrop-blur-sm">
-                        <Target className="size-3.5 shrink-0 text-[#e9edf9]" aria-hidden="true" />
+                        <Target className="w-3 h-3 shrink-0 text-primary" />
                         <span className="min-w-0 text-pretty text-[10px] min-[390px]:text-xs leading-tight text-primary font-semibold">{item.category}</span>
                       </div>
                       <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 backdrop-blur-sm">

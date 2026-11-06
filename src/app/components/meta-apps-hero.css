@@ -1169,6 +1169,17 @@
     inset-block: 9px;
   }
 
+  .meta-apps-stats-strip .meta-apps-stat__icon {
+    width: 31px;
+    height: 31px;
+    border-radius: 8px;
+  }
+
+  .meta-apps-stats-strip .meta-apps-stat__icon > span > svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
   .meta-apps-stats-strip .meta-apps-stat__value {
     font-size: 14px;
     line-height: 1;
@@ -1224,6 +1235,16 @@
   .meta-apps-stats-strip .meta-apps-stat {
     gap: 5px;
     padding-inline: 6px;
+  }
+
+  .meta-apps-stats-strip .meta-apps-stat__icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .meta-apps-stats-strip .meta-apps-stat__icon > span > svg {
+    width: 16px !important;
+    height: 16px !important;
   }
 
   .meta-apps-stats-strip .meta-apps-stat__value {
@@ -1282,6 +1303,17 @@
 
   .meta-apps-hero-copy .meta-apps-stat {
     gap: 12px;
+  }
+
+  .meta-apps-hero-copy .meta-apps-stat__icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+  }
+
+  .meta-apps-hero-copy .meta-apps-stat__icon > span > svg {
+    width: 27px !important;
+    height: 27px !important;
   }
 
   .meta-apps-hero-copy .meta-apps-stat__value {

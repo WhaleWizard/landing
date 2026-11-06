@@ -15,7 +15,6 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react';
-import CardIcon from './brand/CardIcon';
 import { withReturnTo } from '../utils/siteNavigation';
 import {
   calculateFinancials,
@@ -280,7 +279,9 @@ function FieldGroup({
   return (
     <div className="rounded-2xl border border-border/70 bg-card/35 p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2.5">
-        <CardIcon size="compact">{icon}</CardIcon>
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+          {icon}
+        </span>
         <h2 className="text-sm font-semibold sm:text-base">{title}</h2>
       </div>
       {children}
@@ -582,7 +583,7 @@ export default function MarketingCalculator({
   );
 
   const renderContext = () => (
-    <FieldGroup title="Контекст расчёта" icon={<Globe2 />}>
+    <FieldGroup title="Контекст расчёта" icon={<Globe2 className="h-4 w-4" />}>
       <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
         <CalculatorSelect
           id={`${mode}-market`}
@@ -623,7 +624,7 @@ export default function MarketingCalculator({
   const renderForecastForm = () => (
     <>
       {renderContext()}
-      <FieldGroup title="Воронка и экономика" icon={<Layers3 />}>
+      <FieldGroup title="Воронка и экономика" icon={<Layers3 className="h-4 w-4" />}>
         <div className="mb-4 grid grid-cols-2 gap-2">
           {([
             ['leadgen', 'Заявки'],
@@ -711,7 +712,7 @@ export default function MarketingCalculator({
   const renderActualForm = () => (
     <>
       {renderContext()}
-      <FieldGroup title="Факт за выбранный период" icon={<BarChart3 />}>
+      <FieldGroup title="Факт за выбранный период" icon={<BarChart3 className="h-4 w-4" />}>
         <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
           <NumericInput
             id="actual-media"
@@ -770,7 +771,7 @@ export default function MarketingCalculator({
 
   const renderQuoteForm = () => (
     <>
-      <FieldGroup title="Площадки и бюджет" icon={<Wallet />}>
+      <FieldGroup title="Площадки и бюджет" icon={<Wallet className="h-4 w-4" />}>
         <div className="mb-4 grid grid-cols-2 gap-2">
           {([
             ['google', 'Google Ads', googleSelected],
@@ -803,7 +804,7 @@ export default function MarketingCalculator({
         />
       </FieldGroup>
 
-      <FieldGroup title="Объём работы" icon={<Layers3 />}>
+      <FieldGroup title="Объём работы" icon={<Layers3 className="h-4 w-4" />}>
         <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
           <CalculatorSelect
             id="quote-goal"
@@ -863,7 +864,9 @@ export default function MarketingCalculator({
 
   const renderEmptyState = (copy: string) => (
     <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-primary/30 bg-primary/[0.04] p-6 text-center">
-      <CardIcon size="tile"><Calculator /></CardIcon>
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/25 bg-primary/10 text-primary">
+        <Calculator className="h-7 w-7" />
+      </span>
       <h3 className="mt-4 text-balance text-lg font-semibold">Заполните ключевые&nbsp;поля</h3>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{copy}</p>
     </div>

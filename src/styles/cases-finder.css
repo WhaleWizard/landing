@@ -203,6 +203,24 @@
   border-left: 1px solid var(--cases-line);
 }
 
+.cases-stat-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(139, 92, 246, 0.14);
+  border-radius: 12px;
+  color: #9f7aea;
+  background: rgba(139, 92, 246, 0.075);
+}
+
+.cases-stat-card:nth-child(even) .cases-stat-icon {
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.07);
+}
+
 .cases-stat-card div {
   min-width: 0;
 }
@@ -1008,6 +1026,12 @@
     min-height: 74px;
     gap: 9px;
     padding: 10px 11px;
+  }
+
+  .cases-stat-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
   }
 
   .cases-stat-card strong {

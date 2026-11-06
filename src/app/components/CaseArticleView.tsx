@@ -16,7 +16,6 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react';
-import CardIcon from './brand/CardIcon';
 import { lazy, Suspense, useCallback, useMemo, type MouseEvent, type MutableRefObject, type Ref } from 'react';
 import ClientOnly from './ClientOnly';
 import type { Article } from './hooks/useArticlesApi';
@@ -231,7 +230,7 @@ export default function CaseArticleView({
                   const Icon = getProofIcon(item.value, item.label);
                   return (
                     <div key={`${item.value}-${item.label}`}>
-                      <ClientOnly><CardIcon size="compact" className="case-article-proof-icon"><Icon /></CardIcon></ClientOnly>
+                      <ClientOnly><span className="case-article-proof-icon"><Icon aria-hidden="true" /></span></ClientOnly>
                       <p><strong>{item.value}</strong><span>{item.label}</span></p>
                     </div>
                   );

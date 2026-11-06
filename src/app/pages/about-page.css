@@ -144,14 +144,12 @@
 }
 
 .about-work-step {
-  --work-step-padding: clamp(0.9rem, 2.3vw, 1.5rem);
-  --work-step-icon-center: 20px;
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: clamp(0.65rem, 2vw, 1.35rem);
   align-items: start;
-  padding: var(--work-step-padding);
+  padding: clamp(0.9rem, 2.3vw, 1.5rem);
   border-radius: 0.9rem;
   border: 1px solid var(--about-border);
   background: linear-gradient(115deg, #191427, #111118);
@@ -161,11 +159,7 @@
 .about-work-step::after {
   content: '';
   position: absolute;
-  top: calc(var(--work-step-padding) + var(--work-step-icon-center));
-}
-
-@media (min-width: 768px) {
-  .about-work-step { --work-step-icon-center: 24px; }
+  top: clamp(1.9rem, 4vw, 2.9rem);
 }
 
 .about-work-step::before {
@@ -184,6 +178,21 @@
   border: 2px solid #a674ff;
   background: #eee4ff;
   box-shadow: 0 0 0 3px #522f83, 0 0 14px #a269ff;
+}
+
+.about-work-icon {
+  display: grid;
+  place-items: center;
+  width: clamp(2.2rem, 4.5vw, 3.25rem);
+  aspect-ratio: 1;
+  border-radius: 0.75rem;
+  border: 1px solid var(--about-border);
+  background: #231a38;
+  color: var(--about-accent);
+}
+
+.about-work-icon svg {
+  max-width: 62%;
 }
 
 .about-projects {

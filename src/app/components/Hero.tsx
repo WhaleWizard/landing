@@ -15,6 +15,7 @@ import {
   withMobileTitleLines,
 } from '../utils/contentTypography';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { useTouchDevice } from '../hooks/useTouchDevice';
 import HeroTitleEffect, {
   resolveHeroTitleLines,
   type HeroTitleAnimation,
@@ -26,7 +27,6 @@ export type { HeroTitleLine } from './HeroTitleEffect';
 import { preloadable } from '../utils/preloadable';
 import { loadCosmicHeroScene, loadMetaAppsHeroVisual } from '../utils/heroVisualPreload';
 import { PlatformMark, PlatformStrip } from './brand/PlatformMark';
-import CardIcon from './brand/CardIcon';
 
 const MetaAppsHeroVisual = preloadable(loadMetaAppsHeroVisual);
 const CosmicHeroScene = preloadable(loadCosmicHeroScene);
@@ -175,9 +175,9 @@ const StatsRow = memo(({ stats, settledEntrance = false, google = false }: { sta
       transition={{ delay: 0.3, duration: 0.5 }}
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 backdrop-blur-sm overflow-hidden"
     >
-      <CardIcon size="marker" className="pointer-events-none absolute top-1 right-1 sm:top-2 sm:right-2">
-        {google ? <PlatformMark platform="search" tone="color" /> : <Sparkles />}
-      </CardIcon>
+      <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-primary/20 flex items-center justify-center pointer-events-none">
+        {google ? <PlatformMark platform="search" tone="color" size={14} /> : <Sparkles className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-primary" />}
+      </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[0]?.value ?? '')} font-semibold md:font-bold text-primary tracking-[-0.02em]`}>{stats[0]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[0]?.label}</div>
     </m.div>
@@ -188,9 +188,9 @@ const StatsRow = memo(({ stats, settledEntrance = false, google = false }: { sta
       transition={{ delay: 0.4, duration: 0.5 }}
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 backdrop-blur-sm overflow-hidden"
     >
-      <CardIcon size="marker" className="pointer-events-none absolute top-1 right-1 sm:top-2 sm:right-2">
-        {google ? <PlatformMark platform="ads" tone="color" /> : <TrendingUp />}
-      </CardIcon>
+      <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-accent/20 flex items-center justify-center pointer-events-none">
+        {google ? <PlatformMark platform="ads" tone="color" size={14} /> : <TrendingUp className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-accent" />}
+      </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[1]?.value ?? '')} font-semibold md:font-bold text-accent tracking-[-0.02em]`}>{stats[1]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[1]?.label}</div>
     </m.div>
@@ -201,7 +201,9 @@ const StatsRow = memo(({ stats, settledEntrance = false, google = false }: { sta
       transition={{ delay: 0.5, duration: 0.5 }}
       className="relative p-2.5 sm:p-3 md:p-4 rounded-xl bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20 backdrop-blur-sm overflow-hidden"
     >
-      <CardIcon size="marker" className="pointer-events-none absolute top-1 right-1 sm:top-2 sm:right-2"><BarChart3 /></CardIcon>
+      <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg bg-secondary/20 flex items-center justify-center pointer-events-none">
+        <BarChart3 className="w-3 h-3 sm:w-3 sm:h-3 md:w-4 md:h-4 text-secondary" />
+      </div>
       <div className={`min-w-0 pr-5 ${valueSizeClass(stats[2]?.value ?? '')} font-semibold md:font-bold text-secondary tracking-[-0.02em]`}>{stats[2]?.value}</div>
       <div className="mt-1 min-h-8 text-[10px] sm:text-xs md:text-sm leading-snug text-muted-foreground text-pretty font-normal">{stats[2]?.label}</div>
     </m.div>
@@ -241,7 +243,19 @@ const MetaAppsStatsStrip = memo(({
         {index > 0 && (
           <span className="absolute inset-y-4 left-0 w-px bg-white/12 lg:inset-y-1 lg:-left-3 lg:bg-white/10" />
         )}
-        <CardIcon size="compact">{META_APPS_STAT_ICONS[index]}</CardIcon>
+        <span
+          className="meta-apps-stat__icon grid h-11 w-11 shrink-0 place-items-center rounded-xl border bg-[#0c0f18] shadow-[0_8px_22px_rgba(0,0,0,0.26)] sm:h-12 sm:w-12"
+          style={{
+            borderColor: index === 0
+              ? 'color-mix(in srgb, var(--primary) 62%, transparent)'
+              : index === 1
+                ? 'color-mix(in srgb, var(--accent) 62%, transparent)'
+                : 'color-mix(in srgb, var(--secondary) 62%, transparent)',
+            color: index === 0 ? 'var(--primary)' : index === 1 ? 'var(--accent)' : 'var(--secondary)',
+          }}
+        >
+          <span className="[&>svg]:!h-6 [&>svg]:!w-6">{META_APPS_STAT_ICONS[index]}</span>
+        </span>
         <span className="min-w-0">
           <strong
             className="meta-apps-stat__value block text-[17px] font-bold leading-none sm:text-xl"
@@ -471,6 +485,13 @@ interface RightPanelProps {
 }
 
 const RightPanel = memo(({ showCards = true, settledEntrance = false, google = false }: RightPanelProps) => {
+  const isTouch = useTouchDevice();
+
+  // Опционально: отключаем hover-анимации на тач-устройствах
+  const hoverProps = !isTouch ? { whileHover: { scale: 1.1, rotate: 5 } } : {};
+  const hoverPropsMinus = !isTouch ? { whileHover: { scale: 1.1, rotate: -5 } } : {};
+  const hoverPropsNoRotate = !isTouch ? { whileHover: { scale: 1.1 } } : {};
+
   return (
     <m.div
       aria-hidden="true"
@@ -594,7 +615,12 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
                 total ad spend
               </div>
             </div>
-            <CardIcon size="compact"><PlatformMark platform="ads" tone={google ? 'color' : 'white'} /></CardIcon>
+            <m.div
+              className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
+              {...hoverProps}
+            >
+              <PlatformMark platform="ads" tone={google ? 'color' : 'white'} size={18} />
+            </m.div>
           </div>
           <m.div
             className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-primary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
@@ -646,7 +672,12 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
                 в среднем
               </div>
             </div>
-            <CardIcon size="compact"><BarChart3 /></CardIcon>
+            <m.div
+              className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-accent/10 flex items-center justify-center border border-accent/30"
+              {...hoverPropsMinus}
+            >
+              <BarChart3 className="w-3 h-3 md:w-4 md:h-4 text-accent" />
+            </m.div>
           </div>
           <m.div
             className="break-words text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-accent mb-2 md:mb-3 relative z-10 leading-none tracking-[-0.02em]"
@@ -700,7 +731,12 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
                 total ad spend
               </div>
             </div>
-            <CardIcon size="compact"><PlatformMark platform="meta" tone={google ? 'color' : 'white'} /></CardIcon>
+            <m.div
+              className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-secondary/10 flex items-center justify-center border border-secondary/30"
+              {...hoverProps}
+            >
+              <PlatformMark platform="meta" tone={google ? 'color' : 'white'} size={18} />
+            </m.div>
           </div>
           <m.div
             className="text-lg sm:text-2xl md:text-3xl font-semibold md:font-bold text-secondary mb-2.5 md:mb-4 relative z-10 tracking-[-0.02em]"
@@ -751,7 +787,13 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
             <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-primary/60 font-medium">
               сред. ROI
             </div>
-            <CardIcon size="compact"><Sparkles /></CardIcon>
+            <m.div
+              className="relative w-6 h-6 md:w-8 md:h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/30"
+              {...hoverPropsNoRotate}
+            >
+              <span className="ww-hero-glow-loop ww-ambient-motion absolute inset-0 -z-10 rounded-lg" aria-hidden="true" />
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-primary" />
+            </m.div>
           </div>
           <m.div
             className="text-2xl sm:text-4xl md:text-5xl font-semibold md:font-bold text-primary relative z-10 leading-none tracking-[-0.03em]"

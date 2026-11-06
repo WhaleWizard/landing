@@ -30,7 +30,6 @@ import Modal from './Modal';
 import FormNotice, { type FormNoticeData } from './FormNotice';
 import ContactMethodPicker, { type ContactMethod } from './ContactMethodPicker';
 import { PlatformMark } from './brand/PlatformMark';
-import CardIcon from './brand/CardIcon';
 // Тексты политики и оферты (~65 КБ кода) нужны только при открытии модалок —
 // грузим лениво, а не в общем чанке формы на каждом визите.
 const PrivacyPolicyContent = lazy(() => import('./legal/PrivacyPolicyContent'));
@@ -66,24 +65,28 @@ const budgetOptions = [
     value: 'до $1000',
     label: 'до $1 000',
     icon: Sparkles,
+    color: 'from-primary/20 to-primary/10',
     bgGradient: 'rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1)',
   },
   {
     value: '$1к-10к',
     label: '$1 000–10 000',
     icon: TrendingUp,
+    color: 'from-accent/20 to-accent/10',
     bgGradient: 'rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1)',
   },
   {
     value: '$10к-100к',
     label: '$10 000–100 000',
     icon: Zap,
+    color: 'from-secondary/20 to-secondary/10',
     bgGradient: 'rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)',
   },
   {
     value: '$100к+',
     label: '$100 000+',
     icon: DollarSign,
+    color: 'from-primary/20 to-accent/10',
     bgGradient: 'rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.1)',
   },
 ];
@@ -414,6 +417,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   }, []);
 
   const radioHover = !isTouch ? { whileHover: { scale: 1.05 } } : {};
+  const benefitHover = !isTouch ? { whileHover: { scale: 1.1 } } : {};
 
   return (
     <section
@@ -470,7 +474,12 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                   viewport={{ once: true }}
                   transition={{ delay: item.delay, duration: 0.5 }}
                 >
-                  <CardIcon><item.icon /></CardIcon>
+                  <m.div
+                    className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center transition-transform"
+                    {...benefitHover}
+                  >
+                    <item.icon className="w-6 h-6 text-primary" />
+                  </m.div>
                   <div className="min-w-0">
                     <h4 className="font-semibold mb-1">{item.title}</h4>
                     <p className="text-pretty text-sm text-muted-foreground leading-relaxed">{item.description}</p>
@@ -665,7 +674,11 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                                   : {}
                               }
                             >
-                              <CardIcon size="compact"><option.icon /></CardIcon>
+                              <div
+                                className={`flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br ${option.color} border border-primary/30 flex items-center justify-center`}
+                              >
+                                <option.icon className="w-4 h-4 text-primary" />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-xs sm:text-sm font-semibold leading-tight">{option.label}</div>
                               </div>
