@@ -11,6 +11,7 @@ import { toIsoDate } from './plannerModel';
 import { CountUpValue } from './AttributionCharts';
 import CaseBuilderDialog from './CaseBuilderDialog';
 import type { CaseDataDraft } from './caseFromClient';
+import ClientLaunchpad from './ClientLaunchpad';
 
 /**
  * Клиенты — то, что начинается после выигранной сделки.
@@ -827,6 +828,10 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                 <button type="submit" className="admin-button admin-button--compact" disabled={!accessDraft.trim()}>Добавить</button>
               </form>
             </section>
+
+            {draft.id > 0 && (
+              <ClientLaunchpad clientId={draft.id} clientName={draft.name || ''} />
+            )}
 
             <section className="admin-panel adm-card">
               <header className="adm-card__head">

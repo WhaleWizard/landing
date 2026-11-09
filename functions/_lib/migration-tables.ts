@@ -14,6 +14,7 @@ export const MIGRATION_BY_TABLE: Readonly<Record<string, string>> = {
   admin_goals: '0024_admin_goals.sql',
   article_versions: '0006_articles_status_and_versions.sql',
   articles: '0001_create_articles.sql',
+  campaign_stats: '0046_campaign_stats.sql',
   client_access: '0032_clients.sql',
   client_months: '0032_clients.sql',
   client_notes: '0032_clients.sql',

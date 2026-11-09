@@ -343,6 +343,24 @@ function isOpenStage(stage: PipelineStage): boolean {
   return !['won', 'lost', 'archived'].includes(stage);
 }
 
+function getNextPipelineStage(current: PipelineStage): PipelineStage | null {
+  switch (current) {
+    case 'new': return 'contacted';
+    case 'contacted': return 'discovery';
+    case 'discovery': return 'proposal';
+    case 'proposal': return 'won';
+    default: return null;
+  }
+}
+
+function formatWhatsAppPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('8')) {
+    return `7${digits.slice(1)}`;
+  }
+  return digits;
+}
+
 /**
  * Сумма сделки из поля карточки. Поле принимает «1,234.56», «1.500,50» и
  * «1 500» тем же правилом, что остальные денежные поля админки
@@ -973,7 +991,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
           <span className="inline-flex items-center gap-1.5">
             <a href={`tel:${lead.phone}`}>{lead.phone}</a>
             <a
-              href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+              href={`https://wa.me/${formatWhatsAppPhone(lead.phone)}`}
               target="_blank"
               rel="noreferrer"
               className="admin-crm-quick-btn admin-crm-quick-btn--wa !w-5 !h-5"
@@ -1756,6 +1774,56 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
     }
   }, [load, password]);
 
+  const quickAdvanceStage = async (lead: LeadRow, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = getNextPipelineStage(lead.pipeline_stage) || (['lost', 'archived'].includes(lead.pipeline_stage) ? 'new' : null);
+    if (!next) return;
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, pipeline_stage: next } : l)));
+    try {
+      const res = await fetch('/api/admin/lead-crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'bulk_update_stage', ids: [lead.id], pipeline_stage: next }),
+      });
+      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
+      notify.success('Этап обновлён', `${lead.name || 'Сделка'}: переведена на «${stageLabel(next)}».`);
+      await load(true);
+    } catch (err) {
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, pipeline_stage: lead.pipeline_stage } : l)));
+      notify.error('Ошибка смены этапа', err instanceof Error ? err.message : undefined);
+    }
+  };
+
+  const quickToggleQuality = async (lead: LeadRow, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextQuality: 'target' | 'nontarget' = lead.quality === 'target' ? 'nontarget' : 'target';
+    const actionId = crypto.randomUUID();
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, quality: nextQuality } : l)));
+    try {
+      const res = await fetch('/api/admin/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          id: lead.id,
+          quality: nextQuality,
+          action_id: actionId,
+          expected_quality_revision: Number(lead.quality_revision || 0),
+          confirm_previous_delivery: true,
+        }),
+      });
+      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; code?: string; meta?: { status?: string } } | null;
+      if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
+      notify.success('Качество обновлено', nextQuality === 'target' ? 'Целевой (QualifiedLead отправлен в Meta)' : 'Нецелевой (UnqualifiedLead отправлен в Meta)');
+      await load(true);
+    } catch (err) {
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, quality: lead.quality } : l)));
+      notify.error('Ошибка классификации', err instanceof Error ? err.message : undefined);
+    }
+  };
+
   const selected = leads.find((item) => item.id === selectedId) || null;
   const reminders = summary?.reminders || {};
   const taskSummary = summary?.tasks || {};
@@ -2132,7 +2200,8 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                       : current.filter((id) => id !== lead.id))}
                   />
                 </label>
-                <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} onClick={() => setSelectedId(lead.id)}>
+                <div className="admin-crm-lead-card-wrap">
+                  <button type="button" className="admin-crm-lead" aria-current={selectedId === lead.id ? 'true' : undefined} onClick={() => setSelectedId(lead.id)}>
                   <div className="admin-crm-lead__top">
                     <span className={`admin-priority-dot is-${lead.priority}`} title={`Приоритет: ${priorityLabel(lead.priority)}`} />
                     <strong>{lead.name || 'Без имени'}</strong>
@@ -2232,7 +2301,99 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                     </div>
                   ) : null}
                 </button>
-              </div>;
+                <div className="admin-crm-mobile-actions" onClick={(e) => e.stopPropagation()}>
+                  <div className="admin-crm-mobile-actions__row">
+                    {lead.phone ? (
+                      <>
+                        <a
+                          href={`tel:${lead.phone}`}
+                          className="admin-crm-mobile-btn admin-crm-mobile-btn--call"
+                          title={`Позвонить ${lead.phone}`}
+                          aria-label={`Позвонить ${lead.phone}`}
+                        >
+                          <Phone className="w-4 h-4" aria-hidden="true" />
+                          <span>Звонок</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="admin-crm-mobile-btn admin-crm-mobile-btn--wa"
+                          title="Написать в WhatsApp"
+                          aria-label="Написать в WhatsApp"
+                        >
+                          <MessageCircle className="w-4 h-4" aria-hidden="true" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </>
+                    ) : null}
+                    {lead.telegram_username ? (
+                      <a
+                        href={`https://t.me/${lead.telegram_username.replace(/^@/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="admin-crm-mobile-btn admin-crm-mobile-btn--tg"
+                        title={`Telegram @${lead.telegram_username.replace(/^@/, '')}`}
+                        aria-label={`Написать в Telegram @${lead.telegram_username.replace(/^@/, '')}`}
+                      >
+                        <Send className="w-4 h-4" aria-hidden="true" />
+                        <span>Telegram</span>
+                      </a>
+                    ) : null}
+                  </div>
+                  <div className="admin-crm-mobile-actions__row">
+                    {(() => {
+                      const next = getNextPipelineStage(lead.pipeline_stage);
+                      if (next) {
+                        return (
+                          <button
+                            type="button"
+                            className="admin-crm-mobile-btn admin-crm-mobile-btn--stage"
+                            onClick={(e) => void quickAdvanceStage(lead, e)}
+                            title={`Перевести на этап «${stageLabel(next)}»`}
+                          >
+                            <span>{stageLabel(next)}</span>
+                            <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+                          </button>
+                        );
+                      }
+                      if (lead.pipeline_stage === 'won') {
+                        return (
+                          <span className="admin-crm-mobile-btn admin-crm-mobile-btn--stage opacity-75 cursor-default">
+                            <Check className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+                            <span>Выиграна</span>
+                          </span>
+                        );
+                      }
+                      return (
+                        <button
+                          type="button"
+                          className="admin-crm-mobile-btn admin-crm-mobile-btn--stage"
+                          onClick={(e) => void quickAdvanceStage(lead, e)}
+                          title="Вернуть в новые"
+                        >
+                          <span>Вернуть в новые</span>
+                        </button>
+                      );
+                    })()}
+                    <button
+                      type="button"
+                      className={`admin-crm-mobile-btn admin-crm-mobile-btn--quality ${lead.quality === 'target' ? 'is-target' : lead.quality === 'nontarget' ? 'is-nontarget' : ''}`}
+                      onClick={(e) => void quickToggleQuality(lead, e)}
+                      title={lead.quality === 'target' ? 'Целевой (нажмите для смены)' : lead.quality === 'nontarget' ? 'Нецелевой (нажмите для смены)' : 'Оценить лид'}
+                    >
+                      {lead.quality === 'target' ? (
+                        <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden="true" /><span>Целевой</span></>
+                      ) : lead.quality === 'nontarget' ? (
+                        <><Target className="w-3.5 h-3.5 text-rose-400 shrink-0" aria-hidden="true" /><span>Нецелевой</span></>
+                      ) : (
+                        <><Target className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" /><span>Оценить</span></>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>;
             }) : <div className="admin-empty"><div><strong>Ничего не найдено</strong><p>Измените поиск или фильтры.</p></div></div>}
           </div>
           {total > CRM_PAGE_SIZE ? <nav className="admin-crm-pagination" aria-label="Страницы списка сделок"><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasPreviousPage} onClick={() => setOffset((value) => Math.max(0, value - CRM_PAGE_SIZE))}>Назад</button><span>{pageStart}–{pageEnd} из {total}</span><button className="admin-button admin-button--quiet" type="button" disabled={loading || !hasNextPage} onClick={() => setOffset((value) => value + CRM_PAGE_SIZE)}>Далее</button></nav> : null}

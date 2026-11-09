@@ -1027,3 +1027,50 @@ test('атрибуция Google Organic показывает только под
   assert.equal(unavailable.supported, false);
   assert.match(unavailable.reason, /0045/);
 });
+
+test('сквозная аналитика UTM-кампаний (campaign_stats) считает метрики и поддерживает миграцию 0046', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  insertLead(sqlite, { name: 'Кампания Meta', utm_source: 'fb', utm_campaign: 'retargeting', quality: 'qualified', pipeline_stage: 'won', deal_value: 1500 });
+  insertLead(sqlite, { name: 'Второй лид Meta', utm_source: 'fb', utm_campaign: 'retargeting', quality: 'qualified' });
+
+  const statsHarness = await harness('functions/api/admin/campaign-stats.ts', { sqlite });
+  sqlite.exec('DROP TABLE IF EXISTS campaign_stats;');
+  const preMigration = await statsHarness.get({ days: 30 });
+  assert.equal(preMigration.status, 200);
+  assert.equal(preMigration.payload.migrationRequired, '0046_campaign_stats.sql');
+  assert.equal(preMigration.payload.campaigns.length, 1);
+  assert.equal(preMigration.payload.campaigns[0].leads, 2);
+  assert.equal(preMigration.payload.campaigns[0].qualified, 2);
+  assert.equal(preMigration.payload.campaigns[0].won, 1);
+  assert.equal(preMigration.payload.campaigns[0].revenue, 1500);
+
+  sqlite.exec(readFileSync('migrations/0046_campaign_stats.sql', 'utf8'));
+  const saveRes = await statsHarness.post({
+    action: 'save_record',
+    utm_source: 'fb',
+    utm_campaign: 'retargeting',
+    utm_medium: 'cpc',
+    channel: 'meta',
+    date: sqlDate(daysAgo(2)),
+    impressions: 10000,
+    clicks: 250,
+    spend: 300,
+    currency: 'USD',
+  });
+  assert.equal(saveRes.status, 200);
+  assert.equal(saveRes.payload.success, true);
+
+  const postMigration = await statsHarness.get({ days: 30 });
+  assert.equal(postMigration.payload.migrationRequired, null);
+  const campaign = postMigration.payload.campaigns.find((c) => c.utm_campaign === 'retargeting');
+  assert.ok(campaign);
+  assert.equal(campaign.impressions, 10000);
+  assert.equal(campaign.clicks, 250);
+  assert.equal(campaign.spend, 300);
+  assert.equal(campaign.cpl, 150);
+  assert.equal(campaign.cpq, 150);
+  assert.equal(campaign.cac, 300);
+  assert.equal(campaign.revenue, 1500);
+  assert.equal(campaign.romi, 400);
+});

@@ -193,6 +193,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
   }, [articles, files]);
 
   const unfiledCount = useMemo(() => files.filter((file) => !file.folder).length, [files]);
+  const heavyCount = useMemo(() => files.filter((file) => (file.size || 0) >= 500 * 1024).length, [files]);
 
   const visibleFiles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -530,7 +531,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                 title="Показать файлы тяжелее 500 КБ"
                 aria-pressed={heavyOnly}
               >
-                &gt; 500 КБ
+                &gt; 500 КБ{heavyCount > 0 ? ` (${heavyCount})` : ''}
               </button>
               <AdminSelect
                 ariaLabel="Сортировка файлов"
@@ -655,6 +656,11 @@ export default function AdminMedia({ password, articles, target }: { password: s
                       <div className="media-card__name" title={file.name}>{file.name}</div>
                       <AdminMeta className="block">
                         {formatSize(file.size)} · {formatDate(file.uploaded)}{file.folder ? ` · ${file.folder}` : ''}
+                        {(file.size || 0) >= 500 * 1024 && (
+                          <span className="media-card__heavy-pill" title="Файл тяжелее 500 КБ — сожмите или кадрируйте">
+                            &gt;500 КБ
+                          </span>
+                        )}
                       </AdminMeta>
                       {references.length > 0 ? (
                         <div className="media-card__used" title={references.join(', ')}>

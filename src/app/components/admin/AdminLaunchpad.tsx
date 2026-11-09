@@ -41,7 +41,7 @@ export interface LaunchpadTemplate {
   items: LaunchpadItem[];
 }
 
-const TEMPLATES: LaunchpadTemplate[] = [
+export const TEMPLATES: LaunchpadTemplate[] = [
   {
     id: 'meta_leads',
     name: 'Meta Ads — Лидогенерация',
@@ -262,7 +262,7 @@ const TEMPLATES: LaunchpadTemplate[] = [
   },
 ];
 
-const CATEGORY_NAMES: Record<LaunchpadCategory, string> = {
+export const CATEGORY_NAMES: Record<LaunchpadCategory, string> = {
   tracking: 'Трекинг и аналитика',
   landing: 'Посадочная страница',
   creatives: 'Креативы и оффер',

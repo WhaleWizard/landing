@@ -16868,15 +16868,63 @@ body[data-admin-theme] .planner-weekpick {
 
 /* Media Grid Sizing & Filters */
 .admin-root .media-grid--s {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 175px), 1fr)) !important;
+  gap: 10px;
+}
+
+.admin-root .media-grid--s .media-card__preview {
+  height: 104px;
+}
+
+.admin-root .media-grid--s .media-card__body {
+  padding: 8px 10px 10px;
+  gap: 4px;
+}
+
+.admin-root .media-grid--s .media-card__name {
+  font-size: 12px;
 }
 
 .admin-root .media-grid--m {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 235px), 1fr)) !important;
+  gap: 14px;
+}
+
+.admin-root .media-grid--m .media-card__preview {
+  height: 136px;
 }
 
 .admin-root .media-grid--l {
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr)) !important;
+  gap: 18px;
+}
+
+.admin-root .media-grid--l .media-card__preview {
+  height: 184px;
+}
+
+.admin-root .media-grid--l .media-card__body {
+  padding: 12px 14px 14px;
+  gap: 8px;
+}
+
+.admin-root .media-grid--l .media-card__name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-root .media-card__heavy-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #f59e0b;
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
 }
 
 .admin-root .media-grid-size-toggle {
@@ -16947,6 +16995,301 @@ body[data-admin-theme] .planner-weekpick {
 /* Detail Skeleton */
 .admin-root .admin-detail-skeleton {
   min-height: 280px;
+}
+
+/* -------------------------------------------------------------------------
+   Client Launchpad (Interactive Checklists in Client Card)
+   ------------------------------------------------------------------------- */
+
+.admin-root .client-launchpad {
+  margin-top: 16px;
+  background: var(--adm-surface-raised);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-lg);
+  padding: 16px;
+}
+
+.admin-root .client-launchpad__progress-box {
+  background: var(--adm-surface-subtle);
+  border: 1px solid var(--adm-border-subtle);
+  border-radius: var(--adm-radius-md);
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+
+.admin-root .client-launchpad__progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.admin-root .client-launchpad__progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-root .client-launchpad__progress-fill.is-complete {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.admin-root .client-launchpad__blockers-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--adm-radius-md);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  margin-bottom: 12px;
+}
+
+.admin-root .client-launchpad__blockers-alert strong {
+  color: #fbbf24;
+}
+
+.admin-root .client-launchpad__cat-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 550;
+  border-radius: 20px;
+  border: 1px solid var(--adm-border);
+  background: transparent;
+  color: var(--adm-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-root .client-launchpad__cat-pill:hover {
+  border-color: var(--adm-primary);
+  color: var(--adm-fg);
+}
+
+.admin-root .client-launchpad__cat-pill.is-active {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #a5b4fc;
+}
+
+.admin-root .client-launchpad__items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.admin-root .client-launchpad__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--adm-radius-md);
+  border: 1px solid var(--adm-border-subtle);
+  background: var(--adm-surface-raised);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-root .client-launchpad__item:hover {
+  border-color: var(--adm-border);
+  background: var(--adm-surface-subtle);
+}
+
+.admin-root .client-launchpad__item.is-done {
+  opacity: 0.65;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-root .client-launchpad__item.is-critical {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.admin-root .client-launchpad__item-check {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.admin-root .client-launchpad__item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-root .client-launchpad__item-title {
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.admin-root .client-launchpad__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.admin-root .client-launchpad__badge.is-critical {
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.admin-root .client-launchpad__badge.is-important {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.admin-root .client-launchpad__badge.is-cat {
+  background: var(--adm-surface-subtle);
+  border: 1px solid var(--adm-border-subtle);
+  color: var(--adm-text-tertiary);
+}
+
+.admin-root .client-launchpad__item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-root .client-launchpad__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--adm-border);
+  background: transparent;
+  color: var(--adm-text-secondary);
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.admin-root .client-launchpad__action-btn:hover {
+  border-color: var(--adm-primary);
+  color: var(--adm-fg);
+}
+
+/* -------------------------------------------------------------------------
+   Mobile CRM 1-Tap Mode
+   ------------------------------------------------------------------------- */
+
+.admin-root .admin-crm-lead-card-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .admin-root .admin-crm-mobile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-top: 4px;
+    margin-bottom: 6px;
+    background: var(--adm-surface-subtle);
+    border: 1px solid var(--adm-border-subtle);
+    border-radius: var(--adm-radius-md);
+  }
+
+  .admin-root .admin-crm-mobile-actions__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .admin-root .admin-crm-mobile-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 42px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1;
+    border: 1px solid var(--adm-border);
+    background: var(--adm-surface-raised);
+    color: var(--adm-text-primary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .admin-root .admin-crm-mobile-btn:active {
+    transform: scale(0.97);
+  }
+
+  .admin-root .admin-crm-mobile-btn--call {
+    flex: 1;
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #34d399;
+  }
+
+  .admin-root .admin-crm-mobile-btn--wa {
+    flex: 1;
+    background: rgba(37, 211, 102, 0.12);
+    border-color: rgba(37, 211, 102, 0.35);
+    color: #4ade80;
+  }
+
+  .admin-root .admin-crm-mobile-btn--tg {
+    flex: 1;
+    background: rgba(41, 182, 246, 0.12);
+    border-color: rgba(41, 182, 246, 0.35);
+    color: #38bdf8;
+  }
+
+  .admin-root .admin-crm-mobile-btn--stage {
+    flex: 2;
+    min-width: 0;
+    background: rgba(139, 92, 246, 0.14);
+    border-color: rgba(139, 92, 246, 0.4);
+    color: #c4b5fd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-root .admin-crm-mobile-btn--quality {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .admin-root .admin-crm-mobile-btn--quality.is-target {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #34d399;
+  }
+
+  .admin-root .admin-crm-mobile-btn--quality.is-nontarget {
+    background: rgba(244, 63, 94, 0.16);
+    border-color: rgba(244, 63, 94, 0.45);
+    color: #fb7185;
+  }
+}
+
+@media (min-width: 768px) {
+  .admin-root .admin-crm-mobile-actions {
+    display: none !important;
+  }
 }
 
 

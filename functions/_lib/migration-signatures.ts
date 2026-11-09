@@ -385,4 +385,11 @@ export const MIGRATION_SIGNATURES: readonly MigrationSignature[] = [
     indexes: [],
     triggers: [],
   },
+  {
+    file: '0046_campaign_stats.sql',
+    tables: ['campaign_stats'],
+    columns: {},
+    indexes: ['idx_campaign_stats_date', 'idx_campaign_stats_source_campaign'],
+    triggers: [],
+  },
 ];

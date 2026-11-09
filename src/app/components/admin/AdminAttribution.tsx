@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDownUp, BarChart3, Coins, Download, Eye, Filter, Info, RefreshCw,
+  ArrowDownUp, BarChart3, Coins, Download, Eye, Filter, Info, Link2, RefreshCw,
   Search, ShieldCheck, Target, TrendingUp, Trophy, UserCheck, Users, Wallet, X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
 import AdminAdSpend from './AdminAdSpend';
+import AdminCampaignStats from './AdminCampaignStats';
+import AdminUtmBuilder from './AdminUtmBuilder';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import {
   ConversionCascade,
@@ -196,7 +198,10 @@ function toCsv(dimension: DimensionResult, rows: DimensionRow[], currency: strin
   return [header, ...body].join('\n');
 }
 
+type AttributionSubTab = 'funnel' | 'campaigns' | 'utm_builder';
+
 export default function AdminAttribution({ password }: { password: string }) {
+  const [subTab, setSubTab] = useState<AttributionSubTab>('funnel');
   const [days, setDays] = useState(30);
   const [data, setData] = useState<AttributionResponse | null>(null);
   const [selected, setSelected] = useState<DimensionKey>('page');
@@ -344,13 +349,22 @@ export default function AdminAttribution({ password }: { password: string }) {
       <div className="admin-section-header admin-section-header--wide-actions">
         <div>
           <p className="admin-eyebrow">Аналитика</p>
-          <h2 className="admin-title"><BarChart3 aria-hidden="true" /> Воронка и атрибуция</h2>
+          <h2 className="admin-title">
+            {subTab === 'campaigns' ? <><Target aria-hidden="true" /> Сквозная аналитика UTM-кампаний</> :
+             subTab === 'utm_builder' ? <><Link2 aria-hidden="true" /> Генератор ссылок с UTM-метками</> :
+             <><BarChart3 aria-hidden="true" /> Воронка и атрибуция</>}
+          </h2>
           <p className="admin-subtitle">
-            Только показатели, которые подтверждаются данными. Деньги считаются по введённым расходам и суммам выигранных сделок — ничего не подставляется «примерно».
+            {subTab === 'campaigns'
+              ? 'Учёт расходов, показов, кликов и сквозная связка с лидами, квалификацией, выручкой и ROMI.'
+              : subTab === 'utm_builder'
+              ? 'Канонический конструктор UTM-ссылок без слэш-петель и с валидацией доступности 200 OK.'
+              : 'Только показатели, которые подтверждаются данными. Деньги считаются по введённым расходам и суммам выигранных сделок — ничего не подставляется «примерно».'}
           </p>
-          {data?.checkedAt && <p className="admin-meta">Обновлено: {formatDate(data.checkedAt)}</p>}
+          {data?.checkedAt && subTab === 'funnel' && <p className="admin-meta">Обновлено: {formatDate(data.checkedAt)}</p>}
         </div>
-        <div className="adm-attribution__controls">
+        {subTab === 'funnel' && (
+          <div className="adm-attribution__controls">
           <div className="flex items-center gap-1.5 mr-1" role="group" aria-label="Быстрый выбор периода">
             {[7, 14, 30, 90].map((d) => (
               <button
@@ -392,9 +406,53 @@ export default function AdminAttribution({ password }: { password: string }) {
             {loading ? 'Считаю…' : 'Обновить'}
           </button>
         </div>
+        )}
       </div>
 
-      {loading && !data && !error && <AdminSectionSkeleton tiles={5} rows={3} />}
+      <div className="admin-crm-chips adm-attribution__tabs mb-2" role="tablist" aria-label="Разделы атрибуции">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === 'funnel'}
+          className={`admin-crm-chip ${subTab === 'funnel' ? 'is-active is-primary' : ''}`}
+          onClick={() => setSubTab('funnel')}
+        >
+          <BarChart3 className="w-3.5 h-3.5 inline-block mr-1.5" aria-hidden="true" />
+          Сквозная воронка
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === 'campaigns'}
+          className={`admin-crm-chip ${subTab === 'campaigns' ? 'is-active is-primary' : ''}`}
+          onClick={() => setSubTab('campaigns')}
+        >
+          <Target className="w-3.5 h-3.5 inline-block mr-1.5" aria-hidden="true" />
+          UTM-кампании (campaign_stats)
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === 'utm_builder'}
+          className={`admin-crm-chip ${subTab === 'utm_builder' ? 'is-active is-primary' : ''}`}
+          onClick={() => setSubTab('utm_builder')}
+        >
+          <Link2 className="w-3.5 h-3.5 inline-block mr-1.5" aria-hidden="true" />
+          Генератор ссылок с UTM
+        </button>
+      </div>
+
+      {subTab === 'campaigns' && <AdminCampaignStats password={password} />}
+
+      {subTab === 'utm_builder' && (
+        <div className="admin-panel adm-card p-5">
+          <AdminUtmBuilder />
+        </div>
+      )}
+
+      {subTab === 'funnel' && (
+        <>
+          {loading && !data && !error && <AdminSectionSkeleton tiles={5} rows={3} />}
 
       {error && (
         <div className="admin-notice admin-notice--warning" role="alert">
@@ -734,6 +792,8 @@ export default function AdminAttribution({ password }: { password: string }) {
               </ul>
             </section>
           </div>
+        </>
+      )}
         </>
       )}
     </div>
