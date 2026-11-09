@@ -68,22 +68,36 @@
 }
 
 @media (max-width: 639px) {
-  .platform-strip[data-group='google'] { gap: 5px 9px; }
+  .platform-strip[data-group='google'] { gap: 5px 8px; }
   .platform-strip[data-group='google'] > li { gap: 5px; }
   .platform-strip[data-group='google'] .platform-mark { --platform-responsive-size: 18px; }
 }
 
-@media (min-width: 351px) and (max-width: 389px) {
-  .platform-strip[data-group='google'] { gap: 4px 6px; }
+@media (max-width: 410px) {
+  .platform-strip[data-group='google'] { gap: 4px 5px; }
   .platform-strip[data-group='google'] > li {
     gap: 4px;
     font-size: 10.5px;
   }
   .platform-strip[data-group='google'] > li:first-child {
-    padding: 5px 8px;
+    padding: 5px 7px;
   }
   .platform-strip[data-group='google'] .platform-mark {
     --platform-responsive-size: 16px;
+  }
+}
+
+@media (max-width: 359px) {
+  .platform-strip[data-group='google'] { gap: 3px 4px; }
+  .platform-strip[data-group='google'] > li {
+    gap: 3px;
+    font-size: 9.5px;
+  }
+  .platform-strip[data-group='google'] > li:first-child {
+    padding: 4px 6px;
+  }
+  .platform-strip[data-group='google'] .platform-mark {
+    --platform-responsive-size: 14px;
   }
 }
 

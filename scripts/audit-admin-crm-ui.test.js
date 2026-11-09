@@ -25,7 +25,7 @@ process.env.TZ = new Date().getUTCHours() < 12 ? 'Etc/GMT+12' : 'Etc/GMT-14';
 
 const TMP_DIR = `${process.cwd()}/tmp/audit-admin-crm-ui`;
 mkdirSync(TMP_DIR, { recursive: true });
-after(() => rmSync(TMP_DIR, { recursive: true, force: true }));
+process.on('exit', () => { try { rmSync(TMP_DIR, { recursive: true, force: true }); } catch {} });
 
 // jsdom ставится до сборки модулей: часть библиотек (motion, react-dnd)
 // смотрит на `window` в момент импорта.
@@ -54,6 +54,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 /** Собирает модуль из исходников сайта. Пакеты из node_modules грузит сам Node — React один на всех. */
 async function bundle(contents) {
+  mkdirSync(TMP_DIR, { recursive: true });
   const result = await build({
     stdin: { contents, resolveDir: process.cwd(), loader: 'tsx' },
     bundle: true,
@@ -84,63 +85,51 @@ const { createElement, act, createRoot } = reactModule;
 
 const unitEconModule = await bundle(`export { default as AdminUnitEconomics } from './src/app/components/admin/AdminUnitEconomics';`);
 
-test('PA-01: zero or cleared unit-economics input shows guidance instead of NaN and disables export', async () => {
-  localStorage.removeItem('ww_unit_economics_state');
-  const view = await mount(unitEconModule.AdminUnitEconomics, {});
-  const target = view.container.querySelector('#unit-target-revenue');
-  for (const value of ['0', '', '-10']) {
-    await type(target, value);
-    assert.match(view.container.textContent, /Укажите параметры для расчёта/);
-    assert.doesNotMatch(view.container.textContent, /NaN|Infinity|Отличная юнит-экономика/);
-    const copy = [...view.container.querySelectorAll('button')].find(b => b.textContent.includes('Копировать план'));
-    assert.equal(copy.disabled, true);
-  }
-  await type(target, '10000');
-  assert.match(view.container.textContent, /CPL не выше \$56\.16/);
-  assert.doesNotMatch(view.container.textContent, /56\.16 - \$30/);
-  await view.unmount();
-  localStorage.removeItem('ww_unit_economics_state');
-});
+const finance = await bundle(`
+  export { default as AdminFinance, profitByCurrency, withInvoiceStatus } from './src/app/components/admin/AdminFinance';
+`);
 
-test('PA-02: all unit-economics presets keep number fields and sliders on the same valid step', async () => {
-  localStorage.removeItem('ww_unit_economics_state');
-  const view = await mount(unitEconModule.AdminUnitEconomics, {});
-  const presets = [...view.container.querySelectorAll('.admin-unit-econ-preset-chip')];
-  for (const preset of presets) {
-    await click(preset);
-    for (const field of view.container.querySelectorAll('.admin-unit-econ-field')) {
-      const number = field.querySelector('input[type="number"]');
-      const range = field.querySelector('input[type="range"]');
-      if (number) assert.equal(range.value, number.value, preset.textContent);
-      const steps = (Number(range.value) - Number(range.min)) / Number(range.step);
-      assert.ok(Math.abs(steps - Math.round(steps)) < 1e-7, preset.textContent);
-    }
-  }
-  await view.unmount();
-  localStorage.removeItem('ww_unit_economics_state');
-});
+const leadsModule = await bundle(`
+  export { default as AdminLeads, parseDealValue, advanceStage, quickActionDue, exportLeadsToCsv } from './src/app/components/admin/AdminLeads';
+`);
 
-test('PA-03: exported plan does not recommend scaling a first-purchase loss despite high LTV', async () => {
-  localStorage.removeItem('ww_unit_economics_state');
-  let exported = '';
-  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
-  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { exported = text; } } });
-  const view = await mount(unitEconModule.AdminUnitEconomics, {});
-  try {
-    await type(view.container.querySelector('#unit-cpc'), '6');
-    assert.match(view.container.textContent, /Экономика убыточна/);
-    assert.match(view.container.textContent, /CPC \$5\.61/);
-    await click([...view.container.querySelectorAll('button')].find(b => b.textContent.includes('Копировать план')));
-    assert.match(exported, /высокий риск при масштабировании/);
-    assert.doesNotMatch(exported, /Экономика сходится с запасом/);
-    assert.match(exported, /до остальных расходов и налогов/);
-  } finally {
-    await view.unmount();
-    localStorage.removeItem('ww_unit_economics_state');
-    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
-    else delete navigator.clipboard;
-  }
-});
+const analyticsModule = await bundle(`
+  export { default as CrmAnalytics } from './src/app/components/admin/CrmAnalytics';
+`);
+
+const caseModule = await bundle(`
+  export { buildCaseFromMonths, toCaseData } from './src/app/components/admin/caseFromClient';
+`);
+
+const plannerModule = await bundle(`
+  export { default as AdminPlanner } from './src/app/components/admin/AdminPlanner';
+  export { currentWeekStart, shiftWeek, emptyWeek } from './src/app/components/admin/plannerModel';
+`);
+
+const boardModule = await bundle(`
+  export { default as CrmBoard } from './src/app/components/admin/CrmBoard';
+`);
+
+const spendModule = await bundle(`
+  export { default as AdminAdSpend } from './src/app/components/admin/AdminAdSpend';
+  export { toIsoDate } from './src/app/components/admin/plannerModel';
+`);
+
+const todayModule = await bundle(`
+  export { default as TodayPlan, applyPlanTaskOp } from './src/app/components/admin/TodayPlan';
+  export { default as TodayNote } from './src/app/components/admin/TodayNote';
+  export { createRef } from 'react';
+`);
+
+const clientsModule = await bundle(`
+  export { default as AdminClients } from './src/app/components/admin/AdminClients';
+  export { toIsoDate } from './src/app/components/admin/plannerModel';
+`);
+
+const periodsModule = await bundle(`
+  export { default as AdminGoals } from './src/app/components/admin/AdminGoals';
+  export { default as AdminReport } from './src/app/components/admin/AdminReport';
+`);
 
 /** Рисует компонент в jsdom и возвращает корень вместе с контейнером. */
 async function mount(Component, props) {
@@ -211,12 +200,74 @@ const buttonByText = (container, text) => [...container.querySelectorAll('button
 const buttonByAria = (container, label) => container.querySelector(`button[aria-label="${label}"]`);
 
 /* ---------------------------------------------------------------------- */
+/* PA-01 · PA-02 · PA-03 — Юнит-экономика                                  */
+/* ---------------------------------------------------------------------- */
+
+test('PA-01: zero or cleared unit-economics input shows guidance instead of NaN and disables export', async () => {
+  localStorage.removeItem('ww_unit_economics_state');
+  const view = await mount(unitEconModule.AdminUnitEconomics, {});
+  const target = view.container.querySelector('#unit-target-revenue');
+  for (const value of ['0', '', '-10']) {
+    await type(target, value);
+    assert.match(view.container.textContent, /Укажите параметры для расчёта/);
+    assert.doesNotMatch(view.container.textContent, /NaN|Infinity|Отличная юнит-экономика/);
+    const copy = [...view.container.querySelectorAll('button')].find(b => b.textContent.includes('Копировать план'));
+    assert.equal(copy.disabled, true);
+  }
+  await type(target, '10000');
+  assert.match(view.container.textContent, /CPL не выше \$56\.16/);
+  assert.doesNotMatch(view.container.textContent, /56\.16 - \$30/);
+  await view.unmount();
+  localStorage.removeItem('ww_unit_economics_state');
+});
+
+test('PA-02: all unit-economics presets keep number fields and sliders on the same valid step', async () => {
+  localStorage.removeItem('ww_unit_economics_state');
+  const view = await mount(unitEconModule.AdminUnitEconomics, {});
+  const presets = [...view.container.querySelectorAll('.admin-unit-econ-preset-chip')];
+  for (const preset of presets) {
+    await click(preset);
+    for (const field of view.container.querySelectorAll('.admin-unit-econ-field')) {
+      const number = field.querySelector('input[type="number"]');
+      const range = field.querySelector('input[type="range"]');
+      if (number) assert.equal(range.value, number.value, preset.textContent);
+      const steps = (Number(range.value) - Number(range.min)) / Number(range.step);
+      assert.ok(Math.abs(steps - Math.round(steps)) < 1e-7, preset.textContent);
+    }
+  }
+  await view.unmount();
+  localStorage.removeItem('ww_unit_economics_state');
+});
+
+test('PA-03: exported plan does not recommend scaling a first-purchase loss despite high LTV', async () => {
+  localStorage.removeItem('ww_unit_economics_state');
+  let exported = '';
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { exported = text; } } });
+  const view = await mount(unitEconModule.AdminUnitEconomics, {});
+  try {
+    await type(view.container.querySelector('#unit-cpc'), '6');
+    assert.match(view.container.textContent, /Экономика убыточна/);
+    assert.match(view.container.textContent, /CPC \$5\.61/);
+    await click([...view.container.querySelectorAll('button')].find(b => b.textContent.includes('Копировать план')));
+    assert.match(exported, /высокий риск при масштабировании/);
+    assert.doesNotMatch(exported, /Экономика сходится с запасом/);
+    assert.match(exported, /до остальных расходов и налогов/);
+  } finally {
+    await view.unmount();
+    localStorage.removeItem('ww_unit_economics_state');
+    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
+    else delete navigator.clipboard;
+  }
+});
+
+
+
+/* ---------------------------------------------------------------------- */
 /* F-026 · F-037 — Финансы                                                  */
 /* ---------------------------------------------------------------------- */
 
-const finance = await bundle(`
-  export { default as AdminFinance, profitByCurrency, withInvoiceStatus } from './src/app/components/admin/AdminFinance';
-`);
+
 
 const invoiceFixture = (overrides = {}) => ({
   id: 7, client_id: null, number: 'A-7', period: '2026-09', amount: 500, currency: 'USD',
@@ -300,9 +351,7 @@ test('F-037: таблица «По месяцам» показывает мин�
 /* F-027 · F-035 · F-066 · F-067 — Заявки                                  */
 /* ---------------------------------------------------------------------- */
 
-const leadsModule = await bundle(`
-  export { default as AdminLeads, parseDealValue, advanceStage, quickActionDue, exportLeadsToCsv } from './src/app/components/admin/AdminLeads';
-`);
+
 
 test('F-027: сумма сделки читается в любом привычном формате, а нечитаемая — отказ, не NULL', () => {
   const { parseDealValue } = leadsModule;
@@ -434,9 +483,7 @@ test('F-066: плитка «Просрочено» с доски открыва�
 /* F-030 (+ стык F-029) — Аналитика CRM                                    */
 /* ---------------------------------------------------------------------- */
 
-const analyticsModule = await bundle(`
-  export { default as CrmAnalytics } from './src/app/components/admin/CrmAnalytics';
-`);
+
 
 const analyticsPayload = () => ({
   success: true, currency: 'USD', checkedAt: '2026-10-02T10:00:00Z',
@@ -491,9 +538,7 @@ test('F-030: источник без суммы подписан словами,
 /* F-031 — Собрать кейс                                                    */
 /* ---------------------------------------------------------------------- */
 
-const caseModule = await bundle(`
-  export { buildCaseFromMonths, toCaseData } from './src/app/components/admin/caseFromClient';
-`);
+
 
 const monthRow = (month, spend, leads, sales, revenue) => ({ month, spend, leads, sales, revenue, spend_currency: 'USD' });
 
@@ -545,10 +590,7 @@ test('F-031: когда ни у одного месяца нет пары, по�
 /* F-039 · F-071 — Планер                                                  */
 /* ---------------------------------------------------------------------- */
 
-const plannerModule = await bundle(`
-  export { default as AdminPlanner } from './src/app/components/admin/AdminPlanner';
-  export { currentWeekStart, shiftWeek, emptyWeek } from './src/app/components/admin/plannerModel';
-`);
+
 
 /**
  * Поддельный сервер планера: хранит недели, пишет журнал запросов и умеет
@@ -670,9 +712,7 @@ test('F-071: шаблон недели подставляется снова п�
 /* F-040 (+ стык F-034) — Доска CRM                                        */
 /* ---------------------------------------------------------------------- */
 
-const boardModule = await bundle(`
-  export { default as CrmBoard } from './src/app/components/admin/CrmBoard';
-`);
+
 
 const boardLead = (id, stage, overrides = {}) => ({
   id, name: `Сделка ${id}`, email: '', phone: '', telegram_username: '', service: 'Meta Ads',
@@ -750,10 +790,7 @@ test('F-040: когда всё помещается, доска не пишет 
 /* F-065 · F-068 — Рекламные расходы                                       */
 /* ---------------------------------------------------------------------- */
 
-const spendModule = await bundle(`
-  export { default as AdminAdSpend } from './src/app/components/admin/AdminAdSpend';
-  export { toIsoDate } from './src/app/components/admin/plannerModel';
-`);
+
 
 test('F-065: при ошибке сервера введённая сумма и вставленный CSV остаются в полях', async () => {
   let fail = true;
@@ -813,11 +850,7 @@ test('F-068: дата расхода по умолчанию и её преде�
 /* F-069 · F-072 — «Сегодня»: план и заметка дня                            */
 /* ---------------------------------------------------------------------- */
 
-const todayModule = await bundle(`
-  export { default as TodayPlan, applyPlanTaskOp } from './src/app/components/admin/TodayPlan';
-  export { default as TodayNote } from './src/app/components/admin/TodayNote';
-  export { createRef } from 'react';
-`);
+
 
 const WEEK = '2026-09-28';
 const dayWith = (tasks, notes = []) => ({ tasks, notes, journal: { sleep: '', energy: 0, mood: 0, lesson: '', gratitude: '', thoughts: '' } });
@@ -907,10 +940,7 @@ test('F-069: при ошибке записи экран откатываетс�
 /* F-041 · F-070 — Клиенты                                                  */
 /* ---------------------------------------------------------------------- */
 
-const clientsModule = await bundle(`
-  export { default as AdminClients } from './src/app/components/admin/AdminClients';
-  export { toIsoDate } from './src/app/components/admin/plannerModel';
-`);
+
 
 const localMonth = () => clientsModule.toIsoDate(new Date()).slice(0, 7);
 
@@ -1036,10 +1066,7 @@ test('F-070: повторное нажатие «Создать чек-лист�
 /* F-068 — Цели и Отчёт                                                    */
 /* ---------------------------------------------------------------------- */
 
-const periodsModule = await bundle(`
-  export { default as AdminGoals } from './src/app/components/admin/AdminGoals';
-  export { default as AdminReport } from './src/app/components/admin/AdminReport';
-`);
+
 
 test('F-068: «Цели» открываются на месяце по местному календарю и переходят на месяц сервера', async () => {
   const now = new Date();
