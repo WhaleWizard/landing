@@ -16,7 +16,10 @@ function contentEtag(key: string, version: number | null): string {
 }
 
 function notModified(request: Request, etag: string): Response | null {
-  if (request.headers.get('If-None-Match') !== etag) return null;
+  const condition = request.headers.get('If-None-Match')?.trim();
+  // If-None-Match uses weak comparison. Cloudflare may add W/ when compressing.
+  const validators: string[] = condition?.match(/"[^"]*"/g) ?? [];
+  if (condition !== '*' && !validators.includes(etag)) return null;
   return new Response(null, { status: 304, headers: { ...publicCache, ETag: etag } });
 }
 

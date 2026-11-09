@@ -67,6 +67,26 @@ test('site-content API separates browser revalidation from Cloudflare edge cachi
   });
   assert.equal(revalidated.status, 304);
   assert.equal(await revalidated.text(), '');
+
+  const etag = response.headers.get('ETag');
+  for (const [method, handle] of [['GET', onRequestGet], ['HEAD', onRequestHead]]) {
+    for (const [validator, status] of [
+      [`W/${etag}`, 304],
+      [`"other,revision", W/${etag}`, 304],
+      ['*', 304],
+      ['W/"site-content-site-home-6"', 200],
+    ]) {
+      const result = await handle({
+        request: new Request('https://example.test/api/site-content?key=site%3Ahome', {
+          method,
+          headers: { 'If-None-Match': validator },
+        }),
+        env,
+      });
+      assert.equal(result.status, status, `${method} ${validator}`);
+      if (status === 304 || method === 'HEAD') assert.equal(await result.text(), '');
+    }
+  }
 });
 
 test('About drafts stay private and the SEO build reads the published About revision', async (t) => {
