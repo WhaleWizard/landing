@@ -1,6 +1,6 @@
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
-import { json, readCappedJsonBody } from '../../_lib/http';
+import { json } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -20,7 +20,6 @@ export interface GscQueryRow {
   impressions: number;
   ctr: number;
   position: number;
-  previousPosition?: number | null;
 }
 
 export interface GscPageRow {
@@ -37,7 +36,7 @@ export interface GscOpportunity {
   page: string;
   impressions: number;
   currentPosition: number;
-  potentialClicks: number;
+  ctr: number;
   advice: string;
 }
 
@@ -52,8 +51,9 @@ export interface SearchConsoleResponse {
   configured: boolean;
   siteUrl: string;
   days: number;
-  lastUpdated: string;
-  isDemo?: boolean;
+  propertyName: string;
+  startDate?: string;
+  endDate?: string;
   summary: {
     clicks: number;
     impressions: number;
@@ -61,202 +61,182 @@ export interface SearchConsoleResponse {
     position: number;
     prevClicks?: number;
     prevImpressions?: number;
-    prevCtr?: number;
-    prevPosition?: number;
-  };
+  } | null;
   daily: GscDailyPoint[];
   queries: GscQueryRow[];
   pages: GscPageRow[];
   opportunities: GscOpportunity[];
   cannibalization: GscCannibalization[];
-  setupGuide?: {
-    serviceAccountEmail: string;
-    propertyName: string;
-    instructions: string[];
-  };
 }
 
-/**
- * Реалистичный демо-датасет для whalewzrd.com
- * Показывается маркетологу, если API Search Console ещё не привязан ключом в Cloudflare.
- */
-function getDemoDataset(days: number): Omit<SearchConsoleResponse, 'success' | 'configured' | 'siteUrl' | 'days'> {
-  const points: GscDailyPoint[] = [];
-  const now = Date.now();
-  let totalClicks = 0;
-  let totalImpressions = 0;
+const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
+const DAY_MS = 86_400_000;
 
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now - i * 86_400_000);
-    const dateStr = d.toISOString().slice(0, 10);
-    // Сезонный синусоидный шум
-    const dayOfWeek = d.getUTCDay();
-    const weekendFactor = dayOfWeek === 0 || dayOfWeek === 6 ? 0.7 : 1.15;
-    const baseImp = Math.round((180 + Math.sin(i * 0.4) * 45 + (days - i) * 1.5) * weekendFactor);
-    const baseClicks = Math.round(baseImp * (0.048 + Math.cos(i * 0.2) * 0.012));
-    const ctr = baseImp > 0 ? (baseClicks / baseImp) * 100 : 0;
-    const position = Math.round((8.4 - (days - i) * 0.04 + Math.sin(i * 0.5) * 0.6) * 10) / 10;
+type SearchRow = {
+  keys?: string[];
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+};
 
-    totalClicks += baseClicks;
-    totalImpressions += baseImp;
+function base64Url(bytes: Uint8Array): string {
+  return btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
-    points.push({
-      date: dateStr,
-      clicks: baseClicks,
-      impressions: baseImp,
-      ctr: Math.round(ctr * 10) / 10,
-      position: Math.max(1, position),
-    });
+async function getGoogleToken(credentials: string): Promise<string> {
+  const account = JSON.parse(credentials) as { client_email?: string; private_key?: string };
+  if (!account.client_email || !account.private_key) throw new Error('Invalid account');
+  const now = Math.floor(Date.now() / 1000);
+  const encode = (value: object) => base64Url(new TextEncoder().encode(JSON.stringify(value)));
+  const assertion = [
+    encode({ alg: 'RS256', typ: 'JWT' }),
+    encode({ iss: account.client_email, scope: SCOPE, aud: TOKEN_URL, iat: now, exp: now + 600 }),
+  ].join('.');
+  const pem = account.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
+  const algorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' };
+  const key = await crypto.subtle.importKey('pkcs8', Uint8Array.from(atob(pem), (char) => char.charCodeAt(0)), algorithm, false, ['sign']);
+  const signature = await crypto.subtle.sign(algorithm, key, new TextEncoder().encode(assertion));
+  const response = await fetch(TOKEN_URL, {
+    method: 'POST',
+    redirect: 'error',
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: assertion + '.' + base64Url(new Uint8Array(signature)),
+    }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error('Google authorization failed');
+  const payload = await response.json() as { access_token?: string };
+  if (!payload.access_token) throw new Error('Missing access token');
+  return payload.access_token;
+}
+
+function reportDate(offset: number, now: Date): string {
+  // Search Console defines report dates in Pacific time, including DST.
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const today = ['year', 'month', 'day'].map((type) => parts.find((part) => part.type === type)?.value).join('-');
+  return new Date(Date.parse(today + 'T00:00:00Z') + offset * DAY_MS).toISOString().slice(0, 10);
+}
+
+function metrics(row: SearchRow) {
+  return { clicks: row.clicks, impressions: row.impressions, ctr: row.ctr * 100, position: row.position };
+}
+
+function pageUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+  } catch {
+    return null;
   }
+}
 
-  const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-  const avgPos = 7.6;
+export async function getSearchConsoleReport(
+  credentials: string,
+  propertyName: string,
+  days: number,
+  now = new Date(),
+): Promise<Pick<SearchConsoleResponse, 'startDate' | 'endDate' | 'summary' | 'daily' | 'queries' | 'pages' | 'opportunities' | 'cannibalization'>> {
+  const token = await getGoogleToken(credentials);
+  const endpoint = 'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(propertyName) + '/searchAnalytics/query';
+  const endDate = reportDate(-3, now);
+  const startDate = reportDate(-days - 2, now);
+  const query = async (dimensions: string[], rowLimit: number, from = startDate, to = endDate) => {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      redirect: 'error',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startDate: from, endDate: to, dimensions, rowLimit, type: 'web', dataState: 'final' }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) throw new Error('Search Console query failed');
+    return (await response.json() as { rows?: SearchRow[] }).rows || [];
+  };
 
-  const queries: GscQueryRow[] = [
-    { query: 'таргетолог meta ads', clicks: Math.round(totalClicks * 0.18), impressions: Math.round(totalImpressions * 0.14), ctr: 6.2, position: 2.8, previousPosition: 3.4 },
-    { query: 'настройка рекламы в фейсбук цена', clicks: Math.round(totalClicks * 0.14), impressions: Math.round(totalImpressions * 0.11), ctr: 5.8, position: 3.1, previousPosition: 4.0 },
-    { query: 'meta conversions api настройка', clicks: Math.round(totalClicks * 0.12), impressions: Math.round(totalImpressions * 0.09), ctr: 6.9, position: 1.9, previousPosition: 2.1 },
-    { query: 'performance маркетолог услуги', clicks: Math.round(totalClicks * 0.09), impressions: Math.round(totalImpressions * 0.08), ctr: 4.8, position: 4.2, previousPosition: 5.6 },
-    { query: 'таргетированная реклама инстаграм для бизнеса', clicks: Math.round(totalClicks * 0.08), impressions: Math.round(totalImpressions * 0.12), ctr: 3.1, position: 7.4, previousPosition: 8.8 },
-    { query: 'google ads таргетинг аудит кабинета', clicks: Math.round(totalClicks * 0.07), impressions: Math.round(totalImpressions * 0.06), ctr: 5.1, position: 5.0, previousPosition: 6.2 },
-    { query: 'калькулятор бюджета на таргет', clicks: Math.round(totalClicks * 0.06), impressions: Math.round(totalImpressions * 0.07), ctr: 4.2, position: 6.5, previousPosition: 6.9 },
-    { query: 'кейсы рекламы интернет магазин одежда meta', clicks: Math.round(totalClicks * 0.05), impressions: Math.round(totalImpressions * 0.05), ctr: 5.3, position: 4.7, previousPosition: 5.2 },
-    { query: 'консультация маркетолога по рекламе', clicks: Math.round(totalClicks * 0.04), impressions: Math.round(totalImpressions * 0.04), ctr: 4.5, position: 5.9, previousPosition: 7.1 },
-    { query: 'почему не крутит реклама в facebook ads', clicks: Math.round(totalClicks * 0.03), impressions: Math.round(totalImpressions * 0.08), ctr: 2.1, position: 9.8, previousPosition: 12.3 },
-  ];
+  const [[current], [previous], dailyRows, queryRows, pageRows, pairs] = await Promise.all([
+    query([], 1),
+    query([], 1, reportDate(-2 * days - 2, now), reportDate(-days - 3, now)),
+    query(['date'], days),
+    query(['query'], 250),
+    query(['page'], 250),
+    query(['query', 'page'], 2000),
+  ]);
 
-  const pages: GscPageRow[] = [
-    { page: '/', clicks: Math.round(totalClicks * 0.35), impressions: Math.round(totalImpressions * 0.28), ctr: 5.9, position: 3.2, topQueries: ['таргетолог meta ads', 'performance маркетолог услуги'] },
-    { page: '/meta-ads', clicks: Math.round(totalClicks * 0.26), impressions: Math.round(totalImpressions * 0.22), ctr: 5.4, position: 3.6, topQueries: ['настройка рекламы в фейсбук цена', 'таргетированная реклама инстаграм'] },
-    { page: '/google-ads', clicks: Math.round(totalClicks * 0.14), impressions: Math.round(totalImpressions * 0.13), ctr: 4.7, position: 4.8, topQueries: ['google ads таргетинг аудит кабинета'] },
-    { page: '/consult', clicks: Math.round(totalClicks * 0.09), impressions: Math.round(totalImpressions * 0.08), ctr: 4.3, position: 5.5, topQueries: ['консультация маркетолога по рекламе'] },
-    { page: '/blog', clicks: Math.round(totalClicks * 0.08), impressions: Math.round(totalImpressions * 0.15), ctr: 2.8, position: 8.2, topQueries: ['meta conversions api настройка', 'почему не крутит реклама'] },
-    { page: '/calculator', clicks: Math.round(totalClicks * 0.05), impressions: Math.round(totalImpressions * 0.06), ctr: 4.1, position: 6.4, topQueries: ['калькулятор бюджета на таргет'] },
-    { page: '/cases', clicks: Math.round(totalClicks * 0.03), impressions: Math.round(totalImpressions * 0.08), ctr: 2.4, position: 7.9, topQueries: ['кейсы рекламы интернет магазин'] },
-  ];
-
-  const opportunities: GscOpportunity[] = [
-    {
-      query: 'таргетированная реклама инстаграм для бизнеса',
-      page: '/meta-ads',
-      impressions: Math.round(totalImpressions * 0.12),
-      currentPosition: 7.4,
-      potentialClicks: Math.round(totalImpressions * 0.12 * 0.08),
-      advice: 'Запрос на 7-й позиции с высоким объёмом показов. Добавьте фразу в H2 или подзаголовок страницы /meta-ads для выхода в Топ-3.',
-    },
-    {
-      query: 'почему не крутит реклама в facebook ads',
-      page: '/blog',
-      impressions: Math.round(totalImpressions * 0.08),
-      currentPosition: 9.8,
-      potentialClicks: Math.round(totalImpressions * 0.08 * 0.07),
-      advice: 'Низкий CTR (2.1%). Обновите Title статьи блога на более кликабельный с решением проблемы (например: «5 причин и чек-лист решения»).',
-    },
-  ];
-
-  const cannibalization: GscCannibalization[] = [
-    {
-      query: 'meta conversions api настройка',
-      pages: [
-        { page: '/meta-ads', clicks: Math.round(totalClicks * 0.05), impressions: Math.round(totalImpressions * 0.04), position: 4.8 },
-        { page: '/blog/meta-capi-setup', clicks: Math.round(totalClicks * 0.07), impressions: Math.round(totalImpressions * 0.05), position: 2.4 },
-      ],
-    },
-  ];
+  const queriesByPage = new Map<string, string[]>();
+  const pagesByQuery = new Map<string, GscCannibalization['pages']>();
+  const opportunities: GscOpportunity[] = [];
+  for (const row of pairs) {
+    const [phrase, value] = row.keys || [];
+    const page = pageUrl(value);
+    if (!phrase || !page) continue;
+    const topQueries = queriesByPage.get(page) || [];
+    if (topQueries.length < 3) topQueries.push(phrase);
+    queriesByPage.set(page, topQueries);
+    if (row.impressions >= 10) {
+      const variants = pagesByQuery.get(phrase) || [];
+      variants.push({ page, clicks: row.clicks, impressions: row.impressions, position: row.position });
+      pagesByQuery.set(phrase, variants);
+    }
+    if (row.position >= 4 && row.position <= 15 && row.impressions >= 20) {
+      opportunities.push({
+        query: phrase, page, impressions: row.impressions, currentPosition: row.position, ctr: row.ctr * 100,
+        advice: 'Сверьте страницу и заголовок с намерением по запросу. Сравните CTR с близкими запросами на похожих позициях.',
+      });
+    }
+  }
 
   return {
-    lastUpdated: new Date().toISOString(),
-    isDemo: true,
-    summary: {
-      clicks: totalClicks,
-      impressions: totalImpressions,
-      ctr: Math.round(avgCtr * 10) / 10,
-      position: avgPos,
-      prevClicks: Math.round(totalClicks * 0.88),
-      prevImpressions: Math.round(totalImpressions * 0.91),
-      prevCtr: Math.round((avgCtr - 0.4) * 10) / 10,
-      prevPosition: 8.2,
-    },
-    daily: points,
-    queries,
-    pages,
-    opportunities,
-    cannibalization,
-    setupGuide: {
-      serviceAccountEmail: 'gsc-reader@whalewzrd-analytics.iam.gserviceaccount.com',
-      propertyName: 'sc-domain:whalewzrd.com',
-      instructions: [
-        'Создайте сервисный аккаунт в Google Cloud Console с доступом к Search Console API.',
-        'В панели Google Search Console (Настройки → Пользователи и разрешения) добавьте email сервисного аккаунта с правами «Полный» или «Чтение».',
-        'Добавьте секрет GSC_SERVICE_ACCOUNT_JSON в переменные Cloudflare Pages или введите его ниже для сохранения в D1.',
-      ],
-    },
+    startDate, endDate,
+    summary: current?.impressions > 0 ? {
+      ...metrics(current),
+      ...(previous?.impressions > 0 ? {
+        prevClicks: previous.clicks, prevImpressions: previous.impressions,
+      } : {}),
+    } : null,
+    daily: dailyRows.flatMap((row) => row.keys?.[0] ? [{ date: row.keys[0], ...metrics(row) }] : []),
+    queries: queryRows.flatMap((row) => row.keys?.[0] ? [{ query: row.keys[0], ...metrics(row) }] : []),
+    pages: pageRows.flatMap((row) => {
+      const page = pageUrl(row.keys?.[0] || '');
+      return page ? [{ page, ...metrics(row), topQueries: queriesByPage.get(page) || [] }] : [];
+    }),
+    opportunities: opportunities.sort((a, b) => b.impressions - a.impressions).slice(0, 15),
+    cannibalization: Array.from(pagesByQuery, ([query, pages]) => ({ query, pages }))
+      .filter(({ pages }) => pages.length > 1).slice(0, 15),
   };
 }
 
-export async function onRequestGet(context: { request: Request; env: Env }): Promise<Response> {
-  const { request, env } = context;
-
-  const password = request.headers.get('X-Admin-Password') || '';
-  if (!verifyAdminPassword(password, env)) {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
-
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const url = new URL(request.url);
-  const daysParam = Number(url.searchParams.get('days') || 28);
-  const days = [7, 28, 90].includes(daysParam) ? daysParam : 28;
-
-  // Проверка наличия сохраненных ключей в Env или D1
-  const hasGscCreds = Boolean(
-    (env as unknown as Record<string, string>)?.GSC_SERVICE_ACCOUNT_JSON ||
-    (env as unknown as Record<string, string>)?.GOOGLE_SEARCH_CONSOLE_KEY
-  );
-
-  const demoData = getDemoDataset(days);
-
-  return json({
-    success: true,
-    configured: hasGscCreds,
-    siteUrl: 'https://whalewzrd.com',
-    days,
-    ...demoData,
-  }, { headers: noStore });
-}
-
-export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
-  const { request, env } = context;
-
-  const password = request.headers.get('X-Admin-Password') || '';
-  if (!verifyAdminPassword(password, env)) {
-    return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
-  }
-
-  const rateLimited = await enforceRateLimit(request, 'admin');
-  if (rateLimited) return rateLimited;
-
-  const body = (await readCappedJsonBody(request, 64 * 1024)) as { action?: string; credentials?: string } | null;
-  if (!body) {
-    return json({ success: false, error: 'Invalid JSON payload' }, { status: 400, headers: noStore });
-  }
-
-  if (body.action === 'save_credentials') {
-    // Валидация формата JSON
-    try {
-      if (body.credentials) {
-        JSON.parse(body.credentials);
-      }
-    } catch {
-      return json({ success: false, error: 'Некорректный JSON файл ключа сервисного аккаунта' }, { status: 400, headers: noStore });
-    }
-
+  const requestedDays = Number(new URL(request.url).searchParams.get('days'));
+  const days = [7, 28, 90].includes(requestedDays) ? requestedDays : 28;
+  const propertyName = env.GSC_PROPERTY?.trim() || 'sc-domain:whalewzrd.com';
+  const credentials = env.GSC_SERVICE_ACCOUNT_JSON || env.GOOGLE_SEARCH_CONSOLE_KEY;
+  if (!credentials) {
     return json({
-      success: true,
-      message: 'Ключи успешно проверены. На production добавьте переменную GSC_SERVICE_ACCOUNT_JSON в Cloudflare Pages для персистентного хранения.',
-    }, { headers: noStore });
+      success: true, configured: false, days, propertyName, siteUrl: env.SITE_URL || 'https://www.whalewzrd.com',
+      summary: null, daily: [], queries: [], pages: [], opportunities: [], cannibalization: [],
+    } satisfies SearchConsoleResponse, { headers: noStore });
   }
-
-  return json({ success: false, error: 'Unknown action' }, { status: 400, headers: noStore });
+  try {
+    const report = await getSearchConsoleReport(credentials, propertyName, days);
+    return json({
+      success: true, configured: true, days, propertyName, siteUrl: env.SITE_URL || 'https://www.whalewzrd.com',
+      ...report,
+    } satisfies SearchConsoleResponse, { headers: noStore });
+  } catch {
+    return json({
+      success: false,
+      error: 'Google Search Console не вернул отчёт. Проверьте ключ, включение API и доступ сервисного аккаунта к ресурсу.',
+    }, { status: 503, headers: noStore });
+  }
 }

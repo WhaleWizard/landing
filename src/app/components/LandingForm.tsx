@@ -41,7 +41,7 @@ import {
 } from '../utils/phoneCountry';
 import { isRetryableLeadStatus, queueLeadForRetry, scheduleLeadRetry } from '../utils/leadRetryQueue';
 import { fetchGeoPayload } from '../utils/geoLookup';
-import { saveLeadContext } from '../utils/leadContext';
+import { getLeadEntryPath, saveLeadContext } from '../utils/leadContext';
 
 type ServiceType = 'meta-ads' | 'google-ads' | 'consult' | 'meta-apps';
 
@@ -264,6 +264,7 @@ function LandingForm({
           hp_trap: hpTrap,
           page_url: window.location.href,
           referrer: document.referrer || undefined,
+          entry_path: getLeadEntryPath(metaBrowserContext.marketing_consent),
         };
 
         const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;

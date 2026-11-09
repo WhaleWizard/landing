@@ -18,6 +18,7 @@ const MARKETING_CONTEXT_FIELDS = [
   'fbc',
   'fbclid',
   'landing_page_url',
+  'entry_path',
   'first_touch_url',
   'first_touch_at',
   'last_touch_url',

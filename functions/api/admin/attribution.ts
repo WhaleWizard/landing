@@ -6,7 +6,7 @@ import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
-type DimensionKey = 'page' | 'source' | 'campaign' | 'utm' | 'service' | 'country' | 'device' | 'form_id' | 'form_variant';
+type DimensionKey = 'page' | 'google_organic' | 'source' | 'campaign' | 'utm' | 'service' | 'country' | 'device' | 'form_id' | 'form_variant';
 
 interface DimensionRow {
   key: string;
@@ -214,6 +214,7 @@ async function groupedLeads(
   expression: string,
   window: { from: string; to: string },
   context: LeadQueryContext,
+  condition = '1=1',
 ): Promise<DimensionRow[]> {
   const rows = await db.prepare(`
     SELECT ${expression} AS group_key, ${leadAggregates(context)}
@@ -221,6 +222,7 @@ async function groupedLeads(
     WHERE date(${context.timeColumn}) >= date(?)
       AND date(${context.timeColumn}) <= date(?)
       AND ${context.activeCondition}
+      AND ${condition}
     GROUP BY group_key
     ORDER BY leads DESC, group_key ASC
     LIMIT 200
@@ -700,6 +702,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       });
     } else {
       dimensions.push(unavailable('page', 'Страница', 'В таблице leads нет page_path или сама таблица не создана.'));
+    }
+
+    const organicLabel = 'Посадочные из Google Поиска';
+    if (availability.leads && columns.has('google_organic_landing_path')) {
+      const rows = await groupedLeads(
+        db, 'google_organic_landing_path', windows.current, context, "google_organic_landing_path <> ''",
+      );
+      dimensions.push({
+        key: 'google_organic', label: organicLabel, supported: true, hasViews: false, hasSpend: false,
+        reason: 'Последняя заявка контакта. Учитываются только новые заявки с согласием и распознанным входом из Google Поиска. История до миграции не пересчитывается.',
+        rows: sortRows(withDerivedMetrics(rows)),
+      });
+    } else {
+      dimensions.push(unavailable('google_organic', organicLabel, 'Примените миграцию 0045_google_organic_landing.sql. Данные начнут собираться с новых заявок.'));
     }
 
     if (availability.leads && columns.has('utm_source')) {

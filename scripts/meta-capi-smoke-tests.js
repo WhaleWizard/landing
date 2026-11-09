@@ -469,7 +469,8 @@ mustContain('Offline lead retry consent downgrade', files.leadRetryQueue + files
 ]);
 
 mustContain('Durable idempotent lead ingestion', files.lead + files.leadStore + files.leadIngestionMigration, [
-  'await storeLead(env, normalized)',
+  'await storeLead(env, {',
+  '...normalized',
   "error: 'lead_storage_unavailable'",
   'retryable: true',
   'stored.duplicate',

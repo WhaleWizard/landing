@@ -10,6 +10,7 @@ import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 import { isTelegramConfigured, markLeadTelegramDelivered, sendLeadToTelegram, storeLead, type StoreLeadResult } from '../_lib/leads';
 import { isTurnstileConfigured, verifyTurnstileToken } from '../_lib/turnstile';
 import { recordFormRejection } from '../_lib/form-guard-stats';
+import { googleOrganicLandingPath } from '../_lib/google-organic-lead';
 import { createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
 
 const MAX_LEAD_BODY_BYTES = 64 * 1024;
@@ -40,6 +41,7 @@ interface LeadPayload {
   page_url?: string;
   page_location?: string;
   referrer?: string;
+  entry_path?: string;
   external_id?: string;
   fbp?: string;
   fbc?: string;
@@ -540,7 +542,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   // Missing/broken D1 returns a retryable 503 so the browser queue can retry.
   let stored: StoreLeadResult;
   try {
-    stored = await storeLead(env, normalized);
+    const entryPath = typeof parsedPayload.entry_path === 'string' ? parsedPayload.entry_path : undefined;
+    stored = await storeLead(env, {
+      ...normalized,
+      google_organic_landing_path: googleOrganicLandingPath({ ...normalized, entry_path: entryPath }),
+    });
   } catch (error) {
     console.error('[Lead CRM] Durable storage unavailable:', error);
     return json(

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownUp, CheckCircle2, Copy,
   ExternalLink, Globe, Info, Key,
-  Lightbulb, RefreshCw, Search, ShieldAlert, Sparkles, TrendingUp, X,
+  Lightbulb, RefreshCw, Search, ShieldAlert, Sparkles, X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
 import { AdminSectionSkeleton, notify } from './AdminFeedback';
@@ -36,14 +36,13 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [metricView, setMetricView] = useState<'both' | 'clicks' | 'impressions'>('both');
 
-  // Для сохранения ключа Google Service Account
-  const [credentialsJson, setCredentialsJson] = useState('');
-  const [savingCreds, setSavingCreds] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const requestSequence = useRef(0);
 
   const loadData = useCallback(async (selectedDays: number) => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError(null);
+    setData(null);
     try {
       const res = await fetch(`/api/admin/search-console?days=${selectedDays}`, {
         headers: {
@@ -51,25 +50,23 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
         },
       });
 
-      if (!res.ok) {
-        throw new Error(`Ошибка сервера: ${res.status}`);
+      const json = await res.json() as SearchConsoleResponse;
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `Не удалось загрузить данные Search Console (${res.status})`);
       }
-
-      const json = (await res.json()) as SearchConsoleResponse;
-      if (!json.success) {
-        throw new Error(json.error || 'Не удалось загрузить данные Search Console');
-      }
-
-      setData(json);
+      if (requestId === requestSequence.current) setData(json);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка соединения с API');
+      if (requestId === requestSequence.current) {
+        setError(err instanceof Error ? err.message : 'Ошибка соединения с API');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   }, [password]);
 
   useEffect(() => {
     void loadData(days);
+    return () => { requestSequence.current += 1; };
   }, [days, loadData]);
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -78,52 +75,6 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
       notify.success(`${label} скопирован в буфер`);
     } catch {
       notify.error('Не удалось скопировать текст');
-    }
-  };
-
-  const handleSaveCredentials = async () => {
-    if (!credentialsJson.trim()) {
-      setSaveStatus({ type: 'error', message: 'Вставьте содержимое JSON-ключа' });
-      return;
-    }
-
-    try {
-      JSON.parse(credentialsJson);
-    } catch {
-      setSaveStatus({ type: 'error', message: 'Некорректный синтаксис JSON' });
-      return;
-    }
-
-    setSavingCreds(true);
-    setSaveStatus(null);
-    try {
-      const res = await fetch('/api/admin/search-console', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Password': password,
-        },
-        body: JSON.stringify({
-          action: 'save_credentials',
-          credentials: credentialsJson,
-        }),
-      });
-
-      const resJson = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok || !resJson.success) {
-        throw new Error(resJson.error || 'Ошибка при валидации ключа');
-      }
-
-      setSaveStatus({ type: 'success', message: 'Ключ успешно проверен и сохранён' });
-      notify.success('Интеграция Search Console обновлена');
-      void loadData(days);
-    } catch (err) {
-      setSaveStatus({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Сбой при сохранении',
-      });
-    } finally {
-      setSavingCreds(false);
     }
   };
 
@@ -190,20 +141,20 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
               <Globe className="admin-gsc-title-icon" aria-hidden="true" />
               <span>Google Search Console & SEO</span>
             </h2>
-            {data?.configured ? (
+            {data && (data.configured ? (
               <span className="admin-gsc-status-pill admin-gsc-status-pill--active">
                 <CheckCircle2 size={13} aria-hidden="true" />
-                API активен
+                Данные Google получены
               </span>
             ) : (
               <span className="admin-gsc-status-pill admin-gsc-status-pill--demo">
                 <Info size={13} aria-hidden="true" />
-                Демо-данные (ключ не подключён)
+                Требуется подключение
               </span>
-            )}
+            ))}
           </div>
           <p className="admin-gsc-subtitle">
-            Органический поиск Google: клики, показы, средние позиции, точки роста и каннибализация URL.
+            Клики, показы и средние позиции в поиске Google. Данные поступают из Search Console.
           </p>
         </div>
 
@@ -242,6 +193,13 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
         </div>
       )}
 
+      {data?.configured && (
+        <p className="admin-gsc-card-subtitle">
+          Период {data.startDate} — {data.endDate}. Только финальные данные веб-поиска Google.
+          В таблицах — верхние строки, возвращённые API. Редкие запросы могут быть скрыты Google.
+        </p>
+      )}
+      {data?.configured && !summary && <p className="admin-gsc-card-subtitle">За этот период Google не вернул показов.</p>}
       {data && summary && (
         <>
           {/* KPI-сводка: 4 ключевые метрики */}
@@ -249,12 +207,10 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
             <div className="admin-gsc-kpi-card">
               <div className="admin-gsc-kpi-label">Клики из Google</div>
               <div className="admin-gsc-kpi-value">{summary.clicks.toLocaleString('ru-RU')}</div>
-              {typeof summary.prevClicks === 'number' && (
-                <div className="admin-gsc-kpi-delta admin-gsc-kpi-delta--up">
-                  <TrendingUp size={13} aria-hidden="true" />
-                  <span>
-                    +{Math.round(((summary.clicks - summary.prevClicks) / Math.max(summary.prevClicks, 1)) * 100)}% к пред. периоду
-                  </span>
+              {summary.prevClicks !== undefined && summary.prevClicks > 0 && (
+                <div className="admin-gsc-kpi-subtext">
+                  {new Intl.NumberFormat('ru-RU', { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' })
+                    .format((summary.clicks - summary.prevClicks) / summary.prevClicks)} к пред. периоду
                 </div>
               )}
             </div>
@@ -262,12 +218,10 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
             <div className="admin-gsc-kpi-card">
               <div className="admin-gsc-kpi-label">Показы в выдаче</div>
               <div className="admin-gsc-kpi-value">{summary.impressions.toLocaleString('ru-RU')}</div>
-              {typeof summary.prevImpressions === 'number' && (
-                <div className="admin-gsc-kpi-delta admin-gsc-kpi-delta--up">
-                  <TrendingUp size={13} aria-hidden="true" />
-                  <span>
-                    +{Math.round(((summary.impressions - summary.prevImpressions) / Math.max(summary.prevImpressions, 1)) * 100)}% к пред. периоду
-                  </span>
+              {summary.prevImpressions !== undefined && summary.prevImpressions > 0 && (
+                <div className="admin-gsc-kpi-subtext">
+                  {new Intl.NumberFormat('ru-RU', { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' })
+                    .format((summary.impressions - summary.prevImpressions) / summary.prevImpressions)} к пред. периоду
                 </div>
               )}
             </div>
@@ -281,11 +235,6 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
             <div className="admin-gsc-kpi-card">
               <div className="admin-gsc-kpi-label">Средняя позиция</div>
               <div className="admin-gsc-kpi-value">#{summary.position.toFixed(1)}</div>
-              {typeof summary.prevPosition === 'number' && (
-                <div className="admin-gsc-kpi-delta admin-gsc-kpi-delta--up">
-                  <span>Топ-10: 1-я страница выдачи</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -502,24 +451,6 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                               <span className={`admin-gsc-pos-badge ${getPositionClass(item.position)}`}>
                                 #{item.position.toFixed(1)}
                               </span>
-                              {typeof item.previousPosition === 'number' && (
-                                <span
-                                  className={`admin-gsc-pos-delta ${
-                                    item.previousPosition > item.position
-                                      ? 'admin-gsc-pos-delta--better'
-                                      : 'admin-gsc-pos-delta--worse'
-                                  }`}
-                                  title={`Было: #${item.previousPosition.toFixed(1)}`}
-                                >
-                                  {item.previousPosition > item.position ? (
-                                    <>▲ +{(item.previousPosition - item.position).toFixed(1)}</>
-                                  ) : item.previousPosition < item.position ? (
-                                    <>▼ -{(item.position - item.previousPosition).toFixed(1)}</>
-                                  ) : (
-                                    '—'
-                                  )}
-                                </span>
-                              )}
                             </div>
                           </td>
                           <td className="admin-gsc-td-num">
@@ -622,16 +553,17 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                 <div className="admin-gsc-section-title-row">
                   <Lightbulb className="text-amber-400" size={18} aria-hidden="true" />
                   <div>
-                    <h3 className="admin-gsc-card-title">Быстрые победы (Low-hanging fruits)</h3>
+                    <h3 className="admin-gsc-card-title">Запросы для проверки</h3>
                     <p className="admin-gsc-card-subtitle">
-                      Запросы на 4–10 позициях с высоким спросом. Небольшая доработка текста выведет их в Топ-3 с кратным ростом кликов.
+                      Пары «запрос — страница» со средней позицией 4–15 и от 20 показов за выбранный период.
                     </p>
                   </div>
                 </div>
 
                 <div className="admin-gsc-cards-stack">
+                  {data.opportunities.length === 0 && <p className="admin-gsc-card-subtitle">За этот период подходящих пар нет.</p>}
                   {data.opportunities.map((opp) => (
-                    <div key={opp.query} className="admin-gsc-opp-card">
+                    <div key={opp.query + opp.page} className="admin-gsc-opp-card">
                       <div className="admin-gsc-opp-header">
                         <div className="admin-gsc-opp-query-block">
                           <span className="admin-gsc-opp-query">{opp.query}</span>
@@ -644,7 +576,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                             Текущая позиция: <strong>#{opp.currentPosition.toFixed(1)}</strong>
                           </div>
                           <div className="admin-gsc-opp-badge admin-gsc-opp-badge--gain">
-                            Потенциал: <strong>+{opp.potentialClicks} кликов/мес</strong>
+                            Показы: <strong>{opp.impressions}</strong> · CTR: <strong>{opp.ctr.toFixed(1)}%</strong>
                           </div>
                         </div>
                       </div>
@@ -662,19 +594,20 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                 <div className="admin-gsc-section-title-row">
                   <ShieldAlert className="text-rose-400" size={18} aria-hidden="true" />
                   <div>
-                    <h3 className="admin-gsc-card-title">Детектор каннибализации URL</h3>
+                    <h3 className="admin-gsc-card-title">Запросы с несколькими страницами</h3>
                     <p className="admin-gsc-card-subtitle">
-                      Запросы, по которым Google ранжирует сразу несколько разных страниц сайта, распыляя ссылочный вес.
+                      У каждого показанного URL от 10 показов по одному запросу. Сверьте назначение страниц, прежде чем менять их.
                     </p>
                   </div>
                 </div>
 
                 <div className="admin-gsc-cards-stack">
+                  {data.cannibalization.length === 0 && <p className="admin-gsc-card-subtitle">За этот период подходящих запросов нет.</p>}
                   {data.cannibalization.map((can) => (
                     <div key={can.query} className="admin-gsc-cann-card">
                       <div className="admin-gsc-cann-query-row">
                         <span className="admin-gsc-cann-query">{can.query}</span>
-                        <span className="admin-gsc-cann-warning">Конкурируют {can.pages.length} страницы</span>
+                        <span className="admin-gsc-cann-warning">Страниц с показами: {can.pages.length}</span>
                       </div>
                       <div className="admin-gsc-cann-pages-list">
                         {can.pages.map((p) => (
@@ -689,7 +622,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                         ))}
                       </div>
                       <div className="admin-gsc-cann-recommendation">
-                        Рекомендация: настройте внутреннюю перелинковку с менее релевантной страницы на основную посадочную либо разделите поисковый интент в контенте.
+                        Проверьте, какую задачу решает каждый URL. Если страницы отвечают на одну задачу, уточните основную посадочную и внутренние ссылки.
                       </div>
                     </div>
                   ))}
@@ -698,82 +631,28 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
             </div>
           )}
 
-          {activeTab === 'setup' && (
-            <div className="admin-card admin-gsc-setup-card">
-              <div className="admin-gsc-setup-header">
-                <Key size={20} className="text-blue-400" aria-hidden="true" />
-                <div>
-                  <h3 className="admin-gsc-card-title">Подключение Google Search Console API</h3>
-                  <p className="admin-gsc-card-subtitle">
-                    Для автоматической синхронизации данных напрямую из Google используйте сервисный аккаунт.
-                  </p>
-                </div>
-              </div>
-
-              <div className="admin-gsc-setup-steps">
-                <div className="admin-gsc-setup-step">
-                  <span className="admin-gsc-step-num">1</span>
-                  <div>
-                    <strong>Создайте Google Service Account</strong>
-                    <p>В Google Cloud Console активируйте «Google Search Console API» и создайте сервисный аккаунт с ключом JSON.</p>
-                  </div>
-                </div>
-
-                <div className="admin-gsc-setup-step">
-                  <span className="admin-gsc-step-num">2</span>
-                  <div>
-                    <strong>Делегируйте доступ в Search Console</strong>
-                    <p>
-                      В панели Google Search Console для ресурса <code>{data.setupGuide?.propertyName || 'sc-domain:whalewzrd.com'}</code> добавьте email сервисного аккаунта с ролью «Полный» или «Чтение».
-                    </p>
-                  </div>
-                </div>
-
-                <div className="admin-gsc-setup-step">
-                  <span className="admin-gsc-step-num">3</span>
-                  <div>
-                    <strong>Вставьте ключ JSON ниже</strong>
-                    <p>Ключ будет проверен и сохранён для автоматических ежедневных отчётов.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="admin-gsc-setup-form">
-                <label className="admin-gsc-textarea-label" htmlFor="gsc-creds-input">
-                  Содержимое ключа Service Account JSON:
-                </label>
-                <textarea
-                  id="gsc-creds-input"
-                  className="admin-input admin-gsc-textarea"
-                  rows={6}
-                  placeholder='{"type": "service_account", "project_id": "...", "private_key": "...", "client_email": "..."}'
-                  value={credentialsJson}
-                  onChange={(e) => setCredentialsJson(e.target.value)}
-                />
-
-                {saveStatus && (
-                  <div
-                    className={`admin-gsc-save-alert admin-gsc-save-alert--${saveStatus.type}`}
-                    role="alert"
-                  >
-                    {saveStatus.message}
-                  </div>
-                )}
-
-                <div className="admin-gsc-setup-footer">
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveCredentials()}
-                    disabled={savingCreds}
-                    className="admin-button admin-button--primary"
-                  >
-                    {savingCreds ? 'Проверка и сохранение…' : 'Проверить и сохранить ключ'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </>
+      )}
+
+      {((data && (!data.configured || activeTab === 'setup')) || error) && (
+        <div className="admin-card admin-gsc-setup-card">
+          <div className="admin-gsc-setup-header">
+            <Key size={20} className="text-blue-400" aria-hidden="true" />
+            <div>
+              <h3 className="admin-gsc-card-title">Подключение Google Search Console</h3>
+              <p className="admin-gsc-card-subtitle">Интеграция читает отчёты ресурса {data?.propertyName || 'sc-domain:whalewzrd.com'}.</p>
+            </div>
+          </div>
+          <ol className="admin-gsc-setup-steps list-decimal pl-5">
+            <li>В Google Cloud включите Google Search Console API, создайте сервисный аккаунт и его JSON-ключ.</li>
+            <li>В Search Console добавьте email аккаунта к ресурсу в разделе «Настройки → Пользователи и разрешения».</li>
+            <li>В Cloudflare Pages добавьте секрет <code>GSC_SERVICE_ACCOUNT_JSON</code> с содержимым JSON и выполните новую production-выкладку.</li>
+            <li>Если используется ресурс с префиксом URL, укажите его точный адрес в переменной <code>GSC_PROPERTY</code>. Затем нажмите «Обновить».</li>
+          </ol>
+          <a className="admin-gsc-page-link" href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer">
+            Открыть Search Console <ExternalLink size={12} aria-hidden="true" />
+          </a>
+        </div>
       )}
     </div>
   );

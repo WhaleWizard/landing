@@ -1,5 +1,6 @@
 import type { Article } from './types';
 import { sanitizeArticleHtml } from './sanitize';
+import { getArticleServiceLink } from '../../src/app/data/articleServiceLink';
 
 // Google обходит сайт не только под именем Googlebot. Проверка URL и запрос
 // индексирования в Search Console ходят под Google-InspectionTool, а качество
@@ -162,8 +163,8 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
       mainEntityOfPage: canonical,
       author: {
         '@type': 'Person',
-        name: 'Whale Wizard',
-        url: `${siteUrl}/`,
+        name: 'Руслан (Whale Wizard)',
+        url: `${siteUrl}/about/`,
         sameAs: ['https://t.me/white_rsh'],
       },
       publisher: {
@@ -260,6 +261,7 @@ export function renderArticleHtml(siteUrl: string, article: Article, sectionPath
   const keyTakeaways = (article.keyTakeaways || []).filter(Boolean);
   const faqItems = (article.faq || []).filter((item) => item?.question && item?.answer);
   const safeContent = sanitizeArticleHtml(article.content || '');
+  const serviceLink = getArticleServiceLink(article.slug);
 
   return `<!doctype html>
 <html lang="ru">
@@ -307,6 +309,7 @@ export function renderArticleHtml(siteUrl: string, article: Article, sectionPath
       <section>
 ${safeContent}
       </section>
+      ${serviceLink ? `<p><a href="${escapeHtml(serviceLink.href)}">${escapeHtml(serviceLink.label)}</a></p>` : ''}
       ${faqItems.length > 0 ? `<section><h2>FAQ</h2>${faqItems.map((item) => `<details><summary>${escapeHtml(item.question)}</summary><p>${escapeHtml(item.answer)}</p></details>`).join('')}</section>` : ''}
       <footer style="margin-top:40px;padding-top:20px;border-top:1px solid #eee">
         <h2>Услуги performance-маркетинга и аналитика</h2>

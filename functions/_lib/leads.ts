@@ -21,6 +21,7 @@ export interface LeadRecord {
   message?: string;
   service?: string;
   page_path?: string;
+  google_organic_landing_path?: string;
   // Какая форма принесла заявку (миграция 0022). Внутренние идентификаторы
   // форм сайта — не персональные данные и не рекламные метки.
   form_id?: string;
@@ -185,6 +186,7 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     const hasDedupe = cols.has('submissions_count') && cols.has('last_submitted_at'); // 0009
     const hasMetaContext = cols.has('marketing_consent'); // 0010
     const hasUtm = cols.has('utm_source'); // 0011
+    const hasOrganicLanding = cols.has('google_organic_landing_path'); // 0045
     const hasQuality = cols.has('quality'); // 0009
     const hasPipelineStage = cols.has('pipeline_stage'); // 0012
     const hasSoftDelete = cols.has('deleted_at'); // 0020
@@ -198,6 +200,7 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     const consentRegion = normalizeConsentRegion(lead.consent_region);
     const consentTimestamp = normalizeConsentTimestamp(lead.consent_timestamp);
     const marketingAllowed = lead.marketing_consent === true;
+    const organicLanding = marketingAllowed ? lead.google_organic_landing_path || '' : '';
 
     const alreadyIngested = await db.prepare('SELECT event_id FROM lead_ingestions WHERE event_id = ? LIMIT 1')
       .bind(eventId)
@@ -315,6 +318,10 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
         lead.page_path || '',
         addition, addition,
       ];
+      if (hasOrganicLanding) {
+        set.push('google_organic_landing_path = ?');
+        values.push(organicLanding);
+      }
 
       if (hasMetaContext) {
         set.push('fbp = ?', 'fbc = ?', 'event_source_url = ?', 'external_id = ?', 'marketing_consent = ?');
@@ -528,6 +535,11 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       lead.page_path || '',
     ];
     const placeholders = insertCols.map(() => '?');
+    if (hasOrganicLanding) {
+      insertCols.push('google_organic_landing_path');
+      placeholders.push('?');
+      insertVals.push(organicLanding);
+    }
     if (hasDedupe) {
       insertCols.push('last_submitted_at');
       placeholders.push("datetime('now')");

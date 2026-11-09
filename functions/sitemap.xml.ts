@@ -28,7 +28,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const articleDates = Object.fromEntries(
       articles.map((article) => [
         getArticlePath(article),
-        article.updatedAt || article.publishedAt || new Date().toISOString(),
+        article.updatedAt || article.publishedAt || article.date,
       ]),
     );
 

@@ -13,11 +13,44 @@ async function compile(relativePath, resolve = () => ({})) {
 }
 
 const botUtils = await compile('src/app/utils/isBotUserAgent.ts');
+const articleLinks = await compile('src/app/data/articleServiceLink.ts');
 const seoLib = await compile('functions/_lib/seo.ts', (id) => {
   if (id.includes('sanitize')) {
     return { sanitizeArticleHtml: (html) => html };
   }
+  if (id.endsWith('articleServiceLink')) return articleLinks;
   return {};
+});
+const { correctLegacyArticleSeo } = await compile('functions/_lib/article-seo-legacy.ts');
+const { googleOrganicLandingPath } = await compile('functions/_lib/google-organic-lead.ts');
+
+test('SEO: исправляются ровно известные оборванные title, пользовательская правка сохраняется', () => {
+  const { articles } = JSON.parse(readFileSync('data/articles.local.json', 'utf8'));
+  const changed = articles.filter((article) => correctLegacyArticleSeo(article) !== article);
+  assert.equal(changed.length, 7);
+  for (const article of changed) {
+    const revised = correctLegacyArticleSeo(article);
+    assert.notEqual(revised.seoTitle, article.seoTitle);
+    assert.equal(revised.content, article.content);
+    assert.equal(revised.updatedAt, article.updatedAt);
+    assert.equal(correctLegacyArticleSeo(revised), revised);
+    const edited = { ...article, seoTitle: 'Ручная редактура владельца' };
+    assert.equal(correctLegacyArticleSeo(edited), edited);
+    assert.ok(seoLib.renderArticleHtml('https://www.whalewzrd.com', revised).includes(revised.seoTitle));
+  }
+});
+
+test('SEO: учитывается распознанный вход Google с согласием, пути сохраняются в канонической форме', () => {
+  const base = { marketing_consent: true, entry_path: '/meta-apps', referrer: 'https://www.google.co.uk/' };
+  assert.equal(googleOrganicLandingPath(base), '/meta-apps/');
+  assert.equal(googleOrganicLandingPath({ ...base, entry_path: '/blog/article/' }), '/blog/article');
+  assert.equal(googleOrganicLandingPath({ ...base, referrer: '', utm_source: 'Google', utm_medium: 'organic' }), '/meta-apps/');
+  for (const change of [
+    { marketing_consent: false }, { referrer: '' }, { referrer: 'https://www.google.com.evil.test/' },
+    { referrer: 'https://mail.google.com/' }, { referrer: 'https://www.google.com/maps/' },
+    { gclid: 'paid' }, { wbraid: 'paid' }, { utm_medium: 'cpc' }, { utm_campaign: 'campaign' },
+    { entry_path: '/admin/' }, { entry_path: '/meta-apps/?x=1' }, { entry_path: '/blog/a--b' },
+  ]) assert.equal(googleOrganicLandingPath({ ...base, ...change }), '', JSON.stringify(change));
 });
 const pageLocksLib = await compile('functions/_lib/page-locks.ts');
 

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { lazy, Suspense, useCallback, useMemo, type MouseEvent, type MutableRefObject, type Ref } from 'react';
 import ClientOnly from './ClientOnly';
+import { getArticleServiceLink } from '../data/articleServiceLink';
 import type { Article } from './hooks/useArticlesApi';
 import Navbar from './Navbar';
 import PageNav from './PageNav';
@@ -101,6 +102,7 @@ export default function CaseArticleView({
   onRelated,
   settledEntrance = false,
 }: CaseArticleViewProps) {
+  const serviceLink = getArticleServiceLink(article.slug);
   const reduceMotion = useReducedMotion();
   const skipEntrance = reduceMotion || settledEntrance;
   const titleFit = useManagedTitleFit<HTMLHeadingElement>(CASE_TITLE_LINES, { minFontSize: 19 });
@@ -276,6 +278,13 @@ export default function CaseArticleView({
               className="case-article-content blog-article-content max-w-none"
               dangerouslySetInnerHTML={{ __html: articleHtml }}
             />
+            {serviceLink && (
+              <p className="mt-6 rounded-xl border border-border bg-card/30 px-4 py-3">
+                <a href={serviceLink.href} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+                  {serviceLink.label}
+                </a>
+              </p>
+            )}
 
             {faqItems.length ? (
               <section className="case-article-faq">

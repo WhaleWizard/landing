@@ -97,11 +97,13 @@ function isCacheableStaticPage(response: Response, request: Request, previewActi
 
 function withSecurityHeaders(response: Response, request: Request, previewActive = false): Response {
   const headers = new Headers(response.headers);
+  const url = new URL(request.url);
 
   // JSON служебных эндпоинтов не должен попадать в поиск как отдельная
   // страница. Закрывать их в robots.txt нельзя: тогда Googlebot не сможет
   // прочитать /api/articles при рендеринге блога и увидит пустой список.
-  if (new URL(request.url).pathname.startsWith('/api/')) {
+  // Технические Pages-адреса доступны для предпросмотра.
+  if (url.pathname.startsWith('/api/') || url.hostname.endsWith('.pages.dev')) {
     headers.set('X-Robots-Tag', 'noindex, nofollow');
   }
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, startTransition, type CSSProperties, type ReactNode } from 'react';
-import { useLocation, useNavigationType } from 'react-router';
+import { Link, useLocation, useNavigationType } from 'react-router';
 import { BarChart3, Briefcase, CheckCircle2, Search, ShoppingCart, Sparkles, Target, TrendingUp, Users, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import type { HeroContent } from '../components/Hero';
@@ -16,6 +16,7 @@ import { memoizedImport } from '../utils/memoizedImport';
 import { useWarmSections } from '../utils/sectionWarmup';
 import { hasGeneratedFirstScreen } from '../utils/firstScreen';
 import { isBotUserAgent } from '../utils/isBotUserAgent';
+import { serviceSearchContent } from '../data/serviceSearchContent';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import { loadHero, loadConsultStudioHero, loadMetaAdsEditorialHero } from '../utils/heroPreload';
 import {
@@ -266,7 +267,7 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
       badge: 'Опубликованные кейсы',
       titlePrefix: 'Кейсы с лучшими',
       titleAccent: 'результатами',
-      description: 'Четыре опубликованных кейса из разных ниш. В карточках — фактические показатели проектов; названия клиентов скрыты по условиям NDA.',
+      description: 'В карточках собраны краткие итоги проектов из разных ниш. Подробные разборы доступны в разделе кейсов.',
       items: [
         {
           title: 'Премиум-консьерж: лиды по качеству, а не по CPL',
@@ -493,8 +494,8 @@ export const pageConfigs: Record<ServiceType, Omit<ServiceLandingPageProps, 'ser
   },
   'meta-apps': {
     seo: {
-      title: 'Продвижение мобильных приложений в Meta Ads: реклама в Instagram и Facebook',
-      description: 'Продвижение iOS и Android приложений в Meta Ads под ключ: окупаемые установки, регистрации, покупки и подписки. Настройка Meta SDK, MMP (AppsFlyer, Adjust) и Conversions API. Креативы под Reels и Stories.',
+      title: 'Продвижение мобильных приложений в Meta Ads под ключ',
+      description: 'Настраиваю рекламу приложений iOS и Android в Instagram и Facebook. Проверяю SDK и MMP, готовлю креативы и веду кампании по регистрациям, покупкам или подпискам.',
       url: '/meta-apps/',
     },
     hero: {
@@ -1166,6 +1167,25 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
           moreHref={`/cases/?from=${service}`}
         />
       </DeferredSection>
+      <section aria-labelledby="service-practice-title" className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 md:py-12">
+        <div className="rounded-3xl border border-border bg-card/40 p-5 sm:p-8">
+          <h2 id="service-practice-title" className="text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+            {serviceSearchContent[service].title}
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            {serviceSearchContent[service].description}
+          </p>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {serviceSearchContent[service].links.map(({ href, label }) => (
+              <li key={href}>
+                <Link to={href} className="flex min-h-11 items-center rounded-xl border border-border px-3 py-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
       <DeferredSection heights={{ mobile: 410, tablet: 390, desktop: 371 }}>
         <CallToAction content={config.cta} />
       </DeferredSection>

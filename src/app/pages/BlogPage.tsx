@@ -1,5 +1,6 @@
 // src/app/pages/BlogPage.tsx
 import { AnimatePresence, m, useReducedMotion, useScroll, useSpring } from 'motion/react';
+import { getArticleServiceLink } from '../data/articleServiceLink';
 import {
   AlertTriangle,
   ArrowRight,
@@ -315,7 +316,7 @@ function buildArticleStructuredData(article: Article, routeBase: '/blog' | '/cas
     ...(publishedDate ? { datePublished: publishedDate } : {}),
     ...(modifiedDate ? { dateModified: modifiedDate } : {}),
     mainEntityOfPage: canonical,
-    author: { '@type': 'Person', name: 'Whale Wizard' },
+    author: { '@type': 'Person', name: 'Руслан (Whale Wizard)', url: `${SITE_URL}/about/` },
     publisher: {
       '@type': 'Organization',
       name: 'Whale Wizard',
@@ -848,6 +849,7 @@ function BlogPageComponent() {
   if (selectedArticle) {
     const seoTitle = buildArticleSeoTitle(selectedArticle);
     const seoDescription = buildArticleSeoDescription(selectedArticle);
+    const serviceLink = getArticleServiceLink(selectedArticle.slug);
 
     if (isCasesRoute) {
       return (
@@ -941,7 +943,7 @@ function BlogPageComponent() {
                     className="h-11 w-11 rounded-xl object-contain"
                   />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Whale Wizard</p>
+                    <Link to="/about/" className="text-sm font-semibold text-foreground underline-offset-4 hover:underline">Руслан · Whale Wizard</Link>
                     <p className="text-xs text-muted-foreground">Практика performance-маркетинга</p>
                   </div>
                 </div>
@@ -1018,6 +1020,13 @@ function BlogPageComponent() {
               className="blog-article-content max-w-none"
               dangerouslySetInnerHTML={{ __html: articleHtml }}
             />
+            {serviceLink && (
+              <p className="mt-6 rounded-xl border border-border bg-card/30 px-4 py-3">
+                <Link to={serviceLink.href} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+                  {serviceLink.label}
+                </Link>
+              </p>
+            )}
 
             {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
               <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">

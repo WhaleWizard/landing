@@ -104,9 +104,12 @@ export const SUPERSEDED_STORED_FIELDS = {
     ['seo', 'title', 'Настройка Meta Ads для заявок и продаж'],
     ['seo', 'description', 'Запуск и ведение рекламы в Facebook и Instagram: оффер, креативы, Meta Pixel, Conversions API и передача статусов лидов из CRM.'],
     ['hero', 'badge', 'Meta Ads для заявок и продаж'],
+    ['cases', 'description', 'Четыре опубликованных кейса из разных ниш. В карточках — фактические показатели проектов; названия клиентов скрыты по условиям NDA.'],
   ],
   'service:meta-apps': [
     ['seo', 'title', 'Реклама мобильных приложений в Meta Ads'],
+    ['seo', 'title', 'Продвижение мобильных приложений в Meta Ads: реклама в Instagram и Facebook'],
+    ['seo', 'description', 'Продвижение iOS и Android приложений в Meta Ads под ключ: окупаемые установки, регистрации, покупки и подписки. Настройка Meta SDK, MMP (AppsFlyer, Adjust) и Conversions API. Креативы под Reels и Stories.'],
     ['seo', 'description', 'Продвижение iOS- и Android-приложений: события после установки, Meta SDK, MMP, Conversions API, креативы и оптимизация по целевому действию.'],
     ['hero', 'badge', 'Meta Ads для iOS и Android'],
   ],

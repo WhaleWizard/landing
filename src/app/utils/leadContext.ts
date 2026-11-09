@@ -12,6 +12,19 @@ const CONTEXT_KEY = 'ww_lead_context_v1';
 const MAX_AGE_MS = 1000 * 60 * 60 * 2; // 2 часа: вкладку могли оставить открытой
 const MAX_NAME_LENGTH = 24;
 
+// A client-side transition changes location.pathname. Navigation Timing
+// retains the initial document URL, which shares its referrer.
+export function getLeadEntryPath(marketingConsent?: boolean): string | undefined {
+  if (!marketingConsent) return undefined;
+  try {
+    const navigation = performance.getEntriesByType('navigation')[0];
+    const url = new URL(navigation.name);
+    return url.origin === window.location.origin ? url.pathname : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export type LeadContactChannel = 'telegram' | 'whatsapp' | 'email' | 'phone';
 
 export type LeadServiceSlug = 'home' | 'meta-ads' | 'google-ads' | 'meta-apps' | 'consult';

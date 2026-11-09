@@ -376,4 +376,13 @@ export const MIGRATION_SIGNATURES: readonly MigrationSignature[] = [
     indexes: ['idx_client_workspace_key', 'idx_client_work_client', 'idx_invoice_request', 'idx_invoice_work_month', 'idx_time_request', 'idx_time_work', 'idx_payments_invoice', 'idx_payments_date', 'idx_client_tasks_due', 'idx_client_tasks_work', 'idx_client_task_reminder', 'idx_work_resources', 'idx_work_activity'],
     triggers: ['work_created_history', 'work_changed_history', 'task_created_history', 'task_changed_history', 'invoice_reminder_links', 'time_work_guard_insert', 'time_work_guard_update', 'payment_amount_guard', 'invoice_ledger_guard', 'invoice_work_guard_insert', 'invoice_work_guard_update', 'payment_sync_invoice', 'payment_void_sync', 'invoice_paid_insert', 'invoice_paid_update'],
   },
+  {
+    file: '0045_google_organic_landing.sql',
+    tables: [],
+    columns: {
+      leads: ['google_organic_landing_path'],
+    },
+    indexes: [],
+    triggers: [],
+  },
 ];

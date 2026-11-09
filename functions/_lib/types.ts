@@ -73,6 +73,9 @@ export interface Env {
   // ранее выданные ссылки.
   PAGE_LOCK_PREVIEW_SECRET?: string;
   SITE_URL?: string;
+  GSC_PROPERTY?: string;
+  GSC_SERVICE_ACCOUNT_JSON?: string;
+  GOOGLE_SEARCH_CONSOLE_KEY?: string;
   // Optional Google PageSpeed Insights API key for higher, predictable quota.
   // The admin performance checker also works without it under Google's shared quota.
   PAGESPEED_API_KEY?: string;

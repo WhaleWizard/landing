@@ -696,9 +696,8 @@ test('B2-M1-ATTRIBUTION: каскад конверсий, битва канал�
 
 test('B2-M3-GSC: Search Console API, KPI-плитки, векторный график, запросы, точки роста и каннибализация', async () => {
   const gscApiSource = await source('functions/api/admin/search-console.ts');
-  assert.match(gscApiSource, /export async function onRequestGet/, 'Эндпоинт GET для данных GSC');
-  assert.match(gscApiSource, /export async function onRequestPost/, 'Эндпоинт POST для сохранения ключа');
-  assert.match(gscApiSource, /getDemoDataset/, 'Реалистичный демо-датасет для whalewzrd.com');
+  assert.match(gscApiSource, /export const onRequestGet/, 'Эндпоинт GET для данных GSC');
+  assert.doesNotMatch(gscApiSource, /onRequestPost|getDemoDataset/, 'Ключ берётся из окружения, отчёт без демоданных');
 
   const gscUiSource = await source('src/app/components/admin/AdminSearchConsole.tsx');
   assert.match(gscUiSource, /export default function AdminSearchConsole/, 'Компонент AdminSearchConsole экспортирован');

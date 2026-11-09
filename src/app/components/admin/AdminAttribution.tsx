@@ -19,7 +19,7 @@ import {
   type FunnelStep, type SeriesPoint,
 } from './AttributionCharts';
 
-type DimensionKey = 'page' | 'source' | 'campaign' | 'utm' | 'service' | 'country' | 'device' | 'form_id' | 'form_variant';
+type DimensionKey = 'page' | 'google_organic' | 'source' | 'campaign' | 'utm' | 'service' | 'country' | 'device' | 'form_id' | 'form_variant';
 
 interface DimensionRow {
   key: string;

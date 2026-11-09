@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { build } from 'esbuild';
@@ -930,4 +930,100 @@ test('F-068: отчёт отдаёт местный «сегодня», а кл�
   const startedAt = clients.sqlite.prepare('SELECT started_at FROM clients WHERE id = ?').get(created.payload.id).started_at;
   assert.equal(startedAt, localToday);
   assert.notEqual(startedAt, utcToday);
+});
+
+test('Search Console requests a read-only token and uses real report rows and period totals', async (t) => {
+  t.after(installMemoryCache());
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const credentials = JSON.stringify({
+    client_email: 'report@example.test',
+    private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+  });
+  const realFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = realFetch; });
+  const requests = [];
+  const measure = { clicks: 7, impressions: 50, ctr: 0.14, position: 8.4 };
+  const page = 'https://www.whalewzrd.com/meta-apps/';
+  globalThis.fetch = async (url, init) => {
+    if (url === 'https://oauth2.googleapis.com/token') {
+      const [header, body, signature] = init.body.get('assertion').split('.');
+      const jwt = JSON.parse(Buffer.from(body, 'base64url').toString());
+      assert.equal(jwt.iss, 'report@example.test');
+      assert.equal(jwt.scope, 'https://www.googleapis.com/auth/webmasters.readonly');
+      assert.equal(jwt.aud, url);
+      assert.ok(verify('sha256', Buffer.from(header + '.' + body), publicKey, Buffer.from(signature, 'base64url')));
+      return Response.json({ access_token: 'example-access-token' });
+    }
+    assert.equal(url, 'https://www.googleapis.com/webmasters/v3/sites/sc-domain%3Awhalewzrd.com/searchAnalytics/query');
+    assert.equal(init.headers.Authorization, 'Bearer example-access-token');
+    const request = JSON.parse(init.body);
+    requests.push(request);
+    assert.equal(request.dataState, 'final');
+    assert.equal(request.type, 'web');
+    const rows = {
+      '': [{ clicks: 25, impressions: 95, ctr: 25 / 95, position: 7 }],
+      date: [{ keys: ['2026-11-05'], ...measure }],
+      query: [{ keys: ['реклама приложения'], ...measure }],
+      page: [{ keys: [page], ...measure }, { keys: ['javascript:alert(1)'], ...measure }],
+      'query,page': [
+        { keys: ['реклама приложения', page], ...measure },
+        { keys: ['реклама приложения', 'https://www.whalewzrd.com/'], ...measure },
+      ],
+    };
+    return Response.json({ rows: rows[request.dimensions.join(',')] });
+  };
+  const { getSearchConsoleReport, onRequestGet } = await loadModule('functions/api/admin/search-console.ts');
+  const result = await getSearchConsoleReport(credentials, 'sc-domain:whalewzrd.com', 7, new Date('2026-11-09T02:00:00Z'));
+  assert.equal(result.endDate, '2026-11-05');
+  assert.equal(result.startDate, '2026-10-30');
+  assert.deepEqual(requests.filter((request) => !request.dimensions.length).map(({ startDate, endDate }) => [startDate, endDate]), [
+    ['2026-10-30', '2026-11-05'], ['2026-10-23', '2026-10-29'],
+  ]);
+  assert.equal(result.summary.clicks, 25);
+  assert.equal(result.daily[0].ctr.toFixed(1), '14.0');
+  assert.equal(result.pages.length, 1);
+  assert.deepEqual(result.pages[0].topQueries, ['реклама приложения']);
+  assert.equal(result.cannibalization[0].pages.length, 2);
+  assert.equal(result.opportunities[0].impressions, 50);
+
+  const unconfigured = await onRequestGet({
+    request: adminRequest('search-console'),
+    env: { ADMIN_PASSWORD },
+  });
+  assert.equal(unconfigured.status, 200);
+  const empty = await unconfigured.json();
+  assert.equal(empty.configured, false);
+  assert.equal(empty.summary, null);
+  assert.deepEqual(empty.queries, []);
+  const failed = await onRequestGet({
+    request: adminRequest('search-console'),
+    env: { ADMIN_PASSWORD, GSC_SERVICE_ACCOUNT_JSON: 'broken-json' },
+  });
+  assert.equal(failed.status, 503);
+  assert.ok(!(await failed.text()).includes('broken-json'));
+  const denied = await onRequestGet({
+    request: new Request('https://www.whalewzrd.com/api/admin/search-console'),
+    env: { ADMIN_PASSWORD, GSC_SERVICE_ACCOUNT_JSON: credentials },
+  });
+  assert.equal(denied.status, 401);
+});
+
+test('атрибуция Google Organic показывает только подтверждённые входы и поддерживает схему до 0045', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const organic = insertLead(sqlite, { name: 'Распознанный вход', quality: 'target' });
+  sqlite.prepare('UPDATE leads SET google_organic_landing_path = ? WHERE id = ?').run('/meta-apps/', organic);
+  insertLead(sqlite, { name: 'Источник неизвестен' });
+
+  const attribution = await harness('functions/api/admin/attribution.ts', { sqlite });
+  const getDimension = async () => (await attribution.get({ days: 28 })).payload.dimensions.find((item) => item.key === 'google_organic');
+  const dimension = await getDimension();
+  assert.equal(dimension.supported, true);
+  assert.deepEqual(dimension.rows.map(({ key, leads, qualified }) => ({ key, leads, qualified })), [
+    { key: '/meta-apps/', leads: 1, qualified: 1 },
+  ]);
+  sqlite.exec('ALTER TABLE leads DROP COLUMN google_organic_landing_path');
+  const unavailable = await getDimension();
+  assert.equal(unavailable.supported, false);
+  assert.match(unavailable.reason, /0045/);
 });

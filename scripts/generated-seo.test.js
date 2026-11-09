@@ -289,6 +289,26 @@ test('discovery files are present and robots points to the canonical sitemap', (
   assert.match(adminHtml, /content="noindex, nofollow, noarchive"/);
 });
 
+test('commercial pages expose links in their visible SSR content and use truthful sitemap dates', () => {
+  const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');
+  const indexableUrls = new Set([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, url]) => url));
+  for (const route of ['meta-ads', 'meta-apps', 'google-ads', 'consult']) {
+    const html = readFileSync(join(DIST, route, 'index.html'), 'utf8');
+    const section = html.match(/<section aria-labelledby="service-practice-title"[^>]*>[\s\S]*?<\/section>/)?.[0];
+    assert.ok(section, route + ' needs the commercial search section in SSR');
+    const targets = [...section.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map(([, href]) => href);
+    assert.equal(targets.length, 2, route + ' must have two contextual links');
+    for (const target of targets) {
+      assert.ok(indexableUrls.has(SITE_URL + target), 'non-canonical or missing target ' + target);
+    }
+  }
+  for (const [, url, tail] of sitemap.matchAll(/<url><loc>([^<]+)<\/loc>(.*?)<\/url>/g)) {
+    if (STATIC_ROUTES.some((route) => canonicalForRoute(route) === url)) {
+      assert.doesNotMatch(tail, /<lastmod>/, 'a static route must not be dated by the build');
+    }
+  }
+});
+
 test('article routes are served with their own meta, not the home page shell', () => {
   // Раньше страница статьи отдавала обычному браузеру корневой index.html:
   // Google видел на каждом материале canonical главной и не индексировал их.

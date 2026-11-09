@@ -64,21 +64,27 @@ export function aggregateChannels(
     meta: { id: 'meta', name: 'Meta Ads (Inst / FB)', icon: 'meta', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
     google: { id: 'google', name: 'Google Ads (Search/PMax)', icon: 'google', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
     telegram: { id: 'telegram', name: 'Telegram Ads & Посевы', icon: 'telegram', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
-    organic: { id: 'organic', name: 'Органика & Прямой трафик', icon: 'organic', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
+    organic: { id: 'organic', name: 'Органика по меткам', icon: 'organic', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
+    direct: { id: 'direct', name: 'Прямой трафик по меткам', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
+    unknown: { id: 'unknown', name: 'Источник не определён', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
     other: { id: 'other', name: 'Прочие каналы', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
   };
 
   for (const row of rows) {
     const k = row.key.toLowerCase();
     let target = 'other';
-    if (/meta|facebook|fb|instagram|inst|ig\b/i.test(k)) {
+    if (/\b(?:organic|seo)\b|органика/i.test(k)) {
+      target = 'organic';
+    } else if (/^\(?direct\)?(?:\s*\/|$)/i.test(k)) {
+      target = 'direct';
+    } else if (/^(?:без (?:источника|utm)|\(?none\)?|—)?$/i.test(k.trim())) {
+      target = 'unknown';
+    } else if (/meta|facebook|fb|instagram|inst|ig\b/i.test(k)) {
       target = 'meta';
     } else if (/google|gads|adwords|cpc|pmax/i.test(k)) {
       target = 'google';
     } else if (/tg|telegram/i.test(k)) {
       target = 'telegram';
-    } else if (/direct|\(direct\)|none|organic|yandex|seo|главная|поиск/i.test(k)) {
-      target = 'organic';
     }
 
     const b = buckets[target];

@@ -848,8 +848,8 @@ function buildArticleJsonLd(article) {
     mainEntityOfPage: canonical,
     author: {
       '@type': 'Person',
-      name: 'Whale Wizard',
-      url: `${SITE_URL}/`,
+      name: 'Руслан (Whale Wizard)',
+      url: `${SITE_URL}/about/`,
       sameAs: ['https://t.me/white_rsh'],
     },
     publisher: {
@@ -1894,6 +1894,10 @@ function renderServicePageSections(config) {
       bodyHtml: `${renderBadgeHtml(config.cases.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.cases.description)}</p>${renderCaseItemsHtml(config.cases.items)}`,
     },
     {
+      heading: config.practice.title,
+      bodyHtml: `<p style="${contentStyles.body}">${escapeHtml(config.practice.description)}</p><ul>${config.practice.links.map(({ href, label }) => `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`).join('')}</ul>`,
+    },
+    {
       heading: config.cta.title,
       bodyHtml: `${renderBadgeHtml(config.cta.badge)}<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>${renderActionLabelsHtml([config.cta.button])}`,
     },
@@ -2039,6 +2043,7 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
     const config = {
       ...mergePublishedContent(sourceConfig, publishedOverride),
       service,
+      practice: content.serviceSearchContent[service],
       defaultTestimonials: content.defaultTestimonialsContent,
       defaultTestimonialsStats: content.defaultTestimonialsStats,
       metaAppsTestimonials: content.META_APPS_TESTIMONIAL_CONTENT,
@@ -2443,16 +2448,6 @@ async function renderBlogPages(articles, baseHtml, content) {
   await renderArticlePages(articles, baseHtml, content);
 }
 
-function writeSitemap(routes) {
-  const uniqueRoutes = [...new Set(routes)];
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${uniqueRoutes.map((route) => `  <url><loc>${xmlEscape(`${SITE_URL}${withTrailingSlashIfStaticRoute(route)}`)}</loc><lastmod>${BUILD_DATE}</lastmod></url>`).join('\n')}
-</urlset>`;
-
-  writeFileSync(join(DIST_DIR, 'sitemap.xml'), xml, 'utf8');
-}
-
 /**
  * Ранние подсказки (Early Hints, 103) для первого кадра.
  *
@@ -2800,8 +2795,10 @@ async function main() {
 
   const baseHtml = readViteIndexHtml();
   titlePrefitScript = await buildTitlePrefitScript();
-  const articles = normalizeArticles(loadArticles()).filter((article) => isPublishedArticle(article));
   const content = await loadSiteContent();
+  const articles = normalizeArticles(loadArticles())
+    .filter((article) => isPublishedArticle(article))
+    .map(content.correctLegacyArticleSeo);
   const publishedContent = await loadPublishedSiteContent({
     endpoint: PUBLIC_SITE_CONTENT_URL,
     snapshotPath: BUILD_SITE_CONTENT_PATH,
@@ -2820,7 +2817,10 @@ async function main() {
   const articleRoutes = articles.map((article) => getArticlePath(article));
   const allRoutes = [...new Set([...STATIC_ROUTES, ...articleRoutes])];
 
-  writeSitemap(allRoutes);
+  const articleDates = Object.fromEntries(articles.map((article) => [
+    getArticlePath(article), article.updatedAt || article.publishedAt || article.date,
+  ]));
+  writeFileSync(join(DIST_DIR, 'sitemap.xml'), content.renderSitemapXml(SITE_URL, allRoutes, articleDates), 'utf8');
   writeEarlyHints(staticPages, baseHtml);
   writeRobots();
   appendLlmsContentIndex(articles);

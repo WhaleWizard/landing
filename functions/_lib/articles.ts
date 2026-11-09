@@ -1,4 +1,5 @@
 import { fetchArticlesFromJsonBin, normalizeArticles } from './jsonbin';
+import { correctLegacyArticleSeo } from './article-seo-legacy';
 import {
   fetchArticleFromD1,
   fetchArticleCandidatesFromD1,
@@ -41,7 +42,7 @@ export function isPublishedArticle(article: Article, nowIso = new Date().toISOSt
 }
 
 export function filterVisibleArticles(articles: Article[], nowIso = new Date().toISOString()): Article[] {
-  return articles.filter((article) => isPublishedArticle(article, nowIso));
+  return articles.filter((article) => isPublishedArticle(article, nowIso)).map(correctLegacyArticleSeo);
 }
 
 function getSiteUrl(env: Env, request: Request): string {

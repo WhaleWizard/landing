@@ -46,7 +46,7 @@ import {
 } from '../utils/phoneCountry';
 import { isRetryableLeadStatus, queueLeadForRetry, scheduleLeadRetry } from '../utils/leadRetryQueue';
 import { fetchGeoPayload } from '../utils/geoLookup';
-import { saveLeadContext } from '../utils/leadContext';
+import { getLeadEntryPath, saveLeadContext } from '../utils/leadContext';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { useTurnstile } from './hooks/useTurnstile';
 import { useSiteSection } from '../hooks/useServiceContent';
@@ -258,6 +258,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           hp_trap: hpTrap,
           page_url: window.location.href,
           referrer: document.referrer || undefined,
+          entry_path: getLeadEntryPath(metaBrowserContext.marketing_consent),
         };
 
         const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;

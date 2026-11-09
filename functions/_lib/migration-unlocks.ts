@@ -56,4 +56,5 @@ export const MIGRATION_UNLOCKS: Readonly<Record<string, string>> = {
   '0042_articles_featured_order.sql': 'Закрепление статей на главной: до пятнадцати в порядке владельца.',
   '0043_admin_alerts_dismissed.sql': 'Скрытие уведомления не возвращается, пока повод тот же.',
   '0044_connected_workspace.sql': 'Связанные проекты, консультации и клиенты; частичные оплаты, задачи и напоминания без двойного учёта.',
+  '0045_google_organic_landing.sql': 'Заявки из органического поиска Google по первой странице открытого документа.',
 };

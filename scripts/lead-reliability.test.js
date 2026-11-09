@@ -150,6 +150,7 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     getTurnstileToken: async () => 'test-token',
     setVerificationFailed: () => {},
     getMetaBrowserContext: () => ({ marketing_consent: true }),
+    getLeadEntryPath: () => undefined,
     getAnalyticsClientIds: async () => ({}),
     buildFullPhone: () => '+998901234567',
     phoneCode: '+998',
@@ -172,6 +173,7 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     setAgreed: () => {},
     trackLead: (...args) => calls.tracked.push(args),
     saveLeadContext: () => {},
+    getLeadEntryPath: () => undefined,
     resetTimerRef: {},
     redirectTimerRef: {},
     navigate: () => {},
@@ -715,4 +717,17 @@ test('заявка полугодовой давности поднимаетс�
     2,
     'поднялась именно исходная заявка',
   );
+});
+
+test('Google Organic landing is written with consent and cleared on a repeat without consent', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createLeadDatabase();
+  sqlite.exec(readFileSync('migrations/0045_google_organic_landing.sql', 'utf8'));
+  const contact = { name: 'SEO test', email: 'seo@example.com', google_organic_landing_path: '/meta-apps/' };
+  await storeLead({ DB: d1 }, { ...contact, event_id: 'organic-first', marketing_consent: true });
+  const path = () => sqlite.prepare('SELECT google_organic_landing_path FROM leads').get().google_organic_landing_path;
+  assert.equal(path(), '/meta-apps/');
+  const repeat = await storeLead({ DB: d1 }, { ...contact, event_id: 'organic-repeat', marketing_consent: false });
+  assert.equal(repeat.repeat, true);
+  assert.equal(path(), '');
 });

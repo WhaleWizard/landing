@@ -819,3 +819,19 @@ test('F-110: sitemap.xml and feed.xml cache by path only, so random parameters d
   }
   cacheStore.clear();
 });
+
+test('технический Pages-адрес закрыт от индексации, основной домен доступен', async () => {
+  const { onRequest } = await loadModule('functions/_middleware.ts');
+  async function headers(host) {
+    const response = await onRequest({
+      request: new Request('https://' + host + '/meta-apps/'),
+      env: {},
+      next: async () => new Response('<h1>Пример</h1>', { headers: { 'Content-Type': 'text/html' } }),
+      waitUntil: () => {},
+    });
+    assert.equal(response.status, 200);
+    return response.headers;
+  }
+  assert.equal((await headers('preview.example.pages.dev')).get('X-Robots-Tag'), 'noindex, nofollow');
+  assert.equal((await headers('www.whalewzrd.com')).get('X-Robots-Tag'), null);
+});
