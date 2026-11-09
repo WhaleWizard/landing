@@ -10,7 +10,7 @@ import {
   ShieldAlert,
   Trash2,
 } from 'lucide-react';
-import { notify } from './AdminFeedback';
+import { confirmAsk, notify } from './AdminFeedback';
 import {
   CATEGORY_NAMES,
   TEMPLATES,
@@ -22,6 +22,14 @@ import {
 interface ClientLaunchpadProps {
   clientId: number;
   clientName: string;
+}
+
+function storedChecklist(key: string): Record<string, unknown> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(key) ?? '{}');
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+  } catch {}
+  return {};
 }
 
 export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpadProps) {
@@ -39,14 +47,20 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
 
   // Load client checklist state from localStorage
   useEffect(() => {
-    try {
-      const savedChecked = localStorage.getItem(`ww_client_launchpad_${clientId}`);
-      if (savedChecked) setCheckedMap(JSON.parse(savedChecked));
-      const savedCustom = localStorage.getItem(`ww_client_launchpad_custom_${clientId}`);
-      if (savedCustom) setCustomItems(JSON.parse(savedCustom));
-    } catch {
-      // ignore
-    }
+    const savedChecked = storedChecklist(`ww_client_launchpad_${clientId}`);
+    const savedCustom = storedChecklist(`ww_client_launchpad_custom_${clientId}`);
+    setCheckedMap(Object.fromEntries(TEMPLATES.map(({ id }) => {
+      const checks = savedChecked[id];
+      const entries = checks && typeof checks === 'object' && !Array.isArray(checks) ? Object.entries(checks) : [];
+      return [id, Object.fromEntries(entries.filter(([, value]) => typeof value === 'boolean'))];
+    })));
+    setCustomItems(Object.fromEntries(TEMPLATES.map(({ id }) => {
+      const items = savedCustom[id];
+      return [id, Array.isArray(items) ? items.filter((item) => item && typeof item.id === 'string'
+        && typeof item.title === 'string' && typeof item.desc === 'string' && item.isCustom === true
+        && Object.hasOwn(CATEGORY_NAMES, item.category)
+        && ['critical', 'important', 'recommended'].includes(item.priority)) : []];
+    })));
   }, [clientId]);
 
   // Toggle item status
@@ -139,8 +153,12 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
     });
   };
 
-  const handleResetChecklist = () => {
-    if (!window.confirm('Сбросить все отметки по текущему шаблону для этого клиента?')) return;
+  const handleResetChecklist = async () => {
+    if (!(await confirmAsk({
+      title: 'Сбросить отметки?',
+      description: 'Отметки текущего шаблона будут сняты. Индивидуальные задачи останутся в списке.',
+      confirmLabel: 'Сбросить',
+    }))) return;
     setCheckedMap((prev) => {
       const updated = { ...prev, [activeTemplateId]: {} };
       try {
@@ -201,10 +219,10 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
             Чек-листы запуска рекламы
           </h3>
           <p className="admin-hint">
-            Интерактивный контроль перед включением рекламных кампаний клиента.
+            Отметки и свои задачи хранятся в этом браузере.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             className="admin-button admin-button--compact admin-button--quiet"
@@ -218,6 +236,7 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
             className="admin-button admin-button--compact admin-button--quiet"
             onClick={handleResetChecklist}
             title="Сбросить все отметки"
+            aria-label="Сбросить все отметки"
           >
             <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
@@ -231,6 +250,7 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
             key={tpl.id}
             type="button"
             className={`admin-crm-chip ${activeTemplateId === tpl.id ? 'is-active is-primary' : ''}`}
+            aria-pressed={activeTemplateId === tpl.id}
             onClick={() => setActiveTemplateId(tpl.id)}
           >
             {tpl.name}

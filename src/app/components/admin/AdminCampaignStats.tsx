@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownUp,
-  BarChart3,
   Copy,
   Download,
   MousePointerClick,
@@ -17,6 +16,9 @@ import {
 } from 'lucide-react';
 import { formatMoney, formatNumber, formatPercent } from './AttributionCharts';
 import { AdminBlank, AdminSectionSkeleton, notify } from './AdminFeedback';
+import AdminOverlay from './AdminOverlay';
+import { AdminSelect } from './AdminUI';
+import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 
 export interface CampaignAggregate {
   key: string;
@@ -27,8 +29,8 @@ export interface CampaignAggregate {
   impressions: number;
   clicks: number;
   ctr: number | null;
-  spend: number;
-  currency: string;
+  spend: number | null;
+  currency: string | null;
   cpc: number | null;
   leads: number;
   cpl: number | null;
@@ -36,7 +38,8 @@ export interface CampaignAggregate {
   cpq: number | null;
   won: number;
   cac: number | null;
-  revenue: number;
+  revenue: number | null;
+  revenueCurrency: string | null;
   romi: number | null;
 }
 
@@ -68,8 +71,8 @@ interface CampaignStatsResponse {
     impressions: number;
     clicks: number;
     ctr: number | null;
-    spend: number;
-    currency: string;
+    spend: number | null;
+    currency: string | null;
     cpc: number | null;
     leads: number;
     cpl: number | null;
@@ -77,7 +80,8 @@ interface CampaignStatsResponse {
     cpq: number | null;
     won: number;
     cac: number | null;
-    revenue: number;
+    revenue: number | null;
+    revenueCurrency: string | null;
     romi: number | null;
   };
 }
@@ -97,6 +101,9 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState<CampaignStatsResponse | null>(null);
+  const loadVersion = useRef(0);
+  const savePending = useRef(false);
+  const recordId = useRef('');
 
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,11 +113,17 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   // Modal for adding / editing a record
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const closeModal = () => { if (!submitting) setModalOpen(false); };
+  const dialogRef = useDialogFocus<HTMLDivElement>(modalOpen, closeModal);
+  useDialogScrollLock(modalOpen);
   const [formSource, setFormSource] = useState('fb');
   const [formCampaign, setFormCampaign] = useState('');
   const [formMedium, setFormMedium] = useState('cpc');
   const [formChannel, setFormChannel] = useState('meta');
-  const [formDate, setFormDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [formDate, setFormDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  });
   const [formImpressions, setFormImpressions] = useState('');
   const [formClicks, setFormClicks] = useState('');
   const [formSpend, setFormSpend] = useState('');
@@ -118,10 +131,11 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   const [formNotes, setFormNotes] = useState('');
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/admin/campaign-stats?days=${days}`, {
+      const res = await fetch(`/api/admin/campaign-stats?days=${days}&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -130,11 +144,13 @@ export default function AdminCampaignStats({ password }: { password: string }) {
       if (!res.ok || !payload?.success) {
         throw new Error(payload?.error || `HTTP ${res.status}`);
       }
-      setData(payload);
+      if (version === loadVersion.current) setData(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить сквозную аналитику кампаний');
+      if (version === loadVersion.current) {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить сквозную аналитику кампаний');
+      }
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [days, password]);
 
@@ -145,19 +161,23 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   // Handle record creation
   const handleSaveRecord = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savePending.current) return;
     if (!formSource.trim() || !formCampaign.trim() || !formDate.trim()) {
       notify.error('Заполните обязательные поля: источник, кампания и дата');
       return;
     }
 
+    savePending.current = true;
     setSubmitting(true);
     try {
+      recordId.current ||= crypto.randomUUID();
       const res = await fetch('/api/admin/campaign-stats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
         body: JSON.stringify({
           action: 'save_record',
+          id: recordId.current,
           utm_source: formSource.trim(),
           utm_campaign: formCampaign.trim(),
           utm_medium: formMedium.trim(),
@@ -177,6 +197,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
       }
 
       notify.success('Статистика кампании сохранена');
+      recordId.current = '';
       setModalOpen(false);
       setFormCampaign('');
       setFormImpressions('');
@@ -187,6 +208,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
     } catch (err) {
       notify.error('Ошибка сохранения', err instanceof Error ? err.message : undefined);
     } finally {
+      savePending.current = false;
       setSubmitting(false);
     }
   };
@@ -230,13 +252,13 @@ export default function AdminCampaignStats({ password }: { password: string }) {
     if (!filteredCampaigns.length) return;
     const headers = [
       'Канал', 'Источник (utm_source)', 'Кампания (utm_campaign)', 'Показы', 'Клики', 'CTR %',
-      'Расход', 'Валюта', 'CPC', 'Лиды', 'CPL', 'Целевые', 'CPQ', 'Выиграно', 'Выручка', 'ROMI %',
+      'Расход', 'Валюта расхода', 'CPC', 'Лиды', 'CPL', 'Целевые', 'CPQ', 'Выиграно', 'Выручка', 'Валюта выручки', 'ROMI %',
     ];
 
     const rows = filteredCampaigns.map((c) => [
-      defuseFormula(c.channel),
-      defuseFormula(c.utm_source),
-      defuseFormula(c.utm_campaign),
+      c.channel,
+      c.utm_source,
+      c.utm_campaign,
       c.impressions,
       c.clicks,
       c.ctr !== null ? `${c.ctr}%` : '',
@@ -249,10 +271,14 @@ export default function AdminCampaignStats({ password }: { password: string }) {
       c.cpq !== null && c.cpq !== undefined ? c.cpq : '',
       c.won,
       c.revenue,
+      c.revenueCurrency,
       c.romi !== null ? `${c.romi}%` : '',
     ]);
 
-    const csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const csv = [headers, ...rows].map((row) => row.map((value) => {
+      const cell = defuseFormula(String(value ?? ''));
+      return /[";\n\r]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell;
+    }).join(';')).join('\n');
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -263,31 +289,27 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   };
 
   const summary = data?.summary;
-  const currency = summary?.currency || 'USD';
+  const currency = summary?.currency ?? null;
 
   return (
     <div className="admin-campaign-stats space-y-4" aria-label="Сквозная аналитика UTM-кампаний">
-      <header className="adm-card__head flex flex-wrap items-center justify-between gap-3">
+      <header className="adm-card__head adm-card__head--row admin-campaign-head">
         <div>
-          <h3 className="admin-card-title flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-            Сквозная аналитика UTM-кампаний
-          </h3>
-          <p className="admin-hint">
-            Связка показов, кликов и расходов Meta / Google Ads с реальными заявками, целевыми лидами и закрытыми сделками.
-          </p>
+          <h3 className="admin-card-title">Сводка за период</h3>
+          <p className="admin-hint">ROMI рассчитан по суммам выигранных сделок в CRM.</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="admin-campaign-actions">
           <div className="flex items-center gap-1" role="group" aria-label="Период аналитики">
             {[7, 14, 30, 90].map((d) => (
               <button
                 key={d}
                 type="button"
                 className={`admin-crm-chip ${days === d ? 'is-active is-primary' : ''}`}
+                aria-pressed={days === d}
                 onClick={() => setDays(d)}
               >
-                {d}д
+                {d}&nbsp;дн.
               </button>
             ))}
           </div>
@@ -295,7 +317,10 @@ export default function AdminCampaignStats({ password }: { password: string }) {
           <button
             type="button"
             className="admin-button admin-button--primary admin-button--compact"
-            onClick={() => setModalOpen(true)}
+            onClick={(event) => {
+              event.currentTarget.focus();
+              setModalOpen(true);
+            }}
           >
             <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Внести статистику
           </button>
@@ -305,6 +330,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
             className="admin-button admin-button--compact"
             onClick={() => void load()}
             disabled={loading}
+            aria-label="Обновить статистику"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
@@ -333,10 +359,10 @@ export default function AdminCampaignStats({ password }: { password: string }) {
       {summary && (
         <>
           {/* Сводные KPI-плитки */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="admin-campaign-metrics">
             <div className="p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] space-y-1">
               <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <MousePointerClick className="w-3 h-3 text-blue-400" /> Клики / Показы
+                <MousePointerClick className="w-3 h-3 text-[var(--adm-info)]" /> Клики
               </span>
               <div className="text-lg font-bold text-[var(--adm-fg)]">
                 {formatNumber(summary.clicks)}
@@ -348,9 +374,9 @@ export default function AdminCampaignStats({ password }: { password: string }) {
 
             <div className="p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] space-y-1">
               <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <Wallet className="w-3 h-3 text-amber-400" /> Рекламный расход
+                <Wallet className="w-3 h-3 text-[var(--adm-warning)]" /> Расходы
               </span>
-              <div className="text-lg font-bold text-amber-300">
+              <div className="text-lg font-bold text-[var(--adm-warning)]">
                 {formatMoney(summary.spend, currency)}
               </div>
               <span className="text-[11px] text-zinc-400">
@@ -360,21 +386,21 @@ export default function AdminCampaignStats({ password }: { password: string }) {
 
             <div className="p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] space-y-1">
               <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <Users className="w-3 h-3 text-indigo-400" /> Заявки (Лиды)
+                <Users className="w-3 h-3 text-[var(--adm-primary)]" /> Заявки
               </span>
               <div className="text-lg font-bold text-[var(--adm-fg)]">
                 {formatNumber(summary.leads)}
               </div>
-              <span className="text-[11px] text-indigo-300 font-semibold">
+              <span className="text-[11px] text-[var(--adm-text-secondary)]">
                 CPL: {formatMoney(summary.cpl, currency)}
               </span>
             </div>
 
             <div className="p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] space-y-1">
               <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <Target className="w-3 h-3 text-emerald-400" /> Целевые лиды
+                <Target className="w-3 h-3 text-[var(--adm-success)]" /> Целевые лиды
               </span>
-              <div className="text-lg font-bold text-emerald-300">
+              <div className="text-lg font-bold text-[var(--adm-success)]">
                 {formatNumber(summary.qualified)}
               </div>
               <span className="text-[11px] text-zinc-400">
@@ -384,9 +410,9 @@ export default function AdminCampaignStats({ password }: { password: string }) {
 
             <div className="p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] space-y-1">
               <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <Trophy className="w-3 h-3 text-yellow-400" /> Сделки (Won)
+                <Trophy className="w-3 h-3 text-[var(--adm-warning)]" /> Выиграно
               </span>
-              <div className="text-lg font-bold text-yellow-300">
+              <div className="text-lg font-bold text-[var(--adm-warning)]">
                 {formatNumber(summary.won)}
               </div>
               <span className="text-[11px] text-zinc-400">
@@ -396,10 +422,10 @@ export default function AdminCampaignStats({ password }: { password: string }) {
 
             <div className="p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] space-y-1">
               <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-emerald-400" /> Выручка / ROMI
+                <TrendingUp className="w-3 h-3 text-[var(--adm-success)]" /> Выручка
               </span>
-              <div className="text-lg font-bold text-emerald-400">
-                {formatMoney(summary.revenue, currency)}
+              <div className="text-lg font-bold text-[var(--adm-success)]">
+                {formatMoney(summary.revenue, summary.revenueCurrency)}
               </div>
               <span className={`text-[11px] font-bold ${summary.romi !== null && summary.romi >= 0 ? 'text-emerald-400' : 'text-zinc-400'}`}>
                 ROMI: {formatPercent(summary.romi)}
@@ -408,7 +434,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
           </div>
 
           {/* Фильтры и тулбар таблицы */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div className="admin-campaign-toolbar">
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Каналы">
               {[
                 { id: 'all', label: 'Все каналы' },
@@ -421,6 +447,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                   key={ch.id}
                   type="button"
                   className={`admin-crm-chip ${channelFilter === ch.id ? 'is-active is-primary' : ''}`}
+                  aria-pressed={channelFilter === ch.id}
                   onClick={() => setChannelFilter(ch.id)}
                 >
                   {ch.label}
@@ -428,13 +455,13 @@ export default function AdminCampaignStats({ password }: { password: string }) {
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="admin-campaign-search">
               <label className="adm-table-search">
                 <Search aria-hidden="true" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Поиск по источнику или кампании"
+                  placeholder="Найти кампанию"
                   aria-label="Поиск кампаний"
                 />
                 {searchQuery && (
@@ -561,7 +588,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                       {formatNumber(c.won)}
                     </td>
                     <td className="is-numeric text-emerald-300 font-bold">
-                      {formatMoney(c.revenue, c.currency)}
+                      {formatMoney(c.revenue, c.revenueCurrency)}
                     </td>
                     <td className={`is-numeric font-bold ${c.romi !== null && c.romi >= 0 ? 'text-emerald-400' : 'text-zinc-400'}`}>
                       {formatPercent(c.romi)}
@@ -575,7 +602,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
               <AdminBlank
                 inline
                 title={searchQuery ? 'Ничего не нашлось' : 'За период кампаний не зафиксировано'}
-                text={searchQuery ? 'Попробуйте другой запрос или сбросьте фильтр.' : 'Внесите статистику или запустите кампанию с UTM-метками.'}
+                text={searchQuery ? 'Попробуйте другой запрос или сбросьте фильтр.' : 'Внесите статистику или\u00a0запустите кампанию с\u00a0UTM-метками.'}
               />
             )}
           </div>
@@ -584,20 +611,22 @@ export default function AdminCampaignStats({ password }: { password: string }) {
 
       {/* Модальное окно внесения статистики */}
       {modalOpen && (
-        <div className="admin-overlay is-open" onClick={() => setModalOpen(false)}>
+        <AdminOverlay><div className="media-lightbox" onClick={closeModal}>
           <div
-            className="admin-dialog-content max-w-lg p-5 space-y-4"
+            ref={dialogRef}
+            tabIndex={-1}
+            className="media-lightbox__inner admin-campaign-dialog p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-label="Внести статистику кампании"
           >
-            <div className="flex items-center justify-between border-b border-[var(--adm-border)] pb-3">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--adm-border)] pb-3">
               <h4 className="text-base font-bold text-[var(--adm-fg)]">Внести расход и статистику кампании</h4>
               <button
                 type="button"
                 className="admin-icon-button"
-                onClick={() => setModalOpen(false)}
+                onClick={closeModal}
                 aria-label="Закрыть"
               >
                 <X className="w-4 h-4" />
@@ -607,8 +636,9 @@ export default function AdminCampaignStats({ password }: { password: string }) {
             <form onSubmit={handleSaveRecord} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="admin-label">Дата (YYYY-MM-DD) <span className="text-rose-400">*</span></label>
+                  <label className="admin-label" htmlFor="campaign-stat-date">Дата <span className="text-[var(--adm-danger)]">*</span></label>
                   <input
+                    id="campaign-stat-date"
                     type="date"
                     className="admin-input text-xs w-full"
                     value={formDate}
@@ -619,16 +649,17 @@ export default function AdminCampaignStats({ password }: { password: string }) {
 
                 <div>
                   <label className="admin-label">Рекламный канал</label>
-                  <select
-                    className="admin-input text-xs w-full"
+                  <AdminSelect
+                    ariaLabel="Рекламный канал"
                     value={formChannel}
-                    onChange={(e) => setFormChannel(e.target.value)}
-                  >
-                    <option value="meta">Meta Ads (Instagram / FB)</option>
-                    <option value="google">Google Ads (Search/PMax)</option>
-                    <option value="telegram">Telegram Ads & Каналы</option>
-                    <option value="other">Прочие каналы</option>
-                  </select>
+                    onValueChange={setFormChannel}
+                    options={[
+                      { value: 'meta', label: 'Meta Ads' },
+                      { value: 'google', label: 'Google Ads' },
+                      { value: 'telegram', label: 'Telegram' },
+                      { value: 'other', label: 'Другие каналы' },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -679,16 +710,12 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                 </div>
                 <div>
                   <label className="admin-label">Валюта</label>
-                  <select
-                    className="admin-input text-xs w-full"
+                  <AdminSelect
+                    ariaLabel="Валюта"
                     value={formCurrency}
-                    onChange={(e) => setFormCurrency(e.target.value)}
-                  >
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="UZS">UZS (сум)</option>
-                    <option value="RUB">RUB (₽)</option>
-                  </select>
+                    onValueChange={setFormCurrency}
+                    options={['USD', 'EUR', 'UZS', 'RUB'].map((value) => ({ value, label: value }))}
+                  />
                 </div>
                 <div>
                   <label className="admin-label">Клики</label>
@@ -729,7 +756,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                 <button
                   type="button"
                   className="admin-button admin-button--quiet text-xs"
-                  onClick={() => setModalOpen(false)}
+                  onClick={closeModal}
                 >
                   Отмена
                 </button>
@@ -743,7 +770,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
               </div>
             </form>
           </div>
-        </div>
+        </div></AdminOverlay>
       )}
     </div>
   );

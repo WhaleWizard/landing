@@ -203,11 +203,11 @@ function scoreTone(score: number | null): string {
 
 function ScoreBadge({ score, label }: { score: number | null; label: string }) {
   return (
-    <div className="flex min-w-0 flex-col items-center gap-1 text-center" title={`${label}: ${score ?? 'нет данных'}`}>
+    <div className="perf-audit__score" title={`${label}: ${score ?? 'нет данных'}`}>
       <span className={`flex h-10 w-10 items-center justify-center rounded-full border-[3px] text-sm font-semibold tabular-nums ${scoreTone(score)}`}>
         {score ?? '—'}
       </span>
-      <span className="max-w-[72px] text-[10px] leading-tight text-[var(--adm-fg)]/60">{label}</span>
+      <span className="perf-audit__score-label text-[10px] leading-tight text-[var(--adm-fg)]/60">{label}</span>
     </div>
   );
 }
@@ -290,7 +290,7 @@ function AuditPanel({
   const title = strategy === 'mobile' ? 'Mobile' : 'Desktop';
 
   return (
-    <section className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-3">
+    <section className="perf-audit rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-xs font-semibold">
           <DeviceIcon className="h-4 w-4 text-[var(--adm-primary)]" aria-hidden="true" />
@@ -315,13 +315,13 @@ function AuditPanel({
         <p className="min-h-20 text-xs leading-relaxed text-[var(--adm-danger)]">{error || 'Проверка не удалась'}</p>
       ) : (
         <>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="perf-audit__metrics">
             <ScoreBadge score={result?.scores.performance ?? null} label="Скорость" />
             <ScoreBadge score={result?.scores.accessibility ?? null} label="Доступность" />
             <ScoreBadge score={result?.scores.bestPractices ?? null} label="Рекомендации" />
             <ScoreBadge score={result?.scores.seo ?? null} label="SEO" />
           </div>
-          <div className="mt-3 grid grid-cols-4 gap-2 border-t border-[var(--adm-border)] pt-2 text-center">
+          <div className="perf-audit__metrics mt-3 border-t border-[var(--adm-border)] pt-2 text-center">
             <div><span className="block text-[10px] text-[var(--adm-fg)]/50">LCP</span><strong className="text-xs tabular-nums">{formatMetric(result?.lab.lcp || null)}</strong></div>
             <div><span className="block text-[10px] text-[var(--adm-fg)]/50">TBT</span><strong className="text-xs tabular-nums">{formatMetric(result?.lab.tbt || null)}</strong></div>
             <div><span className="block text-[10px] text-[var(--adm-fg)]/50">CLS</span><strong className="text-xs tabular-nums">{formatMetric(result?.lab.cls || null)}</strong></div>
@@ -780,6 +780,7 @@ export default function AdminPerformance({ password }: { password: string }) {
                   <button
                     type="button"
                     className="admin-button admin-button--quiet admin-button--compact perf-row__recheck"
+                    aria-label={`Перепроверить ${path}`}
                     disabled={running || auditDisabled}
                     onClick={() => void runOne(row.url)}
                   >
@@ -792,8 +793,8 @@ export default function AdminPerformance({ password }: { password: string }) {
                   <div className="perf-row__body admin-grid-pair">
                     <AuditPanel strategy="mobile" result={row.mobile} status={row.mobileStatus} error={row.mobileError} />
                     <AuditPanel strategy="desktop" result={row.desktop} status={row.desktopStatus} error={row.desktopError} />
-                    <a className="perf-row__link xl:col-span-2" href={row.url} target="_blank" rel="noreferrer">
-                      {row.url} <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    <a className="perf-row__link" href={row.url} target="_blank" rel="noreferrer">
+                      <span>{row.url}</span> <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
                     </a>
                   </div>
                 )}

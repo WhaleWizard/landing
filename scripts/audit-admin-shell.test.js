@@ -525,16 +525,15 @@ test('F-009: медиатека верит серверу об использо�
 
 
 // ---------------------------------------------------------------------------
-// Фоновая сборка Cloudflare Pages: статус сборки в реальном времени
+// Фоновая сборка Cloudflare Pages: результат вызова Deploy Hook
 
-test('CMS: фоновая сборка Cloudflare Pages отображается бейджами «Сборка в процессе» и «Сборка завершена»', () => {
+test('CMS: редактор подтверждает приём запроса сборки и не объявляет завершение по таймеру', () => {
   assert.match(contentControlSource, /type PagesBuildState\s*=/, 'определены типы состояния сборки');
   assert.match(contentControlSource, /STORAGE_KEY_BUILD = 'ww_pages_build_state'/, 'состояние сборки кэшируется в localStorage');
-  assert.match(contentControlSource, /PAGES_BUILD_ESTIMATED_SECONDS = 90/, 'таймаут фоновой сборки Cloudflare Pages зафиксирован');
-  assert.match(contentControlSource, /action === 'publish' && payload\.seoBuild\?\.triggered/, 'старт сборки слушает ответ seoBuild.triggered');
-  assert.match(contentControlSource, /Сборка в процессе \(\{Math\.max\(0, PAGES_BUILD_ESTIMATED_SECONDS/, 'бейдж процесса с обратным отсчётом');
-  assert.match(contentControlSource, /Сборка завершена/, 'бейдж успешного завершения сборки');
-  assert.match(contentControlSource, /Сбой сборки/, 'бейдж ошибки вызова Deploy Hook');
+  assert.match(contentControlSource, /if \(hook\?\.triggered\)\s*\{\s*nextState = \{ status: 'requested'/);
+  assert.match(contentControlSource, /Запрос сборки принят/);
+  assert.match(contentControlSource, /Сборка не запрошена/);
+  assert.doesNotMatch(contentControlSource, /PAGES_BUILD_ESTIMATED_SECONDS|Сборка завершена/);
 });
 
 // ---------------------------------------------------------------------------

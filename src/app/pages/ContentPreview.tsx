@@ -157,7 +157,15 @@ function usePreviewFontsReady(payload: ContentPreviewPayload | null): boolean {
   useEffect(() => {
     if (!payload) return undefined;
     let cancelled = false;
+    let frame = 0;
+    let revealTimer = 0;
     const revision = payload.revision;
+
+    const reveal = () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(revealTimer);
+      setReadyRevision(revision);
+    };
 
     const load = async () => {
       ensureFontLibraryLoaded();
@@ -168,14 +176,20 @@ function usePreviewFontsReady(payload: ContentPreviewPayload | null): boolean {
         )));
         await fontSet.ready.catch(() => undefined);
       }
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+      if (cancelled) return;
+      // WebKit can suspend animation frames while the preview iframe is offscreen.
+      revealTimer = window.setTimeout(reveal, 250);
+      frame = window.requestAnimationFrame(() => {
+        frame = window.requestAnimationFrame(reveal);
       });
-      if (!cancelled) setReadyRevision(revision);
     };
 
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(revealTimer);
+    };
   }, [payload, requests]);
 
   return Boolean(payload && readyRevision === payload.revision);

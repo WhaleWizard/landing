@@ -57,7 +57,7 @@ const COLLECTIONS: Array<{ value: Collection; label: string; hint: string }> = [
   { value: 'images', label: 'Изображения', hint: 'Только картинки' },
   { value: 'documents', label: 'Документы', hint: 'PDF, архивы и офисные файлы' },
   { value: 'used', label: 'В публикациях', hint: 'Файлы, на которые ссылаются статьи и кейсы' },
-  { value: 'unused', label: 'Нигде не используются', hint: 'Кандидаты на удаление' },
+  { value: 'unused', label: 'Без ссылок', hint: 'Файлы, которые не используются на сайте' },
 ];
 
 const SORTS: Array<{ value: SortKey; label: string }> = [
@@ -471,7 +471,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Найти файл по имени или типу"
+                placeholder="Найти файл"
                 aria-label="Поиск в медиатеке"
               />
               {query ? <button type="button" aria-label="Очистить поиск" onClick={() => setQuery('')}><X aria-hidden="true" /></button> : null}
@@ -494,13 +494,14 @@ export default function AdminMedia({ password, articles, target }: { password: s
                 </button>
               ))}
             </div>
-            <div className="media-sort flex items-center gap-2">
+            <div className="media-sort">
               <div className="media-grid-size-toggle" role="group" aria-label="Размер сетки">
                 <button
                   type="button"
                   className={`media-grid-size-btn ${gridSize === 's' ? 'is-active' : ''}`}
                   onClick={() => updateGridSize('s')}
                   title="Мелкая сетка (S)"
+                  aria-label="Мелкая сетка"
                   aria-pressed={gridSize === 's'}
                 >
                   S
@@ -510,6 +511,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                   className={`media-grid-size-btn ${gridSize === 'm' ? 'is-active' : ''}`}
                   onClick={() => updateGridSize('m')}
                   title="Средняя сетка (M)"
+                  aria-label="Средняя сетка"
                   aria-pressed={gridSize === 'm'}
                 >
                   M
@@ -519,6 +521,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                   className={`media-grid-size-btn ${gridSize === 'l' ? 'is-active' : ''}`}
                   onClick={() => updateGridSize('l')}
                   title="Крупная сетка (L)"
+                  aria-label="Крупная сетка"
                   aria-pressed={gridSize === 'l'}
                 >
                   L

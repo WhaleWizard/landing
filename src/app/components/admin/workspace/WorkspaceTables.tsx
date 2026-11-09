@@ -143,7 +143,7 @@ export function TaskList({
     <div className="ws-rows">
       {editing && <WorkspaceForms key={editing.id} form={{kind:'task',task:editing}} data={data} store={store} onClose={()=>setEditing(null)} />}
       {tasks.map((t) => (
-        <div className={`ws-row ${t.done ? "ws-task-done" : ""}`} key={t.id}>
+        <div className={`ws-row ws-task-row ${t.done ? "ws-task-done" : ""}`} key={t.id}>
           <label className="ws-task-check">
             <input
               type="checkbox"

@@ -20,7 +20,7 @@ const toAbsoluteUrl = (path: string): string => {
   return path.startsWith('/') ? `${SITE_URL}${path}` : `${SITE_URL}/${path}`;
 };
 
-const toCanonicalUrl = (path: string): string => {
+export const toCanonicalUrl = (path: string): string => {
   const url = new URL(toAbsoluteUrl(path));
   const pathname = url.pathname;
   const isFile = /\.[a-z0-9]+$/i.test(pathname);

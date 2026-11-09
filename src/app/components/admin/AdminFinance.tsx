@@ -447,7 +447,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
           <p className="admin-eyebrow">Факт</p>
           <h2 className="admin-title">Финансы</h2>
           <p className="admin-subtitle">
-            Счета, свои расходы и часы по клиентам. «Цели и деньги» — про план, здесь только то, что случилось на самом деле.
+            Счета, свои расходы и&nbsp;часы по&nbsp;клиентам. «Цели&nbsp;и&nbsp;деньги» — про план, здесь только то, что&nbsp;случилось на&nbsp;самом&nbsp;деле.
           </p>
         </div>
         <button type="button" className="admin-button admin-button--secondary" disabled={loading} onClick={() => void load()}>
@@ -475,7 +475,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
         <div className="adm-tile">
           <span className="adm-tile__title">Прибыль в этом месяце</span>
           <strong className="adm-tile__value">{formatMoney(summary.profit)}</strong>
-          <span className="admin-hint">Получено минус налог и расходы, по каждой валюте отдельно.</span>
+          <span className="admin-hint">Получено минус налог и&nbsp;расходы, по&nbsp;каждой валюте&nbsp;отдельно.</span>
         </div>
         {oneOffSales && (
           <div className="adm-tile">
@@ -682,7 +682,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
           )}
 
           {invoices.length === 0 && !invoiceDraft ? (
-            <AdminBlank inline title="Счетов пока нет" text="Выставьте счета за месяц одной кнопкой — по всем активным клиентам с заполненным чеком." />
+            <AdminBlank inline title="Счетов пока нет" text="Выставьте счета за&nbsp;месяц одной кнопкой — по&nbsp;всем активным клиентам с&nbsp;заполненным&nbsp;чеком." />
           ) : (
             <div className="adm-table-scroll" role="region" aria-label="Счета" tabIndex={0}>
               <table className="adm-data-table finance__invoices">

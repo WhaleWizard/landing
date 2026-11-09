@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   CalendarDays,
+  ChevronRight,
   FolderOpen,
   LayoutGrid,
   List,
@@ -207,13 +208,12 @@ export default function AdminWorkspace({
                 <ArrowLeft />
                 Все проекты
               </button>
-              <span>/</span>
               <button
                 onClick={() =>
                   onNavigate?.({ section: "clients", clientId: work.client_id })
                 }
               >
-                {client?.name}
+                <ChevronRight aria-hidden="true" /> <span>{client?.name}</span>
               </button>
             </div>
           )}
@@ -402,7 +402,7 @@ export default function AdminWorkspace({
           {!visible.length ? (
             <AdminBlank
               title="Проектов по этим условиям нет"
-              text="Создайте проект или измените фильтр. Разовые консультации находятся в карточках клиентов."
+              text="Создайте проект или&nbsp;измените фильтр. Разовые консультации находятся в&nbsp;карточках&nbsp;клиентов."
             />
           ) : prefs.view === "cards" ? (
             <div className="ws-project-grid">

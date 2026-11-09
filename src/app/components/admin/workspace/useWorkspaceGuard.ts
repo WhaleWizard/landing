@@ -26,10 +26,11 @@ export function useWorkspaceGuard(
   const inherited = useContext(WorkspaceGuardContext), register = explicit || inherited;
   const scope = useRef(Symbol('form'));
   useEffect(() => {
+    const scopeId = scope.current;
     if (register) {
       const active = scopes.get(register) || new Map<symbol, boolean>();
       scopes.set(register, active);
-      active.set(scope.current, dirty);
+      active.set(scopeId, dirty);
       register(() => confirmWorkspaceLeave([...active.values()].some(Boolean)));
     }
     const before = (event: BeforeUnloadEvent) => {
@@ -40,7 +41,7 @@ export function useWorkspaceGuard(
     };
     window.addEventListener("beforeunload", before);
     return () => {
-      if (register) { const active = scopes.get(register); active?.delete(scope.current); if (!active?.size) register(null); }
+      if (register) { const active = scopes.get(register); active?.delete(scopeId); if (!active?.size) register(null); }
       window.removeEventListener("beforeunload", before);
     };
   }, [dirty, register]);

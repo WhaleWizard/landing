@@ -289,7 +289,7 @@ export default function AdminGoals({ password }: { password: string }) {
           <p className="admin-eyebrow">Планирование</p>
           <h2 className="admin-title"><Target aria-hidden="true" /> Цели и деньги</h2>
           <p className="admin-subtitle">
-            План на месяц и то, как идут дела на самом деле. Прогноз строится по текущему темпу, деньги — по введённым расходам и суммам выигранных сделок.
+            План на месяц и то, как идут дела на&nbsp;самом деле. Прогноз строится по&nbsp;текущему темпу, деньги — по&nbsp;введённым расходам и&nbsp;суммам выигранных&nbsp;сделок.
           </p>
         </div>
         <div className="goals__period">
@@ -402,7 +402,7 @@ export default function AdminGoals({ password }: { password: string }) {
           <section className="admin-panel adm-card">
             <header className="adm-card__head">
               <h3 className="admin-card-title">План на {periodLabel(period).toLowerCase()}</h3>
-              <p className="admin-hint">Ставьте достижимые числа: кольца и прогноз считаются именно от них.</p>
+              <p className="admin-hint">Ставьте достижимые числа: кольца и&nbsp;прогноз считаются именно от&nbsp;них.</p>
             </header>
             <form className="goals__form" onSubmit={save}>
               <label className="admin-field">

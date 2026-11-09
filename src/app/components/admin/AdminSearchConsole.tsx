@@ -139,7 +139,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
           <div className="admin-gsc-title-row">
             <h2 className="admin-gsc-title">
               <Globe className="admin-gsc-title-icon" aria-hidden="true" />
-              <span>Google Search Console & SEO</span>
+              <span>Google&nbsp;Search&nbsp;Console &amp;&nbsp;SEO</span>
             </h2>
             {data && (data.configured ? (
               <span className="admin-gsc-status-pill admin-gsc-status-pill--active">
@@ -639,7 +639,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
           <div className="admin-gsc-setup-header">
             <Key size={20} className="text-blue-400" aria-hidden="true" />
             <div>
-              <h3 className="admin-gsc-card-title">Подключение Google Search Console</h3>
+              <h3 className="admin-gsc-card-title">Подключение Google&nbsp;Search&nbsp;Console</h3>
               <p className="admin-gsc-card-subtitle">Интеграция читает отчёты ресурса {data?.propertyName || 'sc-domain:whalewzrd.com'}.</p>
             </div>
           </div>

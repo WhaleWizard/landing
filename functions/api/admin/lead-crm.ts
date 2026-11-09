@@ -36,6 +36,7 @@ const DEFAULT_ACTIVITY_LIMIT = 100;
 const MAX_ACTIVITY_LIMIT = 200;
 const DEFAULT_TASK_LIMIT = 100;
 const MAX_TASK_LIMIT = 300;
+const MAX_BULK_LEADS = 50;
 
 const BASE_PATCH_FIELDS = [
   'pipeline_stage',
@@ -429,6 +430,21 @@ function createGuardedLeadActivityStatement(
   );
 }
 
+function addStageAssignments(
+  parts: string[], values: Array<string | number | null>, stage: AdminCrmStage,
+  workspace: boolean, hasFirstResponse: boolean,
+): void {
+  parts.push('status = ?');
+  values.push(LEGACY_STATUS_BY_PIPELINE[stage]);
+  if (!workspace) return;
+  parts.push("pipeline_changed_at = datetime('now')");
+  if (stage === 'contacted' || stage === 'discovery' || stage === 'proposal') {
+    parts.push("last_contacted_at = datetime('now')");
+    if (hasFirstResponse) parts.push("first_response_at = COALESCE(first_response_at, datetime('now'))");
+  }
+  parts.push(stage === 'won' || stage === 'lost' ? "closed_at = datetime('now')" : 'closed_at = NULL');
+}
+
 function normalizeTagSlug(name: string): string {
   return name.normalize('NFKC').toLocaleLowerCase('ru-RU')
     .replace(/[^\p{L}\p{N}]+/gu, '-')
@@ -484,21 +500,9 @@ async function updateLead(
   const pipelineChange = changes.find((change) => change.field === 'pipeline_stage');
   if (pipelineChange?.to) {
     const stage = pipelineChange.to as AdminCrmStage;
-    setParts.push('status = ?');
-    updateValues.push(LEGACY_STATUS_BY_PIPELINE[stage]);
-    if (capabilities.workspace) {
-      setParts.push("pipeline_changed_at = datetime('now')");
-      if (stage === 'contacted' || stage === 'discovery' || stage === 'proposal') {
-        setParts.push("last_contacted_at = datetime('now')");
-        // Время первого ответа (миграция 0025) пишется только один раз:
-        // повторные касания не должны улучшать эту метрику задним числом.
-        if (await columnExists(db, 'leads', 'first_response_at')) {
-          setParts.push("first_response_at = COALESCE(first_response_at, datetime('now'))");
-        }
-      }
-      if (stage === 'won' || stage === 'lost') setParts.push("closed_at = datetime('now')");
-      else setParts.push('closed_at = NULL');
-    }
+    const contacting = stage === 'contacted' || stage === 'discovery' || stage === 'proposal';
+    const hasFirstResponse = capabilities.workspace && contacting && await columnExists(db, 'leads', 'first_response_at');
+    addStageAssignments(setParts, updateValues, stage, capabilities.workspace, hasFirstResponse);
   }
   if (capabilities.correctness) {
     setParts.push('crm_revision = crm_revision + 1', 'crm_action_id = ?');
@@ -532,6 +536,73 @@ async function updateLead(
   }
   const lead = await getCrmLead(db, leadId, capabilities.workspace, capabilities.correctness);
   return { changed: true, lead, activities_created: changes.length, action_id: actionId };
+}
+
+async function bulkUpdateStage(db: D1Database, body: LeadCrmPayload) {
+  const stage = normalizeEnum(body.pipeline_stage, 'pipeline_stage', ADMIN_CRM_STAGES);
+  const actionId = `bulk:${normalizeActionId(body.action_id)}`;
+  const hasRevisions = body.items !== undefined;
+  const input = hasRevisions ? body.items : body.ids;
+  if (!Array.isArray(input) || !input.length || input.length > MAX_BULK_LEADS) {
+    throw validationError(`Выберите от 1 до ${MAX_BULK_LEADS} сделок`);
+  }
+  const revisions = new Map<number, number | null>();
+  for (const item of input) {
+    const id = parseBoundedInteger(hasRevisions ? item?.id : item, 1, Number.MAX_SAFE_INTEGER, 'lead_id');
+    const revision = hasRevisions ? item?.expected_revision : null;
+    if (revisions.has(id) || (hasRevisions && (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 0))) {
+      throw validationError('Укажите уникальные сделки и их ревизии');
+    }
+    revisions.set(id, revision);
+  }
+  await assertAdminCrmSchema(db, 'correctness');
+  const columns = await getLeadsColumns(db);
+  const active = columns.has('deleted_at') ? 'AND l.deleted_at IS NULL' : '';
+  const { results: current = [] } = await db.prepare(
+    `SELECT l.id, l.pipeline_stage, l.crm_revision, l.crm_action_id
+     FROM json_each(?) requested JOIN leads l ON l.id = requested.value ${active}`,
+  ).bind(JSON.stringify([...revisions.keys()])).all<{
+    id: number; pipeline_stage: AdminCrmStage; crm_revision: number; crm_action_id: string;
+  }>();
+  const conflict = () => conflictError('Одна из сделок изменилась или недоступна. Обновите список и повторите.');
+  if (current.length !== revisions.size) throw conflict();
+  const replayed = current.filter((lead) => lead.crm_action_id === actionId && lead.pipeline_stage === stage);
+  if (replayed.length) {
+    if (current.some((lead) => lead.pipeline_stage !== stage || (
+      hasRevisions && lead.crm_revision !== Number(revisions.get(lead.id)) + Number(lead.crm_action_id === actionId)
+    ))) throw conflict();
+    return { count: replayed.length, pipeline_stage: stage, idempotent: true };
+  }
+  if (hasRevisions && current.some((lead) => lead.crm_revision !== revisions.get(lead.id))) throw conflict();
+  const count = current.filter((lead) => lead.pipeline_stage !== stage).length;
+  if (!count) return { count: 0, pipeline_stage: stage };
+
+  // Оба запроса видят одну выборку внутри D1 batch. Если хотя бы одна
+  // ревизия поменялась после чтения, общий предикат запрещает всю запись.
+  const targets = JSON.stringify(current.map((lead) => [lead.id, lead.crm_revision]));
+  const eligible = `WITH eligible AS MATERIALIZED (
+    SELECT l.id, l.pipeline_stage FROM json_each(?) requested
+    JOIN leads l ON l.id = json_extract(requested.value, '$[0]')
+    WHERE l.crm_revision = json_extract(requested.value, '$[1]') ${active}
+  )`;
+  const gate = '(SELECT COUNT(*) FROM eligible) = ?';
+  const parts = ['pipeline_stage = ?'];
+  const values: Array<string | number | null> = [stage];
+  addStageAssignments(parts, values, stage, true, columns.has('first_response_at'));
+  parts.push('crm_revision = crm_revision + 1', 'crm_action_id = ?', "updated_at = datetime('now')");
+  const [, updated] = await db.batch([
+    db.prepare(`${eligible}
+      INSERT INTO lead_activity (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
+      SELECT id, 'pipeline_stage_changed', pipeline_stage, ?, '', 'admin', 'lead', id, ?,
+        json_object('field', 'pipeline_stage', 'before', pipeline_stage, 'after', ?)
+      FROM eligible WHERE ${gate} AND pipeline_stage <> ?`,
+    ).bind(targets, stage, actionId, stage, current.length, stage),
+    db.prepare(`${eligible} UPDATE leads SET ${parts.join(', ')}
+      WHERE ${gate} AND id IN (SELECT id FROM eligible WHERE pipeline_stage <> ?)`,
+    ).bind(targets, ...values, actionId, current.length, stage),
+  ]);
+  if (resultChanges(updated) !== count) throw conflict();
+  return { count, pipeline_stage: stage };
 }
 
 async function addNote(db: D1Database, body: LeadCrmPayload, leadId: number): Promise<Record<string, unknown>> {
@@ -1057,23 +1128,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const action = String(body.action || 'update_lead');
   if (action === 'bulk_update_stage') {
-    const rawIds = Array.isArray(body.ids) ? body.ids : [];
-    const ids = rawIds.map((item) => Number(item)).filter((id) => Number.isInteger(id) && id > 0);
-    if (!ids.length) {
-      return json({ success: false, error: 'Требуется непустой список идентификаторов сделок' }, { status: 400, headers: noStore });
-    }
-    const targetStage = String(body.pipeline_stage || '').trim();
-    const validStages = new Set(['new', 'contacted', 'discovery', 'proposal', 'won', 'lost', 'archived']);
-    if (!validStages.has(targetStage)) {
-      return json({ success: false, error: 'Недопустимый этап сделки' }, { status: 400, headers: noStore });
-    }
     try {
-      await assertAdminCrmSchema(env.DB, 'base');
-      const placeholders = ids.map(() => '?').join(',');
-      await env.DB.prepare(
-        `UPDATE leads SET pipeline_stage = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`
-      ).bind(targetStage, ...ids).run();
-      return json({ success: true, action: 'bulk_update_stage', count: ids.length, pipeline_stage: targetStage }, { headers: noStore });
+      return json({ success: true, action, ...await bulkUpdateStage(env.DB, body) }, { headers: noStore });
     } catch (error) {
       return handleError(error, 'Failed to bulk update stage');
     }

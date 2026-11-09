@@ -131,7 +131,7 @@ export default function AdminReport({ password }: { password: string }) {
           <p className="admin-eyebrow">Итоги</p>
           <h2 className="admin-title"><FileText aria-hidden="true" /> Отчёт за месяц</h2>
           <p className="admin-subtitle">
-            Всё, что нужно, чтобы подвести черту: трафик, заявки, деньги и источники за месяц с сравнением с предыдущим.
+            Всё, что нужно, чтобы подвести черту: трафик, заявки, деньги и&nbsp;источники за&nbsp;месяц со&nbsp;сравнением с&nbsp;предыдущим.
           </p>
         </div>
         <div className="goals__period">

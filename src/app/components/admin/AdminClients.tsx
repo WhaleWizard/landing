@@ -1,6 +1,6 @@
 import { useWorkspaceNavigation } from './workspace/useWorkspaceGuard';
 import { WorkspaceClient } from './AdminWorkspace';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, CalendarClock, CircleDollarSign, ExternalLink, FileText, KeyRound,
   NotebookPen, Plus, RefreshCw, Save, Trash2, Upload, UserPlus, Users, X, Briefcase,
@@ -316,29 +316,35 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     return payload;
   }, [password]);
 
+  const clientRequest = useRef(0);
   const openClient = useCallback(async (id: number) => {
+    const requestId = ++clientRequest.current;
     setWorkspaceOverview(true);
     setSelectedId(id);
+    setDraft(null);
     setDetailLoading(true);
     try {
       const payload = await fetchDetails(id);
+      if (requestId !== clientRequest.current) return;
       setDraft(payload.client as Client);
       setMonths(payload.months || []);
       setAccess(payload.access || []);
       setNotes(payload.notes || []);
     } catch (openError) {
+      if (requestId !== clientRequest.current) return;
       notify.error('Не удалось открыть карточку', openError instanceof Error ? openError.message : undefined);
       setSelectedId(null);
     } finally {
-      setDetailLoading(false);
+      if (requestId === clientRequest.current) setDetailLoading(false);
     }
   }, [fetchDetails]);
 
+  const targetClientId = target?.section === 'clients'
+    ? target.clientId || (target.leadId ? clients.find((client) => client.lead_id === target.leadId)?.id : undefined)
+    : undefined;
   useEffect(() => {
-    if (target?.section !== 'clients') return;
-    const id = target.clientId || clients.find(c => c.lead_id === target.leadId)?.id;
-    if (id) void openClient(id);
-  }, [target?.nonce, target?.clientId, target?.leadId, target?.section, clients.length, openClient]);
+    if (targetClientId) void openClient(targetClientId);
+  }, [target?.nonce, targetClientId, openClient]);
 
   /**
    * Перечитать списки карточки, не трогая заполняемую форму.
@@ -830,7 +836,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
             </section>
 
             {draft.id > 0 && (
-              <ClientLaunchpad clientId={draft.id} clientName={draft.name || ''} />
+              <ClientLaunchpad key={draft.id} clientId={draft.id} clientName={draft.name || ''} />
             )}
 
             <section className="admin-panel adm-card">

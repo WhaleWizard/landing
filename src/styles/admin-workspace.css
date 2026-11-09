@@ -72,6 +72,13 @@
 .ws-breadcrumb svg {
   width: 15px;
   height: 15px;
+  flex: none;
+}
+.ws-breadcrumb button,
+.ws-heading > div,
+.ws-invoice-detail > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ws-text-button:hover,
 .ws-breadcrumb button:hover {
@@ -125,6 +132,7 @@
   line-height: 1.35;
   letter-spacing: -0.035em;
   margin: 12px 0 7px;
+  overflow-wrap: anywhere;
 }
 .ws-money {
   white-space: nowrap;
@@ -367,6 +375,9 @@
   background: color-mix(in srgb, #34d399 11%, transparent);
   color: #6ee7b7;
 }
+.ws-rows {
+  container: workspace-rows / inline-size;
+}
 .ws-row {
   display: flex;
   align-items: center;
@@ -400,6 +411,30 @@
 .ws-grow > .admin-meta {
   display: block;
   margin-top: 4px;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.ws-grow > strong { overflow-wrap: anywhere; }
+.ws-task-row .ws-text-button { text-wrap: pretty; overflow-wrap: anywhere; }
+
+@container workspace-rows (max-width: 440px) {
+  .ws-task-row,
+  .ws-payment-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 8px;
+  }
+  .ws-task-row > .ws-grow,
+  .ws-payment-row > .ws-grow { grid-column: 2 / -1; }
+  .ws-task-row > .ws-badge {
+    grid-column: 2;
+    justify-self: start;
+    align-self: center;
+  }
+  .ws-task-row > .admin-button { grid-column: 3; min-height: 44px; }
+  .ws-payment-row > .admin-button { grid-column: 2 / -1; justify-self: start; min-height: 44px; }
 }
 .ws-task-check {
   position: relative;

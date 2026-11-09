@@ -42,7 +42,7 @@ export function WorkspacePayments({
     setClientId(String(target?.clientId || "all"));
     setWorkId(String(target?.workId || "all"));
     if (target?.tab) setFilter(target.tab); else if (target?.invoiceId) setFilter("all");
-  }, [target?.nonce, target?.invoiceId, target?.clientId, target?.workId]);
+  }, [target?.nonce, target?.invoiceId, target?.clientId, target?.workId, target?.tab]);
   const [dirty, setDirty] = useState(false);
   useWorkspaceGuard(dirty, onRegisterLeaveGuard);
   const onNavigate=(t:WorkspaceTarget)=>navigateExternal?.({...t,returnTo:{section:'finance',clientId:Number(clientId)||undefined,workId:Number(workId)||undefined,invoiceId:invoiceId||undefined,tab:filter}});

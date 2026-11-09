@@ -556,8 +556,10 @@ export default function AdminLaunchpad() {
       {/* Progress & Readiness Banner */}
       <div className="admin-launchpad-status-card">
         <div className="admin-launchpad-status-main">
-          <div className="admin-launchpad-progress-ring-box">
-            <div className="admin-launchpad-progress-num">{progressPercent}%</div>
+          <div className="admin-launchpad-progress-indicator">
+            <div className="admin-launchpad-progress-ring-box">
+              <div className="admin-launchpad-progress-num">{progressPercent}%</div>
+            </div>
             <div className="admin-launchpad-progress-label">Готовность</div>
           </div>
 
@@ -579,7 +581,6 @@ export default function AdminLaunchpad() {
               <span className="admin-launchpad-stat-item">
                 Выполнено: <strong>{completedCount}</strong> из <strong>{totalCount}</strong>
               </span>
-              <span className="admin-launchpad-stat-divider">•</span>
               <span
                 className={`admin-launchpad-stat-item ${
                   hasCriticalPending ? 'text-red-400 font-semibold' : 'text-emerald-400'
@@ -687,6 +688,7 @@ export default function AdminLaunchpad() {
                 }`}
                 onClick={() => toggleItem(item.id)}
                 role="button"
+                aria-pressed={isDone}
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === ' ' || e.key === 'Enter') {

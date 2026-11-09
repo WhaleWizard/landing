@@ -356,9 +356,9 @@ export default function AdminAttribution({ password }: { password: string }) {
           </h2>
           <p className="admin-subtitle">
             {subTab === 'campaigns'
-              ? 'Учёт расходов, показов, кликов и сквозная связка с лидами, квалификацией, выручкой и ROMI.'
+              ? 'Сравнивайте расходы, заявки и\u00a0выигранные сделки по\u00a0кампаниям.'
               : subTab === 'utm_builder'
-              ? 'Канонический конструктор UTM-ссылок без слэш-петель и с валидацией доступности 200 OK.'
+              ? 'Выберите рекламную систему и посадочную страницу, затем скопируйте ссылку.'
               : 'Только показатели, которые подтверждаются данными. Деньги считаются по введённым расходам и суммам выигранных сделок — ничего не подставляется «примерно».'}
           </p>
           {data?.checkedAt && subTab === 'funnel' && <p className="admin-meta">Обновлено: {formatDate(data.checkedAt)}</p>}
@@ -418,7 +418,7 @@ export default function AdminAttribution({ password }: { password: string }) {
           onClick={() => setSubTab('funnel')}
         >
           <BarChart3 className="w-3.5 h-3.5 inline-block mr-1.5" aria-hidden="true" />
-          Сквозная воронка
+          Воронка
         </button>
         <button
           type="button"
@@ -428,7 +428,7 @@ export default function AdminAttribution({ password }: { password: string }) {
           onClick={() => setSubTab('campaigns')}
         >
           <Target className="w-3.5 h-3.5 inline-block mr-1.5" aria-hidden="true" />
-          UTM-кампании (campaign_stats)
+          UTM-кампании
         </button>
         <button
           type="button"
@@ -438,7 +438,7 @@ export default function AdminAttribution({ password }: { password: string }) {
           onClick={() => setSubTab('utm_builder')}
         >
           <Link2 className="w-3.5 h-3.5 inline-block mr-1.5" aria-hidden="true" />
-          Генератор ссылок с UTM
+          Генератор UTM
         </button>
       </div>
 

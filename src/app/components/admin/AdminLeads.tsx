@@ -567,7 +567,7 @@ function qualityHistoryState(item: QualityDeliveryItem): { label: string; tone: 
 
 function contactHref(lead: LeadRow): string | null {
   if (lead.contact_method === 'telegram' && lead.telegram_username) return `https://t.me/${lead.telegram_username.replace(/^@/, '')}`;
-  if (lead.phone) return `https://wa.me/${lead.phone.replace(/\D/g, '')}`;
+  if (lead.phone) return `https://wa.me/${formatWhatsAppPhone(lead.phone)}`;
   if (lead.email) return `mailto:${lead.email}`;
   return null;
 }
@@ -1577,6 +1577,8 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
   const [correctnessMigration, setCorrectnessMigration] = useState('');
   const [checkedIds, setCheckedIds] = useState<number[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const bulkStagePending = useRef(false);
+  const bulkStageRequest = useRef<{ fingerprint: string; actionId: string } | null>(null);
   const [cardFields, setCardFields] = useState<CrmCardFields>(() => {
     try {
       const raw = localStorage.getItem('ww-crm-card-fields');
@@ -1586,6 +1588,8 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
   });
   const [fieldsMenuOpen, setFieldsMenuOpen] = useState(false);
   const fieldsMenuRef = useRef<HTMLDivElement | null>(null);
+  const quickActionPending = useRef(false);
+  const [quickActionBusy, setQuickActionBusy] = useState(false);
 
   const toggleCardField = useCallback((key: keyof CrmCardFields) => {
     setCardFields((prev) => {
@@ -1710,30 +1714,42 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
   }, [load]);
 
   const bulkUpdateStage = async (newStage: PipelineStage) => {
-    if (!checkedIds.length) return;
-    const confirmed = await confirmAsk({
-      title: `Перевести ${checkedIds.length} сделок на этап «${stageLabel(newStage)}»?`,
-      description: 'Этап обновится у всех выбранных сделок.',
-      confirmLabel: 'Перевести',
-    });
-    if (!confirmed) return;
+    if (!checkedIds.length || !editingReady || bulkStagePending.current || quickActionPending.current) return;
+    const items = leads.filter((lead) => checkedIds.includes(lead.id))
+      .map((lead) => ({ id: lead.id, expected_revision: Number(lead.crm_revision || 0) }));
+    if (items.length !== checkedIds.length) return;
+    bulkStagePending.current = true;
     setBulkBusy(true);
     setError('');
     try {
+      const confirmed = await confirmAsk({
+        title: `Перевести выбранные сделки на этап «${stageLabel(newStage)}»?`,
+        description: `Выбрано: ${items.length}. При изменении любой сделки в другой вкладке операция остановится.`,
+        confirmLabel: 'Перевести',
+      });
+      if (!confirmed) return;
+      const fingerprint = JSON.stringify([newStage, items]);
+      if (bulkStageRequest.current?.fingerprint !== fingerprint) {
+        bulkStageRequest.current = { fingerprint, actionId: crypto.randomUUID() };
+      }
       const res = await fetch('/api/admin/lead-crm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action: 'bulk_update_stage', ids: checkedIds, pipeline_stage: newStage }),
+        body: JSON.stringify({ action: 'bulk_update_stage', items, pipeline_stage: newStage, action_id: bulkStageRequest.current.actionId }),
       });
-      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; count?: number } | null;
       if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
-      notify.success('Этап обновлён', `${checkedIds.length} сделок переведено на «${stageLabel(newStage)}».`);
+      bulkStageRequest.current = null;
+      if (payload.count) notify.success('Этап обновлён', `Изменено сделок: ${payload.count}.`);
+      else notify.success('Этап уже установлен', `Все выбранные сделки находятся на этапе «${stageLabel(newStage)}».`);
       setCheckedIds([]);
       await load(true);
     } catch (err) {
+      await load(true);
       setError(err instanceof Error ? err.message : 'Не удалось обновить этап');
     } finally {
+      bulkStagePending.current = false;
       setBulkBusy(false);
     }
   };
@@ -1777,31 +1793,44 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
   const quickAdvanceStage = async (lead: LeadRow, e: React.MouseEvent) => {
     e.stopPropagation();
     const next = getNextPipelineStage(lead.pipeline_stage) || (['lost', 'archived'].includes(lead.pipeline_stage) ? 'new' : null);
-    if (!next) return;
-    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, pipeline_stage: next } : l)));
+    if (!next || quickActionPending.current || bulkStagePending.current) return;
+    quickActionPending.current = true;
+    setQuickActionBusy(true);
     try {
       const res = await fetch('/api/admin/lead-crm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action: 'bulk_update_stage', ids: [lead.id], pipeline_stage: next }),
+        body: JSON.stringify({
+          action: 'update_lead', lead_id: lead.id, action_id: crypto.randomUUID(),
+          expected_revision: Number(lead.crm_revision || 0), pipeline_stage: next,
+        }),
       });
       const payload = await res.json().catch(() => null) as { success?: boolean; error?: string } | null;
       if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
       notify.success('Этап обновлён', `${lead.name || 'Сделка'}: переведена на «${stageLabel(next)}».`);
-      await load(true);
     } catch (err) {
-      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, pipeline_stage: lead.pipeline_stage } : l)));
       notify.error('Ошибка смены этапа', err instanceof Error ? err.message : undefined);
+    } finally {
+      await load(true);
+      quickActionPending.current = false;
+      setQuickActionBusy(false);
     }
   };
 
   const quickToggleQuality = async (lead: LeadRow, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (quickActionPending.current) return;
     const nextQuality: 'target' | 'nontarget' = lead.quality === 'target' ? 'nontarget' : 'target';
-    const actionId = crypto.randomUUID();
-    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, quality: nextQuality } : l)));
+    quickActionPending.current = true;
+    setQuickActionBusy(true);
     try {
+      const needsConfirmation = lead.quality_meta_requires_confirmation === true;
+      if (needsConfirmation && !(await confirmAsk({
+        title: 'Изменить качество лида?',
+        description: 'Предыдущее событие уже отправлено в Meta или ещё может быть доставлено. Новая оценка может создать второе событие.',
+        confirmLabel: 'Изменить оценку',
+      }))) return;
       const res = await fetch('/api/admin/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
@@ -1809,18 +1838,24 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
         body: JSON.stringify({
           id: lead.id,
           quality: nextQuality,
-          action_id: actionId,
+          action_id: crypto.randomUUID(),
           expected_quality_revision: Number(lead.quality_revision || 0),
-          confirm_previous_delivery: true,
+          confirm_previous_delivery: needsConfirmation,
         }),
       });
-      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; code?: string; meta?: { status?: string } } | null;
+      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; meta?: { status?: string; reason?: string } } | null;
       if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
-      notify.success('Качество обновлено', nextQuality === 'target' ? 'Целевой (QualifiedLead отправлен в Meta)' : 'Нецелевой (UnqualifiedLead отправлен в Meta)');
-      await load(true);
+      const event = nextQuality === 'target' ? 'QualifiedLead' : 'UnqualifiedLead';
+      const message = payload.meta?.status === 'sent'
+        ? `Meta подтвердила ${event}`
+        : payload.meta?.status === 'queued' ? `${event} в очереди` : payload.meta?.reason;
+      notify.success('Качество обновлено', message);
     } catch (err) {
-      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, quality: lead.quality } : l)));
       notify.error('Ошибка классификации', err instanceof Error ? err.message : undefined);
+    } finally {
+      await load(true);
+      quickActionPending.current = false;
+      setQuickActionBusy(false);
     }
   };
 
@@ -1840,7 +1875,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
 
   return (
     <div className="admin-stack admin-stack--lg">
-      <div className="admin-section-header"><div><p className="admin-eyebrow">CRM</p><h2 className="admin-title">Заявки и сделки</h2><p className="admin-subtitle">Единое рабочее место: приоритеты, задачи, заметки, деньги, качество лида и фактическая доставка событий в Meta.</p></div><button className="admin-button" type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button></div>
+      <div className="admin-section-header"><div><p className="admin-eyebrow">CRM</p><h2 className="admin-title">Заявки и&nbsp;сделки</h2><p className="admin-subtitle">Единое рабочее место: приоритеты, задачи, заметки, деньги, качество лида и&nbsp;фактическая доставка событий в&nbsp;Meta.</p></div><button className="admin-button" type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button></div>
 
       {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
       {!editingReady ? <div className="admin-notice admin-notice--warning" role="status"><strong>Редактирование временно заблокировано.</strong> Просмотр CRM доступен, но для безопасного сохранения без дублей и потери изменений нужно применить миграцию <code>{correctnessMigration || '0017_crm_correctness.sql'}</code>.</div> : null}
@@ -2236,7 +2271,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                               <Phone className="w-3.5 h-3.5" aria-hidden="true" />
                             </a>
                             <a
-                              href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+                              href={`https://wa.me/${formatWhatsAppPhone(lead.phone)}`}
                               target="_blank"
                               rel="noreferrer"
                               className="admin-crm-quick-btn admin-crm-quick-btn--wa"
@@ -2315,7 +2350,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                           <span>Звонок</span>
                         </a>
                         <a
-                          href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+                          href={`https://wa.me/${formatWhatsAppPhone(lead.phone)}`}
                           target="_blank"
                           rel="noreferrer"
                           className="admin-crm-mobile-btn admin-crm-mobile-btn--wa"
@@ -2349,6 +2384,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                           <button
                             type="button"
                             className="admin-crm-mobile-btn admin-crm-mobile-btn--stage"
+                            disabled={quickActionBusy || !editingReady}
                             onClick={(e) => void quickAdvanceStage(lead, e)}
                             title={`Перевести на этап «${stageLabel(next)}»`}
                           >
@@ -2369,6 +2405,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                         <button
                           type="button"
                           className="admin-crm-mobile-btn admin-crm-mobile-btn--stage"
+                          disabled={quickActionBusy || !editingReady}
                           onClick={(e) => void quickAdvanceStage(lead, e)}
                           title="Вернуть в новые"
                         >
@@ -2379,6 +2416,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                     <button
                       type="button"
                       className={`admin-crm-mobile-btn admin-crm-mobile-btn--quality ${lead.quality === 'target' ? 'is-target' : lead.quality === 'nontarget' ? 'is-nontarget' : ''}`}
+                      disabled={quickActionBusy || !editingReady || lead.quality_meta_processing === true}
                       onClick={(e) => void quickToggleQuality(lead, e)}
                       title={lead.quality === 'target' ? 'Целевой (нажмите для смены)' : lead.quality === 'nontarget' ? 'Нецелевой (нажмите для смены)' : 'Оценить лид'}
                     >
@@ -2421,6 +2459,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
               <AdminSelect
                 ariaLabel="Сменить этап для выбранных"
                 value="default"
+                disabled={bulkBusy || quickActionBusy || !editingReady}
                 options={[{ value: 'default', label: 'Сменить этап…' }, ...PIPELINE_STAGES]}
                 onValueChange={(val) => {
                   if (val !== 'default') void bulkUpdateStage(val as PipelineStage);

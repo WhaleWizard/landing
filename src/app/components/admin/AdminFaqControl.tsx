@@ -47,6 +47,8 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
   const [publishArmed, setPublishArmed] = useState(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
+  const seoRef = useRef(seo);
+  seoRef.current = seo;
   const isDirty = faqSignature(items, seo) !== baseline;
 
   useEffect(() => {
@@ -188,21 +190,23 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action, key: 'site:faq', pagePath: '/faq', label: 'FAQ', content: { items: savedItems, seo } }),
+        body: JSON.stringify({ action, key: 'site:faq', label: 'FAQ', expectedVersion: version, content: { items: savedItems, seo } }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; version?: number; seoBuild?: { configured?: boolean; triggered?: boolean; error?: string } } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      if (typeof payload.version === 'number') setVersion(payload.version);
       setPublishArmed(false);
-      if (JSON.stringify(itemsRef.current) !== JSON.stringify(savedItems)) {
+      if (faqSignature(itemsRef.current, seoRef.current) !== faqSignature(savedItems, seo)) {
         setNotice(action === 'publish'
           ? 'Версия на момент нажатия опубликована. Более новые изменения остались в редакторе и ещё не сохранены.'
           : 'Версия на момент нажатия сохранена. Более новые изменения остались в редакторе и ещё не сохранены.');
       } else {
         const refreshed = await load(true);
         if (refreshed) {
-          setNotice(action === 'publish'
-            ? 'FAQ опубликован. Новая загрузка страницы получит данные из D1; промежуточный кэш может обновляться несколько минут.'
-            : 'Черновик FAQ сохранён.');
+          const hook = payload.seoBuild;
+          const buildNotice = hook?.triggered ? ' Cloudflare принял запрос на сборку SEO-HTML.'
+            : hook?.configured ? ` Запрос на сборку отклонён: ${hook.error || 'не удалось связаться с Cloudflare'}.` : '';
+          setNotice(action === 'publish' ? `FAQ опубликован в D1.${buildNotice}` : 'Черновик FAQ сохранён.');
         }
       }
     } catch (error) {
@@ -217,18 +221,19 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
       setNotice('Сначала сохраните или отмените текущие изменения — восстановление версии заменит черновик.');
       return;
     }
-    const itemsBeforeRestore = JSON.stringify(itemsRef.current);
+    const beforeRestore = faqSignature(itemsRef.current, seoRef.current);
     setLoading(true);
     try {
       const response = await fetch('/api/admin/site-sections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action: 'restore', key: 'site:faq', versionId }),
+        body: JSON.stringify({ action: 'restore', key: 'site:faq', versionId, expectedVersion: version }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; version?: number } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-      if (JSON.stringify(itemsRef.current) !== itemsBeforeRestore) {
+      if (typeof payload.version === 'number') setVersion(payload.version);
+      if (faqSignature(itemsRef.current, seoRef.current) !== beforeRestore) {
         setNotice('Версия восстановлена в D1, но изменения, сделанные во время запроса, оставлены в редакторе. Нажмите «Обновить», когда будете готовы загрузить восстановленный черновик.');
       } else {
         const refreshed = await load(true);

@@ -544,7 +544,7 @@ function DayCard({
 
       <section className="planner-day__notes" aria-label={`Заметки дня: ${WEEKDAY_FULL[index]}`}>
         <h4>Заметки дня</h4>
-        {day.notes.length === 0 && <p className="admin-hint">Мысли, напоминания и договорённости по этому дню.</p>}
+        {day.notes.length === 0 && <p className="admin-hint">Мысли, напоминания и&nbsp;договорённости по&nbsp;этому дню.</p>}
         <ul className="planner-notes">
           {day.notes.map((note, noteIndex) => (
             <li key={note.id} className="planner-note">
@@ -1318,7 +1318,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
                 ? `Примените миграцию ${templateMigration} — до неё шаблон негде хранить.`
                 : template
                   ? `Повторяющихся дел: ${countTemplateItems(template)}. Новая пустая неделя открывается уже с ними.`
-                  : 'Сохраните удачную неделю как шаблон — повторяющиеся дела будут появляться в новых неделях сами.'}
+                  : 'Сохраните удачную неделю как шаблон — повторяющиеся дела будут появляться в\u00a0новых неделях сами.'}
             </span>
           </div>
           <div className="planner-template__actions">
@@ -1442,11 +1442,11 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
             <div className="planner-section__head">
               <div>
                 <h3 id="planner-goals" className="admin-card-title">Цели недели</h3>
-                <p className="admin-hint">Коротко и измеримо: «3 тренировки», «10 сценариев рилсов».</p>
+                <p className="admin-hint">Коротко и измеримо: «3&nbsp;тренировки», «10 сценариев&nbsp;рилсов».</p>
               </div>
               <span className="admin-state">{stats.goalsDone} из {stats.goalsTotal}</span>
             </div>
-            <ul className="planner-list planner-list--goals">
+            {data.goals.length > 0 && <ul className="planner-list planner-list--goals">
               {data.goals.map((goal, index) => (
                 <CheckRow
                   key={goal.id}
@@ -1472,9 +1472,11 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
                   onEnter={addGoal}
                 />
               ))}
-            </ul>
-            {data.goals.length === 0 && <p className="admin-hint">Пока целей нет. Добавьте до {PLANNER_LIMITS.goals} штук.</p>}
-            <AddButton label="Добавить цель" onClick={addGoal} disabled={data.goals.length >= PLANNER_LIMITS.goals} />
+            </ul>}
+            <div className="planner-goals-actions">
+              {data.goals.length === 0 && <p className="admin-hint">Пока целей нет. Добавьте до&nbsp;{PLANNER_LIMITS.goals} штук.</p>}
+              <AddButton label="Добавить цель" onClick={addGoal} disabled={data.goals.length >= PLANNER_LIMITS.goals} />
+            </div>
           </section>
 
           <section className="planner-section planner-section--days" aria-labelledby="planner-days">
@@ -1545,7 +1547,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
             <div className="planner-section__head">
               <div>
                 <h3 id="planner-habits" className="admin-card-title">Трекер привычек</h3>
-                <p className="admin-hint">5–7 привычек, отметка за каждый выполненный день.</p>
+                <p className="admin-hint">5–7 привычек, отметка за&nbsp;каждый выполненный&nbsp;день.</p>
               </div>
               <span className="admin-state">
                 {stats.habitSlots ? `${stats.habitChecks} из ${stats.habitSlots}` : 'нет привычек'}
@@ -1585,7 +1587,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
             <div className="planner-section__head">
               <div>
                 <h3 id="planner-journal" className="admin-card-title">Дневник</h3>
-                <p className="admin-hint">Сон, энергия, настроение и три короткие записи о дне.</p>
+                <p className="admin-hint">Сон, энергия, настроение и&nbsp;три короткие записи о&nbsp;дне.</p>
               </div>
               <span className="admin-state">
                 <NotebookPen aria-hidden="true" />

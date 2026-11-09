@@ -10,7 +10,6 @@ import {
   Clock3,
   ExternalLink,
   GripVertical,
-  Loader2,
   Minus,
   MoreHorizontal,
   Play,
@@ -1160,12 +1159,10 @@ function HeroEffectControls({
 /** Вопрос «уйти и потерять правки?» — отвечает true, если уходить можно. */
 type PagesBuildState =
   | { status: 'idle' }
-  | { status: 'building'; triggeredAt: number; pagePath: string }
-  | { status: 'done'; completedAt: number; pagePath: string }
+  | { status: 'requested'; pagePath: string }
   | { status: 'error'; error: string; pagePath: string };
 
 const STORAGE_KEY_BUILD = 'ww_pages_build_state';
-const PAGES_BUILD_ESTIMATED_SECONDS = 90;
 
 function readSavedBuildState(): PagesBuildState {
   if (typeof window === 'undefined') return { status: 'idle' };
@@ -1173,24 +1170,7 @@ function readSavedBuildState(): PagesBuildState {
     const raw = localStorage.getItem(STORAGE_KEY_BUILD);
     if (!raw) return { status: 'idle' };
     const parsed = JSON.parse(raw) as Partial<PagesBuildState>;
-    if (parsed.status === 'building' && typeof parsed.triggeredAt === 'number') {
-      const elapsed = (Date.now() - parsed.triggeredAt) / 1000;
-      if (elapsed < PAGES_BUILD_ESTIMATED_SECONDS) {
-        return { status: 'building', triggeredAt: parsed.triggeredAt, pagePath: String(parsed.pagePath || '/') };
-      }
-      if (elapsed < PAGES_BUILD_ESTIMATED_SECONDS + 45) {
-        return { status: 'done', completedAt: parsed.triggeredAt + PAGES_BUILD_ESTIMATED_SECONDS * 1000, pagePath: String(parsed.pagePath || '/') };
-      }
-      localStorage.removeItem(STORAGE_KEY_BUILD);
-      return { status: 'idle' };
-    }
-    if (parsed.status === 'done' && typeof parsed.completedAt === 'number') {
-      if (Date.now() - parsed.completedAt < 45_000) {
-        return { status: 'done', completedAt: parsed.completedAt, pagePath: String(parsed.pagePath || '/') };
-      }
-      localStorage.removeItem(STORAGE_KEY_BUILD);
-      return { status: 'idle' };
-    }
+    if (parsed.status === 'requested') return { status: 'requested', pagePath: String(parsed.pagePath || '/') };
     if (parsed.status === 'error') {
       return { status: 'error', error: String(parsed.error || 'Ошибка'), pagePath: String(parsed.pagePath || '/') };
     }
@@ -1489,40 +1469,14 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   // настройка базы, и подсказка должна пережить любое следующее сообщение.
   const [migration, setMigration] = useState('');
   const [buildState, setBuildState] = useState<PagesBuildState>(() => readSavedBuildState());
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [activeBackup, setActiveBackup] = useState<SiteContentBackup | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
 
-  useEffect(() => {
-    if (buildState.status === 'idle') return;
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setCurrentTime(now);
-
-      if (buildState.status === 'building') {
-        const elapsed = (now - buildState.triggeredAt) / 1000;
-        if (elapsed >= PAGES_BUILD_ESTIMATED_SECONDS) {
-          const doneState: PagesBuildState = {
-            status: 'done',
-            completedAt: now,
-            pagePath: buildState.pagePath,
-          };
-          setBuildState(doneState);
-          persistBuildState(doneState);
-        }
-      } else if (buildState.status === 'done') {
-        if (now - buildState.completedAt >= 45_000) {
-          setBuildState({ status: 'idle' });
-          persistBuildState({ status: 'idle' });
-        }
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [buildState]);
   // Счётчик живёт здесь: кнопку повтора нажимают в настройках эффекта,
   // а перезапускать анимацию надо в кадре предпросмотра.
   const [replayKey, setReplayKey] = useState(0);
   const loadSequence = useRef(0);
+  const savedVersion = useRef<{ key: string; version: number } | null>(null);
   const contentRef = useRef(content);
   // Сохранённая версия держится в состоянии, а не в ref: от неё зависит и
   // «есть несохранённые изменения», и отметки изменённых блоков, а ref не
@@ -1644,6 +1598,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       const defaults = editableDefaults(page);
       const next = payload.section?.draft ? mergeContent(defaults, normalizeStored(page, payload.section.draft)) : defaults;
       setSection(payload.section || null);
+      savedVersion.current = { key: pageMeta.key, version: Number(payload.section?.version || 0) };
       setVersions(payload.versions || []);
       setContent(next);
       setBaseline(next);
@@ -1816,17 +1771,39 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action, key: pageMeta.key, pagePath: pageMeta.path, label: pageMeta.label, content: serializeContent(page, savedContent) }),
+        body: JSON.stringify({ action, key: pageMeta.key, label: pageMeta.label, content: serializeContent(page, savedContent),
+          expectedVersion: savedVersion.current?.key === pageMeta.key ? savedVersion.current.version : undefined }),
       });
       const payload = await response.json().catch(() => null) as {
         success?: boolean;
         error?: string;
+        version?: number;
         seoBuild?: { configured?: boolean; triggered?: boolean; error?: string };
       } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      if (typeof payload.version === 'number' && savedVersion.current?.key === pageMeta.key) {
+        savedVersion.current = { key: pageMeta.key, version: payload.version };
+      }
       setPublishArmed(false);
+      let savedNotice = 'Черновик сохранён. Публичная версия не изменилась.';
+      if (action === 'publish') {
+        const hook = payload.seoBuild;
+        let nextState: PagesBuildState = { status: 'idle' };
+        if (hook?.triggered) {
+          nextState = { status: 'requested', pagePath: pageMeta.path };
+          savedNotice = 'Версия опубликована в D1. Cloudflare принял запрос на сборку SEO-HTML.';
+        } else if (hook?.configured) {
+          const error = hook.error || 'Не удалось запустить сборку';
+          nextState = { status: 'error', error, pagePath: pageMeta.path };
+          savedNotice = `Версия опубликована в D1. Запрос на сборку отклонён: ${error}.`;
+        } else {
+          savedNotice = 'Версия опубликована в D1. Для автоматического обновления SEO-HTML настройте Deploy Hook.';
+        }
+        setBuildState(nextState);
+        persistBuildState(nextState);
+      }
       if (JSON.stringify(contentRef.current) !== JSON.stringify(savedContent)) {
-        setNotice('Версия на момент нажатия сохранена. Более новые изменения остались в редакторе.');
+        setNotice(`${savedNotice} Более новые изменения остались в редакторе.`);
       } else {
         try {
           localStorage.removeItem(siteContentBackupKey(pageMeta.key));
@@ -1835,31 +1812,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         }
         setActiveBackup(null);
         const refreshed = await load(true);
-        if (refreshed) {
-          if (action === 'publish' && payload.seoBuild?.triggered) {
-            const nextState: PagesBuildState = {
-              status: 'building',
-              triggeredAt: Date.now(),
-              pagePath: pageMeta.path,
-            };
-            setBuildState(nextState);
-            persistBuildState(nextState);
-            setNotice('Опубликовано: версия уже доступна из D1, production-сборка SEO-HTML запущена автоматически.');
-          } else if (action === 'publish' && payload.seoBuild?.configured) {
-            const nextState: PagesBuildState = {
-              status: 'error',
-              error: payload.seoBuild.error || 'Не удалось запустить сборку',
-              pagePath: pageMeta.path,
-            };
-            setBuildState(nextState);
-            persistBuildState(nextState);
-            setNotice(`Текст опубликован, но SEO-сборку запустить не удалось${payload.seoBuild.error ? `: ${payload.seoBuild.error}` : '.'}`);
-          } else if (action === 'publish') {
-            setNotice('Текст опубликован. Для автоматического обновления SEO-HTML добавьте секрет CF_PAGES_DEPLOY_HOOK_URL.');
-          } else {
-            setNotice('Черновик сохранён. Публичная версия не изменилась.');
-          }
-        }
+        if (refreshed) setNotice(savedNotice);
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Не удалось сохранить');
@@ -1873,6 +1826,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       setNotice('Сначала сохраните или отмените текущие изменения — восстановление версии заменит черновик.');
       return;
     }
+    const contentBeforeRestore = JSON.stringify(contentRef.current);
     setLoading(true);
     setNotice('Восстанавливаю версию в черновик…');
     try {
@@ -1880,10 +1834,18 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ action: 'restore', key: pageMeta.key, versionId }),
+        body: JSON.stringify({ action: 'restore', key: pageMeta.key, versionId,
+          expectedVersion: savedVersion.current?.key === pageMeta.key ? savedVersion.current.version : undefined }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; version?: number } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      if (typeof payload.version === 'number' && savedVersion.current?.key === pageMeta.key) {
+        savedVersion.current = { key: pageMeta.key, version: payload.version };
+      }
+      if (JSON.stringify(contentRef.current) !== contentBeforeRestore) {
+        setNotice('Версия восстановлена в D1. Более новые изменения остались в редакторе.');
+        return;
+      }
       const refreshed = await load(true);
       if (refreshed) setNotice('Версия восстановлена в черновик. Проверьте её перед публикацией.');
     } catch (error) {
@@ -1918,7 +1880,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         <div>
           <p className="admin-eyebrow">Контент сайта</p>
           <h2 className="admin-title">Редактор сайта</h2>
-          <p className="admin-subtitle">Рабочая студия страниц: меняйте текст, типографику и эффекты, сразу проверяйте реальную вёрстку на разных экранах и публикуйте только готовый результат.</p>
+          <p className="admin-subtitle">Рабочая студия страниц: меняйте текст, типографику и&nbsp;эффекты, сразу проверяйте реальную вёрстку на&nbsp;разных экранах и&nbsp;публикуйте только готовый&nbsp;результат.</p>
         </div>
         <a className="admin-button admin-button--secondary" href={pageMeta.path} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" /> Открыть страницу</a>
       </div>
@@ -1935,29 +1897,20 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
               Не сохранено: {[...changedSections].map((value) => SECTION_LABELS[value]).join(', ')}
             </span>
           ) : <span className="admin-state">{isHydrated ? 'Редактор синхронизирован' : 'Редактор пока недоступен'}</span>}
-          {buildState.status === 'building' ? (
+          {buildState.status === 'requested' && buildState.pagePath === pageMeta.path ? (
             <span
-              className="admin-state admin-state--warning"
-              title={`Cloudflare Pages выполняет фоновую сборку статического SEO-HTML (${buildState.pagePath}). Публичный сайт уже отдаёт новый текст из D1.`}
+              className="admin-state"
+              title={`Cloudflare принял запрос для ${buildState.pagePath}. Результат сборки проверяется в Cloudflare Pages.`}
             >
-              <Loader2 className="animate-spin" aria-hidden="true" />
-              Сборка в процессе ({Math.max(0, PAGES_BUILD_ESTIMATED_SECONDS - Math.floor((currentTime - buildState.triggeredAt) / 1000))}с)
+              Запрос сборки принят
             </span>
-          ) : buildState.status === 'done' ? (
-            <span
-              className="admin-state admin-state--success"
-              title="Фоновая сборка Cloudflare Pages завершена: статический SEO-HTML и edge-кэш синхронизированы."
-            >
-              <Check aria-hidden="true" />
-              Сборка завершена
-            </span>
-          ) : buildState.status === 'error' ? (
+          ) : buildState.status === 'error' && buildState.pagePath === pageMeta.path ? (
             <span
               className="admin-state admin-state--danger"
               title={`Ошибка вызова Deploy Hook: ${buildState.error}`}
             >
               <AlertTriangle aria-hidden="true" />
-              Сбой сборки
+              Сборка не запрошена
             </span>
           ) : null}
         </div>
@@ -2224,7 +2177,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                     ))}
                     <AddItemButton label="Добавить показатель" count={content.hero.stats.length} maxItems={4} onAdd={() => update(['hero', 'stats'], [...content.hero.stats, { value: '', label: '' }])} />
                   </div>
-                  <span className="admin-hint">Публикуйте только цифры, подтверждённые кейсом или рекламным кабинетом.</span>
+                  <span className="admin-hint">Публикуйте только цифры, подтверждённые кейсом или&nbsp;рекламным&nbsp;кабинетом.</span>
                 </div>
                 <HeroEffectControls value={content.hero.titleAnimation} onReplay={() => setReplayKey((v) => v + 1)} onChange={(next) => update(['hero', 'titleAnimation'], next)} />
                 {renderTypography('hero', content.hero.typography, 'hero', content.hero.titleLines[0]?.text || content.hero.titlePrefix)}
@@ -2487,7 +2440,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
 
         <aside className="admin-stack admin-content-aside">
           <section className="admin-card"><div className="admin-section-header admin-section-header--compact"><div><p className="admin-eyebrow">История</p><h3 className="admin-card-title">Последние версии</h3></div></div>{versions.length === 0 ? <p className="admin-muted">Версии появятся после первого сохранения.</p> : <div className="admin-version-list">{versions.map((version) => <div key={version.id}><div><strong>{version.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${version.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div><button type="button" className="admin-icon-button" title="Восстановить в черновик" aria-label="Восстановить эту версию в черновик" disabled={loading || isDirty} onClick={() => void restore(version.id)}><RotateCcw aria-hidden="true" /></button></div>)}</div>}</section>
-          <div className="admin-notice admin-notice--warning">Публикация сразу меняет видимый текст через D1. Если настроен CF_PAGES_DEPLOY_HOOK_URL, админка одновременно запускает production-сборку той же версии для SEO-HTML; черновик в поисковую копию не попадает.</div>
+          <div className="admin-notice admin-notice--warning">При публикации версия сохраняется в D1. Посетители увидят её после обновления кэша. Если настроен Deploy Hook, админка отправит запрос на обновление SEO-HTML.</div>
         </aside>
       </div>
       </>}

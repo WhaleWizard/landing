@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Bell, Plus, Receipt, RotateCcw } from "lucide-react";
+import { ArrowLeft, Bell, ChevronRight, Plus, Receipt, RotateCcw } from "lucide-react";
 import {
   invoiceOutstanding,
   invoiceReceived,
@@ -74,13 +74,12 @@ export default function WorkspaceInvoice({
         )}
         {work && (
           <>
-            <span>/</span>
             <button
               onClick={() =>
                 onNavigate?.({ section: "projects", workId: work.id })
               }
             >
-              {work.title}
+              <ChevronRight aria-hidden="true" /> <span>{work.title}</span>
             </button>
           </>
         )}
@@ -185,7 +184,7 @@ export default function WorkspaceInvoice({
           {invoice.payments?.length ? (
             invoice.payments.map((p) => (
               <div
-                className={`ws-row ${p.voided_at ? "ws-voided" : ""}`}
+                className={`ws-row ws-payment-row ${p.voided_at ? "ws-voided" : ""}`}
                 key={p.id}
               >
                 <Receipt aria-hidden="true" />

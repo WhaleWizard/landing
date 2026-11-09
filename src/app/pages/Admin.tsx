@@ -2597,11 +2597,12 @@ export default function Admin() {
               </div>
 
               {adminSectionFilter === 'blog' && (
-                <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                <div className="admin-publication-filters" role="group" aria-label="Темы статей">
                   <button
                     type="button"
                     onClick={() => setArticleSubFilter('')}
-                    className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${!articleSubFilter ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                    className={`px-2.5 py-1 rounded-full transition-colors ${!articleSubFilter ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                    aria-pressed={!articleSubFilter}
                   >
                     Все темы
                   </button>
@@ -2610,7 +2611,8 @@ export default function Admin() {
                       key={sec.id}
                       type="button"
                       onClick={() => setArticleSubFilter(articleSubFilter === sec.id ? '' : sec.id)}
-                      className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${articleSubFilter === sec.id ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                      className={`px-2.5 py-1 rounded-full transition-colors ${articleSubFilter === sec.id ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                      aria-pressed={articleSubFilter === sec.id}
                     >
                       {sec.short}
                     </button>
@@ -2619,11 +2621,12 @@ export default function Admin() {
               )}
 
               {adminSectionFilter === 'cases' && knownNiches.length > 0 && (
-                <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                <div className="admin-publication-filters" role="group" aria-label="Ниши кейсов">
                   <button
                     type="button"
                     onClick={() => setArticleSubFilter('')}
-                    className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${!articleSubFilter ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                    className={`px-2.5 py-1 rounded-full transition-colors ${!articleSubFilter ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                    aria-pressed={!articleSubFilter}
                   >
                     Все ниши
                   </button>
@@ -2632,7 +2635,8 @@ export default function Admin() {
                       key={niche}
                       type="button"
                       onClick={() => setArticleSubFilter(articleSubFilter === niche ? '' : niche)}
-                      className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${articleSubFilter === niche ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                      className={`px-2.5 py-1 rounded-full transition-colors ${articleSubFilter === niche ? 'bg-[var(--adm-primary-solid)] text-white font-medium' : 'bg-[var(--adm-muted)] text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/80'}`}
+                      aria-pressed={articleSubFilter === niche}
                     >
                       {niche}
                     </button>

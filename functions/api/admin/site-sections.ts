@@ -131,10 +131,10 @@ type WriteBody = {
   password?: string;
   action?: 'save' | 'publish' | 'restore';
   key?: string;
-  pagePath?: string;
   label?: string;
   content?: unknown;
   versionId?: number;
+  expectedVersion?: number;
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
@@ -151,9 +151,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   if (!body.action || !['save', 'publish', 'restore'].includes(body.action)) {
     return json({ success: false, error: 'Unknown action' }, { status: 400, headers: noStore });
   }
+  if (body.expectedVersion !== undefined && (!Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 0)) {
+    return json({ success: false, error: 'Недопустимая версия страницы' }, { status: 400, headers: noStore });
+  }
 
   try {
     const db = env.DB;
+    const existing = await db.prepare(
+      'SELECT draft_json, published_json, version FROM site_sections WHERE section_key=? LIMIT 1',
+    ).bind(body.key).first<{ draft_json: string; published_json: string; version: number }>();
+    const version = existing?.version ?? 0;
+    const conflict = () => json({
+      success: false, code: 'SITE_CONTENT_CONFLICT',
+      error: 'Страница изменилась после загрузки редактора. Скопируйте свои правки и обновите редактор.',
+    }, { status: 409, headers: noStore });
+    if (body.expectedVersion !== undefined && body.expectedVersion !== version) return conflict();
+    const snapshotStatement = (snapshot: string, source: 'draft' | 'published') => db.prepare(
+      `INSERT INTO site_section_versions (section_key, snapshot_json, source)
+       SELECT section_key, ?, ? FROM site_sections WHERE section_key=? AND version=?`,
+    ).bind(snapshot, source, body.key, version);
+
     if (body.action === 'restore') {
       const versionId = Number(body.versionId || 0);
       if (!Number.isInteger(versionId) || versionId <= 0) {
@@ -164,25 +181,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       ).bind(versionId, body.key).first<{ snapshot_json: string }>();
       if (!snapshot) return json({ success: false, error: 'Version not found' }, { status: 404, headers: noStore });
       const sanitized = JSON.stringify(safeSiteJsonObject(body.key, snapshot.snapshot_json));
-      const current = await db.prepare(
-        'SELECT draft_json FROM site_sections WHERE section_key=? LIMIT 1',
-      ).bind(body.key).first<{ draft_json: string }>();
       const update = db.prepare(
         `UPDATE site_sections SET draft_json=?, status='draft', version=version+1, updated_at=datetime('now')
-         WHERE section_key=?`,
-      ).bind(sanitized, body.key);
-      if (current?.draft_json && current.draft_json !== '{}') {
-        await db.batch([
-          db.prepare(
-            `INSERT INTO site_section_versions (section_key, snapshot_json, source)
-             VALUES (?, ?, 'draft')`,
-          ).bind(body.key, current.draft_json),
+         WHERE section_key=? AND version=?`,
+      ).bind(sanitized, body.key, version);
+      const results = existing?.draft_json && existing.draft_json !== '{}'
+        ? await db.batch([
+          snapshotStatement(existing.draft_json, 'draft'),
           update,
-        ]);
-      } else {
-        await update.run();
-      }
-      return json({ success: true, restored: true }, { headers: noStore });
+        ]) : [await update.run()];
+      if (results[results.length - 1]?.meta?.changes !== 1) return conflict();
+      return json({ success: true, restored: true, version: version + 1 }, { headers: noStore });
     }
 
     const content = sanitizeSiteContent(body.key, body.content);
@@ -193,24 +202,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     if (serialized.length > 50_000) {
       return json({ success: false, error: 'Слишком большой объём текста' }, { status: 413, headers: noStore });
     }
-    const defaultPath = body.key === 'site:faq'
+    const pagePath = body.key === 'site:faq'
       ? '/faq'
       : body.key === 'site:about'
         ? '/about'
       : body.key === 'site:home'
         ? '/'
         : `/${body.key.replace('service:', '')}`;
-    const pagePath = body.key === 'site:about' ? defaultPath : String(body.pagePath || defaultPath).slice(0, 120);
     const label = String(body.label || body.key).replace(/[<>]/g, '').slice(0, 120);
-    const existing = await db.prepare(
-      'SELECT draft_json, published_json FROM site_sections WHERE section_key=? LIMIT 1',
-    ).bind(body.key).first<{ draft_json: string; published_json: string }>();
-
     const statements: D1PreparedStatement[] = [];
     const addSnapshot = (snapshot: string, source: 'draft' | 'published') => {
-      statements.push(db.prepare(
-        'INSERT INTO site_section_versions (section_key, snapshot_json, source) VALUES (?, ?, ?)',
-      ).bind(body.key, snapshot, source));
+      statements.push(snapshotStatement(snapshot, source));
     };
 
     if (existing && body.action === 'publish') {
@@ -239,7 +241,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       statements.push(db.prepare(
         `INSERT INTO site_sections
            (section_key, page_path, label, draft_json, published_json, status, version, published_version, created_at, updated_at, published_at)
-         VALUES (?, ?, ?, ?, ?, 'published', 1, 1, datetime('now'), datetime('now'), datetime('now'))
+         SELECT ?, ?, ?, ?, ?, 'published', 1, 1, datetime('now'), datetime('now'), datetime('now')
+         WHERE ? = 0 OR EXISTS (SELECT 1 FROM site_sections WHERE section_key=? AND version=?)
          ON CONFLICT(section_key) DO UPDATE SET
            page_path=excluded.page_path,
            label=excluded.label,
@@ -249,23 +252,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
            published_version=site_sections.version+1,
            version=site_sections.version+1,
            updated_at=datetime('now'),
-           published_at=datetime('now')`,
-      ).bind(body.key, pagePath, label, serialized, serialized));
+           published_at=datetime('now')
+         WHERE site_sections.version=?`,
+      ).bind(body.key, pagePath, label, serialized, serialized, version, body.key, version, version));
     } else {
       statements.push(db.prepare(
         `INSERT INTO site_sections
            (section_key, page_path, label, draft_json, published_json, status, version, created_at, updated_at)
-         VALUES (?, ?, ?, ?, '{}', 'draft', 1, datetime('now'), datetime('now'))
+         SELECT ?, ?, ?, ?, '{}', 'draft', 1, datetime('now'), datetime('now')
+         WHERE ? = 0 OR EXISTS (SELECT 1 FROM site_sections WHERE section_key=? AND version=?)
          ON CONFLICT(section_key) DO UPDATE SET
            page_path=excluded.page_path,
            label=excluded.label,
            draft_json=excluded.draft_json,
            status='draft',
            version=site_sections.version+1,
-           updated_at=datetime('now')`,
-      ).bind(body.key, pagePath, label, serialized));
+           updated_at=datetime('now')
+         WHERE site_sections.version=?`,
+      ).bind(body.key, pagePath, label, serialized, version, body.key, version, version));
     }
-    await db.batch(statements);
+    const results = await db.batch(statements);
+    if (results[results.length - 1]?.meta?.changes !== 1) return conflict();
 
     let seoBuild: Awaited<ReturnType<typeof triggerSeoBuild>> | undefined;
     if (body.action === 'publish') {
@@ -282,6 +289,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
     return json({
       success: true,
+      version: version + 1,
       status: body.action === 'publish' ? 'published' : 'draft',
       ...(seoBuild ? { seoBuild } : {}),
       globalPurgeConfigured: Boolean(env.CF_ZONE_ID && env.CF_CACHE_PURGE_TOKEN),

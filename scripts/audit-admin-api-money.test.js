@@ -37,6 +37,10 @@ class D1Statement {
   }
 
   async run() {
+    return this.runSync();
+  }
+
+  runSync() {
     const info = this.db.prepare(this.sql).run(...this.values);
     return { success: true, meta: { changes: info.changes, last_row_id: Number(info.lastInsertRowid) } };
   }
@@ -45,7 +49,17 @@ class D1Statement {
 class D1Database {
   constructor(db) { this.db = db; }
   prepare(sql) { return new D1Statement(this.db, sql); }
-  async batch(statements) { return Promise.all(statements.map((statement) => statement.run())); }
+  async batch(statements) {
+    this.db.exec('BEGIN');
+    try {
+      const results = statements.map((statement) => statement.runSync());
+      this.db.exec('COMMIT');
+      return results;
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+  }
 }
 
 function freshDatabase() {
@@ -198,6 +212,63 @@ function insertLead(sqlite, fields = {}) {
   ).run(...columns.map((column) => row[column]));
   return Number(info.lastInsertRowid);
 }
+
+test('массовый этап сохраняет ревизии, CRM-метки и аудит, повтор не создаёт новые записи', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const first = insertLead(sqlite);
+  const second = insertLead(sqlite, { pipeline_stage: 'contacted', status: 'in_progress', first_response_at: '2026-01-01 00:00:00' });
+  const already = insertLead(sqlite, { pipeline_stage: 'proposal', status: 'in_progress' });
+  const crm = await harness('functions/api/admin/lead-crm.ts', { sqlite });
+  const request = { action: 'bulk_update_stage', pipeline_stage: 'proposal', action_id: 'test-bulk',
+    items: [first, second, already].map((id) => ({ id, expected_revision: 0 })) };
+  const applied = await crm.post(request);
+  assert.equal(applied.status, 200, JSON.stringify(applied.payload));
+  assert.equal(applied.payload.count, 2);
+  const rows = sqlite.prepare('SELECT pipeline_stage, status, crm_revision, first_response_at, last_contacted_at FROM leads ORDER BY id').all();
+  assert.deepEqual(rows.map((row) => [row.pipeline_stage, row.status, row.crm_revision]), [
+    ['proposal', 'in_progress', 1], ['proposal', 'in_progress', 1], ['proposal', 'in_progress', 0],
+  ]);
+  assert.ok(rows[0].first_response_at && rows[0].last_contacted_at);
+  assert.equal(rows[1].first_response_at, '2026-01-01 00:00:00');
+  const replay = await crm.post(request);
+  assert.equal(replay.payload.count, 2);
+  assert.equal(replay.payload.idempotent, true);
+  assert.deepEqual(sqlite.prepare('SELECT lead_id, "from" AS previous, "to" AS next FROM lead_activity ORDER BY lead_id').all()
+    .map((row) => [row.lead_id, row.previous, row.next]), [[first, 'new', 'proposal'], [second, 'contacted', 'proposal']]);
+  const closed = await crm.post({ action: 'bulk_update_stage', pipeline_stage: 'won', ids: [first, second] });
+  assert.equal(closed.payload.count, 2);
+  assert.equal(sqlite.prepare("SELECT count(*) AS count FROM leads WHERE status = 'closed' AND closed_at IS NOT NULL").get().count, 2);
+});
+
+test('массовый этап не меняет ни одной сделки при конфликте или ошибке в середине транзакции', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const first = insertLead(sqlite);
+  const second = insertLead(sqlite);
+  const deleted = insertLead(sqlite, { deleted_at: '2026-01-01 00:00:00' });
+  const crm = await harness('functions/api/admin/lead-crm.ts', { sqlite });
+  const request = { action: 'bulk_update_stage', pipeline_stage: 'won', action_id: 'test-atomic',
+    items: [first, second].map((id) => ({ id, expected_revision: 0 })) };
+  const assertUntouched = () => {
+    assert.equal(sqlite.prepare("SELECT count(*) AS count FROM leads WHERE pipeline_stage <> 'new'").get().count, 0);
+    assert.equal(sqlite.prepare('SELECT count(*) AS count FROM lead_activity').get().count, 0);
+  };
+  assert.equal((await crm.post({ ...request, items: [{ id: first, expected_revision: 0 }, { id: deleted, expected_revision: 0 }] })).status, 409);
+  assertUntouched();
+  const batch = crm.env.DB.batch.bind(crm.env.DB);
+  crm.env.DB.batch = async (statements) => {
+    sqlite.prepare('UPDATE leads SET crm_revision = 1 WHERE id = ?').run(second);
+    return batch(statements);
+  };
+  assert.equal((await crm.post(request)).status, 409);
+  assertUntouched();
+  crm.env.DB.batch = batch;
+  sqlite.prepare('UPDATE leads SET crm_revision = 0 WHERE id = ?').run(second);
+  sqlite.exec("CREATE TRIGGER reject_stage BEFORE UPDATE OF pipeline_stage ON leads BEGIN SELECT RAISE(ABORT, 'test write failure'); END");
+  assert.equal((await crm.post(request)).status, 500);
+  assertUntouched();
+});
 
 // ─── F-028: расходы не введены — null, а не ноль ─────────────────────────────
 
@@ -1044,6 +1115,7 @@ test('сквозная аналитика UTM-кампаний (campaign_stats) 
   assert.equal(preMigration.payload.campaigns[0].qualified, 2);
   assert.equal(preMigration.payload.campaigns[0].won, 1);
   assert.equal(preMigration.payload.campaigns[0].revenue, 1500);
+  assert.equal(preMigration.payload.campaigns[0].spend, null);
 
   sqlite.exec(readFileSync('migrations/0046_campaign_stats.sql', 'utf8'));
   const saveRes = await statsHarness.post({
@@ -1073,4 +1145,32 @@ test('сквозная аналитика UTM-кампаний (campaign_stats) 
   assert.equal(campaign.cac, 300);
   assert.equal(campaign.revenue, 1500);
   assert.equal(campaign.romi, 400);
+});
+
+test('UTM-кампании сопоставляют кириллицу и разделители, а денежные итоги требуют сопоставимых валют', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  sqlite.exec('DROP TABLE IF EXISTS campaign_stats;');
+  sqlite.exec(readFileSync('migrations/0046_campaign_stats.sql', 'utf8'));
+  insertLead(sqlite, { utm_source: 'FB', utm_campaign: 'Новая::Группа', pipeline_stage: 'won', deal_value: 1500, deal_currency: 'EUR' });
+  const stats = await harness('functions/api/admin/campaign-stats.ts', { sqlite });
+  const record = { action: 'save_record', utm_source: 'fb', utm_campaign: 'новая::группа', date: sqlDate(daysAgo(1)), spend: 300, currency: 'USD' };
+  assert.equal((await stats.post(record)).status, 200);
+
+  const single = (await stats.get({ days: 30 })).payload.campaigns[0];
+  assert.equal(single.utm_campaign, 'новая::группа');
+  assert.equal(single.leads, 1);
+  assert.equal(single.currency, 'USD');
+  assert.equal(single.revenueCurrency, 'EUR');
+  assert.equal(single.romi, null);
+
+  assert.equal((await stats.post({ ...record, currency: 'EUR', spend: 50 })).status, 200);
+  assert.equal((await stats.post({ ...record, date: '2026-02-30' })).status, 400);
+  assert.equal((await stats.post({ ...record, spend: -1 })).status, 400);
+  const mixed = (await stats.get({ days: 30 })).payload;
+  assert.equal(mixed.campaigns[0].spend, null);
+  assert.equal(mixed.summary.spend, null);
+  assert.equal(mixed.summary.revenue, 1500);
+  assert.equal(mixed.summary.cpl, null);
+  assert.equal(mixed.summary.romi, null);
 });

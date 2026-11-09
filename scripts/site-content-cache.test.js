@@ -27,7 +27,7 @@ function jsonResponse(payload, status = 200) {
 }
 
 test('site-content API separates browser revalidation from Cloudflare edge caching', async () => {
-  const { onRequestGet } = await bundleTypeScript('functions/api/site-content.ts');
+  const { onRequestGet, onRequestHead } = await bundleTypeScript('functions/api/site-content.ts');
   const row = {
     published_json: JSON.stringify({ hero: { title: 'Fresh title' } }),
     published_version: 7,
@@ -53,6 +53,12 @@ test('site-content API separates browser revalidation from Cloudflare edge cachi
   );
   assert.equal(response.headers.get('ETag'), '"site-content-site-home-7"');
 
+  const head = await onRequestHead({ request: new Request('https://example.test/api/site-content?key=site%3Ahome', { method: 'HEAD' }), env });
+  assert.equal(head.status, response.status);
+  assert.equal(head.headers.get('ETag'), response.headers.get('ETag'));
+  assert.equal(head.headers.get('Cloudflare-CDN-Cache-Control'), response.headers.get('Cloudflare-CDN-Cache-Control'));
+  assert.equal(await head.text(), '');
+
   const revalidated = await onRequestGet({
     request: new Request('https://example.test/api/site-content?key=site%3Ahome', {
       headers: { 'If-None-Match': response.headers.get('ETag') },
@@ -68,12 +74,13 @@ test('About drafts stay private and the SEO build reads the published About revi
   const originalFetch = globalThis.fetch;
   const hook = 'https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/local-test-only';
   let buildRequests = 0;
+  let hookStatus = 200;
   globalThis.caches = { default: { match: async () => undefined, put: async () => {}, delete: async () => true } };
   globalThis.fetch = async (url, options) => {
     assert.equal(url, hook);
     assert.equal(options.method, 'POST');
     buildRequests += 1;
-    return new Response(null, { status: 200 });
+    return new Response(null, { status: hookStatus });
   };
   t.after(() => { globalThis.caches = originalCaches; globalThis.fetch = originalFetch; });
   const [admin, publicApi] = await Promise.all([
@@ -89,7 +96,7 @@ test('About drafts stay private and the SEO build reads the published About revi
       return { bind: (...args) => ({
         first: async () => statement.get(...args) ?? null,
         all: async () => ({ results: statement.all(...args) }),
-        run: async () => statement.run(...args),
+        run: async () => ({ meta: { changes: statement.run(...args).changes } }),
       }) };
     },
     batch: async (statements) => Promise.all(statements.map((statement) => statement.run())),
@@ -97,26 +104,26 @@ test('About drafts stay private and the SEO build reads the published About revi
   const env = { DB: db, ADMIN_PASSWORD: 'local-test-only', CF_PAGES_DEPLOY_HOOK_URL: hook };
   const endpoint = 'https://example.test/api/site-content';
   const publicRead = (url = endpoint + '?key=site%3Aabout') => publicApi.onRequestGet({ request: new Request(url), env });
-  const write = async (action, title) => {
+  const write = async (action, title, key = 'site:about', content = {
+    seo: { title, description: 'Отредактированное описание' },
+    aboutStory: { title, paragraphs: [] },
+    aboutProjects: { items: [{ title: 'Проект', text: 'Текст', href: 'javascript:alert(1)', linkLabel: 'Ссылка' }] },
+    hiddenSections: ['aboutWork', 'aboutIntro', 'unknown'],
+  }, { expectedVersion, versionId, status = 200 } = {}) => {
     const response = await admin.onRequestPost({
       env, waitUntil: () => {},
       request: new Request('https://example.test/api/admin/site-sections', {
         method: 'POST',
         headers: { 'X-Admin-Password': env.ADMIN_PASSWORD, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action, key: 'site:about', pagePath: '/unrelated',
-          content: {
-            seo: { title, description: 'Отредактированное описание' },
-            aboutStory: { title, paragraphs: [] },
-            aboutProjects: { items: [{ title: 'Проект', text: 'Текст', href: 'javascript:alert(1)', linkLabel: 'Ссылка' }] },
-            hiddenSections: ['aboutWork', 'aboutIntro', 'unknown'],
-          },
+          action, key, pagePath: '/unrelated', content, expectedVersion, versionId,
         }),
       }),
     });
     const payload = await response.json();
-    assert.equal(response.status, 200, JSON.stringify(payload));
-    assert.equal(Boolean(payload.seoBuild?.triggered), action === 'publish');
+    assert.equal(response.status, status, JSON.stringify(payload));
+    assert.equal(Boolean(payload.seoBuild?.triggered), status === 200 && action === 'publish' && hookStatus === 200);
+    return payload;
   };
 
   await write('save', 'Только черновик');
@@ -132,6 +139,27 @@ test('About drafts stay private and the SEO build reads the published About revi
   assert.equal(sqlite.prepare('SELECT page_path FROM site_sections').get().page_path, '/about');
   const content = await loadPublishedSiteContent({ endpoint, strict: true, fetchImpl: publicRead, logger: { warn() {} } });
   assert.deepEqual(content['site:about'], live.content);
+
+  const revisionBefore = sqlite.prepare("SELECT draft_json, version FROM site_sections WHERE section_key='site:about'").get();
+  const historyBefore = sqlite.prepare('SELECT count(*) AS count FROM site_section_versions').get().count;
+  const stale = await write('publish', 'Старая вкладка', 'site:about', undefined, { expectedVersion: 2, status: 409 });
+  assert.equal(stale.code, 'SITE_CONTENT_CONFLICT');
+  const savedSnapshot = sqlite.prepare('SELECT id FROM site_section_versions ORDER BY id LIMIT 1').get().id;
+  await write('restore', '', 'site:about', undefined, { expectedVersion: 2, versionId: savedSnapshot, status: 409 });
+  assert.deepEqual(sqlite.prepare("SELECT draft_json, version FROM site_sections WHERE section_key='site:about'").get(), revisionBefore);
+  assert.equal(sqlite.prepare('SELECT count(*) AS count FROM site_section_versions').get().count, historyBefore);
+  assert.equal(buildRequests, 1);
+  const restored = await write('restore', '', 'site:about', undefined, { expectedVersion: 3, versionId: savedSnapshot });
+  assert.equal(restored.version, 4);
+  assert.deepEqual(await (await publicRead()).json(), live);
+
+  hookStatus = 503;
+  const failedBuild = await write('publish', 'Новый заголовок', 'service:google-ads', { hero: { titlePrefix: 'Новый заголовок' } }, { expectedVersion: 0 });
+  assert.equal(failedBuild.status, 'published');
+  assert.equal(failedBuild.seoBuild.status, 503);
+  assert.equal(sqlite.prepare("SELECT page_path FROM site_sections WHERE section_key='service:google-ads'").get().page_path, '/google-ads');
+  const service = await (await publicRead(endpoint + '?key=service%3Agoogle-ads')).json();
+  assert.equal(service.content.hero.titlePrefix, 'Новый заголовок');
 });
 
 test('parallel preloads share one request and cache an authoritative null response', async (t) => {

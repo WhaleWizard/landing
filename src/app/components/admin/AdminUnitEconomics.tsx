@@ -274,6 +274,7 @@ export default function AdminUnitEconomics() {
               className={`admin-unit-econ-preset-chip ${
                 activePreset === p.id ? 'active' : ''
               }`}
+              aria-pressed={activePreset === p.id}
               onClick={() => handleApplyPreset(p)}
             >
               <span>{p.name}</span>
@@ -289,7 +290,7 @@ export default function AdminUnitEconomics() {
         <div className="admin-unit-econ-card">
           <div className="admin-unit-econ-card-header">
             <Sliders className="h-4 w-4 text-blue-400 mr-2" />
-            <h3 className="admin-unit-econ-card-title">Параметры экономики и воронки</h3>
+            <h3 className="admin-unit-econ-card-title">Параметры экономики и&nbsp;воронки</h3>
           </div>
 
           <div className="admin-unit-econ-inputs">

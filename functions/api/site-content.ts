@@ -66,3 +66,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, content: null, source: 'static' }, { status: 500, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 };
+
+export const onRequestHead: PagesFunction<Env> = async (context) => {
+  const response = await onRequestGet(context);
+  return new Response(null, { status: response.status, headers: response.headers });
+};
