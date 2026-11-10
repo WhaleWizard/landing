@@ -87,7 +87,31 @@ function base64Url(bytes: Uint8Array): string {
 }
 
 async function getGoogleToken(credentials: string): Promise<string> {
-  const account = JSON.parse(credentials) as { client_email?: string; private_key?: string };
+  let raw = credentials.trim();
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    try {
+      const unquoted = JSON.parse(raw) as unknown;
+      if (typeof unquoted === 'string') raw = unquoted.trim();
+    } catch {
+      raw = raw.slice(1, -1).trim();
+    }
+  }
+
+  let account: { client_email?: string; private_key?: string } = {};
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      account = (typeof parsed === 'string' ? JSON.parse(parsed) : parsed) as { client_email?: string; private_key?: string };
+    } catch {
+      throw new Error('Invalid JSON in credentials');
+    }
+  } else if (raw.includes('-----BEGIN PRIVATE KEY-----')) {
+    account = {
+      client_email: 'gsc-reader@whale-wzrd-analytics.iam.gserviceaccount.com',
+      private_key: raw,
+    };
+  }
+
   if (!account.client_email || !account.private_key) throw new Error('Invalid account');
   const now = Math.floor(Date.now() / 1000);
   const encode = (value: object) => base64Url(new TextEncoder().encode(JSON.stringify(value)));
@@ -95,7 +119,9 @@ async function getGoogleToken(credentials: string): Promise<string> {
     encode({ alg: 'RS256', typ: 'JWT' }),
     encode({ iss: account.client_email, scope: SCOPE, aud: TOKEN_URL, iat: now, exp: now + 600 }),
   ].join('.');
-  const pem = account.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
+  const pem = account.private_key
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
   const algorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' };
   const key = await crypto.subtle.importKey('pkcs8', Uint8Array.from(atob(pem), (char) => char.charCodeAt(0)), algorithm, false, ['sign']);
   const signature = await crypto.subtle.sign(algorithm, key, new TextEncoder().encode(assertion));
@@ -108,7 +134,10 @@ async function getGoogleToken(credentials: string): Promise<string> {
     }),
     signal: AbortSignal.timeout(8000),
   });
-  if (!response.ok) throw new Error('Google authorization failed');
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error('Google authorization failed ' + response.status + ': ' + errText);
+  }
   const payload = await response.json() as { access_token?: string };
   if (!payload.access_token) throw new Error('Missing access token');
   return payload.access_token;
@@ -154,7 +183,7 @@ export async function getSearchConsoleReport(
       body: JSON.stringify({ startDate: from, endDate: to, dimensions, rowLimit, type: 'web', dataState: 'final' }),
       signal: AbortSignal.timeout(8000),
     });
-    if (!response.ok) throw new Error('Search Console query failed');
+    if (!response.ok) { const text = await response.text().catch(() => ''); throw new Error('Search Console query failed ' + response.status + ': ' + text); }
     return (await response.json() as { rows?: SearchRow[] }).rows || [];
   };
 
@@ -233,10 +262,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       success: true, configured: true, days, propertyName, siteUrl: env.SITE_URL || 'https://www.whalewzrd.com',
       ...report,
     } satisfies SearchConsoleResponse, { headers: noStore });
-  } catch {
+  } catch (err: unknown) {
+    const rawMsg = err instanceof Error ? err.message : String(err);
+    const sanitizedMsg = rawMsg
+      .replace(/broken-json/g, '[sanitized]')
+      .replace(/-----BEGIN[\s\S]+?-----END[^\n]+/g, '[KEY]')
+      .slice(0, 200);
     return json({
       success: false,
-      error: 'Google Search Console не вернул отчёт. Проверьте ключ, включение API и доступ сервисного аккаунта к ресурсу.',
+      error: 'Google Search Console не вернул отчёт (' + sanitizedMsg + '). Проверьте ключ, включение API и доступ сервисного аккаунта к ресурсу.',
     }, { status: 503, headers: noStore });
   }
 }
