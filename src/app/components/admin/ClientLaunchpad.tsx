@@ -14,6 +14,8 @@ import { confirmAsk, notify } from './AdminFeedback';
 import {
   CATEGORY_NAMES,
   TEMPLATES,
+  launchpadProgress,
+  readLaunchpadState,
   type LaunchpadCategory,
   type LaunchpadItem,
   type LaunchpadPriority,
@@ -22,14 +24,6 @@ import {
 interface ClientLaunchpadProps {
   clientId: number;
   clientName: string;
-}
-
-function storedChecklist(key: string): Record<string, unknown> {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(key) ?? '{}');
-    if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
-  } catch {}
-  return {};
 }
 
 export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpadProps) {
@@ -47,20 +41,9 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
 
   // Load client checklist state from localStorage
   useEffect(() => {
-    const savedChecked = storedChecklist(`ww_client_launchpad_${clientId}`);
-    const savedCustom = storedChecklist(`ww_client_launchpad_custom_${clientId}`);
-    setCheckedMap(Object.fromEntries(TEMPLATES.map(({ id }) => {
-      const checks = savedChecked[id];
-      const entries = checks && typeof checks === 'object' && !Array.isArray(checks) ? Object.entries(checks) : [];
-      return [id, Object.fromEntries(entries.filter(([, value]) => typeof value === 'boolean'))];
-    })));
-    setCustomItems(Object.fromEntries(TEMPLATES.map(({ id }) => {
-      const items = savedCustom[id];
-      return [id, Array.isArray(items) ? items.filter((item) => item && typeof item.id === 'string'
-        && typeof item.title === 'string' && typeof item.desc === 'string' && item.isCustom === true
-        && Object.hasOwn(CATEGORY_NAMES, item.category)
-        && ['critical', 'important', 'recommended'].includes(item.priority)) : []];
-    })));
+    const saved = readLaunchpadState(`ww_client_launchpad_${clientId}`, `ww_client_launchpad_custom_${clientId}`);
+    setCheckedMap(saved.checkedMap);
+    setCustomItems(saved.customItems);
   }, [clientId]);
 
   // Toggle item status
@@ -107,7 +90,7 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
   }, [allItems, activeChecked]);
 
   const totalCount = allItems.length;
-  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const progressPercent = launchpadProgress(completedCount, totalCount);
 
   const criticalPending = useMemo(() => {
     return allItems.filter((item) => item.priority === 'critical' && !activeChecked[item.id]);
@@ -327,7 +310,7 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
               aria-checked={isDone}
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === ' ' || e.key === 'Enter') {
+                  if (e.target === e.currentTarget && (e.key === ' ' || e.key === 'Enter')) {
                   e.preventDefault();
                   toggleItem(item.id);
                 }

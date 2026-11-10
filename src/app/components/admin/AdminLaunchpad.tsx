@@ -270,6 +270,41 @@ export const CATEGORY_NAMES: Record<LaunchpadCategory, string> = {
   legal: 'Юридические требования',
 };
 
+function readChecklistRecord(key: string): Record<string, unknown> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(key) ?? '{}');
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+  } catch {
+    // Storage can be unavailable or contain a damaged record.
+  }
+  return {};
+}
+
+export function readLaunchpadState(checkedKey: string, customKey: string) {
+  const storedChecks = readChecklistRecord(checkedKey);
+  const storedItems = readChecklistRecord(customKey);
+  const checkedMap: Record<string, Record<string, boolean>> = {};
+  const customItems: Record<string, LaunchpadItem[]> = {};
+  for (const { id } of TEMPLATES) {
+    const checks = storedChecks[id];
+    const entries = checks && typeof checks === 'object' && !Array.isArray(checks) ? Object.entries(checks) : [];
+    checkedMap[id] = Object.fromEntries(entries.filter(([, value]) => typeof value === 'boolean'));
+    const items = storedItems[id];
+    customItems[id] = Array.isArray(items) ? items
+      .filter((item) => item && typeof item.id === 'string' && typeof item.title === 'string'
+        && typeof item.desc === 'string' && item.isCustom === true && Object.hasOwn(CATEGORY_NAMES, item.category)
+        && ['critical', 'important', 'recommended'].includes(item.priority))
+      .map(({ id, title, desc, category, priority }) => ({ id, title, desc, category, priority, isCustom: true })) : [];
+  }
+  return { checkedMap, customItems };
+}
+
+export function launchpadProgress(completed: number, total: number): number {
+  if (!total) return 0;
+  if (completed === total) return 100;
+  return Math.min(99, Math.round((completed / total) * 100));
+}
+
 export default function AdminLaunchpad() {
   const [activeTemplateId, setActiveTemplateId] = useState<string>('meta_leads');
   const [clientName, setClientName] = useState<string>('');
@@ -292,11 +327,10 @@ export default function AdminLaunchpad() {
 
   // Load state from localStorage on initial render
   useEffect(() => {
+    const saved = readLaunchpadState('ww_launchpad_checked', 'ww_launchpad_custom');
+    setCheckedMap(saved.checkedMap);
+    setCustomItems(saved.customItems);
     try {
-      const savedChecked = localStorage.getItem('ww_launchpad_checked');
-      if (savedChecked) setCheckedMap(JSON.parse(savedChecked));
-      const savedCustom = localStorage.getItem('ww_launchpad_custom');
-      if (savedCustom) setCustomItems(JSON.parse(savedCustom));
       const savedClient = localStorage.getItem('ww_launchpad_client');
       if (savedClient) setClientName(savedClient);
     } catch {
@@ -370,7 +404,7 @@ export default function AdminLaunchpad() {
   // Stats
   const totalCount = allItemsForTemplate.length;
   const completedCount = allItemsForTemplate.filter((i) => activeChecked[i.id]).length;
-  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const progressPercent = launchpadProgress(completedCount, totalCount);
 
   const criticalItems = allItemsForTemplate.filter((i) => i.priority === 'critical');
   const criticalCompleted = criticalItems.filter((i) => activeChecked[i.id]).length;
@@ -691,7 +725,7 @@ export default function AdminLaunchpad() {
                 aria-pressed={isDone}
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === ' ' || e.key === 'Enter') {
+                  if (e.target === e.currentTarget && (e.key === ' ' || e.key === 'Enter')) {
                     e.preventDefault();
                     toggleItem(item.id);
                   }

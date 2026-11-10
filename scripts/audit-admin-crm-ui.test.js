@@ -85,6 +85,10 @@ const { createElement, act, createRoot } = reactModule;
 
 const unitEconModule = await bundle(`export { default as AdminUnitEconomics } from './src/app/components/admin/AdminUnitEconomics';`);
 
+const launchpad = await bundle(`
+  export { default as AdminLaunchpad, launchpadProgress } from './src/app/components/admin/AdminLaunchpad';
+`);
+
 const finance = await bundle(`
   export { default as AdminFinance, profitByCurrency, withInvoiceStatus } from './src/app/components/admin/AdminFinance';
 `);
@@ -144,6 +148,35 @@ async function mount(Component, props) {
     async unmount() { await act(async () => { root.unmount(); }); container.remove(); },
   };
 }
+
+test('чек-лист открывается при повреждённых отметках и сохраняет корректные пользовательские пункты', async () => {
+  const checkedKey = 'ww_launchpad_checked';
+  const customKey = 'ww_launchpad_custom';
+  localStorage.setItem(checkedKey, 'null');
+  localStorage.setItem(customKey, JSON.stringify({ meta_leads: [null, {
+    id: 'custom_fixture', title: 'Проверить настройки', desc: '',
+    category: 'tracking', priority: 'important', isCustom: true,
+  }] }));
+  try {
+    const view = await mount(launchpad.AdminLaunchpad, {});
+    try {
+      assert.equal(view.container.querySelector('.admin-launchpad-progress-num').textContent, '0%');
+      assert.match(view.container.textContent, /Проверить настройки/);
+    } finally {
+      await view.unmount();
+    }
+  } finally {
+    localStorage.removeItem(checkedKey);
+    localStorage.removeItem(customKey);
+  }
+});
+
+test('чек-лист показывает 100% только после последнего пункта', () => {
+  assert.equal(launchpad.launchpadProgress(0, 0), 0);
+  assert.equal(launchpad.launchpadProgress(49, 100), 49);
+  assert.equal(launchpad.launchpadProgress(210, 211), 99);
+  assert.equal(launchpad.launchpadProgress(211, 211), 100);
+});
 
 async function click(element) {
   assert.ok(element, 'элемент для нажатия не найден');
