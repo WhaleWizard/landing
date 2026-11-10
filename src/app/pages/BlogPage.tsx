@@ -27,7 +27,7 @@ import PageNav from '../components/PageNav';
 import { isCaseArticle } from '../utils/articleCategory';
 import { BLOG_PAGE_SIZE, blogArticleOrder, blogArticleTimestamp, parseBlogPage } from '../utils/blogListing';
 import { BLOG_SECTIONS, categoryDisplayLabel, normalizeTopicId, sectionOfArticle } from '../data/blogSections';
-import { useArticles } from '../context/ArticlesContext';
+import { articleVersion, useArticles } from '../context/ArticlesContext';
 import type { Article } from '../components/hooks/useArticlesApi';
 import RouteSkeleton from '../components/RouteSkeleton';
 import { sanitizeHtml, sanitizeHtmlToBody } from '../utils/sanitizeHtml';
@@ -451,7 +451,7 @@ function CaseZipWarning({ download, onClose, onConfirm, dialogRef }: {
   );
 }
 
-const articleHtmlCache = new Map<string, { articleHtml: string; toc: { id: string; text: string }[] }>();
+const articleHtmlCache = new Map<string, { source: string; articleHtml: string; toc: { id: string; text: string }[] }>();
 
 function BlogPageComponent() {
   const { slug } = useParams();
@@ -517,15 +517,18 @@ function BlogPageComponent() {
   const listTitleFit = useManagedTitleFit<HTMLHeadingElement>(LIST_TITLE_LINES, { minFontSize: 22 });
   // Санитизация + оглавление: проставляем id всем h2, чтобы работали якоря
   const { articleHtml, toc } = useMemo(() => {
-    if (!selectedArticle) return { articleHtml: '', toc: [] };
+    if (!selectedArticle || selectedArticle._summary) return { articleHtml: '', toc: [] };
     const content = selectedArticle.content || '';
+    const cached = articleHtmlCache.get(selectedArticle.slug);
+    if (cached?.source === content) return cached;
 
     // Fast-path for initial SSR hydration: if the server-rendered article content
     // already exists in the pre-hydrated DOM for this exact article, adopt it directly.
     // This avoids running two heavy DOMPurify sanitization passes and image AST queries during initial page boot.
-    if (typeof document !== 'undefined') {
-      const firstScreen = document.documentElement.getAttribute('data-ww-first-screen');
-      if (firstScreen && (firstScreen === `/cases/${selectedArticle.slug}` || firstScreen === `/blog/${selectedArticle.slug}`)) {
+    if (!cached && typeof document !== 'undefined') {
+      const generatedVersion = document.documentElement.dataset.wwArticleVersion;
+      if (hasGeneratedFirstScreen(location.pathname, location.key)
+        && generatedVersion === String(articleVersion(selectedArticle))) {
         const existingContainer = document.querySelector('.case-article-content, .blog-article-content');
         if (existingContainer && existingContainer.innerHTML.length > 0) {
           const headings = Array.from(existingContainer.querySelectorAll('h2'));
@@ -534,15 +537,11 @@ function BlogPageComponent() {
             const id = heading.id || `razdel-${index + 1}`;
             return { id, text };
           });
-          const result = { articleHtml: existingContainer.innerHTML, toc: items };
+          const result = { source: content, articleHtml: existingContainer.innerHTML, toc: items };
           articleHtmlCache.set(selectedArticle.slug, result);
           return result;
         }
       }
-    }
-
-    if (articleHtmlCache.has(selectedArticle.slug)) {
-      return articleHtmlCache.get(selectedArticle.slug)!;
     }
 
     try {
@@ -570,7 +569,7 @@ function BlogPageComponent() {
     } catch {
       return { articleHtml: sanitizeHtml(content), toc: [] };
     }
-  }, [selectedArticle]);
+  }, [location.key, location.pathname, selectedArticle]);
 
   // Предыдущий материал: наверх прокручивает только настоящая смена статьи
   // (открыли или закрыли), а не смена типа навигации. Раньше первое изменение

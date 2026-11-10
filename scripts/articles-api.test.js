@@ -109,8 +109,15 @@ test('an older summary list cannot remove a newly seeded live article', () => {
     updatedAt: '2026-08-12T12:00:00.000Z',
   }));
 
-  const result = mergePublicArticleSummaries([seeded], [olderListArticle]);
+  const result = mergePublicArticleSummaries([seeded], [olderListArticle], seeded.slug);
   assert.equal(result.some((article) => article.slug === 'just-published' && !article._summary), true);
+});
+
+test('a public list drops removed articles even when their full bodies were loaded', () => {
+  const removed = fullArticle({ slug: 'removed' });
+  const remaining = toPublicArticleSummary(fullArticle({ slug: 'remaining' }));
+  assert.deepEqual(mergePublicArticleSummaries([removed], [remaining]), [remaining]);
+  assert.deepEqual(mergePublicArticleSummaries([removed], []), []);
 });
 
 test('a newer summary requests a fresh body while an equal revision preserves the loaded body', () => {

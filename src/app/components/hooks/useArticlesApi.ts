@@ -132,24 +132,25 @@ function sanitizeAdminArticles(source: Article[]): Article[] {
  * получает тот же промис вместо второго обращения к сети — ровно так же это
  * уже сделано для текстов страницы в `useServiceContent`.
  *
- * Ключ — готовый адрес: обход кэша добавляет к нему метку времени, поэтому
- * принудительное обновление никогда не склеится с обычной загрузкой.
+ * Ключ учитывает страницу: запрос, начатый на другой странице до перехода,
+ * не считается повторной проверкой на новом маршруте.
  */
 const pendingArticleRequests = new Map<string, Promise<Article[]>>();
 
-export const fetchArticles = (options?: { bypassCache?: boolean }): Promise<Article[]> => {
+export const fetchArticles = (options?: { bypassCache?: boolean; publicPath?: string }): Promise<Article[]> => {
   const params = new URLSearchParams({ view: 'summary' });
   if (options?.bypassCache) params.set('_', String(Date.now()));
   const endpoint = `${API_ROUTES.articles}?${params.toString()}`;
+  const requestKey = `${options?.publicPath ?? ''}:${endpoint}`;
 
-  const inFlight = pendingArticleRequests.get(endpoint);
+  const inFlight = pendingArticleRequests.get(requestKey);
   if (inFlight) return inFlight;
 
   const request = requestArticles(endpoint, options).finally(() => {
     // Неудачу не кэшируем: следующая попытка должна сходить в сеть заново.
-    pendingArticleRequests.delete(endpoint);
+    pendingArticleRequests.delete(requestKey);
   });
-  pendingArticleRequests.set(endpoint, request);
+  pendingArticleRequests.set(requestKey, request);
   return request;
 };
 
@@ -194,7 +195,7 @@ export const fetchArticle = async (
   if (!hasValidSlug(normalizedSlug)) return null;
 
   const params = new URLSearchParams({ slug: normalizedSlug });
-  if (options?.bypassCache) params.set('_', String(Date.now()));
+  if (options?.bypassCache) params.set('cache', 'no-store');
   const response = await fetch(`${API_ROUTES.articles}?${params.toString()}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },

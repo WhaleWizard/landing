@@ -52,7 +52,7 @@ export function articleVersion(article?: Article | null): number {
     : 0;
 }
 
-export function mergePublicArticleSummaries(current: Article[], incoming: Article[]): Article[] {
+export function mergePublicArticleSummaries(current: Article[], incoming: Article[], activeSlug?: string): Article[] {
   const currentBySlug = new Map(current.map((article) => [article.slug, article]));
   const merged = incoming.map((article) => {
     const existing = currentBySlug.get(article.slug);
@@ -76,12 +76,12 @@ export function mergePublicArticleSummaries(current: Article[], incoming: Articl
     };
   });
 
-  const incomingSlugs = new Set(incoming.map((article) => article.slug));
   // A live article page can be newer than an edge-cached summary list. Keep
-  // its already loaded body until navigation/reload instead of redirecting the
-  // reader away merely because that older list has not observed the slug yet.
-  for (const article of current) {
-    if (!article._summary && !incomingSlugs.has(article.slug)) merged.push(article);
+  // the body only while that detail is open. On a list, missing entries must
+  // disappear even if the visitor previously loaded their full body.
+  const activeArticle = activeSlug ? currentBySlug.get(activeSlug) : undefined;
+  if (activeArticle && !activeArticle._summary && !incoming.some((article) => article.slug === activeSlug)) {
+    merged.push(activeArticle);
   }
   return merged;
 }
@@ -280,9 +280,10 @@ export function readArticleSeed(): InlineArticleSeed {
 interface Props {
   children: ReactNode;
   initialLoad?: InitialLoadMode;
+  publicPath?: string;
 }
 
-export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props) => {
+export const ArticlesProvider = ({ children, initialLoad = 'immediate', publicPath }: Props) => {
   const [initialSeed] = useState<InlineArticleSeed>(() => {
     if (initialLoad === 'manual') return { articles: [], present: false };
     const seed = readArticleSeed();
@@ -290,11 +291,12 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
     return seed;
   });
   const [articles, setArticles] = useState<Article[]>(() => initialSeed.articles);
-  const seededRef = useRef(initialSeed.present);
-  const [loading, setLoading] = useState(!seededRef.current);
+  const hasPublicList = useRef(initialSeed.present);
+  const [loading, setLoading] = useState(!initialSeed.present);
   const [error, setError] = useState<string | null>(null);
   const requestSequence = useRef(0);
   const detailRequests = useRef(new Map<string, PendingArticleDetailRequest>());
+  const activeDetailSlug = publicPath?.match(/^\/(?:blog|cases)\/([^/]+)$/)?.[1];
 
   const runArticlesRequest = useCallback(async (
     loader: () => Promise<Article[]>,
@@ -311,10 +313,12 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
       // Быстрый переход или повторное обновление не должны позволять старому
       // медленному ответу перезаписать результат последнего действия.
       if (sequence === requestSequence.current) {
+        if (preserveLoadedDetails) hasPublicList.current = true;
         startTransition(() => {
-          setArticles((current) => (
-            preserveLoadedDetails ? mergePublicArticleSummaries(current, data) : data
-          ));
+          setArticles((current) => {
+            if (sequence !== requestSequence.current) return current;
+            return preserveLoadedDetails ? mergePublicArticleSummaries(current, data, activeDetailSlug) : data;
+          });
         });
       }
     } catch (requestError) {
@@ -333,11 +337,11 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
         });
       }
     }
-  }, []);
+  }, [activeDetailSlug]);
 
   const loadArticles = useCallback(async () => {
-    await runArticlesRequest(() => fetchArticles(), seededRef.current, true);
-  }, [runArticlesRequest]);
+    await runArticlesRequest(() => fetchArticles({ publicPath }), hasPublicList.current, true);
+  }, [publicPath, runArticlesRequest]);
 
   const refreshArticles = useCallback(async () => {
     await loadArticles();
@@ -364,18 +368,20 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
     const request = (async () => {
       setError(null);
       try {
-        const article = await fetchArticle(normalizedSlug, {
-          // A summary marker means the list observed a newer CMS revision than
-          // the full body in memory. Do not satisfy that request from an older
-          // stale edge entry.
-          bypassCache: Boolean(expected?._summary),
-        });
+        let article = await fetchArticle(normalizedSlug);
+        if (article && articleVersion(article) < expectedVersion) {
+          // A cached body can lag behind the list. Read past the edge cache
+          // only when the list has already seen a newer published revision.
+          article = await fetchArticle(normalizedSlug, { bypassCache: true });
+        }
         if (article && articleVersion(article) < expectedVersion) {
           throw new Error('Получена устаревшая версия публикации. Повторите загрузку.');
         }
-        startTransition(() => {
-          setArticles((current) => mergeArticleDetailResult(current, normalizedSlug, article, expected));
-        });
+        if (detailRequests.current.get(normalizedSlug)?.id === requestId) {
+          startTransition(() => {
+            setArticles((current) => mergeArticleDetailResult(current, normalizedSlug, article, expected));
+          });
+        }
         return article;
       } catch (requestError) {
         if (detailRequests.current.get(normalizedSlug)?.id === requestId) {
@@ -504,11 +510,18 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate' }: Props)
       cancelled = true;
       globalThis.clearTimeout(timer);
     };
-  }, [initialLoad, loadArticles]);
+  }, [initialLoad, loadArticles, publicPath]);
+
+  useEffect(() => {
+    const requests = detailRequests.current;
+    return () => {
+      if (activeDetailSlug) requests.delete(activeDetailSlug);
+    };
+  }, [activeDetailSlug]);
 
   useEffect(() => () => {
     requestSequence.current += 1;
-  }, []);
+  }, [publicPath]);
 
   return (
     <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles, scheduleArticles }}>

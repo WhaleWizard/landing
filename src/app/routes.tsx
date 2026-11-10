@@ -411,11 +411,10 @@ function RootLayout() {
     location.pathname === '/'
     || /^\/(?:blog|cases|admin)(?:\/|$)/.test(location.pathname)
   );
+  const articlePath = location.pathname.replace(/\/+$/, '') || '/';
   const articleInitialLoad = isAdmin
     ? 'manual'
-    : ((location.pathname.replace(/\/+$/, '') || '/') === '/' || (location.pathname.replace(/\/+$/, '') || '/') === '/cases' || (location.pathname.replace(/\/+$/, '') || '/') === '/blog')
-      ? 'deferred'
-      : 'immediate';
+    : (articlePath === '/' || articlePath === '/cases' || articlePath === '/blog') ? 'deferred' : 'immediate';
   const routeContent = isLocked
     ? <LazyWrapper><PageLockHandoff path={location.pathname} /></LazyWrapper>
     : <Outlet />;
@@ -445,6 +444,7 @@ function RootLayout() {
         <ArticlesProvider
           key={isAdmin ? 'admin-articles' : 'public-articles'}
           initialLoad={articleInitialLoad}
+          publicPath={isAdmin ? undefined : articlePath}
         >
           {routeContent}
         </ArticlesProvider>
