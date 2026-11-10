@@ -134,6 +134,7 @@ function normalizeConsentRegion(value: string | undefined): string {
 }
 
 async function getTableColumns(db: D1Database, table: string): Promise<Set<string>> {
+  if (!/^[a-zA-Z0-9_]+$/.test(table)) throw new Error(`Invalid table name: ${table}`);
   const result = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   return new Set((result.results || []).map((column) => column.name).filter(Boolean));
 }
@@ -677,6 +678,10 @@ function escapeTelegramHtml(value: string): string {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function cleanSingleLine(value: string | undefined): string {
+  return String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
+}
+
 /**
  * Telegram отклоняет сообщение длиннее 4096 знаков («message is too long»),
  * и считает он знаки уже после разбора разметки: `&amp;` — это один знак.
@@ -705,22 +710,22 @@ function cutToUtf16Units(value: string, maxUnits: number): string {
 export function buildLeadTelegramText(lead: LeadRecord, stored?: StoreLeadResult): string {
   const head = [
     stored?.repeat ? `🔁 Повторная заявка (№${stored.submissionsCount} от этого контакта)` : '🚀 Новая заявка',
-    `Имя: ${lead.name || 'не указано'}`,
-    `Email: ${lead.email || 'не указан'}`,
-    `Телефон: ${lead.phone || 'не указан'}`,
-    `Бюджет: ${lead.budget || 'не указан'}`,
+    `Имя: ${cleanSingleLine(lead.name) || 'не указано'}`,
+    `Email: ${cleanSingleLine(lead.email) || 'не указан'}`,
+    `Телефон: ${cleanSingleLine(lead.phone) || 'не указан'}`,
+    `Бюджет: ${cleanSingleLine(lead.budget) || 'не указан'}`,
   ];
   const tail = [
     `Способ связи: ${lead.contactMethod === 'whatsapp' ? 'WhatsApp' : 'Telegram'}`,
   ];
   if (lead.contactMethod !== 'whatsapp' && lead.telegramUsername) {
-    tail.push(`Telegram username: ${lead.telegramUsername}`);
+    tail.push(`Telegram username: ${cleanSingleLine(lead.telegramUsername)}`);
   }
-  if (lead.service) tail.push(`Услуга: ${lead.service}`);
-  if (lead.page_path) tail.push(`Страница: ${lead.page_path}`);
-  const utm = [lead.utm_source, lead.utm_medium, lead.utm_campaign].filter(Boolean).join(' / ');
+  if (lead.service) tail.push(`Услуга: ${cleanSingleLine(lead.service)}`);
+  if (lead.page_path) tail.push(`Страница: ${cleanSingleLine(lead.page_path)}`);
+  const utm = [lead.utm_source, lead.utm_medium, lead.utm_campaign].map(cleanSingleLine).filter(Boolean).join(' / ');
   if (utm) tail.push(`📍 Источник: ${utm}`);
-  if (lead.utm_content) tail.push(`Объявление: ${lead.utm_content}`);
+  if (lead.utm_content) tail.push(`Объявление: ${cleanSingleLine(lead.utm_content)}`);
 
   // Бюджет на сообщение считается по неэкранированному тексту — так же, как
   // считает Telegram. Резать нужно ДО экранирования: разрез посреди `&amp;`

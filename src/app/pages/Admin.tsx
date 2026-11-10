@@ -2275,7 +2275,7 @@ export default function Admin() {
     return (
       <AdminThemeProvider>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-        <main className="admin-login">
+        <main className="admin-login ym-disable-keys ym-hide-content">
           <div className="admin-login__card">
             <div className="admin-login__head">
               <WhaleMark size="var(--adm-login-whale-size)" className="admin-brand-whale" priority />
@@ -2291,7 +2291,7 @@ export default function Admin() {
     return (
       <AdminThemeProvider>
         <SEO title="Admin" description="Admin panel" url="/admin" noIndex />
-        <main className="admin-login">
+        <main className="admin-login ym-disable-keys ym-hide-content">
           <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2385,7 +2385,7 @@ export default function Admin() {
       {/* data-section красит обложку раздела и активный пункт меню: пара тонов
           задана в admin-theme.css, а не здесь, поэтому цвет и разметка не
           расходятся при добавлении раздела. */}
-      <div className="admin-app" data-section={currentNavKey}>
+      <div className="admin-app ym-disable-keys ym-hide-content" data-section={currentNavKey}>
         {/*
           Световая волна при смене раздела. key по разделу обязателен:
           CSS-анимация запускается на монтировании узла, и без пересоздания

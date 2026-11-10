@@ -43,15 +43,25 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
     }
   }
 
-  if (await isAdmin2faEnabled(env)) {
-    // Сессия живёт 12 часов и не продлевается: это модель защиты из
-    // docs/SECURITY.md, скользящая сессия позволила бы украденной cookie жить
-    // сколько угодно. Поэтому через 12 часов любой раздел получает этот
-    // ответ, и он обязан быть понятным: разделы выводят `error` как есть,
-    // а `code` даёт оболочке повод предложить войти заново, не теряя правок.
+  try {
+    if (await isAdmin2faEnabled(env)) {
+      // Сессия живёт 12 часов и не продлевается: это модель защиты из
+      // docs/SECURITY.md, скользящая сессия позволила бы украденной cookie жить
+      // сколько угодно. Поэтому через 12 часов любой раздел получает этот
+      // ответ, и он обязан быть понятным: разделы выводят `error` как есть,
+      // а `code` даёт оболочке повод предложить войти заново, не теряя правок.
+      return json(
+        { success: false, code: 'SESSION_EXPIRED', error: 'Сессия истекла — войдите в админку заново' },
+        { status: 401, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+      );
+    }
+  } catch (error) {
+    // Fail-Closed: при сбое базы данных нельзя снимать проверку второго фактора.
+    // Иначе атакующий мог бы спровоцировать ошибку D1 и зайти по одному только паролю.
+    console.error('[Admin auth] Сбой проверки статуса двухфакторной защиты:', error);
     return json(
-      { success: false, code: 'SESSION_EXPIRED', error: 'Сессия истекла — войдите в админку заново' },
-      { status: 401, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+      { success: false, code: 'AUTH_STORAGE_UNAVAILABLE', error: 'Служба авторизации временно недоступна' },
+      { status: 503, headers: { 'Cache-Control': CACHE_CONTROL.noStore, 'Retry-After': '5' } },
     );
   }
 

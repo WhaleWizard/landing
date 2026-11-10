@@ -453,6 +453,7 @@ function normalizeTagSlug(name: string): string {
 }
 
 async function columnExists(db: D1Database, table: string, column: string): Promise<boolean> {
+  if (!/^[a-zA-Z0-9_]+$/.test(table)) throw new Error(`Invalid table name: ${table}`);
   const rows = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   return (rows.results || []).some((row) => row.name === column);
 }

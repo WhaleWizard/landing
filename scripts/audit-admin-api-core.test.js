@@ -1566,3 +1566,97 @@ test('F-133: дата в прошлом не планируется и возв�
   assert.equal(writes.length, 1);
   assert.equal(writes[0].find((article) => article.slug === 'old').status, 'draft');
 });
+
+test('SEC-01: сбой базы данных D1 не снимает 2FA (Fail-Closed 503 AUTH_STORAGE_UNAVAILABLE)', async (t) => {
+  const restoreCache = installMemoryCache();
+  t.after(restoreCache);
+
+  const middleware = await loadModule('functions/api/admin/_middleware.ts');
+  const brokenDb = {
+    prepare: () => {
+      throw new Error('D1_STORAGE_FAULT: Simulated database outage');
+    },
+  };
+  const env = { DB: brokenDb, ADMIN_PASSWORD };
+
+  let reached = false;
+  const response = await middleware.onRequest({
+    request: new Request('https://www.example.test/api/admin/leads', {
+      headers: { 'X-Admin-Password': ADMIN_PASSWORD },
+    }),
+    env,
+    next: async () => { reached = true; return new Response('{}'); },
+  });
+
+  assert.equal(response.status, 503, 'при сбое D1 возвращается 503, а не доступ');
+  const payload = await response.json();
+  assert.equal(payload.code, 'AUTH_STORAGE_UNAVAILABLE');
+  assert.equal(reached, false, 'обработчик админки ни при каких обстоятельствах не вызывается');
+});
+
+test('SEC-02: timingSafeEqual устойчив к разнице в длине строк', async () => {
+  const { verifyAdminPassword } = await loadModule('functions/_lib/auth.ts');
+  const env = { ADMIN_PASSWORD: 'correct-horse-battery-staple-12345!' };
+
+  assert.equal(verifyAdminPassword('correct-horse-battery-staple-12345!', env), true);
+  assert.equal(verifyAdminPassword('short', env), false);
+  assert.equal(verifyAdminPassword('correct-horse-battery-staple-12345!extra', env), false);
+  assert.equal(verifyAdminPassword('', env), false);
+});
+
+test('SEC-03: totp_secret шифруется в D1 через AES-256-GCM и прозрачно дешифруется', async () => {
+  const { storeAdmin2faSecret, readAdmin2faState, encryptTotpSecret, decryptTotpSecret } = await loadModule('functions/_lib/admin-2fa.ts');
+
+  let boundSecret = '';
+  const fakeDb = {
+    prepare: (sql) => ({
+      bind: (...args) => {
+        boundSecret = args[0];
+        return { run: async () => ({}) };
+      },
+      first: async () => ({
+        totp_secret: boundSecret || 'LEGACYPLAINBASE32SECRET',
+        enabled_at: 1700000000,
+        backup_codes: '[]',
+        last_step: 10,
+      }),
+    }),
+  };
+
+  const env = { DB: fakeDb, ADMIN_PASSWORD: 'super-secure-admin-pass' };
+  const rawSecret = 'JBSWY3DPEHPK3PXP';
+
+  await storeAdmin2faSecret(env, rawSecret);
+  assert.ok(boundSecret.startsWith('enc:v1:'), 'в базу пишется шифрованное значение');
+  assert.notEqual(boundSecret, rawSecret, 'открытый секрет не попадает в D1');
+
+  const readState = await readAdmin2faState(env);
+  assert.equal(readState.secret, rawSecret, 'секрет корректно расшифрован для аутентификации');
+
+  // Проверка обратной совместимости со старыми открытыми секретами
+  boundSecret = 'LEGACYPLAINBASE32SECRET';
+  const legacyState = await readAdmin2faState(env);
+  assert.equal(legacyState.secret, 'LEGACYPLAINBASE32SECRET', 'старый незашифрованный секрет читается без ошибок');
+});
+
+test('SEC-04: buildLeadTelegramText вырезает переносы строк из одиночных полей для защиты от внедрения команд', async () => {
+  const { buildLeadTelegramText } = await loadModule('functions/_lib/leads.ts');
+  const maliciousLead = {
+    name: 'Hacker\n/start\n/admin',
+    email: 'test@example.com\r\nBcc: evil@attacker.com',
+    phone: '+7 999 123-45-67\n/eval',
+    budget: '50000\n/drop',
+    contactMethod: 'telegram',
+    telegramUsername: 'attacker\n/ban',
+    service: 'Audit\n/reset',
+    message: 'Hello, this is a legitimate message with allowed\nnewlines in the body.',
+  };
+
+  const text = buildLeadTelegramText(maliciousLead);
+  assert.ok(text.includes('Имя: Hacker /start /admin'), 'переносы строк в имени заменены на пробел');
+  assert.ok(text.includes('Телефон: +7 999 123-45-67 /eval'), 'переносы строк в телефоне заменены на пробел');
+  assert.ok(text.includes('Telegram username: attacker /ban'), 'переносы строк в telegramUsername заменены на пробел');
+  assert.ok(!text.includes('\n/start'), 'команды бота на отдельной строке не появились');
+  assert.ok(!text.includes('\n/admin'), 'команда /admin на отдельной строке не появилась');
+  assert.ok(text.includes('allowed\nnewlines in the body'), 'переносы в теле сообщения сохранены');
+});

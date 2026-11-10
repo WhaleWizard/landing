@@ -58,6 +58,45 @@ export function isMissingAdmin2faSchema(error: unknown): boolean {
   return /no such table|no such column/i.test(error instanceof Error ? error.message : String(error));
 }
 
+async function get2faCipherKey(env: Env): Promise<CryptoKey> {
+  const secret = String(env.ADMIN_PASSWORD || '').trim();
+  const rawDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`ww-2fa-secret-encryption-v1|${secret}`));
+  return crypto.subtle.importKey('raw', rawDigest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+export async function encryptTotpSecret(env: Env, plaintext: string): Promise<string> {
+  const secret = String(env.ADMIN_PASSWORD || '').trim();
+  if (!secret) return plaintext;
+  const key = await get2faCipherKey(env);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertextWithTag = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const cipherHex = Array.from(new Uint8Array(ciphertextWithTag)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `enc:v1:${ivHex}:${cipherHex}`;
+}
+
+export async function decryptTotpSecret(env: Env, stored: string): Promise<string> {
+  if (!stored.startsWith('enc:v1:')) return stored;
+  const parts = stored.split(':');
+  if (parts.length !== 4) return stored;
+  const [, , ivHex, cipherHex] = parts;
+  if (!/^[0-9a-f]{24}$/i.test(ivHex) || !/^[0-9a-f]+$/i.test(cipherHex)) return stored;
+  const secret = String(env.ADMIN_PASSWORD || '').trim();
+  if (!secret) return '';
+  try {
+    const key = await get2faCipherKey(env);
+    const iv = new Uint8Array(ivHex.length / 2);
+    for (let i = 0; i < ivHex.length; i += 2) iv[i / 2] = Number.parseInt(ivHex.slice(i, i + 2), 16);
+    const ciphertext = new Uint8Array(cipherHex.length / 2);
+    for (let i = 0; i < cipherHex.length; i += 2) ciphertext[i / 2] = Number.parseInt(cipherHex.slice(i, i + 2), 16);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    return '';
+  }
+}
+
 export async function readAdmin2faState(env: Env): Promise<Admin2faState> {
   if (!env.DB) return EMPTY_STATE;
 
@@ -67,11 +106,12 @@ export async function readAdmin2faState(env: Env): Promise<Admin2faState> {
 
   if (!row?.totp_secret) return EMPTY_STATE;
 
+  const decryptedSecret = await decryptTotpSecret(env, String(row.totp_secret));
   const backupCodeHashes = parseBackupCodes(row.backup_codes);
   return {
     configured: true,
     enabled: Boolean(row.enabled_at),
-    secret: String(row.totp_secret),
+    secret: decryptedSecret,
     backupCodeHashes,
     lastStep: Number(row.last_step || 0),
     backupCodesLeft: backupCodeHashes.length,
@@ -102,8 +142,10 @@ export async function isAdmin2faEnabled(env: Env): Promise<boolean> {
   } catch (error) {
     if (!isMissingAdmin2faSchema(error)) {
       console.error('[Admin 2FA] Не удалось прочитать состояние:', error);
+      if (cachedEnabled) return cachedEnabled.value;
+      throw error;
     }
-    return cachedEnabled?.value ?? false;
+    return false;
   }
 }
 
@@ -114,6 +156,7 @@ function forgetEnabledCache(): void {
 /** Создаёт или перезаписывает секрет. Защита при этом остаётся выключенной. */
 export async function storeAdmin2faSecret(env: Env, secret: string): Promise<void> {
   if (!env.DB) throw new Error('db_not_configured');
+  const storedSecret = await encryptTotpSecret(env, secret);
   await env.DB.prepare(
     `INSERT INTO admin_2fa (id, totp_secret, enabled_at, backup_codes, last_step, updated_at)
      VALUES (1, ?, NULL, '[]', 0, strftime('%s','now'))
@@ -123,7 +166,7 @@ export async function storeAdmin2faSecret(env: Env, secret: string): Promise<voi
        backup_codes = '[]',
        last_step = 0,
        updated_at = excluded.updated_at`,
-  ).bind(secret).run();
+  ).bind(storedSecret).run();
   forgetEnabledCache();
 }
 

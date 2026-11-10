@@ -637,7 +637,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                     }}
                   />
                 </label>
-                {draft.contract_file_url && (
+                {draft.contract_file_url && /^https?:\/\//i.test(draft.contract_file_url) && (
                   <a className="admin-button admin-button--quiet" href={draft.contract_file_url} target="_blank" rel="noreferrer">
                     <ExternalLink aria-hidden="true" /> Открыть
                   </a>
@@ -741,7 +741,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                             <td>{formatMonth(month.month)}</td>
                             <td>
                               {month.report_sent_at
-                                ? (month.report_url
+                                ? (month.report_url && /^https?:\/\//i.test(month.report_url)
                                   ? <a href={month.report_url} target="_blank" rel="noreferrer">отправлен <ExternalLink className="inline h-3 w-3" aria-hidden="true" /></a>
                                   : 'отправлен')
                                 : <span className="is-bad">не отправлен</span>}

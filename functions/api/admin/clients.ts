@@ -98,6 +98,16 @@ function cleanLine(value: unknown, maxLength: number): string {
   return cleanText(value, maxLength).replace(/\s+/g, ' ');
 }
 
+function cleanSafeUrl(value: unknown, maxLength: number): string {
+  const line = cleanLine(value, maxLength);
+  if (!line) return '';
+  if (/^(?:javascript|data|vbscript):/i.test(line)) return '';
+  if (/^https?:\/\//i.test(line) || /^\/[A-Za-z0-9]/.test(line)) {
+    return line;
+  }
+  return '';
+}
+
 /** Пустая строка вместо даты — это «не задано», а не «1970 год». */
 function cleanDate(value: unknown): string | null {
   const text = String(value ?? '').trim();
@@ -430,7 +440,7 @@ function clientFields(body: Record<string, unknown>, todayIso: string): { column
     ['contract_signed_at', cleanDate(body.contract_signed_at)],
     ['contract_ends_at', cleanDate(body.contract_ends_at)],
     ['contract_auto_renew', body.contract_auto_renew ? 1 : 0],
-    ['contract_file_url', cleanLine(body.contract_file_url, LIMITS.url)],
+    ['contract_file_url', cleanSafeUrl(body.contract_file_url, LIMITS.url)],
     ['scope_included', cleanText(body.scope_included, LIMITS.text)],
     ['scope_excluded', cleanText(body.scope_excluded, LIMITS.text)],
     ['next_touch_at', cleanDate(body.next_touch_at)],
@@ -571,7 +581,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         id,
         month,
         cleanDate(body.report_sent_at),
-        cleanLine(body.report_url, LIMITS.url),
+        cleanSafeUrl(body.report_url, LIMITS.url),
         cleanOptionalNumber(body.spend),
         ACCOUNTING_CURRENCY,
         cleanOptionalNumber(body.leads),

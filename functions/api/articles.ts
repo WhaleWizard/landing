@@ -7,6 +7,7 @@ import {
 } from '../_lib/articles';
 import { json } from '../_lib/http';
 import { verifyAdminPassword } from '../_lib/auth';
+import { hasValidAdminSession } from '../_lib/admin-session';
 import { headFromGet } from '../_lib/article-page';
 import type { Article, Env } from '../_lib/types';
 
@@ -41,7 +42,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   // авторизации. Закрыть её паролем нельзя, не сломав получение свежих статей
   // при сборке, — оставлена открытой осознанно.
   const adminBypass = url.searchParams.has('_')
-    && verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env);
+    && (verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env) || await hasValidAdminSession(request, env));
   const bypassCache = adminBypass || url.searchParams.get('cache') === 'no-store';
   const requestedSlug = String(url.searchParams.get('slug') || '').trim();
   const summaryView = url.searchParams.get('view') === 'summary';

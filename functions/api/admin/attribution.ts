@@ -87,6 +87,7 @@ async function tableExists(db: D1Database, name: string): Promise<boolean> {
 }
 
 async function getColumns(db: D1Database, table: string): Promise<Set<string>> {
+  if (!/^[a-zA-Z0-9_]+$/.test(table)) throw new Error(`Invalid table name: ${table}`);
   const result = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   return new Set((result.results || []).map((row) => row.name));
 }

@@ -98,7 +98,8 @@ interface LeadPayload {
   content_type?: string;
 }
 
-const DEFAULT_LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxE5dVWccxQ0Ga3MSUYeEZ8B6c-KEkbBNl3QPa-zbkyjBvFl5QnxZA2g5BIGmwe-7jNfA/exec';
+// Константа устаревшего макроса Google Apps Script удалена по соображениям безопасности
+// (предотвращение несанкционированной утечки PII клиентов на сторонние эндпоинты).
 
 /**
  * Грубый тип устройства из user-agent: телефон, планшет или компьютер.
@@ -582,7 +583,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   // Notification is intentionally background work after the durable save.
-  // If Telegram is not configured, retain the legacy Apps Script fallback.
   const notificationTask = (async () => {
     if (isTelegramConfigured(env)) {
       const result = await sendLeadToTelegram(env, normalized, stored);
@@ -592,19 +592,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       if (!result.ok) console.error('[Lead CRM] Telegram delivery failed:', result.error);
       return;
     }
-    try {
-      const response = await fetch(DEFAULT_LEAD_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify(normalized),
-        cf: { cacheEverything: false, cacheTtl: 0 },
-      });
-      if (response.ok) {
-        await markLeadTelegramDelivered(env, stored.eventId);
+    const fallbackEndpoint = env.LEAD_FALLBACK_WEBHOOK_URL;
+    if (fallbackEndpoint) {
+      try {
+        const response = await fetch(fallbackEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify(normalized),
+          cf: { cacheEverything: false, cacheTtl: 0 },
+        });
+        if (response.ok) {
+          await markLeadTelegramDelivered(env, stored.eventId);
+        }
+        if (!response.ok) console.error(`[Lead CRM] Fallback webhook delivery failed with HTTP ${response.status}`);
+      } catch (error) {
+        console.error('[Lead CRM] Fallback webhook network error:', error);
       }
-      if (!response.ok) console.error(`[Lead CRM] Fallback delivery failed with HTTP ${response.status}`);
-    } catch (error) {
-      console.error('[Lead CRM] Fallback delivery network error:', error);
+    } else {
+      console.warn('[Lead CRM] Telegram is not configured and no fallback webhook is provided. Lead stored in D1 only.');
     }
   })();
 
