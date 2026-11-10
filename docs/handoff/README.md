@@ -12,6 +12,19 @@
 
 ## 2. Где мы сейчас
 
+**10.11 — Комплексный аудит и усиление безопасности (Zero-Trust Security Hardening).**
+- **Fail-Closed двухфакторная аутентификация (2FA):** в `functions/api/admin/_middleware.ts` проверка `isAdmin2faEnabled` переведена в режим Fail-Closed. При сбое базы данных D1 возвращается статус `503 AUTH_STORAGE_UNAVAILABLE`, исключая неавторизованный вход по одному только паролю.
+- **Конвертное шифрование секрета 2FA (AES-256-GCM):** в `functions/_lib/admin-2fa.ts` секрет TOTP (`totp_secret`) шифруется перед записью в D1 алгоритмом AES-256-GCM с ключом из `ADMIN_PASSWORD` через Web Crypto API (`enc:v1:...`). Утечка снимка базы данных не раскрывает секрет. Сохранена прозрачная обратная совместимость со старыми записями.
+- **Устранение Timing-атак:** в `functions/_lib/auth.ts` метод `timingSafeEqual` переписан на строго постоянное время без досрочного прерывания при разной длине строк.
+- **Защита Telegram Bot от инъекции команд:** в `functions/_lib/leads.ts` добавлена очистка `cleanSingleLine()`, вырезающая переносы строк (\r, \n) из одиночных полей заявок, блокируя инъекцию кликабельных команд бота (/admin, /start).
+- **Валидация SQL PRAGMA table_info:** в `functions/_lib/leads.ts`, `functions/api/admin/attribution.ts` и `functions/api/admin/lead-crm.ts` добавлена проверка идентификаторов `/^[a-zA-Z0-9_]+$/` перед системными запросами структуры таблиц.
+- **Поддержка сессий админки для статей:** в `functions/api/articles.ts` параметр сброса кэша `?_=` теперь принимает действующую cookie-сессию `ww_admin_session`.
+- **Ликвидация утечки лидов через резервный вебхук:** в `functions/api/lead.ts` удален захардкоженный Google Apps Script URL; резервный вебхук активируется только при явном наличии переменной `LEAD_FALLBACK_WEBHOOK_URL`.
+- **Блокировка сессионной записи админки Вебвизором:** в `src/app/pages/Admin.tsx` добавлены атрибуты `ym-disable-keys` и `ym-hide-content`.
+- **Санитизация документов клиентов CRM:** в `functions/api/admin/clients.ts` и `AdminClients.tsx` внедрена фильтрация ссылок на договоры и отчеты, блокирующая псевдопротоколы `javascript:`, `data:` и `vbscript:`.
+- **Патч CVE-2024-45801 (DOMPurify):** `dompurify` обновлен с 3.4.13 до 3.4.17 в `package.json` и `pnpm-lock.yaml`.
+- **Тесты и деплой:** добавлены тесты `SEC-01`–`SEC-04` в `scripts/audit-admin-api-core.test.js`. Полный цикл `npm run check` (46+ сьютов тестов, сборка 28 маршрутов, SEO-аудит) пройден с кодом 0. Выложен коммит `ad99ce2` в `origin/main`.
+
 **10.11 — Подключение Google Search Console.** Сервисный аккаунт gsc-reader@whale-wzrd-analytics.iam.gserviceaccount.com подключен к доменному ресурсу sc-domain:whalewzrd.com с полным доступом. В Cloudflare Pages Function unctions/api/admin/search-console.ts исправлена несовместимость с edge runtime (замена неподдерживаемого edirect: 'error' на edirect: 'manual'), добавлена устойчивость к неэкранированным переносам строк (\
 ) в закрытом ключе и диагностика ошибок. Выложены коммиты 8e1d46 и 28a8bb, данные органического поиска Google подтверждены живым получением в админке.
 
