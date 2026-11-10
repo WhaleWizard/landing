@@ -5,6 +5,7 @@ import { isPathLocked } from '../utils/pageLocks';
 const SITE_CONTENT_KEY_BY_PATH: Record<string, string> = {
   '/': 'site:home',
   '/about': 'site:about',
+  '/faq': 'site:faq',
   '/meta-ads': 'service:meta-ads',
   '/google-ads': 'service:google-ads',
   '/consult': 'service:consult',
@@ -53,9 +54,6 @@ function RouteIntentPreloader() {
         if (key) {
           void import('../hooks/useServiceContent')
             .then(({ preloadSiteContent }) => preloadSiteContent(key));
-        }
-        if (url.pathname === '/faq' || url.pathname === '/faq/') {
-          void import('../hooks/useFaqContent').then(({ preloadFaqContent }) => preloadFaqContent());
         }
       } catch {
         // Malformed links are ignored just like unsupported routes.

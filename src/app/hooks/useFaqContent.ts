@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import type { FaqItem } from '../types/faq';
-import { initialContentOverride } from './useServiceContent';
+import { useSiteContent } from './useServiceContent';
 
 export type FaqSeoContent = {
   title: string;
@@ -11,33 +11,6 @@ type FaqPageContent = {
   items: FaqItem[];
   seo: FaqSeoContent;
 };
-
-let faqCache: FaqPageContent | null = null;
-let faqOverrideCache: Record<string, unknown> | null | undefined;
-let faqOverridePending: Promise<Record<string, unknown> | null | undefined> | null = null;
-
-export function preloadFaqContent(): Promise<Record<string, unknown> | null | undefined> {
-  if (faqOverrideCache !== undefined) return Promise.resolve(faqOverrideCache);
-  if (faqOverridePending) return faqOverridePending;
-
-  faqOverridePending = fetch('/api/site-content?key=site%3Afaq', {
-    credentials: 'same-origin',
-    cache: 'no-store',
-  })
-    .then(async (response) => response.ok ? response.json() : null)
-    .then((payload) => {
-      if (!payload?.success) return undefined;
-      faqOverrideCache = payload.content && typeof payload.content === 'object' && !Array.isArray(payload.content)
-        ? payload.content as Record<string, unknown>
-        : null;
-      return faqOverrideCache;
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      faqOverridePending = null;
-    });
-  return faqOverridePending;
-}
 
 function resolveFaqContent(
   override: Record<string, unknown> | null | undefined,
@@ -64,28 +37,6 @@ function resolveFaqContent(
 }
 
 export default function useFaqContent(fallback: FaqItem[], fallbackSeo: FaqSeoContent): FaqPageContent {
-  const [content, setContent] = useState<FaqPageContent>(() => {
-    if (faqCache) return faqCache;
-    const initialOverride = initialContentOverride('site:faq') as Record<string, unknown> | null | undefined;
-    return resolveFaqContent(
-      initialOverride !== undefined
-        ? initialOverride
-        : faqOverrideCache,
-      fallback,
-      fallbackSeo,
-    );
-  });
-
-  useEffect(() => {
-    let active = true;
-    void preloadFaqContent()
-      .then((override) => {
-        if (!active || override === undefined) return;
-        faqCache = resolveFaqContent(override, fallback, fallbackSeo);
-        setContent(faqCache);
-      });
-    return () => { active = false; };
-  }, [fallback, fallbackSeo]);
-
-  return content;
+  const override = useSiteContent<Record<string, unknown> | null>('site:faq', null);
+  return useMemo(() => resolveFaqContent(override, fallback, fallbackSeo), [override, fallback, fallbackSeo]);
 }

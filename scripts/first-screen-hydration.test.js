@@ -58,9 +58,10 @@ const clientBundle = await build(ssrBuildOptions({
     contents: `
       export { default as App } from './src/app/App';
       export { default as AppErrorBoundary } from './src/app/components/AppErrorBoundary';
+      export { default as useFaqContent } from './src/app/hooks/useFaqContent';
       export { prepareRoute } from './src/app/utils/routePreload';
-      export { hydrateRoot } from 'react-dom/client';
-      export { createElement } from 'react';
+      export { createRoot, hydrateRoot } from 'react-dom/client';
+      export { act, createElement } from 'react';
     `,
     resolveDir: process.cwd(),
     loader: 'tsx',
@@ -131,6 +132,58 @@ function installDom(route, html, { head = '', attributes = '', trailingSlash = t
 }
 
 const hydrationCases = [...SSR_ROUTES.map(route => [route, '']), ['/', '#social'], ['/', '#contact'], ['/google-ads', '#contact']];
+
+test('FAQ revalidates an expired revision when remounted in the same tab', async () => {
+  const { window, restore } = installDom('/faq', '');
+  const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  const actEnvironment = Object.getOwnPropertyDescriptor(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  let now = originalNow();
+  let version = 1;
+  let requests = 0;
+  Date.now = () => now;
+  globalThis.fetch = async (url) => {
+    assert.equal(url, '/api/site-content?key=site%3Afaq');
+    requests += 1;
+    return Response.json({
+      success: true,
+      version,
+      content: { items: [{ question: `Question ${version}` }], seo: { title: `FAQ ${version}` } },
+    });
+  };
+  try {
+    const client = { exports: {} };
+    new Function('require', 'module', 'exports', clientBundle.outputFiles[0].text)(require, client, client.exports);
+    const { act, createElement, createRoot, useFaqContent } = client.exports;
+    const element = window.document.getElementById('root');
+    const root = createRoot(element);
+    const fallback = [{ question: 'Default question' }];
+    const fallbackSeo = { title: 'Default FAQ', description: 'Default description' };
+    function FaqProbe() {
+      const { items, seo } = useFaqContent(fallback, fallbackSeo);
+      return createElement('p', null, `${items[0].question} / ${seo.title}`);
+    }
+    try {
+      await act(async () => root.render(createElement(FaqProbe)));
+      assert.equal(element.textContent, 'Question 1 / FAQ 1');
+      await act(async () => root.render(null));
+      version = 2;
+      now += 16_000;
+      await act(async () => root.render(createElement(FaqProbe)));
+      assert.equal(element.textContent, 'Question 2 / FAQ 2');
+      assert.equal(requests, 2);
+    } finally {
+      await act(async () => root.unmount());
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    Date.now = originalNow;
+    if (actEnvironment) Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', actEnvironment);
+    else delete globalThis.IS_REACT_ACT_ENVIRONMENT;
+    restore();
+  }
+});
 
 for (const [route, hash] of hydrationCases) {
   test(`hydrates ${route}${hash} without rebuilding the generated first screen`, async () => {

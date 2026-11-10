@@ -525,9 +525,8 @@ export default function FAQPage() {
     title: FAQ_SEO.title,
     description: FAQ_SEO.description,
   }), []);
-  // На сборке хук отдаёт вопросы из кода: встроенного seed у него нет, а в
-  // кэш `primeSiteContent` он не смотрит. Пока владелец не публиковал FAQ из
-  // админки, серверная и браузерная разметка совпадают.
+  // Первый рендер использует опубликованный снимок из сборки, а при его
+  // отсутствии — вопросы из кода. После монтирования хук проверяет CMS.
   const faqContent = useFaqContent(faqs, defaultSeo);
   const liveFaqs = useMemo(() => faqContent.items.map((item) => ({
     ...item,
