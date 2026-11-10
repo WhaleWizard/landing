@@ -613,7 +613,7 @@ export default function AdminLaunchpad() {
 
             <div className="admin-launchpad-stats-row">
               <span className="admin-launchpad-stat-item">
-                Выполнено: <strong>{completedCount}</strong> из <strong>{totalCount}</strong>
+                Выполнено: <span className="admin-launchpad-stat-count"><strong>{completedCount}</strong>&nbsp;из&nbsp;<strong>{totalCount}</strong></span>
               </span>
               <span
                 className={`admin-launchpad-stat-item ${

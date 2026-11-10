@@ -245,7 +245,7 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
       <div className="client-launchpad__progress-box">
         <div className="flex items-center justify-between text-xs mb-1">
           <span className="font-semibold text-[var(--adm-fg)]/90">
-            Готовность к запуску: {completedCount} из {totalCount} ({progressPercent}%)
+            Готовность к запуску: {completedCount}&nbsp;из&nbsp;{totalCount} ({progressPercent}%)
           </span>
           <span className={progressPercent === 100 ? 'text-emerald-400 font-bold' : 'text-indigo-400 font-bold'}>
             {progressPercent === 100 ? '✓ Полностью готов' : `${100 - progressPercent}% осталось`}
