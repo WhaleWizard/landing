@@ -127,7 +127,7 @@ async function getGoogleToken(credentials: string): Promise<string> {
   const signature = await crypto.subtle.sign(algorithm, key, new TextEncoder().encode(assertion));
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
-    redirect: 'error',
+    redirect: 'manual',
     body: new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
       assertion: assertion + '.' + base64Url(new Uint8Array(signature)),
@@ -178,7 +178,7 @@ export async function getSearchConsoleReport(
   const query = async (dimensions: string[], rowLimit: number, from = startDate, to = endDate) => {
     const response = await fetch(endpoint, {
       method: 'POST',
-      redirect: 'error',
+      redirect: 'manual',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ startDate: from, endDate: to, dimensions, rowLimit, type: 'web', dataState: 'final' }),
       signal: AbortSignal.timeout(8000),
