@@ -244,6 +244,13 @@ test('the hydration release is wired into main.tsx and the pre-hydration pause i
   assert.match(css, /html\[data-ww-prehydrate\]/);
 });
 
+test('bootstrap leaves CMS revalidation to mounted route hooks', () => {
+  // Route preparation can time out while a boundary still holds the server
+  // HTML. An idle preload would replace its seed before hydration resumes.
+  const main = readFileSync('src/main.tsx', 'utf8');
+  assert.doesNotMatch(main, /useServiceContent|useFaqContent|\/api\/site-content\?/);
+});
+
 test('the pre-paint title fit mirrors the hook and hands its result over through one attribute', async () => {
   const { readFile } = await import('node:fs/promises');
   const prefit = await readFile('scripts/title-prefit.js', 'utf8');

@@ -25,26 +25,6 @@ const hadGeneratedShell = rootElement.hasChildNodes();
 /** Статический текст для поисковиков и браузеров без JavaScript — вне #root. */
 const STATIC_SHELL_ID = 'ww-static-shell';
 
-function currentSiteContentKey(pathname: string): string | null {
-  if (pathname === '/') return 'site:home';
-  if (pathname === '/faq' || pathname === '/faq/') return 'site:faq';
-  const service = pathname.match(/^\/(meta-ads|meta-apps|google-ads|consult)\/?$/)?.[1];
-  return service ? `service:${service}` : null;
-}
-
-async function prepareCurrentSiteContent(): Promise<unknown> {
-  const cacheKey = currentSiteContentKey(window.location.pathname);
-  if (!cacheKey) return undefined;
-  const { preloadSiteContent } = await import('./app/hooks/useServiceContent');
-  try {
-    return await preloadSiteContent(cacheKey);
-  } catch {
-    // The inline production seed remains a valid fallback. A transient CMS
-    // request must never prevent React from mounting the public page.
-    return undefined;
-  }
-}
-
 /**
  * Сборка отрисовала этот маршрут целиком теми же компонентами — React может
  * принять готовую разметку (`hydrateRoot`), а не стирать её и строить заново.
@@ -152,17 +132,10 @@ async function bootstrap() {
       if (timeout) window.clearTimeout(timeout);
     }
   }
+  // The route's content hooks revalidate after mount. If route preparation
+  // timed out, an idle callback here could replace the seed in the cache
+  // while the route is still suspended, before React adopts its HTML.
   handOffToApp();
-
-  // Revalidate editable copy only after the first interactive frame has been
-  // handed off. This keeps the CMS request useful without competing with the
-  // route/hero chunks or delaying the visual transition.
-  if (hadGeneratedShell) {
-    const deferTask = typeof requestIdleCallback === 'function'
-      ? requestIdleCallback
-      : (cb: () => void) => window.setTimeout(cb, 2500);
-    deferTask(() => { void prepareCurrentSiteContent(); });
-  }
 }
 
 void bootstrap();
