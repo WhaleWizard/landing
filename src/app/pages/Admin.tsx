@@ -16,7 +16,7 @@ import '../../styles/admin-workspace.css';
 import type { WorkspaceTarget } from '../../../shared/admin-workspace';
 import { WorkspaceGuardContext } from '../components/admin/workspace/useWorkspaceGuard';
 import { lazy, memo, Suspense, useEffect, useState, useMemo, useCallback, useDeferredValue, useRef, createContext, useContext } from 'react';
-import { useNavigate } from 'react-router';
+import { useBlocker, useNavigate } from 'react-router';
 import { m, useReducedMotion } from 'motion/react';
 import {
   LogIn, Save, Plus, Trash2, Sun, Moon,
@@ -1405,9 +1405,14 @@ export default function Admin() {
   // к той статье, с которой начинались, — иначе обложка одной статьи
   // прилетала в другую.
   const editorSessionRef = useRef(0);
+  const coverUploadRef = useRef(0);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const savingArticleRef = useRef(false);
+  const [isSavingArticle, setIsSavingArticle] = useState(false);
 
   const openArticleEditor = useCallback((article: Article, options?: { dirty?: boolean; slugEdited?: boolean }) => {
     editorSessionRef.current += 1;
+    setIsUploadingCover(false);
     const draft = { ...article };
     setEditingArticle(draft);
     setSavedArticleSnapshot(options?.dirty ? '' : snapshotArticle(draft));
@@ -1426,21 +1431,43 @@ export default function Admin() {
     setEditorBackups((current) => current.filter((backup) => backup.key !== key));
   }, []);
 
+  const saveEditorBackup = useCallback((article: Article) => {
+    const key = editorBackupKey(article);
+    try {
+      const backup: EditorBackup = { key, article, savedAt: Date.now() };
+      localStorage.setItem(key, JSON.stringify({ article, savedAt: backup.savedAt }));
+      setEditorBackups((current) => [backup, ...current.filter((item) => item.key !== key)]);
+    } catch {
+      // Storage can be unavailable or full.
+    }
+  }, []);
+
+  const articleExit = useBlocker(({ nextLocation }) => (
+    hasUnsavedChangesRef.current && !/^\/admin(?:\/|$)/.test(nextLocation.pathname)
+  ));
+  useEffect(() => {
+    if (articleExit.state !== 'blocked') return;
+    void confirmDialog({
+      title: 'Выйти из редактора?',
+      description: 'Изменения не сохранены на сайте. Перед выходом браузер попробует сохранить локальную копию.',
+      confirmLabel: 'Выйти и оставить копию',
+    }).then((confirmed) => {
+      if (!confirmed) {
+        articleExit.reset();
+        return;
+      }
+      const current = editingArticleRef.current;
+      if (current && hasUnsavedChangesRef.current) saveEditorBackup(current);
+      articleExit.proceed();
+    });
+  }, [articleExit, confirmDialog, saveEditorBackup]);
+
   // Автосохранение открытого черновика раз в ~800мс после изменений
   useEffect(() => {
     if (!editingArticle || !hasUnsavedChanges || isEditingProtected) return;
-    const timer = window.setTimeout(() => {
-      const key = editorBackupKey(editingArticle);
-      try {
-        const backup: EditorBackup = { key, article: editingArticle, savedAt: Date.now() };
-        localStorage.setItem(key, JSON.stringify({ article: backup.article, savedAt: backup.savedAt }));
-        setEditorBackups((current) => [backup, ...current.filter((item) => item.key !== key)]);
-      } catch {
-        // например, переполнен localStorage — просто пропускаем
-      }
-    }, 800);
+    const timer = window.setTimeout(() => saveEditorBackup(editingArticle), 800);
     return () => window.clearTimeout(timer);
-  }, [editingArticle, hasUnsavedChanges, isEditingProtected]);
+  }, [editingArticle, hasUnsavedChanges, isEditingProtected, saveEditorBackup]);
 
   const closeArticleEditor = useCallback(async () => {
     if (hasUnsavedChanges) {
@@ -1454,6 +1481,7 @@ export default function Admin() {
     }
     editorSessionRef.current += 1;
     const closing = editingArticleRef.current;
+    setIsUploadingCover(false);
     setEditingArticle(null);
     setSavedArticleSnapshot('');
     setSlugManuallyEdited(false);
@@ -1657,7 +1685,7 @@ export default function Admin() {
   };
 
   const handleSave = async (status: Article['status'] = 'published') => {
-    if (!editingArticle) return;
+    if (!editingArticle || savingArticleRef.current || isUploadingCover) return;
     if (isEditingProtected) {
       notify.error('Статья защищена', 'Её нельзя сохранять, удалять или перетаскивать через админку.');
       return;
@@ -1709,37 +1737,61 @@ export default function Admin() {
       return;
     }
 
+    const session = editorSessionRef.current;
+    const submittedCoverUpload = coverUploadRef.current;
+    const submittedSnapshot = snapshotArticle(editingArticle);
+    savingArticleRef.current = true;
+    setIsSavingArticle(true);
     try {
       // Уходит одна статья, а не весь список: id новой статье выдаёт сервер.
       const saved = await updateArticle(normalizedArticle, password);
-      const success = Boolean(saved);
-      if (success) {
-        if (normalizedArticle.slug) {
-          await fetch('/api/admin/article-versions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Admin-Password': password,
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({ password, slug: normalizedArticle.slug, article: normalizedArticle }),
-          }).catch(() => {});
-        }
-        notify.success(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
-        editorSessionRef.current += 1;
-        setEditingArticle(null);
-        setSavedArticleSnapshot('');
-        setSlugManuallyEdited(false);
-        clearEditorBackup(editorBackupKey(editingArticle));
-        await forceRefreshAdminArticles(password);
-        await refreshHealth();
-      } else {
-        notify.error('Не удалось сохранить', 'Проверьте консоль браузера (F12) — там будет причина.');
+      if (!saved) {
+        notify.error('Не удалось сохранить', 'Попробуйте ещё раз. Правки остались в редакторе.');
+        return;
       }
+
+      const latest = editingArticleRef.current;
+      if (latest && editorSessionRef.current === session) {
+        clearEditorBackup(editorBackupKey(editingArticle));
+        if (snapshotArticle(latest) === submittedSnapshot && coverUploadRef.current === submittedCoverUpload) {
+          editorSessionRef.current += 1;
+          setEditingArticle(null);
+          setSavedArticleSnapshot('');
+          setSlugManuallyEdited(false);
+        } else {
+          // Edits made after the request began stay open, under the ID the
+          // server assigned if this was the first save of a new draft.
+          setEditingArticle({
+            ...latest,
+            id: saved.id,
+            slug: saved.slug,
+            updatedAt: saved.updatedAt,
+            status: latest.status === editingArticle.status ? saved.status : latest.status,
+          });
+          setSavedArticleSnapshot(snapshotArticle(saved));
+        }
+      }
+      notify.success(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
+      await fetch('/api/admin/article-versions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Password': password,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ password, slug: saved.slug, article: saved }),
+      }).catch(() => {});
+      void forceRefreshAdminArticles(password).catch((error: unknown) => {
+        notify.error('Не удалось обновить список публикаций', error instanceof Error ? error.message : undefined);
+      });
+      void refreshHealth();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       console.error('Ошибка при сохранении:', err);
       notify.error('Ошибка при сохранении', message);
+    } finally {
+      savingArticleRef.current = false;
+      setIsSavingArticle(false);
     }
   };
 
@@ -1874,14 +1926,16 @@ export default function Admin() {
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
+      const current = editingArticleRef.current;
+      if (current && hasUnsavedChangesRef.current) {
+        saveEditorBackup(current);
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [hasUnsavedChanges]);
+  }, [saveEditorBackup]);
 
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
@@ -2532,6 +2586,32 @@ export default function Admin() {
                   <span>Создать публикацию</span>
                 </button>
               </div>
+              {!editingArticle && editorBackups.length > 0 && (
+                <div className="grid gap-2 mb-4">
+                  {editorBackups.map((backup) => (
+                    <div key={backup.key} role="group" aria-label="Автосохранённый черновик" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+                      <div className="min-w-0 break-words text-sm text-[var(--adm-fg)]/85">
+                        <p className="font-semibold">{backup.article.title || 'Без названия'}</p>
+                        <p className="mt-1 text-xs text-[var(--adm-fg)]/70">Автосохранение · {new Date(backup.savedAt).toLocaleString('ru-RU')}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => openArticleEditor(backup.article, { dirty: true, slugEdited: true })}
+                          className="rounded-lg bg-[var(--adm-primary-solid)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                        >
+                          Восстановить
+                        </button>
+                        <button
+                          onClick={() => { void confirmDialog({ title: 'Удалить автосохранённый черновик?', description: 'Восстановить его после этого будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' }).then((ok) => { if (ok) clearEditorBackup(backup.key); }); }}
+                          className="rounded-lg border border-[var(--adm-border)] px-4 py-2 text-sm text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50 transition-colors"
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="admin-publication-stats" aria-label="Сводка публикаций">
                 <div>
                   <strong>{articleStats.total}</strong>
@@ -2967,7 +3047,11 @@ export default function Admin() {
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">URL обложки</label>
                     <div className="admin-mobile-stack flex gap-2">
-                      <input aria-label="URL обложки" type="text" value={editingArticle.image} onChange={(e) => setEditingArticle({ ...editingArticle, image: e.target.value })} className="flex-1 w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
+                      <input aria-label="URL обложки" type="text" value={editingArticle.image} onChange={(e) => {
+                        coverUploadRef.current += 1;
+                        setIsUploadingCover(false);
+                        setEditingArticle({ ...editingArticle, image: e.target.value });
+                      }} className="flex-1 w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-input-bg)] text-[var(--adm-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all" />
                       <label className="cursor-pointer px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] hover:bg-[var(--adm-muted)]/50 text-[var(--adm-fg)] transition-all flex items-center justify-center gap-2 whitespace-nowrap">
                         <Upload className="w-4 h-4" />
                         <span className="sm:hidden">Загрузить файл</span>
@@ -2982,21 +3066,29 @@ export default function Admin() {
                             e.target.value = '';
                             if (!file) return;
                             const session = editorSessionRef.current;
+                            const upload = ++coverUploadRef.current;
+                            setIsUploadingCover(true);
                             const url = await uploadFile(file);
                             // Обложка пишется поверх текущего состояния, а не
                             // копии из замыкания: пока файл грузился, владелец
                             // мог править заголовок и текст, и копия откатила
                             // бы их. Другая статья за это время — результат
                             // отбрасывается.
+                            if (editorSessionRef.current === session && coverUploadRef.current === upload) {
+                              setIsUploadingCover(false);
+                            }
                             if (url) {
                               setEditingArticle((current) => (
-                                current && editorSessionRef.current === session ? { ...current, image: url } : current
+                                current && editorSessionRef.current === session && coverUploadRef.current === upload
+                                  ? { ...current, image: url }
+                                  : current
                               ));
                             }
                           }}
                         />
                       </label>
                     </div>
+                    {isUploadingCover && <p role="status" className="mt-1 text-sm text-[var(--adm-fg)]/70">Обложка загружается…</p>}
                   </div>
 
                   <div>
@@ -3020,48 +3112,26 @@ export default function Admin() {
                       onRestore={(article) => {
                         // Восстановленная версия применяется как несохранённые изменения:
                         // snapshot не трогаем, чтобы сработала защита от случайного закрытия.
-                        setEditingArticle({ ...article, id: editingArticle.id, slug: editingArticle.slug });
+                        const current = editingArticleRef.current;
+                        if (!current || !isSameArticle(current, editingArticle)) return;
+                        editorSessionRef.current += 1;
+                        setIsUploadingCover(false);
+                        setEditingArticle({ ...article, id: current.id, slug: current.slug });
                       }}
                     />
                   )}
 
-                  <div className="admin-editor-actions flex gap-3">
-                    <button onClick={() => handleSave('published')} disabled={isEditingProtected} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary-solid)] to-[var(--adm-primary-solid-hover)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
-                      <Save className="w-4 h-4" /> Сохранить и опубликовать
+                  <div className="admin-editor-actions flex gap-3" aria-busy={isSavingArticle}>
+                    <button onClick={() => handleSave('published')} disabled={isEditingProtected || isSavingArticle || isUploadingCover} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--adm-primary-solid)] to-[var(--adm-primary-solid-hover)] text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                      <Save className="w-4 h-4" /> {isSavingArticle ? 'Сохраняю…' : 'Сохранить и опубликовать'}
                     </button>
-                    <button onClick={() => handleSave('draft')} disabled={isEditingProtected} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button onClick={() => handleSave('draft')} disabled={isEditingProtected || isSavingArticle || isUploadingCover} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                       <EyeOff className="w-4 h-4" /> Черновик
                     </button>
                     <button onClick={closeArticleEditor} className="px-6 py-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50 transition-all">Отмена</button>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-6 py-6">
-                  {/* Копий может быть несколько — по одной на статью, свежие сверху. */}
-                  {editorBackups.map((backup) => (
-                    <div key={backup.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
-                      <div className="text-sm text-[var(--adm-fg)]/85">
-                        Найден автосохранённый черновик «{backup.article.title || 'Без названия'}» от {new Date(backup.savedAt).toLocaleString('ru-RU')}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openArticleEditor(backup.article, { dirty: true, slugEdited: true })}
-                          className="rounded-lg bg-[var(--adm-primary-solid)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                        >
-                          Восстановить
-                        </button>
-                        <button
-                          onClick={() => { void confirmDialog({ title: 'Удалить автосохранённый черновик?', description: 'Восстановить его после этого будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' }).then((ok) => { if (ok) clearEditorBackup(backup.key); }); }}
-                          className="rounded-lg border border-[var(--adm-border)] px-4 py-2 text-sm text-[var(--adm-fg)]/70 hover:bg-[var(--adm-muted)]/50 transition-colors"
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="text-center py-6 text-[var(--adm-fg)]/60">Выберите статью из списка или создайте новую</div>
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
               )}

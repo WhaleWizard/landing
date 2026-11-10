@@ -10850,6 +10850,12 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   box-shadow: var(--adm-shadow-md) !important;
 }
 
+@media (max-width: 767px) {
+  .admin-root:has(.admin-editor-actions) [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* ==========================================================================
    Цели и деньги
    ========================================================================== */

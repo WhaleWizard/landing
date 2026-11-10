@@ -211,10 +211,21 @@ test('F-021: загруженная обложка применяется к т�
   assert.match(upload, /e\.target\.value = ''/, 'тот же файл можно выбрать повторно');
   assert.match(upload, /setEditingArticle\(\(current\) =>/, 'функциональное обновление вместо копии из замыкания');
   assert.match(upload, /editorSessionRef\.current === session/, 'результат отбрасывается, если открыта другая статья');
+  assert.match(upload, /coverUploadRef\.current === upload/, 'более ранняя загрузка не перезаписывает новую обложку');
   assert.doesNotMatch(upload, /\{ \.\.\.editingArticle, image: url \}/);
   for (const anchor of ['const openArticleEditor = useCallback', 'const closeArticleEditor = useCallback']) {
     assert.match(slice(adminSource, anchor, '}, ['), /editorSessionRef\.current \+= 1/, `${anchor} открывает новый сеанс`);
   }
+});
+
+test('the article editor blocks duplicate saves and keeps edits made during the request', () => {
+  const save = slice(adminSource, 'const handleSave = async', 'const handleDelete');
+  assert.match(save, /if \(!editingArticle \|\| savingArticleRef\.current/);
+  assert.ok(save.indexOf('savingArticleRef.current = true') < save.indexOf('await updateArticle('));
+  assert.match(save, /editorSessionRef\.current === session/);
+  assert.match(save, /snapshotArticle\(latest\) === submittedSnapshot/);
+  assert.match(save, /\.\.\.latest,\s*id: saved\.id/);
+  assert.match(save, /finally \{\s*savingArticleRef\.current = false/);
 });
 
 // ---------------------------------------------------------------------------
