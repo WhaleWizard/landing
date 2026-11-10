@@ -867,6 +867,7 @@ class FakeBucket {
 
   async put(key, value, options = {}) {
     const bytes = value == null ? new Uint8Array(0) : new Uint8Array(await new Response(value).arrayBuffer());
+    if (options.onlyIf?.get('If-None-Match') === '*' && this.objects.has(key)) return null;
     this.objects.set(key, {
       key, bytes, size: bytes.byteLength, uploaded: new Date(),
       httpMetadata: options.httpMetadata || {}, customMetadata: options.customMetadata || {},
@@ -1042,6 +1043,7 @@ test('F-111: бросок хранилища на втором файле ост
   assert.deepEqual(result.payload.failed.map((item) => item.key), ['uploads/2026-09-23/2-b.pdf']);
   assert.match(result.payload.failed[0].error, /Перенос прерван: Too many subrequests/);
   assert.deepEqual(result.payload.skipped, ['uploads/2026-09-23/3-c.pdf']);
+  assert.equal(result.payload.interrupted, keys[1]);
   assert.match(result.payload.error, /мог остаться в обеих папках/);
   // Второй и третий файлы на месте, копий в новой папке у них нет.
   assert.ok(!bucket.objects.has('uploads/2026-09-23/1-a.pdf'));
@@ -1051,6 +1053,22 @@ test('F-111: бросок хранилища на втором файле ост
   assert.ok(!bucket.objects.has('uploads/docs/2026-09-23/3-c.pdf'));
   // После броска к хранилищу больше не обращались: ни к третьему файлу, ни для отката.
   assert.equal(bucket.ops, 6);
+});
+
+test('медиатека сохраняет оба оригинала при конфликте имени в папке назначения', async (t) => {
+  t.after(installMemoryCache());
+  const bucket = new FakeBucket();
+  const from = 'uploads/source/2026-09-23/same.pdf';
+  const to = 'uploads/docs/2026-09-23/same.pdf';
+  await bucket.put(from, 'исходный документ');
+  await bucket.put(to, 'уже существующий документ');
+  const result = await postMedia(bucket, { action: 'move', keys: [from], folder: 'docs' }, '203.0.113.13');
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.payload.moved, []);
+  assert.equal(result.payload.failed[0].key, from);
+  assert.match(result.payload.failed[0].error, /уже есть/);
+  assert.equal(new TextDecoder().decode(bucket.objects.get(from).bytes), 'исходный документ');
+  assert.equal(new TextDecoder().decode(bucket.objects.get(to).bytes), 'уже существующий документ');
 });
 
 test('F-111: пачка режется по бюджету подзапросов — картинки с копиями переезжают по две за запрос', async (t) => {

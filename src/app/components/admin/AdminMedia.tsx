@@ -13,7 +13,7 @@ import { appendImageUpload, formatBytes, prepareImageUpload } from '../../utils/
 import { withPlural } from '../../utils/plural';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 import MediaCropperModal from './MediaCropperModal';
-import { MAX_MEDIA_DELETE_KEYS } from '../../../../shared/admin-media';
+import { MAX_MEDIA_DELETE_KEYS, MAX_MEDIA_MOVE_KEYS, type MediaMoveResult } from '../../../../shared/admin-media';
 
 interface MediaFile {
   key: string;
@@ -26,6 +26,27 @@ interface MediaFile {
   alt?: string;
   /** Заголовки публикаций, где файл используется — считает сервер по полным текстам. */
   usage?: string[];
+}
+
+interface MediaActionResponse {
+  success?: boolean;
+  code?: string;
+  error?: string;
+  moved?: MediaMoveResult[];
+  failed?: { key: string; error: string }[];
+  skipped?: string[];
+  interrupted?: string;
+}
+
+async function sendMediaAction(password: string, body: Record<string, unknown>) {
+  const response = await fetch('/api/admin/media', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => null) as MediaActionResponse | null;
+  return { response, payload };
 }
 
 /**
@@ -93,6 +114,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [moveNeedsRefresh, setMoveNeedsRefresh] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
   const [croppingFile, setCroppingFile] = useState<MediaFile | null>(null);
   const [query, setQuery] = useState('');
@@ -181,6 +203,13 @@ export default function AdminMedia({ password, articles, target }: { password: s
       const names = (payload.folders || []).map((folder) => folder.name);
       setFolderNames((current) => cursor ? [...new Set([...current, ...names])] : names);
       setNextCursor(payload.nextCursor || null);
+      if (!cursor) {
+        setMoveNeedsRefresh(false);
+        if (!payload.nextCursor) {
+          const keys = new Set(incoming.map((file) => file.key));
+          setSelected((current) => current.filter((key) => keys.has(key)));
+        }
+      }
       setAltMigration(payload.altMigration || '');
     } catch (err) {
       if (requestId === listRequest.current) setError(err instanceof Error ? err.message : 'Не удалось загрузить список файлов');
@@ -239,14 +268,8 @@ export default function AdminMedia({ password, articles, target }: { password: s
     setBusy(true);
     setError('');
     try {
-      const res = await fetch('/api/admin/media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
-        credentials: 'same-origin',
-        body: JSON.stringify(body),
-      });
-      const payload = await res.json().catch(() => null) as { success?: boolean; error?: string } | null;
-      if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
+      const { response, payload } = await sendMediaAction(password, body);
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Действие не выполнено');
@@ -302,16 +325,91 @@ export default function AdminMedia({ password, articles, target }: { password: s
     }
   };
 
-  const moveFile = async (file: MediaFile, folder: string, options: { reload?: boolean } = {}) => {
+  const moveFile = async (file: MediaFile, folder: string) => {
     if ((mediaUsage.get(file.key) || []).length > 0) {
       setError('Файл используется в публикациях: перенос изменит ссылку и картинка там сломается.');
+      return false;
+    }
+    if (!(await post({ action: 'move', key: file.key, folder }))) return false;
+    notify.success('Файл перенесён', `«${file.name}» → ${folder ? `папка «${folder}»` : 'файлы без папки'}`);
+    await load();
+    return true;
+  };
+
+  const moveSelection = async (targets: MediaFile[], folder: string) => {
+    if (loading || busy || moveNeedsRefresh || !targets.length) return;
+    if (targets.length > MAX_MEDIA_MOVE_KEYS) {
+      setError(`За один раз можно перенести до ${MAX_MEDIA_MOVE_KEYS} файлов. Сократите выборку.`);
       return;
     }
-    if (await post({ action: 'move', key: file.key, folder })) {
-      notify.success('Файл перенесён', `«${file.name}» → ${folder ? `папка «${folder}»` : 'файлы без папки'}`);
-      // Массовый перенос перезагружает список один раз после всех файлов,
-      // а не после каждого.
-      if (options.reload !== false) await load();
+    setBusy(true);
+    setError('');
+    const unresolved = new Set(targets.map((file) => file.key));
+    const updates = new Map<string, MediaMoveResult>();
+    let refreshRequired = false;
+    let pending = targets.filter((file) => file.folder !== folder && !mediaUsage.get(file.key)?.length).map((file) => file.key);
+    for (const file of targets) if (file.folder === folder) unresolved.delete(file.key);
+    let detail = targets.some((file) => file.folder !== folder && mediaUsage.get(file.key)?.length)
+      ? 'Некоторые файлы используются в публикациях.' : '';
+    try {
+      while (pending.length) {
+        const { response, payload } = await sendMediaAction(password, { action: 'move', keys: pending, folder });
+        if (!response.ok) {
+          detail = payload?.error || `Не удалось перенести файлы (HTTP ${response.status}).`;
+          if (response.status >= 500 && payload?.code !== 'USAGE_UNAVAILABLE') {
+            refreshRequired = true;
+            detail += ' Обновите медиатеку перед повтором.';
+          }
+          break;
+        }
+        const { moved, failed, skipped, interrupted } = payload || {};
+        if (!Array.isArray(moved) || !Array.isArray(failed) || !Array.isArray(skipped)) {
+          throw new Error('Не удалось подтвердить результат переноса. Обновите медиатеку перед повтором.');
+        }
+        const accounted = new Set([...moved.map((item) => item.previousKey), ...failed.map((item) => item.key), ...skipped]);
+        if (moved.length + failed.length + skipped.length !== pending.length
+          || accounted.size !== pending.length || pending.some((key) => !accounted.has(key))
+          || moved.some((item) => !item.url || typeof item.folder !== 'string')) {
+          throw new Error('Не удалось подтвердить результат переноса. Обновите медиатеку перед повтором.');
+        }
+        for (const item of moved) {
+          unresolved.delete(item.previousKey);
+          if (item.moved) updates.set(item.previousKey, item);
+        }
+        if (interrupted) {
+          refreshRequired = true;
+          detail = payload?.error || 'Перенос прерван. Обновите медиатеку перед повтором.';
+          break;
+        }
+        detail ||= failed[0]?.error || '';
+        if (skipped.length >= pending.length) throw new Error('Перенос не продвинулся. Обновите медиатеку перед повтором.');
+        pending = skipped;
+      }
+    } catch (error) {
+      refreshRequired = true;
+      detail = error instanceof Error && error.message.includes('Обновите медиатеку')
+        ? error.message : 'Не удалось подтвердить результат переноса. Обновите медиатеку перед повтором.';
+    } finally {
+      if (updates.size) {
+        setFiles((current) => {
+          const next = new Map(current.map((file) => [file.key, file]));
+          for (const file of current) {
+            const item = updates.get(file.key);
+            if (!item) continue;
+            next.delete(file.key);
+            next.set(item.key, { ...file, key: item.key, url: item.url, folder: item.folder });
+          }
+          return [...next.values()];
+        });
+      }
+      setSelected([...unresolved]);
+      if (refreshRequired) {
+        setMoveNeedsRefresh(true);
+        setError(`Подтверждено переносов: ${updates.size}. Для проверки: ${unresolved.size}. ${detail}`.trim());
+      } else if (unresolved.size) setError(`Перенесено: ${updates.size}. Осталось: ${unresolved.size}. ${detail}`.trim());
+      else if (updates.size) notify.success(`Перенесено файлов: ${updates.size}`);
+      else notify.info('Файлы уже в этой папке');
+      setBusy(false);
     }
   };
 
@@ -441,7 +539,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
         )}
       />
 
-      {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
+      {error && !preview ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
       {nextCursor && (
         <div className="admin-notice flex flex-wrap items-center gap-3">
           <span>Поиск и фильтры применяются к загруженным файлам.</span>
@@ -457,6 +555,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
           <button
             type="button"
             className={activeFolder === null ? 'is-active' : ''}
+            disabled={busy}
             onClick={() => { setActiveFolder(null); setSelected([]); }}
           >
             <FolderOpen aria-hidden="true" /> <span>Все файлы</span> <em>{files.length}</em>
@@ -464,6 +563,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
           <button
             type="button"
             className={activeFolder === '' ? 'is-active' : ''}
+            disabled={busy}
             onClick={() => { setActiveFolder(''); setSelected([]); }}
           >
             <Folder aria-hidden="true" /> <span>Без папки</span> <em>{unfiledCount}</em>
@@ -473,6 +573,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
               <button
                 type="button"
                 className={activeFolder === folder.name ? 'is-active' : ''}
+                disabled={busy}
                 onClick={() => { setActiveFolder(folder.name); setSelected([]); }}
               >
                 <Folder aria-hidden="true" /> <span>{folder.name}</span> <em>{folder.count}</em>
@@ -607,25 +708,20 @@ export default function AdminMedia({ password, articles, target }: { password: s
           {selected.length > 0 && (
             <div className="media-bulk" role="status">
               <span>Выбрано: {selected.length}</span>
+              {selectedFiles.length < selected.length && <span>Догрузите файлы, чтобы продолжить.</span>}
               <AdminSelect
                 ariaLabel="Перенести выбранные в папку"
                 value=""
                 compact
-                placeholder="Перенести в…"
+                disabled={loading || busy || moveNeedsRefresh || selectedFiles.length < selected.length}
+                placeholder={busy ? 'Выполняется…' : 'Перенести в…'}
                 options={folderOptions}
-                onValueChange={(value) => {
-                  const target = value === '__none__' ? '' : value;
-                  void (async () => {
-                    for (const file of selectedFiles) await moveFile(file, target, { reload: false });
-                    setSelected([]);
-                    await load();
-                  })();
-                }}
+                onValueChange={(value) => void moveSelection(selectedFiles, value === '__none__' ? '' : value)}
               />
-              <button type="button" className="admin-button admin-button--danger" disabled={loading || busy} onClick={() => void deleteFiles(selectedFiles)}>
+              <button type="button" className="admin-button admin-button--danger" disabled={loading || busy || selectedFiles.length < selected.length} onClick={() => void deleteFiles(selectedFiles)}>
                 <Trash2 aria-hidden="true" /> Удалить
               </button>
-              <button type="button" className="admin-button admin-button--quiet" onClick={() => setSelected([])}>Снять</button>
+              <button type="button" className="admin-button admin-button--quiet" disabled={busy} onClick={() => setSelected([])}>Снять</button>
             </div>
           )}
 
@@ -669,6 +765,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                       <input
                         type="checkbox"
                         checked={isSelected}
+                        disabled={busy}
                         aria-label={`Выбрать ${file.name}`}
                         onChange={() => toggleSelected(file.key)}
                       />
@@ -761,6 +858,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                 <X aria-hidden="true" />
               </button>
             </div>
+            {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
             {preview.contentType.startsWith('image/')
               ? <img src={preview.url} alt={preview.alt || preview.name} />
               : <p className="admin-muted">Предпросмотр доступен только для изображений.</p>}
@@ -808,11 +906,12 @@ export default function AdminMedia({ password, articles, target }: { password: s
                   ariaLabel="Перенести файл в папку"
                   value={preview.folder || '__none__'}
                   compact
+                  disabled={loading || busy || moveNeedsRefresh}
                   options={folderOptions}
                   onValueChange={(value) => {
                     const target = value === '__none__' ? '' : value;
                     if (target === preview.folder) return;
-                    void moveFile(preview, target).then(() => setPreview(null));
+                    void moveFile(preview, target).then((moved) => { if (moved) setPreview(null); });
                   }}
                 />
                 {preview.contentType.startsWith('image/') && (

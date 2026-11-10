@@ -16,10 +16,9 @@ import {
 import { isImageVariantKey, variantKeysFor } from '../../_lib/image-variants';
 import { fetchArticlesWithFallback, shouldUseD1Articles } from '../../_lib/articles';
 import type { Env } from '../../_lib/types';
-import { MAX_MEDIA_DELETE_KEYS } from '../../../shared/admin-media';
+import { MAX_MEDIA_DELETE_KEYS, MAX_MEDIA_MOVE_KEYS, type MediaMoveResult } from '../../../shared/admin-media';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
-const MAX_BULK_KEYS = 50;
 
 /**
  * Бюджет обращений к хранилищу на один запрос переноса.
@@ -292,10 +291,17 @@ async function moveUpload(env: Env, bucket: R2Bucket, key: string, folder: strin
     .map((from, index) => ({ from, to: targetVariants[index] }))
     .filter((pair): pair is { from: string; to: string } => Boolean(pair.to));
   const writtenVariants: string[] = [];
+  const onlyIfMissing = new Headers({ 'If-None-Match': '*' });
+  const conflict: MoveOutcome = { ok: false, error: 'В папке назначения уже есть файл или его копия с таким именем', status: 409 };
   for (const pair of variantMoves) {
     const variant = await bucket.get(pair.from);
     if (!variant) continue;
-    await bucket.put(pair.to, variant.body, { httpMetadata: variant.httpMetadata, customMetadata: { ...variant.customMetadata, variantOf: target } });
+    const copy = await bucket.put(pair.to, variant.body, { onlyIf: onlyIfMissing,
+      httpMetadata: variant.httpMetadata, customMetadata: { ...variant.customMetadata, variantOf: target } });
+    if (copy === null) {
+      for (const written of writtenVariants) await bucket.delete(written);
+      return conflict;
+    }
     if (!(await bucket.head(pair.to))) {
       for (const written of writtenVariants) await bucket.delete(written);
       return { ok: false, error: 'Копия картинки не перенеслась, файл оставлен на месте', status: 500 };
@@ -303,10 +309,15 @@ async function moveUpload(env: Env, bucket: R2Bucket, key: string, folder: strin
     writtenVariants.push(pair.to);
   }
 
-  await bucket.put(target, source.body, {
+  const copy = await bucket.put(target, source.body, {
+    onlyIf: onlyIfMissing,
     httpMetadata: source.httpMetadata,
     customMetadata: source.customMetadata,
   });
+  if (copy === null) {
+    for (const variant of writtenVariants) await bucket.delete(variant);
+    return conflict;
+  }
   const written = await bucket.head(target);
   if (!written) {
     for (const variant of writtenVariants) await bucket.delete(variant);
@@ -536,15 +547,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'move') {
       const folder = String(body.folder ?? '');
-      // Пачка ключей одним запросом: перенос сорока файлов по одному
-      // запросу на файл упирался в лимит запросов на 31-м. Один ключ
-      // (`key`) по-прежнему принимается — так ходит медиатека сейчас.
+      // Сохраняем поддержку одиночного переноса для предпросмотра.
       if (Array.isArray(body.keys)) {
-        const keys = body.keys.map((key) => String(key || '')).filter(Boolean).slice(0, MAX_BULK_KEYS);
+        const keys = [...new Set(body.keys.map((key) => String(key || '')).filter(Boolean))];
         if (!keys.length) return json({ success: false, error: 'Не указан ни один файл' }, { status: 400, headers: noStore });
+        if (keys.length > MAX_MEDIA_MOVE_KEYS) {
+          return json({ success: false, error: `За один раз можно перенести до ${MAX_MEDIA_MOVE_KEYS} файлов` }, { status: 400, headers: noStore });
+        }
         const refused = await refuseIfUsed(env, request, keys, 'move');
         if (refused) return refused;
-        const moved: Array<{ key: string; previousKey: string; moved: boolean }> = [];
+        const moved: MediaMoveResult[] = [];
         const failed: Array<{ key: string; error: string }> = [];
         // Не тронутые этим запросом: не уместились в бюджет или идут после
         // прерванного переноса. Клиент шлёт их следующим запросом.
@@ -570,8 +582,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             interrupted = key;
             continue;
           }
-          if (outcome.ok) moved.push({ key: outcome.key, previousKey: outcome.previousKey, moved: outcome.moved });
-          else failed.push({ key, error: outcome.error });
+          if (outcome.ok) {
+            const { key: newKey, previousKey, moved: didMove } = outcome;
+            moved.push({ key: newKey, previousKey, moved: didMove,
+              url: publicUploadUrl(getPublicHost(env), newKey), folder: folderFromKey(newKey) });
+          } else failed.push({ key, error: outcome.error });
         }
         const error = interrupted
           ? `${failed[failed.length - 1].error}. Обновите список — «${interrupted.split('/').pop()}» мог остаться в обеих папках.`
@@ -583,6 +598,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           moved,
           failed,
           skipped,
+          ...(interrupted ? { interrupted } : {}),
           ...(error ? { error } : {}),
         }, { headers: noStore });
       }

@@ -57,6 +57,7 @@ declare interface D1Database {
 }
 
 declare interface R2PutOptions {
+  onlyIf?: Headers;
   httpMetadata?: {
     contentType?: string;
     cacheControl?: string;
