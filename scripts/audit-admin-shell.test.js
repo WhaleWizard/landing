@@ -112,6 +112,19 @@ const contentControlSource = await source('src/app/components/admin/AdminContent
 const paletteSource = await source('src/app/components/admin/AdminCommandPalette.tsx');
 const securitySource = await source('src/app/components/admin/AdminSecurity.tsx');
 const mediaSource = await source('src/app/components/admin/AdminMedia.tsx');
+
+test('история UTM сохраняет свои ссылки при повреждённых записях и убирает дубликаты', async () => {
+  const { readUtmHistory } = await loadWithStubs('src/app/components/admin/AdminUtmBuilder.tsx');
+  const url = 'https://www.whalewzrd.com/meta-ads/?utm_source=fb&utm_campaign={{campaign.name}}';
+  const saved = [{ id: '1', url, source: { invalid: true } }, { id: '2', url, source: 'duplicate' },
+    { id: '3', url: 'https://elsewhere.test/' }, { id: '4', url: 'broken' }, null];
+  assert.deepEqual(readUtmHistory(JSON.stringify(saved)), [
+    { id: '1', url, source: 'fb', campaign: '{{campaign.name}}', createdAt: '' },
+  ]);
+  assert.deepEqual(readUtmHistory('broken json'), []);
+  const longHistory = Array.from({ length: 12 }, (_, id) => ({ id: String(id), url: `https://www.whalewzrd.com/?n=${id}` }));
+  assert.equal(readUtmHistory(JSON.stringify(longHistory)).length, 8);
+});
 const schedulePanelSource = await source('src/app/components/admin/PublishSchedulePanel.tsx');
 
 /** Кусок исходника между двумя якорями — чтобы проверять порядок внутри одной функции. */

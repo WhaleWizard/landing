@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Check,
   CheckCircle2,
@@ -76,6 +76,39 @@ interface UtmHistoryItem {
   createdAt: string;
 }
 
+const UTM_HISTORY_KEY = 'ww_admin_utm_history';
+const UTM_HISTORY_LIMIT = 8;
+
+export function readUtmHistory(raw: string | null): UtmHistoryItem[] {
+  let saved: unknown;
+  try {
+    saved = JSON.parse(raw ?? '[]');
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(saved)) return [];
+
+  const recent = new Map<string, UtmHistoryItem>();
+  for (const item of saved) {
+    if (!item || typeof item.url !== 'string' || typeof item.id !== 'string' || recent.has(item.url)) continue;
+    try {
+      const url = new URL(item.url);
+      if (!['https://www.whalewzrd.com', 'https://whalewzrd.com'].includes(url.origin) || url.username || url.password) continue;
+      recent.set(item.url, {
+        id: item.id,
+        url: item.url,
+        source: typeof item.source === 'string' ? item.source : url.searchParams.get('utm_source') || 'direct',
+        campaign: typeof item.campaign === 'string' ? item.campaign : url.searchParams.get('utm_campaign') || 'none',
+        createdAt: typeof item.createdAt === 'string' ? item.createdAt : '',
+      });
+      if (recent.size === UTM_HISTORY_LIMIT) break;
+    } catch {
+      // A damaged entry does not hide the other links.
+    }
+  }
+  return [...recent.values()];
+}
+
 export default function AdminUtmBuilder() {
   const [selectedLanding, setSelectedLanding] = useState<string>('/meta-ads');
   const [customPath, setCustomPath] = useState<string>('');
@@ -87,19 +120,16 @@ export default function AdminUtmBuilder() {
   const [utmContent, setUtmContent] = useState('{{ad.name}}');
   const [utmTerm, setUtmTerm] = useState('{{adset.name}}');
 
-  const [checking, setChecking] = useState(false);
+  const [checkingTarget, setCheckingTarget] = useState<string | null>(null);
+  const activeCheck = useRef<{ target: string; controller: AbortController } | null>(null);
   const [lastCheck, setCheckStatus] = useState<{ url: string; ok: boolean; message: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<{ url: string } | null>(null);
   const [history, setHistory] = useState<UtmHistoryItem[]>([]);
 
   // Load history from localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('ww_admin_utm_history');
-      const parsed: unknown = saved ? JSON.parse(saved) : [];
-      if (Array.isArray(parsed)) {
-        setHistory(parsed.filter((item) => item && typeof item.url === 'string' && typeof item.id === 'string'));
-      }
+      setHistory(readUtmHistory(localStorage.getItem(UTM_HISTORY_KEY)));
     } catch {}
   }, []);
 
@@ -113,7 +143,6 @@ export default function AdminUtmBuilder() {
       setUtmCampaign(p.campaign);
       setUtmContent(p.content);
       setUtmTerm(p.term);
-      setCheckStatus(null);
     }
   };
 
@@ -147,26 +176,60 @@ export default function AdminUtmBuilder() {
     return `${url.origin}${url.pathname}${qs ? `?${qs}` : ''}${url.hash}`;
   }, [baseUrl, utmSource, utmMedium, utmCampaign, utmContent, utmTerm]);
 
-  const checkStatus = lastCheck?.url === baseUrl ? lastCheck : null;
+  const checkTarget = useMemo(() => {
+    if (!baseUrl) return '';
+    const url = new URL(baseUrl);
+    return url.pathname + url.search;
+  }, [baseUrl]);
+  const checking = checkingTarget === checkTarget;
+  const checkStatus = lastCheck?.url === checkTarget ? lastCheck : null;
+  const copied = copiedLink?.url === fullUrl;
+
+  useEffect(() => {
+    setCheckingTarget((current) => current === checkTarget ? current : null);
+    return () => {
+      const request = activeCheck.current;
+      if (request?.target !== checkTarget) return;
+      activeCheck.current = null;
+      request.controller.abort();
+    };
+  }, [checkTarget]);
+
+  useEffect(() => {
+    if (!copiedLink) return;
+    const timer = window.setTimeout(() => setCopiedLink(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copiedLink]);
 
   // Validate URL (200 OK ping)
   const handleVerifyUrl = async () => {
-    if (!baseUrl) return;
-    setChecking(true);
+    if (!checkTarget || activeCheck.current?.target === checkTarget) return;
+    activeCheck.current?.controller.abort();
+    const controller = new AbortController();
+    const request = { target: checkTarget, controller };
+    activeCheck.current = request;
+    setCheckingTarget(checkTarget);
     setCheckStatus(null);
+    const timeout = window.setTimeout(() => controller.abort(), 10_000);
     try {
-      const target = new URL(baseUrl);
-      const res = await fetch(`${target.pathname}${target.search}`, {
-        method: 'HEAD', cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(10000),
+      const res = await fetch(checkTarget, {
+        method: 'HEAD', cache: 'no-store', redirect: 'manual', signal: controller.signal,
       });
+      if (activeCheck.current !== request) return;
       const message = res.type === 'opaqueredirect'
         ? 'Посадочная страница перенаправляет на другой адрес'
         : `HTTP ${res.status} — ${res.status === 200 ? 'посадочная страница доступна' : 'проверьте путь посадочной страницы'}`;
-      setCheckStatus({ url: baseUrl, ok: res.status === 200, message });
+      setCheckStatus({ url: checkTarget, ok: res.status === 200, message });
     } catch {
-      setCheckStatus({ url: baseUrl, ok: false, message: 'Не удалось проверить доступность страницы. Повторите попытку.' });
+      if (activeCheck.current === request) {
+        setCheckStatus({ url: checkTarget, ok: false, message: 'Не удалось проверить доступность страницы. Повторите попытку.' });
+      }
     } finally {
-      setChecking(false);
+      window.clearTimeout(timeout);
+      if (activeCheck.current === request) {
+        activeCheck.current = null;
+        setCheckingTarget(null);
+      }
     }
   };
 
@@ -175,9 +238,8 @@ export default function AdminUtmBuilder() {
     if (!fullUrl) return;
     try {
       await navigator.clipboard.writeText(fullUrl);
-      setCopied(true);
+      setCopiedLink({ url: fullUrl });
       notify.success('Ссылка скопирована', fullUrl);
-      setTimeout(() => setCopied(false), 2000);
 
       // Save to history
       const newItem: UtmHistoryItem = {
@@ -189,9 +251,9 @@ export default function AdminUtmBuilder() {
       };
 
       setHistory((prev) => {
-        const next = [newItem, ...prev.filter((i) => i.url !== fullUrl)].slice(0, 8);
+        const next = [newItem, ...prev.filter((i) => i.url !== fullUrl)].slice(0, UTM_HISTORY_LIMIT);
         try {
-          localStorage.setItem('ww_admin_utm_history', JSON.stringify(next));
+          localStorage.setItem(UTM_HISTORY_KEY, JSON.stringify(next));
         } catch {}
         return next;
       });
@@ -203,7 +265,7 @@ export default function AdminUtmBuilder() {
   const handleClearHistory = () => {
     setHistory([]);
     try {
-      localStorage.removeItem('ww_admin_utm_history');
+      localStorage.removeItem(UTM_HISTORY_KEY);
     } catch {}
     notify.success('История ссылок очищена');
   };
@@ -235,7 +297,7 @@ export default function AdminUtmBuilder() {
         <span className="text-xs font-semibold text-[var(--adm-text-secondary)]">
           2. Посадочная страница
         </span>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Посадочные страницы">
           {LANDINGS.map((l) => (
             <button
               key={l.path}
@@ -285,7 +347,7 @@ export default function AdminUtmBuilder() {
               placeholder="fb, google, tg"
               aria-label="utm_source"
               value={utmSource}
-              onChange={(e) => { setUtmSource(e.target.value); setCheckStatus(null); }}
+              onChange={(e) => setUtmSource(e.target.value)}
             />
           </div>
 
@@ -298,7 +360,7 @@ export default function AdminUtmBuilder() {
               placeholder="cpc, post, story"
               aria-label="utm_medium"
               value={utmMedium}
-              onChange={(e) => { setUtmMedium(e.target.value); setCheckStatus(null); }}
+              onChange={(e) => setUtmMedium(e.target.value)}
             />
           </div>
 
@@ -311,7 +373,7 @@ export default function AdminUtmBuilder() {
               placeholder="{{campaign.name}}, retargeting"
               aria-label="utm_campaign"
               value={utmCampaign}
-              onChange={(e) => { setUtmCampaign(e.target.value); setCheckStatus(null); }}
+              onChange={(e) => setUtmCampaign(e.target.value)}
             />
           </div>
 
@@ -324,7 +386,7 @@ export default function AdminUtmBuilder() {
               placeholder="{{ad.name}}, banner_v1"
               aria-label="utm_content"
               value={utmContent}
-              onChange={(e) => { setUtmContent(e.target.value); setCheckStatus(null); }}
+              onChange={(e) => setUtmContent(e.target.value)}
             />
           </div>
 
@@ -337,7 +399,7 @@ export default function AdminUtmBuilder() {
               placeholder="{{adset.name}}, performance"
               aria-label="utm_term"
               value={utmTerm}
-              onChange={(e) => { setUtmTerm(e.target.value); setCheckStatus(null); }}
+              onChange={(e) => setUtmTerm(e.target.value)}
             />
           </div>
         </div>
@@ -400,7 +462,7 @@ export default function AdminUtmBuilder() {
 
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {history.map((h) => (
-              <div key={h.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-[var(--adm-border-subtle)] bg-[var(--adm-surface-subtle)] text-xs">
+              <div key={h.url} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-[var(--adm-border-subtle)] bg-[var(--adm-surface-subtle)] text-xs">
                 <div className="min-w-0 flex-1 truncate font-mono text-[11px]" title={h.url}>
                   <span className="text-indigo-400 font-semibold mr-1.5">[{h.source}]</span>
                   <span className="text-zinc-300">{h.url}</span>
