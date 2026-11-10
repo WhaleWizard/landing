@@ -47,10 +47,22 @@ test('ответы Functions (no-store, Vary, не 200) в кэш не попа�
     html('b', { 'Cache-Control': 'public, s-maxage=300', Vary: 'User-Agent' }),
     new Response('c', { status: 404, headers: { 'Content-Type': 'text/html', 'Cache-Control': 'public, max-age=0, must-revalidate' } }),
   ]) {
-    const r = await call('https://www.whalewzrd.com/blog/x', async () => res);
+    const r = await call('https://www.whalewzrd.com/faq/', async () => res);
     assert.notEqual(r.headers.get('X-WW-Static-Cache'), 'stored');
   }
   assert.equal(store.size, 0);
+});
+
+test('browser article routes never read a crawler response from the static cache', async () => {
+  store.clear();
+  for (const section of ['blog', 'cases']) {
+    const url = `https://www.whalewzrd.com/${section}/article`;
+    store.set(url, html('crawler HTML', { Vary: 'User-Agent', 'Cache-Control': 'public, s-maxage=300' }));
+    const response = await call(url + '?utm_source=test', async () => html('browser HTML', { 'Cache-Control': 'no-store' }));
+    assert.equal(await response.text(), 'browser HTML');
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.equal(response.headers.get('X-WW-Static-Cache'), null);
+  }
 });
 
 test('HEAD не кэшируется и не читает кэш как GET', async () => {

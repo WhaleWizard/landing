@@ -222,7 +222,9 @@ async function staticPage(
   next: () => Promise<Response>,
   waitUntil: (promise: Promise<unknown>) => void,
 ): Promise<Response> {
-  if (request.method !== 'GET') return next();
+  // Article handlers own their cache. A crawler's HTML is stored under the
+  // canonical URL, the same key the static cache would look up for a browser.
+  if (request.method !== 'GET' || /^\/(?:blog|cases)\/[^/]+\/?$/.test(url.pathname)) return next();
   const key = staticPageCacheKey(url);
   try {
     const cached = await caches.default.match(key);
