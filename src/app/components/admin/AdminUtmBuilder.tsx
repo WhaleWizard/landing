@@ -171,9 +171,10 @@ export default function AdminUtmBuilder() {
   };
 
   // Copy URL with toast & history saving
-  const handleCopyUrl = () => {
+  const handleCopyUrl = async () => {
     if (!fullUrl) return;
-    navigator.clipboard.writeText(fullUrl).then(() => {
+    try {
+      await navigator.clipboard.writeText(fullUrl);
       setCopied(true);
       notify.success('Ссылка скопирована', fullUrl);
       setTimeout(() => setCopied(false), 2000);
@@ -194,9 +195,9 @@ export default function AdminUtmBuilder() {
         } catch {}
         return next;
       });
-    }).catch(() => {
+    } catch {
       notify.error('Не удалось скопировать ссылку');
-    });
+    }
   };
 
   const handleClearHistory = () => {
@@ -407,9 +408,13 @@ export default function AdminUtmBuilder() {
                 <button
                   type="button"
                   className="admin-button admin-button--quiet admin-button--compact text-xs shrink-0"
-                  onClick={() => {
-                    navigator.clipboard.writeText(h.url);
-                    notify.success('Скопировано из истории', h.url);
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(h.url);
+                      notify.success('Скопировано из истории', h.url);
+                    } catch {
+                      notify.error('Не удалось скопировать ссылку');
+                    }
                   }}
                   title="Скопировать эту ссылку"
                 >

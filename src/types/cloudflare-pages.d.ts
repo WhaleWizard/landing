@@ -98,7 +98,7 @@ declare interface R2ObjectBody extends R2Object {
 declare interface R2Bucket {
   put(key: string, value: ReadableStream | ArrayBuffer | ArrayBufferView | string | Blob | null, options?: R2PutOptions): Promise<unknown>;
   list(options?: R2ListOptions): Promise<R2Objects>;
-  delete(key: string): Promise<void>;
+  delete(key: string | string[]): Promise<void>;
   // Нужны для переноса файла между папками: R2 не умеет переименовывать,
   // объект приходится прочитать и записать под новым ключом.
   get(key: string): Promise<R2ObjectBody | null>;

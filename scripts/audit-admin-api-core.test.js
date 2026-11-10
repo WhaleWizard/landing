@@ -879,7 +879,7 @@ class FakeBucket {
   }
 
   async head(key) { return this.objects.has(key) ? { ...this.objects.get(key) } : null; }
-  async delete(key) { this.objects.delete(key); }
+  async delete(key) { for (const item of Array.isArray(key) ? key : [key]) this.objects.delete(item); }
 
   async list({ prefix = '', limit = 1000 } = {}) {
     const objects = [...this.objects.values()].filter((object) => object.key.startsWith(prefix)).slice(0, limit);
@@ -1286,9 +1286,11 @@ function insertArticleRow(sqlite, { id, slug, title, content = '<p>Текст.</
   ).run(id, slug, title, content, image, status, caseDataJson);
 }
 
-async function mediaCall(env, { method = 'POST', body } = {}) {
+async function mediaCall(env, { method = 'POST', body, cursor } = {}) {
   const media = await loadModule('functions/api/admin/media.ts');
-  const request = new Request('https://example.test/api/admin/media', {
+  const url = new URL('https://example.test/api/admin/media');
+  if (cursor) url.searchParams.set('cursor', cursor);
+  const request = new Request(url, {
     method,
     headers: { 'X-Admin-Password': ADMIN_PASSWORD, 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.19' },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -1296,6 +1298,57 @@ async function mediaCall(env, { method = 'POST', body } = {}) {
   const response = await (method === 'GET' ? media.onRequestGet : media.onRequestPost)({ request, env });
   return { status: response.status, payload: await response.json() };
 }
+
+test('медиатека продолжает неполный список R2 с выданного курсора', async (t) => {
+  t.after(installMemoryCache());
+  const calls = [];
+  const bucket = new FakeBucket();
+  bucket.list = async ({ cursor }) => {
+    calls.push(cursor ?? null);
+    const index = Number(cursor ?? 0);
+    return {
+      objects: [{ key: `uploads/demo/item-${index}.pdf`, size: 1 }],
+      truncated: index < 5,
+      ...(index < 5 ? { cursor: String(index + 1) } : {}),
+    };
+  };
+  const env = { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: new D1Database(freshDatabase()), USE_D1_ARTICLES: 'true' };
+  const first = await mediaCall(env, { method: 'GET' });
+  assert.equal(first.status, 200);
+  assert.equal(first.payload.files.length, 5);
+  assert.equal(first.payload.nextCursor, '5');
+  const second = await mediaCall(env, { method: 'GET', cursor: first.payload.nextCursor });
+  assert.equal(second.status, 200);
+  assert.deepEqual(second.payload.files.map((file) => file.key), ['uploads/demo/item-5.pdf']);
+  assert.equal(second.payload.nextCursor, null);
+  assert.deepEqual(calls, [null, '1', '2', '3', '4', '5']);
+});
+
+test('медиатека целиком отклоняет слишком большую выборку и не удаляет папку с неполным списком', async (t) => {
+  t.after(installMemoryCache());
+  const bucket = new FakeBucket();
+  const calls = [];
+  const deleteKeys = bucket.delete.bind(bucket);
+  bucket.delete = async (keys) => { calls.push(keys); await deleteKeys(keys); };
+  const keys = Array.from({ length: 51 }, (_, index) => `uploads/demo/${index}.pdf`);
+  for (const key of keys) await bucket.put(key, new Uint8Array());
+  const env = { ADMIN_PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: R2_HOST, DB: new D1Database(freshDatabase()), USE_D1_ARTICLES: 'true' };
+  const overflow = await mediaCall(env, { body: { action: 'delete', keys } });
+  assert.equal(overflow.status, 400);
+  const malformed = await mediaCall(env, { body: { action: 'delete', keys: [keys[0], 'outside.pdf'] } });
+  assert.equal(malformed.status, 400);
+  bucket.list = async () => ({ objects: [{ key: 'uploads/demo/.keep' }], truncated: true, cursor: 'more' });
+  assert.equal((await mediaCall(env, { body: { action: 'delete_folder', name: 'demo' } })).status, 409);
+  assert.deepEqual(calls, []);
+  assert.equal(bucket.objects.size, 51);
+
+  const limited = keys.slice(0, 50);
+  const result = await mediaCall(env, { body: { action: 'delete', keys: limited } });
+  assert.equal(result.status, 200);
+  assert.equal(result.payload.deleted, 50);
+  assert.deepEqual(calls, [limited]);
+  assert.deepEqual([...bucket.objects.keys()], [keys[50]]);
+});
 
 test('F-009: медиатека считает использование по полным текстам всех публикаций и не даёт удалить или перенести занятый файл', async (t) => {
   t.after(installMemoryCache());

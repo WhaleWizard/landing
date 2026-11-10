@@ -16,6 +16,7 @@ import {
 import { isImageVariantKey, variantKeysFor } from '../../_lib/image-variants';
 import { fetchArticlesWithFallback, shouldUseD1Articles } from '../../_lib/articles';
 import type { Env } from '../../_lib/types';
+import { MAX_MEDIA_DELETE_KEYS } from '../../../shared/admin-media';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 const MAX_BULK_KEYS = 50;
@@ -322,11 +323,10 @@ async function moveUpload(env: Env, bucket: R2Bucket, key: string, folder: strin
   return { ok: true, key: target, previousKey: key, moved: true };
 }
 
-async function listUploads(env: Env): Promise<{ files: MediaFile[]; markedFolders: string[] }> {
+async function listUploads(env: Env, cursor?: string): Promise<{ files: MediaFile[]; markedFolders: string[]; nextCursor?: string }> {
   const publicHost = getPublicHost(env);
   const files: MediaFile[] = [];
   const markedFolders = new Set<string>();
-  let cursor: string | undefined;
   // R2 отдаёт максимум 1000 объектов за запрос; страховка от бесконечного цикла.
   for (let page = 0; page < 5; page += 1) {
     const listing = await env.BUCKET.list({ prefix: UPLOADS_PREFIX, limit: 1000, cursor, include: ['httpMetadata', 'customMetadata'] });
@@ -349,11 +349,15 @@ async function listUploads(env: Env): Promise<{ files: MediaFile[]; markedFolder
         alt: '',
       });
     }
-    if (!listing.truncated) break;
+    if (!listing.truncated) {
+      cursor = undefined;
+      break;
+    }
+    if (!listing.cursor || listing.cursor === cursor) throw new Error('Не удалось продолжить загрузку списка R2');
     cursor = listing.cursor;
   }
   files.sort((a, b) => (a.uploaded < b.uploaded ? 1 : -1));
-  return { files, markedFolders: [...markedFolders] };
+  return { files, markedFolders: [...markedFolders], nextCursor: cursor };
 }
 
 function collectFolders(files: MediaFile[], markedFolders: string[]): Array<{ name: string; count: number; size: number }> {
@@ -382,7 +386,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   try {
-    const { files, markedFolders } = await listUploads(env);
+    const cursor = new URL(request.url).searchParams.get('cursor') || undefined;
+    const { files, markedFolders, nextCursor } = await listUploads(env, cursor);
     const [{ map: altTexts, migration: altMigration }, usageSources] = await Promise.all([
       readAltTexts(env),
       readUsageSources(env, request),
@@ -397,6 +402,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         success: true,
         files,
         folders: collectFolders(files, markedFolders),
+        nextCursor: nextCursor ?? null,
         altMigration,
         // false — статьи прочитать не удалось, у файлов нет `usage`, и клиент
         // считает использование сам по списку статей (видны только обложки).
@@ -439,25 +445,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     if (action === 'delete') {
-      const keys = (Array.isArray(body.keys) ? body.keys : [body.key])
-        .map((key) => String(key || ''))
-        .filter(isManagedKey)
-        .slice(0, MAX_BULK_KEYS);
-      if (!keys.length) return json({ success: false, error: 'Не указан ни один корректный файл' }, { status: 400, headers: noStore });
+      const keys = [...new Set((Array.isArray(body.keys) ? body.keys : [body.key]).map((key) => String(key || '')))];
+      if (!keys.length || keys.some((key) => !isManagedKey(key))) {
+        return json({ success: false, error: 'В запросе есть некорректный ключ файла' }, { status: 400, headers: noStore });
+      }
+      if (keys.length > MAX_MEDIA_DELETE_KEYS) {
+        return json({ success: false, error: `За один раз можно удалить до ${MAX_MEDIA_DELETE_KEYS} файлов` }, { status: 400, headers: noStore });
+      }
       const refused = await refuseIfUsed(env, request, keys, 'delete');
       if (refused) return refused;
-      for (const key of keys) {
-        // Копии удаляются вместе с оригиналом, иначе остались бы сиротами.
-        for (const variant of variantKeysFor(key)) await bucket.delete(variant);
-        await bucket.delete(key);
-      }
+      // Оригиналы и их варианты укладываются в один вызов R2.
+      await bucket.delete(keys.flatMap((key) => [key, ...variantKeysFor(key)]));
       // Подпись без файла не нужна, но её потеря не должна ронять удаление.
       if (env.DB) {
-        for (const key of keys) {
-          try {
-            await env.DB.prepare('DELETE FROM media_alt WHERE object_key = ?').bind(key).run();
-          } catch { /* таблицы может не быть — это не мешает удалить файл */ }
-        }
+        try {
+          await env.DB.prepare('DELETE FROM media_alt WHERE object_key IN (SELECT value FROM json_each(?))')
+            .bind(JSON.stringify(keys)).run();
+        } catch { /* таблицы может не быть — это не мешает удалить файл */ }
       }
       return json({ success: true, deleted: keys.length }, { headers: noStore });
     }
@@ -518,10 +522,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!folder) return json({ success: false, error: 'Некорректное имя папки' }, { status: 400, headers: noStore });
       const listing = await bucket.list({ prefix: `${UPLOADS_PREFIX}${folder}/`, limit: 20 });
       const files = listing.objects.filter((object) => !isFolderMarker(object.key) && !isImageVariantKey(object.key));
-      if (files.length > 0) {
+      if (files.length > 0 || listing.truncated) {
         return json({
           success: false,
-          error: 'Папка не пуста. Сначала перенесите или удалите файлы из неё.',
+          error: files.length
+            ? 'Папка не пуста. Сначала перенесите или удалите файлы из неё.'
+            : 'Не удалось проверить, что папка пуста.',
         }, { status: 409, headers: noStore });
       }
       for (const object of listing.objects) await bucket.delete(object.key);

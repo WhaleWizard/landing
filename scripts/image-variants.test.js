@@ -87,7 +87,7 @@ class FakeBucket {
   }
 
   async delete(key) {
-    this.objects.delete(key);
+    for (const item of Array.isArray(key) ? key : [key]) this.objects.delete(item);
   }
 
   async list({ prefix = '', limit = 1000 } = {}) {

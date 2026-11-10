@@ -233,9 +233,9 @@ export default function AdminCampaignStats({ password }: { password: string }) {
       const mult = sortDir === 'asc' ? 1 : -1;
       const vA = a[sortField];
       const vB = b[sortField];
-      const nA = vA !== null && vA !== undefined ? Number(vA) : -999999;
-      const nB = vB !== null && vB !== undefined ? Number(vB) : -999999;
-      return (nA - nB) * mult;
+      if (vA == null) return vB == null ? 0 : 1;
+      if (vB == null) return -1;
+      return (vA - vB) * mult;
     });
   }, [data?.campaigns, channelFilter, searchQuery, sortField, sortDir]);
 
@@ -557,10 +557,14 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                         </span>
                         <button
                           type="button"
-                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-zinc-200"
-                          onClick={() => {
-                            navigator.clipboard.writeText(c.utm_campaign);
-                            notify.success('Скопировано', c.utm_campaign);
+                          className="p-1 text-zinc-400 hover:text-zinc-200 md:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(c.utm_campaign);
+                              notify.success('Скопировано', c.utm_campaign);
+                            } catch {
+                              notify.error('Не удалось скопировать название кампании');
+                            }
                           }}
                           title="Скопировать название кампании"
                         >

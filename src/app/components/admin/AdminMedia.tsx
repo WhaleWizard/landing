@@ -13,6 +13,7 @@ import { appendImageUpload, formatBytes, prepareImageUpload } from '../../utils/
 import { withPlural } from '../../utils/plural';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 import MediaCropperModal from './MediaCropperModal';
+import { MAX_MEDIA_DELETE_KEYS } from '../../../../shared/admin-media';
 
 interface MediaFile {
   key: string;
@@ -85,7 +86,9 @@ function formatDate(iso: string): string {
 
 export default function AdminMedia({ password, articles, target }: { password: string; articles: Article[]; target?: import('../../../../shared/admin-workspace').WorkspaceTarget }) {
   const [files, setFiles] = useState<MediaFile[]>([]);
-  const [folders, setFolders] = useState<MediaFolder[]>([]);
+  const [folderNames, setFolderNames] = useState<string[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const listRequest = useRef(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -158,26 +161,31 @@ export default function AdminMedia({ password, articles, target }: { password: s
     }
   }, [password]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (cursor?: string) => {
+    const requestId = ++listRequest.current;
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/admin/media', {
+      const res = await fetch(cursor ? `/api/admin/media?cursor=${encodeURIComponent(cursor)}` : '/api/admin/media', {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
       });
       const payload = await res.json().catch(() => null) as {
-        success?: boolean; error?: string; files?: MediaFile[]; folders?: MediaFolder[]; altMigration?: string;
+        success?: boolean; error?: string; files?: MediaFile[]; folders?: MediaFolder[]; altMigration?: string; nextCursor?: string | null;
       } | null;
       if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
-      setFiles(payload.files || []);
-      setFolders(payload.folders || []);
+      if (requestId !== listRequest.current) return;
+      const incoming = payload.files || [];
+      setFiles((current) => cursor ? [...new Map([...current, ...incoming].map((file) => [file.key, file])).values()] : incoming);
+      const names = (payload.folders || []).map((folder) => folder.name);
+      setFolderNames((current) => cursor ? [...new Set([...current, ...names])] : names);
+      setNextCursor(payload.nextCursor || null);
       setAltMigration(payload.altMigration || '');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить список файлов');
+      if (requestId === listRequest.current) setError(err instanceof Error ? err.message : 'Не удалось загрузить список файлов');
     } finally {
-      setLoading(false);
+      if (requestId === listRequest.current) setLoading(false);
     }
   }, [password]);
 
@@ -193,6 +201,17 @@ export default function AdminMedia({ password, articles, target }: { password: s
   }, [articles, files]);
 
   const unfiledCount = useMemo(() => files.filter((file) => !file.folder).length, [files]);
+  const folders = useMemo(() => {
+    const totals = new Map(folderNames.map((name) => [name, { name, count: 0, size: 0 }]));
+    for (const file of files) {
+      if (!file.folder) continue;
+      const folder = totals.get(file.folder) || { name: file.folder, count: 0, size: 0 };
+      folder.count += 1;
+      folder.size += file.size;
+      totals.set(file.folder, folder);
+    }
+    return [...totals.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  }, [files, folderNames]);
   const heavyCount = useMemo(() => files.filter((file) => (file.size || 0) >= 500 * 1024).length, [files]);
 
   const visibleFiles = useMemo(() => {
@@ -257,6 +276,11 @@ export default function AdminMedia({ password, articles, target }: { password: s
   };
 
   const deleteFiles = async (targets: MediaFile[]) => {
+    if (loading || busy) return;
+    if (targets.length > MAX_MEDIA_DELETE_KEYS) {
+      setError(`За один раз можно удалить до ${MAX_MEDIA_DELETE_KEYS} файлов. Сократите выборку.`);
+      return;
+    }
     const blocked = targets.filter((file) => (mediaUsage.get(file.key) || []).length > 0);
     if (blocked.length) {
       setError(`Нельзя удалить файлы, которые используются в публикациях: ${blocked.slice(0, 3).map((file) => file.name).join(', ')}${blocked.length > 3 ? '…' : ''}`);
@@ -393,7 +417,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
     <div className="admin-stack media-library">
       <AdminSectionHeading
         title="Медиатека"
-        description={`${withPlural(files.length, ['файл', 'файла', 'файлов'])} · ${withPlural(folders.length, ['папка', 'папки', 'папок'])}`}
+        description={`${nextCursor ? 'Загружено: ' : ''}${withPlural(files.length, ['файл', 'файла', 'файлов'])} · ${withPlural(folders.length, ['папка', 'папки', 'папок'])}`}
         action={(
           <div className="admin-media-actions flex flex-wrap gap-2">
             <label className={`admin-button admin-button--primary cursor-pointer ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
@@ -410,7 +434,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
             <AdminButton onClick={() => void createFolder()} compact disabled={busy}>
               <FolderPlus className="h-3.5 w-3.5" /> Новая папка
             </AdminButton>
-            <AdminButton onClick={() => void load()} compact aria-label="Обновить медиатеку">
+            <AdminButton onClick={() => void load()} compact disabled={loading || busy} aria-label="Обновить медиатеку">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Обновить
             </AdminButton>
           </div>
@@ -418,6 +442,14 @@ export default function AdminMedia({ password, articles, target }: { password: s
       />
 
       {error ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
+      {nextCursor && (
+        <div className="admin-notice flex flex-wrap items-center gap-3">
+          <span>Поиск и фильтры применяются к загруженным файлам.</span>
+          <AdminButton compact disabled={loading || busy} onClick={() => void load(nextCursor)}>
+            {loading ? 'Загрузка…' : 'Загрузить ещё файлы'}
+          </AdminButton>
+        </div>
+      )}
 
       <div className="media-layout">
         <aside className="media-folders admin-panel" aria-label="Папки медиатеки">
@@ -445,7 +477,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
               >
                 <Folder aria-hidden="true" /> <span>{folder.name}</span> <em>{folder.count}</em>
               </button>
-              {folder.count === 0 ? (
+              {folder.count === 0 && !nextCursor ? (
                 <button
                   type="button"
                   className="media-folders__delete"
@@ -563,10 +595,10 @@ export default function AdminMedia({ password, articles, target }: { password: s
                 <button
                   type="button"
                   className="admin-button admin-button--danger admin-button--compact"
-                  disabled={busy}
+                  disabled={loading || busy}
                   onClick={() => void deleteFiles(visibleFiles)}
                 >
-                  <Trash2 aria-hidden="true" /> Удалить все
+                  <Trash2 aria-hidden="true" /> {nextCursor ? 'Удалить найденные' : 'Удалить все'}
                 </button>
               </div>
             </div>
@@ -590,7 +622,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                   })();
                 }}
               />
-              <button type="button" className="admin-button admin-button--danger" disabled={busy} onClick={() => void deleteFiles(selectedFiles)}>
+              <button type="button" className="admin-button admin-button--danger" disabled={loading || busy} onClick={() => void deleteFiles(selectedFiles)}>
                 <Trash2 aria-hidden="true" /> Удалить
               </button>
               <button type="button" className="admin-button admin-button--quiet" onClick={() => setSelected([])}>Снять</button>
@@ -609,7 +641,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
               void uploadFiles(event.dataTransfer.files);
             }}
           >
-            {files.length === 0 && (
+            {files.length === 0 && !nextCursor && (
               <AdminBlank
                 title="В медиатеке пока пусто"
                 text="Перетащите файлы прямо сюда или нажмите «Загрузить». Картинки до 15 МБ, документы — PDF, DOCX, XLSX, PPTX и ZIP."
@@ -622,7 +654,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                 icon={<Search />}
                 title="Ничего не нашлось"
                 text="Измените запрос, подборку или откройте другую папку."
-                actions={<button type="button" className="admin-button" onClick={() => { setQuery(''); setCollection('all'); setActiveFolder(null); }}>Показать все файлы</button>}
+                actions={<button type="button" className="admin-button" onClick={() => { setQuery(''); setCollection('all'); setActiveFolder(null); setHeavyOnly(false); }}>Показать все файлы</button>}
               />
             )}
 
@@ -696,7 +728,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                         <button
                           type="button"
                           onClick={() => void deleteFiles([file])}
-                          disabled={references.length > 0 || busy}
+                          disabled={references.length > 0 || loading || busy}
                           className="admin-button admin-button--danger w-10 p-0 disabled:cursor-not-allowed disabled:opacity-35"
                           title={references.length > 0 ? 'Сначала уберите файл из публикаций' : 'Удалить файл'}
                           aria-label={`Удалить ${file.name}`}
