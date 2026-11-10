@@ -1,4 +1,4 @@
-import { CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
+import { articleCollectionCacheControl, CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
 import { fetchArticlesWithFallback, filterVisibleArticles } from './_lib/articles';
 import { getArticlePath, renderSitemapXml } from './_lib/seo';
 import { findPageLock, readPageLockSnapshot } from './_lib/page-locks';
@@ -23,7 +23,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   try {
     const siteUrl = getSiteUrl(env, request);
-    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil));
+    const allArticles = await fetchArticlesWithFallback(env, request, waitUntil);
+    // Закрытая страница отдаёт 503 и не должна попадать в карту сайта.
+    const { locks } = await readPageLockSnapshot(env, waitUntil);
+    const now = new Date();
+    const cacheControl = articleCollectionCacheControl(CACHE_CONTROL.sitemap, allArticles, now.getTime());
+    const articles = filterVisibleArticles(allArticles, now.toISOString());
     const articleRoutes = articles.map((article) => getArticlePath(article));
     const articleDates = Object.fromEntries(
       articles.map((article) => [
@@ -32,9 +37,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       ]),
     );
 
-    // Закрытая страница отдаёт 503. Оставлять её в карте сайта нельзя:
-    // поиск ходил бы по ней и копил ошибки в Search Console.
-    const { locks } = await readPageLockSnapshot(env, waitUntil);
     const routes = [...STATIC_ROUTES, ...articleRoutes]
       .filter((route) => !findPageLock(locks, route));
 
@@ -42,11 +44,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
     const response = xml(sitemapXml, {
       headers: {
-        'Cache-Control': CACHE_CONTROL.sitemap,
+        'Cache-Control': cacheControl,
       },
     });
 
-    waitUntil(putCache(cacheKey, response));
+    if (cacheControl !== CACHE_CONTROL.noStore) waitUntil(putCache(cacheKey, response));
     return response;
   } catch {
     return xml('<!-- sitemap generation failed -->', {

@@ -1,4 +1,4 @@
-import { CACHE_CONTROL, matchCache, putCache } from '../_lib/cache';
+import { articleCollectionCacheControl, CACHE_CONTROL, matchCache, putCache } from '../_lib/cache';
 import {
   fetchArticleWithFallback,
   fetchArticleSummariesWithFallback,
@@ -71,7 +71,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   }
 
   try {
-    const now = new Date().toISOString();
     const requestedArticle = requestedSlug
       ? await fetchArticleWithFallback(env, request, requestedSlug)
       : null;
@@ -87,7 +86,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       : summaryView
         ? await fetchArticleSummariesWithFallback(env, request)
         : await fetchArticlesWithFallback(env, request, adminBypass ? waitUntil : undefined);
-    const visibleArticles = filterVisibleArticles(allArticles, now);
+    const now = new Date();
+    const visibleArticles = filterVisibleArticles(allArticles, now.toISOString());
     visibleArticles.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 
     if (requestedSlug) {
@@ -113,16 +113,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const responseArticles = summaryView
       ? visibleArticles.map(toPublicArticleSummary)
       : visibleArticles;
+    const cacheControl = isEmpty ? CACHE_CONTROL.noStore
+      : articleCollectionCacheControl(responseCacheControl, allArticles, now.getTime());
     const response = json(
       { articles: responseArticles },
       {
         headers: {
-          'Cache-Control': isEmpty ? CACHE_CONTROL.noStore : responseCacheControl,
+          'Cache-Control': cacheControl,
         },
       },
     );
 
-    if (!isEmpty && !bypassCache) {
+    if (cacheControl !== CACHE_CONTROL.noStore) {
       waitUntil(
         putCache(cacheKey, response).catch(() => {
           // Ignore cache write errors; response is already ready.

@@ -632,14 +632,20 @@ test('article-candidate read falls back to the matching part of R2 only after a 
 test('human article HTML replaces a stale build seed with one safely serialized live article', { concurrency: false }, async () => {
   const liveRow = d1Row('live-article');
   liveRow.content = '<p>Live</p></script><script id="injected">owned</script>\u2028';
+  liveRow.image = '/new-cover.webp';
   const db = new FakeD1([liveRow, d1Row('unrelated-article', 2)]);
   const staleSeed = seedArticle('stale-build-article');
+  const shell = articleShell(staleSeed).replace('</head>', `
+    <link rel="preload" as="image" href="/old-480.webp" data-ww-article-cover="/old-cover.webp">
+    <link rel="preload" as="image" href="/new-480.webp" data-ww-article-cover="/new-cover.webp">
+    <link rel="preload" as="image" href="/unrelated.webp">
+  </head>`);
 
   const response = await runArticleHandler({
     slug: 'live-article',
     url: 'https://www.whalewzrd.com/blog/live-article',
     db,
-    next: async () => new Response(articleShell(staleSeed), {
+    next: async () => new Response(shell, {
       status: 200,
       headers: { 'content-type': 'text/html; charset=utf-8' },
     }),
@@ -654,6 +660,9 @@ test('human article HTML replaces a stale build seed with one safely serialized 
   assert.equal(document.querySelector('#injected'), null, 'article JSON must not break out of its script element');
   assert.equal(JSON.parse(seeds[0].textContent).slug, 'live-article');
   assert.equal(JSON.parse(seeds[0].textContent).content, liveRow.content);
+  assert.equal(document.querySelector('link[href="/old-480.webp"]'), null);
+  assert.ok(document.querySelector('link[href="/new-480.webp"]'));
+  assert.ok(document.querySelector('link[href="/unrelated.webp"]'));
   assert.match(html, /\\u003c\/script\\u003e/, 'markup-significant JSON characters must stay escaped');
   assert.match(db.queries[0].sql, /\bWHERE\b/i, 'human article HTML must use a targeted D1 query');
 });

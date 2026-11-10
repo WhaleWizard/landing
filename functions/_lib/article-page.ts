@@ -53,10 +53,12 @@ function serializeInlineJson(value: unknown): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
-function articleRedirect(requestUrl: URL, siteUrl: string, path: string): Response {
+function articleRedirect(requestUrl: URL, siteUrl: string, path: string, cacheControl?: string): Response {
   const target = new URL(path, `${siteUrl}/`);
   target.search = requestUrl.search;
-  return Response.redirect(target.toString(), 301);
+  const headers = new Headers({ Location: target.toString() });
+  if (cacheControl) headers.set('Cache-Control', cacheControl);
+  return new Response(null, { status: 301, headers });
 }
 
 function unavailableArticleShell(): Response {
@@ -252,6 +254,11 @@ function applyArticleMeta(
     .on('meta[name="twitter:description"]', setContent(meta.description))
     .on('meta[name="twitter:image"]', setContent(meta.image))
     .on('meta[name="twitter:url"]', setContent(meta.canonical))
+    .on('link[data-ww-article-cover]', {
+      element(element) {
+        if (element.getAttribute('data-ww-article-cover') !== String(article.image || '').trim()) element.remove();
+      },
+    })
     // Remove any build-time snapshot and append exactly one live, safely
     // serialized article. This also seeds the neutral section-shell fallback
     // used before a newly published article goes through a static build.
@@ -328,7 +335,9 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
       // для 200), query (UTM, gclid) сохраняется.
       const moved = articles.find((item) => item.slug === slug);
       if (moved) {
-        return articleRedirect(requestUrl, siteUrl, getArticlePath(moved));
+        // A later category change can reverse this redirect. Let crawlers
+        // consolidate the URL without persisting a potentially circular hop.
+        return articleRedirect(requestUrl, siteUrl, getArticlePath(moved), CACHE_CONTROL.noStore);
       }
 
       const redirectArticle = findArticleBySlugPrefix(articles, slug, sectionPath);

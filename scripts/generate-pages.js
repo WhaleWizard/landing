@@ -73,7 +73,8 @@ function articleStructuredImage(article) {
 }
 
 function resolveArticleCoverPreload(article) {
-  const resolved = resolveManifestImage(ARTICLE_IMAGE_MANIFEST, String(article?.image || '').trim());
+  const articleCover = String(article?.image || '').trim();
+  const resolved = resolveManifestImage(ARTICLE_IMAGE_MANIFEST, articleCover);
   if (!resolved) return null;
   // Обложка — самый крупный элемент первого экрана статьи. Без preload
   // браузер узнаёт о ней только после загрузки и выполнения React-чанка.
@@ -82,6 +83,7 @@ function resolveArticleCoverPreload(article) {
     priority: true,
     imageSrcSet: resolved.srcSet,
     imageSizes: ARTICLE_IMAGE_SIZES.cover,
+    articleCover,
   };
 }
 
@@ -1261,12 +1263,13 @@ function resolveHeroFontFaceCss(hero = {}, fontPreloads = []) {
 
 function renderImagePreloads(preloads = []) {
   return preloads
-    .map(({ href, priority, media, imageSrcSet, imageSizes }) => {
+    .map(({ href, priority, media, imageSrcSet, imageSizes, articleCover }) => {
       const fetchPriority = priority ? ' fetchpriority="high"' : '';
       const mediaAttribute = media ? ` media="${escapeHtml(media)}"` : '';
       const srcSetAttribute = imageSrcSet ? ` imagesrcset="${escapeHtml(imageSrcSet)}"` : '';
       const sizesAttribute = imageSizes ? ` imagesizes="${escapeHtml(imageSizes)}"` : '';
-      return `<link rel="preload" as="image" href="${escapeHtml(href)}"${fetchPriority}${mediaAttribute}${srcSetAttribute}${sizesAttribute} />`;
+      const coverAttribute = articleCover ? ` data-ww-article-cover="${escapeHtml(articleCover)}"` : '';
+      return `<link rel="preload" as="image" href="${escapeHtml(href)}"${fetchPriority}${mediaAttribute}${srcSetAttribute}${sizesAttribute}${coverAttribute} />`;
     })
     .join('\n  ');
 }

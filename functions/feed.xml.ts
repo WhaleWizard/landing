@@ -1,4 +1,4 @@
-import { CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
+import { articleCollectionCacheControl, CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
 import { fetchArticlesWithFallback, filterVisibleArticles } from './_lib/articles';
 import { getArticlePath, renderFeedXml } from './_lib/seo';
 import { findPageLock, readPageLockSnapshot } from './_lib/page-locks';
@@ -23,17 +23,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const siteUrl = getSiteUrl(env, request);
     const { locks } = await readPageLockSnapshot(env, waitUntil);
     // Материал закрытого раздела в ленте вёл бы подписчика на заглушку.
-    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil))
+    const allArticles = await fetchArticlesWithFallback(env, request, waitUntil);
+    const now = new Date();
+    const cacheControl = articleCollectionCacheControl(CACHE_CONTROL.feed, allArticles, now.getTime());
+    const articles = filterVisibleArticles(allArticles, now.toISOString())
       .filter((article) => !findPageLock(locks, getArticlePath(article)));
     const feed = renderFeedXml(siteUrl, articles);
 
     const response = xml(feed, {
       headers: {
-        'Cache-Control': CACHE_CONTROL.feed,
+        'Cache-Control': cacheControl,
       },
     });
 
-    waitUntil(putCache(cacheKey, response));
+    if (cacheControl !== CACHE_CONTROL.noStore) waitUntil(putCache(cacheKey, response));
     return response;
   } catch {
     return xml('<!-- feed generation failed -->', {

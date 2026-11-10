@@ -57,9 +57,9 @@ class D1Database {
   async batch(statements) { return Promise.all(statements.map((statement) => statement.run())); }
 }
 
-async function loadEndpoint() {
+async function loadEndpoint(path) {
   const result = await build({
-    entryPoints: ['functions/api/admin/articles.ts'],
+    entryPoints: [path],
     bundle: true,
     format: 'esm',
     target: 'es2022',
@@ -70,7 +70,15 @@ async function loadEndpoint() {
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
-const endpoint = await loadEndpoint();
+const [endpoint, publicArticles, sitemap, feed, blogPage, casePage, scheduleEndpoint] = await Promise.all([
+  'functions/api/admin/articles.ts',
+  'functions/api/articles.ts',
+  'functions/sitemap.xml.ts',
+  'functions/feed.xml.ts',
+  'functions/blog/[slug].ts',
+  'functions/cases/[slug].ts',
+  'functions/api/admin/articles-schedule.ts',
+].map(loadEndpoint));
 const ALL_MIGRATIONS = readdirSync('migrations').filter((name) => name.endsWith('.sql')).sort();
 
 function freshDatabase() {
@@ -331,7 +339,7 @@ test('закрепление на главной: порядок 1..N, оста�
 test('без миграции 0042 закрепление объясняет себя, а не падает', async () => {
   // Свежие модули: список колонок кэшируется на пять минут внутри загруженного
   // кода, и после тестов с миграцией он помнил бы колонку, которой здесь нет.
-  const freshArticles = await loadEndpoint();
+  const freshArticles = await loadEndpoint('functions/api/admin/articles.ts');
   const freshFeatured = await loadFeaturedEndpoint();
   const sqlite = databaseWithout('0042');
   const call = async (handler, request) => {
@@ -362,21 +370,6 @@ test('без миграции 0042 закрепление объясняет с�
 });
 
 // ——— Пакет 5: расписание публикаций ———
-
-async function loadScheduleEndpoint() {
-  const result = await build({
-    entryPoints: ['functions/api/admin/articles-schedule.ts'],
-    bundle: true,
-    format: 'esm',
-    target: 'es2022',
-    platform: 'node',
-    write: false,
-  });
-  const code = `${result.outputFiles[0].text}\n//${randomUUID()}`;
-  return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
-}
-
-const scheduleEndpoint = await loadScheduleEndpoint();
 
 async function putSchedule(sqlite, items) {
   const background = [];
@@ -442,4 +435,113 @@ test('расписание отклоняет мусор до записи', asy
   assert.equal((await putSchedule(sqlite, [{ slug: 'draft-a', publishedAt: 'завтра' }])).status, 400);
   assert.equal((await putSchedule(sqlite, [{ slug: 'draft-a', publishedAt: '2099-01-01T00:00:00Z' }, { slug: 'draft-a', publishedAt: '2099-01-02T00:00:00Z' }])).status, 400);
   assert.equal(sqlite.prepare('SELECT status FROM articles WHERE slug = ?').get('draft-a').status, 'draft');
+});
+
+async function publicRequest(sqlite, endpoint, path, slug) {
+  const background = [];
+  const response = await endpoint.onRequestGet({
+    request: new Request('https://example.test' + path, { headers: { 'User-Agent': 'Googlebot' } }),
+    env: makeEnv(sqlite),
+    params: { slug },
+    waitUntil: promise => background.push(promise),
+  });
+  await Promise.allSettled(background);
+  return response;
+}
+
+test('saved drafts stay absent from public summary, detail, sitemap and feed', async (t) => {
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const slug = 'unpublished-draft';
+  const saved = await patch(sqlite, { article: article({ slug, status: 'draft' }) });
+  assert.equal(saved.status, 200);
+  const summary = await publicRequest(sqlite, publicArticles, '/api/articles?view=summary');
+  assert.deepEqual((await summary.json()).articles, []);
+  assert.equal((await publicRequest(sqlite, publicArticles, '/api/articles?slug=' + slug)).status, 404);
+  assert.equal((await publicRequest(sqlite, blogPage, '/blog/' + slug, slug)).status, 404);
+  for (const [handler, path] of [[sitemap, '/sitemap.xml'], [feed, '/feed.xml']]) {
+    const response = await publicRequest(sqlite, handler, path);
+    assert.equal(response.status, 200);
+    assert.doesNotMatch(await response.text(), new RegExp(slug));
+  }
+});
+
+test('scheduled content enters the public collections when the deadline arrives', async (t) => {
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const now = Date.parse('2026-11-10T09:00:00.000Z');
+  t.mock.timers.enable({ apis: ['Date'], now });
+  const slug = 'scheduled-at-boundary';
+  assert.equal((await patch(sqlite, { article: article({ slug: 'already-live' }) })).status, 200);
+  assert.equal((await patch(sqlite, { article: article({ slug, status: 'draft' }) })).status, 200);
+  const result = await putSchedule(sqlite, [{ slug, publishedAt: new Date(now + 10_000).toISOString() }]);
+  assert.deepEqual(result.payload.scheduled, [slug]);
+  const collections = [[publicArticles, '/api/articles?view=summary'], [sitemap, '/sitemap.xml'], [feed, '/feed.xml']];
+  for (const [handler, path] of collections) {
+    const response = await publicRequest(sqlite, handler, path);
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers.get('Cache-Control'), 'public, s-maxage=10, must-revalidate', path);
+    assert.doesNotMatch(await response.text(), new RegExp(slug));
+  }
+  t.mock.timers.setTime(now + 9_999);
+  const almost = await publicRequest(sqlite, publicArticles, '/api/articles?view=summary');
+  assert.equal(almost.headers.get('Cache-Control'), 'no-store');
+  assert.equal((await publicRequest(sqlite, blogPage, '/blog/' + slug, slug)).status, 404);
+  t.mock.timers.setTime(now + 10_000);
+  for (const [handler, path] of collections) {
+    const response = await publicRequest(sqlite, handler, path);
+    assert.match(await response.text(), new RegExp(slug));
+  }
+  assert.equal((await publicRequest(sqlite, blogPage, '/blog/' + slug, slug)).status, 200);
+});
+
+test('changing a saved address is rejected without duplicating its public entry', async (t) => {
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const created = await patch(sqlite, { article: article({ slug: 'original-address' }) });
+  assert.equal(created.status, 200);
+  const renamed = await patch(sqlite, { article: { ...created.payload.article, slug: 'different-address' } });
+  assert.equal(renamed.status, 409);
+  assert.equal(renamed.payload.code, 'SLUG_CHANGE_FORBIDDEN');
+  const summary = await publicRequest(sqlite, publicArticles, '/api/articles?view=summary');
+  assert.deepEqual((await summary.json()).articles.map(item => item.slug), ['original-address']);
+  assert.equal((await publicRequest(sqlite, blogPage, '/blog/original-address', 'original-address')).status, 200);
+  assert.equal((await publicRequest(sqlite, blogPage, '/blog/different-address', 'different-address')).status, 404);
+});
+
+test('moving a publication in either direction keeps its canonical URL and does not cache a reversible redirect', async (t) => {
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const slug = 'moving-publication';
+  const created = await patch(sqlite, { article: article({ slug }) });
+  assert.equal(created.status, 200);
+  for (const [category, oldPage, newPage, from, to] of [
+    ['Кейсы', blogPage, casePage, '/blog', '/cases'],
+    ['Google Ads', casePage, blogPage, '/cases', '/blog'],
+  ]) {
+    const moved = await patch(sqlite, { article: { ...created.payload.article, category } });
+    assert.equal(moved.status, 200);
+    const redirect = await publicRequest(sqlite, oldPage, from + '/' + slug + '?utm_source=audit', slug);
+    assert.equal(redirect.status, 301);
+    assert.equal(redirect.headers.get('Location'), 'https://example.test' + to + '/' + slug + '?utm_source=audit');
+    assert.equal(redirect.headers.get('Cache-Control'), 'no-store');
+    const destination = await publicRequest(sqlite, newPage, to + '/' + slug, slug);
+    assert.equal(destination.status, 200);
+    assert.ok((await destination.text()).includes('rel="canonical" href="https://example.test' + to + '/' + slug + '"'));
+  }
+});
+
+test('cover replacement reaches the public card, detail and social preview', async (t) => {
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const slug = 'cover-update';
+  const created = await patch(sqlite, { article: article({ slug, image: '/old-cover.webp' }) });
+  assert.equal(created.status, 200);
+  assert.equal((await patch(sqlite, { article: { ...created.payload.article, image: '/new-cover.webp' } })).status, 200);
+  const summary = await publicRequest(sqlite, publicArticles, '/api/articles?view=summary');
+  assert.equal((await summary.json()).articles[0].image, '/new-cover.webp');
+  const detail = await publicRequest(sqlite, publicArticles, '/api/articles?slug=' + slug);
+  assert.equal((await detail.json()).article.image, '/new-cover.webp');
+  const page = await publicRequest(sqlite, blogPage, '/blog/' + slug, slug);
+  assert.match(await page.text(), /property="og:image" content="https:\/\/example\.test\/new-cover\.webp"/);
 });
