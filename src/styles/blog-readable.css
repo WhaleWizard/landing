@@ -45,6 +45,7 @@
 
 [data-blog-ui='true'] .blog-article-content {
   color: var(--blog-text);
+  overflow-wrap: anywhere;
   letter-spacing: 0.01em;
   line-height: 1.68;
   font-size: clamp(1rem, 0.97rem + 0.2vw, 1.075rem);

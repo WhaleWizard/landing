@@ -17,6 +17,7 @@ import type { WorkspaceTarget } from '../../../shared/admin-workspace';
 import { WorkspaceGuardContext } from '../components/admin/workspace/useWorkspaceGuard';
 import { lazy, memo, Suspense, useEffect, useState, useMemo, useCallback, useDeferredValue, useRef, createContext, useContext } from 'react';
 import { useBlocker, useNavigate } from 'react-router';
+import type { ArticleEditorHandle } from '../components/ArticleEditor';
 import { m, useReducedMotion } from 'motion/react';
 import {
   LogIn, Save, Plus, Trash2, Sun, Moon,
@@ -1328,6 +1329,13 @@ export default function Admin() {
   hasUnsavedChangesRef.current = hasUnsavedChanges;
   const editingArticleRef = useRef<Article | null>(null);
   editingArticleRef.current = editingArticle;
+  const articleBodyRef = useRef<ArticleEditorHandle>(null);
+  const getCurrentArticle = useCallback(() => {
+    const article = editingArticleRef.current;
+    if (!article) return null;
+    const content = articleBodyRef.current?.getContent() ?? article.content;
+    return content === article.content ? article : { ...article, content };
+  }, []);
 
   // Ниши для подсказки в редакторе кейса: собираются из уже существующих кейсов,
   // новую нишу можно просто вписать — она появится в списке после сохранения.
@@ -1443,7 +1451,8 @@ export default function Admin() {
   }, []);
 
   const articleExit = useBlocker(({ nextLocation }) => (
-    hasUnsavedChangesRef.current && !/^\/admin(?:\/|$)/.test(nextLocation.pathname)
+    !/^\/admin(?:\/|$)/.test(nextLocation.pathname)
+    && (hasUnsavedChangesRef.current || getCurrentArticle() !== editingArticleRef.current)
   ));
   useEffect(() => {
     if (articleExit.state !== 'blocked') return;
@@ -1456,11 +1465,11 @@ export default function Admin() {
         articleExit.reset();
         return;
       }
-      const current = editingArticleRef.current;
-      if (current && hasUnsavedChangesRef.current) saveEditorBackup(current);
+      const current = getCurrentArticle();
+      if (current && (hasUnsavedChangesRef.current || current !== editingArticleRef.current)) saveEditorBackup(current);
       articleExit.proceed();
     });
-  }, [articleExit, confirmDialog, saveEditorBackup]);
+  }, [articleExit, confirmDialog, getCurrentArticle, saveEditorBackup]);
 
   // Автосохранение открытого черновика раз в ~800мс после изменений
   useEffect(() => {
@@ -1470,7 +1479,7 @@ export default function Admin() {
   }, [editingArticle, hasUnsavedChanges, isEditingProtected, saveEditorBackup]);
 
   const closeArticleEditor = useCallback(async () => {
-    if (hasUnsavedChanges) {
+    if (hasUnsavedChanges || getCurrentArticle() !== editingArticleRef.current) {
       const confirmed = await confirmDialog({
         title: 'Закрыть редактор?',
         description: 'Есть несохранённые изменения — они пропадут.',
@@ -1486,7 +1495,7 @@ export default function Admin() {
     setSavedArticleSnapshot('');
     setSlugManuallyEdited(false);
     if (closing) clearEditorBackup(editorBackupKey(closing));
-  }, [confirmDialog, hasUnsavedChanges, clearEditorBackup]);
+  }, [confirmDialog, hasUnsavedChanges, clearEditorBackup, getCurrentArticle]);
 
   /**
    * Страж несохранённого: тот же вопрос, что у «Отмены», но перед открытием
@@ -1495,13 +1504,13 @@ export default function Admin() {
    * сам не меняется и не тянет перерисовку списка.
    */
   const confirmLeaveEditor = useCallback(async () => (
-    !hasUnsavedChangesRef.current || confirmDialog({
+    (!hasUnsavedChangesRef.current && getCurrentArticle() === editingArticleRef.current) || confirmDialog({
       title: 'Перейти без сохранения?',
       description: 'Есть несохранённые изменения — они пропадут.',
       confirmLabel: 'Перейти без сохранения',
       tone: 'danger',
     })
-  ), [confirmDialog]);
+  ), [confirmDialog, getCurrentArticle]);
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -1706,8 +1715,10 @@ export default function Admin() {
       return;
     }
 
+    const content = articleBodyRef.current?.getContent() ?? editingArticle.content;
     const normalizedArticle: Article = {
       ...editingArticle,
+      content,
       status,
       title: editingArticle.title.trim(),
       slug,
@@ -1739,7 +1750,7 @@ export default function Admin() {
 
     const session = editorSessionRef.current;
     const submittedCoverUpload = coverUploadRef.current;
-    const submittedSnapshot = snapshotArticle(editingArticle);
+    const submittedSnapshot = snapshotArticle({ ...editingArticle, content });
     savingArticleRef.current = true;
     setIsSavingArticle(true);
     try {
@@ -1750,7 +1761,7 @@ export default function Admin() {
         return;
       }
 
-      const latest = editingArticleRef.current;
+      const latest = getCurrentArticle();
       if (latest && editorSessionRef.current === session) {
         clearEditorBackup(editorBackupKey(editingArticle));
         if (snapshotArticle(latest) === submittedSnapshot && coverUploadRef.current === submittedCoverUpload) {
@@ -1926,8 +1937,8 @@ export default function Admin() {
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      const current = editingArticleRef.current;
-      if (current && hasUnsavedChangesRef.current) {
+      const current = getCurrentArticle();
+      if (current && (hasUnsavedChangesRef.current || current !== editingArticleRef.current)) {
         saveEditorBackup(current);
         e.preventDefault();
         e.returnValue = '';
@@ -1935,7 +1946,7 @@ export default function Admin() {
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [saveEditorBackup]);
+  }, [getCurrentArticle, saveEditorBackup]);
 
   const currentNavKey: AdminNavKey = adminView === 'articles'
     ? (adminSectionFilter === 'cases' ? 'cases' : 'articles')
@@ -3100,7 +3111,7 @@ export default function Admin() {
 
                   <section className="admin-editor-section space-y-4">
                     <h3 className="admin-editor-section__title">Содержание статьи</h3>
-                    <ArticleEditor content={editingArticle.content} onChange={handleContentChange} onUpload={uploadFile} readOnly={isEditingProtected} />
+                    <ArticleEditor editorRef={articleBodyRef} content={editingArticle.content} onChange={handleContentChange} onUpload={uploadFile} readOnly={isEditingProtected} />
                   </section>
                   </fieldset>
 

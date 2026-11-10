@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useImperativeHandle, useRef, useState, type MouseEvent, type Ref } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Copy, Undo2, Redo2, Upload, List, ListOrdered, Columns2, Monitor, Tablet, Smartphone, PanelLeft, Eye } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -25,6 +25,7 @@ interface ContentBlock {
   text?: string;
   level?: HeadingLevel;
   headingTone?: HeadingTone;
+  anchorId?: string;
   listStyle?: ListStyle;
   tone?: CardTone;
   imageUrl?: string;
@@ -38,11 +39,16 @@ interface ContentBlock {
   downloadLabel?: string;
 }
 
+export interface ArticleEditorHandle {
+  getContent: () => string;
+}
+
 interface ArticleEditorProps {
   content: string;
   onChange: (html: string) => void;
   onUpload?: (file: File) => Promise<string | null>;
   readOnly?: boolean;
+  editorRef?: Ref<ArticleEditorHandle>;
 }
 
 const DRAG_TYPE = 'WW_BLOCK';
@@ -157,7 +163,8 @@ function blockToHtml(block: ContentBlock): string {
       const level = block.level === 3 ? 3 : 2;
       const tag = level === 3 ? 'h3' : 'h2';
       const accentStyle = block.headingTone === 'accent' ? 'color:#b58cff;text-shadow:0 0 24px rgba(139,92,246,.28);' : '';
-      return `<${tag} data-ww-block="heading" data-ww-tone="${block.headingTone === 'accent' ? 'accent' : 'default'}" style="margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:${level === 3 ? '1.45rem' : '1.95rem'};letter-spacing:-0.01em;${accentStyle}">${escapeHtml(block.text || '')}</${tag}>`;
+      const anchor = block.anchorId ? ` id="${escapeHtml(block.anchorId)}"` : '';
+      return `<${tag}${anchor} data-ww-block="heading" data-ww-tone="${block.headingTone === 'accent' ? 'accent' : 'default'}" style="margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:${level === 3 ? '1.45rem' : '1.95rem'};letter-spacing:-0.01em;${accentStyle}">${escapeHtml(block.text || '')}</${tag}>`;
     }
     case 'paragraph':
       return `<p data-ww-block="paragraph" style="margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;">${textToHtml(block.text || '')}</p>`;
@@ -237,6 +244,7 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
   // Узел с разметкой внутри сохраняется байт в байт как блок «HTML (fallback)»:
   // там его можно править, и serializeBlocks всё равно прогонит его через sanitizeHtml.
   const rawBlock = (): ContentBlock => ({ id: uid(), type: 'rawHtml', html: node.outerHTML });
+  if (node.id && tag !== 'h2' && tag !== 'h3') return rawBlock();
 
   if (wwType === 'code' || tag === 'pre') {
     // Текст кода берём как есть (без trim по строкам), убираем только крайние переводы строк
@@ -286,7 +294,7 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
   if (tag === 'h2' || tag === 'h3') {
     // Поле заголовка однострочное: даже <br> внутри ему не удержать.
     if (node.firstElementChild != null) return rawBlock();
-    return { id: uid(), type: 'heading', level: tag === 'h3' ? 3 : 2, headingTone: node.getAttribute('data-ww-tone') === 'accent' ? 'accent' : 'default', text: node.textContent?.trim() || '' };
+    return { id: uid(), type: 'heading', level: tag === 'h3' ? 3 : 2, headingTone: node.getAttribute('data-ww-tone') === 'accent' ? 'accent' : 'default', anchorId: node.id || undefined, text: node.textContent?.trim() || '' };
   }
   if (tag === 'p') return hasInlineMarkup(node) ? rawBlock() : { id: uid(), type: 'paragraph', text: textFromHtml(node) };
   if (tag === 'blockquote') return hasInlineMarkup(node) ? rawBlock() : { id: uid(), type: 'quote', text: textFromHtml(node) };
@@ -323,7 +331,7 @@ function createBlock(type: BlockType): ContentBlock {
 }
 
 function duplicateBlock(block: ContentBlock): ContentBlock {
-  return { ...block, id: uid() };
+  return { ...block, id: uid(), anchorId: undefined };
 }
 
 function moveArrayItem<T>(array: T[], fromIndex: number, toIndex: number): T[] {
@@ -348,10 +356,10 @@ function moveArrayItem<T>(array: T[], fromIndex: number, toIndex: number): T[] {
  * разбором, что читает содержимое статьи. Переход стал обратимым.
  */
 function blockToMarkdown(block: ContentBlock): string {
-  if (block.type === 'heading') return `${'#'.repeat(block.level || 2)} ${block.text || ''}`;
-  if (block.type === 'quote') return `> ${block.text || ''}`;
+  if (block.type === 'heading' && !block.anchorId && block.headingTone !== 'accent') return `${'#'.repeat(block.level || 2)} ${block.text || ''}`;
+  if (block.type === 'quote' && !block.text?.includes('\n')) return `> ${block.text || ''}`;
   if (block.type === 'code') return '```\n' + (block.text || '') + '\n```';
-  if (block.type === 'spacer') return '---';
+  if (block.type === 'spacer' && (block.space ?? 24) === 24) return '---';
   if (block.type === 'paragraph') return block.text || '';
   // Переносы внутри схлопываются: HTML к ним безразличен, а markdown должен
   // получить ровно одну строку, чтобы разбор узнал её целиком.
@@ -414,7 +422,7 @@ interface DraggableBlockItemProps {
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onMoveArrow: (index: number, direction: -1 | 1) => void;
-  onInsertAfter: (id: string, type?: BlockType) => void;
+  onInsertAfter: (id: string, type?: BlockType, initial?: Partial<ContentBlock>) => void;
   onUpdate: (id: string, patch: Partial<ContentBlock>) => void;
   onUpload?: (file: File) => Promise<string | null>;
 }
@@ -423,6 +431,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
   block, index, selected, onSelect, onMove, onDuplicate, onDelete, onMoveArrow, onInsertAfter, onUpdate, onUpload,
 }: DraggableBlockItemProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const imageSelection = useRef(0);
   const [{ isDragging }, drag] = useDrag(() => ({
     type: DRAG_TYPE, item: { index },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
@@ -451,8 +460,17 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
   // заменяет выделение, Ctrl+Z её отменяет. Раньше обработчик перехватывал
   // всё подряд и дописывал текст в конец абзаца, а абзац с картинкой из буфера
   // не вставлялся вовсе. Перехватывается один случай — в буфере одна картинка
-  // и ни слова текста: тогда блок становится картинкой.
+  // и ни слова текста. В заполненном блоке картинка идёт после текста.
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    if (e.clipboardData.getData('text/plain').trim()) return;
+    const file = e.clipboardData.files?.[0];
+    if (onUpload && file?.type.startsWith('image/')) {
+      e.preventDefault();
+      void onUpload(file).then((url) => {
+        if (url) onInsertAfter(block.id, 'image', { imageUrl: url });
+      });
+      return;
+    }
     const html = e.clipboardData.getData('text/html');
     if (!html) return;
     // DOMParser даёт неактивный документ: <img> из буфера не начнёт грузиться,
@@ -460,9 +478,13 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const images = doc.querySelectorAll('img');
     if (images.length !== 1 || doc.body.textContent?.trim()) return;
+    const imageUrl = images[0].getAttribute('src')?.trim();
+    if (!imageUrl) return;
+    const image = { imageUrl, imageAlt: images[0].getAttribute('alt') || '' };
     e.preventDefault();
-    onUpdate(block.id, { type: 'image', imageUrl: images[0].getAttribute('src') || '', imageAlt: images[0].getAttribute('alt') || '' });
-  }, [block.id, onUpdate]);
+    if (block.text?.trim()) onInsertAfter(block.id, 'image', image);
+    else onUpdate(block.id, { type: 'image', ...image });
+  }, [block.id, block.text, onInsertAfter, onUpdate, onUpload]);
 
   return (
     <div
@@ -479,7 +501,10 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
           <span className="text-xs uppercase tracking-wide text-[var(--adm-fg)]/60">Блок #{index + 1}</span>
           <select
             value={block.type}
-            onChange={(e) => onUpdate(block.id, { type: e.target.value as BlockType, ...(e.target.value === 'heading' ? { level: 2 } : {}) })}
+            onChange={(e) => {
+              imageSelection.current += 1;
+              onUpdate(block.id, { type: e.target.value as BlockType, ...(e.target.value === 'heading' ? { level: 2 } : {}) });
+            }}
             className="min-w-0 flex-1 rounded-md border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-2 py-1 text-sm"
             aria-label={`Тип блока ${index + 1}`}
           >
@@ -563,7 +588,10 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
 
       {block.type === 'image' && (
         <div className="space-y-2">
-          <input aria-label="URL изображения" type="url" value={block.imageUrl || ''} onChange={(e) => onUpdate(block.id, { imageUrl: e.target.value })} placeholder="https://i.ibb.co/.../image.jpg" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
+          <input aria-label="URL изображения" type="url" value={block.imageUrl || ''} onChange={(e) => {
+            imageSelection.current += 1;
+            onUpdate(block.id, { imageUrl: e.target.value });
+          }} placeholder="https://i.ibb.co/.../image.jpg" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
           <input aria-label="Альтернативный текст изображения" type="text" value={block.imageAlt || ''} onChange={(e) => onUpdate(block.id, { imageAlt: e.target.value })} placeholder="Alt текст изображения" className="w-full rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm" />
           {onUpload && (
             <div className="admin-mobile-stack flex gap-2 items-end">
@@ -571,9 +599,11 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
                 <Upload className="w-4 h-4" />
                 <input type="file" accept="image/*" className="hidden" aria-label="Загрузить изображение" onChange={async (e) => {
                   const file = e.target.files?.[0];
+                  e.target.value = '';
                   if (!file) return;
+                  const selection = ++imageSelection.current;
                   const url = await onUpload(file);
-                  if (url) onUpdate(block.id, { imageUrl: url });
+                  if (url && imageSelection.current === selection) onUpdate(block.id, { imageUrl: url });
                 }} />
               </label>
             </div>
@@ -667,7 +697,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
   );
 });
 
-function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: ArticleEditorProps) {
+function ArticleEditorBody({ content, onChange, onUpload, readOnly = false, editorRef }: ArticleEditorProps) {
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => parseHtmlToBlocks(content));
   const [htmlOutput, setHtmlOutput] = useState(() => serializeBlocks(blocks));
   const [history, setHistory] = useState<{ past: ContentBlock[][]; future: ContentBlock[][] }>({ past: [], future: [] });
@@ -677,7 +707,8 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
 
   const [viewMode, setViewMode] = useState<'editor' | 'split' | 'preview'>(() => {
     try {
-      return (localStorage.getItem('ww_editor_view_mode') as 'editor' | 'split' | 'preview') || 'split';
+      const stored = localStorage.getItem('ww_editor_view_mode');
+      return stored === 'editor' || stored === 'preview' ? stored : 'split';
     } catch {
       return 'split';
     }
@@ -685,7 +716,8 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
 
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'tablet' | 'mobile'>(() => {
     try {
-      return (localStorage.getItem('ww_editor_preview_viewport') as 'desktop' | 'tablet' | 'mobile') || 'desktop';
+      const stored = localStorage.getItem('ww_editor_preview_viewport');
+      return stored === 'tablet' || stored === 'mobile' ? stored : 'desktop';
     } catch {
       return 'desktop';
     }
@@ -712,11 +744,13 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
   // абзацев появляются встроенные стили, а разметка внутри узлов раньше
   // терялась), и одна только перерисовка родителя переписывала статью.
   const blocksTouchedRef = useRef(false);
-  // HTML, который applyMarkdown уже отдал родителю синхронно: эффекту ниже его
-  // повторять не нужно, даже если родитель ещё не вернул его через `content`.
-  const mdHandedHtmlRef = useRef<string | null>(null);
+  // HTML already handed to the parent by a synchronous editor action.
+  const handedHtmlRef = useRef<string | null>(null);
+  const lastContentRef = useRef(content);
 
   useEffect(() => {
+    if (lastContentRef.current === content) return;
+    lastContentRef.current = content;
     if (isLocalSyncRef.current) { isLocalSyncRef.current = false; return; }
     // Синхронизируем оба представления в одном проходе. Иначе старый
     // htmlOutput ещё 220 мс мог затереть только что восстановленную версию при
@@ -724,7 +758,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     const nextBlocks = parseHtmlToBlocks(content);
     isExternalSyncRef.current = true;
     blocksTouchedRef.current = false;
-    mdHandedHtmlRef.current = null;
+    handedHtmlRef.current = null;
     setBlocks(nextBlocks);
     setHtmlOutput(serializeBlocks(nextBlocks));
     setHistory({ past: [], future: [] });
@@ -761,7 +795,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
       isExternalSyncRef.current = false;
       return;
     }
-    if (!blocksTouchedRef.current || htmlOutput === content || htmlOutput === mdHandedHtmlRef.current) return;
+    if (!blocksTouchedRef.current || htmlOutput === content || htmlOutput === handedHtmlRef.current) return;
     isLocalSyncRef.current = true;
     onChange(htmlOutput);
   }, [htmlOutput, content, onChange, readOnly]);
@@ -790,6 +824,18 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
   const mdAppliedRef = useRef('');
   const mdEntryBlocksRef = useRef<ContentBlock[]>([]);
 
+  // Save and leave actions must see the live editor, even while the
+  // debounced preview has not yet published its next HTML to the parent.
+  useImperativeHandle(editorRef, () => ({
+    getContent() {
+      if (readOnly) return content;
+      if (markdownMode && mdText !== mdAppliedRef.current) {
+        return serializeBlocks(mdText === mdBaselineRef.current ? mdEntryBlocksRef.current : markdownToBlocks(mdText));
+      }
+      return blocksTouchedRef.current ? serializeBlocks(blocks) : content;
+    },
+  }), [blocks, content, markdownMode, mdText, readOnly]);
+
   const applyMarkdown = useCallback((md: string) => {
     if (md === mdAppliedRef.current) return;
     mdAppliedRef.current = md;
@@ -807,7 +853,7 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     // обработчика события обновление родителя идёт с приоритетом самого события
     // и завершается до следующего слушателя.
     if (html !== content) {
-      mdHandedHtmlRef.current = html;
+      handedHtmlRef.current = html;
       isLocalSyncRef.current = true;
       onChange(html);
     }
@@ -845,11 +891,11 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     setSelectedBlockId(newBlock.id);
   }, [setBlocksWithHistory]);
 
-  const insertBlockAfter = useCallback((id: string, type: BlockType = 'paragraph') => {
-    const newBlock = createBlock(type);
+  const insertBlockAfter = useCallback((id: string, type: BlockType = 'paragraph', initial?: Partial<ContentBlock>) => {
+    const newBlock = { ...createBlock(type), ...initial };
     setBlocksWithHistory((prev) => {
       const index = prev.findIndex((block) => block.id === id);
-      if (index < 0) return [...prev, newBlock];
+      if (index < 0) return prev;
       const next = [...prev];
       next.splice(index + 1, 0, newBlock);
       return next;
@@ -1016,7 +1062,14 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
             className="w-full h-80 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-input-bg)] px-3 py-2 text-sm font-mono resize-y"
             placeholder="# Заголовок..."
           />
-          <button type="button" onClick={toggleMarkdown} className="admin-button admin-button--primary mt-2">Применить разметку</button>
+          <button
+            type="button"
+            onPointerDown={(event) => { if (event.button === 0) event.preventDefault(); }}
+            onClick={toggleMarkdown}
+            className="admin-button admin-button--primary mt-2"
+          >
+            Применить разметку
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1041,6 +1094,22 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
     </div>
   );
 
+  const handlePreviewLink = (event: MouseEvent<HTMLDivElement>) => {
+    const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!link) return;
+    event.preventDefault();
+    const href = link.getAttribute('href');
+    if (!href?.startsWith('#') || href.length === 1) return;
+    let id: string;
+    try {
+      id = decodeURIComponent(href.slice(1));
+    } catch {
+      return;
+    }
+    Array.from(event.currentTarget.querySelectorAll('[id]')).find((node) => node.id === id)
+      ?.scrollIntoView({ block: 'start' });
+  };
+
   const renderPreviewPane = (isSticky = false) => {
     const viewportWidthClass = previewViewport === 'mobile'
       ? 'max-w-[375px] mx-auto'
@@ -1053,12 +1122,12 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
         <div className="mb-3 flex items-center justify-between gap-2 border-b border-[var(--adm-border)]/60 pb-2 text-xs">
           <span className="font-semibold text-[var(--adm-fg)]">Живой предпросмотр статьи</span>
           <span className="font-mono text-[var(--adm-fg)]/60 bg-[var(--adm-muted)] px-2 py-0.5 rounded">
-            {previewViewport === 'desktop' ? 'Десктоп (100%)' : previewViewport === 'tablet' ? 'Планшет (768px)' : 'Телефон (375px)'}
+            {previewViewport === 'desktop' ? 'Десктоп' : previewViewport === 'tablet' ? 'Планшет · до 768 px' : 'Телефон · до 375 px'}
           </span>
         </div>
-        <div className={`transition-all duration-200 ${viewportWidthClass} ${previewViewport !== 'desktop' ? 'border border-[var(--adm-border)]/80 rounded-2xl shadow-xl overflow-hidden' : ''}`}>
+        <div role="region" aria-label="Предпросмотр содержания" className={`transition-all duration-200 ${viewportWidthClass} ${previewViewport !== 'desktop' ? 'border border-[var(--adm-border)]/80 rounded-2xl shadow-xl overflow-hidden' : ''}`}>
           <div data-blog-ui="true" className="rounded-xl p-4 sm:p-6 bg-[#090b10]">
-            <div className="blog-article-content max-w-none" dangerouslySetInnerHTML={{ __html: htmlOutput }} />
+            <div className="blog-article-content max-w-none" onClick={handlePreviewLink} dangerouslySetInnerHTML={{ __html: htmlOutput }} />
           </div>
         </div>
       </div>
@@ -1068,38 +1137,41 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
   return (
     <div className="admin-article-editor space-y-4">
       <div className="admin-editor-toolbar flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)]">
-        <div className="flex items-center gap-2">
+        <div className="w-full sm:w-auto">
           {/* Переключатель режимов: Редактор / Сплит / Предпросмотр */}
-          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] text-xs">
+          <div className="grid grid-cols-3 items-center gap-0.5 p-0.5 rounded-lg border border-[var(--adm-border)] bg-[var(--adm-surface-subtle)] text-xs sm:inline-flex">
             <button
               type="button"
               onClick={() => changeViewMode('editor')}
+              aria-label="Редактор"
               aria-pressed={viewMode === 'editor'}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${viewMode === 'editor' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-2 sm:px-3 sm:py-1.5 rounded-md font-medium transition-colors ${viewMode === 'editor' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
               title="Только редактор блоков"
             >
-              <PanelLeft className="w-3.5 h-3.5" />
+              <PanelLeft className="hidden w-3.5 h-3.5 sm:block" />
               <span>Редактор</span>
             </button>
             <button
               type="button"
               onClick={() => changeViewMode('split')}
+              aria-label="Сплит (50/50)"
               aria-pressed={viewMode === 'split'}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${viewMode === 'split' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-2 sm:px-3 sm:py-1.5 rounded-md font-medium transition-colors ${viewMode === 'split' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
               title="Сплит-скрин: редактор и живой предпросмотр бок о бок"
             >
-              <Columns2 className="w-3.5 h-3.5" />
-              <span>Сплит (50/50)</span>
+              <Columns2 className="hidden w-3.5 h-3.5 sm:block" />
+              <span>Сплит<span className="hidden sm:inline"> (50/50)</span></span>
             </button>
             <button
               type="button"
               onClick={() => changeViewMode('preview')}
+              aria-label="Предпросмотр"
               aria-pressed={viewMode === 'preview'}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${viewMode === 'preview' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-2 sm:px-3 sm:py-1.5 rounded-md font-medium transition-colors ${viewMode === 'preview' ? 'bg-[var(--adm-primary-solid)] text-white shadow-sm' : 'text-[var(--adm-fg)]/70 hover:text-[var(--adm-fg)]'}`}
               title="Только предпросмотр статьи"
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Предпросмотр</span>
+              <Eye className="hidden w-3.5 h-3.5 sm:block" />
+              <span className="sm:hidden">Просмотр</span><span className="hidden sm:inline">Предпросмотр</span>
             </button>
           </div>
         </div>
@@ -1145,7 +1217,10 @@ function ArticleEditorBody({ content, onChange, onUpload, readOnly = false }: Ar
           <div className="inline-flex items-center gap-1">
             <button type="button" onClick={undo} disabled={markdownMode || history.past.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Undo (Ctrl/Cmd+Z)" aria-label="Отменить изменение"><Undo2 className="h-4 w-4" /></button>
             <button type="button" onClick={redo} disabled={markdownMode || history.future.length === 0} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10 disabled:opacity-40" title="Redo (Ctrl/Cmd+Y)" aria-label="Повторить изменение"><Redo2 className="h-4 w-4" /></button>
-            <button type="button" onClick={toggleMarkdown} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-1 px-2.5 hover:bg-[var(--adm-primary)]/10">
+            <button type="button" onClick={() => {
+              if (viewMode === 'preview') changeViewMode('editor');
+              toggleMarkdown();
+            }} className="rounded-md p-1.5 text-xs border border-[var(--adm-border)] ml-1 px-2.5 hover:bg-[var(--adm-primary)]/10">
               {markdownMode ? 'Визуальный' : 'Markdown'}
             </button>
           </div>

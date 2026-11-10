@@ -32,6 +32,7 @@ test('dangerous urls are dropped while allowed ones survive with rel', () => {
   assert.ok(external.includes('target="_blank"'));
   assert.ok(external.includes('rel="noopener noreferrer"'));
   assert.ok(output.includes('<a href="/blog">i</a>'));
+  assert.match(sanitizeArticleHtml('<a href="#section">Ссылка</a><h2 id="section">Раздел</h2>'), /href="#section".*id="section"/);
 });
 
 test('images keep safe sources, sizes and srcset candidates are validated', () => {

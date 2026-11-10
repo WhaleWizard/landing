@@ -31,7 +31,7 @@ const CONFIG = {
     'viewBox', 'preserveAspectRatio', 'd', 'fill', 'stroke', 'stroke-width',
     'stroke-linecap', 'x1', 'x2', 'y1', 'y2', 'offset', 'stop-color',
   ],
-  ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|data:image\/(?:png|jpe?g|webp|gif|avif);base64,|\/)/i,
+  ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|data:image\/(?:png|jpe?g|webp|gif|avif);base64,|\/|#)/i,
   /**
    * Все остальные разрешённые атрибуты — не ссылки, и проверять их адресной
    * регуляркой нельзя.

@@ -226,7 +226,7 @@ test('F-008: текст, набранный в режиме Markdown, уходи
   await click(buttonByText(view.container, 'Markdown'));
   const field = mdField(view.container);
   assert.ok(field, 'поле Markdown открылось');
-  assert.ok(field.value.includes('## Акцентный заголовок'));
+  assert.match(field.value, /data-ww-tone="accent"[^>]*>Акцентный заголовок/);
 
   await type(field, `${field.value}\n\nНовый абзац из Markdown.`);
   await wait(300);
@@ -387,9 +387,9 @@ test('F-022: обычная вставка текста отдаётся бра�
   await view.unmount();
 });
 
-test('F-022: одна картинка без текста в буфере превращает блок в изображение', async () => {
+test('F-022: одна картинка без текста в буфере превращает пустой блок в изображение', async () => {
   const onChange = changeSpy();
-  const view = await mount(editor.ArticleEditor, { content: '<p>Первый абзац.</p>', onChange });
+  const view = await mount(editor.ArticleEditor, { content: '<p></p>', onChange });
   const [input] = blockInputs(view.container);
   const event = await paste(input, { 'text/html': '<meta charset="utf-8"><img src="https://cdn.example.com/scheme.png" alt="Схема воронки">', 'text/plain': '' });
   assert.equal(event.defaultPrevented, true, 'вставку картинки обрабатывает редактор');
@@ -400,6 +400,36 @@ test('F-022: одна картинка без текста в буфере пр�
   await wait(300);
   assert.ok(onChange.last?.includes('data-ww-block="image"'), 'родитель получил блок-картинку');
   await view.unmount();
+});
+
+test('pasting an image into a populated block keeps its text', async () => {
+  const onChange = changeSpy();
+  const view = await mount(editor.ArticleEditor, { content: '<p>Первый абзац.</p>', onChange });
+  const [input] = blockInputs(view.container);
+  await paste(input, { 'text/html': '<img src="/new-image.png" alt="Схема">' });
+  assert.equal(blockInputs(view.container)[0].value, 'Первый абзац.');
+  assert.equal(view.container.querySelector('input[aria-label="URL изображения"]').value, '/new-image.png');
+  await view.unmount();
+});
+
+test('the editor provides the latest text before its debounced output', async () => {
+  const onChange = changeSpy();
+  const editorRef = { current: null };
+  const view = await mount(editor.ArticleEditor, { content: '<p>Старый текст.</p>', onChange, editorRef });
+  await type(blockInputs(view.container)[0], 'Текст перед сохранением.');
+  assert.equal(onChange.calls.length, 0);
+  assert.match(editorRef.current.getContent(), /Текст перед сохранением/);
+  await view.unmount();
+});
+
+test('Markdown editing preserves heading anchors, tones and custom spacing', () => {
+  const blocks = editor.parseHtmlToBlocks('<p><a href="#results">К итогам</a></p><h2 id="results" data-ww-tone="accent">Итоги</h2><div data-ww-block="spacer" style="height:64px"></div>');
+  const markdown = blocks.map(editor.blockToMarkdown).join('\n\n') + '\n\nНовый текст.';
+  const html = editor.serializeBlocks(editor.markdownToBlocks(markdown));
+  assert.match(html, /<h2 id="results"[^>]*data-ww-tone="accent"/);
+  assert.match(html, /href="#results"/);
+  assert.match(html, /height:64px/);
+  assert.match(html, /Новый текст/);
 });
 
 /* ---------------------------------------------------------------------- */
@@ -537,7 +567,8 @@ test('F-PHASE3-EDITOR: переключение режимов Редактор 
   // Кнопки режимов присутствуют
   assert.ok(buttonByText(view.container, 'Редактор'), 'кнопка Редактор');
   assert.ok(buttonByText(view.container, 'Сплит (50/50)'), 'кнопка Сплит');
-  assert.ok(buttonByText(view.container, 'Предпросмотр'), 'кнопка Предпросмотр');
+  const previewButton = view.container.querySelector('button[aria-label="Предпросмотр"]');
+  assert.ok(previewButton, 'кнопка Предпросмотр');
 
   // В режиме сплита отображается контейнер сплита и предпросмотр
   assert.ok(view.container.querySelector('.admin-editor-split-layout'), 'сплит-лейаут отображается');
@@ -549,7 +580,7 @@ test('F-PHASE3-EDITOR: переключение режимов Редактор 
   assert.equal(view.container.querySelector('.blog-article-content'), null, 'предпросмотр скрыт в режиме редактора');
 
   // Переключение в "Предпросмотр" показывает предпросмотр без блоков
-  await click(buttonByText(view.container, 'Предпросмотр'));
+  await click(previewButton);
   assert.ok(view.container.querySelector('.blog-article-content'), 'предпросмотр виден');
   assert.equal(view.container.querySelector('.admin-block-palette'), null, 'палитра блоков скрыта в режиме предпросмотра');
 

@@ -22,6 +22,7 @@ test('javascript: and data:text links are stripped, external links get rel', () 
   assert.equal(output.includes('data:text'), false);
   assert.ok(output.includes('<a href="https://example.com" rel="noopener noreferrer">e</a>'));
   assert.ok(output.includes('<a href="/blog">i</a>'));
+  assert.match(sanitize('<a href="#section">Ссылка</a><h2 id="section">Раздел</h2>'), /href="#section".*id="section"/);
 });
 
 test('only video embeds from the allow-list keep their iframe', () => {
