@@ -649,7 +649,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                     {/* Бюджет */}
                     <div>
                       <p className="block text-sm mb-3 font-medium">Бюджет на рекламу в месяц</p>
-                      <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {budgetOptions.map((option) => (
                           <m.div
                             key={option.value}
@@ -668,7 +668,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                             />
                             <label
                               htmlFor={`budget-${option.value.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
-                              className={`flex min-w-0 items-center gap-2 p-3 sm:gap-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-300 bg-background/50 border border-border/50 backdrop-blur-sm hover:border-primary/50 hover:bg-background/70 peer-checked:border-primary peer-checked:shadow-lg peer-checked:shadow-primary/20`}
+                              className={`flex min-w-0 items-center gap-1.5 p-2 min-[360px]:gap-2 min-[360px]:p-2.5 sm:gap-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-300 bg-background/50 border border-border/50 backdrop-blur-sm hover:border-primary/50 hover:bg-background/70 peer-checked:border-primary peer-checked:shadow-lg peer-checked:shadow-primary/20`}
                               style={
                                 formData.budget === option.value
                                   ? { backgroundImage: `linear-gradient(to bottom right, ${option.bgGradient})` }
@@ -676,16 +676,16 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                               }
                             >
                               <div
-                                className={`flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br ${option.color} border border-primary/30 flex items-center justify-center`}
+                                className={`flex-shrink-0 w-7 h-7 min-[360px]:w-8 min-[360px]:h-8 rounded-lg bg-gradient-to-br ${option.color} border border-primary/30 flex items-center justify-center`}
                               >
-                                <option.icon className="w-4 h-4 text-primary" />
+                                <option.icon className="w-3.5 h-3.5 min-[360px]:w-4 min-[360px]:h-4 text-primary" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs sm:text-sm font-semibold leading-tight">{option.label}</div>
+                                <div className="text-[11px] min-[360px]:text-xs sm:text-sm font-semibold leading-tight">{option.label}</div>
                               </div>
                               {formData.budget === option.value && (
                                 <m.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex-shrink-0">
-                                  <CheckCircle2 className="w-5 h-5 text-primary" />
+                                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                                 </m.div>
                               )}
                             </label>

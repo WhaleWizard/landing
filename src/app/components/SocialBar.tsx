@@ -13,7 +13,7 @@ const socials = [
   { platform: 'telegram', href: 'https://t.me/white_rsh', label: 'Telegram' },
   { platform: 'instagram', href: 'https://instagram.com/whalewzrd', label: 'Instagram' },
   { platform: 'youtube', href: 'https://youtube.com/@whalewzrd', label: 'YouTube' },
-  { platform: 'x', href: 'https://twitter.com/whalewzrd', label: 'X' },
+  { platform: 'x', href: 'https://x.com/whalewzrd', label: 'X' },
   { platform: 'threads', href: 'https://threads.net/@whalewzrd', label: 'Threads' },
   { platform: 'tiktok', href: 'https://tiktok.com/@whalewzrd', label: 'TikTok' },
   { platform: 'gmail', href: 'mailto:whalewzrd@gmail.com', label: 'Email' },

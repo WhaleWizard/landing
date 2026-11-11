@@ -90,3 +90,17 @@ test('F-117: CountryFlag uses WebP variants', () => {
   assert.ok(existsSync('public/images/country-flags/rs.webp'), 'rs.webp must exist');
   assert.ok(existsSync('public/images/country-flags/mx.webp'), 'mx.webp must exist');
 });
+
+test('F-118: Budget selector uses 2-column grid across Android (360px) and iPhone without 390px breakpoint', () => {
+  const landingCode = readFileSync('src/app/components/LandingForm.tsx', 'utf8');
+  assert.ok(!landingCode.includes('min-[390px]:grid-cols-2'), 'LandingForm must not restrict 2-col budget grid to 390px+');
+  assert.match(landingCode, /grid grid-cols-2 gap-2/, 'LandingForm budget options must use 2-column grid');
+
+  const contactCode = readFileSync('src/app/components/ContactForm.tsx', 'utf8');
+  assert.ok(!contactCode.includes('min-[390px]:grid-cols-2'), 'ContactForm must not restrict 2-col budget grid to 390px+');
+  assert.match(contactCode, /grid grid-cols-2 gap-2/, 'ContactForm budget options must use 2-column grid');
+
+  const socialCode = readFileSync('src/app/components/SocialBar.tsx', 'utf8');
+  assert.match(socialCode, /https:\/\/x\.com\/whalewzrd/, 'SocialBar must link to x.com/whalewzrd');
+  assert.ok(!socialCode.includes('twitter.com/whalewzrd'), 'SocialBar must not use legacy twitter.com domain');
+});

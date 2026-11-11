@@ -587,7 +587,7 @@ function LandingForm({
                       <DollarSign className="w-4 h-4 text-primary" />
                       Бюджет на рекламу в месяц
                     </p>
-                    <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {budgetOptions.map((option) => (
                         <m.button
                           key={option.value}
@@ -596,20 +596,20 @@ function LandingForm({
                           aria-pressed={formData.budget === option.value}
                           whileHover={hoverScale}
                           whileTap={{ scale: 0.98 }}
-                          className={`p-3 rounded-xl border text-sm font-medium transition-all ${
+                          className={`flex min-h-[44px] items-center justify-center py-2.5 px-1.5 min-[360px]:px-2 sm:p-3 rounded-xl border text-xs min-[360px]:text-[13px] sm:text-sm font-medium transition-all text-center ${
                             formData.budget === option.value
                               ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/20'
                               : 'bg-background/50 border-border/50 hover:border-primary/50'
                           }`}
                         >
-                          {option.label}
+                          <span className="whitespace-nowrap">{option.label}</span>
                           {formData.budget === option.value && (
                             <m.span
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
-                              className="ml-2 inline-block"
+                              className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center"
                             >
-                              <CheckCircle2 className="w-4 h-4 inline" />
+                              <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </m.span>
                           )}
                         </m.button>
