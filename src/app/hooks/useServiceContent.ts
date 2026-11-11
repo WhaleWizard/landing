@@ -187,8 +187,14 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
     // (preload or a sibling section on the same page) is reused for the cache
     // TTL, and concurrent section hooks are still collapsed by
     // serviceContentPending.
-    void loadSiteContent(cacheKey, true)
-      .then((loaded) => {
+    let retry: number | undefined;
+    let refreshing = false;
+    const refresh = async (retryOnFailure: boolean) => {
+      if (refreshing) return;
+      window.clearTimeout(retry);
+      refreshing = true;
+      try {
+        const loaded = await loadSiteContent(cacheKey, true);
         if (!active) return;
         const nextContent = loaded
           ? mergeContent(fallback, loaded)
@@ -201,11 +207,21 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
           }
           return nextContent;
         });
-      })
-      .catch(() => {
-        // Публичная страница всегда остаётся на статическом проверенном тексте.
-      });
-    return () => { active = false; };
+      } catch {
+        // Keep the published snapshot on screen while the connection recovers.
+        if (active && retryOnFailure) retry = window.setTimeout(() => { void refresh(false); }, 3_000);
+      } finally {
+        refreshing = false;
+      }
+    };
+    const onOnline = () => { void refresh(true); };
+    void refresh(true);
+    window.addEventListener('online', onOnline);
+    return () => {
+      active = false;
+      window.clearTimeout(retry);
+      window.removeEventListener('online', onOnline);
+    };
   }, [cacheKey, fallback]);
 
   return content;

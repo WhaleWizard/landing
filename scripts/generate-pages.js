@@ -1770,8 +1770,9 @@ function renderBenefitsHtml(benefits = []) {
     </div>`).join('')}</div>`;
 }
 
-function renderHeroBodyHtml(hero) {
-  return `${renderBadgeHtml(hero.badge)}${renderStatsHtml(hero.stats)}${renderActionLabelsHtml([hero.primaryButton, hero.secondaryButton])}`;
+function renderHeroBodyHtml(hero, hidden) {
+  const labels = [!hidden.includes('contact') && hero.primaryButton, !hidden.includes('cases') && hero.secondaryButton].filter(Boolean);
+  return `${renderBadgeHtml(hero.badge)}${renderStatsHtml(hero.stats)}${renderActionLabelsHtml(labels)}`;
 }
 
 function renderServiceCardsHtml(cards = []) {
@@ -1882,17 +1883,20 @@ function renderGlossaryListHtml(terms = [], sections = [], sources = []) {
     .join('');
 }
 
-function renderServicePageSections(config) {
+function renderServicePageSections(config, applyLandingLayout) {
   const testimonialContent = config.service === 'meta-apps'
     ? config.metaAppsTestimonials
     : config.defaultTestimonials;
-  return [
-    { heading: null, bodyHtml: renderHeroBodyHtml(config.hero) },
+  const hidden = config.hiddenSections || [];
+  const sections = [
+    { heading: null, bodyHtml: renderHeroBodyHtml(config.hero, hidden) },
     {
+      layoutSection: 'services',
       heading: config.services.titlePrefix ? `${config.services.titlePrefix} ${config.services.titleAccent}` : 'Что входит',
       bodyHtml: `${renderBadgeHtml(config.services.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.services.description)}</p>${renderServiceCardsHtml(config.services.cards)}`,
     },
     {
+      layoutSection: 'cases',
       heading: config.cases.titlePrefix ? `${config.cases.titlePrefix} ${config.cases.titleAccent}` : 'Кейсы',
       bodyHtml: `${renderBadgeHtml(config.cases.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.cases.description)}</p>${renderCaseItemsHtml(config.cases.items)}`,
     },
@@ -1901,39 +1905,47 @@ function renderServicePageSections(config) {
       bodyHtml: `<p style="${contentStyles.body}">${escapeHtml(config.practice.description)}</p><ul>${config.practice.links.map(({ href, label }) => `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`).join('')}</ul>`,
     },
     {
+      layoutSection: 'cta',
       heading: config.cta.title,
-      bodyHtml: `${renderBadgeHtml(config.cta.badge)}<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>${renderActionLabelsHtml([config.cta.button])}`,
+      bodyHtml: `${renderBadgeHtml(config.cta.badge)}<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>${hidden.includes('contact') ? '' : renderActionLabelsHtml([config.cta.button])}`,
     },
     {
+      layoutSection: 'testimonials',
       heading: [testimonialContent.titlePrefix, testimonialContent.titleAccent].filter(Boolean).join(' ') || 'Отзывы клиентов',
       bodyHtml: renderTestimonialsSection({ ...testimonialContent, stats: config.defaultTestimonialsStats }, config.testimonialItems),
     },
     {
+      layoutSection: 'contact',
       heading: [config.contact.titlePrefix, config.contact.titleAccent].filter(Boolean).join(' ') || 'Обсудить задачу',
       bodyHtml: `${renderBadgeHtml(config.contact.badge)}<p style="${contentStyles.body};margin-bottom:10px">${escapeHtml(config.contact.description)}</p><ul style="margin:0;padding-left:20px;${contentStyles.body}">${config.contact.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`,
     },
   ];
+  return applyLandingLayout(sections.map((section) => [section.layoutSection ?? null, section]), config);
 }
 
-function renderHomeSections(content, latestArticles) {
+function renderHomeSections(content, latestArticles, layout, applyLandingLayout) {
   const sections = [
     {
       id: 'services',
+      layoutSection: 'services',
       heading: [content.services.titlePrefix, content.services.titleAccent].filter(Boolean).join(' ') || 'Услуги',
       bodyHtml: `${renderBadgeHtml(content.services.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.services.description)}</p>${renderServiceCardsHtml(content.services.cards)}`,
     },
     {
       heading: [content.cases.titlePrefix, content.cases.titleAccent].filter(Boolean).join(' ') || 'Кейсы',
       id: 'cases',
+      layoutSection: 'cases',
       bodyHtml: `${renderBadgeHtml(content.cases.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(content.cases.description)}</p>${renderCaseItemsHtml(content.cases.items)}`,
     },
     {
+      layoutSection: 'cta',
       heading: content.callToAction.title,
-      bodyHtml: `${renderBadgeHtml(content.callToAction.badge)}<p style="${contentStyles.body}">${escapeHtml(content.callToAction.description)}</p>${renderActionLabelsHtml([content.callToAction.button])}`,
+      bodyHtml: `${renderBadgeHtml(content.callToAction.badge)}<p style="${contentStyles.body}">${escapeHtml(content.callToAction.description)}</p>${layout.hiddenSections?.includes('contact') ? '' : renderActionLabelsHtml([content.callToAction.button])}`,
     },
     {
       heading: [content.testimonials.titlePrefix, content.testimonials.titleAccent].filter(Boolean).join(' ') || 'Отзывы клиентов',
       id: 'about',
+      layoutSection: 'testimonials',
       bodyHtml: renderTestimonialsSection(content.testimonials, content.testimonialItems),
     },
   ];
@@ -1951,11 +1963,12 @@ function renderHomeSections(content, latestArticles) {
 
   sections.push({
     id: 'contact',
+    layoutSection: 'contact',
     heading: [content.contact.titlePrefix, content.contact.titleAccent].filter(Boolean).join(' '),
     bodyHtml: `${renderBadgeHtml(content.contact.badge)}<p style="${contentStyles.body}">${escapeHtml(content.contact.description)}</p>${renderBenefitsHtml(content.contact.benefits)}`,
   });
 
-  return sections;
+  return applyLandingLayout(sections.map((section) => [section.layoutSection ?? null, section]), layout);
 }
 
 function renderLegalSection(reactComponent) {
@@ -2063,7 +2076,7 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
       h1: heroHeading(config.hero),
       hero: config.hero,
       lead: config.hero.paragraphs.map((paragraph) => String(paragraph)).filter(Boolean).join(' '),
-      sections: renderServicePageSections(config),
+      sections: renderServicePageSections(config, content.applyLandingLayout),
       siteContentSeed: { key: contentKey, content: publishedOverride },
       breadcrumbName: serviceName,
       extraJsonLd: [
@@ -2118,7 +2131,7 @@ async function renderStaticPages(baseHtml, { content, latestArticles, publishedC
       h1: heroHeading(homeContent.hero),
       hero: homeContent.hero,
       lead: homeContent.hero.paragraphs.map((paragraph) => String(paragraph)).join(' '),
-      sections: renderHomeSections(homeContent, homeArticles),
+      sections: renderHomeSections(homeContent, homeArticles, homeOverride ?? {}, content.applyLandingLayout),
       siteContentSeed: { key: 'site:home', content: homeOverride ?? null },
       articleSeed: homeArticles,
     },

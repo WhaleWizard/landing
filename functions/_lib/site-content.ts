@@ -1,4 +1,5 @@
 import { CONTENT_BODY_FONTS, CONTENT_TITLE_FONTS } from './content-font-ids';
+import { normalizeLandingSections } from '../../src/app/data/landingLayout';
 
 export const SERVICE_CONTENT_KEYS = [
   'service:meta-ads',
@@ -575,6 +576,9 @@ export function sanitizeServiceContent(value: unknown): UnknownRecord {
     };
   }
   if (contact) target.contact = contact;
+  for (const key of ['sectionOrder', 'hiddenSections']) {
+    if (Array.isArray(source[key])) target[key] = normalizeLandingSections(source[key]);
+  }
   return target;
 }
 
@@ -612,6 +616,9 @@ export function sanitizeHomeContent(value: unknown): UnknownRecord {
     };
   }
   if (contact) target.contact = contact;
+  for (const key of ['sectionOrder', 'hiddenSections']) {
+    if (Array.isArray(source[key])) target[key] = normalizeLandingSections(source[key]);
+  }
   return target;
 }
 

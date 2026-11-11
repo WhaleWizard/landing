@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { memo, useCallback } from 'react';
 import { useScrollTo } from './hooks/useScrollTo';
 import { useSiteSection } from '../hooks/useServiceContent';
+import { useLandingVisibility } from '../hooks/useLandingVisibility';
 import {
   managedBodyClasses,
   managedBodyStyle,
@@ -33,6 +34,7 @@ function CallToAction({ content: contentProp = defaultCallToActionContent, conte
   const content = useSiteSection(contentKey, 'callToAction', contentProp);
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 14 });
   const { scrollToWhenReady } = useScrollTo();
+  const { contact } = useLandingVisibility();
 
   const scrollToContact = useCallback(() => {
     scrollToWhenReady('contact');
@@ -70,7 +72,7 @@ function CallToAction({ content: contentProp = defaultCallToActionContent, conte
             </div>
 
             {/* Right Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full md:w-auto">
+            {contact && <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full md:w-auto">
               <Button
                 onClick={scrollToContact}
                 size="lg"
@@ -81,7 +83,7 @@ function CallToAction({ content: contentProp = defaultCallToActionContent, conte
                 <span className="relative text-center leading-tight">{content.button}</span>
                 <ArrowDown className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-y-1 transition-transform relative" />
               </Button>
-            </div>
+            </div>}
           </div>
         </m.div>
       </div>

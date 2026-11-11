@@ -8,11 +8,13 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { useLocation, useNavigationType } from 'react-router';
+import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import SEO from '../components/SEO';
-import { useSiteSection } from '../hooks/useServiceContent';
+import { useSiteContent } from '../hooks/useServiceContent';
+import { applyLandingLayout, normalizeLandingSections, type LandingLayout } from '../data/landingLayout';
+import { LandingVisibility } from '../hooks/useLandingVisibility';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { alignDeferredAnchor, precedesDeferredHashTarget } from '../utils/deferredAnchor';
 import { memoizedImport } from '../utils/memoizedImport';
@@ -29,6 +31,7 @@ const defaultHomeSeo = {
   title: 'Таргетолог Instagram и Facebook, специалист по Google Ads',
   description: 'Настраиваю и веду рекламу в Instagram, Facebook и Google для бизнеса и мобильных приложений: заявки, продажи, установки. Pixel, Conversions API, GA4 и данные CRM. Удалённо, по всему миру.',
 };
+const defaultHomeSettings: LandingLayout & { seo: typeof defaultHomeSeo } = { seo: defaultHomeSeo };
 
 const loadServices = memoizedImport(() => import('../components/Services'));
 const Services = lazy(loadServices);
@@ -191,13 +194,22 @@ function DeferredSection({
 
 export default function Home() {
   const location = useLocation();
-  const seo = useSiteSection('site:home', 'seo', defaultHomeSeo);
+  const navigate = useNavigate();
+  const layout = useSiteContent('site:home', defaultHomeSettings);
+  const { seo } = layout;
+  const contactHidden = layout.hiddenSections?.includes('contact');
+  useEffect(() => {
+    if (location.hash !== '#contact' || !contactHidden) return;
+    // Calculator and other pages can still link to the original contact anchor.
+    const { pathname, search, state } = location;
+    void navigate({ pathname, search, hash: '#social' }, { replace: true, state });
+  }, [contactHidden, location, navigate]);
   // Закрытый раздел не должен зазывать себя с главной: блок с карточками
   // вёл бы на заглушку.
   const isHiddenInNav = useIsPathHiddenInNav();
   // Порядок совпадает с порядком секций на странице: первой греется ближайшая.
   useWarmSections(HOME_SECTION_LOADERS);
-  return (
+  const page = (
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden">
       <SEO
         title={seo.title}
@@ -207,44 +219,47 @@ export default function Home() {
       <Navbar />
       <Hero contentKey="site:home" visual="cosmic" settledEntrance={hasGeneratedFirstScreen(location.pathname, location.key)} />
 
-      <DeferredSection anchorId="services" heights={{ mobile: 1000, tablet: 1674, desktop: 1596 }}>
-        <Services contentKey="site:home" />
-      </DeferredSection>
-      {!isHiddenInNav('/cases') && (
-        <DeferredSection anchorId="cases" heights={{ mobile: 1062, tablet: 1720, desktop: 1569 }}>
-          <Cases contentKey="site:home" moreHref="/cases/" />
-        </DeferredSection>
-      )}
-      <DeferredSection heights={{ mobile: 352, tablet: 351, desktop: 332 }}>
-        <CallToAction contentKey="site:home" />
-      </DeferredSection>
-      <DeferredSection anchorId="about" heights={{ mobile: 1085, tablet: 1105, desktop: 1137 }}>
-        <Testimonials contentKey="site:home" />
-      </DeferredSection>
-      {!isHiddenInNav('/blog') && (
-        <DeferredSection anchorId="blog" heights={{ mobile: 943, tablet: 1150, desktop: 1166 }}>
-          <Blog />
-        </DeferredSection>
-      )}
-
-      <section className="w-full flex justify-center py-12 md:py-16">
-        <div className="relative w-full min-w-0">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 blur-3xl opacity-40" />
-          <DeferredSection anchorId="social" heights={{ mobile: 348, tablet: 363, desktop: 353 }}>
-            <SocialBar />
+      {applyLandingLayout<ReactNode>([
+        ['services', <DeferredSection key="services" anchorId="services" heights={{ mobile: 1000, tablet: 1674, desktop: 1596 }}>
+          <Services contentKey="site:home" />
+        </DeferredSection>],
+        ['cases', !isHiddenInNav('/cases') && (
+          <DeferredSection key="cases" anchorId="cases" heights={{ mobile: 1062, tablet: 1720, desktop: 1569 }}>
+            <Cases contentKey="site:home" moreHref="/cases/" />
           </DeferredSection>
-        </div>
-      </section>
+        )],
+        ['cta', <DeferredSection key="cta" heights={{ mobile: 352, tablet: 351, desktop: 332 }}>
+          <CallToAction contentKey="site:home" />
+        </DeferredSection>],
+        ['testimonials', <DeferredSection key="about" anchorId="about" heights={{ mobile: 1085, tablet: 1105, desktop: 1137 }}>
+          <Testimonials contentKey="site:home" />
+        </DeferredSection>],
+        [null, !isHiddenInNav('/blog') && (
+          <DeferredSection key="blog" anchorId="blog" heights={{ mobile: 943, tablet: 1150, desktop: 1166 }}>
+            <Blog />
+          </DeferredSection>
+        )],
 
-      <DeferredSection anchorId="calculator-section" heights={{ mobile: 642, tablet: 679, desktop: 647 }}>
-        <CalculatorButtons />
-      </DeferredSection>
-      <DeferredSection anchorId="contact" heights={{ mobile: 1721, tablet: 1701, desktop: 1175 }}>
-        <ContactForm contentKey="site:home" />
-      </DeferredSection>
+        [null, <section key="social" className="w-full flex justify-center py-12 md:py-16">
+          <div className="relative w-full min-w-0">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 blur-3xl opacity-40" />
+            <DeferredSection anchorId="social" heights={{ mobile: 348, tablet: 363, desktop: 353 }}>
+              <SocialBar />
+            </DeferredSection>
+          </div>
+        </section>],
+
+        [null, <DeferredSection key="calculator" anchorId="calculator-section" heights={{ mobile: 642, tablet: 679, desktop: 647 }}>
+          <CalculatorButtons />
+        </DeferredSection>],
+        ['contact', <DeferredSection key="contact" anchorId="contact" heights={{ mobile: 1721, tablet: 1701, desktop: 1175 }}>
+          <ContactForm contentKey="site:home" />
+        </DeferredSection>],
+      ], layout)}
       <DeferredSection heights={{ mobile: 1049, tablet: 457, desktop: 429 }}>
         <Footer />
       </DeferredSection>
     </main>
   );
+  return <LandingVisibility.Provider value={normalizeLandingSections(layout.hiddenSections)}>{page}</LandingVisibility.Provider>;
 }

@@ -16,6 +16,8 @@ import ConsultStudioHero from '../components/service-heroes/ConsultStudioHero';
 import SEO from '../components/SEO';
 import { ABOUT_DEFAULTS, ABOUT_SECTIONS } from '../data/about';
 import { AboutBody } from './AboutPage';
+import { normalizeLandingSections } from '../data/landingLayout';
+import { LandingVisibility } from '../hooks/useLandingVisibility';
 import {
   META_APPS_TESTIMONIAL_CONTENT,
   pageConfigs,
@@ -645,13 +647,21 @@ export default function ContentPreview() {
   return (
     <>
       <SEO title="Предпросмотр редактора" description="Внутренний предпросмотр редактора сайта" url="/admin/content-preview" noIndex />
-      {payload?.page === 'about' ? (
+      {payload && !['seo', 'hero', 'aboutIntro'].includes(payload.section) && payload.content.hiddenSections?.includes(payload.section) ? (
+        <div className="ww-content-preview-page grid min-h-40 place-items-center p-6 text-center text-muted-foreground" role="status">
+          Блок скрыт в этой версии страницы
+        </div>
+      ) : payload?.page === 'about' ? (
         <div className="ww-content-preview-page" style={{ pointerEvents: 'none' }}>
           {payload.section === 'seo'
             ? <SeoPreview content={payload.content.seo} />
             : <AboutBody content={{ ...ABOUT_DEFAULTS, ...payload.content }} previewSection={payload.section} />}
         </div>
-      ) : payload ? <ContentPreviewSurface payload={payload} fontsReady={fontsReady} /> : waiting}
+      ) : payload ? (
+        <LandingVisibility.Provider value={normalizeLandingSections(payload.content.hiddenSections)}>
+          <ContentPreviewSurface payload={payload} fontsReady={fontsReady} />
+        </LandingVisibility.Provider>
+      ) : waiting}
     </>
   );
 }

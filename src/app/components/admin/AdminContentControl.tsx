@@ -62,6 +62,7 @@ import { AdminSectionSkeleton, confirmAsk } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import AdminContentPreview from './AdminContentPreview';
+import { landingSectionOrder } from '../../data/landingLayout';
 import {
   Dialog,
   DialogContent,
@@ -140,8 +141,20 @@ const SECTION_LABELS: Record<EditorSection, string> = {
   aboutInvitation: 'Приглашение к диалогу',
 };
 
-function isAboutSection(section: EditorSection): section is AboutSection {
-  return ABOUT_SECTIONS.includes(section as AboutSection);
+function isAboutSection(section: string): section is AboutSection {
+  return ABOUT_SECTIONS.some((value) => value === section);
+}
+
+function editorSectionOrder(page: EditorPage, content: EditableContent): EditorSection[] {
+  if (page !== 'about') return ['seo', 'hero', ...landingSectionOrder({ sectionOrder: content.sectionOrder })];
+  return [...new Set<EditorSection>(['seo', 'aboutIntro', ...(content.sectionOrder ?? []).filter(isAboutSection), ...ABOUT_SECTIONS])];
+}
+
+function layoutSummary(page: EditorPage, content: EditableContent): string {
+  return editorSectionOrder(page, content)
+    .filter((section) => section !== 'seo')
+    .map((section) => SECTION_LABELS[section] + (content.hiddenSections?.includes(section) ? ' (скрыт)' : ''))
+    .join(' → ');
 }
 
 function clone<T>(value: T): T {
@@ -1333,6 +1346,7 @@ export function AdminContentDiffModal({
   isOpen,
   onClose,
   pageLabel,
+  page,
   content,
   baseline,
   changedSections,
@@ -1341,6 +1355,7 @@ export function AdminContentDiffModal({
   isOpen: boolean;
   onClose: () => void;
   pageLabel: string;
+  page: EditorPage;
   content: EditableContent;
   baseline: EditableContent;
   changedSections: Set<EditorSection>;
@@ -1357,6 +1372,9 @@ export function AdminContentDiffModal({
 
   if (!isOpen) return null;
 
+  const oldLayout = layoutSummary(page, baseline);
+  const newLayout = layoutSummary(page, content);
+  const layoutChanged = oldLayout !== newLayout;
   const diffs: SectionDiff[] = Array.from(changedSections).map((sec) => {
     const baseVal = (baseline as unknown as Record<string, unknown>)[sec];
     const currVal = (content as unknown as Record<string, unknown>)[sec];
@@ -1378,7 +1396,7 @@ export function AdminContentDiffModal({
             <div>
               <h3 className="font-semibold text-base leading-tight">Сравнение изменений: {pageLabel}</h3>
               <p className="text-xs text-[var(--adm-fg)]/60 mt-0.5">
-                {diffs.length > 0 ? `Изменено блоков: ${diffs.length}` : 'Все блоки совпадают с сохранённой версией'}
+                {diffs.length > 0 ? `Изменено блоков: ${diffs.length}` : layoutChanged ? 'Изменено расположение блоков' : 'Все блоки совпадают с сохранённой версией'}
               </p>
             </div>
           </div>
@@ -1393,7 +1411,12 @@ export function AdminContentDiffModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-brand">
-          {diffs.length === 0 ? (
+          {layoutChanged && <div className="adm-inset space-y-2 p-4 text-sm">
+            <p className="font-semibold">Порядок и видимость блоков</p>
+            <p>Было — {oldLayout}</p>
+            <p>Стало — {newLayout}</p>
+          </div>}
+          {diffs.length === 0 && !layoutChanged ? (
             <div className="adm-inset p-8 text-center text-sm text-[var(--adm-fg)]/60">
               Текущее состояние полностью совпадает с сохранённой версией в базе данных. Изменений нет.
             </div>
@@ -1470,7 +1493,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   const [section, setSection] = useState<SectionPayload | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('hero');
-  const [sectionActions, setSectionActions] = useState<EditorSection | null>(null);
+  const [sectionActions, setSectionActions] = useState<string | null>(null);
   const blockEditorRef = useRef<HTMLFieldSetElement>(null);
   const selectSection = (value: EditorSection) => {
     setActiveSection(value);
@@ -1515,26 +1538,9 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
 
   const pageMeta = useMemo(() => PAGES.find((item) => item.value === page) || PAGES[0], [page]);
   // Блок отзывов есть и на страницах услуг — раньше он был только у главной.
-  const DEFAULT_SECTIONS = useMemo<EditorSection[]>(
-    () => page === 'about' ? ['seo', ...ABOUT_SECTIONS] : ['seo', 'hero', 'services', 'cases', 'cta', 'testimonials', 'contact'],
-    [page],
-  );
-
-  const availableSections = useMemo<EditorSection[]>(() => {
-    const order = (content as unknown as Record<string, unknown>).sectionOrder as EditorSection[] | undefined;
-    if (!Array.isArray(order) || order.length === 0) return DEFAULT_SECTIONS;
-    const ordered = page === 'about'
-      ? ['seo' as const, 'aboutIntro' as const, ...order.filter((s) => isAboutSection(s) && s !== 'aboutIntro')]
-      : order.filter((s) => DEFAULT_SECTIONS.includes(s));
-    DEFAULT_SECTIONS.forEach((s) => {
-      if (!ordered.includes(s)) ordered.push(s);
-    });
-    return ordered;
-  }, [DEFAULT_SECTIONS, content, page]);
-
-  const hiddenSections = useMemo<EditorSection[]>(() => {
-    return ((content as unknown as Record<string, unknown>).hiddenSections as EditorSection[] | undefined) || [];
-  }, [content]);
+  const availableSections = useMemo(() => editorSectionOrder(page, content), [content, page]);
+  const hiddenSections = content.hiddenSections ?? [];
+  const layoutChanged = layoutSummary(page, content) !== layoutSummary(page, baseline);
 
   const toggleSectionVisibility = (sec: EditorSection) => {
     const isHidden = hiddenSections.includes(sec);
@@ -1542,18 +1548,18 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       ? hiddenSections.filter((s) => s !== sec)
       : [...hiddenSections, sec];
     update(['hiddenSections'], nextHidden);
-    setNotice(isHidden ? `Секция «${SECTION_LABELS[sec]}» снова видна на сайте.` : `Секция «${SECTION_LABELS[sec]}» скрыта на сайте.`);
+    setNotice(isHidden ? `Блок «${SECTION_LABELS[sec]}» снова виден в черновике.` : `Блок «${SECTION_LABELS[sec]}» скрыт в черновике.`);
   };
 
   const moveSection = (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;
-    const firstMovable = page === 'about' ? 2 : 1;
+    const firstMovable = 2;
     if (targetIndex < firstMovable || targetIndex >= availableSections.length || index < firstMovable) return;
     const next = [...availableSections];
     const item = next[index];
     next.splice(index, 1);
     next.splice(targetIndex, 0, item);
-    update(['sectionOrder'], next);
+    update(['sectionOrder'], next.slice(firstMovable));
   };
   const isDirty = contentSignature !== baselineSignature;
   const isHydrated = hydratedKey === pageMeta.key;
@@ -1694,11 +1700,11 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   /** Тот же вопрос для любого ухода: на другую страницу, во вкладку FAQ, в другой раздел. */
   const confirmDiscardPages = useCallback((title: string) => confirmAsk({
     title,
-    description: `Несохранённые правки в блоках «${[...changedSections].map((value) => SECTION_LABELS[value]).join('», «')}» пропадут. Сначала сохраните черновик, если они нужны.`,
+    description: 'Несохранённые правки страницы останутся в локальной копии, если браузер успел её записать. Чтобы сохранить их в редакторе сайта, сохраните черновик.',
     confirmLabel: 'Перейти и потерять правки',
     cancelLabel: 'Остаться',
     tone: 'danger',
-  }), [changedSections]);
+  }), []);
 
   // Несохранённое во вкладке FAQ: AdminFaqControl регистрирует свой страж,
   // а здесь он учитывается и при переключении на «Страницы», и при уходе
@@ -1746,6 +1752,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     setVersions([]);
     setActiveSection(nextPage === 'about' ? 'aboutIntro' : 'hero');
     setNotice('');
+    setSectionActions(null);
     setPublishArmed(false);
     setVersionConflict(false);
     setPreviewSource('draft');
@@ -1958,6 +1965,34 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     void load(false, { base: baseline, backup });
   };
 
+  const renderSectionActions = (value: EditorSection, index: number, surface = 'desktop') => {
+    if (index < 2) return null;
+    const isHidden = hiddenSections.includes(value);
+    const key = `${surface}:${value}`;
+    return (
+      <Popover open={sectionActions === key} onOpenChange={(open) => setSectionActions(open ? key : null)}>
+        <PopoverTrigger asChild>
+          <button type="button" className={surface === 'mobile' ? 'admin-icon-button' : 'admin-block-nav__more'} aria-label={`Действия блока: ${SECTION_LABELS[value]}`} disabled={loading}>
+            <MoreHorizontal aria-hidden="true" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="admin-block-actions" align={surface === 'mobile' ? 'end' : 'start'} side={surface === 'mobile' ? 'bottom' : 'right'} sideOffset={8} aria-label={`Действия блока: ${SECTION_LABELS[value]}`}>
+          <p>{SECTION_LABELS[value]}</p>
+          <button type="button" onClick={() => { toggleSectionVisibility(value); setSectionActions(null); }}>
+            {isHidden ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
+            {isHidden ? 'Показать блок' : 'Скрыть блок'}
+          </button>
+          <button type="button" onClick={() => { moveSection(index, -1); setSectionActions(null); }} disabled={index <= 2}>
+            <ArrowUp aria-hidden="true" /> Переместить выше
+          </button>
+          <button type="button" onClick={() => { moveSection(index, 1); setSectionActions(null); }} disabled={index >= availableSections.length - 1}>
+            <ArrowDown aria-hidden="true" /> Переместить ниже
+          </button>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   const contentModeSwitch = (
     <div className="admin-segmented admin-content-mode" role="group" aria-label="Тип контента">
       <button type="button" aria-pressed={contentMode === 'pages'} onClick={() => { void switchContentMode('pages'); }}>Страницы</button>
@@ -1997,7 +2032,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
           </span>
           {isDirty ? (
             <span className="admin-state admin-state--warning">
-              Не сохранено: {[...changedSections].map((value) => SECTION_LABELS[value]).join(', ')}
+              Не сохранено: {[...changedSections].map((value) => SECTION_LABELS[value]).concat(layoutChanged ? ['Порядок и видимость'] : []).join(', ')}
             </span>
           ) : <span className="admin-state">{isHydrated ? 'Редактор синхронизирован' : 'Редактор пока недоступен'}</span>}
           {buildState.status === 'requested' && buildState.pagePath === pageMeta.path ? (
@@ -2172,45 +2207,18 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
                       </span>
                     </button>
 
-                    {value !== 'seo' && value !== 'aboutIntro' && (
-                      <Popover open={sectionActions === value} onOpenChange={(open) => setSectionActions(open ? value : null)}>
-                        <PopoverTrigger asChild>
-                          <button type="button" className="admin-block-nav__more" aria-label={`Действия блока: ${SECTION_LABELS[value]}`}>
-                            <MoreHorizontal aria-hidden="true" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="admin-block-actions" align="start" side="right" sideOffset={8} aria-label={`Действия блока: ${SECTION_LABELS[value]}`}>
-                        <p>{SECTION_LABELS[value]}</p>
-                        <button
-                          type="button"
-                          onClick={() => { toggleSectionVisibility(value); setSectionActions(null); }}
-                        >
-                          {isHidden ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
-                          {isHidden ? 'Показать на сайте' : 'Скрыть на сайте'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { moveSection(index, -1); setSectionActions(null); }}
-                          disabled={index <= (page === 'about' ? 2 : 1)}
-                        >
-                          <ArrowUp aria-hidden="true" /> Переместить выше
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { moveSection(index, 1); setSectionActions(null); }}
-                          disabled={index >= availableSections.length - 1}
-                        >
-                          <ArrowDown aria-hidden="true" /> Переместить ниже
-                        </button>
-                        </PopoverContent>
-                      </Popover>
-                    )}
+                    {renderSectionActions(value, index)}
                   </div>
                 );
               })}
             </nav>
             <div className="admin-block-nav-mobile">
-              <AdminSelect label="Редактируемый блок" value={activeSection} options={availableSections.map((value, index) => ({ value, label: value === 'seo' ? `SEO · ${SECTION_LABELS[value]}` : `${index}. ${SECTION_LABELS[value]}` }))} onValueChange={(value) => selectSection(value as EditorSection)} />
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <AdminSelect label="Редактируемый блок" value={activeSection} options={availableSections.map((value, index) => ({ value, label: value === 'seo' ? `SEO · ${SECTION_LABELS[value]}` : `${index}. ${SECTION_LABELS[value]}` }))} onValueChange={(value) => selectSection(value as EditorSection)} />
+                </div>
+                {renderSectionActions(activeSection, availableSections.indexOf(activeSection), 'mobile')}
+              </div>
             </div>
 
             <fieldset ref={blockEditorRef} className="admin-block-editor admin-editor-fields" disabled={loading}>
@@ -2571,6 +2579,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         isOpen={diffOpen}
         onClose={() => setDiffOpen(false)}
         pageLabel={pageMeta.label}
+        page={page}
         content={content}
         baseline={baseline}
         changedSections={changedSections}

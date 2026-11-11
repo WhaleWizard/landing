@@ -18,6 +18,30 @@ async function bundleTypeScript(path) {
 
 const siteContentModule = bundleTypeScript('functions/_lib/site-content.ts');
 
+test('landing layouts preserve known sections and remove pinned and duplicate entries', async () => {
+  const { sanitizeSiteContent, safeSiteJsonObject } = await siteContentModule;
+  const input = {
+    sectionOrder: ['seo', 'hero', 'contact', 'services', 'contact'],
+    hiddenSections: ['hero', 'cases', 'aboutIntro', 'cases'],
+  };
+  const expected = { sectionOrder: ['contact', 'services'], hiddenSections: ['cases'] };
+  for (const key of ['site:home', 'service:meta-ads', 'service:meta-apps', 'service:google-ads', 'service:consult']) {
+    assert.deepEqual(sanitizeSiteContent(key, input), expected, key);
+    assert.deepEqual(safeSiteJsonObject(key, JSON.stringify(input)), expected, key);
+    assert.deepEqual(sanitizeSiteContent(key, { hiddenSections: [] }), { hiddenSections: [] }, key);
+  }
+});
+
+test('landing layout preserves default positions and keeps ancillary slots when sections move', async () => {
+  const { applyLandingLayout } = await bundleTypeScript('src/app/data/landingLayout.ts');
+  const slots = [['services', 'Услуги'], ['cases', 'Кейсы'], [null, 'Справка'], ['contact', 'Форма']];
+  assert.deepEqual(applyLandingLayout(slots, {}), ['Услуги', 'Кейсы', 'Справка', 'Форма']);
+  assert.deepEqual(
+    applyLandingLayout(slots, { sectionOrder: ['contact', 'contact', 'services'], hiddenSections: ['cases'] }),
+    ['Форма', 'Услуги', 'Справка'],
+  );
+});
+
 function legacyMetaAdsCases() {
   return {
     badge: 'С чем чаще всего приходят',

@@ -3,6 +3,7 @@ import ConsultDeskScene from './ConsultDeskScene';
 import type { HeroContent } from '../../types/hero';
 import HeroTitleEffect, { resolveHeroTitleLines } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
+import { useLandingVisibility } from '../../hooks/useLandingVisibility';
 import { Button } from '../ui/button';
 import {
   managedBodyClasses,
@@ -24,6 +25,7 @@ type ConsultStudioHeroProps = {
 
 function ConsultStudioHero({ content, settledEntrance: _settledEntrance = false }: ConsultStudioHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
+  const visible = useLandingVisibility();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 17 });
@@ -120,8 +122,8 @@ function ConsultStudioHero({ content, settledEntrance: _settledEntrance = false 
             ))}
           </div>
 
-          <div className="consult-studio-hero__actions">
-            <Button
+          {(visible.contact || visible.cases) && <div className="consult-studio-hero__actions">
+            {visible.contact && <Button
               type="button"
               size="lg"
               onClick={() => scrollTo('contact')}
@@ -129,8 +131,8 @@ function ConsultStudioHero({ content, settledEntrance: _settledEntrance = false 
             >
               <span>{content.primaryButton}</span>
               <ArrowRight aria-hidden="true" />
-            </Button>
-            <Button
+            </Button>}
+            {visible.cases && <Button
               type="button"
               size="lg"
               variant="outline"
@@ -138,8 +140,8 @@ function ConsultStudioHero({ content, settledEntrance: _settledEntrance = false 
               className="consult-studio-hero__secondary"
             >
               {content.secondaryButton}
-            </Button>
-          </div>
+            </Button>}
+          </div>}
 
           <div className="consult-studio-hero__proof" aria-label="Формат консультации">
             {content.stats.map((stat, index) => (

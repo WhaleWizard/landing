@@ -15,6 +15,7 @@ import {
   withMobileTitleLines,
 } from '../utils/contentTypography';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { useLandingVisibility } from '../hooks/useLandingVisibility';
 import { useTouchDevice } from '../hooks/useTouchDevice';
 import HeroTitleEffect, {
   resolveHeroTitleLines,
@@ -299,6 +300,8 @@ const LeftContent = memo(({
   statsClassName = '',
 }: LeftContentProps) => {
   const isHiddenInNav = useIsPathHiddenInNav();
+  const visible = useLandingVisibility();
+  const showCases = visible.cases && !isHiddenInNav('/cases');
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(content.typography), { minFontSize: 14 });
   const titleAnimation = content.titleAnimation || {};
   return (
@@ -415,8 +418,8 @@ const LeftContent = memo(({
       ))}
     </div>
 
-    <div className={`flex flex-col sm:flex-row gap-3 md:gap-4 ${mobileFirst ? 'meta-apps-hero-actions' : ''}`}>
-      <Button
+    {(visible.contact || showCases) && <div className={`flex flex-col sm:flex-row gap-3 md:gap-4 ${mobileFirst ? 'meta-apps-hero-actions' : ''}`}>
+      {visible.contact && <Button
         size="lg"
         asChild
         className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
@@ -426,8 +429,8 @@ const LeftContent = memo(({
         <span className="relative text-center leading-tight">{content.primaryButton}</span>
         <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform relative" />
         </a>
-      </Button>
-      {!isHiddenInNav('/cases') && (
+      </Button>}
+      {showCases && (
         <Button
           size="lg"
           variant="outline"
@@ -439,7 +442,7 @@ const LeftContent = memo(({
           </a>
         </Button>
       )}
-    </div>
+    </div>}
 
     {statsVariant === 'default' && <StatsRow stats={content.stats} settledEntrance={settledEntrance} google={google} />}
     {statsVariant === 'meta-apps' && (

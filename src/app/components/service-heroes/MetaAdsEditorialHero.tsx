@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import type { HeroContent } from '../../types/hero';
 import HeroTitleEffect, { resolveHeroTitleLines } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
+import { useLandingVisibility } from '../../hooks/useLandingVisibility';
 import { Button } from '../ui/button';
 import { PlatformMark, PlatformStrip } from '../brand/PlatformMark';
 import {
@@ -57,6 +58,7 @@ const proofCases = [
 
 function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = false }: MetaAdsEditorialHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
+  const visible = useLandingVisibility();
   const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
   const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 13 });
@@ -140,8 +142,8 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
             ))}
           </div>
 
-          <div className="meta-editorial-hero__actions">
-            <Button
+          {(visible.contact || visible.cases) && <div className="meta-editorial-hero__actions">
+            {visible.contact && <Button
               asChild
               size="lg"
               className="meta-editorial-hero__primary"
@@ -150,8 +152,8 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                 <span>{content.primaryButton}</span>
                 <ArrowRight aria-hidden="true" />
               </a>
-            </Button>
-            <Button
+            </Button>}
+            {visible.cases && <Button
               asChild
               size="lg"
               variant="outline"
@@ -160,8 +162,8 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
               <a href="#cases" onClick={(event) => { event.preventDefault(); scrollTo('cases'); }}>
                 {content.secondaryButton}
               </a>
-            </Button>
-          </div>
+            </Button>}
+          </div>}
 
           <div
             className="meta-editorial-hero__proof meta-editorial-hero__proof--desktop"

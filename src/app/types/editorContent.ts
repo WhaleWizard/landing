@@ -14,6 +14,8 @@ export type IntroContent = {
 };
 
 export type EditableContent = {
+  sectionOrder?: string[];
+  hiddenSections?: string[];
   seo: { title: string; description: string };
   hero: {
     badge: string;

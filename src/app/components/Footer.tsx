@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
 import { withReturnTo } from '../utils/siteNavigation';
 import { useIsPathHiddenInNav } from '../utils/pageLocks';
+import { useLandingVisibility } from '../hooks/useLandingVisibility';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import WhaleMark from './brand/WhaleMark';
 import { PlatformMark, type Platform, type PlatformTone } from './brand/PlatformMark';
@@ -41,6 +42,7 @@ function Footer() {
   // исключение: их требуют и закон, и модерация рекламных кабинетов, поэтому
   // они остаются на месте, даже если страницу временно закрыли.
   const isHiddenInNav = useIsPathHiddenInNav();
+  const visible = useLandingVisibility();
   const footerRef = useRef<HTMLElement>(null);
   // Состояние осталось одно и меняется один раз: «подвал уже показывали».
   // Дальше сеть следит за своей видимостью сама, и прокрутка мимо подвала
@@ -184,16 +186,16 @@ function Footer() {
             </h3>
 
             <ul className={footerListClass}>
-              <li>
+              {visible.about && <li>
                 <button
                   onClick={() => scrollToSection('about')}
                   className={footerLinkClass}
                 >
                   Отзывы
                 </button>
-              </li>
+              </li>}
 
-              {!isHiddenInNav('/cases') && (
+              {visible.cases && !isHiddenInNav('/cases') && (
                 <li>
                   <button
                     onClick={() => scrollToSection('cases')}
@@ -243,14 +245,14 @@ function Footer() {
                 </li>
               )}
 
-              <li>
+              {visible.contact && <li>
                 <button
                   onClick={() => scrollToSection('contact')}
                   className={footerLinkClass}
                 >
                   Контакты
                 </button>
-              </li>
+              </li>}
               {!isHiddenInNav('/about') && (
                 <li>
                   <Link to="/about/" state={linkState} className={footerLinkClass}>

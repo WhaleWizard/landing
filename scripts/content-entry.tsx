@@ -27,4 +27,5 @@ export { BLOG_PAGE_SIZE } from '../src/app/utils/blogListing';
 export { renderRoute, SSR_ROUTES, SSR_ARTICLE_ROUTE, isSsrArticleRoute, articleVersion } from './ssr-entry';
 export { correctLegacyArticleSeo } from '../functions/_lib/article-seo-legacy';
 export { serviceSearchContent } from '../src/app/data/serviceSearchContent';
+export { applyLandingLayout } from '../src/app/data/landingLayout';
 export { renderSitemapXml } from '../functions/_lib/seo';

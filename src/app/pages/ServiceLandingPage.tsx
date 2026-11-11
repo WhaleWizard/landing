@@ -9,6 +9,8 @@ import type { CasesContent } from '../components/Cases';
 import type { CallToActionContent } from '../components/CallToAction';
 import type { TestimonialsContent } from '../components/Testimonials';
 import useServiceContent from '../hooks/useServiceContent';
+import { applyLandingLayout, normalizeLandingSections, type LandingLayout } from '../data/landingLayout';
+import { LandingVisibility } from '../hooks/useLandingVisibility';
 import { useAmbientVisibility } from '../components/hooks/useAmbientVisibility';
 import { onUserScrollIntent } from '../utils/scrollRestoration';
 import { preloadable } from '../utils/preloadable';
@@ -1096,7 +1098,7 @@ export function serviceThemeStyle(service: ServiceType): CSSProperties {
 }
 
 export function ServiceLandingPage({ service }: { service: ServiceType }) {
-  const config = useServiceContent(service, pageConfigs[service]);
+  const config = useServiceContent<typeof pageConfigs[ServiceType] & LandingLayout>(service, pageConfigs[service]);
   const theme = themes[service];
   const cssVars = serviceThemeStyle(service);
   const location = useLocation();
@@ -1131,7 +1133,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
     };
   }, [theme]);
 
-  return (
+  const page = (
     <main className="marketing-typography min-h-screen bg-background text-foreground overflow-x-hidden" style={cssVars}>
       <SEO {...config.seo} />
       <Navbar variant="service" />
@@ -1152,64 +1154,67 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
 
       {/* Высоты повторяют адаптивную геометрию секций до их монтирования:
           подвал — 1070/430, кейсы — 1050/1730 на mobile/desktop. */}
-      <DeferredSection
-        anchorId="services"
-        heights={{ mobile: 1075, tablet: 1585, desktop: 1585 }}
-      >
-        <Services content={config.services} platformTone={service === 'google-ads' ? 'color' : 'white'} />
-      </DeferredSection>
-      <DeferredSection
-        anchorId="cases"
-        heights={{ mobile: 1050, tablet: 1730, desktop: 1730 }}
-      >
-        <Cases
-          content={config.cases}
-          moreHref={`/cases/?from=${service}`}
-        />
-      </DeferredSection>
-      <section aria-labelledby="service-practice-title" className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 md:py-12">
-        <div className="rounded-3xl border border-border bg-card/40 p-5 sm:p-8">
-          <h2 id="service-practice-title" className="text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            {serviceSearchContent[service].title}
-          </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            {serviceSearchContent[service].description}
-          </p>
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-            {serviceSearchContent[service].links.map(({ href, label }) => (
-              <li key={href}>
-                <Link to={href} className="flex min-h-11 items-center rounded-xl border border-border px-3 py-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-      <DeferredSection heights={{ mobile: 410, tablet: 390, desktop: 371 }}>
-        <CallToAction content={config.cta} />
-      </DeferredSection>
-      <DeferredSection
-        anchorId="about"
-        heights={{ mobile: 1120, tablet: 1124, desktop: 1124 }}
-      >
-        <Testimonials
-          content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined}
-          contentKey={`service:${service}`}
-        />
-      </DeferredSection>
-      <DeferredSection
-        anchorId="contact"
-        // На 320px форма Meta Apps фактически занимает ~1870px из-за
-        // переносов полей/согласия. Общая мобильная заглушка 1555px была
-        // достаточна для 390px, но давала скачок страницы на узких телефонах.
-        heights={{ mobile: 1555, mobileNarrow: 1900, tablet: 1450, desktop: 1030 }}
-      >
-        <ContactSection service={service} contact={config.contact} theme={theme} />
-      </DeferredSection>
+      {applyLandingLayout<ReactNode>([
+        ['services', <DeferredSection key="services"
+          anchorId="services"
+          heights={{ mobile: 1075, tablet: 1585, desktop: 1585 }}
+        >
+          <Services content={config.services} platformTone={service === 'google-ads' ? 'color' : 'white'} />
+        </DeferredSection>],
+        ['cases', <DeferredSection key="cases"
+          anchorId="cases"
+          heights={{ mobile: 1050, tablet: 1730, desktop: 1730 }}
+        >
+          <Cases
+            content={config.cases}
+            moreHref={`/cases/?from=${service}`}
+          />
+        </DeferredSection>],
+        [null, <section key="practice" aria-labelledby="service-practice-title" className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 md:py-12">
+          <div className="rounded-3xl border border-border bg-card/40 p-5 sm:p-8">
+            <h2 id="service-practice-title" className="text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {serviceSearchContent[service].title}
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              {serviceSearchContent[service].description}
+            </p>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {serviceSearchContent[service].links.map(({ href, label }) => (
+                <li key={href}>
+                  <Link to={href} className="flex min-h-11 items-center rounded-xl border border-border px-3 py-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>],
+        ['cta', <DeferredSection key="cta" heights={{ mobile: 410, tablet: 390, desktop: 371 }}>
+          <CallToAction content={config.cta} />
+        </DeferredSection>],
+        ['testimonials', <DeferredSection key="about"
+          anchorId="about"
+          heights={{ mobile: 1120, tablet: 1124, desktop: 1124 }}
+        >
+          <Testimonials
+            content={service === 'meta-apps' ? META_APPS_TESTIMONIAL_CONTENT : undefined}
+            contentKey={`service:${service}`}
+          />
+        </DeferredSection>],
+        ['contact', <DeferredSection key="contact"
+          anchorId="contact"
+          // На 320px форма Meta Apps фактически занимает ~1870px из-за
+          // переносов полей/согласия. Общая мобильная заглушка 1555px была
+          // достаточна для 390px, но давала скачок страницы на узких телефонах.
+          heights={{ mobile: 1555, mobileNarrow: 1900, tablet: 1450, desktop: 1030 }}
+        >
+          <ContactSection service={service} contact={config.contact} theme={theme} />
+        </DeferredSection>],
+      ], config)}
       <DeferredSection heights={{ mobile: 1070, tablet: 700, desktop: 430 }}>
         <Footer />
       </DeferredSection>
     </main>
   );
+  return <LandingVisibility.Provider value={normalizeLandingSections(config.hiddenSections)}>{page}</LandingVisibility.Provider>;
 }

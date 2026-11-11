@@ -192,9 +192,9 @@ test('F-003: blog and cases filters ask the router not to reset scroll', async (
 
 test('F-044: home menu items for cases and blog disappear together with a closed section', async () => {
   const source = lf(await readFile(src('components/Navbar.tsx'), 'utf8'));
-  assert.ok(source.includes("{ label: 'Кейсы', action: () => scrollToSection('cases'), routePath: '/cases' }"));
+  assert.match(source, /label: 'Кейсы'[^\n]+scrollToSection\('cases'\)[^\n]+routePath: '\/cases'/);
   assert.ok(source.includes("{ label: 'Блог', action: () => scrollToSection('blog'), routePath: '/blog' }"));
-  assert.ok(source.includes('allNavItems.filter((item) => !item.routePath || !isHiddenInNav(item.routePath))'));
+  assert.ok(source.includes('!item.routePath || !isHiddenInNav(item.routePath)'));
   const home = lf(await readFile(src('pages/Home.tsx'), 'utf8'));
   assert.ok(home.includes("!isHiddenInNav('/cases')") && home.includes("!isHiddenInNav('/blog')"), 'the sections the menu scrolls to are hidden by the same rule');
 });

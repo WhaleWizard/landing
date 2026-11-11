@@ -77,6 +77,27 @@ test('server-rendered home shows the real hero, published text and visible, link
   assert.ok(document.querySelectorAll('[data-home-placeholder]').length >= 8);
 });
 
+test('published section layout controls SSR order and removes links to hidden targets', async () => {
+  for (const [route, key] of [['/', 'site:home'], ['/meta-ads', 'service:meta-ads'], ['/consult', 'service:consult']]) {
+    const html = await renderRoute(route, {
+      siteContent: {
+        key,
+        content: {
+          hero: homeOverride.hero,
+          sectionOrder: ['testimonials', 'services'],
+          hiddenSections: ['cases', 'contact'],
+        },
+      },
+    });
+    const { document } = parseHTML(html);
+    assert.equal(document.querySelectorAll('h1').length, 1, route);
+    const anchors = [...document.querySelectorAll('main [id]')].map((node) => node.id);
+    assert.ok(anchors.indexOf('about') >= 0 && anchors.indexOf('about') < anchors.indexOf('services'), route);
+    assert.equal(document.querySelector('#cases, #contact, a[href="#cases"], a[href="#contact"]'), null, route);
+    assert.doesNotMatch(document.querySelector('#hero').textContent, /Обсудить|Кейсы/, route);
+  }
+});
+
 test('every marketing route renders a visible hero without entrance styles or bundled asset URLs', async () => {
   const marketingRoutes = ['/', '/meta-ads', '/meta-apps', '/google-ads', '/consult'];
   for (const route of marketingRoutes) {

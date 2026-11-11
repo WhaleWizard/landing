@@ -8,6 +8,7 @@ import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { withReturnTo } from '../utils/siteNavigation';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { useDialogFocus } from './hooks/useDialogFocus';
+import { useLandingVisibility } from '../hooks/useLandingVisibility';
 
 type NavbarVariant = 'home' | 'service' | 'content';
 
@@ -36,6 +37,7 @@ interface NavbarProps {
 
 type NavItem = {
   label: string;
+  anchor?: keyof ReturnType<typeof useLandingVisibility>;
   action: () => void;
   preloadRoute?: string;
   /** Куда ведёт пункт. Ссылка на закрытую страницу из меню убирается. */
@@ -215,11 +217,12 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
     : 'Whale Wizard — вернуться на страницу, с которой вы пришли';
 
   const isHiddenInNav = useIsPathHiddenInNav();
+  const visible = useLandingVisibility();
   const allNavItems: NavItem[] = variant === 'service'
     ? [
-      { label: 'Услуги', action: () => scrollToSection('services') },
-      { label: 'Кейсы', action: () => scrollToSection('cases') },
-      { label: 'Отзывы', action: () => scrollToSection('about') },
+      { label: 'Услуги', anchor: 'services', action: () => scrollToSection('services') },
+      { label: 'Кейсы', anchor: 'cases', action: () => scrollToSection('cases') },
+      { label: 'Отзывы', anchor: 'about', action: () => scrollToSection('about') },
       // Со страниц услуг раньше не было выхода в контентные разделы:
       // все пункты вели на якоря внутри той же страницы.
       { label: 'Все кейсы', href: `/cases/?from=${serviceFromKey(location.pathname)}`, action: () => { navigate(`/cases/?from=${serviceFromKey(location.pathname)}`, { state: withReturnTo(location) }); setIsMobileMenuOpen(false); }, preloadRoute: '/cases', routePath: '/cases' },
@@ -238,20 +241,22 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
         { label: 'Контакты', action: () => scrollToSection(sectionsPath === '/' ? 'social' : 'contact'), preloadRoute: sectionsPath },
       ]
       : [
-        { label: 'Услуги', action: () => scrollToSection('services') },
+        { label: 'Услуги', anchor: 'services', action: () => scrollToSection('services') },
         // Секции «Кейсы» и «Блог» на главной пропадают вместе с закрытием
         // /cases и /blog (Home.tsx). Пункт меню без routePath оставался и
         // прокручивал к секции, которой нет, — нажатие ничего не делало.
-        { label: 'Кейсы', action: () => scrollToSection('cases'), routePath: '/cases' },
+        { label: 'Кейсы', anchor: 'cases', action: () => scrollToSection('cases'), routePath: '/cases' },
         { label: 'Блог', action: () => scrollToSection('blog'), routePath: '/blog' },
-        { label: 'Отзывы', action: () => scrollToSection('about') },
+        { label: 'Отзывы', anchor: 'about', action: () => scrollToSection('about') },
         { label: 'FAQ', href: '/faq/', action: () => navigate('/faq/', { state: withReturnTo(location) }), preloadRoute: '/faq', routePath: '/faq' },
         { label: 'Контакты', action: () => scrollToSection('social') },
         { label: 'Калькулятор', action: () => scrollToSection('calculator-section') },
       ];
 
   // Вести из меню на закрытую страницу незачем: человек упрётся в заглушку.
-  const navItems = allNavItems.filter((item) => !item.routePath || !isHiddenInNav(item.routePath));
+  const navItems = allNavItems.filter((item) =>
+    (!item.anchor || visible[item.anchor]) && (!item.routePath || !isHiddenInNav(item.routePath)),
+  );
 
   return (
     <>
@@ -320,14 +325,14 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
                   </button>
                 );
               })}
-              <Button
+              {visible.contact && <Button
                 onClick={() => scrollToSection('contact')}
                 data-route-preload={undefined}
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
                 <span className="relative">Обсудить проект</span>
-              </Button>
+              </Button>}
             </div>
               </ClientOnly>
             ) : (
@@ -372,14 +377,14 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
                   </button>
                 );
               })}
-              <Button
+              {visible.contact && <Button
                 onClick={() => scrollToSection('contact')}
                 data-route-preload={undefined}
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all group relative overflow-hidden shadow-lg shadow-primary/30"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
                 <span className="relative">Обсудить проект</span>
-              </Button>
+              </Button>}
             </div>
             )}
 
@@ -485,7 +490,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
                 })}
               </nav>
 
-              <div className="border-t border-border/60 p-4">
+              {visible.contact && <div className="border-t border-border/60 p-4">
                 <Button
                   onClick={() => {
                     // scrollToSection сам сначала отпускает mobile-lock и
@@ -501,7 +506,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
                   <span className="relative">Обсудить проект</span>
                 </Button>
-              </div>
+              </div>}
             </div>
           </div>
       )}

@@ -4,6 +4,7 @@ import { useState, useRef, memo, useCallback, lazy, Suspense, useEffect, type CS
 import { useNavigate } from 'react-router';
 import Modal from './Modal';
 import { useSiteSection } from '../hooks/useServiceContent';
+import { useLandingVisibility } from '../hooks/useLandingVisibility';
 import {
   managedBodyClasses,
   managedBodyStyle,
@@ -142,6 +143,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
   platformTone?: PlatformTone;
 }) {
   const sectionContent = useSiteSection(contentKey, 'services', content ?? defaultServicesContent);
+  const { contact } = useLandingVisibility();
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(sectionContent.typography), { minFontSize: 16 });
   const serviceCards = sectionContent.cards;
   const modalContent = sectionContent.detailed;
@@ -526,7 +528,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
         </div>
 
         {/* Кнопка внизу попапа (адаптивная) */}
-        <div className="mt-8 pt-6 border-t border-border/50 flex justify-center">
+        {contact && <div className="mt-8 pt-6 border-t border-border/50 flex justify-center">
           <button
             onClick={scrollToContact}
             className="group relative inline-flex items-center justify-center gap-2 sm:gap-3 px-4 py-2 sm:px-8 sm:py-3 rounded-xl font-semibold text-white 
@@ -537,7 +539,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
             <span className="relative text-center leading-tight">{modalContent.button}</span>
             <span className="relative group-hover:translate-x-1 transition-transform">→</span>
           </button>
-        </div>
+        </div>}
       </Modal>
     </>
   );
