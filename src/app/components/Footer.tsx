@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, lazy, Suspense, type ReactNode } from 'react';
+import { MessageCircle } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { openCookieSettings, trackContact } from '../consent/consent';
 import { withReturnTo } from '../utils/siteNavigation';
@@ -6,7 +7,7 @@ import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { useLandingVisibility } from '../hooks/useLandingVisibility';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import WhaleMark from './brand/WhaleMark';
-import { PlatformMark, type Platform, type PlatformTone } from './brand/PlatformMark';
+import { PlatformMark } from './brand/PlatformMark';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -23,11 +24,11 @@ const footerContactLinkClass =
 const footerLegalLinkClass =
   'inline-flex min-h-6 sm:h-5 py-1 -my-1 sm:py-0 sm:my-0 items-center text-sm font-semibold leading-none hover:text-primary transition-colors relative group';
 
-function FooterServiceLabel({ label, platform, tone }: { label: string; platform?: Platform; tone?: PlatformTone }) {
+function FooterServiceLabel({ label, icon }: { label: string; icon: ReactNode }) {
   return (
     <span className="grid grid-cols-[14px_minmax(0,1fr)] items-start gap-2">
       <span className="flex h-5 items-center" aria-hidden="true">
-        {platform && <PlatformMark platform={platform} tone={tone} size={14} />}
+        {icon}
       </span>
       <span>{label}</span>
     </span>
@@ -150,28 +151,28 @@ function Footer() {
               {!isHiddenInNav('/meta-ads') && (
                 <li>
                   <Link to="/meta-ads/" state={linkState} className={footerLinkClass}>
-                    <FooterServiceLabel label="Meta Ads — Facebook и Instagram" platform="meta" tone={platformTone} />
+                    <FooterServiceLabel label="Meta Ads — Facebook и Instagram" icon={<PlatformMark platform="meta" tone={platformTone} size={14} />} />
                   </Link>
                 </li>
               )}
               {!isHiddenInNav('/meta-apps') && (
                 <li>
                   <Link to="/meta-apps/" state={linkState} className={footerLinkClass}>
-                    <FooterServiceLabel label="Продвижение приложений" platform="appstore" tone={platformTone} />
+                    <FooterServiceLabel label="Продвижение приложений" icon={<PlatformMark platform="appstore" tone={platformTone} size={14} />} />
                   </Link>
                 </li>
               )}
               {!isHiddenInNav('/google-ads') && (
                 <li>
                   <Link to="/google-ads/" state={linkState} className={footerLinkClass}>
-                    <FooterServiceLabel label="Google Ads" platform="ads" tone={platformTone} />
+                    <FooterServiceLabel label="Google Ads" icon={<PlatformMark platform="ads" tone={platformTone} size={14} />} />
                   </Link>
                 </li>
               )}
               {!isHiddenInNav('/consult') && (
                 <li>
                   <Link to="/consult/" state={linkState} className={footerLinkClass}>
-                    <FooterServiceLabel label="Консультация" />
+                    <FooterServiceLabel label="Консультация" icon={<MessageCircle size={14} className="text-[#e9edf9]" />} />
                   </Link>
                 </li>
               )}
