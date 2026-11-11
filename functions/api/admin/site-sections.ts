@@ -291,6 +291,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       success: true,
       version: version + 1,
       status: body.action === 'publish' ? 'published' : 'draft',
+      content,
       ...(seoBuild ? { seoBuild } : {}),
       globalPurgeConfigured: Boolean(env.CF_ZONE_ID && env.CF_CACHE_PURGE_TOKEN),
     }, { headers: noStore });

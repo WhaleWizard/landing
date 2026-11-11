@@ -1209,6 +1209,23 @@ export function siteContentBackupKey(pageKey: string): string {
   return `${SITE_CONTENT_BACKUP_PREFIX}${pageKey}`;
 }
 
+function mergeConcurrentEdits(base: unknown, local: unknown, latest: unknown): { value: unknown; conflict: boolean } {
+  if (JSON.stringify(base) === JSON.stringify(local)) return { value: latest, conflict: false };
+  if (JSON.stringify(base) === JSON.stringify(latest) || JSON.stringify(local) === JSON.stringify(latest)) {
+    return { value: local, conflict: false };
+  }
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value);
+  // Порядок карточек и строки заголовка сверяются целиком: индексы могли поменяться.
+  if (!isRecord(base) || !isRecord(local) || !isRecord(latest)) return { value: local, conflict: true };
+  const keys = new Set([...Object.keys(latest), ...Object.keys(local), ...Object.keys(base)]);
+  const fields = [...keys].map((key) => [key, mergeConcurrentEdits(base[key], local[key], latest[key])] as const);
+  return {
+    value: Object.fromEntries(fields.filter(([, field]) => field.value !== undefined).map(([key, field]) => [key, field.value])),
+    conflict: fields.some(([, field]) => field.conflict),
+  };
+}
+
 export function parseSiteContentBackup(raw: string | null): SiteContentBackup | null {
   if (!raw) return null;
   try {
@@ -1471,6 +1488,14 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
   const [buildState, setBuildState] = useState<PagesBuildState>(() => readSavedBuildState());
   const [activeBackup, setActiveBackup] = useState<SiteContentBackup | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
+  const [versionConflict, setVersionConflict] = useState(false);
+  const [previewSource, setPreviewSource] = useState<'draft' | 'published'>('draft');
+  const publishedContent = useMemo(() => {
+    const defaults = editableDefaults(page);
+    return section?.publishedVersion != null
+      ? mergeContent(defaults, normalizeStored(page, section.published))
+      : defaults;
+  }, [page, section]);
 
   // Счётчик живёт здесь: кнопку повтора нажимают в настройках эффекта,
   // а перезапускать анимацию надо в кадре предпросмотра.
@@ -1570,7 +1595,10 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     });
   }, [availableSections, content, searchQuery]);
 
-  const load = useCallback(async (preserveNotice = false): Promise<boolean> => {
+  const load = useCallback(async (preserveNotice = false, recovery?: {
+    base: EditableContent;
+    backup: SiteContentBackup;
+  }): Promise<boolean> => {
     const requestId = ++loadSequence.current;
     const contentAtRequest = JSON.stringify(contentRef.current);
     setLoading(true);
@@ -1603,6 +1631,31 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       setContent(next);
       setBaseline(next);
       setHydratedKey(pageMeta.key);
+      setVersionConflict(false);
+
+      if (recovery) {
+        const merged = mergeConcurrentEdits(recovery.base, recovery.backup.content, next);
+        const combined = merged.value as EditableContent;
+        if (merged.conflict) {
+          const review = { ...recovery.backup, content: combined };
+          setActiveBackup(review);
+          try {
+            localStorage.setItem(siteContentBackupKey(pageMeta.key), JSON.stringify(review));
+          } catch {
+            // The recovery remains available in this editor.
+          }
+          setNotice('Обе вкладки меняли одни и те же поля или списки. Загружена свежая версия. Откройте локальную копию, чтобы сверить свои значения.');
+        } else {
+          const hasEdits = JSON.stringify(combined) !== JSON.stringify(next);
+          setContent(combined);
+          setActiveBackup(null);
+          setDiffOpen(hasEdits);
+          setNotice(hasEdits
+            ? 'Загружена свежая версия. Ваши правки добавлены к ней в редакторе. Проверьте изменения перед сохранением.'
+            : 'Загружена свежая версия. Она уже содержит ваши правки.');
+        }
+        return true;
+      }
 
       try {
         const stored = parseSiteContentBackup(localStorage.getItem(siteContentBackupKey(pageMeta.key)));
@@ -1694,6 +1747,8 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     setActiveSection(nextPage === 'about' ? 'aboutIntro' : 'hero');
     setNotice('');
     setPublishArmed(false);
+    setVersionConflict(false);
+    setPreviewSource('draft');
     setHydratedKey(null);
     setActiveBackup(null);
   };
@@ -1777,12 +1832,35 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       const payload = await response.json().catch(() => null) as {
         success?: boolean;
         error?: string;
+        code?: string;
         version?: number;
+        content?: Record<string, unknown>;
         seoBuild?: { configured?: boolean; triggered?: boolean; error?: string };
       } | null;
+      if (response.status === 409 && payload?.code === 'SITE_CONTENT_CONFLICT') {
+        setVersionConflict(true);
+        setPublishArmed(false);
+        setNotice('В другой вкладке сохранена более свежая версия. Загрузите её, чтобы сверить правки.');
+        return;
+      }
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       if (typeof payload.version === 'number' && savedVersion.current?.key === pageMeta.key) {
         savedVersion.current = { key: pageMeta.key, version: payload.version };
+        const version = payload.version;
+        const draft = payload.content ?? serializeContent(page, savedContent);
+        const published = action === 'publish';
+        setBaseline(mergeContent(editableDefaults(page), normalizeStored(page, draft)));
+        setSection((current) => ({
+          key: pageMeta.key,
+          pagePath: pageMeta.path,
+          label: pageMeta.label,
+          draft,
+          published: published ? draft : current?.published ?? {},
+          publishedVersion: published ? version : current?.publishedVersion ?? null,
+          publishedAt: current?.publishedAt,
+          status: published ? 'published' : 'draft',
+          version,
+        }));
       }
       setPublishArmed(false);
       let savedNotice = 'Черновик сохранён. Публичная версия не изменилась.';
@@ -1837,7 +1915,12 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         body: JSON.stringify({ action: 'restore', key: pageMeta.key, versionId,
           expectedVersion: savedVersion.current?.key === pageMeta.key ? savedVersion.current.version : undefined }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; version?: number } | null;
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; code?: string; version?: number } | null;
+      if (response.status === 409 && payload?.code === 'SITE_CONTENT_CONFLICT') {
+        setVersionConflict(true);
+        setNotice('В другой вкладке сохранена более свежая версия. Обновите редактор перед восстановлением из истории.');
+        return;
+      }
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       if (typeof payload.version === 'number' && savedVersion.current?.key === pageMeta.key) {
         savedVersion.current = { key: pageMeta.key, version: payload.version };
@@ -1853,6 +1936,26 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     } finally {
       setLoading(false);
     }
+  };
+
+  const recoverVersionConflict = () => {
+    if (!isDirty) {
+      void load();
+      return;
+    }
+    const backup = {
+      key: pageMeta.key,
+      page,
+      label: pageMeta.label,
+      content: clone(contentRef.current),
+      savedAt: Date.now(),
+    };
+    try {
+      localStorage.setItem(siteContentBackupKey(pageMeta.key), JSON.stringify(backup));
+    } catch {
+      // The snapshot is also passed in memory, including when storage is blocked.
+    }
+    void load(false, { base: baseline, backup });
   };
 
   const contentModeSwitch = (
@@ -1944,6 +2047,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
               onClick={() => {
                 setContent(activeBackup.content);
                 setActiveBackup(null);
+                setDiffOpen(true);
                 setNotice('Локальный черновик восстановлен в редакторе.');
               }}
             >
@@ -1972,7 +2076,18 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
           сайт продолжает показывать версию из кода, а сохранение здесь работать не будет.
         </div>
       ) : null}
-      {notice ? <div className="admin-notice" role="status" aria-live="polite">{notice}</div> : null}
+      {notice || versionConflict ? (
+        <div className="admin-notice" role="status" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-3">
+            <span>{notice}</span>
+            {versionConflict ? (
+              <button className="admin-button admin-button--secondary admin-button--compact" type="button" disabled={loading} onClick={recoverVersionConflict}>
+                <RefreshCw aria-hidden="true" /> Загрузить свежую версию
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {!isHydrated ? (
         <section className="admin-card" aria-busy={loading}>
@@ -1989,7 +2104,15 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
           )}
         </section>
       ) : <>
-      <AdminContentPreview page={page} section={activeSection} content={content} replayKey={replayKey} />
+      <AdminContentPreview
+        page={page}
+        section={activeSection}
+        content={previewSource === 'published' ? publishedContent : content}
+        replayKey={replayKey}
+        source={previewSource}
+        onSourceChange={setPreviewSource}
+        publishedVersion={section?.publishedVersion}
+      />
 
       <div className="admin-content-layout">
         <section className="admin-card admin-content-editor">

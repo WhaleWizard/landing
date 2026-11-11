@@ -2057,7 +2057,8 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
 
 /* Предпросмотр догоняет набор текста с небольшой задержкой — говорим об этом. */
 .admin-root .admin-site-preview__sync {
-  flex: none;
+  display: inline-block;
+  margin-bottom: 5px;
   padding: 3px 9px;
   border: 1px solid var(--adm-border-subtle);
   border-radius: 999px;
@@ -2175,6 +2176,11 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
     padding: 7px;
   }
 
+  .admin-root .admin-site-preview__source {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
   .admin-root .admin-icon-toggle.admin-site-preview__devices {
     grid-column: 1 / -1;
     display: grid;
@@ -2192,11 +2198,6 @@ body[data-admin-theme] .admin-font-grid > .admin-muted {
   .admin-root .admin-site-preview__resolution {
     min-width: 0;
     text-wrap: balance;
-  }
-
-  .admin-root .admin-site-preview__sync {
-    grid-column: 1 / -1;
-    justify-self: start;
   }
 
   .admin-root .admin-site-preview__stage,

@@ -173,12 +173,18 @@ export default function AdminContentPreview({
   section,
   content,
   replayKey,
+  source,
+  onSourceChange,
+  publishedVersion,
 }: {
   page: EditorPage;
   section: EditorSection;
   content: EditableContent;
   /** Растёт по кнопке «Показать ещё раз» в настройках эффекта. */
   replayKey: number;
+  source: 'draft' | 'published';
+  onSourceChange: (source: 'draft' | 'published') => void;
+  publishedVersion?: number | null;
 }) {
   const [presetId, setPresetId] = useState<PreviewPresetId>('laptop');
   const [zoom, setZoom] = useState<PreviewZoom>('fit');
@@ -239,7 +245,12 @@ export default function AdminContentPreview({
     >
       <div className="admin-site-preview__header">
         <div>
-          <p className="admin-eyebrow">Так увидит посетитель</p>
+          {collapsed ? null : (
+            <span className={`admin-site-preview__sync${pending ? ' is-pending' : ''}`} role="status" aria-live="polite">
+              {pending ? 'Обновляю…' : source === 'draft' ? 'Текст из редактора'
+                : publishedVersion != null ? `Опубликовано · v${publishedVersion}` : 'Исходный текст сайта'}
+            </span>
+          )}
           <h3 className="admin-card-title">Точный предпросмотр</h3>
           <p className="admin-meta">Реальная вёрстка и переносы страницы. Ничего публиковать для проверки не нужно.</p>
         </div>
@@ -267,6 +278,14 @@ export default function AdminContentPreview({
 
       {collapsed ? null : (
       <div className="admin-site-preview__toolbar">
+        <div className="admin-segmented admin-site-preview__source" role="group" aria-label="Версия предпросмотра">
+          <button type="button" aria-pressed={source === 'draft'} onClick={() => onSourceChange('draft')}>
+            Черновик
+          </button>
+          <button type="button" aria-pressed={source === 'published'} onClick={() => onSourceChange('published')}>
+            На сайте
+          </button>
+        </div>
         <div className="admin-icon-toggle admin-site-preview__devices" role="group" aria-label="Ширина предпросмотра">
           {PREVIEW_PRESETS.map((item) => {
             const Icon = item.icon;
@@ -294,9 +313,6 @@ export default function AdminContentPreview({
         </div>
         <span className="admin-site-preview__resolution" aria-live="polite">
           {preset.width} × {preset.height} px
-        </span>
-        <span className={`admin-site-preview__sync${pending ? ' is-pending' : ''}`} role="status" aria-live="polite">
-          {pending ? 'Обновляю…' : 'Показан текущий текст'}
         </span>
       </div>
       )}
