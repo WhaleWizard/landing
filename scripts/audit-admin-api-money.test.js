@@ -957,22 +957,60 @@ test('F-089: у публикации с заявками без строки п�
   t.after(installMemoryCache());
   const sqlite = freshDatabase();
   sqlite.prepare("INSERT INTO page_stats_daily (day, page_path, views) VALUES (date('now'), '/blog/with-views', 100)").run();
-  insertLead(sqlite, { name: 'A', page_path: '/blog/with-views' });
+  insertLead(sqlite, { name: 'A', page_path: '/blog/with-views', marketing_consent: 1 });
   insertLead(sqlite, { name: 'B', page_path: '/blog/with-views' });
   insertLead(sqlite, { name: 'C', page_path: '/blog/no-consent-views' });
 
   const content = await harness('functions/api/admin/content-stats.ts', { sqlite });
   const { status, payload } = await content.get({ days: 30 });
   assert.equal(status, 200, JSON.stringify(payload));
-  const byPath = new Map(payload.pages.map((page) => [page.path, page]));
-  assert.deepEqual(byPath.get('/blog/with-views'), { path: '/blog/with-views', views: 100, leads: 2, conversion: 2 });
-  assert.deepEqual(byPath.get('/blog/no-consent-views'), { path: '/blog/no-consent-views', views: null, leads: 1, conversion: null },
+  const bySlug = new Map(payload.pages.map((page) => [page.slug, page]));
+  assert.deepEqual(bySlug.get('with-views'), { slug: 'with-views', views: 100, leads: 2, conversion: 1 });
+  assert.deepEqual(bySlug.get('no-consent-views'), { slug: 'no-consent-views', views: null, leads: 1, conversion: null },
     'заявки есть, просмотров нет в статистике — это пробел в данных, не ноль');
   assert.ok(payload.notes.some((note) => /маркетинговые cookie/.test(note)), 'заметка про согласие');
 
   const attribution = await harness('functions/api/admin/attribution.ts', { sqlite });
   const funnel = (await attribution.get({ days: 30 })).payload;
   assert.ok(funnel.limitations.some((note) => note.startsWith('Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie')), 'оговорка в воронке');
+});
+
+test('publication stats keep category history, UTC conversion and local lead totals at the period boundaries', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-11T20:30:00Z') });
+  const sqlite = freshDatabase();
+  sqlite.exec(`INSERT INTO page_stats_daily (day,page_path,views) VALUES
+    ('2026-11-04','/blog/moved',200), ('2026-11-05','/blog/moved/',40),
+    ('2026-11-11','/cases/moved',60), ('2026-11-12','/cases/moved',300),
+    ('2026-11-11','/blog/moved/nested',500), ('2026-11-11','/blog/empty',0)`);
+  insertLead(sqlite, { created_at: '2026-11-05 18:59:00', page_path: '/blog/moved', marketing_consent: 1 });
+  insertLead(sqlite, { created_at: '2026-11-05 19:00:00', page_path: '/blog/moved/?ref=1', marketing_consent: 1 });
+  insertLead(sqlite, { created_at: '2026-11-11 10:00:00', page_path: '/cases/moved', marketing_consent: 0 });
+  insertLead(sqlite, { created_at: '2026-11-12 18:59:00', page_path: '/cases/moved', marketing_consent: 1 });
+  insertLead(sqlite, { created_at: '2026-11-12 19:00:00', page_path: '/cases/moved', marketing_consent: 1 });
+  insertLead(sqlite, { created_at: '2026-11-11 14:00:00', page_path: '/cases/moved', marketing_consent: 1, deleted_at: '2026-11-11 15:00:00' });
+  const content = await harness('functions/api/admin/content-stats.ts', { sqlite });
+  const query = { days: 7, timezone_offset: TASHKENT_OFFSET };
+  const result = await content.get(query);
+  assert.equal(result.status, 200, JSON.stringify(result.payload));
+  assert.deepEqual(result.payload.pages, [
+    { slug: 'moved', views: 100, leads: 3, conversion: 2 },
+    { slug: 'empty', views: 0, leads: 0, conversion: null },
+  ]);
+
+  const legacy = new DatabaseSync(':memory:');
+  t.after(() => legacy.close());
+  legacy.exec(`CREATE TABLE leads (page_path TEXT, created_at TEXT);
+    CREATE TABLE page_stats_daily (day TEXT, page_path TEXT, views INTEGER);
+    INSERT INTO page_stats_daily VALUES ('2026-11-11','/blog/moved',25);`);
+  const legacyContent = await harness('functions/api/admin/content-stats.ts', { sqlite: legacy });
+  const withoutConsent = (await legacyContent.get(query)).payload;
+  assert.deepEqual(withoutConsent.coverage, { pageStats: true, leads: true, consent: false });
+  assert.deepEqual(withoutConsent.pages, [{ slug: 'moved', views: 25, leads: 0, conversion: null }]);
+  legacy.exec('DROP TABLE leads');
+  const withoutLeads = (await legacyContent.get(query)).payload;
+  assert.deepEqual(withoutLeads.coverage, { pageStats: true, leads: false, consent: false });
+  assert.deepEqual(withoutLeads.pages, [{ slug: 'moved', views: 25, leads: null, conversion: null }]);
 });
 
 test('attribution and spend use the local window, with a consent-matched page rate over UTC days', async (t) => {

@@ -11387,9 +11387,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   min-width: 0;
   font-size: var(--adm-text-base);
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 .admin-root .content-perf__numbers {
@@ -11561,11 +11560,30 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 @media (max-width: 640px) {
+  .admin-root .content-perf .adm-card__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .admin-root .content-perf .adm-card__head button {
+    min-width: 44px;
+  }
+
   .admin-root .content-perf__list button {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .admin-root .content-perf__list button > svg:last-child { display: none; }
+  .admin-root .content-perf__numbers {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+  }
+
+  .admin-root .content-perf__list button > svg:last-child {
+    grid-column: 2;
+    grid-row: 1;
+  }
 
   .admin-root .seo-assistant__list li {
     grid-template-columns: auto minmax(0, 1fr);

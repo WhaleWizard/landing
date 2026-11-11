@@ -36,6 +36,7 @@ import { appendImageUpload, prepareImageUpload } from '../utils/prepareImageUplo
 import { ARTICLE_CATEGORY_VALUES, sectionForCategory, sectionOfArticle, BLOG_SECTIONS } from '../data/blogSections';
 import { withPlural } from '../utils/plural';
 import { articleImageAttributes } from '../utils/articleImages';
+import { isCaseArticle } from '../utils/articleCategory';
 import type { Article, CaseData } from '../components/hooks/useArticlesApi';
 import { AdminSelect } from '../components/admin/AdminUI';
 import { AdminConfirmProvider, AdminSectionSkeleton, AdminToaster, notify, useConfirm } from '../components/admin/AdminFeedback';
@@ -2811,7 +2812,7 @@ export default function Admin() {
                   <ContentPerformance
                     password={password}
                     articles={articles}
-                    onOpen={openArticleForEdit}
+                    onOpen={openArticleFromPalette}
                   />
                 </div>
               </details>
@@ -2868,13 +2869,13 @@ export default function Admin() {
                         onClick={() => window.open(
                           // Кейсы живут на /cases: раньше кнопка всегда вела на /blog
                           // и для кейса открывала несуществующий адрес.
-                          `${editingArticle.category === CASES_CATEGORY ? '/cases' : '/blog'}/${editingArticle.slug}`,
+                          `${isCaseArticle(editingArticle) ? '/cases' : '/blog'}/${editingArticle.slug}`,
                           '_blank',
                           'noopener,noreferrer',
                         )}
                         className="inline-flex items-center gap-2 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-card)] px-3 py-2 text-sm text-[var(--adm-fg)] hover:bg-[var(--adm-muted)]/50"
                       >
-                        <ExternalLink className="h-4 w-4" /> {editingArticle.category === CASES_CATEGORY ? 'Открыть кейс' : 'Открыть статью'}
+                        <ExternalLink className="h-4 w-4" /> {isCaseArticle(editingArticle) ? 'Открыть кейс' : 'Открыть статью'}
                       </button>
                     )}
                   </div>

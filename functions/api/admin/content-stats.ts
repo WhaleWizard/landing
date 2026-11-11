@@ -2,22 +2,17 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
+import { localTodayIsoFromOffset, sqliteLocalModifier, timezoneOffsetFromRequest } from '../../_lib/local-day';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
-interface PageRow {
-  path: string;
-  /** null — «нет данных»: статистика просмотров этой страницы не записана. */
+interface PublicationCounts {
+  slug: string;
   views: number | null;
-  leads: number;
-  conversion: number | null;
-}
-
-function number(value: unknown): number {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
+  leads: number | null;
+  consentedLeads: number | null;
 }
 
 function boundedDays(request: Request): number {
@@ -33,14 +28,9 @@ async function tableExists(db: D1Database, name: string): Promise<boolean> {
   return Boolean(row?.name);
 }
 
-/** Только страницы публикаций: остальные разрезы живут в разделе «Воронка». */
-function isPublicationPath(path: string): boolean {
-  return /^\/(blog|cases)\/[^/]+\/?$/.test(path);
-}
-
-function normalizePath(path: string): string {
-  const clean = String(path || '').split('?')[0].split('#')[0];
-  return clean.length > 1 && clean.endsWith('/') ? clean.slice(0, -1) : clean;
+/** Slug остаётся прежним при переносе между блогом и кейсами. */
+function publicationSlug(path: string): string | undefined {
+  return /^\/(?:blog|cases)\/([^/]+)\/?$/.exec(path.split(/[?#]/, 1)[0])?.[1];
 }
 
 /**
@@ -66,6 +56,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const db = env.DB;
   const days = boundedDays(request);
   const modifier = `-${days - 1} day`;
+  const offset = timezoneOffsetFromRequest(request);
+  const localToday = localTodayIsoFromOffset(offset);
+  const utcToday = localTodayIsoFromOffset(0);
+  const localModifier = sqliteLocalModifier(offset);
 
   try {
     const [hasPageStats, hasLeads] = await Promise.all([
@@ -73,73 +67,84 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       tableExists(db, 'leads'),
     ]);
 
-    const views = new Map<string, number>();
+    const publications = new Map<string, PublicationCounts>();
+    const statsFor = (slug: string): PublicationCounts => {
+      const stored = publications.get(slug);
+      if (stored) return stored;
+      const counts = { slug, views: null, leads: null, consentedLeads: null };
+      publications.set(slug, counts);
+      return counts;
+    };
+
     if (hasPageStats) {
       const rows = await db.prepare(`
         SELECT page_path, SUM(views) AS views
         FROM page_stats_daily
-        WHERE day >= date('now', ?)
+        WHERE day BETWEEN date(?, ?) AND ?
           AND (page_path LIKE '/blog/%' OR page_path LIKE '/cases/%')
         GROUP BY page_path
-        ORDER BY views DESC
-        LIMIT 500
-      `).bind(modifier).all<{ page_path: string; views: number }>();
+      `).bind(utcToday, modifier, utcToday).all<{ page_path: string; views: number }>();
       for (const row of rows.results || []) {
-        const path = normalizePath(row.page_path);
-        if (isPublicationPath(path)) views.set(path, number(row.views));
+        const slug = publicationSlug(row.page_path);
+        if (!slug) continue;
+        const stats = statsFor(slug);
+        stats.views = (stats.views ?? 0) + row.views;
       }
     }
 
-    const leads = new Map<string, number>();
     let leadsAvailable = false;
+    let consentAvailable = false;
     if (hasLeads) {
       const columns = await getLeadsColumns(db);
       leadsAvailable = columns.has('page_path') && columns.has('created_at');
       if (leadsAvailable) {
+        consentAvailable = columns.has('marketing_consent');
         const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
         const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
+        const localWindow = `date(${timeColumn}, ?) BETWEEN date(?, ?) AND ?`;
+        const utcWindow = `date(${timeColumn}) BETWEEN date(?, ?) AND ?`;
+        const localParams = [localModifier, localToday, modifier, localToday];
+        const utcParams = [utcToday, modifier, utcToday];
+        const eligible = consentAvailable ? `marketing_consent = 1 AND ${utcWindow}` : '';
         const rows = await db.prepare(`
-          SELECT page_path, COUNT(*) AS leads
+          SELECT page_path, SUM(CASE WHEN ${localWindow} THEN 1 ELSE 0 END) AS leads,
+            ${eligible ? `SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)` : 'NULL'} AS consented_leads
           FROM leads
-          WHERE date(${timeColumn}) >= date('now', ?)
-            AND TRIM(COALESCE(page_path, '')) != ''
+          WHERE (${localWindow}${eligible ? ` OR (${eligible})` : ''})
             AND (page_path LIKE '/blog/%' OR page_path LIKE '/cases/%')
             AND ${activeCond}
           GROUP BY page_path
-          LIMIT 500
-        `).bind(modifier).all<{ page_path: string; leads: number }>();
+        `).bind(...localParams, ...(eligible ? utcParams : []), ...localParams, ...(eligible ? utcParams : []))
+          .all<{ page_path: string; leads: number; consented_leads: number | null }>();
         for (const row of rows.results || []) {
-          const path = normalizePath(row.page_path);
-          if (isPublicationPath(path)) leads.set(path, number(row.leads));
+          const slug = publicationSlug(row.page_path);
+          if (!slug) continue;
+          const stats = statsFor(slug);
+          stats.leads = (stats.leads ?? 0) + row.leads;
+          if (row.consented_leads !== null) {
+            stats.consentedLeads = (stats.consentedLeads ?? 0) + row.consented_leads;
+          }
         }
       }
     }
 
-    const paths = new Set([...views.keys(), ...leads.keys()]);
-    const pages: PageRow[] = [...paths].map((path) => {
-      // Страница с заявками, но без строки просмотров — это не «ноль
-      // просмотров», а пробел в данных: просмотры пишутся только у тех, кто
-      // разрешил маркетинговые cookie, заявка — у всех. Ноль здесь обещал бы
-      // конверсию выше ста процентов и врал бы про трафик.
-      const pageViews = views.has(path) ? (views.get(path) as number) : null;
-      const pageLeads = leads.get(path) || 0;
-      return {
-        path,
-        views: pageViews,
-        leads: pageLeads,
-        conversion: pageViews !== null && pageViews > 0 ? Math.round((pageLeads / pageViews) * 10_000) / 100 : null,
-      };
-    }).sort((a, b) => b.leads - a.leads || (b.views ?? -1) - (a.views ?? -1));
+    const pages = [...publications.values()].map(({ slug, views, leads, consentedLeads }) => ({
+      slug,
+      views,
+      leads: leadsAvailable ? leads ?? 0 : null,
+      conversion: consentAvailable && views !== null && views > 0
+        ? Math.round(((consentedLeads ?? 0) / views) * 10_000) / 100
+        : null,
+    })).sort((a, b) => (b.leads ?? -1) - (a.leads ?? -1) || (b.views ?? -1) - (a.views ?? -1));
 
     return json({
       success: true,
       days,
       pages,
-      coverage: { pageStats: hasPageStats, leads: leadsAvailable },
+      coverage: { pageStats: hasPageStats, leads: leadsAvailable, consent: consentAvailable },
       notes: [
-        'Заявка засчитывается публикации, если это была страница входа в форму — то есть человек оставил заявку именно с неё.',
-        'Просмотры и заявки берутся за один и тот же период, поэтому свежая статья выглядит скромнее старой просто из-за возраста.',
-        'Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie. Посетители из ЕС/UK/CH, которые отказались или не ответили на баннер, в знаменатель не попадают, заявки же считаются у всех. Поэтому конверсия страниц может быть завышена, а у страницы с заявками и без просмотров стоит «нет данных», а не ноль.',
+        'Все заявки считаются по местным датам. Конверсия сравнивает просмотры и заявки с согласием на маркетинговые cookie за одинаковые дни UTC.',
+        'У недавно вышедших материалов было меньше времени собрать просмотры и заявки за выбранный период.',
       ],
     }, { headers: noStore });
   } catch (error) {
