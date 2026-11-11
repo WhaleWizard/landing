@@ -2071,7 +2071,8 @@ export default function Admin() {
    * черновик, который владелец дописывает своими словами и публикует сам.
    */
   const createCaseFromClient = async (payload: { caseData: CaseData; outline: string; title: string }) => {
-    if (!(await confirmLeaveEditor())) return;
+    if (!(await confirmLeaveSection()) || !(await confirmLeaveEditor())) return false;
+    setWorkspaceTarget(undefined);
     setAdminSectionFilter('cases');
     setAdminView('articles');
     openArticleEditor({
@@ -2094,6 +2095,7 @@ export default function Admin() {
       caseData: payload.caseData,
     }, { dirty: true });
     notify.success('Черновик кейса собран', 'Цифры подставлены — допишите историю и опубликуйте');
+    return true;
   };
 
   const openArticleFromPalette = useCallback(async (article: Article) => {

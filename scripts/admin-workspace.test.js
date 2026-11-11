@@ -168,6 +168,16 @@ test("partial receipts, replay, overpayment, closing reminder, and correction sh
   assert.equal(i.status, "paid");
   assert.equal(shared.invoiceReceived(i), 1200);
   assert.equal(sqlite.prepare("SELECT done FROM client_tasks").get().done, 1);
+  const reminder = sqlite.prepare("SELECT * FROM client_tasks").get();
+  await assert.rejects(
+    logic.workspaceMutation(db, { action: "remind_invoice", invoice_id: id, due_at: today }, today),
+    /нет задолженности/,
+  );
+  await assert.rejects(
+    logic.workspaceMutation(db, { ...reminder, action: "save_task", done: false }, today),
+    /Обновите данные/,
+  );
+  assert.equal(sqlite.prepare("SELECT done FROM client_tasks").get().done, 1);
   await logic.workspaceMutation(
     db,
     {
@@ -181,6 +191,46 @@ test("partial receipts, replay, overpayment, closing reminder, and correction sh
   assert.equal(i.status, "issued");
   assert.equal(shared.invoiceOutstanding(i), 600);
   assert.equal(i.payments.length, 2);
+  sqlite.close();
+});
+
+test("concurrent payment retries return the recorded payment and reject changed details", async () => {
+  const { sqlite, db } = create();
+  const { id } = await invoice(db, client(sqlite));
+  const payload = { action: "record_payment", invoice_id: id, amount: 600, paid_on: today, note: "Первый платёж", request_key: randomUUID() };
+  const [first, retry] = await Promise.all([
+    logic.workspaceMutation(db, payload, today),
+    logic.workspaceMutation(db, payload, today),
+  ]);
+  assert.equal(first.paymentId, retry.paymentId);
+  const secondKey = randomUUID();
+  const pair = await Promise.allSettled([
+    logic.workspaceMutation(db, { ...payload, request_key: secondKey }, today),
+    logic.workspaceMutation(db, { ...payload, request_key: secondKey, note: "Изменённое примечание" }, today),
+  ]);
+  assert.equal(pair.filter((result) => result.status === 'fulfilled').length, 1);
+  assert.match(pair.find((result) => result.status === 'rejected').reason.message, /другие данные/);
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM invoice_payments").get().n, 2);
+  sqlite.close();
+});
+
+test("concurrent conversion of one lead resolves to the same client", async () => {
+  const { sqlite, db } = create();
+  const api = await load("functions/api/admin/clients.ts");
+  const leadId = Number(sqlite.prepare("INSERT INTO leads (event_id, name, email, phone, status) VALUES ('lead-conversion', 'Проверка', '', '', 'new')").run().lastInsertRowid);
+  const call = () => api.onRequestPost({
+    env: { DB: db, ADMIN_PASSWORD: 'audit-test' },
+    request: new Request("https://example.test/api/admin/clients", {
+      method: "POST", headers: { "X-Admin-Password": "audit-test", "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create", lead_id: leadId, name: "Связанный клиент" }),
+    }),
+  });
+  const responses = await Promise.all([call(), call()]);
+  const saved = await responses.find((response) => response.status === 200)?.json();
+  const repeated = await responses.find((response) => response.status === 409)?.json();
+  assert.ok(saved?.id);
+  assert.equal(repeated?.clientId, saved.id);
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM clients WHERE lead_id=?").get(leadId).n, 1);
   sqlite.close();
 });
 test("database rejects race overpayment and mismatched client/work", async () => {

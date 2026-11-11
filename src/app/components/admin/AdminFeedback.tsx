@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Toaster, toast } from 'sonner';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 import WhaleMark from '../brand/WhaleMark';
+import AdminOverlay from './AdminOverlay';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 
 /**
@@ -84,7 +85,7 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      {state && (
+      {state && <AdminOverlay>
         <div
           className={`admin-confirm${state.options.tone === 'danger' ? ' admin-confirm--danger' : ''}`}
           role="alertdialog"
@@ -117,7 +118,7 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-      )}
+      </AdminOverlay>}
     </>
   );
 }

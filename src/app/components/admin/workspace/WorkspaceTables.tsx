@@ -148,7 +148,7 @@ export function TaskList({
             <input
               type="checkbox"
               checked={Boolean(t.done)}
-              disabled={store.busy}
+              disabled={store.busy || Boolean(t.done && t.invoice_id && data.invoices.find((invoice) => invoice.id === t.invoice_id)?.status !== "issued")}
               aria-label={`Выполнено: ${t.title}`}
               onChange={(e) =>
                 void store.mutate(

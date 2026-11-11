@@ -295,7 +295,9 @@ export async function workspaceMutation(
       checkChanges(
         await db
           .prepare(
-            "UPDATE client_tasks SET title=?,due_at=?,done=?,note=?,revision=revision+1,updated_at=datetime('now') WHERE id=? AND revision=? AND client_id=? AND work_id IS ?",
+            `UPDATE client_tasks SET title=?,due_at=?,done=?,note=?,revision=revision+1,updated_at=datetime('now')
+             WHERE id=? AND revision=? AND client_id=? AND work_id IS ?
+               AND (invoice_id IS NULL OR ?=1 OR EXISTS (SELECT 1 FROM invoices WHERE id=client_tasks.invoice_id AND status='issued'))`,
           )
           .bind(
             title,
@@ -306,6 +308,7 @@ export async function workspaceMutation(
             body.revision,
             clientId,
             workId,
+            done,
           )
           .run(),
       );
@@ -327,27 +330,25 @@ export async function workspaceMutation(
   }
   if (action === "remind_invoice") {
     const id = positiveId(body.invoice_id);
-    const inv = (await readLedgerInvoices(db)).find((i) => i.id === id);
-    if (!inv || !inv.client_id)
-      throw new WorkspaceError("Сначала привяжите счёт к клиенту");
-    if (invoiceOutstanding(inv) <= 0)
-      throw new WorkspaceError("У этого счёта нет задолженности");
     const day = strictDate(body.due_at, false);
     if (day! < today)
       throw new WorkspaceError("Выберите сегодня или будущую дату");
-    await db
+    const result = await db
       .prepare(
-        `INSERT INTO client_tasks(client_id,work_id,invoice_id,title,due_at) VALUES(?,?,?,?,?)
+        `INSERT INTO client_tasks(client_id,work_id,invoice_id,title,due_at)
+        SELECT client_id,work_id,id,'Уточнить оплату счёта ' || COALESCE(NULLIF(number,''),'#' || id),?
+        FROM invoices WHERE id=? AND client_id IS NOT NULL AND status='issued'
+          AND CAST(round(amount * 100) AS INTEGER) > COALESCE(
+            (SELECT sum(amount_cents) FROM invoice_payments WHERE invoice_id=invoices.id AND voided_at IS NULL),0)
       ON CONFLICT(invoice_id) WHERE invoice_id IS NOT NULL DO UPDATE SET title=excluded.title,due_at=excluded.due_at,done=0,revision=client_tasks.revision+1,updated_at=datetime('now')`,
       )
-      .bind(
-        inv.client_id,
-        inv.work_id || null,
-        id,
-        `Уточнить оплату счёта ${inv.number || "#" + id}`,
-        day,
-      )
+      .bind(day, id)
       .run();
+    if (!result.meta?.changes) {
+      const row = await db.prepare("SELECT client_id FROM invoices WHERE id=?").bind(id).first<{ client_id: number | null }>();
+      if (!row?.client_id) throw new WorkspaceError("Сначала привяжите счёт к клиенту");
+      throw new WorkspaceError("У этого счёта нет задолженности");
+    }
     return { success: true };
   }
   if (action === "record_payment" || action === "mark_paid") {
@@ -355,10 +356,8 @@ export async function workspaceMutation(
     const inv = (await readLedgerInvoices(db)).find((i) => i.id === id);
     if (!inv) throw new WorkspaceError("Счёт не найден", 404);
     const key = requestKey(body.request_key);
-    const existing = await db
-      .prepare("SELECT * FROM invoice_payments WHERE request_key=?")
-      .bind(key)
-      .first<WorkPayment>();
+    const readPayment = () => db.prepare("SELECT * FROM invoice_payments WHERE request_key=?").bind(key).first<WorkPayment>();
+    const existing = await readPayment();
     const amount =
       action === "mark_paid"
         ? existing
@@ -370,15 +369,18 @@ export async function workspaceMutation(
       throw new WorkspaceError(
         "Будущее поступление нельзя записать как полученное",
       );
-    if (existing) {
+    const note = textValue(body.note, 500);
+    const replay = (payment: WorkPayment) => {
       if (
-        existing.invoice_id !== id ||
-        existing.amount_cents !== Math.round(amount * 100) ||
-        existing.paid_on !== day
+        payment.invoice_id !== id ||
+        (action !== "mark_paid" && payment.amount_cents !== Math.round(amount * 100)) ||
+        payment.paid_on !== day ||
+        payment.note !== note
       )
         throw new WorkspaceError("Повтор операции содержит другие данные", 409);
-      return { success: true, paymentId: existing.id };
-    }
+      return { success: true, paymentId: payment.id };
+    };
+    if (existing) return replay(existing);
     if (amount <= 0 || amount > invoiceOutstanding(inv))
       throw new WorkspaceError(
         "Сумма должна быть больше нуля и не превышать остаток",
@@ -387,8 +389,13 @@ export async function workspaceMutation(
       .prepare(
         "INSERT OR IGNORE INTO invoice_payments(invoice_id,amount_cents,paid_on,note,request_key) VALUES(?,?,?,?,?)",
       )
-      .bind(id, Math.round(amount * 100), day, textValue(body.note, 500), key)
+      .bind(id, Math.round(amount * 100), day, note, key)
       .run();
+    if (result.meta?.changes === 0) {
+      const competing = await readPayment();
+      if (competing) return replay(competing);
+      throw new WorkspaceError("Оплата не записана. Обновите счёт и повторите.", 409);
+    }
     return { success: true, paymentId: result.meta?.last_row_id };
   }
   if (action === "void_payment") {

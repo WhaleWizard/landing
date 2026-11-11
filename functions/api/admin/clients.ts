@@ -532,16 +532,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!String(values[0] || '').trim()) {
         return json({ success: false, error: 'Без имени клиента карточка бессмысленна' }, { status: 400, headers: noStore });
       }
-      if (leadId) {
-        const existing = await db.prepare('SELECT id FROM clients WHERE lead_id = ?').bind(leadId).first<{ id: number }>();
-        if (existing) {
-          return json({ success: false, error: 'Из этой сделки клиент уже заведён', clientId: existing.id }, { status: 409, headers: noStore });
-        }
-      }
       const allColumns = ['lead_id', ...columns, 'finished_at'];
       const result = await db.prepare(
-        `INSERT INTO clients (${allColumns.join(', ')}) VALUES (${allColumns.map(() => '?').join(', ')})`,
-      ).bind(leadId, ...values, finishedAtValue(status, finishedAt, todayIso)).run() as { meta?: { last_row_id?: number } };
+        `INSERT INTO clients (${allColumns.join(', ')}) VALUES (${allColumns.map(() => '?').join(', ')})
+         ON CONFLICT(lead_id) WHERE lead_id IS NOT NULL DO NOTHING`,
+      ).bind(leadId, ...values, finishedAtValue(status, finishedAt, todayIso)).run();
+      if (leadId && result.meta?.changes === 0) {
+        const existing = await db.prepare('SELECT id FROM clients WHERE lead_id = ?').bind(leadId).first<{ id: number }>();
+        return json({ success: false, error: 'Из этой сделки клиент уже заведён', clientId: existing?.id }, { status: 409, headers: noStore });
+      }
       return json({ success: true, id: result.meta?.last_row_id || 0 }, { headers: noStore });
     }
 

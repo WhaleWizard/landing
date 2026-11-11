@@ -785,13 +785,17 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
       setClientLink({ id: Number(payload.id || 0), name: lead.name });
 
       if (draft && draft.pipeline_stage !== 'won') {
-        await post({
+        const won = await post({
           action: 'update_lead', action_id: crypto.randomUUID(), expected_revision: draft.crm_revision,
           pipeline_stage: 'won', priority: draft.priority, lead_score: draft.lead_score,
           next_action_at: toUtcIso(draft.next_action_at), next_action_text: draft.next_action_text,
           deal_value: dealValue.value, deal_currency: draft.deal_currency,
           loss_reason: draft.loss_reason, notes: draft.notes,
         }, 'Сделка переведена в «Выиграны».');
+        if (!won) {
+          notify.info('Карточка клиента создана', 'Этап сделки не сохранился. Обновите сделку и установите «Выиграна» в карточке.');
+          return;
+        }
       }
 
       notify.success('Клиент заведён', 'Карточка ждёт в разделе «Клиенты» — заполните чек и договор.');

@@ -1,5 +1,5 @@
 import AdminOverlay from './AdminOverlay';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowRight, Briefcase, Info, X } from 'lucide-react';
 import { AdminButton } from './AdminUI';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
@@ -28,7 +28,7 @@ interface Props {
   clientNiche: string;
   months: ClientMonthInput[];
   onClose: () => void;
-  onCreate: (payload: { caseData: CaseDataDraft; outline: string; title: string }) => void;
+  onCreate: (payload: { caseData: CaseDataDraft; outline: string; title: string }) => Promise<void>;
 }
 
 const nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
@@ -63,23 +63,37 @@ function Tile({ label, value, hint, tone }: { label: string; value: string; hint
 export default function CaseBuilderDialog({ clientNiche, months, onClose, onCreate }: Props) {
   const [niche, setNiche] = useState(clientNiche);
   const [title, setTitle] = useState('');
-  const dialogRef = useDialogFocus<HTMLDivElement>(true, onClose);
+  const [creating, setCreating] = useState(false);
+  const createLock = useRef(false);
+  const close = () => {
+    if (!createLock.current) onClose();
+  };
+  const dialogRef = useDialogFocus<HTMLDivElement>(true, close, undefined, { paused: creating });
   useDialogScrollLock(true);
 
   const result: CaseBuildResult = useMemo(() => buildCaseFromMonths(months), [months]);
 
   const { totals, currency } = result;
 
-  const create = () => {
-    onCreate({
-      caseData: toCaseData(result, { niche: niche.trim() }),
-      outline: toCaseOutline(result, { niche: niche.trim() }),
-      title: title.trim() || (niche.trim() ? `Кейс: ${niche.trim()}` : 'Новый кейс'),
-    });
+  const create = async () => {
+    if (createLock.current || !result.ok) return;
+    createLock.current = true;
+    setCreating(true);
+    try {
+      await onCreate({
+        caseData: toCaseData(result, { niche: niche.trim() }),
+        outline: toCaseOutline(result, { niche: niche.trim() }),
+        title: title.trim() || (niche.trim() ? `Кейс: ${niche.trim()}` : 'Новый кейс'),
+      });
+    } finally {
+      createLock.current = false;
+      setCreating(false);
+      window.requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLButtonElement>('[data-case-submit]')?.focus());
+    }
   };
 
   return (
-    <AdminOverlay><div className="case-builder__overlay" role="dialog" aria-modal="true" aria-label="Сборка кейса из результатов клиента">
+    <AdminOverlay><div className="case-builder__overlay" role="dialog" aria-modal="true" aria-hidden={creating || undefined} aria-label="Сборка кейса из результатов клиента">
       <div ref={dialogRef} tabIndex={-1} className="case-builder">
         <header className="case-builder__head">
           <div className="min-w-0">
@@ -88,7 +102,7 @@ export default function CaseBuilderDialog({ clientNiche, months, onClose, onCrea
               Считается только то, что вы вводили. Прочерк означает «нет данных», а не ноль.
             </p>
           </div>
-          <button type="button" className="case-builder__close" onClick={onClose} aria-label="Закрыть">
+          <button type="button" className="case-builder__close" onClick={close} disabled={creating} aria-label="Закрыть">
             <X aria-hidden="true" />
           </button>
         </header>
@@ -232,8 +246,8 @@ export default function CaseBuilderDialog({ clientNiche, months, onClose, onCrea
         </div>
 
         <footer className="case-builder__foot">
-          <AdminButton tone="quiet" onClick={onClose}>Отмена</AdminButton>
-          <AdminButton tone="primary" onClick={create} disabled={!result.ok}>
+          <AdminButton tone="quiet" onClick={close} disabled={creating}>Отмена</AdminButton>
+          <AdminButton tone="primary" onClick={() => void create()} disabled={!result.ok || creating} data-case-submit>
             <Briefcase aria-hidden="true" /> Создать черновик кейса
           </AdminButton>
         </footer>

@@ -185,7 +185,12 @@ export default function AdminWorkspace({
     setInvoiceId(null);
   };
   const navigate = (t: WorkspaceTarget) => {
-    if (t.section === "projects" && t.workId) beforeNavigate(()=>open(t.workId!));
+    const workId = t.workId;
+    if (t.section === "projects" && workId) beforeNavigate(() => {
+      open(workId);
+      setTab(t.tab || "overview");
+      setInvoiceId(t.invoiceId || null);
+    });
     else onNavigate?.(t);
   };
   const invoice = data.invoices.find((i) => i.id === invoiceId);
@@ -242,7 +247,7 @@ export default function AdminWorkspace({
               <AdminButton
                 tone="primary"
                 disabled={!data.clients.length}
-                onClick={() => openForm({ kind: "work" })}
+                onClick={() => openForm({ kind: "work", client: data.clients.find((entry) => entry.id === target?.clientId) })}
               >
                 <Plus />
                 Создать проект
@@ -930,12 +935,14 @@ export default function AdminWorkspace({
 export function WorkspaceClient({
   password,
   clientId,
+  initialInvoiceId,
   onNavigate: navigateExternal,
   onEdit,
   onRegisterLeaveGuard,
 }: {
   password: string;
   clientId: number;
+  initialInvoiceId?: number;
   onRegisterLeaveGuard?: RegisterLeaveGuard;
   onNavigate?: (t: WorkspaceTarget) => void;
   onEdit?: () => void;
@@ -946,9 +953,9 @@ export function WorkspaceClient({
   const store = useWorkspace(password),
     { data } = store;
   const [form, setForm] = useState<WorkspaceFormState | null>(null),
-    [invoiceId, setInvoiceId] = useState<number | null>(null);
+    [invoiceId, setInvoiceId] = useState<number | null>(initialInvoiceId ?? null);
   useWorkspaceGuard(Boolean(form) || invoiceDirty, onRegisterLeaveGuard);
-  const onNavigate=(t:WorkspaceTarget)=>navigateExternal?.({...t,returnTo:{section:'clients',clientId}});
+  const onNavigate=(t:WorkspaceTarget)=>navigateExternal?.({...t,returnTo:{section:'clients',clientId,invoiceId:invoiceId ?? undefined}});
   if (!data)
     return store.loading ? (
       <AdminSectionSkeleton tiles={3} rows={3} />

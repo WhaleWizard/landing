@@ -150,7 +150,7 @@ export default function WorkspaceForms({
       label={label}
       value={String(v[key] ?? "")}
       options={opts}
-      disabled={key === 'client_id' && Boolean(work)}
+      disabled={key === 'client_id' && Boolean(work || client)}
       onValueChange={(n) => set(key, n)}
     />
   );

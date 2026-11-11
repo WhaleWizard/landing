@@ -10740,7 +10740,7 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 .admin-root .admin-confirm {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 90;
   display: grid;
   place-items: center;
   overflow-y: auto;

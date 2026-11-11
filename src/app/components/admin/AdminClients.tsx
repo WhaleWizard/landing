@@ -1,4 +1,4 @@
-import { useWorkspaceNavigation } from './workspace/useWorkspaceGuard';
+import { useWorkspaceGuard, useWorkspaceNavigation } from './workspace/useWorkspaceGuard';
 import { WorkspaceClient } from './AdminWorkspace';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -197,7 +197,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   onNavigate?: (target: import('../../../../shared/admin-workspace').WorkspaceTarget) => void;
   onRegisterLeaveGuard?: (guard: (() => Promise<boolean>) | null) => void;
   onOpenLead?: (leadId: number) => void;
-  onCreateCase?: (payload: { caseData: CaseDataDraft; outline: string; title: string }) => void;
+  onCreateCase?: (payload: { caseData: CaseDataDraft; outline: string; title: string }) => Promise<boolean>;
 }) {
   const beforeNavigate=useWorkspaceNavigation(onRegisterLeaveGuard);
   const [clients, setClients] = useState<Client[]>([]);
@@ -212,6 +212,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [caseBuilderOpen, setCaseBuilderOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Client | null>(null);
+  const [savedDraft, setSavedDraft] = useState<Client | null>(null);
   const [months, setMonths] = useState<ClientMonth[]>([]);
   const [access, setAccess] = useState<AccessItem[]>([]);
   const [notes, setNotes] = useState<ClientNote[]>([]);
@@ -226,6 +227,11 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [monthOrigin, setMonthOrigin] = useState<string | null>(null);
   const [presetBusy, setPresetBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const draftChanged = draft && Object.entries(draft).some(([key, value]) => (
+    !['health', 'healthReasons', 'lastReportMonth'].includes(key)
+    && JSON.stringify(value) !== JSON.stringify(savedDraft?.[key as keyof Client])
+  ));
+  useWorkspaceGuard(Boolean(draft && (draftChanged || monthDraft || noteDraft.trim() || accessDraft.trim())), onRegisterLeaveGuard);
 
   /**
    * Договор кладётся в ту же медиатеку, что и остальные файлы: отдельного
@@ -322,11 +328,18 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     setWorkspaceOverview(true);
     setSelectedId(id);
     setDraft(null);
+    setSavedDraft(null);
+    setCaseBuilderOpen(false);
+    setMonthDraft(null);
+    setMonthOrigin(null);
+    setNoteDraft('');
+    setAccessDraft('');
     setDetailLoading(true);
     try {
       const payload = await fetchDetails(id);
       if (requestId !== clientRequest.current) return;
       setDraft(payload.client as Client);
+      setSavedDraft(payload.client as Client);
       setMonths(payload.months || []);
       setAccess(payload.access || []);
       setNotes(payload.notes || []);
@@ -357,8 +370,10 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
    * светофор: отправленный отчёт за месяц гасит красный прямо сейчас.
    */
   const refreshDetails = useCallback(async (id: number) => {
+    const requestId = clientRequest.current;
     try {
       const payload = await fetchDetails(id);
+      if (requestId !== clientRequest.current) return;
       setMonths(payload.months || []);
       setAccess(payload.access || []);
       setNotes(payload.notes || []);
@@ -381,6 +396,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     try {
       if (draft.id) {
         await request({ ...draft, action: 'update' });
+        setSavedDraft(draft);
         notify.success('Сохранено');
       } else {
         const created = await request({ ...draft, action: 'create' });
@@ -496,7 +512,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
 
   // ---------- Карточка клиента ----------
   if (selectedId && draft && connectedWorkspace && workspaceOverview) {
-    return <div className="admin-stack admin-stack--lg"><div><button type="button" className="admin-button admin-button--quiet" onClick={() => beforeNavigate(() => { setSelectedId(null); setDraft(null); })}><ArrowLeft />К списку клиентов</button></div><WorkspaceClient key={selectedId} password={password} clientId={selectedId} onNavigate={onNavigate} onEdit={() => setWorkspaceOverview(false)} onRegisterLeaveGuard={onRegisterLeaveGuard} /></div>;
+    return <div className="admin-stack admin-stack--lg"><div><button type="button" className="admin-button admin-button--quiet" onClick={() => beforeNavigate(() => { setSelectedId(null); setDraft(null); })}><ArrowLeft />К списку клиентов</button></div><WorkspaceClient key={selectedId} password={password} clientId={selectedId} initialInvoiceId={targetClientId === selectedId ? target?.invoiceId : undefined} onNavigate={onNavigate} onEdit={() => setWorkspaceOverview(false)} onRegisterLeaveGuard={onRegisterLeaveGuard} /></div>;
   }
   if (selectedId !== null && draft) {
     const localTime = clientLocalTime(draft.timezone_offset);
@@ -507,7 +523,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
             <ArrowLeft aria-hidden="true" /> К списку
           </button>
           <div className="clients__detail-actions">
-            {connectedWorkspace && draft.id > 0 && <button type="button" className="admin-button admin-button--quiet" onClick={() => setWorkspaceOverview(true)}>Обзор клиента</button>}
+            {connectedWorkspace && draft.id > 0 && <button type="button" className="admin-button admin-button--quiet" onClick={() => beforeNavigate(() => void openClient(draft.id))}>Обзор клиента</button>}
             {draft.lead_id && onOpenLead && (
               <button type="button" className="admin-button admin-button--quiet" onClick={() => onOpenLead(draft.lead_id as number)}>
                 Открыть сделку
@@ -537,7 +553,10 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
             clientNiche=""
             months={months}
             onClose={() => setCaseBuilderOpen(false)}
-            onCreate={(payload) => { setCaseBuilderOpen(false); onCreateCase(payload); }}
+            onCreate={async (payload) => {
+              const opened = await onCreateCase(payload);
+              if (opened) setCaseBuilderOpen(false);
+            }}
           />
         )}
 
@@ -895,7 +914,19 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
           <button type="button" className="admin-button admin-button--secondary" disabled={loading} onClick={() => void load()}>
             <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить
           </button>
-          <button type="button" className="admin-button admin-button--primary" onClick={() => { setSelectedId(0); setDraft(emptyClient()); setMonths([]); setAccess([]); setNotes([]); }}>
+          <button type="button" className="admin-button admin-button--primary" onClick={() => {
+            const blank = emptyClient();
+            clientRequest.current += 1;
+            setSelectedId(0);
+            setDraft(blank);
+            setSavedDraft(blank);
+            setMonths([]);
+            setAccess([]);
+            setNotes([]);
+            setMonthDraft(null);
+            setNoteDraft('');
+            setAccessDraft('');
+          }}>
             <UserPlus aria-hidden="true" /> Добавить клиента
           </button>
         </div>
