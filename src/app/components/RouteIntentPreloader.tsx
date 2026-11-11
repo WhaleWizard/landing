@@ -53,7 +53,8 @@ function RouteIntentPreloader() {
         const key = SITE_CONTENT_KEY_BY_PATH[url.pathname.replace(/\/+$/, '') || '/'];
         if (key) {
           void import('../hooks/useServiceContent')
-            .then(({ preloadSiteContent }) => preloadSiteContent(key));
+            .then(({ preloadSiteContent }) => preloadSiteContent(key))
+            .catch(() => undefined);
         }
       } catch {
         // Malformed links are ignored just like unsupported routes.

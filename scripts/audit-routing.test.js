@@ -116,9 +116,79 @@ test('F-001: lazyServiceLanding keeps the failure and throws it on the next rend
   assert.equal(heroCalls, 1);
 });
 
-test('F-001: the route error boundary still recognises chunk failures for its one-time reload', () => {
-  assert.match(routesSource, /Failed to fetch dynamically imported module\|Importing a module script failed\|error loading dynamically imported module/);
-  assert.ok(routesSource.includes("'ww_chunk_reload_once_v1'"));
+test('F-001: the route boundary retries a failed module or CSS once and cancels recovery when leaving', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-11T12:00:00Z') });
+  const { CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery } = await bundle('../../shared/chunk-recovery.ts');
+  const fixture = await routeFixture('RouteErrorBoundary',
+    'useRouteError, useEffect, React, window, CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery');
+  const recovery = (message, href, { blocked = false, stored = new Map() } = {}) => {
+    const changes = [];
+    const handlers = new Map();
+    let pending;
+    const win = {
+      location: { href, replace: (url) => changes.push(new URL(url)) },
+      get sessionStorage() {
+        if (blocked) throw new Error('storage denied');
+        return { getItem: (key) => stored.get(key), setItem: (key, value) => stored.set(key, value) };
+      },
+      setTimeout: (fn) => { pending = fn; return 1; },
+      clearTimeout: () => { pending = undefined; },
+      addEventListener: (event, fn) => handlers.set(event, fn),
+      removeEventListener: (event) => handlers.delete(event),
+    };
+    const Boundary = fixture(() => new Error(message), (effect) => effect(), React, win,
+      CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery);
+    const ui = Boundary();
+    return {
+      win, changes,
+      leave: () => handlers.get('pagehide')?.(),
+      run: () => pending?.(),
+      clickRefresh: () => ui.props.children.props.children[2].props.onClick(),
+    };
+  };
+
+  const failure = 'Importing a module script failed.';
+  const href = 'https://www.whalewzrd.com/consult/?utm_source=check#request';
+  const blocked = recovery(failure, href, { blocked: true });
+  blocked.run();
+  const [retry] = blocked.changes;
+  assert.equal(retry.pathname, '/consult/');
+  assert.equal(retry.searchParams.get('utm_source'), 'check');
+  assert.equal(retry.hash, '#request');
+  assert.equal(retry.searchParams.get(CHUNK_RECOVERY_QUERY), String(Date.now()));
+  const second = recovery(failure, retry.href, { blocked: true });
+  second.run();
+  assert.equal(second.changes.length, 0);
+  const late = new URL(retry);
+  late.searchParams.set(CHUNK_RECOVERY_QUERY, String(Date.now() - 120_000));
+  const lateFailure = recovery(failure, late.href, { blocked: true });
+  lateFailure.run();
+  assert.equal(lateFailure.changes.length, 0);
+  lateFailure.clickRefresh();
+  assert.equal(lateFailure.changes[0].searchParams.get(CHUNK_RECOVERY_QUERY), String(Date.now()));
+
+  const stored = new Map();
+  const stylesheet = recovery('Unable to preload CSS for /assets/style.css', href, { stored });
+  stylesheet.run();
+  assert.equal(stylesheet.changes.length, 1);
+  const samePage = recovery(failure, href, { stored });
+  samePage.run();
+  assert.equal(samePage.changes.length, 0);
+  const otherPage = recovery(failure, 'https://www.whalewzrd.com/about/', { stored });
+  otherPage.run();
+  assert.equal(otherPage.changes.length, 1);
+
+  const hidden = recovery(failure, href);
+  hidden.leave();
+  hidden.run();
+  assert.equal(hidden.changes.length, 0);
+  const moved = recovery(failure, href);
+  moved.win.location.href = 'https://www.whalewzrd.com/faq/';
+  moved.run();
+  assert.equal(moved.changes.length, 0);
+  const generic = recovery('Component crashed', href);
+  generic.run();
+  assert.equal(generic.changes.length, 0);
 });
 
 test('F-002: blocked storage does not crash the public route layout', async (t) => {

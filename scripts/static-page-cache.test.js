@@ -53,6 +53,24 @@ test('ответы Functions (no-store, Vary, не 200) в кэш не попа�
   assert.equal(store.size, 0);
 });
 
+test('chunk recovery bypasses stale HTML and refreshes the canonical cache for every query', async () => {
+  store.clear();
+  const url = 'https://www.whalewzrd.com/consult/';
+  let reads = 0;
+  const next = async () => html(++reads === 1 ? 'old build' : 'current build');
+  assert.equal(await (await call(url, next)).text(), 'old build');
+  const expired = await call(`${url}?_v=${Date.now() - 120_000}`, next);
+  assert.equal(await expired.text(), 'old build');
+
+  const recovery = await call(`${url}?utm_source=audit&_v=${Date.now()}`, next);
+  assert.equal(await recovery.text(), 'current build');
+  assert.equal(recovery.headers.get('X-WW-Static-Cache'), 'refresh');
+  assert.equal(recovery.headers.get('Cache-Control'), 'public, max-age=0, must-revalidate');
+  assert.equal(await (await call(url + '?utm_source=next', next)).text(), 'current build');
+  assert.equal(reads, 2);
+  assert.deepEqual([...store.keys()], [url]);
+});
+
 test('browser article routes never read a crawler response from the static cache', async () => {
   store.clear();
   for (const section of ['blog', 'cases']) {

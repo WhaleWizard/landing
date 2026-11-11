@@ -12,6 +12,7 @@ import { onUserScrollIntent, readDocumentScrollY, restoreWindowScrollPosition } 
 import { preloadable } from './utils/preloadable';
 import { focusRouteHeading } from './utils/routeFocus';
 import { useIsomorphicLayoutEffect } from './utils/isomorphicLayoutEffect';
+import { CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery } from '../../shared/chunk-recovery';
 import {
   loadAboutPage,
   loadAdmin,
@@ -116,42 +117,49 @@ const MetaAppsPage = lazyServiceLanding('meta-apps', [
 
 function RouteErrorBoundary() {
   const error = useRouteError() as Error | undefined;
+  const chunkFailed = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS for/i.test(String(error?.message || ''));
 
   useEffect(() => {
-    const msg = String(error?.message || '');
-    if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg)) {
-      const onceKey = 'ww_chunk_reload_once_v1';
-      // Хранилище может быть запрещено настройками браузера, и обращение к
-      // нему бросает исключение. Здесь это особенно некстати: мы уже внутри
-      // обработчика ошибки, и второй сбой оставил бы посетителя на пустой
-      // странице вместо перезагрузки на свежую сборку.
-      const readOnce = () => {
-        try { return window.sessionStorage.getItem(onceKey) === '1'; } catch { return false; }
-      };
-      const rememberOnce = () => {
-        try { window.sessionStorage.setItem(onceKey, '1'); } catch { /* без памяти перезагрузка всё равно одна */ }
-      };
-      // Query marker also works with storage blocked. Without it the error
-      // page reloaded forever when sessionStorage threw on both reads/writes.
-      const retryStamp = Number(new URL(window.location.href).searchParams.get('_v'));
-      const alreadyRetried = readOnce() || (retryStamp > 0 && Date.now() - retryStamp < 60_000);
-      const timer = window.setTimeout(() => {
-        if (alreadyRetried) return;
-        rememberOnce();
-        const url = new URL(window.location.href);
-        url.searchParams.set('_v', String(Date.now()));
-        window.location.replace(url.toString());
-      }, 400);
-      return () => window.clearTimeout(timer);
-    }
-  }, [error]);
+    if (!chunkFailed) return;
+
+    const url = new URL(window.location.href);
+    const failedHref = url.href;
+    const onceKey = `ww_chunk_reload_once_v1:${url.pathname}`;
+    // The URL marker keeps recovery bounded even when sessionStorage is blocked.
+    if (isChunkRecoveryMarker(url.searchParams.get(CHUNK_RECOVERY_QUERY))) return;
+    try {
+      if (isRecentChunkRecovery(window.sessionStorage.getItem(onceKey))) return;
+    } catch { /* storage is optional */ }
+
+    const timer = window.setTimeout(() => {
+      if (window.location.href !== failedHref) return;
+      const stamp = String(Date.now());
+      try { window.sessionStorage.setItem(onceKey, stamp); } catch { /* the URL still carries the marker */ }
+      url.searchParams.set(CHUNK_RECOVERY_QUERY, stamp);
+      window.location.replace(url.toString());
+    }, 400);
+    const cancel = () => window.clearTimeout(timer);
+    window.addEventListener('pagehide', cancel, { once: true });
+    return () => {
+      cancel();
+      window.removeEventListener('pagehide', cancel);
+    };
+  }, [chunkFailed, error]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }}>
       <div>
         <h1>Страница не загрузилась</h1>
         <p>Попробуйте обновить страницу. Если ошибка повторится, вернитесь на главную.</p>
-        <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
+        <button type="button" onClick={() => {
+          if (!chunkFailed) {
+            window.location.reload();
+            return;
+          }
+          const url = new URL(window.location.href);
+          url.searchParams.set(CHUNK_RECOVERY_QUERY, String(Date.now()));
+          window.location.replace(url.toString());
+        }}>Обновить страницу</button>
       </div>
     </div>
   );

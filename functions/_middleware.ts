@@ -9,6 +9,7 @@ import {
   type PageLockSnapshot,
 } from './_lib/page-locks';
 import type { Env } from './_lib/types';
+import { CHUNK_RECOVERY_QUERY, isRecentChunkRecovery } from '../shared/chunk-recovery';
 
 const CANONICAL_HOST = 'www.whalewzrd.com';
 const LEGACY_HOSTS = new Set(['whalewzrd.com']);
@@ -226,11 +227,12 @@ async function staticPage(
   // canonical URL, the same key the static cache would look up for a browser.
   if (request.method !== 'GET' || /^\/(?:blog|cases)\/[^/]+\/?$/.test(url.pathname)) return next();
   const key = staticPageCacheKey(url);
+  const recovering = isRecentChunkRecovery(url.searchParams.get(CHUNK_RECOVERY_QUERY));
   try {
-    const cached = await caches.default.match(key);
+    const cached = recovering ? undefined : await caches.default.match(key);
     if (cached) {
       const headers = new Headers(cached.headers);
-      // В кэше лежит минутный срок для самого кэша; браузеру — прежнее
+      // В Cache API действует срок хранения страницы; браузеру — прежнее
       // «всегда спроси сервер», иначе переход назад показал бы старую копию.
       headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
       headers.set('X-WW-Static-Cache', 'hit');
@@ -252,7 +254,7 @@ async function staticPage(
   waitUntil(caches.default.put(key, stored).catch(() => undefined));
 
   const headers = new Headers(response.headers);
-  headers.set('X-WW-Static-Cache', 'miss');
+  headers.set('X-WW-Static-Cache', recovering ? 'refresh' : 'miss');
   return new Response(response.body, { status: response.status, headers });
 }
 
