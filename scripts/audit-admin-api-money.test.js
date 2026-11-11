@@ -709,6 +709,38 @@ test('F-132: замер пишется в историю местным днём
   assert.equal(rows[0].performance, 91);
 });
 
+test('visitor measurements use bounded UTC days while PageSpeed history uses bounded local days', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-11T20:30:00Z') });
+  const sqlite = freshDatabase();
+  sqlite.exec(`INSERT INTO web_vitals_daily (day, metric, device, page_path, samples, value_sum, good, needs_improvement, poor)
+    VALUES ('2026-11-04','LCP','mobile','/expired',8,48000,0,0,8),
+      ('2026-11-05','LCP','mobile','/retained',2,4000,2,0,0),
+      ('2026-11-11','LCP','mobile','/retained',2,8000,0,0,2),
+      ('2026-11-12','LCP','desktop','/future',8,48000,0,0,8);
+    INSERT INTO pagespeed_history (day, url, strategy, performance, checked_at) VALUES
+      ('2026-11-05','https://www.whalewzrd.com/','mobile',50,'2026-11-05T12:00:00Z'),
+      ('2026-11-06','https://www.whalewzrd.com/','mobile',80,'2026-11-06T12:00:00Z'),
+      ('2026-11-12','https://www.whalewzrd.com/','desktop',99,'2026-11-11T20:00:00Z'),
+      ('2026-11-13','https://www.whalewzrd.com/','desktop',40,'2026-11-12T20:00:00Z');`);
+  const query = { days: 7, timezone_offset: TASHKENT_OFFSET };
+  const vitals = await harness('functions/api/admin/vitals.ts', { sqlite });
+  const measured = await vitals.get(query);
+  assert.equal(measured.status, 200, JSON.stringify(measured.payload));
+  assert.equal(measured.payload.metrics[0].samples, 4);
+  assert.equal(measured.payload.metrics[0].average, 3000);
+  assert.deepEqual(measured.payload.devices, [{ metric: 'LCP', device: 'mobile', samples: 4, goodShare: 50 }]);
+  assert.deepEqual(measured.payload.slowestPages, [{ path: '/retained', samples: 4, average: 3000, poor: 2 }]);
+
+  const performance = await harness('functions/api/admin/performance.ts', { sqlite });
+  const history = await performance.get({ history: '1', ...query });
+  assert.equal(history.status, 200, JSON.stringify(history.payload));
+  assert.deepEqual(history.payload.history, [
+    { day: '2026-11-06', mobile: 80, desktop: null, pages: 1 },
+    { day: '2026-11-12', mobile: null, desktop: 99, pages: 1 },
+  ]);
+});
+
 // ─── F-032 / F-033: клиенты ─────────────────────────────────────────────────
 
 test('F-032: отчёт за прошлый месяц не требуется у клиента, заведённого в этом месяце', async (t) => {

@@ -11953,6 +11953,12 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 @container admin-main (max-width: 520px) {
+  .admin-root .vitals > .adm-card__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
   .admin-root .vitals__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-root .vitals__grid > :nth-child(odd):last-child { grid-column: 1 / -1; }
   .admin-root .vitals__pages li { grid-template-columns: auto minmax(0, 1fr); }
@@ -13093,20 +13099,34 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 }
 
 @media (max-width: 640px) {
+  .admin-root .perf-row__head {
+    align-items: start;
+    gap: 4px;
+    padding-inline-end: 6px;
+  }
+
   .admin-root .perf-row__toggle {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 16px auto minmax(0, 1fr);
+    align-items: start;
+    gap: 6px;
     padding-inline-start: 10px;
   }
 
   .admin-root .perf-row__path {
-    flex: 1 1 100%;
-    order: 3;
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
   .admin-root .perf-row__chips {
-    margin-inline-start: auto;
+    grid-column: 3;
+    flex-wrap: wrap;
+  }
+
+  .admin-root .perf-row__recheck {
+    min-width: 44px;
+    min-height: 44px;
+    margin-block-start: 2px;
   }
 
   .admin-root .perf-row__recheck-label {
@@ -13121,10 +13141,16 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
 }
 
 .admin-root .perf-history__head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--adm-space-2);
   margin-bottom: 12px;
+}
+
+.admin-root .perf-history__head button,
+.admin-root .vitals > .adm-card__head button {
+  min-width: 44px;
 }
 
 .admin-root .perf-history__head strong {

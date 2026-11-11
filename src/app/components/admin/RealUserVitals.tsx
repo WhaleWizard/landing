@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Gauge, Info, RefreshCw, Smartphone } from 'lucide-react';
-import { AdminBlank } from './AdminFeedback';
+import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
 import { formatNumber } from './AttributionCharts';
 
 interface MetricRow {
@@ -24,7 +24,6 @@ interface VitalsResponse {
   metrics?: MetricRow[];
   devices?: Array<{ metric: string; device: string; samples: number; goodShare: number | null }>;
   slowestPages?: Array<{ path: string; samples: number; average: number; poor: number }>;
-  notes?: string[];
 }
 
 const DEVICE_LABELS: Record<string, string> = {
@@ -41,53 +40,58 @@ function formatValue(row: MetricRow): string {
     : `${Math.round(row.average)} мс`;
 }
 
-/** Реальная скорость у посетителей — то, по чему Google оценивает страницы. */
 export default function RealUserVitals({ password }: { password: string }) {
   const [data, setData] = useState<VitalsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failure, setFailure] = useState<{ error: string; migration?: string } | null>(null);
+  const activeRequest = useRef(null as AbortController | null);
 
   const load = useCallback(async () => {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setLoading(true);
+    setFailure(null);
     try {
       const response = await fetch('/api/admin/vitals?days=28', {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
+        signal: controller.signal,
       });
-      setData(await response.json().catch(() => null));
+      const payload = await response.json().catch(() => null) as VitalsResponse | null;
+      if (controller.signal.aborted) return;
+      if (!response.ok || !payload?.success) {
+        setFailure({
+          error: payload?.error || 'Не удалось загрузить метрики посетителей.',
+          migration: payload?.migration,
+        });
+        return;
+      }
+      setData(payload);
     } catch {
-      setData({ success: false, error: 'Не удалось загрузить метрики посетителей' });
+      if (!controller.signal.aborted) setFailure({ error: 'Не удалось загрузить метрики посетителей.' });
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [password]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => activeRequest.current?.abort();
+  }, [load]);
 
-  if (loading && !data) return null;
-
-  if (data?.migration) {
-    return (
-      <section className="admin-panel adm-card">
-        <div className="admin-notice admin-notice--warning" role="status">
-          Примените миграцию <code>{data.migration}</code> — до неё реальная скорость посетителей не собирается.
-        </div>
-      </section>
-    );
-  }
-
-  if (!data?.success) return null;
-
-  const metrics = data.metrics || [];
+  const metrics = data?.metrics || [];
+  const devices = data?.devices?.filter((row) => row.metric === 'LCP') || [];
   const hasData = metrics.some((metric) => metric.samples > 0);
 
   return (
-    <section className="admin-panel adm-card vitals">
+    <section className="admin-panel adm-card vitals" aria-label="Скорость у реальных посетителей" aria-busy={loading}>
       <header className="adm-card__head adm-card__head--row">
         <div>
           <h3 className="admin-card-title"><Gauge aria-hidden="true" /> Скорость у реальных посетителей</h3>
           <p className="admin-hint">
-            Данные настоящих визитов за {data.days || 28} дней — именно по ним Google оценивает страницы, а не по лабораторному замеру.
+            Измерения сайта за {data?.days ?? 28} дней по UTC. Полевые данные Google CrUX показаны в проверках PageSpeed ниже.
           </p>
         </div>
         <button type="button" className="admin-button admin-button--quiet admin-button--compact" aria-label="Обновить метрики посетителей" title="Обновить метрики посетителей" onClick={() => void load()} disabled={loading}>
@@ -95,18 +99,27 @@ export default function RealUserVitals({ password }: { password: string }) {
         </button>
       </header>
 
-      {!hasData ? (
+      {failure && (
+        <div className={`admin-notice admin-notice--${failure.migration ? 'warning' : 'danger'}`} role={failure.migration ? 'status' : 'alert'}>
+          {failure.migration
+            ? <>Примените миграцию <code>{failure.migration}</code>, чтобы собирать метрики посетителей.</>
+            : failure.error}
+          {data ? ' Показаны последние загруженные данные.' : ''}
+        </div>
+      )}
+      {loading && !data && <AdminSectionSkeleton tiles={0} rows={2} />}
+      {data && (!hasData ? (
         <AdminBlank
           inline
           title="Данные ещё собираются"
-          text="Метрики приходят от посетителей сайта и появятся здесь в течение суток после первых визитов."
+          text="За этот период сайт ещё не получил измерений от посетителей."
         />
       ) : (
         <>
           <div className="vitals__grid">
             {metrics.map((metric) => {
-              const share = metric.goodShare ?? 0;
-              const tone = share >= 75 ? 'is-good' : share >= 50 ? 'is-warn' : 'is-bad';
+              const share = metric.goodShare;
+              const tone = share === null ? '' : share >= 75 ? 'is-good' : share >= 50 ? 'is-warn' : 'is-bad';
               return (
                 <div className={`vitals__card ${tone}`} key={metric.metric} title={metric.hint}>
                   <span className="vitals__label">{metric.label}</span>
@@ -123,13 +136,11 @@ export default function RealUserVitals({ password }: { password: string }) {
             })}
           </div>
 
-          {(data.devices || []).length > 0 && (
+          {devices.length > 0 && (
             <div className="vitals__devices">
-              <p className="vitals__devices-title"><Smartphone aria-hidden="true" /> По устройствам, доля «хорошо»</p>
+              <p className="vitals__devices-title"><Smartphone aria-hidden="true" /> LCP по устройствам, доля «хорошо»</p>
               <div className="vitals__devices-grid">
-                {(data.devices || [])
-                  .filter((row) => row.metric === 'LCP')
-                  .map((row) => (
+                {devices.map((row) => (
                     <span key={`${row.metric}-${row.device}`}>
                       {DEVICE_LABELS[row.device] || row.device}: <strong>{row.goodShare === null ? '—' : `${row.goodShare}%`}</strong>
                       <em>{formatNumber(row.samples)} измерений</em>
@@ -156,10 +167,10 @@ export default function RealUserVitals({ password }: { password: string }) {
 
           <p className="content-perf__note">
             <Info aria-hidden="true" />
-            Доля «хорошо» важнее среднего: одно медленное устройство легко утягивает среднее вниз. Отклик на действие считается приближённо — берётся самое долгое взаимодействие на странице.
+            Отклик на действие — приблизительная оценка по самому долгому взаимодействию на странице.
           </p>
         </>
-      )}
+      ))}
     </section>
   );
 }

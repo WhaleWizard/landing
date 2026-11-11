@@ -1,6 +1,7 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
+import { localTodayIsoFromOffset } from '../../_lib/local-day';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -24,9 +25,7 @@ function isMissingTableError(error: unknown): boolean {
 }
 
 /**
- * Реальные Core Web Vitals из суточных агрегатов. Доля «хорошо» здесь
- * важнее среднего: Google смотрит на распределение, а одно медленное
- * устройство легко утягивает среднее вниз.
+ * Собственные измерения сайта из суточных агрегатов UTC.
  */
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
@@ -40,6 +39,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const raw = Number(new URL(request.url).searchParams.get('days') || 28);
   const days = Number.isFinite(raw) ? Math.min(Math.max(Math.floor(raw), 7), 90) : 28;
+  const today = localTodayIsoFromOffset(0);
+  const start = `-${days - 1} day`;
 
   try {
     const totals = await env.DB.prepare(`
@@ -50,9 +51,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SUM(needs_improvement) AS needs_improvement,
         SUM(poor) AS poor
       FROM web_vitals_daily
-      WHERE day >= date('now', ?)
+      WHERE day BETWEEN date(?, ?) AND ?
       GROUP BY metric
-    `).bind(`-${days - 1} day`).all<{
+    `).bind(today, start, today).all<{
       metric: string; samples: number; value_sum: number;
       good: number; needs_improvement: number; poor: number;
     }>();
@@ -60,9 +61,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const byDevice = await env.DB.prepare(`
       SELECT metric, device, SUM(samples) AS samples, SUM(good) AS good
       FROM web_vitals_daily
-      WHERE day >= date('now', ?) AND device != ''
+      WHERE day BETWEEN date(?, ?) AND ? AND device != ''
       GROUP BY metric, device
-    `).bind(`-${days - 1} day`).all<{ metric: string; device: string; samples: number; good: number }>();
+    `).bind(today, start, today).all<{ metric: string; device: string; samples: number; good: number }>();
 
     // HAVING SUM(samples), а не HAVING samples: `samples` — это и колонка
     // таблицы, и псевдоним результата, и SQLite в HAVING берёт **колонку**.
@@ -75,12 +76,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SUM(value_sum) / NULLIF(SUM(samples), 0) AS average,
         SUM(poor) AS poor
       FROM web_vitals_daily
-      WHERE day >= date('now', ?) AND metric = 'LCP' AND page_path != ''
+      WHERE day BETWEEN date(?, ?) AND ? AND metric = 'LCP' AND page_path != ''
       GROUP BY page_path
       HAVING SUM(samples) >= 3
       ORDER BY average DESC
       LIMIT 8
-    `).bind(`-${days - 1} day`).all<{ page_path: string; samples: number; average: number; poor: number }>();
+    `).bind(today, start, today).all<{ page_path: string; samples: number; average: number; poor: number }>();
 
     const metrics = (totals.results || []).map((row) => {
       const samples = number(row.samples);
@@ -116,8 +117,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         poor: number(row.poor),
       })),
       notes: [
-        'Это данные настоящих посетителей, а не лабораторный замер: именно по ним Google оценивает страницы.',
-        'Доля «хорошо» важнее среднего — одно медленное устройство легко утягивает среднее вниз.',
+        'Источник — собственные измерения сайта. В отчёте Google PageSpeed полевые данные берутся из CrUX.',
         'Отклик на действие считается приближённо: берётся самое долгое взаимодействие на странице.',
         'Отдельные визиты не хранятся: в базе только суточные счётчики по метрике, устройству и странице.',
       ],

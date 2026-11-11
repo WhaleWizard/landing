@@ -357,13 +357,14 @@ async function recordHistory(env: Env, result: CompactResult, request: Request):
 }
 
 /** Средняя оценка скорости по дням: видно, куда движется сайт в целом. */
-async function listHistory(env: Env, days: number): Promise<Response> {
+async function listHistory(env: Env, request: Request, days: number): Promise<Response> {
   if (!env.DB) {
     return json(
       { success: false, localOnly: true, error: 'База D1 не подключена (доступно только на продакшене)' },
       { status: 503, headers: noStore },
     );
   }
+  const today = localTodayIso(request);
   try {
     const rows = await env.DB
       .prepare(`SELECT day,
@@ -371,14 +372,13 @@ async function listHistory(env: Env, days: number): Promise<Response> {
                        ROUND(AVG(CASE WHEN strategy = 'desktop' THEN performance END)) AS desktop,
                        COUNT(DISTINCT url) AS pages
                 FROM pagespeed_history
-                WHERE performance IS NOT NULL
+                WHERE performance IS NOT NULL AND day BETWEEN date(?, ?) AND ?
                 GROUP BY day
-                ORDER BY day DESC
-                LIMIT ?`)
-      .bind(Math.min(120, Math.max(1, days)))
+                ORDER BY day`)
+      .bind(today, `-${days - 1} day`, today)
       .all<{ day: string; mobile: number | null; desktop: number | null; pages: number }>();
 
-    const history = (rows.results || []).slice().reverse();
+    const history = rows.results || [];
     return json({ success: true, history }, { headers: noStore });
   } catch (error) {
     if (isMissingTableError(error)) {
@@ -567,7 +567,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const params = new URL(request.url).searchParams;
   if (params.get('history') === '1') {
-    return listHistory(env, Number(params.get('days')) || 60);
+    const rawDays = Number(params.get('days') || 60);
+    const days = Number.isFinite(rawDays) ? Math.min(120, Math.max(1, Math.floor(rawDays))) : 60;
+    return listHistory(env, request, days);
   }
 
   const requestedUrl = params.get('url')?.trim() || '';

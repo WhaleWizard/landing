@@ -365,31 +365,47 @@ export default function AdminPerformance({ password }: { password: string }) {
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [openRows, setOpenRows] = useState<Set<string>>(() => new Set());
   const [history, setHistory] = useState<HistoryPoint[] | null>(null);
-  const [historyMigration, setHistoryMigration] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyFailure, setHistoryFailure] = useState<{ error: string; migration?: string } | null>(null);
+  const historyRequest = useRef(null as AbortController | null);
   const wasRunning = useRef(false);
 
   const loadHistory = useCallback(async () => {
+    historyRequest.current?.abort();
+    const controller = new AbortController();
+    historyRequest.current = controller;
+    setHistoryLoading(true);
+    setHistoryFailure(null);
     try {
-      const response = await fetch('/api/admin/performance?history=1&days=30', {
+      const response = await fetch(`/api/admin/performance?history=1&days=30&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
+        signal: controller.signal,
       });
       const payload = await response.json().catch(() => null) as {
-        success?: boolean; history?: HistoryPoint[]; migration?: string;
+        success?: boolean; history?: HistoryPoint[]; migration?: string; error?: string;
       } | null;
+      if (controller.signal.aborted) return;
       if (!response.ok || !payload?.success) {
-        if (payload?.migration) setHistoryMigration(payload.migration);
+        setHistoryFailure({
+          error: payload?.error || 'Не удалось загрузить историю замеров.',
+          migration: payload?.migration,
+        });
         return;
       }
-      setHistoryMigration('');
       setHistory(payload.history || []);
     } catch {
-      // История — дополнение к разделу, без неё он работает как раньше.
+      if (!controller.signal.aborted) setHistoryFailure({ error: 'Не удалось загрузить историю замеров.' });
+    } finally {
+      if (!controller.signal.aborted) setHistoryLoading(false);
     }
   }, [password]);
 
-  useEffect(() => { void loadHistory(); }, [loadHistory]);
+  useEffect(() => {
+    void loadHistory();
+    return () => historyRequest.current?.abort();
+  }, [loadHistory]);
 
   // Прогон закончился — история пополнилась, перечитываем её.
   useEffect(() => {
@@ -489,6 +505,7 @@ export default function AdminPerformance({ password }: { password: string }) {
     const endpoint = new URL('/api/admin/performance', window.location.origin);
     endpoint.searchParams.set('url', url);
     endpoint.searchParams.set('strategy', strategy);
+    endpoint.searchParams.set('timezone_offset', String(new Date().getTimezoneOffset()));
     if (force) endpoint.searchParams.set('force', '1');
     const response = await fetch(endpoint.toString(), {
       headers: { 'X-Admin-Password': password },
@@ -610,7 +627,7 @@ export default function AdminPerformance({ password }: { password: string }) {
         <div>
           <p className="admin-eyebrow">PageSpeed Insights</p>
           <h2 className="admin-title">Скорость всех страниц</h2>
-          <p className="admin-subtitle">Все URL из sitemap.xml, сразу в Mobile и Desktop. Четыре оценки соответствуют публичному отчёту Google PageSpeed.</p>
+          <p className="admin-subtitle">Лабораторные оценки Lighthouse для страниц из sitemap.xml на телефоне и компьютере. Полевые данные CrUX показаны отдельно для страницы или домена.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {running ? (
@@ -716,27 +733,37 @@ export default function AdminPerformance({ password }: { password: string }) {
         {notice && <p className="mt-3 text-xs text-[var(--adm-fg)]/65" role="status">{notice}</p>}
       </section>
 
-      {(historyMigration || (history && history.length > 0)) && (
-        <section className="admin-panel perf-history" aria-label="История замеров">
+        <section className="admin-panel perf-history" aria-label="История замеров" aria-busy={historyLoading}>
           <div className="perf-history__head">
-            <strong>История замеров</strong>
-            <span className="admin-hint">Средняя оценка скорости по всем проверенным за день страницам.</span>
+            <div>
+              <strong>История замеров</strong>
+              <p className="admin-hint">Средняя оценка Lighthouse по проверенным страницам. До 14 дат с замерами за последние 30 дней по местному времени.</p>
+            </div>
+            <button type="button" className="admin-button admin-button--quiet admin-button--compact" aria-label="Обновить историю замеров" title="Обновить историю замеров" onClick={() => void loadHistory()} disabled={historyLoading}>
+              <RefreshCw className={historyLoading ? 'animate-spin' : ''} aria-hidden="true" />
+            </button>
           </div>
-          {historyMigration ? (
-            <p className="admin-notice admin-notice--warning">
-              Примените миграцию <code>{historyMigration}</code> — до неё история замеров не сохраняется.
+          {historyFailure && (
+            <p className={`admin-notice admin-notice--${historyFailure.migration ? 'warning' : 'danger'}`} role={historyFailure.migration ? 'status' : 'alert'}>
+              {historyFailure.migration
+                ? <>Примените миграцию <code>{historyFailure.migration}</code>, чтобы сохранять историю замеров.</>
+                : historyFailure.error}
+              {history ? ' Показаны последние загруженные данные.' : ''}
             </p>
-          ) : (
+          )}
+          {historyLoading && !history && <p className="admin-hint" role="status">Загружаю историю…</p>}
+          {history?.length === 0 && <p className="admin-hint">За этот период лабораторных замеров ещё нет.</p>}
+          {history && history.length > 0 && (
             <ul className="perf-history__list">
               <li className="perf-history__legend">
                 <span className="perf-history__day">Дата</span>
                 <span className="perf-history__metric-label">Моб.</span>
                 <span className="perf-history__metric-label">ПК</span>
               </li>
-              {(history || []).slice(-14).map((point) => (
+              {history.slice(-14).map((point) => (
                 <li key={point.day}>
                   <span className="perf-history__day" title={`Страниц в замере: ${point.pages}`}>
-                    {new Date(`${point.day}T00:00:00Z`).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+                    <time dateTime={point.day}>{new Date(`${point.day}T00:00:00Z`).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })}</time>
                   </span>
                   <HistoryBar score={point.mobile} />
                   <HistoryBar score={point.desktop} />
@@ -745,7 +772,6 @@ export default function AdminPerformance({ password }: { password: string }) {
             </ul>
           )}
         </section>
-      )}
 
       {loadingPages ? (
         <div className="admin-panel flex items-center justify-center gap-2 p-8 text-sm text-[var(--adm-fg)]/60">
@@ -771,7 +797,7 @@ export default function AdminPerformance({ password }: { password: string }) {
                   >
                     <ChevronDown className="perf-row__chevron" aria-hidden="true" />
                     <span className="perf-row__index">{index + 1}</span>
-                    <span className="perf-row__path" title={row.url}>{path}</span>
+                    <span className="perf-row__path" title={row.url}>{path === '/' ? 'Главная' : path}</span>
                     <span className="perf-row__chips">
                       <ScoreChip label="Моб." score={row.mobile?.scores.performance} status={row.mobileStatus} />
                       <ScoreChip label="ПК" score={row.desktop?.scores.performance} status={row.desktopStatus} />
