@@ -66,17 +66,20 @@ export default function AdminAdSpend({
   const [csvOpen, setCsvOpen] = useState(false);
   const [csv, setCsv] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/admin/ad-spend?days=${days}`, {
+      const response = await fetch(`/api/admin/ad-spend?days=${days}&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => null) as SpendResponse | null;
+      if (requestId !== loadSequence.current) return;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -86,9 +89,9 @@ export default function AdminAdSpend({
       setTotals(payload.totals || []);
       setKnownSources(payload.knownSources || []);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить расходы');
+      if (requestId === loadSequence.current) setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить расходы');
     } finally {
-      setLoading(false);
+      if (requestId === loadSequence.current) setLoading(false);
     }
   }, [days, password]);
 
@@ -102,7 +105,7 @@ export default function AdminAdSpend({
     setError('');
     setNotice('');
     try {
-      const response = await fetch('/api/admin/ad-spend', {
+      const response = await fetch(`/api/admin/ad-spend?timezone_offset=${new Date().getTimezoneOffset()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',

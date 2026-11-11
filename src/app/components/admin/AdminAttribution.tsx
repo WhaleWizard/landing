@@ -107,7 +107,7 @@ const COLUMNS: ColumnSpec[] = [
   { key: 'views', label: 'Просмотры', numeric: true, format: (row) => formatNumber(row.views), visible: (dimension) => dimension.hasViews },
   { key: 'leads', label: 'Лиды', numeric: true, format: (row) => formatNumber(row.leads), visible: () => true },
   {
-    key: 'conversion', label: 'CR', title: 'Конверсия из просмотра в заявку', numeric: true,
+    key: 'conversion', label: 'CR', title: 'Заявки с согласием к просмотрам по дням UTC', numeric: true,
     format: (row) => formatPercent(row.conversion), visible: (dimension) => dimension.hasViews,
   },
   {
@@ -182,9 +182,9 @@ function compareRows(a: DimensionRow, b: DimensionRow, key: SortKey, direction: 
  */
 function defuseFormula(value: string): string {
   if (!value) return value;
-  const first = value[0];
+  const first = value.trimStart()[0] || '';
   if (first === '-' && /^-?[\d\s.,]+%?$/.test(value)) return value;
-  return '=+-@\t\r'.includes(first) ? `'${value}` : value;
+  return (first && '=+-@'.includes(first)) || /^[\t\r\n]/.test(value) ? `'${value}` : value;
 }
 
 function toCsv(dimension: DimensionResult, rows: DimensionRow[], currency: string | null): string {
@@ -219,7 +219,7 @@ export default function AdminAttribution({ password }: { password: string }) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/admin/attribution?days=${days}`, {
+      const response = await fetch(`/api/admin/attribution?days=${days}&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -246,6 +246,14 @@ export default function AdminAttribution({ password }: { password: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  const selectDays = (next: number) => {
+    if (next === days) return;
+    requestSequence.current += 1;
+    setData(null);
+    setShowAll(false);
+    setDays(next);
+  };
+
   const active = useMemo(
     () => data?.dimensions?.find((dimension) => dimension.key === selected),
     [data, selected],
@@ -257,6 +265,9 @@ export default function AdminAttribution({ password }: { password: string }) {
   const coverage = data?.coverage;
 
   const columns = useMemo(() => (active ? COLUMNS.filter((column) => column.visible(active)) : []), [active]);
+  const activeFilter = !active?.hasSpend && (tableFilter === 'spend' || tableFilter === 'romi') ? 'all' : tableFilter;
+  const activeSortKey = columns.some((column) => column.key === sortKey) ? sortKey : 'leads';
+  const activeSortDirection = activeSortKey === sortKey ? sortDirection : 'desc';
 
   const channelStats = useMemo(() => {
     if (!data?.dimensions) return [];
@@ -268,17 +279,17 @@ export default function AdminAttribution({ password }: { password: string }) {
   const visibleRows = useMemo(() => {
     if (!active) return [];
     let list = active.rows;
-    if (tableFilter === 'leads') {
+    if (activeFilter === 'leads') {
       list = list.filter((row) => row.leads > 0);
-    } else if (tableFilter === 'spend') {
+    } else if (activeFilter === 'spend') {
       list = list.filter((row) => row.spend !== null && row.spend > 0);
-    } else if (tableFilter === 'romi') {
+    } else if (activeFilter === 'romi') {
       list = list.filter((row) => row.romi !== null && row.romi > 0);
     }
     const normalized = query.trim().toLowerCase();
     const filtered = normalized ? list.filter((row) => row.key.toLowerCase().includes(normalized)) : list;
-    return [...filtered].sort((a, b) => compareRows(a, b, sortKey, sortDirection));
-  }, [active, query, sortDirection, sortKey, tableFilter]);
+    return [...filtered].sort((a, b) => compareRows(a, b, activeSortKey, activeSortDirection));
+  }, [active, activeFilter, activeSortDirection, activeSortKey, query]);
 
   const shownRows = showAll ? visibleRows : visibleRows.slice(0, 12);
 
@@ -289,13 +300,15 @@ export default function AdminAttribution({ password }: { password: string }) {
         key: 'visitors',
         label: 'Уникальные посетители',
         value: summary.visitors,
-        hint: 'Сумма уникальных за каждый день периода.',
+        hint: 'Сумма уникальных за каждый день UTC с согласием на маркетинг.',
       },
       {
         key: 'leads',
         label: 'Заявки',
         value: summary.leads,
         hint: 'Дедуплицированные контакты, оставившие заявку.',
+        transitionComparable: false,
+        transitionNote: 'Посетители и заявки охватывают разные выборки',
       },
       {
         key: 'qualified',
@@ -309,7 +322,8 @@ export default function AdminAttribution({ password }: { password: string }) {
         label: 'Выиграно',
         value: summary.won,
         hint: coverage?.wonAvailable ? `Текущий этап сделки · ${coverage.wonSource}.` : 'Нет однозначного этапа сделки.',
-        transitionNote: 'этап сделки не определяется',
+        transitionComparable: false,
+        transitionNote: 'Выигранные сделки среди всех заявок',
       },
     ];
   }, [coverage, summary]);
@@ -328,7 +342,7 @@ export default function AdminAttribution({ password }: { password: string }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `voronka-${active.key}-${days}d.csv`;
+    link.download = `voronka-${active.key}-${data?.days ?? days}d.csv`;
     link.click();
     // Ссылку освобождаем следующим кадром: браузер начинает скачивание не
     // мгновенно, и отзыв в той же строке иногда обрывал файл на нуле байт.
@@ -336,8 +350,9 @@ export default function AdminAttribution({ password }: { password: string }) {
   };
 
   const toggleSort = (key: SortKey) => {
-    if (key === sortKey) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+    if (key === activeSortKey) {
+      setSortKey(key);
+      setSortDirection(activeSortDirection === 'asc' ? 'desc' : 'asc');
       return;
     }
     setSortKey(key);
@@ -371,12 +386,8 @@ export default function AdminAttribution({ password }: { password: string }) {
                 key={d}
                 type="button"
                 className={`admin-crm-chip ${days === d ? 'is-active is-primary' : ''}`}
-                onClick={() => {
-                  if (days !== d) {
-                    setData(null);
-                    setDays(d);
-                  }
-                }}
+                aria-pressed={days === d}
+                onClick={() => selectDays(d)}
               >
                 {d}д
               </button>
@@ -395,10 +406,7 @@ export default function AdminAttribution({ password }: { password: string }) {
                 { value: '30', label: '30 дней' },
                 { value: '90', label: '90 дней' },
               ]}
-              onValueChange={(value) => {
-                setData(null);
-                setDays(Number(value));
-              }}
+              onValueChange={(value) => selectDays(Number(value))}
             />
           </div>
           <button type="button" onClick={() => void load()} disabled={loading} className="admin-button">
@@ -608,14 +616,22 @@ export default function AdminAttribution({ password }: { password: string }) {
             <header className="adm-card__head adm-card__head--row">
               <div>
                 <h3 className="admin-card-title">Разрез данных</h3>
-                <p className="admin-hint">Период: последние {data.days} дней, UTC.</p>
+                <p className="admin-hint">Заявки за {data.days} дней по местному календарю. Просмотры — по дням UTC.</p>
               </div>
               <div className="adm-dimension-tabs" role="group" aria-label="Разрез атрибуции">
                 {data.dimensions?.map((dimension) => (
                   <button
                     key={dimension.key}
                     type="button"
-                    onClick={() => { setSelected(dimension.key); setShowAll(false); }}
+                    onClick={() => {
+                      if (dimension.key === selected) return;
+                      setSelected(dimension.key);
+                      setShowAll(false);
+                      setQuery('');
+                      setTableFilter('all');
+                      setSortKey('leads');
+                      setSortDirection('desc');
+                    }}
                     disabled={!dimension.supported}
                     aria-pressed={selected === dimension.key}
                     title={dimension.supported ? undefined : dimension.reason || undefined}
@@ -634,14 +650,16 @@ export default function AdminAttribution({ password }: { password: string }) {
             <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Быстрые фильтры таблицы">
               <button
                 type="button"
-                className={`admin-crm-chip ${tableFilter === 'all' ? 'is-active is-primary' : ''}`}
+                aria-pressed={activeFilter === 'all'}
+                className={`admin-crm-chip ${activeFilter === 'all' ? 'is-active is-primary' : ''}`}
                 onClick={() => setTableFilter('all')}
               >
                 Все строки ({active?.rows.length || 0})
               </button>
               <button
                 type="button"
-                className={`admin-crm-chip ${tableFilter === 'leads' ? 'is-active' : ''}`}
+                aria-pressed={activeFilter === 'leads'}
+                className={`admin-crm-chip ${activeFilter === 'leads' ? 'is-active' : ''}`}
                 onClick={() => setTableFilter('leads')}
               >
                 Только с заявками
@@ -649,7 +667,8 @@ export default function AdminAttribution({ password }: { password: string }) {
               {active?.hasSpend && (
                 <button
                   type="button"
-                  className={`admin-crm-chip ${tableFilter === 'spend' ? 'is-active' : ''}`}
+                  aria-pressed={activeFilter === 'spend'}
+                  className={`admin-crm-chip ${activeFilter === 'spend' ? 'is-active' : ''}`}
                   onClick={() => setTableFilter('spend')}
                 >
                   С расходом
@@ -658,7 +677,8 @@ export default function AdminAttribution({ password }: { password: string }) {
               {active?.hasSpend && (
                 <button
                   type="button"
-                  className={`admin-crm-chip ${tableFilter === 'romi' ? 'is-active is-success' : ''}`}
+                  aria-pressed={activeFilter === 'romi'}
+                  className={`admin-crm-chip ${activeFilter === 'romi' ? 'is-active is-success' : ''}`}
                   onClick={() => setTableFilter('romi')}
                 >
                   Положительный ROMI
@@ -680,7 +700,7 @@ export default function AdminAttribution({ password }: { password: string }) {
                 ) : null}
               </label>
               <span className="admin-meta">Строк: {visibleRows.length}</span>
-              <button type="button" className="admin-button admin-button--quiet" onClick={exportCsv} disabled={!visibleRows.length}>
+              <button type="button" className="admin-button admin-button--quiet" title="Все строки после фильтров и сортировки" onClick={exportCsv} disabled={loading || !visibleRows.length}>
                 <Download aria-hidden="true" /> Выгрузить CSV
               </button>
             </div>
@@ -691,17 +711,17 @@ export default function AdminAttribution({ password }: { password: string }) {
                 <thead>
                   <tr>
                     {columns.map((column) => {
-                      const sorted = sortKey === column.key;
+                      const sorted = activeSortKey === column.key;
                       return (
                         <th
                           key={String(column.key)}
                           scope="col"
                           className={column.numeric ? 'is-numeric' : ''}
-                          aria-sort={sorted ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                          aria-sort={sorted ? (activeSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <button type="button" onClick={() => toggleSort(column.key)} title={column.title || `Сортировать по «${column.label}»`}>
                             {column.label}
-                            <ArrowDownUp aria-hidden="true" className={sorted ? `is-sorted is-${sortDirection}` : ''} />
+                            <ArrowDownUp aria-hidden="true" className={sorted ? `is-sorted is-${activeSortDirection}` : ''} />
                           </button>
                         </th>
                       );
@@ -732,11 +752,11 @@ export default function AdminAttribution({ password }: { password: string }) {
                 <AdminBlank
                   inline
                   icon={query ? <Search /> : undefined}
-                  title={query ? 'Ничего не нашлось' : 'За период данных нет'}
-                  text={query
+                  title={query || activeFilter !== 'all' ? 'Ничего не нашлось' : 'За период данных нет'}
+                  text={query || activeFilter !== 'all'
                     ? 'Попробуйте другой запрос или снимите фильтр.'
                     : 'Выберите период длиннее или другой разрез — возможно, данные ещё не накопились.'}
-                  actions={query ? <button type="button" className="admin-button" onClick={() => setQuery('')}>Сбросить поиск</button> : undefined}
+                  actions={query || activeFilter !== 'all' ? <button type="button" className="admin-button" onClick={() => { setQuery(''); setTableFilter('all'); }}>Сбросить фильтры</button> : undefined}
                 />
               )}
             </div>

@@ -3,6 +3,7 @@ import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
+import { localTodayIso, sqliteLocalModifier, timezoneOffsetFromRequest } from '../../_lib/local-day';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
 
@@ -175,6 +176,8 @@ interface LeadQueryContext {
   currency: string | null;
   activeCondition: string;
   timeColumn: string;
+  submissionDay: string;
+  localModifier: string;
 }
 
 function revenueExpression(context: LeadQueryContext): string {
@@ -220,8 +223,8 @@ async function groupedLeads(
   const rows = await db.prepare(`
     SELECT ${expression} AS group_key, ${leadAggregates(context)}
     FROM leads
-    WHERE date(${context.timeColumn}) >= date(?)
-      AND date(${context.timeColumn}) <= date(?)
+    WHERE ${context.submissionDay} >= date(?)
+      AND ${context.submissionDay} <= date(?)
       AND ${context.activeCondition}
       AND ${condition}
     GROUP BY group_key
@@ -259,9 +262,27 @@ async function pageViews(db: D1Database, window: { from: string; to: string }): 
   return new Map((rows.results || []).map((row) => [cleanGroupKey(row.page_path), number(row.views)]));
 }
 
-function mergePageRows(leadRows: DimensionRow[], views: Map<string, number>): DimensionRow[] {
+async function consentedLeadsByPage(
+  db: D1Database,
+  context: LeadQueryContext,
+  window: { from: string; to: string },
+): Promise<Map<string, number> | null> {
+  if (!context.columns.has('marketing_consent')) return null;
+  // Page counters are already aggregated into UTC days, so the numerator
+  // uses the same UTC day labels even when the contact table uses local dates.
+  const rows = await db.prepare(`
+    SELECT ${normalizedDimensionExpression('page_path')} AS page, COUNT(*) AS total
+    FROM leads
+    WHERE marketing_consent = 1 AND date(${context.timeColumn}) BETWEEN date(?) AND date(?)
+      AND ${context.activeCondition}
+    GROUP BY page
+  `).bind(window.from, window.to).all<{ page: string; total: number }>();
+  return new Map((rows.results || []).map((row) => [cleanGroupKey(row.page), number(row.total)]));
+}
+
+function mergePageRows(leadRows: DimensionRow[], views: Map<string, number>, consented: Map<string, number> | null): DimensionRow[] {
   const merged = new Map<string, DimensionRow>();
-  for (const row of leadRows) merged.set(row.key, { ...row, views: views.get(row.key) || 0 });
+  for (const row of leadRows) merged.set(row.key, { ...row, views: views.get(row.key) ?? null });
   for (const [key, count] of views) {
     if (!merged.has(key)) {
       merged.set(key, {
@@ -282,7 +303,10 @@ function mergePageRows(leadRows: DimensionRow[], views: Map<string, number>): Di
       });
     }
   }
-  return [...merged.values()].sort((a, b) => (b.views || 0) - (a.views || 0) || b.leads - a.leads);
+  return [...merged.values()].map((row) => ({
+    ...row,
+    conversion: consented && row.views ? percentage(consented.get(row.key) ?? 0, row.views) : null,
+  }));
 }
 
 /**
@@ -323,7 +347,6 @@ function withDerivedMetrics(rows: DimensionRow[]): DimensionRow[] {
       : null;
     return {
       ...row,
-      conversion: row.views === null || row.views <= 0 ? null : percentage(row.leads, row.views),
       cpl,
       cpq,
       romi,
@@ -373,7 +396,7 @@ async function readTotals(
     const row = await db.prepare(`
       SELECT ${leadAggregates(context)}
       FROM leads
-      WHERE date(${context.timeColumn}) >= date(?) AND date(${context.timeColumn}) <= date(?)
+      WHERE ${context.submissionDay} >= date(?) AND ${context.submissionDay} <= date(?)
         AND ${context.activeCondition}
     `).bind(window.from, window.to).first<RawAggregateRow>();
     totals.leads = number(row?.leads);
@@ -454,7 +477,7 @@ async function detectCurrency(
     const rows = await db.prepare(`
       SELECT deal_currency AS currency, COALESCE(SUM(deal_value), 0) AS amount FROM leads
       WHERE ${context.won.expression} AND deal_value IS NOT NULL AND ${context.activeCondition}
-        AND date(${context.timeColumn}) >= date(?) AND date(${context.timeColumn}) <= date(?)
+        AND ${context.submissionDay} >= date(?) AND ${context.submissionDay} <= date(?)
       GROUP BY deal_currency ORDER BY amount DESC LIMIT 10
     `).bind(window.from, window.to).all<{ currency: string; amount: number }>();
     const sorted = (rows.results || []).filter((row) => number(row.amount) > 0);
@@ -521,9 +544,9 @@ async function readSeries(
   if (availability.leads) {
     const qualified = context.columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : 'NULL';
     const rows = await db.prepare(`
-      SELECT date(${context.timeColumn}) AS day, COUNT(*) AS leads, ${qualified} AS qualified
+      SELECT ${context.submissionDay} AS day, COUNT(*) AS leads, ${qualified} AS qualified
       FROM leads
-      WHERE date(${context.timeColumn}) >= date(?) AND date(${context.timeColumn}) <= date(?)
+      WHERE ${context.submissionDay} >= date(?) AND ${context.submissionDay} <= date(?)
         AND ${context.activeCondition}
       GROUP BY day
     `).bind(window.from, window.to).all<{ day: string; leads: number; qualified: number | null }>();
@@ -558,7 +581,7 @@ interface CohortRow {
  * тоже начинается с понедельника: для восьми недель это семь полных плюс
  * текущая, которая ещё идёт.
  */
-async function readCohorts(db: D1Database, context: LeadQueryContext, weeks: number): Promise<CohortRow[]> {
+async function readCohorts(db: D1Database, context: LeadQueryContext, weeks: number, today: string): Promise<CohortRow[]> {
   const qualified = context.columns.has('quality')
     ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)"
     : 'NULL';
@@ -568,15 +591,16 @@ async function readCohorts(db: D1Database, context: LeadQueryContext, weeks: num
 
   const rows = await db.prepare(`
     SELECT
-      date(created_at, '-6 days', 'weekday 1') AS week_start,
+      date(created_at, '${context.localModifier}', '-6 days', 'weekday 1') AS week_start,
       COUNT(*) AS leads,
       ${qualified} AS qualified,
       ${won} AS won
     FROM leads
-    WHERE date(created_at) >= date('now', '-6 days', 'weekday 1', ?) AND ${context.activeCondition}
+    WHERE date(created_at, '${context.localModifier}') BETWEEN date(?, '-6 days', 'weekday 1', ?) AND date(?)
+      AND ${context.activeCondition}
     GROUP BY week_start
     ORDER BY week_start ASC
-  `).bind(`-${(weeks - 1) * 7} days`).all<{ week_start: string; leads: number; qualified: number | null; won: number | null }>();
+  `).bind(today, `-${(weeks - 1) * 7} days`, today).all<{ week_start: string; leads: number; qualified: number | null; won: number | null }>();
 
   return (rows.results || []).map((row) => ({
     week: String(row.week_start),
@@ -608,8 +632,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const db = env.DB;
-    const todayRow = await db.prepare("SELECT date('now') AS today").first<{ today: string }>();
-    const windows = periodWindows(days, String(todayRow?.today || new Date().toISOString().slice(0, 10)));
+    const today = localTodayIso(request);
+    const windows = periodWindows(days, today);
 
     const [leadsTableExists, pageStatsTableExists, visitorsTableExists, spendTableExists] = await Promise.all([
       tableExists(db, 'leads'),
@@ -633,12 +657,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ? await detectWonSupport(db, columns)
       : { supported: false, expression: null, source: null };
 
+    const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
+    const localModifier = sqliteLocalModifier(timezoneOffsetFromRequest(request));
     const baseContext: LeadQueryContext = {
       columns,
       won,
       currency: null,
       activeCondition: columns.has('deleted_at') ? 'deleted_at IS NULL' : '1=1',
-      timeColumn: columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at',
+      timeColumn,
+      localModifier,
+      submissionDay: `date(${timeColumn}, '${localModifier}')`,
     };
 
     const { currency, otherCurrencies, spendCurrency } = availability.leads || spendTableExists
@@ -657,7 +685,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const series = await readSeries(db, windows.current, days, context, availability);
-    const cohorts = availability.leads ? await readCohorts(db, context, 8) : [];
+    const cohorts = availability.leads ? await readCohorts(db, context, 8, today) : [];
 
     let leadCoverage = { pagePath: null as number | null, utm: null as number | null, marketingConsent: null as number | null };
     if (availability.leads) {
@@ -672,7 +700,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SELECT ${coverageExpressions[0]} AS with_page, ${coverageExpressions[1]} AS with_utm,
           ${coverageExpressions[2]} AS with_consent
         FROM leads
-        WHERE date(${context.timeColumn}) >= date(?) AND date(${context.timeColumn}) <= date(?)
+        WHERE ${context.submissionDay} >= date(?) AND ${context.submissionDay} <= date(?)
           AND ${context.activeCondition}
       `).bind(windows.current.from, windows.current.to)
         .first<{ with_page: number | null; with_utm: number | null; with_consent: number | null }>();
@@ -690,16 +718,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const dimensions: DimensionResult[] = [];
 
     if (availability.leads && columns.has('page_path')) {
-      const rows = await groupedLeads(db, normalizedDimensionExpression('page_path'), windows.current, context);
-      const views = availability.pageStats ? await pageViews(db, windows.current) : new Map<string, number>();
+      const [rows, views, consented] = await Promise.all([
+        groupedLeads(db, normalizedDimensionExpression('page_path'), windows.current, context),
+        availability.pageStats ? pageViews(db, windows.current) : Promise.resolve(null),
+        availability.pageStats ? consentedLeadsByPage(db, context, windows.current) : Promise.resolve(null),
+      ]);
       dimensions.push({
         key: 'page',
         label: 'Страница',
         supported: true,
-        reason: availability.pageStats ? null : 'Просмотры недоступны: нет таблицы page_stats_daily.',
+        reason: !views ? 'Просмотры недоступны: нет таблицы page_stats_daily.'
+          : consented ? 'CR сравнивает заявки с согласием и просмотры страницы за одни и те же дни UTC.'
+            : 'Конверсия недоступна: нет данных о согласии заявок.',
         hasViews: availability.pageStats,
         hasSpend: false,
-        rows: sortRows(withDerivedMetrics(availability.pageStats ? mergePageRows(rows, views) : rows)),
+        rows: sortRows(withDerivedMetrics(views ? mergePageRows(rows, views, consented) : rows)),
       });
     } else {
       dimensions.push(unavailable('page', 'Страница', 'В таблице leads нет page_path или сама таблица не создана.'));
@@ -826,9 +859,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const limitations = [
       'Лиды считаются по дедуплицированным контактам в leads. submissions_count — накопленный счётчик у контактов, активных в выбранном периоде; без журнала отправок его нельзя честно разложить по датам.',
       'Целевой, нецелевой и выигранный — текущие состояния среди лидов выбранного периода, а не число изменений этих состояний внутри периода.',
-      'Повторная заявка обновляет страницу, услугу и UTM контакта, поэтому модель атрибуции — последний известный источник, а не история касаний.',
-      'Конверсия страницы — заявки этой страницы к её просмотрам за тот же период; посетитель мог прийти на одну страницу, а оставить заявку на другой.',
-      'Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie. Посетители из ЕС/UK/CH, которые отказались или не ответили на баннер, в знаменатель не попадают, заявки же считаются у всех. Поэтому конверсия страниц может быть завышена.',
+      'Повторная заявка с согласием сохраняет последние известные UTM при прямом возврате. Новые метки заменяют весь набор. При отзыве согласия метки очищаются.',
+      'Заявки и когорты группируются по местному календарю. Просмотры и посетители хранятся по дням UTC.',
+      'Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie. В CR страницы входят заявки с согласием и просмотры за одинаковые дни UTC. Общий счётчик заявок охватывает все контакты.',
       'Когорты собираются по неделе первой заявки контакта, подпись строки — понедельник недели; последняя строка — неделя, которая ещё идёт, и свежая неделя всегда выглядит хуже старой, потому что сделкам по ней ещё не хватило времени закрыться.',
       '«Дневные уникальные» — сумма уникальных посетителей за каждый день периода: один человек может учитываться снова в другой день. visitor_hashes_daily намеренно не хранит страницу или рекламные метки.',
       'Просмотры по услуге, источнику и UTM не вычисляются: агрегированная статистика страниц не содержит эти измерения.',

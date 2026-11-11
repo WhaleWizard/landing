@@ -100,6 +100,7 @@ export interface FunnelStep {
   hint: string;
   /** Подпись перехода с предыдущей ступени, если её нельзя вычислить процентом. */
   transitionNote?: string;
+  transitionComparable?: boolean;
 }
 
 /**
@@ -112,7 +113,7 @@ export function FunnelChart({ steps }: { steps: FunnelStep[] }) {
   const top = usable.length ? Math.max(...usable.map((step) => step.value || 0)) : 0;
 
   const transitions = steps.map((step, index) => {
-    if (index === 0) return null;
+    if (index === 0 || step.transitionComparable === false) return null;
     const previous = steps[index - 1];
     if (previous.value === null || step.value === null || previous.value <= 0) return null;
     return Math.round((step.value / previous.value) * 1000) / 10;

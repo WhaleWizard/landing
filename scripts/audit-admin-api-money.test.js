@@ -975,6 +975,36 @@ test('F-089: у публикации с заявками без строки п�
   assert.ok(funnel.limitations.some((note) => note.startsWith('Просмотры и посетители считаются только у тех, кто разрешил маркетинговые cookie')), 'оговорка в воронке');
 });
 
+test('attribution and spend use the local window, with a consent-matched page rate over UTC days', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-11T20:30:00Z') });
+  const sqlite = freshDatabase();
+  insertLead(sqlite, { created_at: '2026-11-05 22:00:00', page_path: '/boundary/', utm_source: 'meta', marketing_consent: 1 });
+  insertLead(sqlite, { created_at: '2026-11-06 10:00:00', page_path: '/', utm_source: 'meta', marketing_consent: 1 });
+  insertLead(sqlite, { created_at: '2026-11-06 11:00:00', page_path: '/', marketing_consent: 0 });
+  sqlite.exec("INSERT INTO page_stats_daily(day,page_path,views) VALUES('2026-11-06','/',100)");
+  sqlite.exec("INSERT INTO ad_spend(day,source,amount) VALUES('2026-11-05','meta',5),('2026-11-12','meta',12),('2026-11-13','meta',13)");
+  const attribution = await harness('functions/api/admin/attribution.ts', { sqlite });
+  const spend = await harness('functions/api/admin/ad-spend.ts', { sqlite });
+  const query = { days: 7, timezone_offset: TASHKENT_OFFSET };
+  const result = await attribution.get(query);
+  assert.equal(result.status, 200, JSON.stringify(result.payload));
+  const { payload } = result;
+  assert.deepEqual(payload.period, { from: '2026-11-06', to: '2026-11-12' });
+  assert.equal(payload.summary.leads, 3);
+  assert.equal(payload.previous.leads, 0);
+  assert.equal(payload.series[0].leads, 3);
+  assert.equal(payload.summary.spend, 12);
+  const pages = payload.dimensions.find((item) => item.key === 'page').rows;
+  assert.equal(pages.find((page) => page.key === '/').conversion, 1);
+  assert.equal(pages.find((page) => page.key === '/').leads, 2);
+  assert.equal(pages.find((page) => page.key === '/boundary/').views, null);
+  assert.equal(pages.find((page) => page.key === '/boundary/').conversion, null);
+  const expenses = await spend.get(query);
+  assert.equal(expenses.status, 200);
+  assert.deepEqual(expenses.payload.entries.map((entry) => entry.day), ['2026-11-12']);
+});
+
 // ─── Стыки волны 02.10: счета, источники, типовые наборы, местный день ────────
 
 test('F-026: дата оплаты есть только у оплаченного счёта — выставленный её не получает, оплаченный без даты берёт день выставления или сегодня', async (t) => {

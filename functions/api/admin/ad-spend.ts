@@ -1,6 +1,7 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json, readCappedJsonBody } from '../../_lib/http';
+import { localTodayIso } from '../../_lib/local-day';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoney } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
@@ -210,14 +211,14 @@ function mergeDuplicateSlots(entries: SpendEntry[], errors: string[]): { entries
   return { entries: [...bySlot.values()], merged, rejected };
 }
 
-async function readSpendRows(db: D1Database, days: number): Promise<SpendEntry[]> {
+async function readSpendRows(db: D1Database, days: number, today: string): Promise<SpendEntry[]> {
   const rows = await db.prepare(`
     SELECT id, day, source, campaign, amount, currency, note
     FROM ad_spend
-    WHERE day >= date('now', ?)
+    WHERE day BETWEEN date(?, ?) AND date(?)
     ORDER BY day DESC, source ASC, campaign ASC
     LIMIT 2000
-  `).bind(`-${days - 1} day`).all<SpendEntry>();
+  `).bind(today, `-${days - 1} day`, today).all<SpendEntry>();
   return (rows.results || []).map((row) => ({ ...row, amount: Number(row.amount) || 0 }));
 }
 
@@ -233,7 +234,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const days = boundedDays(request);
   try {
-    const entries = await readSpendRows(env.DB, days);
+    const entries = await readSpendRows(env.DB, days, localTodayIso(request));
     const totals = new Map<string, number>();
     for (const entry of entries) {
       totals.set(entry.currency, (totals.get(entry.currency) || 0) + entry.amount);
@@ -283,7 +284,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return json({ success: false, error: 'Некорректный идентификатор строки' }, { status: 400, headers: noStore });
       }
       await db.prepare('DELETE FROM ad_spend WHERE id = ?').bind(id).run();
-      return json({ success: true, deleted: 1, entries: await readSpendRows(db, days) }, { headers: noStore });
+      return json({ success: true, deleted: 1, entries: await readSpendRows(db, days, localTodayIso(request)) }, { headers: noStore });
     }
 
     if (body.action !== 'upsert' && body.action !== 'import_csv') {
@@ -343,7 +344,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       merged: combined.merged,
       skipped: parsed.skipped + (rawEntries.length - valid.length) + combined.rejected,
       errors,
-      entries: await readSpendRows(db, days),
+      entries: await readSpendRows(db, days, localTodayIso(request)),
     }, { headers: noStore });
   } catch (error) {
     if (isMissingTableError(error)) {
