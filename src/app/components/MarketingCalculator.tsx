@@ -1055,7 +1055,10 @@ export default function MarketingCalculator({
       }`}
     >
       {variant === 'page' && (
-        <div className="pointer-events-none absolute left-1/2 top-48 h-[620px] w-[620px] -translate-x-1/2 rounded-full bg-primary/[0.07] blur-[120px]" />
+        <div
+          className="pointer-events-none absolute left-1/2 top-48 h-[620px] w-[620px] -translate-x-1/2 rounded-full bg-primary/[0.07] blur-[120px]"
+          style={{ transform: 'translateZ(0)' }}
+        />
       )}
       <div className="relative mx-auto max-w-7xl">
         {variant === 'page' && (
@@ -1086,7 +1089,7 @@ export default function MarketingCalculator({
           </header>
         )}
 
-        <div className={`overflow-hidden border border-primary/20 bg-card/55 shadow-2xl shadow-primary/[0.07] backdrop-blur-xl ${
+        <div className={`overflow-hidden border border-primary/20 bg-card/75 shadow-2xl shadow-primary/[0.07] backdrop-blur-md ${
           variant === 'page' ? 'rounded-3xl' : 'sm:rounded-2xl'
         }`}>
           <div className="border-b border-border/70 p-3 sm:p-4">
@@ -1120,7 +1123,10 @@ export default function MarketingCalculator({
               {mode === 'quote' && renderQuoteForm()}
             </div>
 
-            <aside className="border-t border-border/70 bg-background/20 p-3 sm:p-5 lg:sticky lg:top-20 lg:border-t-0 lg:p-6">
+            <aside
+              className="border-t border-border/70 bg-background/20 p-3 sm:p-5 lg:sticky lg:top-20 lg:border-t-0 lg:p-6"
+              style={{ willChange: 'transform' }}
+            >
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">

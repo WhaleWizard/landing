@@ -1,0 +1,48 @@
+Viewport,Route,Name,Status,NavTime_ms,TTFB_ms,FCP_ms,LCP_ms,CLS,TBT_ms,LongTasks,AvgScrollFPS,MinScrollFPS,JankFrames,HydrationClean,PageErrors,FailedRequests,Overflow
+"Desktop (1440x900)","/","Home",200,9565,2668,3528,4616,0,0,0,55,30,0,true,0,0,NO
+"Desktop (1440x900)","/meta-ads","Meta Ads",200,2713,442,1992,1992,0,0,0,46,12,1,true,0,0,NO
+"Desktop (1440x900)","/meta-apps","Meta Apps",200,4480,130,1744,2364,0,0,0,37,10,2,true,0,0,NO
+"Desktop (1440x900)","/google-ads","Google Ads",200,4412,106,1832,1904,0,0,0,38,10,3,true,0,0,NO
+"Desktop (1440x900)","/consult","Consult",200,8616,270,2416,3868,0,0,0,43,15,1,true,0,0,NO
+"Desktop (1440x900)","/about","About",200,3051,122,1424,1424,0,0,0,60,30,0,true,0,0,NO
+"Desktop (1440x900)","/cases","Cases List","ERROR: page.goto: Timeout 25000ms exceeded.
+Call log:
+[2m  - navigating to "https://www.whalewzrd.com/cases", waiting until "networkidle"[22m
+",,,,,,,,,,,,,
+"Desktop (1440x900)","/cases/prodvizhenie-premialnogo-konserzh-servisa-klienty-i-trafik-dlya-konserzh-servisa-cherez-targetirovannuyu-reklamu","Case Article",200,4384,1151,1900,1900,0.064,0,0,60,60,0,true,0,0,NO
+"Desktop (1440x900)","/blog","Blog List","ERROR: page.goto: Timeout 25000ms exceeded.
+Call log:
+[2m  - navigating to "https://www.whalewzrd.com/blog", waiting until "networkidle"[22m
+",,,,,,,,,,,,,
+"Desktop (1440x900)","/blog/kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh","Blog Article",200,3320,736,1316,1328,0,0,0,61,60,0,true,0,0,NO
+"Desktop (1440x900)","/faq","FAQ","ERROR: page.goto: Timeout 25000ms exceeded.
+Call log:
+[2m  - navigating to "https://www.whalewzrd.com/faq", waiting until "networkidle"[22m
+",,,,,,,,,,,,,
+"Desktop (1440x900)","/marketing-glossary","Marketing Glossary",200,5501,143,3096,3096,0,0,0,57,15,1,true,0,0,NO
+"Desktop (1440x900)","/calculator","Calculator",200,2642,153,1884,1884,0,0,0,49,30,0,true,0,0,NO
+"Desktop (1440x900)","/roi-calculator","ROI Calculator",200,2244,160,1500,1500,0,0,0,23,10,4,true,0,0,NO
+"Desktop (1440x900)","/privacy-policy","Privacy Policy",200,4166,137,3384,3384,0,0,0,59,30,0,true,0,0,NO
+"Desktop (1440x900)","/offer","Offer",200,2114,153,1284,1284,0,0,0,58,30,0,true,0,0,NO
+"Desktop (1440x900)","/cookie-policy","Cookie Policy",200,6799,146,5980,6032,0,0,0,60,30,0,true,0,0,NO
+"Desktop (1440x900)","/thank-you","Thank You",200,4944,366,964,3384,0,0,0,44,20,0,true,0,0,NO
+"Desktop (1440x900)","/admin","Admin Gate",200,3058,88,1200,1200,0,0,0,60,60,0,true,0,0,NO
+"Mobile (390x844)","/","Home",200,2867,237,944,944,0,0,0,61,60,0,true,0,0,NO
+"Mobile (390x844)","/meta-ads","Meta Ads",200,3970,164,1576,1600,0.0193,110,1,61,60,0,true,0,0,NO
+"Mobile (390x844)","/meta-apps","Meta Apps",200,3554,119,1368,1368,0,0,0,43,8,2,true,0,0,NO
+"Mobile (390x844)","/google-ads","Google Ads",200,3157,131,1484,1808,0,0,0,36,7,3,true,0,0,NO
+"Mobile (390x844)","/consult","Consult",200,4794,113,2364,2936,0,0,0,42,5,2,true,0,0,NO
+"Mobile (390x844)","/about","About",200,4819,155,1336,1668,0,0,0,60,60,0,true,0,0,NO
+"Mobile (390x844)","/cases","Cases List",200,4530,95,2140,2140,0,0,0,57,30,0,true,0,0,NO
+"Mobile (390x844)","/cases/prodvizhenie-premialnogo-konserzh-servisa-klienty-i-trafik-dlya-konserzh-servisa-cherez-targetirovannuyu-reklamu","Case Article",200,3423,609,1240,1296,0,0,0,61,60,0,true,0,0,NO
+"Mobile (390x844)","/blog","Blog List",200,5198,176,3388,3388,0,0,0,59,30,0,true,0,0,NO
+"Mobile (390x844)","/blog/kak-meta-ads-i-google-ads-sozdayut-effektivnuyu-voronku-prodazh","Blog Article",200,3792,410,1764,1764,0.0254,0,0,61,60,0,true,0,0,NO
+"Mobile (390x844)","/faq","FAQ",200,1611,88,1040,1040,0,0,0,60,60,0,true,0,0,NO
+"Mobile (390x844)","/marketing-glossary","Marketing Glossary",200,3226,339,2540,2540,0,0,0,47,5,1,true,0,0,NO
+"Mobile (390x844)","/calculator","Calculator",200,4969,459,4184,4184,0,0,0,61,60,0,true,0,0,NO
+"Mobile (390x844)","/roi-calculator","ROI Calculator",200,3741,103,1168,1168,0,0,0,61,60,0,true,0,0,NO
+"Mobile (390x844)","/privacy-policy","Privacy Policy",200,2937,172,2224,2224,0,0,0,61,60,0,true,0,0,NO
+"Mobile (390x844)","/offer","Offer",200,3321,154,1412,1412,0,0,0,60,60,0,true,0,0,NO
+"Mobile (390x844)","/cookie-policy","Cookie Policy",200,2788,97,904,904,0,0,0,60,60,0,true,0,0,NO
+"Mobile (390x844)","/thank-you","Thank You",200,9644,113,2008,8052,0,16,1,56,30,0,true,0,0,NO
+"Mobile (390x844)","/admin","Admin Gate",200,3564,118,1468,1468,0,0,0,60,60,0,true,0,0,NO

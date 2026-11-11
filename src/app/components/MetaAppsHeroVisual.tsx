@@ -581,7 +581,8 @@ const MetaAppsHeroVisual = memo(({ motionAllowed, settled = false }: MetaAppsHer
     let frame = 0;
     const update = () => {
       frame = 0;
-      parallaxScrollY.set(window.scrollY);
+      const sy = window.scrollY;
+      if (sy <= 950) parallaxScrollY.set(sy);
     };
     const schedule = () => {
       if (!frame) frame = window.requestAnimationFrame(update);

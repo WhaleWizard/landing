@@ -505,12 +505,13 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
     >
       <div className="absolute inset-0 flex items-center justify-center overflow-visible">
         {/* Ambient glow */}
-        <div className="absolute inset-0 -m-28 pointer-events-none">
+        <div className="absolute inset-0 -m-28 pointer-events-none" style={{ transform: 'translateZ(0)' }}>
           <div
             className="absolute inset-0 blur-[100px] opacity-40"
             style={{
               background:
                 'radial-gradient(ellipse 60% 70% at 50% 50%, rgba(127, 0, 255, 0.5) 0%, rgba(0, 210, 255, 0.3) 40%, transparent 70%)',
+              transform: 'translateZ(0)',
             }}
           />
         </div>
@@ -607,7 +608,7 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
         transition={{ delay: 0.8, duration: 0.8, type: 'spring' }}
         className="absolute top-3 left-1 md:top-6 md:left-2 w-32 sm:w-44 md:w-56 z-10 group"
       >
-        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-primary/25 overflow-hidden shadow-lg shadow-black/10">
+        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-md border border-primary/25 overflow-hidden shadow-lg shadow-black/10" style={{ transform: 'translateZ(0)' }}>
           <div className="absolute top-0 right-0 w-16 h-16 bg-primary/20 blur-2xl rounded-full pointer-events-none" />
           <div className="flex items-start justify-between mb-3 md:mb-4 relative z-10">
             <div>
@@ -662,7 +663,7 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
         transition={{ delay: 0.9, duration: 0.8, type: 'spring' }}
         className="absolute top-1 right-1 md:top-4 md:right-4 w-28 sm:w-36 md:w-44 z-10 group"
       >
-        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-accent/25 overflow-hidden shadow-lg shadow-black/10">
+        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-md border border-accent/25 overflow-hidden shadow-lg shadow-black/10" style={{ transform: 'translateZ(0)' }}>
           <div
             className="ww-hero-card-glow ww-ambient-motion absolute -top-8 -right-8 w-24 h-24 bg-accent/20 blur-3xl rounded-full pointer-events-none"
           />
@@ -721,7 +722,7 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
         transition={{ delay: 1.0, duration: 0.8, type: 'spring' }}
         className="absolute bottom-8 left-1 md:bottom-10 md:left-4 w-32 sm:w-44 md:w-56 z-10 group"
       >
-        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-2xl border border-secondary/25 overflow-hidden shadow-lg shadow-black/10">
+        <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-md border border-secondary/25 overflow-hidden shadow-lg shadow-black/10" style={{ transform: 'translateZ(0)' }}>
           <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-secondary/40 rounded-tl-2xl pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-secondary/40 rounded-br-2xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-20 h-20 bg-secondary/20 blur-3xl rounded-full pointer-events-none" />
@@ -777,7 +778,7 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
         transition={{ delay: 1.1, duration: 0.8, type: 'spring' }}
         className="absolute bottom-16 right-1 md:bottom-20 md:right-2 w-24 sm:w-32 md:w-40 z-10 group"
       >
-        <div className="relative p-2.5 md:p-4 rounded-2xl bg-background/95 backdrop-blur-2xl border border-primary/25 overflow-hidden shadow-lg shadow-black/10">
+        <div className="relative p-2.5 md:p-4 rounded-2xl bg-background/95 backdrop-blur-md border border-primary/25 overflow-hidden shadow-lg shadow-black/10" style={{ transform: 'translateZ(0)' }}>
           <div
             className="ww-hero-card-glow ww-ambient-motion absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent pointer-events-none"
             style={{
