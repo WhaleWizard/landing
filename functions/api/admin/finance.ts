@@ -110,10 +110,10 @@ async function hasOneOffSales(db: D1Database): Promise<boolean> {
   return columns.has('kind') && columns.has('payer');
 }
 
-/** Первое число месяца, с которого показываем историю: год назад. */
-function historyFrom(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+/** Двенадцать календарных месяцев, включая текущий месяц владельца. */
+function historyFrom(today: string): string {
+  const [year, month] = today.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 12, 1)).toISOString().slice(0, 10);
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -130,7 +130,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const db = env.DB;
-  const since = historyFrom();
+  const today = localTodayIso(request);
+  const since = historyFrom(today);
 
   try {
     const oneOffSales = await hasOneOffSales(db);
@@ -140,11 +141,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       // ни было: иначе через год он пропадал из «Ждём оплаты» и «Просрочено»,
       // и отметить его оплаченным было негде. Индекс idx_invoices_status
       // покрывает условие по статусу.
-      db.prepare(
+      connectedWorkspace ? readLedgerInvoices(db).then((rows) => rows.filter(invoice =>
+        !invoice.issued_at || invoice.issued_at >= since || invoice.status === 'issued' ||
+        invoice.payments?.some(payment => !payment.voided_at && payment.paid_on && payment.paid_on >= since)
+      )) : db.prepare(
         `SELECT * FROM invoices
          WHERE (issued_at IS NULL OR issued_at >= ?) OR (paid_at IS NOT NULL AND paid_at >= ?) OR status = 'issued'
          ORDER BY COALESCE(issued_at, created_at) DESC, id DESC`,
-      ).bind(since, since).all(),
+      ).bind(since, since).all().then((rows) => rows.results || []),
       db.prepare('SELECT * FROM finance_expenses WHERE day >= ? ORDER BY day DESC, id DESC').bind(since).all(),
       db.prepare('SELECT * FROM time_entries WHERE day >= ? ORDER BY day DESC, id DESC').bind(since).all(),
       db.prepare('SELECT * FROM finance_settings WHERE id = 1').first(),
@@ -165,10 +169,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     return json({
       success: true,
-      invoices: connectedWorkspace ? (await readLedgerInvoices(db)).filter(invoice =>
-        !invoice.issued_at || invoice.issued_at >= since || invoice.status === 'issued' ||
-        invoice.payments?.some(payment => !payment.voided_at && payment.paid_on && payment.paid_on >= since)
-      ) : invoices.results || [],
+      invoices,
       connectedWorkspace,
       historyFrom: since,
       work: connectedWorkspace ? (await db.prepare('SELECT id,client_id,title,status,billing,amount,currency FROM client_work ORDER BY title').all()).results || [] : [],
@@ -176,7 +177,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       timeEntries: times.results || [],
       clients,
       settings: settings || { tax_rate: 0, target_hourly_rate: 0, main_currency: 'USD', requisites: '' },
-      today: localTodayIso(request),
+      today,
       // Разовые продажи включаются самим фактом применённой миграции: интерфейс
       // не должен предлагать кнопку, которой некуда писать.
       oneOffSales,
@@ -296,34 +297,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       // считается по абонентке: иначе проданная в августе консультация
       // отменила бы августовский счёт этому же клиенту.
       const oneOffColumns = await hasOneOffSales(db);
-      const existing = await db.prepare(
-        `SELECT client_id FROM invoices WHERE period = ?${oneOffColumns ? " AND kind = 'retainer'" : ''}`,
-      ).bind(period).all<{ client_id: number }>();
-      const already = new Set((existing.results || []).map((row) => row.client_id));
-
       const active = clients.results || [];
       const billable = active.filter((client) => Number(client.retainer_amount) > 0);
       const withoutRetainer = active.length - billable.length;
-      const alreadyBilled = billable.filter((client) => already.has(client.id)).length;
 
       const [year, month] = period.split('-').map(Number);
       const statements = billable
-        .filter((client) => !already.has(client.id))
         .map((client) => {
           const day = client.billing_day || 1;
           const issued = `${period}-${String(day).padStart(2, '0')}`;
           const due = new Date(Date.UTC(year, month - 1, day + 7)).toISOString().slice(0, 10);
           return db.prepare(
             `INSERT INTO invoices (client_id, period, amount, currency, issued_at, due_at, status${oneOffColumns ? ', kind' : ''})
-             VALUES (?, ?, ?, ?, ?, ?, 'issued'${oneOffColumns ? ", 'retainer'" : ''})`,
-          ).bind(client.id, period, client.retainer_amount, client.retainer_currency, issued, due);
+             SELECT ?, ?, ?, ?, ?, ?, 'issued'${oneOffColumns ? ", 'retainer'" : ''}
+             WHERE NOT EXISTS (
+               SELECT 1 FROM invoices WHERE client_id = ? AND period = ? AND status != 'cancelled'
+                 ${oneOffColumns ? "AND kind = 'retainer'" : ''}
+             )`,
+          ).bind(client.id, period, client.retainer_amount, client.retainer_currency, issued, due, client.id, period);
         });
 
-      if (statements.length) await db.batch(statements);
+      const results = statements.length ? await db.batch(statements) : [];
+      const created = results.reduce((total, result) => total + Number(result.meta?.changes || 0), 0);
       return json({
         success: true,
-        created: statements.length,
-        skipped: alreadyBilled,
+        created,
+        skipped: statements.length - created,
         without_retainer: withoutRetainer,
         active_clients: active.length,
       }, { headers: noStore });

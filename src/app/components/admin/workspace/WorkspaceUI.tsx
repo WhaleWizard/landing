@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CircleDollarSign, ArrowDownLeft, Clock3 } from "lucide-react";
 import {
+  invoiceIsOverdue,
   invoiceOutstanding,
   invoiceReceived,
   moneyGroups,
@@ -46,8 +47,7 @@ export function InvoiceStatus({
   today: string;
 }) {
   const left = invoiceOutstanding(invoice);
-  const overdue =
-    left > 0 && Boolean(invoice.due_at) && invoice.due_at! < today;
+  const overdue = invoiceIsOverdue(invoice, today);
   return (
     <span
       className={`ws-badge ${overdue ? "is-overdue" : invoice.status === "paid" ? "is-paid" : ""}`}
@@ -120,7 +120,7 @@ export function WorkspaceStats({
       title: client ? "Осталось получить" : "Из них просрочено",
       icon: Clock3,
       items: invoices
-        .filter((i) => client || (Boolean(i.due_at) && i.due_at! < today))
+        .filter((i) => client || invoiceIsOverdue(i, today))
         .map((i) => ({ currency: i.currency, amount: invoiceOutstanding(i) })),
       note: client ? "По выставленным счетам" : "Срок оплаты уже прошёл",
     },

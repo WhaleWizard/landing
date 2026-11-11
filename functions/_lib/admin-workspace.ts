@@ -656,7 +656,7 @@ export async function workspaceMutation(
   }
   if (action === "issue_month") {
     const period = monthValue(body.period);
-    const [work, clients] = await Promise.all([
+    const [work, clients, active] = await Promise.all([
       db
         .prepare(
           "SELECT w.* FROM client_work w JOIN clients c ON c.id=w.client_id WHERE w.billing='monthly' AND w.status='active' AND c.status='active'",
@@ -672,6 +672,7 @@ export async function workspaceMutation(
           retainer_currency: string;
           billing_day: number;
         }>(),
+      db.prepare("SELECT count(*) AS count FROM clients WHERE status='active'").first<{ count: number }>(),
     ]);
     const entries = [
       ...(work.results || []).map((w) => ({
@@ -730,7 +731,7 @@ export async function workspaceMutation(
       created,
       skipped: statements.length - created,
       without_retainer: entries.filter((e) => e.amount <= 0).length,
-      active_clients: entries.length,
+      active_clients: Number(active?.count || 0),
     };
   }
   throw new WorkspaceError("Неизвестное действие");

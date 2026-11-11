@@ -168,6 +168,9 @@ export function invoiceOutstanding(invoice: WorkInvoice): number {
       )
     : 0;
 }
+export function invoiceIsOverdue(invoice: WorkInvoice, today: string): boolean {
+  return Boolean(invoice.due_at && invoice.due_at < today && invoiceOutstanding(invoice) > 0);
+}
 export function moneyGroups(
   items: Array<{ currency: string; amount: number }>,
 ): Array<{ currency: string; amount: number }> {

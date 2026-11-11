@@ -380,6 +380,35 @@ test('F-037: таблица «По месяцам» показывает мин�
   await view.unmount();
 });
 
+test('monthly finance totals use receipt dates and preserve the full outstanding balance', async () => {
+  const receipt = (id, amount_cents, paid_on, voided_at = null) => ({ id, amount_cents, paid_on, voided_at });
+  mockFetch([['/api/admin/finance', financePayload({
+    historyFrom: '2025-11-01',
+    invoices: [
+      invoiceFixture({ id: 1, amount: 1000, status: 'issued', due_at: '2024-01-10', payments: [receipt(1, 60000, '2024-01-10')] }),
+      invoiceFixture({ id: 2, amount: 500, status: 'issued', due_at: '2026-10-02', payments: [
+        receipt(2, 25000, '2026-09-30'), receipt(3, 15000, '2026-10-02'), receipt(4, 3000, '2026-10-02', '2026-10-02'),
+      ] }),
+      invoiceFixture({ id: 3, amount: 50, payments: [receipt(5, 5000, null)] }),
+    ],
+    expenses: [{ id: 1, day: '2026-10-03', category: 'будущая дата', amount: 25, currency: 'USD' }],
+  })]]);
+  const view = await mount(finance.AdminFinance, { password: 'x' });
+  await settle();
+  const tiles = [...view.container.querySelectorAll('.adm-tile')];
+  assert.match(tiles[0].textContent, /500 USD.*Просрочено: 400 USD/);
+  assert.match(tiles[1].textContent, /Получено в этом месяце150 USD/);
+  await click(buttonByText(view.container, 'Итоги'));
+
+  const table = view.container.querySelector('[aria-label="Итоги по месяцам"]');
+  const rows = [...table.querySelectorAll('tbody tr')].map((row) => [...row.cells].map((cell) => cell.textContent));
+  assert.deepEqual(rows, [
+    ['октябрь 2026 г.', '150 USD', '—', '15 USD', '135 USD'],
+    ['сентябрь 2026 г.', '250 USD', '—', '25 USD', '225 USD'],
+  ]);
+  await view.unmount();
+});
+
 /* ---------------------------------------------------------------------- */
 /* F-027 · F-035 · F-066 · F-067 — Заявки                                  */
 /* ---------------------------------------------------------------------- */

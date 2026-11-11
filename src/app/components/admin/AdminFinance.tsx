@@ -1,6 +1,6 @@
 import { WorkspacePayments } from './workspace/WorkspacePayments';
 import { useWorkspaceGuard } from './workspace/useWorkspaceGuard';
-import { invoiceReceipts, invoiceReceived, invoiceOutstanding, type WorkPayment, type WorkspaceTarget } from '../../../../shared/admin-workspace';
+import { invoiceIsOverdue, invoiceReceipts, invoiceReceived, invoiceOutstanding, type WorkPayment, type WorkspaceTarget } from '../../../../shared/admin-workspace';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   Clock3, CircleDollarSign, Handshake, Plus, Receipt, RefreshCw, Save, Trash2, Wallet, Pencil,
@@ -138,6 +138,10 @@ function monthOf(day: string | null): string {
   return day ? day.slice(0, 7) : '';
 }
 
+function inHistory(day: string | null, from: string, today: string): day is string {
+  return Boolean(day && day >= from && day <= today);
+}
+
 /** Текущий месяц по местному времени владельца, а не по Гринвичу. */
 function currentMonth(): string {
   const now = new Date();
@@ -189,11 +193,6 @@ function formatMonthLabel(month: string): string {
     .toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-/** Просрочен — это выставленный счёт со сроком в прошлом, а не хранимый статус. */
-function isOverdue(invoice: Invoice, today: string): boolean {
-  return invoice.status === 'issued' && Boolean(invoice.due_at) && (invoice.due_at as string) < today;
-}
-
 export default function AdminFinance({ password, target, onNavigate, onRegisterLeaveGuard }: { password: string; target?: WorkspaceTarget; onNavigate?: (t:WorkspaceTarget)=>void; onRegisterLeaveGuard?: (g:(()=>Promise<boolean>)|null)=>void }) {
   const [connectedWorkspace, setConnectedWorkspace] = useState(false);
   const [work, setWork] = useState<FinanceWork[]>([]);
@@ -207,7 +206,9 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [clients, setClients] = useState<FinanceClient[]>([]);
   const [settings, setSettings] = useState<Settings>({ tax_rate: 0, target_hourly_rate: 0, main_currency: 'USD', requisites: '' });
-  const [today, setToday] = useState(new Date().toISOString().slice(0, 10));
+  const [today, setToday] = useState(() => new Date().toLocaleDateString('sv-SE'));
+  const [loaded, setLoaded] = useState(false);
+  const loadSequence = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [migration, setMigration] = useState('');
@@ -233,6 +234,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
   ), [clientName]);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
@@ -247,6 +249,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
         clients?: FinanceClient[]; settings?: Settings; today?: string;
         oneOffSales?: boolean; oneOffSalesMigration?: string; connectedWorkspace?: boolean; historyFrom?:string; work?:FinanceWork[];
       } | null;
+      if (sequence !== loadSequence.current) return;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -262,10 +265,11 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
       setConnectedWorkspace(payload.connectedWorkspace === true);
       setWork(payload.work || []);setHistoryFrom(payload.historyFrom || '');
       setOneOffMigration(payload.oneOffSalesMigration || '');
+      setLoaded(true);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить финансы');
+      if (sequence === loadSequence.current) setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить финансы');
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, [password]);
 
@@ -308,17 +312,19 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
     const overdue: Money = new Map();
     const receivedThisMonth: Money = new Map();
     const spentThisMonth: Money = new Map();
-    const month = currentMonth();
+    const month = monthOf(today);
 
     invoices.forEach((invoice) => {
       if (invoice.status === 'issued') {
         addMoney(outstanding, invoice.currency, invoiceOutstanding(invoice));
-        if (isOverdue(invoice, today)) addMoney(overdue, invoice.currency, invoiceOutstanding(invoice));
+        if (invoiceIsOverdue(invoice, today)) addMoney(overdue, invoice.currency, invoiceOutstanding(invoice));
       }
-      invoiceReceipts(invoice).forEach(p=>{if(monthOf(p.day)===month)addMoney(receivedThisMonth,invoice.currency,p.amount);});
+      invoiceReceipts(invoice).forEach((payment) => {
+        if (inHistory(payment.day, historyFrom, today) && monthOf(payment.day) === month) addMoney(receivedThisMonth, invoice.currency, payment.amount);
+      });
     });
     expenses.forEach((expense) => {
-      if (monthOf(expense.day) === month) addMoney(spentThisMonth, expense.currency, expense.amount);
+      if (inHistory(expense.day, historyFrom, today) && monthOf(expense.day) === month) addMoney(spentThisMonth, expense.currency, expense.amount);
     });
 
     // Прибыль считается по каждой валюте отдельно: вычитать рублёвые расходы
@@ -327,7 +333,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
     const { profit, tax } = profitByCurrency(receivedThisMonth, spentThisMonth, Number(settings.tax_rate) || 0);
 
     return { outstanding, overdue, receivedThisMonth, spentThisMonth, profit, tax };
-  }, [expenses, invoices, settings.tax_rate, today]);
+  }, [expenses, historyFrom, invoices, settings.tax_rate, today]);
 
   /**
    * Разовые продажи за месяц: сколько штук и на какую сумму.
@@ -336,7 +342,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
    * заплатили, денег в месяце нет, и показывать их как приход нельзя.
    */
   const oneOffThisMonth = useMemo(() => {
-    const month = currentMonth();
+    const month = monthOf(today);
     const money: Money = new Map();
     const byKind = new Map<InvoiceKind, number>();
     let count = 0;
@@ -344,7 +350,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
     invoices.forEach((invoice) => {
       const kind = invoice.kind || 'retainer';
       if (!ONE_OFF_KINDS.has(kind)) return;
-      const receipts=invoiceReceipts(invoice).filter(p=>monthOf(p.day)===month);
+      const receipts = invoiceReceipts(invoice).filter((payment) => inHistory(payment.day, historyFrom, today) && monthOf(payment.day) === month);
       if (!receipts.length) return;
       count += 1;
       receipts.forEach(p=>addMoney(money, invoice.currency, p.amount));
@@ -357,7 +363,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
       .join(', ');
 
     return { count, money, breakdown };
-  }, [invoices]);
+  }, [historyFrom, invoices, today]);
 
   const byMonth = useMemo(() => {
     const map = new Map<string, { received: Money; spent: Money }>();
@@ -369,18 +375,22 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
       return created;
     };
     invoices.forEach((invoice) => {
-      invoiceReceipts(invoice).forEach(p=>{if(p.day)addMoney(ensure(monthOf(p.day)).received, invoice.currency, p.amount);});
+      invoiceReceipts(invoice).forEach((payment) => {
+        if (inHistory(payment.day, historyFrom, today)) addMoney(ensure(monthOf(payment.day)).received, invoice.currency, payment.amount);
+      });
     });
-    expenses.forEach((expense) => addMoney(ensure(monthOf(expense.day)).spent, expense.currency, expense.amount));
+    expenses.forEach((expense) => {
+      if (inHistory(expense.day, historyFrom, today)) addMoney(ensure(monthOf(expense.day)).spent, expense.currency, expense.amount);
+    });
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12);
-  }, [expenses, invoices]);
+  }, [expenses, historyFrom, invoices, today]);
 
   const byClient = useMemo(() => {
     const map = new Map<number, Money>();
     invoices.forEach((invoice) => {
       if (!invoiceReceived(invoice) || invoice.client_id === null) return;
       const money = map.get(invoice.client_id) || new Map();
-      invoiceReceipts(invoice).filter(p=>p.day && p.day>=historyFrom).forEach(p=>addMoney(money,invoice.currency,p.amount));
+      invoiceReceipts(invoice).filter((payment) => inHistory(payment.day, historyFrom, today)).forEach((payment) => addMoney(money, invoice.currency, payment.amount));
       if (!money.size) return;
       map.set(invoice.client_id, money);
     });
@@ -395,7 +405,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
     return [...map.entries()]
       .map(([id, money]) => ({ id, name: clientName(id), money, primaryTotal: money.get(primary) || 0 }))
       .sort((a, b) => b.primaryTotal - a.primaryTotal || a.name.localeCompare(b.name, 'ru'));
-  }, [clientName, invoices, settings.main_currency, historyFrom]);
+  }, [clientName, historyFrom, invoices, settings.main_currency, today]);
 
   const hoursByClient = useMemo(() => {
     const month = currentMonth();
@@ -430,7 +440,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
     [{ value: '0', label: 'Без клиента' }, ...clients.map((client) => ({ value: String(client.id), label: client.name }))]
   ), [clients]);
 
-  if (loading && !invoices.length && !migration && !error) return <AdminSectionSkeleton tiles={3} rows={5} />;
+  if (loading && !loaded && !migration && !error) return <AdminSectionSkeleton tiles={3} rows={5} />;
 
   if (migration) {
     return (
@@ -439,6 +449,14 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
       </div>
     );
   }
+
+  if (!loaded && error) return (
+    <AdminBlank
+      title="Финансы не загрузились"
+      text={error}
+      actions={<button className="admin-button admin-button--secondary" type="button" onClick={() => void load()}>Повторить</button>}
+    />
+  );
 
   return (
     <div className="admin-stack admin-stack--lg finance">
@@ -524,22 +542,16 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                 const result = await request({ action: 'issue_month', period: issueMonth });
                 if (result) {
                   const created = Number(result.created || 0);
-                  if (created) {
-                    notify.success(`Выставлено счетов: ${created}`);
-                    return;
-                  }
-                  // Раз счетов не появилось, надо сказать почему именно. «У всех
-                  // уже есть счёт» — только одна из причин: клиента без чека
-                  // кнопка пропускает, и молчать об этом нельзя, иначе владелец
-                  // решит, что счёт выставлен.
                   const active = Number(result.active_clients || 0);
                   const billed = Number(result.skipped || 0);
                   const noRetainer = Number(result.without_retainer || 0);
                   const reasons: string[] = [];
-                  if (billed) reasons.push(`у ${billed} счёт за этот месяц уже есть`);
-                  if (noRetainer) reasons.push(`у ${noRetainer} не заполнен чек — впишите его в карточке клиента`);
+                  if (billed) reasons.push(`счетов за этот месяц уже есть: ${billed}`);
+                  if (noRetainer) reasons.push(`позиций без суммы: ${noRetainer}`);
                   if (!active) reasons.push('активных клиентов нет');
-                  notify.info('Новых счетов не появилось', reasons.join('; ') || undefined);
+                  const detail = reasons.join('. ');
+                  if (created) notify.success(`Выставлено счетов: ${created}`, detail || undefined);
+                  else notify.info('Новых счетов не появилось', detail || 'Нет активных позиций для выставления.');
                 }
               }}>
                 Выставить за месяц
@@ -694,7 +706,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                 </thead>
                 <tbody>
                   {invoices.map((invoice) => {
-                    const overdue = isOverdue(invoice, today);
+                    const overdue = invoiceIsOverdue(invoice, today);
                     return (
                       <tr key={invoice.id}>
                         <td>
@@ -823,7 +835,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
               <h3 className="admin-card-title">По месяцам</h3>
             </header>
             {byMonth.length === 0 ? (
-              <AdminBlank inline title="Пока нечего считать" text="Итоги появятся, когда будет первый оплаченный счёт или записанный расход." />
+              <AdminBlank inline title="Пока нечего считать" text="За отчётный период нет поступлений с датой или расходов." />
             ) : (
               <div className="adm-table-scroll" role="region" aria-label="Итоги по месяцам" tabIndex={0}>
                 <table className="adm-data-table">

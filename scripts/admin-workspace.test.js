@@ -356,6 +356,7 @@ test("monthly generation bills each project once and does not double legacy reta
     today,
   );
   assert.equal(first.created, 2);
+  assert.equal(first.active_clients, 1);
   assert.equal(again.created, 0);
   assert.equal(
     sqlite.prepare("SELECT sum(amount) AS amount FROM invoices").get().amount,

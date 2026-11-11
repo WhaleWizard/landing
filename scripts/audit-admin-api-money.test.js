@@ -530,6 +530,38 @@ test('F-042: выставленный и не оплаченный счёт ст
   assert.deepEqual(numbers, ['NEW-1', 'OLD-1'], 'старый неоплаченный виден, давно оплаченный — в истории не нужен');
 });
 
+test('finance history starts eleven months before the owner’s current month', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-30T20:30:00Z') });
+  const finance = await harness('functions/api/admin/finance.ts');
+  const utc = await finance.get({ timezone_offset: 0 });
+  const local = await finance.get({ timezone_offset: -300 });
+  assert.equal(utc.payload.today, '2026-11-30');
+  assert.equal(utc.payload.historyFrom, '2025-12-01');
+  assert.equal(local.payload.today, '2026-12-01');
+  assert.equal(local.payload.historyFrom, '2026-01-01');
+});
+
+test('legacy monthly billing replaces a cancelled invoice and concurrent retries skip it', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  const { sqlite } = finance;
+  sqlite.exec('DROP TRIGGER payment_amount_guard');
+  const client = Number(sqlite.prepare("INSERT INTO clients(name,status,retainer_amount,billing_day) VALUES('Проверка','active',450,10)").run().lastInsertRowid);
+  const period = CURRENT_MONTH;
+  const existing = sqlite.prepare("INSERT INTO invoices(client_id,period,amount,status,kind) VALUES(?,?,?,?,?)");
+  existing.run(client, period, 450, 'cancelled', 'retainer');
+  existing.run(client, period, 100, 'issued', 'consultation');
+  const actions = await Promise.all([
+    finance.post({ action: 'issue_month', period }),
+    finance.post({ action: 'issue_month', period }),
+  ]);
+  assert.deepEqual(actions.map((result) => result.status), [200, 200]);
+  assert.deepEqual(actions.map(({ payload }) => payload.created).sort(), [0, 1]);
+  assert.deepEqual(actions.map(({ payload }) => payload.skipped).sort(), [0, 1]);
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM invoices WHERE kind='retainer' AND status='issued'").get().n, 1);
+});
+
 // ─── F-085 / F-099: «за сутки» — это 24 часа ────────────────────────────────
 
 test('F-085/F-099: события Meta CAPI считаются ровно за 24 часа и в сводке, и в уведомлении', async (t) => {

@@ -6,13 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import type { WorkspaceTarget } from "../../../../../shared/admin-workspace";
 import {
+  invoiceIsOverdue,
   invoiceOutstanding,
   invoiceReceived,
 } from "../../../../../shared/admin-workspace";
 import { AdminButton, AdminSelect } from "../AdminUI";
 import { AdminBlank, AdminSectionSkeleton } from "../AdminFeedback";
 import { useWorkspace } from "./useWorkspace";
-import { WorkspacePanel, WorkspaceStats } from "./WorkspaceUI";
+import { money, WorkspacePanel, WorkspaceStats } from "./WorkspaceUI";
 import { InvoiceTable, TaskList } from "./WorkspaceTables";
 import WorkspaceInvoice from "./WorkspaceInvoice";
 
@@ -79,10 +80,7 @@ export function WorkspacePayments({
       return (
         (filter === "all" ||
           (filter === "unpaid" && left > 0) ||
-          (filter === "overdue" &&
-            left > 0 &&
-            i.due_at &&
-            i.due_at < data.today) ||
+          (filter === "overdue" && invoiceIsOverdue(i, data.today)) ||
           (filter === "week" &&
             left > 0 &&
             i.due_at &&
@@ -224,7 +222,7 @@ export function WorkspaceFocus({
     (t) => !t.done && (all || (t.due_at && t.due_at <= data.today)),
   );
   const due = data.invoices.filter(
-    (i) => invoiceOutstanding(i) > 0 && i.due_at && i.due_at <= data.today,
+    (i) => invoiceIsOverdue(i, data.today) || (i.due_at === data.today && invoiceOutstanding(i) > 0),
   );
   if (!tasks.length && !due.length) return null;
   return (
@@ -265,10 +263,10 @@ export function WorkspaceFocus({
                       i.payer ||
                       "Без клиента"}
                     <small>
-                      Счёт {i.number || `№ ${i.id}`} · срок {i.due_at}
+                      Счёт {i.number || `№ ${i.id}`} · срок {i.due_at} · остаток {money(invoiceOutstanding(i), i.currency)}
                     </small>
                   </span>
-                  <span className="ws-badge is-overdue">
+                  <span className={`ws-badge${invoiceIsOverdue(i, data.today) ? " is-overdue" : ""}`}>
                     {i.due_at === data.today ? "Сегодня" : "Просрочен"}
                   </span>
                 </button>
