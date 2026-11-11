@@ -272,6 +272,21 @@ test('PA-02: all unit-economics presets keep number fields and sliders on the sa
   localStorage.removeItem('ww_unit_economics_state');
 });
 
+test('unit economics restores explicit zero and rejects malformed saved numbers', async () => {
+  const key = 'ww_unit_economics_state';
+  localStorage.setItem(key, JSON.stringify({ targetRevenue: 0, cpc: 'bad', marginPercent: 1000 }));
+  const view = await mount(unitEconModule.AdminUnitEconomics, {});
+  try {
+    assert.equal(view.container.querySelector('#unit-target-revenue').value, '0');
+    assert.equal(view.container.querySelector('#unit-cpc').value, '1.2');
+    assert.equal(buttonByText(view.container, 'Копировать план').disabled, true);
+    assert.equal(JSON.parse(localStorage.getItem(key)).targetRevenue, 0);
+  } finally {
+    await view.unmount();
+    localStorage.removeItem(key);
+  }
+});
+
 test('PA-03: exported plan does not recommend scaling a first-purchase loss despite high LTV', async () => {
   localStorage.removeItem('ww_unit_economics_state');
   let exported = '';
@@ -1168,4 +1183,35 @@ test('F-068: «Отчёт» открывается на месяце по мес
   assert.equal(period, local);
   assert.equal(buttonByAria(view.container, 'Следующий месяц')?.disabled, true, 'стрелка вперёд из текущего месяца заперта');
   await view.unmount();
+});
+
+test('monthly report compares only closed months in the UI and clipboard text', async () => {
+  const now = new Date();
+  const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const numbers = { views: null, visitors: null, leads: 1, qualified: 0, won: 0, revenue: 0, spend: null };
+  mockFetch([['/api/admin/report', (address) => {
+    const period = new URL(address, 'https://www.whalewzrd.com').searchParams.get('period');
+    return { success: true, period, isCurrentMonth: period === currentPeriod, through: `${period}-01`, current: numbers, previous: { ...numbers, leads: 4 } };
+  }]]);
+  let copied = '';
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => { copied = text; } } });
+  const view = await mount(periodsModule.AdminReport, { password: 'x' });
+  try {
+    await settle();
+    assert.match(view.container.textContent, /Данные по 01\./);
+    assert.doesNotMatch(view.container.textContent, /-75%/);
+    await click(buttonByText(view.container, 'Скопировать текстом'));
+    assert.match(copied, /Данные по 01\./);
+    assert.doesNotMatch(copied, /-75%/);
+    await click(buttonByAria(view.container, 'Предыдущий месяц'));
+    await settle();
+    assert.match(view.container.textContent, /-75% к прошлому месяцу/);
+    await click(buttonByText(view.container, 'Скопировать текстом'));
+    assert.match(copied, /-75% к прошлому месяцу/);
+  } finally {
+    await view.unmount();
+    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
+    else delete navigator.clipboard;
+  }
 });

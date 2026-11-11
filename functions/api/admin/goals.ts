@@ -1,3 +1,4 @@
+import { readWonPeriod } from '../../_lib/admin-period-facts';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json, readCappedJsonBody } from '../../_lib/http';
@@ -81,44 +82,21 @@ async function readFact(
   columns: Set<string>,
   activeCond: string,
   localModifier: string,
+  today: string,
 ): Promise<PeriodFact> {
-  const { from, to } = monthBounds(period);
+  const bounds = monthBounds(period);
+  const from = bounds.from;
+  const to = today < bounds.to ? today : bounds.to;
   const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
   const qualified = columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : '0';
-  const hasStage = columns.has('pipeline_stage');
-  const hasRevenue = hasStage && columns.has('deal_value') && columns.has('deal_currency');
 
   const row = await db.prepare(`
     SELECT COUNT(*) AS leads, ${qualified} AS qualified
     FROM leads
-    WHERE date(${timeColumn}) >= date(?) AND date(${timeColumn}) <= date(?) AND ${activeCond}
-  `).bind(from, to).first<{ leads: number; qualified: number }>();
+    WHERE date(${timeColumn}, ?) BETWEEN date(?) AND date(?) AND ${activeCond}
+  `).bind(localModifier, from, to).first<{ leads: number; qualified: number }>();
 
-  // Выигранные сделки и выручка — по дате выигрыша, а не по дате заявки:
-  // иначе кольцо «Выручка» сентября не двигалось от сделки, выигранной
-  // 5 сентября по августовской заявке, а «Отчёт» за август рос задним числом.
-  // Дата закрытия хранится по Гринвичу, границы месяца — местные, отсюда
-  // модификатор. До миграции 0014 даты закрытия нет — берётся updated_at,
-  // как в CRM-аналитике.
-  let won = 0;
-  let revenue: number | null = null;
-  if (hasStage) {
-    const closedColumn = columns.has('closed_at') ? 'COALESCE(closed_at, updated_at)' : 'updated_at';
-    // Месяц без сделок — ноль выручки, а не «неизвестно»: SUM по пустой
-    // выборке дал бы NULL и прочерк там, где данные о сделках есть.
-    const statement = db.prepare(`
-      SELECT COUNT(*) AS won,
-        ${hasRevenue ? 'COALESCE(SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END), 0)' : 'NULL'} AS revenue
-      FROM leads
-      WHERE pipeline_stage = 'won' AND ${activeCond}
-        AND date(${closedColumn}, ?) >= date(?) AND date(${closedColumn}, ?) <= date(?)
-    `);
-    const wonRow = hasRevenue
-      ? await statement.bind(currency, localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>()
-      : await statement.bind(localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>();
-    won = number(wonRow?.won);
-    revenue = hasRevenue ? round(number(wonRow?.revenue)) : null;
-  }
+  const { won, revenue } = await readWonPeriod(db, columns, activeCond, localModifier, from, to, currency);
 
   // Ни одной строки расходов за месяц — расходы не заведены, а не равны
   // нулю: ноль рисовал бы «Цену лида 0 USD». Строка с суммой 0, введённая
@@ -137,7 +115,7 @@ async function readFact(
   return {
     leads: number(row?.leads),
     qualified: number(row?.qualified),
-    won,
+    won: won ?? 0,
     revenue,
     spend,
   };
@@ -193,7 +171,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const period = normalizePeriod(new URL(request.url).searchParams.get('period'), today.slice(0, 7));
 
     let goal: Goal | null = null;
-    let history: Array<{ period: string; goal: Goal | null; fact: PeriodFact }> = [];
+    const history: Array<{ period: string; currency: string; goal: Goal | null; fact: PeriodFact }> = [];
     try {
       const row = await db.prepare('SELECT * FROM admin_goals WHERE period = ?').bind(period).first<Goal>();
       goal = row || null;
@@ -209,12 +187,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       throw error;
     }
 
-    const currency = goal?.currency || 'USD';
+    const currency = goal?.currency || ACCOUNTING_CURRENCY;
     const columns = await getLeadsColumns(db);
     const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
     const localModifier = sqliteLocalModifier(timezoneOffsetFromRequest(request));
 
-    const fact = await readFact(db, period, currency, columns, activeCond, localModifier);
+    const fact = await readFact(db, period, currency, columns, activeCond, localModifier, today);
 
     // История нужна, чтобы видеть не один месяц, а траекторию.
     const periods = Array.from({ length: HISTORY_MONTHS }, (_, index) => shiftPeriod(period, index - (HISTORY_MONTHS - 1)));
@@ -223,12 +201,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     ).bind(periods[0], period).all<Goal>();
     const goalsByPeriod = new Map((goalRows.results || []).map((row) => [row.period, row]));
 
-    history = [];
     for (const item of periods) {
+      const itemGoal = goalsByPeriod.get(item) || null;
+      const itemCurrency = itemGoal?.currency || ACCOUNTING_CURRENCY;
       history.push({
         period: item,
-        goal: goalsByPeriod.get(item) || null,
-        fact: await readFact(db, item, goalsByPeriod.get(item)?.currency || currency, columns, activeCond, localModifier),
+        currency: itemCurrency,
+        goal: itemGoal,
+        fact: item === period ? fact : await readFact(db, item, itemCurrency, columns, activeCond, localModifier, today),
       });
     }
 
@@ -244,6 +224,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       notes: [
         'Факт по заявкам считается по дате последней заявки контакта, как и в остальной аналитике.',
         'Выручка и выигранные сделки считаются по дате выигрыша сделки, заявки — по дате заявки. Выручка — суммы выигранных сделок в валюте цели; сделки в других валютах не приводятся к ней, курсов в системе нет.',
+        'Фактические поступления учитываются в «Финансах».',
+        ...(fact.revenue === null && fact.won ? ['Для итоговой суммы заполните суммы выигранных сделок в валюте цели.'] : []),
         'Прогноз линейный: текущий темп, умноженный на длину месяца. Он не учитывает сезонность и выходные.',
       ],
     }, { headers: noStore });
@@ -276,7 +258,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // первую запятую на точку и вырезал остальное, поэтому «1,234.56» давал
   // «1.234.56» и превращался в ноль — цель по выручке молча обнулялась.
   const bounded = (value: unknown, max: number): number => parseMoney(value, max) ?? 0;
-  // Учёт ведётся только в долларах — выбора валюты в интерфейсе нет.
+  // Новые цели используют учётную валюту. Валюта существующей цели сохраняется при правке.
   const currency = ACCOUNTING_CURRENCY;
 
   try {
@@ -288,7 +270,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         qualified_target = excluded.qualified_target,
         revenue_target = excluded.revenue_target,
         spend_cap = excluded.spend_cap,
-        currency = excluded.currency,
         note = excluded.note,
         updated_at = datetime('now')
     `).bind(

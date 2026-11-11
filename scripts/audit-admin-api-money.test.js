@@ -355,6 +355,41 @@ test('F-038: выручка в целях и отчёте идёт за дато
   assert.equal(utcGoals.fact.revenue, 0);
 });
 
+test('goals and report share the local cutoff and report only known CRM amounts in the selected currency', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-11T12:00:00Z') });
+  const sqlite = freshDatabase();
+  const cutoffLead = insertLead(sqlite, {
+    created_at: '2026-10-31 22:00:00', utm_source: ' META ', quality: 'target',
+    pipeline_stage: 'won', deal_currency: 'EUR', deal_value: null, closed_at: '2026-11-01 10:00:00',
+  });
+  insertLead(sqlite, { created_at: '2026-11-12 12:00:00', utm_source: 'future' });
+  insertLead(sqlite, { created_at: '2026-10-10 10:00:00', pipeline_stage: 'won', deal_value: 500, closed_at: '2026-11-02 12:00:00' });
+  sqlite.exec("INSERT INTO admin_goals(period,currency) VALUES('2026-11','EUR')");
+  sqlite.exec("INSERT INTO ad_spend(day,amount,currency) VALUES('2026-11-04',0,'EUR'),('2026-11-04',300,'USD'),('2026-11-12',200,'EUR')");
+  sqlite.exec("INSERT INTO invoices(amount,status,currency,issued_at) VALUES(900,'issued','EUR','2026-11-01')");
+  sqlite.exec("INSERT INTO invoice_payments(invoice_id,amount_cents,paid_on,request_key) SELECT id,25000,'2026-11-06','audit-crm-cash' FROM invoices");
+  const report = await harness('functions/api/admin/report.ts', { sqlite });
+  const goals = await harness('functions/api/admin/goals.ts', { sqlite });
+  const query = { period: '2026-11', timezone_offset: TASHKENT_OFFSET };
+  const initial = await report.get(query);
+  assert.equal(initial.status, 200);
+  assert.equal(initial.payload.through, '2026-11-11');
+  assert.deepEqual(initial.payload.sources, [{ source: 'meta', leads: 1, qualified: 1 }]);
+  assert.equal(initial.payload.current.won, 2);
+  assert.equal(initial.payload.current.revenue, null);
+  assert.equal(initial.payload.current.spend, 0);
+  assert.equal(initial.payload.derived.profit, null);
+  const goalsResult = await goals.get(query);
+  assert.equal(goalsResult.payload.fact.revenue, null);
+  assert.equal(goalsResult.payload.history.find((item) => item.period === '2026-10').currency, 'USD');
+  assert.equal((await goals.post({ period: '2026-11', revenue_target: 800 })).status, 200);
+  assert.equal(sqlite.prepare("SELECT currency FROM admin_goals WHERE period='2026-11'").get().currency, 'EUR');
+  sqlite.prepare('UPDATE leads SET deal_value=700 WHERE id=?').run(cutoffLead);
+  assert.equal((await report.get(query)).payload.current.revenue, 700);
+  assert.equal((await goals.get(query)).payload.fact.revenue, 700);
+});
+
 // ─── F-124 + F-038(4): выручка по месяцам в CRM-аналитике ───────────────────
 
 test('F-124: самый старый из двенадцати месяцев не пропадает и месяц считается по местному дню', async (t) => {

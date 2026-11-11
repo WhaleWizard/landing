@@ -39,7 +39,7 @@ interface GoalsResponse {
     elapsedDays: number; totalDays: number; isCurrent: boolean;
     leads: number | null; qualified: number | null; revenue: number | null; spend: number | null;
   };
-  history?: Array<{ period: string; goal: Goal | null; fact: PeriodFact }>;
+  history?: Array<{ period: string; currency?: string; goal: Goal | null; fact: PeriodFact }>;
   notes?: string[];
 }
 
@@ -237,7 +237,7 @@ export default function AdminGoals({ password }: { password: string }) {
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!draft) return;
+    if (!draft || draft.period !== period || data?.period !== period || loading || saving) return;
     setSaving(true);
     setError('');
     try {
@@ -263,14 +263,15 @@ export default function AdminGoals({ password }: { password: string }) {
     }
   };
 
-  const goal = data?.goal;
-  const fact = data?.fact;
+  const visible = data?.period === period ? data : null;
+  const goal = visible?.goal;
+  const fact = visible?.fact;
   const currency = goal?.currency || 'USD';
   const money = useCallback((value: number | null) => formatMoney(value, currency), [currency]);
 
-  const history = useMemo(() => (data?.history || []).filter((item) => (
-    item.goal || item.fact.leads > 0 || (item.fact.spend || 0) > 0
-  )), [data]);
+  const history = useMemo(() => (visible?.history || []).filter((item) => (
+    item.goal || item.fact.leads > 0 || item.fact.won > 0 || item.fact.spend !== null
+  )), [visible]);
 
   useGoalCelebration(period, goal, fact, data?.today);
 
@@ -293,7 +294,7 @@ export default function AdminGoals({ password }: { password: string }) {
           </p>
         </div>
         <div className="goals__period">
-          <button type="button" className="admin-button admin-button--icon" aria-label="Предыдущий месяц" onClick={() => setPeriod((value) => shiftPeriod(value, -1))}>
+          <button type="button" className="admin-button admin-button--icon" aria-label="Предыдущий месяц" disabled={saving} onClick={() => setPeriod((value) => shiftPeriod(value, -1))}>
             <ChevronLeft aria-hidden="true" />
           </button>
           <span className="goals__period-label">{periodLabel(period)}</span>
@@ -301,12 +302,12 @@ export default function AdminGoals({ password }: { password: string }) {
             type="button"
             className="admin-button admin-button--icon"
             aria-label="Следующий месяц"
-            disabled={period >= currentPeriod(data?.today)}
+            disabled={saving || period >= currentPeriod(data?.today)}
             onClick={() => setPeriod((value) => shiftPeriod(value, 1))}
           >
             <ChevronRight aria-hidden="true" />
           </button>
-          <button type="button" className="admin-button admin-button--quiet" aria-label="Обновить цель месяца" title="Обновить цель месяца" onClick={() => void load()} disabled={loading}>
+          <button type="button" className="admin-button admin-button--quiet" aria-label="Обновить цель месяца" title="Обновить цель месяца" onClick={() => void load()} disabled={loading || saving}>
             <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
           </button>
         </div>
@@ -319,9 +320,10 @@ export default function AdminGoals({ password }: { password: string }) {
       ) : null}
       {error && !migration ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
 
-      {data?.success && fact && (
+      {!visible && loading && <AdminSectionSkeleton tiles={4} rows={3} />}
+      {visible?.success && fact && (
         <>
-          {!data.hasGoal && (
+          {!visible.hasGoal && (
             <AdminBlank
               inline
               title={`На ${periodLabel(period).toLowerCase()} цель ещё не задана`}
@@ -334,7 +336,7 @@ export default function AdminGoals({ password }: { password: string }) {
               label="Заявки"
               fact={fact.leads}
               target={goal?.leads_target || 0}
-              forecastValue={data.forecast?.leads ?? null}
+              forecastValue={visible.forecast?.leads ?? null}
               format={(value) => formatNumber(value)}
               tone={1}
             />
@@ -342,7 +344,7 @@ export default function AdminGoals({ password }: { password: string }) {
               label="Целевые заявки"
               fact={fact.qualified}
               target={goal?.qualified_target || 0}
-              forecastValue={data.forecast?.qualified ?? null}
+              forecastValue={visible.forecast?.qualified ?? null}
               format={(value) => formatNumber(value)}
               tone={2}
             />
@@ -350,7 +352,7 @@ export default function AdminGoals({ password }: { password: string }) {
               label="Выручка"
               fact={fact.revenue}
               target={goal?.revenue_target || 0}
-              forecastValue={data.forecast?.revenue ?? null}
+              forecastValue={visible.forecast?.revenue ?? null}
               format={money}
               tone={6}
             />
@@ -358,20 +360,20 @@ export default function AdminGoals({ password }: { password: string }) {
               label="Расход"
               fact={fact.spend}
               target={goal?.spend_cap || 0}
-              forecastValue={data.forecast?.spend ?? null}
+              forecastValue={visible.forecast?.spend ?? null}
               format={money}
               tone={3}
               invert
             />
           </div>
 
-          {data.forecast?.isCurrent && (
+          {visible.forecast?.isCurrent && (
             <p className="goals__pace">
-              Прошло {data.forecast.elapsedDays} из {data.forecast.totalDays} дней месяца.
-              {goal && goal.leads_target > 0 && data.forecast.leads !== null && (
-                data.forecast.leads >= goal.leads_target
+              Прошло {visible.forecast.elapsedDays} из {visible.forecast.totalDays} дней месяца.
+              {goal && goal.leads_target > 0 && visible.forecast.leads !== null && (
+                visible.forecast.leads >= goal.leads_target
                   ? ' При текущем темпе план по заявкам будет выполнен.'
-                  : ` При текущем темпе выйдет ${formatNumber(data.forecast.leads)} заявок из ${formatNumber(goal.leads_target)} — темпа не хватает.`
+                  : ` При текущем темпе выйдет ${formatNumber(visible.forecast.leads)} заявок из ${formatNumber(goal.leads_target)} — темпа не хватает.`
               )}
             </p>
           )}
@@ -382,11 +384,11 @@ export default function AdminGoals({ password }: { password: string }) {
               <strong>{money(fact.spend)}</strong>
             </div>
             <div className="goals__money-item">
-              <span><TrendingUp aria-hidden="true" /> Выручка</span>
+              <span><TrendingUp aria-hidden="true" /> Сумма выигранных сделок</span>
               <strong>{money(fact.revenue)}</strong>
             </div>
             <div className={`goals__money-item ${profit !== null && profit < 0 ? 'is-bad' : profit !== null ? 'is-good' : ''}`}>
-              <span><Coins aria-hidden="true" /> Прибыль</span>
+              <span><Coins aria-hidden="true" /> Сделки минус реклама</span>
               <strong>{money(profit)}</strong>
             </div>
             <div className={`goals__money-item ${romi !== null && romi < 0 ? 'is-bad' : romi !== null ? 'is-good' : ''}`}>
@@ -442,7 +444,7 @@ export default function AdminGoals({ password }: { password: string }) {
                 />
               </label>
               <div className="goals__form-actions">
-                <button type="submit" className="admin-button admin-button--primary" disabled={saving}>
+                <button type="submit" className="admin-button admin-button--primary" disabled={saving || loading}>
                   <Save aria-hidden="true" /> {saving ? 'Сохраняю…' : 'Сохранить цель'}
                 </button>
               </div>
@@ -478,8 +480,8 @@ export default function AdminGoals({ password }: { password: string }) {
                           <td className="is-numeric">{formatNumber(item.fact.leads)}</td>
                           <td className="is-numeric">{target > 0 ? formatNumber(target) : '—'}</td>
                           <td className="is-numeric">{formatNumber(item.fact.qualified)}</td>
-                          <td className="is-numeric">{formatMoney(item.fact.revenue, item.goal?.currency || currency)}</td>
-                          <td className="is-numeric">{formatMoney(item.fact.spend, item.goal?.currency || currency)}</td>
+                          <td className="is-numeric">{formatMoney(item.fact.revenue, item.currency || item.goal?.currency || currency)}</td>
+                          <td className="is-numeric">{formatMoney(item.fact.spend, item.currency || item.goal?.currency || currency)}</td>
                           <td className={`is-numeric ${done === null ? '' : done >= 100 ? 'is-good' : done < 70 ? 'is-bad' : ''}`}>
                             {done === null ? '—' : `${done}%`}
                           </td>
@@ -497,7 +499,7 @@ export default function AdminGoals({ password }: { password: string }) {
               <h3 className="admin-card-title"><Info aria-hidden="true" /> Как это считается</h3>
             </header>
             <ul className="adm-limitations">
-              {(data.notes || []).map((note, index) => <li key={index}>{note}</li>)}
+              {(visible.notes || []).map((note, index) => <li key={index}>{note}</li>)}
             </ul>
           </section>
         </>

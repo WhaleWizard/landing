@@ -92,40 +92,31 @@ const PRESETS: UnitEconPreset[] = [
   },
 ];
 
+function readSavedScenario(): Record<string, unknown> {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ww_unit_economics_state') || 'null');
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function scenarioNumber(saved: unknown, fallback: number, min = 0, max = Number.MAX_SAFE_INTEGER): number {
+  return typeof saved === 'number' && Number.isFinite(saved) && saved >= min && saved <= max ? saved : fallback;
+}
+
 export default function AdminUnitEconomics() {
-  // Model parameters
-  const [targetRevenue, setTargetRevenue] = useState<number>(10000);
-  const [averageCheck, setAverageCheck] = useState<number>(1200);
-  const [marginPercent, setMarginPercent] = useState<number>(65);
-  const [leadToDealPercent, setLeadToDealPercent] = useState<number>(18);
-  const [siteConvPercent, setSiteConvPercent] = useState<number>(4.0);
-  const [cpc, setCpc] = useState<number>(1.2);
-  const [repeatPurchases, setRepeatPurchases] = useState<number>(5.5);
-
-  // Scenario management
-  const [activePreset, setActivePreset] = useState<string>('b2b_service');
-  const [scenarioName, setScenarioName] = useState<string>('Базовый план');
-
-  // Load saved state
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('ww_unit_economics_state');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.targetRevenue) setTargetRevenue(parsed.targetRevenue);
-        if (parsed.averageCheck) setAverageCheck(parsed.averageCheck);
-        if (parsed.marginPercent) setMarginPercent(parsed.marginPercent);
-        if (parsed.leadToDealPercent) setLeadToDealPercent(parsed.leadToDealPercent);
-        if (parsed.siteConvPercent) setSiteConvPercent(parsed.siteConvPercent);
-        if (parsed.cpc) setCpc(parsed.cpc);
-        if (parsed.repeatPurchases) setRepeatPurchases(parsed.repeatPurchases);
-        if (parsed.activePreset) setActivePreset(parsed.activePreset);
-        if (parsed.scenarioName) setScenarioName(parsed.scenarioName);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  const [saved] = useState(readSavedScenario);
+  const defaults = PRESETS[0];
+  const [targetRevenue, setTargetRevenue] = useState(() => scenarioNumber(saved.targetRevenue, defaults.targetRevenue));
+  const [averageCheck, setAverageCheck] = useState(() => scenarioNumber(saved.averageCheck, defaults.averageCheck));
+  const [marginPercent, setMarginPercent] = useState(() => scenarioNumber(saved.marginPercent, defaults.marginPercent, 5, 95));
+  const [leadToDealPercent, setLeadToDealPercent] = useState(() => scenarioNumber(saved.leadToDealPercent, defaults.leadToDealPercent, 1, 90));
+  const [siteConvPercent, setSiteConvPercent] = useState(() => scenarioNumber(saved.siteConvPercent, defaults.siteConvPercent, 0.5, 20));
+  const [cpc, setCpc] = useState(() => scenarioNumber(saved.cpc, defaults.cpc));
+  const [repeatPurchases, setRepeatPurchases] = useState(() => scenarioNumber(saved.repeatPurchases, defaults.repeatPurchases, 1, 15));
+  const [activePreset, setActivePreset] = useState(() => PRESETS.find((preset) => preset.id === saved.activePreset)?.id ?? defaults.id);
+  const [scenarioName, setScenarioName] = useState(() => typeof saved.scenarioName === 'string' ? saved.scenarioName : 'Базовый план');
 
   // Save state on changes
   const saveState = useCallback(() => {
@@ -183,7 +174,7 @@ export default function AdminUnitEconomics() {
   // Copy proposal summary
   const handleCopySummary = async () => {
     if (!calculations) return;
-    let report = `📊 МЕДИАПЛАН И РАСЧЕТ ЮНИТ-ЭКОНОМИКИ (${scenarioName})\n`;
+    let report = `📊 МЕДИАПЛАН И РАСЧЕТ ЮНИТ-ЭКОНОМИКИ (${scenarioName})\nРасчёт по введённым параметрам.\n`;
     report += `--------------------------------------------------\n`;
     report += `🎯 Целевая выручка: $${targetRevenue.toLocaleString('en-US')}\n`;
     report += `📦 Средний чек: $${averageCheck} | Маржинальность: ${marginPercent}%\n`;

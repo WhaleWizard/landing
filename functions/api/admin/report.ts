@@ -1,6 +1,8 @@
+import { readWonPeriod } from '../../_lib/admin-period-facts';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
+import { ACCOUNTING_CURRENCY } from '../../_lib/money';
 import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
@@ -54,50 +56,23 @@ interface PeriodNumbers {
 
 async function readPeriod(
   db: D1Database,
-  period: string,
+  { from, to }: { from: string; to: string },
   currency: string,
   columns: Set<string>,
   activeCond: string,
   available: { pageStats: boolean; visitors: boolean; spend: boolean },
   localModifier: string,
 ): Promise<PeriodNumbers> {
-  const { from, to } = monthBounds(period);
   const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
-  const qualified = columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : 'NULL';
-  const hasStage = columns.has('pipeline_stage');
-  const hasRevenue = hasStage && columns.has('deal_value') && columns.has('deal_currency');
+  const qualified = columns.has('quality') ? "COUNT(CASE WHEN quality = 'target' THEN 1 END)" : 'NULL';
 
   const row = await db.prepare(`
     SELECT COUNT(*) AS leads, ${qualified} AS qualified
     FROM leads
-    WHERE date(${timeColumn}) >= date(?) AND date(${timeColumn}) <= date(?) AND ${activeCond}
-  `).bind(from, to).first<{ leads: number; qualified: number | null }>();
+    WHERE date(${timeColumn}, ?) BETWEEN date(?) AND date(?) AND ${activeCond}
+  `).bind(localModifier, from, to).first<{ leads: number; qualified: number | null }>();
 
-  // Выигранные сделки и выручка — по дате выигрыша, а не по дате заявки:
-  // заявка августа, выигранная в сентябре, иначе задним числом растила отчёт
-  // за август, а CRM-аналитика показывала те же деньги в сентябре. Дата
-  // закрытия хранится по Гринвичу, границы месяца — местные, отсюда
-  // модификатор. До миграции 0014 даты закрытия нет — берётся updated_at,
-  // как в CRM-аналитике.
-  let won: number | null = null;
-  let revenue: number | null = null;
-  if (hasStage) {
-    const closedColumn = columns.has('closed_at') ? 'COALESCE(closed_at, updated_at)' : 'updated_at';
-    // Месяц без сделок — это ноль выручки, а не «неизвестно»: колонки есть,
-    // считать есть по чему. SUM по пустой выборке дал бы NULL и прочерк.
-    const statement = db.prepare(`
-      SELECT COUNT(*) AS won,
-        ${hasRevenue ? 'COALESCE(SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END), 0)' : 'NULL'} AS revenue
-      FROM leads
-      WHERE pipeline_stage = 'won' AND ${activeCond}
-        AND date(${closedColumn}, ?) >= date(?) AND date(${closedColumn}, ?) <= date(?)
-    `);
-    const wonRow = hasRevenue
-      ? await statement.bind(currency, localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>()
-      : await statement.bind(localModifier, from, localModifier, to).first<{ won: number; revenue: number | null }>();
-    won = number(wonRow?.won);
-    revenue = hasRevenue ? round(number(wonRow?.revenue)) : null;
-  }
+  const { won, revenue } = await readWonPeriod(db, columns, activeCond, localModifier, from, to, currency);
 
   let views: number | null = null;
   if (available.pageStats) {
@@ -156,7 +131,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     // всегда считает по Гринвичу, и с полуночи до пяти утра давала вчера.
     const today = localTodayIso(request);
     const period = normalizePeriod(new URL(request.url).searchParams.get('period'), today.slice(0, 7));
-    const { from, to } = monthBounds(period);
+    const bounds = monthBounds(period);
+    const from = bounds.from;
+    const to = today < bounds.to ? today : bounds.to;
 
     const columns = await getLeadsColumns(db);
     const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
@@ -171,12 +148,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ? await db.prepare('SELECT * FROM admin_goals WHERE period = ?').bind(period)
         .first<{ leads_target: number; qualified_target: number; revenue_target: number; spend_cap: number; currency: string }>()
       : null;
-    const currency = goal?.currency || 'USD';
+    const currency = goal?.currency || ACCOUNTING_CURRENCY;
     const available = { pageStats: hasPageStats, visitors: hasVisitors, spend: hasSpend };
     const localModifier = sqliteLocalModifier(timezoneOffsetFromRequest(request));
 
-    const current = await readPeriod(db, period, currency, columns, activeCond, available, localModifier);
-    const previous = await readPeriod(db, previousPeriod(period), currency, columns, activeCond, available, localModifier);
+    const current = await readPeriod(db, { from, to }, currency, columns, activeCond, available, localModifier);
+    const previous = await readPeriod(db, monthBounds(previousPeriod(period)), currency, columns, activeCond, available, localModifier);
 
     const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
     const sources = columns.has('utm_source')
@@ -185,9 +162,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
             COUNT(*) AS leads,
             ${columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : 'NULL'} AS qualified
           FROM leads
-          WHERE date(${timeColumn}) >= date(?) AND date(${timeColumn}) <= date(?) AND ${activeCond}
+          WHERE date(${timeColumn}, ?) BETWEEN date(?) AND date(?) AND ${activeCond}
           GROUP BY source ORDER BY leads DESC LIMIT 6
-        `).bind(from, to).all<{ source: string; leads: number; qualified: number | null }>()
+        `).bind(localModifier, from, to).all<{ source: string; leads: number; qualified: number | null }>()
       : { results: [] as Array<{ source: string; leads: number; qualified: number | null }> };
 
     const pages = hasPageStats
@@ -201,8 +178,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const published = await tableExists(db, 'articles')
       ? await db.prepare(`
           SELECT COUNT(*) AS total FROM articles
-          WHERE published_at IS NOT NULL AND date(published_at) >= date(?) AND date(published_at) <= date(?)
-        `).bind(from, to).first<{ total: number }>().catch(() => null)
+          WHERE published_at IS NOT NULL AND date(published_at, ?) BETWEEN date(?) AND date(?)
+        `).bind(localModifier, from, to).first<{ total: number }>().catch(() => null)
       : null;
 
     const profit = current.revenue !== null && current.spend !== null ? round(current.revenue - current.spend) : null;
@@ -218,6 +195,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       // Местный день владельца: по нему интерфейс запирает «›» в будущее.
       today,
       isCurrentMonth: today.slice(0, 7) === period,
+      through: to,
       currency,
       current,
       previous,
@@ -232,11 +210,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       publishedArticles: published ? number(published.total) : null,
       notes: [
         'Отчёт собран из тех же данных, что показывает админка: ничего не досчитывается и не округляется в свою пользу.',
-        'Выручка и выигранные сделки считаются по дате выигрыша сделки, заявки — по дате заявки; окупаемость — деньги месяца против расхода месяца.',
+        'Выручка считается по дате выигрыша и суммам сделок. Фактические поступления учитываются в «Финансах». Заявки считаются по местной дате последней заявки контакта.',
+        ...(current.revenue === null && current.won ? ['Для итоговой суммы заполните суммы выигранных сделок в валюте отчёта.'] : []),
         current.spend === null
           ? 'Расходы за месяц не заведены, поэтому цена лида и окупаемость не рассчитаны.'
           : `Деньги считаются в ${currency}; суммы в других валютах к ней не приводятся.`,
-        'Если месяц ещё не закончился, числа неполные — сравнение с прошлым месяцем будет нечестным до его конца.',
+        ...(today.slice(0, 7) === period ? ['Сравнение с предыдущим месяцем появится после окончания текущего.'] : []),
       ],
     }, { headers: noStore });
   } catch (error) {

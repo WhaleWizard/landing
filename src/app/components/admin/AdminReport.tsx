@@ -18,6 +18,7 @@ interface ReportResponse {
   error?: string;
   period?: string;
   isCurrentMonth?: boolean;
+  through?: string;
   currency?: string;
   current?: PeriodNumbers;
   previous?: PeriodNumbers;
@@ -83,10 +84,12 @@ export default function AdminReport({ password }: { password: string }) {
       });
       const payload = await response.json().catch(() => null);
       if (requestId !== requestSequence.current) return;
-      setData(payload);
+      setData(response.ok && payload?.success
+        ? { ...payload, period }
+        : { success: false, period, error: payload?.error || 'Не удалось собрать отчёт' });
     } catch {
       if (requestId !== requestSequence.current) return;
-      setData({ success: false, error: 'Не удалось собрать отчёт' });
+      setData({ success: false, period, error: 'Не удалось собрать отчёт' });
     } finally {
       if (requestId === requestSequence.current) setLoading(false);
     }
@@ -94,33 +97,38 @@ export default function AdminReport({ password }: { password: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const currency = data?.currency || 'USD';
-  const current = data?.current;
-  const previous = data?.previous;
-  const derived = data?.derived;
+  const report = data?.period === period ? data : null;
+  const currency = report?.currency || 'USD';
+  const current = report?.current;
+  const openMonth = report?.isCurrentMonth ?? period >= currentPeriod();
+  const previous = openMonth ? undefined : report?.previous;
+  const derived = report?.derived;
+  const through = report?.through?.split('-').reverse().join('.');
+  const leadsChange = change(current?.leads ?? null, previous?.leads ?? null);
 
   const plainText = useMemo(() => {
     if (!current) return '';
     const lines = [
       `Отчёт за ${periodLabel(period).toLowerCase()}`,
+      ...(openMonth && through ? [`Данные по ${through}`] : []),
       '',
       `Посетители: ${formatNumber(current.visitors)}`,
       `Просмотры: ${formatNumber(current.views)}`,
-      `Заявки: ${formatNumber(current.leads)}${previous ? ` (${change(current.leads, previous.leads)})` : ''}`,
+      `Заявки: ${formatNumber(current.leads)}${leadsChange ? ` (${leadsChange})` : ''}`,
       `Целевые заявки: ${formatNumber(current.qualified)}`,
       `Выигранные сделки: ${formatNumber(current.won)}`,
     ];
     if (current.spend !== null) lines.push(`Расход: ${formatMoney(current.spend, currency)}`);
-    if (current.revenue !== null) lines.push(`Выручка: ${formatMoney(current.revenue, currency)}`);
-    if (derived?.profit !== null && derived?.profit !== undefined) lines.push(`Прибыль: ${formatMoney(derived.profit, currency)}`);
+    if (current.revenue !== null) lines.push(`Сумма выигранных сделок: ${formatMoney(current.revenue, currency)}`);
+    if (derived?.profit !== null && derived?.profit !== undefined) lines.push(`Сделки минус реклама: ${formatMoney(derived.profit, currency)}`);
     if (derived?.cpl !== null && derived?.cpl !== undefined) lines.push(`Цена заявки: ${formatMoney(derived.cpl, currency)}`);
     if (derived?.romi !== null && derived?.romi !== undefined) lines.push(`Окупаемость: ${formatPercent(derived.romi)}`);
-    if (data?.sources?.length) {
+    if (report?.sources?.length) {
       lines.push('', 'Источники заявок:');
-      for (const source of data.sources) lines.push(`— ${source.source}: ${source.leads}`);
+      for (const source of report.sources) lines.push(`— ${source.source}: ${source.leads}`);
     }
     return lines.join('\n');
-  }, [currency, current, data?.sources, derived, period, previous]);
+  }, [currency, current, derived, leadsChange, openMonth, period, report?.sources, through]);
 
   if (loading && !data) return <AdminSectionSkeleton tiles={4} rows={3} />;
 
@@ -154,16 +162,16 @@ export default function AdminReport({ password }: { password: string }) {
         </div>
       </div>
 
-      {!data?.success ? (
+      {!report ? <AdminSectionSkeleton tiles={4} rows={3} /> : !report.success ? (
         <AdminBlank
           title="Отчёт пока не собрать"
-          text={data?.error || 'Данные появятся, когда накопится статистика за выбранный месяц.'}
+          text={report.error || 'Не удалось загрузить выбранный месяц.'}
         />
       ) : (
         <>
-          {data.isCurrentMonth && (
+          {openMonth && (
             <div className="admin-notice" role="status">
-              <strong>Месяц ещё идёт.</strong> Числа неполные, а сравнение с прошлым месяцем станет честным только после его окончания.
+              <strong>{through ? `Данные по ${through}.` : 'Месяц ещё идёт.'}</strong> Сравнение появится после закрытия месяца.
             </div>
           )}
 
@@ -197,12 +205,12 @@ export default function AdminReport({ password }: { password: string }) {
               <div className="adm-tile" key={tile.label}>
                 <div className="adm-tile__head"><span className="adm-tile__title">{tile.label}</span></div>
                 <div className="adm-tile__value">{tile.value}</div>
-                <p className="adm-tile__detail">{tile.note || 'нет данных за прошлый месяц'}</p>
+                {tile.note || !openMonth ? <p className="adm-tile__detail">{tile.note || 'нет данных за прошлый месяц'}</p> : null}
               </div>
             ))}
           </div>
 
-          {(current?.spend !== null || current?.revenue !== null) && (
+          {current && (current.spend !== null || current.revenue !== null) && (
             <div className="adm-tiles adm-tiles--money">
               <div className="adm-tile">
                 <div className="adm-tile__head"><span className="adm-tile__title">Расход</span></div>
@@ -210,12 +218,12 @@ export default function AdminReport({ password }: { password: string }) {
                 <p className="adm-tile__detail">{change(current?.spend ?? null, previous?.spend ?? null)}</p>
               </div>
               <div className="adm-tile">
-                <div className="adm-tile__head"><span className="adm-tile__title">Выручка</span></div>
+                <div className="adm-tile__head"><span className="adm-tile__title">Сумма выигранных сделок</span></div>
                 <div className="adm-tile__value">{formatMoney(current?.revenue ?? null, currency)}</div>
                 <p className="adm-tile__detail">{change(current?.revenue ?? null, previous?.revenue ?? null)}</p>
               </div>
               <div className="adm-tile">
-                <div className="adm-tile__head"><span className="adm-tile__title">Прибыль</span></div>
+                <div className="adm-tile__head"><span className="adm-tile__title">Сделки минус реклама</span></div>
                 <div className="adm-tile__value">{formatMoney(derived?.profit ?? null, currency)}</div>
                 <p className="adm-tile__detail">Выручка минус расход</p>
               </div>
@@ -235,9 +243,9 @@ export default function AdminReport({ password }: { password: string }) {
           <div className="report__columns">
             <section className="admin-panel adm-card">
               <header className="adm-card__head"><h3 className="admin-card-title">Откуда пришли заявки</h3></header>
-              {data.sources?.length ? (
+              {report.sources?.length ? (
                 <ul className="report__list">
-                  {data.sources.map((source) => (
+                  {report.sources.map((source) => (
                     <li key={source.source}>
                       <span>{source.source}</span>
                       <strong>{formatNumber(source.leads)}</strong>
@@ -245,14 +253,14 @@ export default function AdminReport({ password }: { password: string }) {
                     </li>
                   ))}
                 </ul>
-              ) : <p className="admin-muted">За месяц заявок с метками не было.</p>}
+              ) : <p className="admin-muted">{current?.leads ? 'Разбивка по источникам недоступна.' : 'За выбранный период заявок нет.'}</p>}
             </section>
 
             <section className="admin-panel adm-card">
               <header className="adm-card__head"><h3 className="admin-card-title">Самые посещаемые страницы</h3></header>
-              {data.pages?.length ? (
+              {report.pages?.length ? (
                 <ul className="report__list">
-                  {data.pages.map((page) => (
+                  {report.pages.map((page) => (
                     <li key={page.path}>
                       <span title={page.path}>{page.path === '/' ? 'Главная' : page.path}</span>
                       <strong>{formatNumber(page.views)}</strong>
@@ -264,14 +272,14 @@ export default function AdminReport({ password }: { password: string }) {
             </section>
           </div>
 
-          {data.publishedArticles !== null && data.publishedArticles !== undefined && (
-            <p className="admin-meta">Опубликовано материалов за месяц: {formatNumber(data.publishedArticles)}</p>
+          {report.publishedArticles !== null && report.publishedArticles !== undefined && (
+            <p className="admin-meta">Опубликовано материалов за месяц: {formatNumber(report.publishedArticles)}</p>
           )}
 
           <section className="admin-panel adm-card adm-card--quiet">
             <header className="adm-card__head"><h3 className="admin-card-title"><Info aria-hidden="true" /> Как это считается</h3></header>
             <ul className="adm-limitations">
-              {(data.notes || []).map((note, index) => <li key={index}>{note}</li>)}
+              {(report.notes || []).map((note, index) => <li key={index}>{note}</li>)}
             </ul>
           </section>
         </>
