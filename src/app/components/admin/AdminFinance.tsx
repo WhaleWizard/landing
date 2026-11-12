@@ -219,6 +219,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
   const [timeDraft, setTimeDraft] = useState<TimeEntry | null>(null);
   const [issueMonth, setIssueMonth] = useState(currentMonth());
   const [saleDraft, setSaleDraft] = useState<OneOffSale | null>(null);
+  const saleForm = useRef(0);
   // Разовые продажи включаются применённой миграцией: предлагать кнопку,
   // которой некуда писать, нельзя.
   const [oneOffSales, setOneOffSales] = useState(false);
@@ -304,6 +305,39 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
       requestLock.current=false;setBusy(false);
     }
   }, [load, password]);
+
+  const createSaleClient = async () => {
+    const name = newClientName.trim();
+    if (!saleDraft || !name || requestLock.current) return;
+    const form = saleForm.current;
+    const initialClient = saleDraft.client_id;
+    const fingerprint = `client:${name}`;
+    const key = requestKeys.current.get(fingerprint) || crypto.randomUUID();
+    requestKeys.current.set(fingerprint, key);
+    requestLock.current = true;
+    setBusy(true);
+    try {
+      const response = await fetch('/api/admin/workspace', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+        body: JSON.stringify({ action: 'create_client', name, relationship_type: 'one_off', request_key: key }),
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; id?: number; error?: string } | null;
+      if (!response.ok || !payload?.success || !payload.id) throw new Error(payload?.error || `HTTP ${response.status}`);
+      requestKeys.current.delete(fingerprint);
+      const clientId = payload.id;
+      await load();
+      if (saleForm.current === form) {
+        setSaleDraft((current) => current && current.client_id === initialClient ? { ...current, client_id: clientId } : current);
+        setNewClientName((current) => current === newClientName ? '' : current);
+      }
+    } catch (error) {
+      notify.error('Не удалось создать клиента', error instanceof Error ? error.message : undefined);
+    } finally {
+      requestLock.current = false;
+      setBusy(false);
+    }
+  };
 
   // ---------- Сводки ----------
 
@@ -531,9 +565,11 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
             </div>
             <div className="finance__head-actions">
               {oneOffSales && (
-                <button type="button" className="admin-button admin-button--compact" onClick={() => setSaleDraft({
-                  kind: 'consultation', payer: '', client_id: null, amount: 0, day: today, paid: true, note: '',
-                })}>
+                <button type="button" className="admin-button admin-button--compact" onClick={() => {
+                  saleForm.current++;
+                  setNewClientName('');
+                  setSaleDraft({ kind: 'consultation', payer: '', client_id: null, amount: 0, day: today, paid: true, note: '' });
+                }}>
                   <Handshake aria-hidden="true" /> Продал консультацию
                 </button>
               )}
@@ -583,7 +619,18 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                 {connectedWorkspace ? 'Выберите клиента: консультация и её оплата появятся в его общей истории. Новый клиент создаётся здесь, без большого проекта.' : 'Запишите имя или контакт покупателя, услугу и сумму.'}
               </p>
               <div className="admin-crm-form-grid">
-                {connectedWorkspace && <><AdminSelect label="Клиент" value={String(saleDraft.client_id||0)} options={[{value:'0',label:'Выберите клиента'},...clients.map(c=>({value:String(c.id),label:c.name}))]} onValueChange={v=>setSaleDraft({...saleDraft,client_id:Number(v)||null})}/><div className="admin-field"><span className="admin-label">Новый клиент</span><input className="admin-input" placeholder="Имя или компания" value={newClientName} onChange={e=>setNewClientName(e.target.value)}/><button type="button" className="admin-button admin-button--quiet" disabled={busy||!newClientName.trim()} onClick={async()=>{setBusy(true);try{const fingerprint='client:'+newClientName,key=requestKeys.current.get(fingerprint)||crypto.randomUUID();requestKeys.current.set(fingerprint,key);const r=await fetch('/api/admin/workspace',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':password},body:JSON.stringify({action:'create_client',name:newClientName,relationship_type:'one_off',request_key:key})});const p=await r.json();if(!r.ok||!p.success)throw new Error(p.error);await load();setSaleDraft(d=>d?{...d,client_id:p.id}:d);setNewClientName('');requestKeys.current.delete(fingerprint);}catch(e){notify.error('Не удалось создать клиента',String(e));}finally{setBusy(false);}}}>Создать и выбрать</button></div></>}
+                {connectedWorkspace && <>
+                  <AdminSelect label="Клиент" value={String(saleDraft.client_id || 0)}
+                    options={[{ value: '0', label: 'Выберите клиента' }, ...clients.map((client) => ({ value: String(client.id), label: client.name }))]}
+                    onValueChange={(value) => setSaleDraft({ ...saleDraft, client_id: Number(value) || null })} />
+                  <div className="admin-field">
+                    <label className="admin-label" htmlFor="finance-new-sale-client">Новый клиент</label>
+                    <input id="finance-new-sale-client" className="admin-input" placeholder="Имя или компания" value={newClientName} onChange={(event) => setNewClientName(event.target.value)} />
+                    <button type="button" className="admin-button admin-button--quiet" disabled={busy || !newClientName.trim()} onClick={() => void createSaleClient()}>
+                      Создать и выбрать
+                    </button>
+                  </div>
+                </>}
                 <AdminSelect label="За что" value={saleDraft.kind}
                   options={KIND_OPTIONS.filter((option) => option.value !== 'retainer')}
                   onValueChange={(value) => setSaleDraft({ ...saleDraft, kind: value as InvoiceKind })} />
@@ -636,7 +683,10 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                 }}>
                   <Save aria-hidden="true" /> Записать
                 </button>
-                <button type="button" className="admin-button admin-button--quiet" onClick={() => setSaleDraft(null)}>Отмена</button>
+                <button type="button" className="admin-button admin-button--quiet" onClick={() => {
+                  saleForm.current++;
+                  setSaleDraft(null);
+                }}>Отмена</button>
               </div>
             </div>
           )}

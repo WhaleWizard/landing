@@ -124,13 +124,9 @@ function readLocalWeeks(): Record<string, PlannerWeekData> {
 }
 
 function writeLocalWeek(week: string, data: PlannerWeekData): void {
-  try {
-    const all = readLocalWeeks();
-    all[week] = data;
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // приватный режим браузера — сохранять некуда, это не ломает интерфейс
-  }
+  const all = readLocalWeeks();
+  all[week] = data;
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(all));
 }
 
 function formatSavedAt(iso: string | null): string {
@@ -779,7 +775,8 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
   });
   const [focusId, setFocusId] = useState<string | null>(null);
 
-  const pendingRef = useRef<{ week: string; data: PlannerWeekData } | null>(null);
+  const pendingRef = useRef(new Map<string, { data: PlannerWeekData; local: boolean }>());
+  const activeSave = useRef<{ week: string; data: PlannerWeekData } | null>(null);
   const timerRef = useRef<number | null>(null);
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const localModeRef = useRef(false);
@@ -811,36 +808,40 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    const pending = pendingRef.current;
-    if (!pending) return;
-    pendingRef.current = null;
-
-    if (localModeRef.current) {
-      writeLocalWeek(pending.week, pending.data);
-      setSavedAt(new Date().toISOString());
-      setSaveState('saved');
-      return;
-    }
+    if (activeSave.current) return;
+    const first = pendingRef.current.entries().next().value;
+    if (!first) return;
+    const [week, pending] = first;
+    pendingRef.current.delete(week);
+    activeSave.current = { week, data: pending.data };
 
     setSaveState('saving');
+    let retry = false;
     try {
-      const response = await fetch('/api/admin/planner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
-        credentials: 'same-origin',
-        body: JSON.stringify({ password: passwordRef.current, week: pending.week, data: pending.data }),
-      });
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
-      if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-      setSavedAt(new Date().toISOString());
-      setSaveState('saved');
+      if (pending.local) {
+        writeLocalWeek(week, pending.data);
+      } else {
+        const response = await fetch('/api/admin/planner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
+          credentials: 'same-origin',
+          body: JSON.stringify({ password: passwordRef.current, week, data: pending.data }),
+        });
+        const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      if (dataWeekRef.current === week) setSavedAt(new Date().toISOString());
+      setSaveState(pendingRef.current.size ? 'pending' : 'saved');
     } catch {
       // Возвращаем изменения в очередь и пробуем сами: сеть моргнула или сервер
       // притормозил — пользователю не нужно ничего нажимать.
-      pendingRef.current = pendingRef.current || pending;
+      if (!pendingRef.current.has(week)) pendingRef.current.set(week, pending);
+      retry = true;
       setSaveState('error');
-      if (!timerRef.current) {
-        timerRef.current = window.setTimeout(() => { void flushRef.current(); }, SAVE_RETRY_MS);
+    } finally {
+      activeSave.current = null;
+      if (pendingRef.current.size && !timerRef.current) {
+        timerRef.current = window.setTimeout(() => { void flushRef.current(); }, retry ? SAVE_RETRY_MS : 0);
       }
     }
   }, []);
@@ -848,7 +849,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
   flushRef.current = flush;
 
   const scheduleSave = useCallback((week: string, next: PlannerWeekData) => {
-    pendingRef.current = { week, data: next };
+    pendingRef.current.set(week, { data: next, local: localModeRef.current });
     setSaveState('pending');
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => { void flush(); }, SAVE_DEBOUNCE_MS);
@@ -1050,8 +1051,9 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       });
       if (dataWeekRef.current === sourceWeek) {
         update(withoutCarriedWeek);
-      } else if (pendingRef.current?.week === sourceWeek) {
-        pendingRef.current = { week: sourceWeek, data: withoutCarriedWeek(pendingRef.current.data) };
+      } else if (pendingRef.current.has(sourceWeek)) {
+        const pending = pendingRef.current.get(sourceWeek)!;
+        pendingRef.current.set(sourceWeek, { ...pending, data: withoutCarriedWeek(pending.data) });
       } else {
         await rewriteWeek(sourceWeek, withoutCarriedWeek);
       }
@@ -1068,8 +1070,9 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       });
       if (dataWeekRef.current === nextWeek) {
         update(withCarriedWeek);
-      } else if (pendingRef.current?.week === nextWeek) {
-        pendingRef.current = { week: nextWeek, data: withCarriedWeek(pendingRef.current.data) };
+      } else if (pendingRef.current.has(nextWeek)) {
+        const pending = pendingRef.current.get(nextWeek)!;
+        pendingRef.current.set(nextWeek, { ...pending, data: withCarriedWeek(pending.data) });
       } else if (weekStartRef.current === nextWeek) {
         void loadRef.current(nextWeek);
       }
@@ -1107,6 +1110,8 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
   const load = useCallback(async (week: string) => {
     const requestId = ++loadSequenceRef.current;
+    const readDraft = () => pendingRef.current.get(week)?.data || (activeSave.current?.week === week ? activeSave.current.data : undefined);
+    const draftAtRequest = readDraft();
     setLoading(true);
     setLoadError('');
     setTemplateApplied(false);
@@ -1136,12 +1141,12 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         if (response.status === 503 && isLocalEnvironment()) {
           setLocalMode(true);
           localModeRef.current = true;
-          dataRef.current = normalizeWeekData(readLocalWeeks()[week]);
+          dataRef.current = readDraft() || draftAtRequest || normalizeWeekData(readLocalWeeks()[week]);
           dataWeekRef.current = week;
           loadedWeekRef.current = week;
           setData(dataRef.current);
           setSavedAt(null);
-          setSaveState('idle');
+          if (!activeSave.current && !pendingRef.current.size) setSaveState('idle');
           return;
         }
         throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -1149,12 +1154,12 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
       setLocalMode(false);
       localModeRef.current = false;
-      dataRef.current = normalizeWeekData(payload.data);
+      dataRef.current = readDraft() || draftAtRequest || normalizeWeekData(payload.data);
       dataWeekRef.current = week;
       loadedWeekRef.current = week;
       setData(dataRef.current);
       setSavedAt(payload.updatedAt || null);
-      setSaveState('idle');
+      if (!activeSave.current && !pendingRef.current.size) setSaveState('idle');
     } catch (error) {
       if (requestId !== loadSequenceRef.current) return;
       setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить планер');
@@ -1191,32 +1196,30 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
   // Одного `beforeunload` мало. На телефоне вкладку почти всегда закрывают не
   // явно, а переключением приложения, и Safari на iOS в этом случае события не
   // присылает вовсе — доезжают только `pagehide` и переход в скрытое состояние.
-  // Повторный вызов безвреден: после удачной отправки очередь очищается.
+  // Пока документ остаётся открытым, обычный запрос подтверждает сохранение.
+  // При выгрузке не отправляем поверх ещё выполняющейся записи той же недели.
   useEffect(() => {
     const handler = () => {
-      const pending = pendingRef.current;
-      if (!pending) return;
-      if (localModeRef.current) {
-        writeLocalWeek(pending.week, pending.data);
-        pendingRef.current = null;
-        return;
-      }
-      const body = new Blob(
-        [JSON.stringify({ password: passwordRef.current, week: pending.week, data: pending.data })],
-        { type: 'application/json' },
-      );
-      if (navigator.sendBeacon?.('/api/admin/planner', body)) {
-        pendingRef.current = null;
+      for (const [week, pending] of pendingRef.current) {
+        if (activeSave.current?.week === week) continue;
+        try {
+          if (pending.local) writeLocalWeek(week, pending.data);
+          else {
+            const body = new Blob([JSON.stringify({ password: passwordRef.current, week, data: pending.data })], { type: 'application/json' });
+            if (!navigator.sendBeacon?.('/api/admin/planner', body)) continue;
+          }
+          pendingRef.current.delete(week);
+        } catch {
+          // Keep the draft available when storage is blocked or the page returns from bfcache.
+        }
       }
     };
     const onHidden = () => {
-      if (document.visibilityState === 'hidden') handler();
+      if (document.visibilityState === 'hidden') void flush();
     };
-    window.addEventListener('beforeunload', handler);
     window.addEventListener('pagehide', handler);
     document.addEventListener('visibilitychange', onHidden);
     return () => {
-      window.removeEventListener('beforeunload', handler);
       window.removeEventListener('pagehide', handler);
       document.removeEventListener('visibilitychange', onHidden);
       void flush();

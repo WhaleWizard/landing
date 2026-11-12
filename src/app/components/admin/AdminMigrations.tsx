@@ -51,35 +51,40 @@ function StateIcon({ state }: { state: MigrationState }) {
 function MigrationCard({ row, password, isNext }: { row: MigrationRow; password: string; isNext: boolean }) {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [manualSql, setManualSql] = useState('');
 
   const copySql = async () => {
     setLoading(true);
+    setCopied(false);
+    const sqlPromise = (async () => {
+      const response = await fetch(`/api/admin/migrations?sql=${encodeURIComponent(row.file)}`, {
+        headers: { 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null) as { sql?: string } | null;
+      if (!response.ok || !data?.sql) throw new Error('Не удалось прочитать SQL');
+      return data.sql;
+    })();
     try {
-      const loadSql = async () => {
-        const response = await fetch(`/api/admin/migrations?sql=${encodeURIComponent(row.file)}`, {
-          headers: { 'X-Admin-Password': password },
-          credentials: 'same-origin',
-          cache: 'no-store',
-        });
-        const data = await response.json().catch(() => null) as { sql?: string } | null;
-        if (!data?.sql) throw new Error('пустой ответ');
-        return data.sql;
-      };
       // Safari разрешает запись в буфер только в ответ на нажатие и считает
       // жест истёкшим, пока идёт запрос. `ClipboardItem` с обещанием
       // запускает запись сразу, а текст подставляет, когда он загрузится.
       if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-        const item = new ClipboardItem({
-          'text/plain': loadSql().then((sql) => new Blob([sql], { type: 'text/plain' })),
-        });
+        const blob = sqlPromise.then((sql) => new Blob([sql], { type: 'text/plain' }));
+        void blob.catch(() => undefined);
+        const item = new ClipboardItem({ 'text/plain': blob });
         await navigator.clipboard.write([item]);
       } else {
-        await navigator.clipboard.writeText(await loadSql());
+        await navigator.clipboard.writeText(await sqlPromise);
       }
+      setManualSql('');
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      notify.error('Не удалось скопировать', 'Откройте файл миграции в репозитории вручную');
+      const sql = await sqlPromise.catch(() => '');
+      setManualSql(sql);
+      if (!sql) notify.error('Не удалось прочитать SQL', 'Попробуйте снова или откройте файл в репозитории');
     } finally {
       setLoading(false);
     }
@@ -123,6 +128,10 @@ function MigrationCard({ row, password, isNext }: { row: MigrationRow; password:
           {copied ? 'Скопировано' : loading ? 'Читаю…' : 'Скопировать SQL'}
         </AdminButton>
       </div>
+      {manualSql && <label className="admin-field">
+        <span className="admin-label">Скопируйте SQL вручную</span>
+        <textarea className="admin-input" rows={5} dir="ltr" readOnly value={manualSql} onFocus={(event) => event.currentTarget.select()} />
+      </label>}
     </AdminPanel>
   );
 }

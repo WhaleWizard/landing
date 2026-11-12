@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-31,P1,Serialize planner autosaves,AdminPlanner.tsx,COMPLETED,
+ADMIN-20261112-32,P1,Keep pending snapshots per week,AdminPlanner.tsx,COMPLETED,
+ADMIN-20261112-33,P2,Report local storage write failure,AdminPlanner.tsx,COMPLETED,
+ADMIN-20261112-34,P2,Scope client creation to its sale form,AdminFinance.tsx,COMPLETED,
+ADMIN-20261112-35,P2,Keep SQL available after clipboard denial,AdminMigrations.tsx,COMPLETED,
 ADMIN-20261112-26,P2,Retain client note and access inputs,AdminClients.tsx,COMPLETED,
 ADMIN-20261112-27,P2,Scope monthly completion to the submitted client form,AdminClients.tsx,COMPLETED,
 ADMIN-20261112-28,P2,Keep goal drafts when refreshing the same month,AdminGoals.tsx,COMPLETED,

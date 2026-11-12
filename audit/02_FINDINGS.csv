@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-31,P1,ADMIN,/admin/,AdminPlanner.tsx,Older planner saves could overwrite newer edits,Full snapshots could run concurrently,FIXED,AdminPlanner.tsx,Isolated browser matrix
+ADMIN-20261112-32,P1,ADMIN,/admin/,AdminPlanner.tsx,A failed save could be lost after changing weeks,One pending slot was shared by all weeks,FIXED,AdminPlanner.tsx,Isolated browser matrix
+ADMIN-20261112-33,P2,ADMIN,/admin/,AdminPlanner.tsx,Local planner could claim a failed write succeeded,Storage exceptions were swallowed,FIXED,AdminPlanner.tsx,Isolated browser matrix
+ADMIN-20261112-34,P2,ADMIN,/admin/,AdminFinance.tsx,Late client creation could change a different sale form,Completion was not tied to the original form,FIXED,AdminFinance.tsx,Isolated browser matrix
+ADMIN-20261112-35,P2,ADMIN,/admin/,AdminMigrations.tsx,Clipboard denial made loaded SQL unavailable,There was no manual copy field,FIXED,AdminMigrations.tsx,Isolated browser matrix
 ADMIN-20261112-26,P2,ADMIN,/admin/,AdminClients.tsx,Client access and note input was lost on failure,Inputs were cleared before acknowledgement,FIXED,AdminClients.tsx,Isolated browser matrix
 ADMIN-20261112-27,P2,ADMIN,/admin/,AdminClients.tsx,Late monthly save closed a different form,Completion did not validate the active draft,FIXED,AdminClients.tsx,Isolated browser matrix
 ADMIN-20261112-28,P2,ADMIN,/admin/,AdminGoals.tsx,Refreshing monthly figures replaced an unsaved target,Every load reset the goal draft,FIXED,AdminGoals.tsx,Isolated browser matrix
