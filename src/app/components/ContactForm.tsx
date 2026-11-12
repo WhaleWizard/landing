@@ -44,7 +44,7 @@ import {
   getCountryPhoneName,
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
-import { isRetryableLeadStatus, queueLeadForRetry, scheduleLeadRetry } from '../utils/leadRetryQueue';
+import { isRetryableLeadStatus, queueLeadForRetry, readLeadRetryAfter, scheduleLeadRetry } from '../utils/leadRetryQueue';
 import { fetchGeoPayload } from '../utils/geoLookup';
 import { getLeadEntryPath, saveLeadContext } from '../utils/leadContext';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
@@ -266,7 +266,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
 
         const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
         if (isOffline) {
-          if (queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
+          if (await queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
             if (typeof scheduleLeadRetry === 'function') scheduleLeadRetry();
             setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
             setTelegramUsername('');
@@ -287,7 +287,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         const turnstileToken = await getTurnstileToken();
         if (!turnstileToken) {
           if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-            if (queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
+            if (await queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
               if (typeof scheduleLeadRetry === 'function') scheduleLeadRetry();
               setFormData({ name: '', email: '', phone: '', budget: '', message: '' });
               setTelegramUsername('');
@@ -315,12 +315,11 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           body: JSON.stringify(leadPayload),
         });
         if (!res.ok) {
-          const retryAfterHeader = res.headers.get('Retry-After');
-          const retryAfterSec = retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined;
+          const retryAt = readLeadRetryAfter(res.headers.get('Retry-After'));
           const payload = await res.json().catch(() => null) as { error?: string; retryable?: boolean } | null;
           throw Object.assign(new Error(payload?.error || `HTTP ${res.status}`), {
             retryable: payload?.retryable === true || isRetryableLeadStatus(res.status),
-            retryAfterSec,
+            retryAt,
             status: res.status,
           });
         }
@@ -370,11 +369,9 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         console.error(error);
         const retryable = error instanceof TypeError
           || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true);
-        const retryAfterSec = error instanceof Error && typeof (error as { retryAfterSec?: number }).retryAfterSec === 'number'
-          ? (error as { retryAfterSec?: number }).retryAfterSec
-          : undefined;
-        if (submissionStarted && retryable && leadPayload && queueLeadForRetry(API_ROUTES.lead, leadPayload)) {
-          if (typeof scheduleLeadRetry === 'function') scheduleLeadRetry(retryAfterSec ? retryAfterSec * 1000 : undefined);
+        const retryAt = error instanceof Error ? (error as Error & { retryAt?: number }).retryAt : undefined;
+        if (submissionStarted && retryable && leadPayload && await queueLeadForRetry(API_ROUTES.lead, leadPayload, retryAt)) {
+          scheduleLeadRetry();
           // fetch не смог достучаться до сервера (нет сети/офлайн) — не потеряем заявку,
           // сохраним и отправим автоматически при восстановлении связи.
           setFormData({ name: '', email: '', phone: '', budget: '', message: '' });

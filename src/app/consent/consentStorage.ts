@@ -29,6 +29,7 @@ export type ConsentRecord = {
 
 export const CONSENT_VERSION = 1;
 export const CONSENT_KEY = 'ww_cookie_consent_v1';
+export const MARKETING_CONSENT_REVOKED_EVENT = 'ww:marketing-consent-revoked';
 export const META_EXTERNAL_ID_KEY = 'ww_meta_external_id_v1';
 export const META_FIRST_TOUCH_KEY = 'ww_meta_first_touch_v1';
 export const META_LAST_TOUCH_KEY = 'ww_meta_last_touch_v1';
@@ -87,7 +88,10 @@ export function saveConsent(
     // Согласие проживёт текущую вкладку: cookie ниже ставится отдельно.
   }
   document.cookie = `${CONSENT_KEY}=1; Max-Age=${CONSENT_TTL_DAYS * 24 * 60 * 60}; Path=/; SameSite=Lax; Secure`;
-  if (!consent.categories.marketing) clearMetaMarketingStorage();
+  if (!consent.categories.marketing) {
+    clearMetaMarketingStorage();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(MARKETING_CONSENT_REVOKED_EVENT));
+  }
 
   return consent;
 }
@@ -100,6 +104,7 @@ export function clearConsent(): void {
   }
   document.cookie = `${CONSENT_KEY}=; Max-Age=0; Path=/; SameSite=Lax; Secure`;
   clearMetaMarketingStorage();
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(MARKETING_CONSENT_REVOKED_EVENT));
 }
 
 export function clearMetaMarketingStorage(): void {

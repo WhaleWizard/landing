@@ -1,146 +1,157 @@
-// Клиентская retry-очередь для заявок: если fetch к /api/lead падает по сети
-// (не по вине сервера — обрыв связи, offline), заявка не теряется, а лежит в
-// localStorage и повторно отправляется при восстановлении сети или следующем визите.
-
-// Только хранилище согласия: сам трекинг с пикселями в стартовый чанк не нужен.
-import { loadConsent } from '../consent/consentStorage';
-import { applyConsentDowngrade } from './leadRetryConsent';
+import { CONSENT_KEY, loadConsent, MARKETING_CONSENT_REVOKED_EVENT } from '../consent/consentStorage';
 import { createEventId } from '../consent/consent';
+import { applyConsentDowngrade } from './leadRetryConsent';
 
 const QUEUE_KEY = 'ww_lead_retry_queue_v1';
 const MAX_QUEUE_SIZE = 10;
-const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 3; // 3 дня
+const MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+const RETRY_DELAYS = [10_000, 30_000, 120_000, 300_000];
 
 type QueuedLead = {
   id: string;
   endpoint: string;
   payload: unknown;
   queuedAt: number;
+  retryAt?: number;
 };
 
 function readQueue(): QueuedLead[] {
   try {
-    const raw = localStorage.getItem(QUEUE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed: unknown = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item) => item && typeof item.id === 'string'
+      && typeof item.endpoint === 'string' && Number.isFinite(item.queuedAt));
   } catch {
     return [];
   }
 }
 
-function writeQueue(queue: QueuedLead[]): boolean {
-  try {
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-MAX_QUEUE_SIZE)));
+function isCurrent(item: QueuedLead): boolean {
+  return Date.now() - item.queuedAt < MAX_AGE_MS;
+}
+
+async function updateQueue(update: (queue: QueuedLead[]) => QueuedLead[] | null): Promise<boolean> {
+  const write = () => {
+    const next = update(readQueue());
+    if (!next) return false;
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(next));
     return true;
-  } catch {
-    return false;
-  }
-}
+  };
 
-export function queueLeadForRetry(endpoint: string, payload: unknown): boolean {
   try {
-    const queue = readQueue();
-    queue.push({ id: createEventId(), endpoint, payload, queuedAt: Date.now() });
-    return writeQueue(queue);
+    const locks = typeof window !== 'undefined' ? navigator.locks : undefined;
+    return locks ? await locks.request(`${QUEUE_KEY}:write`, write) : write();
   } catch {
-    // A form must keep its entered fields unless the retry really persisted.
     return false;
   }
 }
 
-/**
- * Ответ, после которого повторять бессмысленно.
- *
- * Сервер уже различает временный отказ и окончательный: недоступную проверку
- * Turnstile и недоступную базу он отдаёт как 503 с `retryable`, а испорченный
- * токен — как 403, заявку без имени или контакта — как 400. Очередь этой
- * разницы не видела и держала окончательно отклонённую запись все трое суток,
- * пробуя её на каждой загрузке страницы. Каждая попытка тратила свежий токен
- * Turnstile и место в ограничителе частоты `/api/lead` — то есть испорченная
- * запись могла вытеснить настоящую заявку того же человека.
- *
- * 408 и 429 — не отказ по существу, а «попробуйте позже», поэтому они остаются
- * поводом для повтора.
- */
-function isPermanentRejection(status: number): boolean {
-  return !isRetryableLeadStatus(status) && status >= 400 && status < 500;
+function dueAt(item: QueuedLead): number {
+  return typeof item.retryAt === 'number' && Number.isFinite(item.retryAt) ? item.retryAt : 0;
 }
 
-/**
- * Ответ, после которого заявку имеет смысл отложить и повторить.
- *
- * Форма и очередь смотрят на одно и то же, поэтому правило одно на двоих.
- * 429 сюда входит намеренно: лимит на заявки — двадцать за десять минут с
- * одного адреса, и упереться в него может не только бот, но и обычный человек
- * за общим адресом мобильного оператора. Раньше форма считала такой отказ
- * окончательным, показывала английское «Too many requests» и **выбрасывала
- * заявку**.
- */
+export function readLeadRetryAfter(header: string | null): number | undefined {
+  const value = header?.trim();
+  if (!value) return undefined;
+  const now = Date.now();
+  const time = /^\d+$/.test(value) ? now + Number(value) * 1000 : Date.parse(value);
+  return Number.isFinite(time) && time > now ? Math.min(time, now + MAX_AGE_MS) : undefined;
+}
+
+function deferEndpoint(queue: QueuedLead[], endpoint: string, retryAt: number): QueuedLead[] {
+  return queue.map((item) => item.endpoint === endpoint && dueAt(item) < retryAt
+    ? { ...item, retryAt }
+    : item);
+}
+
+export function queueLeadForRetry(endpoint: string, payload: unknown, retryAt?: number): Promise<boolean> {
+  return updateQueue((queue) => {
+    const current = queue.filter(isCurrent);
+    // Preserve already confirmed records when the queue is full.
+    if (current.length >= MAX_QUEUE_SIZE) return null;
+    const next = [...current, {
+      id: createEventId(),
+      endpoint,
+      payload: applyConsentDowngrade(payload, loadConsent()),
+      queuedAt: Date.now(),
+    }];
+    const notBefore = Math.max(retryAt ?? 0, ...current.filter((item) => item.endpoint === endpoint).map(dueAt));
+    return notBefore ? deferEndpoint(next, endpoint, notBefore) : next;
+  });
+}
+
 export function isRetryableLeadStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
+}
+
+function isPermanentRejection(status: number): boolean {
+  return status >= 400 && status < 500 && !isRetryableLeadStatus(status);
+}
+
+function scrubMarketingConsent(): void {
+  void updateQueue((queue) => queue.length
+    ? queue.map((item) => ({ ...item, payload: applyConsentDowngrade(item.payload, null) }))
+    : null);
+}
+
+async function sendQueuedLeads(): Promise<void> {
+  let stored = readQueue();
+  if (stored.some((item) => !isCurrent(item))) {
+    await updateQueue((current) => current.filter(isCurrent));
+    stored = readQueue();
+  }
+  if (navigator.onLine === false || !stored.some((item) => isCurrent(item) && dueAt(item) <= Date.now())) return;
+
+  // Deferred submissions always need a fresh one-time Turnstile token.
+  const { mintDetachedTurnstileToken } = await import('../components/hooks/useTurnstile');
+  for (const item of stored) {
+    if (!isCurrent(item) || dueAt(item) > Date.now()) continue;
+    try {
+      const freshToken = await mintDetachedTurnstileToken();
+      if (!freshToken) {
+        continue;
+      }
+
+      // Consent, expiry, and a server delay can change during verification.
+      const current = readQueue().find((record) => record.id === item.id);
+      if (!current || !isCurrent(current) || dueAt(current) > Date.now()) continue;
+      const payload = applyConsentDowngrade(current.payload, loadConsent());
+      const res = await fetch(current.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...(payload as Record<string, unknown>), turnstile_token: freshToken }),
+      });
+      if (res.ok || isPermanentRejection(res.status)) {
+        await updateQueue((queue) => queue.filter((record) => record.id !== current.id));
+      } else {
+        const retryAt = readLeadRetryAfter(res.headers.get('Retry-After'));
+        if (retryAt) {
+          await updateQueue((queue) => deferEndpoint(queue, current.endpoint, retryAt));
+          break;
+        }
+      }
+    } catch {
+      // Keep the entry for the next retry.
+    }
+  }
 }
 
 let flushing = false;
 
 export async function flushLeadQueue(): Promise<void> {
-  if (flushing) return;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-
+  if (flushing || !readQueue().length) return;
   flushing = true;
   try {
-    const stored = readQueue();
-    const batch = stored.filter((item) => Date.now() - item.queuedAt < MAX_AGE_MS);
-    if (!batch.length) {
-      // Просроченные записи раньше оставались в localStorage навсегда: выход
-      // стоял до уборки. Отправлять их уже нельзя, но и хранить незачем.
-      if (stored.length) writeQueue([]);
-      return;
+    if (navigator.locks) {
+      await navigator.locks.request(`${QUEUE_KEY}:send`, { ifAvailable: true }, async (lock) => {
+        if (lock) await sendQueuedLeads();
+      });
+    } else {
+      // Older browsers still have server-side idempotency by event ID.
+      await sendQueuedLeads();
     }
-
-    // Токен Turnstile одноразовый и живёт минуты. В очереди лежит тот, что был
-    // получен в момент неудачной отправки, — к этой минуте Cloudflare его уже
-    // погасил, и сервер отвечал бы 403 всегда. Значит на каждую отложенную
-    // заявку нужен свежий токен.
-    //
-    // Модуль подгружается динамически и только здесь: у обычного посетителя
-    // очередь пуста, выполнение сюда не доходит, и первая загрузка страницы
-    // ничего лишнего не тянет.
-    let mintToken: (() => Promise<string | null>) | null = null;
-    try {
-      ({ mintDetachedTurnstileToken: mintToken } = await import('../components/hooks/useTurnstile'));
-    } catch {
-      // Скрипт проверки не поднялся — отправим как есть, вдруг проверка
-      // на сервере вообще не включена.
-    }
-
-    const settled = new Set<string>();
-    for (const item of batch) {
-      try {
-        const payload = applyConsentDowngrade(item.payload, loadConsent());
-        const freshToken = mintToken ? await mintToken() : null;
-        if (!freshToken) {
-          // Без свежего токена Turnstile не отправляем: сервер ответит 403, и запись
-          // удалится из очереди. Оставляем её в очереди до следующей попытки (F-016).
-          continue;
-        }
-        const body = { ...(payload as Record<string, unknown>), turnstile_token: freshToken };
-
-        const res = await fetch(item.endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (res.ok || isPermanentRejection(res.status)) settled.add(item.id);
-      } catch {
-        // Сеть не ответила — остаётся в очереди до следующей попытки.
-      }
-    }
-
-    // Перечитываем очередь перед записью: пока шла отправка, могла добавиться
-    // новая заявка — старый вариант перезаписывал её результатом этой пачки.
-    const current = readQueue();
-    writeQueue(current.filter((item) => !settled.has(item.id) && Date.now() - item.queuedAt < MAX_AGE_MS));
+  } catch {
+    // A blocked lock manager or unavailable verification leaves the queue intact.
   } finally {
     flushing = false;
   }
@@ -149,34 +160,27 @@ export async function flushLeadQueue(): Promise<void> {
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let retryAttempt = 0;
 
-/**
- * Планирует повторную отправку отложенных заявок в рамках текущей сессии (F-005).
- * Использует экспоненциальное нарастание задержки (10 с, 30 с, 2 мин, 5 мин).
- */
-export function scheduleLeadRetry(delayMs?: number): void {
-  if (typeof window === 'undefined') return;
-  if (retryTimer) clearTimeout(retryTimer);
-
-  const delays = [10_000, 30_000, 120_000, 300_000];
-  const computedDelay = delayMs !== undefined ? Math.max(10_000, delayMs) : delays[Math.min(retryAttempt, delays.length - 1)];
-
+export function scheduleLeadRetry(): void {
+  if (retryTimer !== null) clearTimeout(retryTimer);
+  retryTimer = null;
+  const queue = readQueue();
+  if (!queue.length) {
+    retryAttempt = 0;
+    return;
+  }
+  if (navigator.onLine === false) return;
+  const now = Date.now();
+  const backoff = RETRY_DELAYS[Math.min(retryAttempt, RETRY_DELAYS.length - 1)];
+  const wake = Math.min(...queue.map((item) => Math.min(item.queuedAt + MAX_AGE_MS, Math.max(now + backoff, dueAt(item)))));
   retryTimer = setTimeout(() => {
     retryTimer = null;
-    const queue = readQueue();
-    if (!queue.length) {
-      retryAttempt = 0;
-      return;
-    }
     retryAttempt += 1;
-    void flushLeadQueue().then(() => {
-      const remaining = readQueue();
-      if (remaining.length > 0) {
-        scheduleLeadRetry();
-      } else {
-        retryAttempt = 0;
-      }
-    });
-  }, computedDelay);
+    retry();
+  }, Math.max(1000, wake - now));
+}
+
+function retry(): void {
+  void flushLeadQueue().then(scheduleLeadRetry);
 }
 
 let initialized = false;
@@ -184,14 +188,18 @@ let initialized = false;
 export function initLeadRetryQueue(): void {
   if (initialized) return;
   initialized = true;
-  void flushLeadQueue();
-  window.addEventListener('online', () => {
-    void flushLeadQueue();
-  });
+  if (readQueue().length && !loadConsent()?.categories.marketing) scrubMarketingConsent();
+  retry();
+  window.addEventListener('online', retry);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      const queue = readQueue();
-      if (queue.length > 0) void flushLeadQueue();
-    }
+    if (document.visibilityState === 'visible') retry();
+  });
+  window.addEventListener(MARKETING_CONSENT_REVOKED_EVENT, scrubMarketingConsent);
+  window.addEventListener('storage', (event) => {
+    if (event.key !== CONSENT_KEY && !(event.key === null && event.storageArea === localStorage)) return;
+    try {
+      if (JSON.parse(event.newValue || 'null')?.categories?.marketing === true) return;
+    } catch { /* Invalid consent cannot grant marketing. */ }
+    scrubMarketingConsent();
   });
 }

@@ -146,6 +146,7 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     crypto: { randomUUID: () => 'form-event-id' },
     createEventId: () => 'form-event-id',
     scheduleLeadRetry: () => {},
+    readLeadRetryAfter: () => undefined,
     console: { error: () => {}, warn: () => {} },
     setIsSubmitting: (value) => calls.submitting.push(value),
     getTurnstileToken: async () => 'test-token',
@@ -267,7 +268,7 @@ for (const form of ['ContactForm', 'LandingForm']) {
 }
 
 test('browser retry queue reports failed storage and confirms only a persisted payload', async (t) => {
-  const { queueLeadForRetry } = await bundleTypeScript('src/app/utils/leadRetryQueue.ts');
+  const { queueLeadForRetry, readLeadRetryAfter } = await bundleTypeScript('src/app/utils/leadRetryQueue.ts');
   const originalStorage = globalThis.localStorage;
   const stored = new Map();
   globalThis.localStorage = {
@@ -275,12 +276,39 @@ test('browser retry queue reports failed storage and confirms only a persisted p
     setItem: () => { throw new DOMException('Storage full', 'QuotaExceededError'); },
   };
   t.after(() => { globalThis.localStorage = originalStorage; });
-  assert.equal(queueLeadForRetry('/api/lead', { event_id: 'queued-lead' }), false);
+  assert.equal(await queueLeadForRetry('/api/lead', { event_id: 'queued-lead' }), false);
   assert.equal(stored.size, 0);
   globalThis.localStorage.setItem = (key, value) => stored.set(key, value);
-  assert.equal(queueLeadForRetry('/api/lead', { event_id: 'queued-lead' }), true);
+  assert.equal(await queueLeadForRetry('/api/lead', { event_id: 'queued-lead' }), true);
   const [record] = JSON.parse(stored.get('ww_lead_retry_queue_v1'));
   assert.equal(record.payload.event_id, 'queued-lead');
+
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-12T12:00:00Z') });
+  assert.equal(readLeadRetryAfter('5'), Date.now() + 5_000);
+  assert.equal(readLeadRetryAfter('Thu, 12 Nov 2026 12:01:00 GMT'), Date.now() + 60_000);
+  assert.equal(readLeadRetryAfter('invalid'), undefined);
+  const retryAt = Date.now() + 60_000;
+  assert.equal(await queueLeadForRetry('/api/lead', { event_id: 'another-lead' }, retryAt), true);
+  const persisted = JSON.parse(stored.get('ww_lead_retry_queue_v1'));
+  assert.deepEqual(persisted.map((item) => item.retryAt), [retryAt, retryAt]);
+  assert.equal(persisted.length, 2);
+});
+
+test('a full browser queue preserves all pending leads and reclaims only expired entries', async (t) => {
+  const { queueLeadForRetry } = await bundleTypeScript('src/app/utils/leadRetryQueue.ts');
+  const originalStorage = globalThis.localStorage;
+  const queue = Array.from({ length: 10 }, (_, index) => ({
+    id: String(index), endpoint: '/api/lead', payload: { event_id: String(index) }, queuedAt: Date.now(),
+  }));
+  let value = JSON.stringify(queue);
+  globalThis.localStorage = { getItem: () => value, setItem: (_key, next) => { value = next; } };
+  t.after(() => { globalThis.localStorage = originalStorage; });
+  assert.equal(await queueLeadForRetry('/api/lead', { event_id: 'new' }), false);
+  assert.deepEqual(JSON.parse(value), queue);
+  queue[0].queuedAt -= 4 * 24 * 60 * 60 * 1000;
+  value = JSON.stringify(queue);
+  assert.equal(await queueLeadForRetry('/api/lead', { event_id: 'new' }), true);
+  assert.deepEqual(JSON.parse(value).map((item) => item.payload.event_id), [...queue.slice(1).map((item) => item.id), 'new']);
 });
 
 function trashRequest(body) {
