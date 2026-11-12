@@ -197,8 +197,9 @@ export default function AdminGoals({ password }: { password: string }) {
   const [error, setError] = useState('');
   const [migration, setMigration] = useState('');
   const [draft, setDraft] = useState<Goal | null>(null);
+  const lastGoal = useRef<Goal | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (replaceDraft = false) => {
     // Номер запроса. Месяцы листаются стрелками быстрее, чем отвечает сервер,
     // и ответ по предыдущему месяцу мог прийти последним — на экране
     // оказывались цели одного месяца под заголовком другого.
@@ -219,7 +220,13 @@ export default function AdminGoals({ password }: { password: string }) {
       }
       setMigration('');
       setData(payload);
-      setDraft(payload.goal || null);
+      const previous = lastGoal.current;
+      const incoming = payload.goal || null;
+      lastGoal.current = incoming;
+      setDraft((current) => {
+        if (!replaceDraft && current?.period === period && previous?.period === period && current !== previous) return current;
+        return incoming;
+      });
       // Раздел открылся на месяце по календарю браузера; если сервер считает
       // сегодняшним другой месяц, переходим на него — один раз, пока владелец
       // ничего не листал.
@@ -255,7 +262,7 @@ export default function AdminGoals({ password }: { password: string }) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       notify.success('Цель сохранена', periodLabel(period));
-      await load();
+      await load(true);
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'Не удалось сохранить цель';
       setError(message);

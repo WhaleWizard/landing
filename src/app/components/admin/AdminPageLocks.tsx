@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Eye,
   History,
@@ -145,11 +145,14 @@ export default function AdminPageLocks({ password }: { password: string }) {
   const [openPath, setOpenPath] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [savingPath, setSavingPath] = useState('');
+  const writePending = useRef(false);
+  const loadSequence = useRef(0);
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewLink, setPreviewLink] = useState('');
   const [showJournal, setShowJournal] = useState(false);
 
   const load = useCallback(async () => {
+    const requestId = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
@@ -159,6 +162,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => null) as LocksResponse | null;
+      if (requestId !== loadSequence.current) return;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -166,9 +170,9 @@ export default function AdminPageLocks({ password }: { password: string }) {
       setMigration('');
       setData(payload);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить список страниц');
+      if (requestId === loadSequence.current) setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить список страниц');
     } finally {
-      setLoading(false);
+      if (requestId === loadSequence.current) setLoading(false);
     }
   }, [password]);
 
@@ -207,6 +211,8 @@ export default function AdminPageLocks({ password }: { password: string }) {
   }, [password]);
 
   const saveRoute = useCallback(async (route: RouteState, patch: Partial<RouteState & Draft>) => {
+    if (writePending.current) return false;
+    writePending.current = true;
     setSavingPath(route.path);
     try {
       await post({
@@ -230,6 +236,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
       notify.error('Изменение не сохранилось', message);
       return false;
     } finally {
+      writePending.current = false;
       setSavingPath('');
     }
   }, [load, post]);
@@ -293,18 +300,24 @@ export default function AdminPageLocks({ password }: { password: string }) {
   }, [post]);
 
   const unlockAll = useCallback(async () => {
+    if (writePending.current) return;
     const confirmed = await confirmAsk({
       title: 'Открыть все страницы?',
       description: `Сейчас закрыто ${locked.length} ${plural(locked.length, ['страница', 'страницы', 'страниц'])}. Все они снова станут видны посетителям.`,
       confirmLabel: 'Открыть все',
     });
-    if (!confirmed) return;
+    if (!confirmed || writePending.current) return;
+    writePending.current = true;
+    setSavingPath('all');
     try {
       await post({ action: 'unlock_all' });
       notify.success('Все страницы открыты');
       await load();
     } catch (unlockError) {
       notify.error('Не получилось', unlockError instanceof Error ? unlockError.message : '');
+    } finally {
+      writePending.current = false;
+      setSavingPath('');
     }
   }, [load, locked.length, post]);
 
@@ -393,9 +406,14 @@ export default function AdminPageLocks({ password }: { password: string }) {
         title="Доступ к страницам"
         description="Закрытая страница показывает заглушку вместо содержимого — посетителям, поиску и рекламным роботам. Редактор страниц и предпросмотр при этом работают как обычно."
         action={locked.length > 0 ? (
-          <AdminButton tone="primary" onClick={() => void unlockAll()}>Открыть все</AdminButton>
+          <AdminButton tone="primary" disabled={Boolean(savingPath)} onClick={() => void unlockAll()}>Открыть все</AdminButton>
         ) : null}
       />
+
+      {error && <div className="admin-notice admin-notice--warning" role="alert">
+        <p>{error}</p>
+        <AdminButton compact disabled={loading || Boolean(savingPath)} onClick={() => void load()}>Обновить список страниц</AdminButton>
+      </div>}
 
       {previewLink && <div className="admin-notice" role="status">
         <a className="admin-button admin-button--secondary" href={previewLink} target="_blank" rel="noreferrer">Открыть предпросмотр</a>
@@ -473,7 +491,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
                         aria-checked={route.locked}
                         aria-label={route.locked ? `Открыть страницу «${route.label}»` : `Закрыть страницу «${route.label}»`}
                         className="plock-switch"
-                        disabled={savingPath === route.path}
+                        disabled={Boolean(savingPath)}
                         onClick={() => void toggleLock(route)}
                       >
                         <span className="plock-switch__thumb" aria-hidden="true" />
@@ -607,7 +625,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
                       <div className="plock-editor__actions">
                         <AdminButton
                           tone="primary"
-                          disabled={savingPath === route.path}
+                          disabled={Boolean(savingPath)}
                           onClick={() => void (async () => {
                             const ok = await saveRoute(route, draft);
                             if (ok) notify.success('Сохранено', route.locked ? 'Заглушка обновится в течение минуты' : 'Применится, когда закроете страницу');

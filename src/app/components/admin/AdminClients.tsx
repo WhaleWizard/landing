@@ -225,6 +225,9 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [noteDraft, setNoteDraft] = useState('');
   const [accessDraft, setAccessDraft] = useState('');
   const [monthDraft, setMonthDraft] = useState<ClientMonth | null>(null);
+  const currentMonthDraft = useRef(monthDraft);
+  currentMonthDraft.current = monthDraft;
+  const pendingDetails = useRef(new Set<string>());
   // Месяц строки, которую сейчас правят; null — новая строка. Сервер хранит
   // месяцы по ключу (клиент, месяц), поэтому смена месяца в правке давала бы
   // не перенос, а вторую строку с теми же цифрами.
@@ -464,29 +467,39 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
 
   const saveMonth = async (month: ClientMonth) => {
     if (!draft?.id) return;
-    if (monthOrigin === null && months.some((item) => item.month === month.month)) {
-      const confirmed = await confirmAsk({
-        title: `${formatMonth(month.month)} уже есть`,
-        description: 'Сохранить поверх? Отметка об отчёте и цифры этого месяца будут заменены тем, что в форме.',
-        confirmLabel: 'Заменить',
-        tone: 'danger',
-      });
-      if (!confirmed) return;
-    }
+    const requestId = clientRequest.current;
+    const key = `${draft.id}:month:${month.month}`;
+    if (pendingDetails.current.has(key)) return;
+    pendingDetails.current.add(key);
     try {
+      if (monthOrigin === null && months.some((item) => item.month === month.month)) {
+        const confirmed = await confirmAsk({
+          title: `${formatMonth(month.month)} уже есть`,
+          description: 'Сохранить поверх? Отметка об отчёте и цифры этого месяца будут заменены тем, что в форме.',
+          confirmLabel: 'Заменить',
+          tone: 'danger',
+        });
+        if (!confirmed || requestId !== clientRequest.current || currentMonthDraft.current !== month) return;
+      }
       await request({ ...month, action: 'set_month', id: draft.id });
-      setMonthDraft(null);
-      setMonthOrigin(null);
+      if (requestId === clientRequest.current && currentMonthDraft.current === month) {
+        setMonthDraft(null);
+        setMonthOrigin(null);
+      }
       await refreshDetails(draft.id);
       await load();
       notify.success(`Месяц ${formatMonth(month.month)} сохранён`);
     } catch (monthError) {
       notify.error('Не удалось сохранить месяц', monthError instanceof Error ? monthError.message : undefined);
+    } finally {
+      pendingDetails.current.delete(key);
     }
   };
 
   const deleteMonth = async (month: ClientMonth) => {
     if (!draft?.id) return;
+    const requestId = clientRequest.current;
+    const draftAtStart = currentMonthDraft.current;
     const confirmed = await confirmAsk({
       title: `Удалить ${formatMonth(month.month)}?`,
       description: 'Цифры и отметка об отчёте за этот месяц пропадут из карточки, светофора и сборки кейса.',
@@ -496,7 +509,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     if (!confirmed) return;
     try {
       await request({ action: 'delete_month', id: draft.id, month: month.month });
-      if (monthOrigin === month.month) {
+      if (requestId === clientRequest.current && monthOrigin === month.month && currentMonthDraft.current === draftAtStart) {
         setMonthDraft(null);
         setMonthOrigin(null);
       }
@@ -505,6 +518,31 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
       notify.success(`Месяц ${formatMonth(month.month)} удалён`);
     } catch (monthError) {
       notify.error('Не удалось удалить месяц', monthError instanceof Error ? monthError.message : undefined);
+    }
+  };
+
+  const addDetail = async (kind: 'access' | 'note') => {
+    if (!draft?.id) return;
+    const original = kind === 'access' ? accessDraft : noteDraft;
+    const value = original.trim();
+    const id = draft.id;
+    const key = `${id}:${kind}`;
+    if (!value || pendingDetails.current.has(key)) return;
+    const requestId = clientRequest.current;
+    pendingDetails.current.add(key);
+    try {
+      await request(kind === 'access'
+        ? { action: 'set_access', id, name: value, status: 'waiting' }
+        : { action: 'add_note', id, body: value });
+      if (requestId === clientRequest.current) {
+        const setDraftValue = kind === 'access' ? setAccessDraft : setNoteDraft;
+        setDraftValue((current) => current === original ? '' : current);
+      }
+      await refreshDetails(id);
+    } catch (error) {
+      notify.error(kind === 'access' ? 'Не удалось добавить доступ' : 'Не удалось сохранить памятку', error instanceof Error ? error.message : undefined);
+    } finally {
+      pendingDetails.current.delete(key);
     }
   };
 
@@ -858,12 +896,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
 
               <form className="clients__add-row" onSubmit={(event) => {
                 event.preventDefault();
-                const name = accessDraft.trim();
-                if (!name) return;
-                setAccessDraft('');
-                void request({ action: 'set_access', id: draft.id, name, status: 'waiting' })
-                  .then(() => refreshDetails(draft.id))
-                  .catch((addError) => notify.error('Не добавилось', addError instanceof Error ? addError.message : undefined));
+                void addDetail('access');
               }}>
                 <input className="admin-input" maxLength={120} placeholder="Какой ещё доступ нужен" value={accessDraft} onChange={(e) => setAccessDraft(e.target.value)} />
                 <button type="submit" className="admin-button admin-button--compact" disabled={!accessDraft.trim()}>Добавить</button>
@@ -897,12 +930,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
 
               <form className="clients__add-row" onSubmit={(event) => {
                 event.preventDefault();
-                const value = noteDraft.trim();
-                if (!value) return;
-                setNoteDraft('');
-                void request({ action: 'add_note', id: draft.id, body: value })
-                  .then(() => refreshDetails(draft.id))
-                  .catch((noteError) => notify.error('Не сохранилось', noteError instanceof Error ? noteError.message : undefined));
+                void addDetail('note');
               }}>
                 <input className="admin-input" maxLength={4000} placeholder="Записать памятку" value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} />
                 <button type="submit" className="admin-button admin-button--compact" disabled={!noteDraft.trim()}>Записать</button>

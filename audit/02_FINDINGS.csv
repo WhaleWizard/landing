@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-26,P2,ADMIN,/admin/,AdminClients.tsx,Client access and note input was lost on failure,Inputs were cleared before acknowledgement,FIXED,AdminClients.tsx,Isolated browser matrix
+ADMIN-20261112-27,P2,ADMIN,/admin/,AdminClients.tsx,Late monthly save closed a different form,Completion did not validate the active draft,FIXED,AdminClients.tsx,Isolated browser matrix
+ADMIN-20261112-28,P2,ADMIN,/admin/,AdminGoals.tsx,Refreshing monthly figures replaced an unsaved target,Every load reset the goal draft,FIXED,AdminGoals.tsx,Isolated browser matrix
+ADMIN-20261112-29,P2,ADMIN,/admin/,AdminPageLocks.tsx,Overlapping writes and hidden refresh failures left uncertain status,No write lock and errors were hidden if rows existed,FIXED,AdminPageLocks.tsx,Isolated browser matrix
+ADMIN-20261112-30,P2,ADMIN,/admin/,AdminMetaCenter.tsx,Refresh failure erased the diagnostic snapshot and duplicate clicks could submit twice,Failed reads replaced data and writes relied on button rendering,FIXED,AdminMetaCenter.tsx,Isolated browser matrix
 ADMIN-20261112-21,P2,ADMIN,/admin/,AdminToday.tsx,One failed request hid valid data from another,Dashboard requests shared an all-or-nothing error path,FIXED,AdminToday.tsx,Isolated browser matrix
 ADMIN-20261112-22,P2,ADMIN,/admin/,AdminAttribution.tsx,HTTP failure replaced an existing report,Failure payload overwrote the successful result,FIXED,AdminAttribution.tsx,Isolated browser matrix
 ADMIN-20261112-23,P2,ADMIN,/admin/,AdminAuditTrail.tsx,Stale records were not identified after refresh failure,Error omitted the state of visible records,FIXED,AdminAuditTrail.tsx,Isolated browser matrix

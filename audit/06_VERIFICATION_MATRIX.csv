@@ -1,4 +1,6 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Client drafts goals page locks and Meta,output/playwright/admin-drafts-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED
+Client drafts goals page locks and Meta,output/playwright/admin-drafts-2026-11-12/browser.log,WebKit,Mobile 390,5,0,PASSED
 Dashboard attribution audit editor and schedule,output/playwright/admin-refresh-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED
 Dashboard attribution audit editor and schedule,output/playwright/admin-refresh-2026-11-12/browser.log,WebKit,Mobile 390,5,0,PASSED
 Security prompts planning and uploads,output/playwright/admin-recovery-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock3, Database,
   Info, Inbox, RefreshCw, Send, Server, ShieldCheck, XCircle,
@@ -280,8 +280,12 @@ export default function AdminMetaCenter({ password }: { password: string }) {
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [testEvent, setTestEvent] = useState<TestEventChoice>('Lead');
   const [testDetail, setTestDetail] = useState<TestEventDetail[]>([]);
+  const loadSequence = useRef(0);
+  const testPending = useRef(false);
+  const queuePending = useRef(false);
 
   const load = useCallback(async () => {
+    const requestId = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
@@ -291,15 +295,16 @@ export default function AdminMetaCenter({ password }: { password: string }) {
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => null) as MetaCenterResponse | null;
+      if (requestId !== loadSequence.current) return;
       if (!response.ok || !payload?.success) {
-        setData(payload);
+        setData((current) => current?.success ? current : payload?.success ? null : payload);
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       setData(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить центр Meta CAPI');
+      if (requestId === loadSequence.current) setError(err instanceof Error ? err.message : 'Не удалось загрузить центр Meta CAPI');
     } finally {
-      setLoading(false);
+      if (requestId === loadSequence.current) setLoading(false);
     }
   }, [password]);
 
@@ -312,6 +317,8 @@ export default function AdminMetaCenter({ password }: { password: string }) {
    * именно в том, какие параметры доходят с Lead.
    */
   const sendTestEvent = useCallback(async () => {
+    if (testPending.current) return;
+    testPending.current = true;
     setTestSending(true);
     setTestResult(null);
     setTestDetail([]);
@@ -361,11 +368,14 @@ export default function AdminMetaCenter({ password }: { password: string }) {
       setTestResult({ ok: false, text: `Не удалось отправить: ${reason}` });
       notify.error('Не удалось отправить', reason);
     } finally {
+      testPending.current = false;
       setTestSending(false);
     }
   }, [load, password, testEvent]);
 
   const processQueue = async () => {
+    if (queuePending.current) return;
+    queuePending.current = true;
     setProcessing(true);
     setProcessNotice('Обрабатываю готовые к повтору и зависшие события…');
     try {
@@ -391,6 +401,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
     } catch (err) {
       setProcessNotice(err instanceof Error ? err.message : 'Не удалось обработать очередь');
     } finally {
+      queuePending.current = false;
       setProcessing(false);
     }
   };
@@ -525,7 +536,7 @@ export default function AdminMetaCenter({ password }: { password: string }) {
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
             <div>
-              <p className="text-sm font-semibold">Данные этого окружения недоступны</p>
+              <p className="text-sm font-semibold">{data?.success ? 'Показана последняя загруженная диагностика' : 'Данные этого окружения недоступны'}</p>
               <p className="mt-1 text-sm leading-relaxed text-[var(--adm-fg)]/65">{error}</p>
               {data?.code === 'D1_NOT_BOUND' && (
                 <p className="mt-1 text-sm text-[var(--adm-fg)]/50">Откройте раздел на production: локальный Vite обычно работает без Cloudflare D1.</p>

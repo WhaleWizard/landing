@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-26,P2,Retain client note and access inputs,AdminClients.tsx,COMPLETED,
+ADMIN-20261112-27,P2,Scope monthly completion to the submitted client form,AdminClients.tsx,COMPLETED,
+ADMIN-20261112-28,P2,Keep goal drafts when refreshing the same month,AdminGoals.tsx,COMPLETED,
+ADMIN-20261112-29,P2,Serialize page-lock writes and show refresh errors,AdminPageLocks.tsx,COMPLETED,
+ADMIN-20261112-30,P2,Keep Meta diagnostics and guard concurrent actions,AdminMetaCenter.tsx,COMPLETED,
 ADMIN-20261112-21,P2,Keep available dashboard data during partial failures,AdminToday.tsx,COMPLETED,
 ADMIN-20261112-22,P2,Retain attribution for the active period after refresh failure,AdminAttribution.tsx,COMPLETED,
 ADMIN-20261112-23,P2,Label retained audit records,AdminAuditTrail.tsx,COMPLETED,
