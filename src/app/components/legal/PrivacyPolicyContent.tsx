@@ -10,7 +10,7 @@ const sections: LegalSection[] = [
               данных, отзыва согласия, уточнения или удаления данных используйте следующие контакты:
             </p>
             <ul>
-              <li>Email: <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a></li>
+              <li>Email: <a href="mailto:white@whalewzrd.com">white@whalewzrd.com</a></li>
               <li>Telegram: <a href="https://t.me/white_rsh">@white_rsh</a></li>
             </ul>
             <p>
@@ -210,7 +210,7 @@ const sections: LegalSection[] = [
       <>
         <p>
               Чтобы отозвать согласие, запросить удаление или уточнение данных, напишите на email{' '}
-              <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a> или в Telegram{' '}
+              <a href="mailto:white@whalewzrd.com">white@whalewzrd.com</a> или в Telegram{' '}
               <a href="https://t.me/white_rsh">@white_rsh</a>. В обращении укажите, какие данные или какое действие вас интересует.
             </p>
             <p>

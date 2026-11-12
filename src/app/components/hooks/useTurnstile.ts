@@ -106,7 +106,12 @@ function loadTurnstileScript(): Promise<TurnstileApi | null> {
  *
  * `remove` вызывается всегда: иначе на странице копились бы виджеты.
  */
-async function renderAndExecute(api: TurnstileApi, container: HTMLElement, signal?: AbortSignal): Promise<string | null> {
+async function renderAndExecute(
+  api: TurnstileApi,
+  container: HTMLElement,
+  signal?: AbortSignal,
+  onInteractive?: () => void,
+): Promise<string | null> {
   if (signal?.aborted) return null;
   let widgetId: string | null = null;
 
@@ -137,6 +142,7 @@ async function renderAndExecute(api: TurnstileApi, container: HTMLElement, signa
         'error-callback': () => finish(null),
         'timeout-callback': () => finish(null),
         'expired-callback': () => finish(null),
+        ...(onInteractive ? { 'before-interactive-callback': onInteractive } : {}),
       });
       api.execute(widgetId);
     } catch {
@@ -151,29 +157,61 @@ async function renderAndExecute(api: TurnstileApi, container: HTMLElement, signa
   return token;
 }
 
-/**
- * Токен без React и без видимой формы — для повторной отправки заявки,
- * которая ждала в очереди. Контейнер убирается за собой в любом случае.
- *
- * Если Cloudflare решит показать галочку, человек её здесь не увидит и не
- * поставит: тогда вернётся `null`, заявка останется в очереди и попробует
- * снова в следующий раз. Это не хуже прежнего поведения, при котором
- * отложенная заявка не могла быть принята вообще никогда.
- */
+let interactionDeferred = false;
+
+/** Background verification stays out of view until Turnstile requests input. */
 export async function mintDetachedTurnstileToken(): Promise<string | null> {
   if (typeof document === 'undefined') return null;
   const api = await loadTurnstileScript();
   if (!api) return null;
 
+  const request = new AbortController();
+  const panel = document.createElement('section');
+  panel.className = 'fixed bottom-4 right-4 z-[110] grid gap-3 rounded-xl border border-border bg-background p-3 text-foreground shadow-xl';
+  panel.setAttribute('aria-label', 'Подтверждение отложенной заявки');
+  panel.setAttribute('aria-hidden', 'true');
+  panel.inert = true;
+  panel.style.width = 'min(350px, calc(100% - 2rem))';
+  panel.style.opacity = '0';
+  panel.style.pointerEvents = 'none';
+
+  const title = document.createElement('p');
+  title.className = 'm-0 text-sm font-medium';
+  title.textContent = 'Подтвердите отправку сохранённой заявки';
   const container = document.createElement('div');
-  container.setAttribute('aria-hidden', 'true');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:300px;height:65px;pointer-events:none;';
-  document.body.appendChild(container);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'min-h-11 justify-self-start rounded-lg border border-border px-3 text-sm';
+  close.textContent = 'Позже';
+  close.onclick = () => {
+    interactionDeferred = true;
+    request.abort();
+  };
+  panel.append(title, container, close);
+  document.body.appendChild(panel);
+  let previousFocus: HTMLElement | null = null;
+  const cancel = () => request.abort();
+  window.addEventListener('pagehide', cancel, { once: true });
 
   try {
-    return await renderAndExecute(api, container);
+    return await renderAndExecute(api, container, request.signal, () => {
+      if (interactionDeferred || document.visibilityState === 'hidden') {
+        request.abort();
+        return;
+      }
+      previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      panel.inert = false;
+      panel.removeAttribute('aria-hidden');
+      panel.style.opacity = '';
+      panel.style.pointerEvents = '';
+      close.focus({ preventScroll: true });
+    });
   } finally {
-    container.remove();
+    window.removeEventListener('pagehide', cancel);
+    const restoreFocus = panel.contains(document.activeElement);
+    panel.remove();
+    const target = previousFocus as HTMLElement | null;
+    if (restoreFocus && target?.isConnected) target.focus({ preventScroll: true });
   }
 }
 

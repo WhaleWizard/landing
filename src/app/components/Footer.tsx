@@ -118,7 +118,7 @@ function Footer() {
       ) : null}
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 gap-8 mb-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-8 mb-8 md:grid-cols-4 md:gap-6 lg:gap-8">
           
           {/* Brand */}
           <div className={`footer-reveal min-w-0 space-y-4 ${hasEntered ? 'is-visible' : ''}`}>
@@ -129,7 +129,7 @@ function Footer() {
               </h2>
             </div>
             <p className="text-pretty text-sm text-muted-foreground">
-              Performance-маркетинг в Google Ads и Meta Ads: от настройки аналитики до оптимизации по продажам.
+              Performance-маркетинг в Google Ads и Meta Ads: от настройки аналитики до оптимизации по продажам.
             </p>
           </div>
 
@@ -274,14 +274,14 @@ function Footer() {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="mailto:whalewzrd@gmail.com"
+                  href="mailto:white@whalewzrd.com"
                   onClick={() => trackContact('email', 'footer')}
                   className={`${footerContactLinkClass} min-w-0`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <PlatformMark platform="gmail" tone={platformTone} size={15} />
                   </div>
-                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">whalewzrd@gmail.com</span>
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">white@whalewzrd.com</span>
                 </a>
               </li>
 

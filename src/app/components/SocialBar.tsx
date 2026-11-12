@@ -16,7 +16,7 @@ const socials = [
   { platform: 'x', href: 'https://x.com/whalewzrd', label: 'X' },
   { platform: 'threads', href: 'https://threads.net/@whalewzrd', label: 'Threads' },
   { platform: 'tiktok', href: 'https://tiktok.com/@whalewzrd', label: 'TikTok' },
-  { platform: 'gmail', href: 'mailto:whalewzrd@gmail.com', label: 'Email' },
+  { platform: 'gmail', href: 'mailto:white@whalewzrd.com', label: 'Email' },
 ] as const;
 
 function getContactChannel(label: string): 'telegram' | 'whatsapp' | 'email' | 'phone' | 'social' {

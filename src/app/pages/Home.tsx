@@ -256,7 +256,7 @@ export default function Home() {
           <ContactForm contentKey="site:home" />
         </DeferredSection>],
       ], layout)}
-      <DeferredSection heights={{ mobile: 1049, tablet: 457, desktop: 429 }}>
+      <DeferredSection heights={{ mobile: 1049, tablet: 515, desktop: 429 }}>
         <Footer />
       </DeferredSection>
     </main>

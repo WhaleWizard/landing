@@ -139,7 +139,7 @@ export default function SEO({
       description: 'Таргетолог Meta Ads и специалист по Google Ads: настройка и ведение рекламы в Instagram, Facebook и Google под заявки, продажи и установки приложений.',
       alternateName: ['WhaleWzrd', 'whalewzrd.com'],
       knowsAbout: ['Meta Ads', 'Instagram Ads', 'Facebook Ads', 'Google Ads', 'Performance Max', 'Google Shopping', 'Meta Conversions API', 'Google Analytics 4', 'Google Tag Manager', 'Продвижение мобильных приложений', 'AppsFlyer', 'Adjust'],
-      email: 'whalewzrd@gmail.com',
+      email: 'white@whalewzrd.com',
       // Услуга удалённая и на русском — это единственное, что здесь правда.
       // Прежний список RU/US/AE/TR/EU заявлял охват, которого нечем подтвердить:
       // география не упоминается ни в одном тексте сайта, локализованных версий

@@ -227,6 +227,9 @@ export default function AdminAttribution({ password }: { password: string }) {
   }, [days, password]);
 
   useEffect(() => { void load(); }, [load]);
+  const currentLoad = useRef(load);
+  useEffect(() => { currentLoad.current = load; }, [load]);
+  const refreshAfterSpend = useCallback(() => { void currentLoad.current(); }, []);
 
   const selectDays = (next: number) => {
     if (next === days) return;
@@ -750,7 +753,7 @@ export default function AdminAttribution({ password }: { password: string }) {
             )}
           </section>
 
-          <AdminAdSpend password={password} days={days} onSaved={() => void load()} />
+          <AdminAdSpend password={password} days={days} onSaved={refreshAfterSpend} />
 
           <div className="adm-attribution__footer">
             <section className="admin-panel adm-card">

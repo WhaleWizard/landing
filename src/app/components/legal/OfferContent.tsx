@@ -368,7 +368,7 @@ const sections: LegalSection[] = [
       </p>
       <p>
         15.2. Оператором персональных данных является Whale Wizard. Контакты по вопросам обработки данных: email{' '}
-        <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a>, Telegram{' '}
+        <a href="mailto:white@whalewzrd.com">white@whalewzrd.com</a>, Telegram{' '}
         <a href="https://t.me/white_rsh">@white_rsh</a>. Если требуется контактный номер Оператора, используется Telegram:
         @white_rsh.
       </p>
@@ -467,7 +467,7 @@ const sections: LegalSection[] = [
       <>
         <p>
         19.1. До обращения в суд, арбитраж, третейский суд, банк, платёжную систему или к иному посреднику Заказчик обязан
-        направить Исполнителю письменную претензию на email <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a>
+        направить Исполнителю письменную претензию на email <a href="mailto:white@whalewzrd.com">white@whalewzrd.com</a>
         или в Telegram <a href="https://t.me/white_rsh">@white_rsh</a> и предоставить Исполнителю не менее 10 рабочих дней
         для ответа и урегулирования вопроса.
       </p>
@@ -526,7 +526,7 @@ const sections: LegalSection[] = [
       <>
         <p>
         21.1. <strong>Данные Исполнителя:</strong> Whale Wizard; email:{' '}
-        <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a>; Telegram:{' '}
+        <a href="mailto:white@whalewzrd.com">white@whalewzrd.com</a>; Telegram:{' '}
         <a href="https://t.me/white_rsh">@white_rsh</a>. Иные данные Исполнителя могут быть указаны в счёте, Задании,
         акте, переписке или ином документе, направленном Заказчику.
       </p>

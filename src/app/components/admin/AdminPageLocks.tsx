@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Eye,
   History,
@@ -147,7 +147,6 @@ export default function AdminPageLocks({ password }: { password: string }) {
   const [savingPath, setSavingPath] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
   const [showJournal, setShowJournal] = useState(false);
-  const previewTimer = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -319,18 +318,19 @@ export default function AdminPageLocks({ password }: { password: string }) {
       setPreviewHtml('');
       return;
     }
-    if (previewTimer.current) window.clearTimeout(previewTimer.current);
-    previewTimer.current = window.setTimeout(() => {
+    const request = new AbortController();
+    const timer = window.setTimeout(() => {
       void (async () => {
         try {
           const response = await fetch('/api/admin/page-lock-preview', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
             credentials: 'same-origin',
+            signal: request.signal,
             body: JSON.stringify({ path: activeRoute.path, ...draft }),
           });
           const payload = await response.json().catch(() => null) as { success?: boolean; html?: string } | null;
-          if (payload?.success && payload.html) setPreviewHtml(payload.html);
+          if (!request.signal.aborted && response.ok && payload?.success && payload.html) setPreviewHtml(payload.html);
         } catch {
           // Предпросмотр — подсказка: без него настройки всё равно сохраняются.
         }
@@ -338,7 +338,8 @@ export default function AdminPageLocks({ password }: { password: string }) {
     }, 320);
 
     return () => {
-      if (previewTimer.current) window.clearTimeout(previewTimer.current);
+      window.clearTimeout(timer);
+      request.abort();
     };
   }, [activeRoute, draft, password]);
 

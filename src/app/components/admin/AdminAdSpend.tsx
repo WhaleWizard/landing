@@ -67,6 +67,7 @@ export default function AdminAdSpend({
   const [csv, setCsv] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const loadSequence = useRef(0);
+  const savingRef = useRef(false);
 
   const load = useCallback(async () => {
     const requestId = ++loadSequence.current;
@@ -97,10 +98,18 @@ export default function AdminAdSpend({
 
   useEffect(() => {
     if (open) void load();
+    return () => { loadSequence.current += 1; };
+  }, [load, open]);
+  const currentLoad = useRef<(() => Promise<void>) | null>(null);
+  useEffect(() => {
+    currentLoad.current = open ? load : null;
+    return () => { currentLoad.current = null; };
   }, [load, open]);
 
   /** true — сохранилось; false — ошибка показана, введённое остаётся в полях. */
   const post = useCallback(async (body: Record<string, unknown>, success: (payload: SpendResponse) => string): Promise<boolean> => {
+    if (savingRef.current) return false;
+    savingRef.current = true;
     setSaving(true);
     setError('');
     setNotice('');
@@ -116,18 +125,18 @@ export default function AdminAdSpend({
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
-      setEntries(payload.entries || []);
       notify.success(success(payload));
       onSaved();
-      await load();
+      await currentLoad.current?.();
       return true;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить расход');
       return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
-  }, [days, load, onSaved, password]);
+  }, [days, onSaved, password]);
 
   // Поля очищаются только после удачного ответа: при ошибке сервера сумма и
   // вставленная выгрузка остаются на месте, чтобы поправить и отправить снова.

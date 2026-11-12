@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Send } from 'lucide-react';
 import { loadConsent } from '../../consent/consent';
 import { AdminSectionSkeleton } from './AdminFeedback';
@@ -79,6 +79,9 @@ export default function AdminHealth({ password }: { password: string }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [tgStatus, setTgStatus] = useState('');
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+  const telegramRequest = useRef(null as AbortController | null);
+  const telegramTimer = useRef<number | undefined>(undefined);
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -104,23 +107,38 @@ export default function AdminHealth({ password }: { password: string }) {
   }, [password]);
 
   useEffect(() => { void run(); }, [run]);
+  useEffect(() => () => {
+    telegramRequest.current?.abort();
+    window.clearTimeout(telegramTimer.current);
+  }, []);
 
   const telegramTest = async () => {
+    if (telegramRequest.current) return;
+    const request = new AbortController();
+    telegramRequest.current = request;
+    window.clearTimeout(telegramTimer.current);
+    setSendingTelegram(true);
     setTgStatus('Отправляю…');
     try {
       const res = await fetch('/api/admin/health', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
+        signal: request.signal,
         body: JSON.stringify({ action: 'telegram-test', timezone_offset: new Date().getTimezoneOffset() }),
       });
       const payload = await res.json().catch(() => null) as { success?: boolean; error?: string } | null;
       if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
-      setTgStatus('✓ Отправлено — проверьте чат в Telegram');
+      if (!request.signal.aborted) setTgStatus('✓ Отправлено — проверьте чат в Telegram');
     } catch (err) {
-      setTgStatus('Не удалось: ' + (err instanceof Error ? err.message : 'ошибка'));
+      if (!request.signal.aborted) setTgStatus('Не удалось: ' + (err instanceof Error ? err.message : 'ошибка'));
+    } finally {
+      telegramRequest.current = null;
+      if (!request.signal.aborted) {
+        setSendingTelegram(false);
+        telegramTimer.current = window.setTimeout(() => setTgStatus(''), 8000);
+      }
     }
-    window.setTimeout(() => setTgStatus(''), 8000);
   };
 
   /**
@@ -205,7 +223,7 @@ export default function AdminHealth({ password }: { password: string }) {
           </p>
         </div>
         <div className="admin-section-header__actions">
-          <button type="button" className="admin-button admin-button--secondary" onClick={() => void telegramTest()}>
+          <button type="button" className="admin-button admin-button--secondary" onClick={() => void telegramTest()} disabled={sendingTelegram}>
             <Send aria-hidden="true" /> Тест Telegram
           </button>
           <button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => void run()}>

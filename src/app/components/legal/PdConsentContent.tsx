@@ -67,7 +67,7 @@ export default function PdConsentContent() {
             собираются автоматически при посещении сайта.
           </p>
           <p>
-            Оператор — Whale Wizard, email <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a>, Telegram{' '}
+            Оператор — Whale Wizard, email <a href="mailto:white@whalewzrd.com">white@whalewzrd.com</a>, Telegram{' '}
             <a href="https://t.me/white_rsh">@white_rsh</a>. Полные условия обработки описаны в{' '}
             <a href="/privacy-policy/">Политике конфиденциальности и обработки персональных данных</a> и{' '}
             <a href="/cookie-policy/">Политике cookie</a>.

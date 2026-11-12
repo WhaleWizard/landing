@@ -1211,7 +1211,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
           <ContactSection service={service} contact={config.contact} theme={theme} />
         </DeferredSection>],
       ], config)}
-      <DeferredSection heights={{ mobile: 1070, tablet: 700, desktop: 430 }}>
+      <DeferredSection heights={{ mobile: 1070, tablet: 515, desktop: 430 }}>
         <Footer />
       </DeferredSection>
     </main>

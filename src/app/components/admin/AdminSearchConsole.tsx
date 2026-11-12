@@ -20,10 +20,11 @@ type PositionFilter = 'all' | 'top3' | 'top10' | 'top20';
 type SortField = 'clicks' | 'impressions' | 'ctr' | 'position';
 
 export default function AdminSearchConsole({ password }: AdminSearchConsoleProps) {
-  const [data, setData] = useState<SearchConsoleResponse | null>(null);
+  const [snapshot, setData] = useState<SearchConsoleResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState<number>(28);
+  const data = snapshot?.days === days ? snapshot : null;
   const [activeTab, setActiveTab] = useState<TabKey>('queries');
 
   // Фильтры и сортировка поисковых запросов
@@ -42,17 +43,19 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
     const requestId = ++requestSequence.current;
     setLoading(true);
     setError(null);
-    setData(null);
+    setData((current) => current?.days === selectedDays ? current : null);
     try {
       const res = await fetch(`/api/admin/search-console?days=${selectedDays}`, {
         headers: {
           'X-Admin-Password': password,
         },
+        credentials: 'same-origin',
+        cache: 'no-store',
       });
 
-      const json = await res.json() as SearchConsoleResponse;
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || `Не удалось загрузить данные Search Console (${res.status})`);
+      const json = await res.json().catch(() => null) as SearchConsoleResponse | null;
+      if (!res.ok || !json?.success || json.days !== selectedDays) {
+        throw new Error(json?.error || `Не удалось загрузить данные Search Console (${res.status})`);
       }
       if (requestId === requestSequence.current) setData(json);
     } catch (err) {
@@ -190,6 +193,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
         <div className="admin-notice admin-notice--warning" role="alert">
           <strong>Ошибка получения данных</strong>
           <p>{error}</p>
+          {data?.configured && <p>Показаны последние полученные данные за этот период.</p>}
         </div>
       )}
 

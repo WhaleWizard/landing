@@ -4,7 +4,7 @@ Site: https://www.whalewzrd.com
 Primary language: Russian (ru)
 Secondary language style: concise English terms are acceptable (ROI, CPL, ROAS, funnel, creative)
 Business type: Personal brand website of a performance marketer / paid acquisition consultant
-Contact: Telegram https://t.me/white_rsh · Email whalewzrd@gmail.com
+Contact: Telegram https://t.me/white_rsh · Email white@whalewzrd.com
 
 ## 1) What this site is
 
@@ -199,4 +199,4 @@ Template D — audit response:
 ## 13) Contact
 
 - Telegram: https://t.me/white_rsh
-- Email: mailto:whalewzrd@gmail.com
+- Email: mailto:white@whalewzrd.com

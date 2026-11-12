@@ -25,7 +25,7 @@ const SECURITY_TXT_PATH = '/.well-known/security.txt';
 function renderSecurityTxt(): Response {
   const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const body = [
-    'Contact: mailto:whalewzrd@gmail.com',
+    'Contact: mailto:white@whalewzrd.com',
     'Contact: https://t.me/white_rsh',
     `Expires: ${expires}`,
     'Preferred-Languages: ru, en',

@@ -90,7 +90,7 @@ const socialLinks = [
   { name: 'Telegram', platform: 'telegram', link: TELEGRAM_LINK },
   { name: 'Instagram', platform: 'instagram', link: 'https://instagram.com/whalewzrd' },
   { name: 'YouTube', platform: 'youtube', link: 'https://www.youtube.com/@whalewzrd' },
-  { name: 'Email', platform: 'gmail', link: 'mailto:whalewzrd@gmail.com' },
+  { name: 'Email', platform: 'gmail', link: 'mailto:white@whalewzrd.com' },
 ] as const;
 
 export default function ThankYou() {

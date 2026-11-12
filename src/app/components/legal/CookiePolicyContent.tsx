@@ -164,7 +164,7 @@ export default function CookiePolicyContent() {
       </p>
       <p>
         Настоящая Политика cookie является частью <a href="/privacy-policy/">Политики конфиденциальности и обработки персональных данных</a>.
-        По вопросам cookie можно написать Whale Wizard на email <a href="mailto:whalewzrd@gmail.com">whalewzrd@gmail.com</a> или в Telegram{' '}
+        По вопросам cookie можно написать Whale Wizard на email <a href="mailto:white@whalewzrd.com">white@whalewzrd.com</a> или в Telegram{' '}
         <a href="https://t.me/white_rsh">@white_rsh</a>.
       </p>
         </>
