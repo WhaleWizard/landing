@@ -80,10 +80,14 @@ export default function AdminHealth({ password }: { password: string }) {
   const [loading, setLoading] = useState(false);
   const [tgStatus, setTgStatus] = useState('');
   const [sendingTelegram, setSendingTelegram] = useState(false);
+  const healthRequest = useRef(null as AbortController | null);
   const telegramRequest = useRef(null as AbortController | null);
   const telegramTimer = useRef<number | undefined>(undefined);
 
   const run = useCallback(async () => {
+    healthRequest.current?.abort();
+    const request = new AbortController();
+    healthRequest.current = request;
     setLoading(true);
     setError('');
     try {
@@ -91,22 +95,33 @@ export default function AdminHealth({ password }: { password: string }) {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
+        signal: request.signal,
       });
       const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; checks?: HealthCheck[]; checkedAt?: string } | null;
       if (!res.ok || !payload?.success || !Array.isArray(payload.checks) || !payload.checks.length) {
         throw new Error(payload?.error || 'Сервер не вернул результаты проверки');
       }
+      if (request.signal.aborted) return;
       setChecks(payload.checks);
       setCheckedAt(payload.checkedAt || '');
       setBrowserChecks(runBrowserChecks());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Проверка не удалась');
+      if (!request.signal.aborted) setError(err instanceof Error ? err.message : 'Проверка не удалась');
     } finally {
-      setLoading(false);
+      if (healthRequest.current === request) {
+        healthRequest.current = null;
+        setLoading(false);
+      }
     }
   }, [password]);
 
-  useEffect(() => { void run(); }, [run]);
+  useEffect(() => {
+    void run();
+    return () => {
+      healthRequest.current?.abort();
+      healthRequest.current = null;
+    };
+  }, [run]);
   useEffect(() => () => {
     telegramRequest.current?.abort();
     window.clearTimeout(telegramTimer.current);

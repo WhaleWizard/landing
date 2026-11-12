@@ -125,6 +125,7 @@ export default function AdminUtmBuilder() {
   const [lastCheck, setCheckStatus] = useState<{ url: string; ok: boolean; message: string } | null>(null);
   const [copiedLink, setCopiedLink] = useState<{ url: string } | null>(null);
   const [history, setHistory] = useState<UtmHistoryItem[]>([]);
+  const historyGeneration = useRef(0);
 
   // Load history from localStorage
   useEffect(() => {
@@ -236,10 +237,12 @@ export default function AdminUtmBuilder() {
   // Copy URL with toast & history saving
   const handleCopyUrl = async () => {
     if (!fullUrl) return;
+    const generation = historyGeneration.current;
     try {
       await navigator.clipboard.writeText(fullUrl);
       setCopiedLink({ url: fullUrl });
       notify.success('Ссылка скопирована', fullUrl);
+      if (generation !== historyGeneration.current) return;
 
       // Save to history
       const newItem: UtmHistoryItem = {
@@ -251,6 +254,7 @@ export default function AdminUtmBuilder() {
       };
 
       setHistory((prev) => {
+        if (generation !== historyGeneration.current) return prev;
         const next = [newItem, ...prev.filter((i) => i.url !== fullUrl)].slice(0, UTM_HISTORY_LIMIT);
         try {
           localStorage.setItem(UTM_HISTORY_KEY, JSON.stringify(next));
@@ -263,6 +267,7 @@ export default function AdminUtmBuilder() {
   };
 
   const handleClearHistory = () => {
+    historyGeneration.current++;
     setHistory([]);
     try {
       localStorage.removeItem(UTM_HISTORY_KEY);

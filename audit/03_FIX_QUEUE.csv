@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-10,P2,Discard stale health responses,AdminHealth,COMPLETED,
+ADMIN-20261113-11,P2,Keep cleared UTM history cleared,AdminUtmBuilder,COMPLETED,
+ADMIN-20261113-12,P2,Expose attribution copy on touch and report failure,AttributionVisualPro,COMPLETED,
+ADMIN-20261113-13,P2,Show campaign sort direction,AdminCampaignStats,COMPLETED,
+ADMIN-20261113-14,P2,Reconcile media selection on the final page,AdminMedia,COMPLETED,
 ADMIN-20261113-06,P1,Recover unsent planner edits after tab close,AdminPlanner,COMPLETED,
 ADMIN-20261113-07,P2,Focus the cancel action in dangerous confirmations,AdminFeedback,COMPLETED,
 ADMIN-20261113-08,P2,Associate confirmation title and description,AdminFeedback,COMPLETED,

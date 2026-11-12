@@ -204,13 +204,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
       const names = (payload.folders || []).map((folder) => folder.name);
       setFolderNames((current) => cursor ? [...new Set([...current, ...names])] : names);
       setNextCursor(payload.nextCursor || null);
-      if (!cursor) {
-        setMoveNeedsRefresh(false);
-        if (!payload.nextCursor) {
-          const keys = new Set(incoming.map((file) => file.key));
-          setSelected((current) => current.filter((key) => keys.has(key)));
-        }
-      }
+      if (!cursor) setMoveNeedsRefresh(false);
       setAltMigration(payload.altMigration || '');
     } catch (err) {
       if (requestId === listRequest.current) setError(err instanceof Error ? err.message : 'Не удалось загрузить список файлов');
@@ -220,6 +214,12 @@ export default function AdminMedia({ password, articles, target }: { password: s
   }, [password]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (loading || nextCursor || error) return;
+    const keys = new Set(files.map((file) => file.key));
+    setSelected((current) => current.every((key) => keys.has(key)) ? current : current.filter((key) => keys.has(key)));
+  }, [error, files, loading, nextCursor]);
 
   // Черновик подписи всегда начинается с того, что уже сохранено у файла.
   useEffect(() => { setAltDraft(preview?.alt || ''); }, [preview]);

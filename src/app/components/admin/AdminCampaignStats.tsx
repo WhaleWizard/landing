@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowDown,
   ArrowDownUp,
+  ArrowUp,
   Copy,
   Download,
   MousePointerClick,
@@ -86,7 +88,18 @@ interface CampaignStatsResponse {
   };
 }
 
-type SortField = 'spend' | 'leads' | 'cpl' | 'qualified' | 'won' | 'revenue' | 'romi' | 'clicks' | 'ctr';
+const SORT_COLUMNS = [
+  ['clicks', 'Клики / Показы'],
+  ['spend', 'Расход'],
+  ['leads', 'Лиды'],
+  ['cpl', 'Цена лида (CPL)'],
+  ['qualified', 'Целевые'],
+  ['won', 'Сделки'],
+  ['revenue', 'Выручка'],
+  ['romi', 'ROMI'],
+] as const;
+
+type SortField = typeof SORT_COLUMNS[number][0];
 type SortDir = 'asc' | 'desc';
 
 function defuseFormula(value: string): string {
@@ -492,54 +505,18 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                 <tr>
                   <th scope="col">Канал / Источник</th>
                   <th scope="col">Кампания (utm_campaign)</th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('clicks')}>
-                      Клики / Показы
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'clicks' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('spend')}>
-                      Расход
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'spend' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('leads')}>
-                      Лиды
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'leads' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('cpl')}>
-                      Цена лида (CPL)
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'cpl' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('qualified')}>
-                      Целевые
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'qualified' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('won')}>
-                      Сделки
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'won' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('revenue')}>
-                      Выручка
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'revenue' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
-                  <th scope="col" className="is-numeric">
-                    <button type="button" onClick={() => toggleSort('romi')}>
-                      ROMI
-                      <ArrowDownUp className={`w-3 h-3 ${sortField === 'romi' ? 'text-indigo-400' : ''}`} />
-                    </button>
-                  </th>
+                  {SORT_COLUMNS.map(([field, label]) => {
+                    const active = sortField === field;
+                    const SortIcon = active ? (sortDir === 'asc' ? ArrowUp : ArrowDown) : ArrowDownUp;
+                    return (
+                      <th key={field} scope="col" className="is-numeric" aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                        <button type="button" onClick={() => toggleSort(field)}>
+                          {label}
+                          <SortIcon aria-hidden="true" className={`w-3 h-3 ${active ? 'text-indigo-400' : ''}`} />
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>

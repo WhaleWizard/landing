@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-10,P2,STATE,/admin/,AdminHealth,Late diagnostics response can replace current results,Earlier request is not cancelled,FIXED,AdminHealth.tsx,Out of order responses in Chromium and WebKit
+ADMIN-20261113-11,P2,STATE,/admin/,AdminUtmBuilder,Cleared history can reappear,Pending clipboard success records old operation,FIXED,AdminUtmBuilder.tsx,Delayed clipboard resolution
+ADMIN-20261113-12,P2,ACCESSIBILITY,/admin/,AttributionVisualPro,Touch copy action is hidden and copy errors are silent,Hover-only visibility and swallowed rejection,FIXED,AttributionVisualPro.tsx and admin-ui.css,44 px target and denied clipboard
+ADMIN-20261113-13,P2,ACCESSIBILITY,/admin/,AdminCampaignStats,Sort direction is not communicated,Same arrow in both directions and no aria-sort,FIXED,AdminCampaignStats.tsx,Both sort directions and switching columns
+ADMIN-20261113-14,P2,STATE,/admin/,AdminMedia,Deleted selection blocks bulk actions after the last page,Selection pruning only runs on first page,FIXED,AdminMedia.tsx,Removed and existing selection across refreshed pages
 ADMIN-20261113-06,P1,DATA,/admin/,AdminPlanner,Offline edits disappear on tab close,The pending snapshot lives only in memory,FIXED,AdminPlanner.tsx and plannerDrafts.ts,Chromium and WebKit close and restore
 ADMIN-20261113-07,P2,ACCESSIBILITY,/admin/,AdminFeedback,Destructive confirmation focuses destructive action,Same initial focus for every tone,FIXED,AdminFeedback.tsx,Keyboard initial focus and restoration
 ADMIN-20261113-08,P2,ACCESSIBILITY,/admin/,AdminFeedback,Alert dialog lacks an accessible description,Visible paragraph is not associated with dialog,FIXED,AdminFeedback.tsx,Accessible tree and description reference

@@ -521,13 +521,16 @@ export function CohortHeatmapMatrix({
 export function CopyUtmCell({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = (e: React.MouseEvent) => {
+  const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text).then(() => {
+    try {
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       notify.success('Скопировано в буфер', text);
       setTimeout(() => setCopied(false), 1600);
-    }).catch(() => {});
+    } catch {
+      notify.error('Не удалось скопировать значение');
+    }
   };
 
   return (
@@ -536,7 +539,7 @@ export function CopyUtmCell({ text }: { text: string }) {
       <button
         type="button"
         onClick={handleCopy}
-        className="adm-utm-copy-btn opacity-0 group-hover:opacity-100 focus:opacity-100"
+        className="adm-utm-copy-btn"
         title="Скопировать значение"
         aria-label={`Скопировать ${text}`}
       >

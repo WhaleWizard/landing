@@ -17950,6 +17950,7 @@ body[data-admin-theme] .planner-weekpick {
 /* UTM Copy Cell */
 .admin-root .adm-utm-copy-btn {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   width: 20px;
@@ -17965,6 +17966,24 @@ body[data-admin-theme] .planner-weekpick {
 .admin-root .adm-utm-copy-btn:hover {
   color: var(--adm-fg);
   border-color: var(--adm-primary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-root .adm-utm-copy-btn {
+    opacity: 0;
+  }
+
+  .admin-root .adm-utm-cell:hover .adm-utm-copy-btn,
+  .admin-root .adm-utm-copy-btn:focus {
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .admin-root .adm-utm-copy-btn {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 
