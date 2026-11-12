@@ -1,4 +1,8 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Queued verification and four admin flows,output/playwright/five-flows-2026-11-12/deployed-browser.log,Chromium,Desktop 1440 and mobile 360,5,0,PASSED
+Queued verification and four admin flows,output/playwright/five-flows-2026-11-12/deployed-browser.log,WebKit,Desktop 1440 and mobile 360,5,0,PASSED
+Published asset comparison,output/playwright/admin-speed-2026-11-11/production-smoke.mjs,HTTP,Production and deployment alias,10,0,PASSED
+Repeated public first-screen navigation,output/playwright/webkit-navigation-2026-11-11/baseline.mjs,WebKit,Mobile 393,39,0,PASSED
 Typecheck App,tsconfig.app.json,TypeScript Compiler,Global,0 errors,0 errors,PASSED
 Typecheck Functions,tsconfig.functions.json,TypeScript Compiler,Cloudflare Edge,0 errors,0 errors,PASSED
 Meta CAPI & Consent Gate,scripts/meta-consent-gate.test.js,Node Test,Simulated,3,0,PASSED

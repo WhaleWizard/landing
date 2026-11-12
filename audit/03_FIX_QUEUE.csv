@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-01,P1,Show interactive verification for queued leads,useTurnstile.ts,COMPLETED,20552b8
+ADMIN-20261112-02,P2,Cancel obsolete preview requests,AdminPageLocks.tsx,COMPLETED,20552b8
+ADMIN-20261112-03,P2,Keep the report for the active period on refresh failure,AdminSearchConsole.tsx,COMPLETED,20552b8
+ADMIN-20261112-04,P2,Prevent simultaneous Telegram tests,AdminHealth.tsx,COMPLETED,20552b8
+ADMIN-20261112-05,P2,Refresh expenses for the active period after save,AdminAdSpend.tsx and AdminAttribution.tsx,COMPLETED,20552b8
 PROD-001,P1,Early Hints Preload Credentials Mode Mismatch,scripts/generate-pages.js,COMPLETED,680d4b9
 PROD-002,P1,Hero Title Accent Gradient Inline Words Clipping,src/styles/hero-title-effects.css,COMPLETED,680d4b9
 PROD-003,P0,Section Error Boundary Isolation for Dynamic Chunks,src/app/components/SectionErrorBoundary.tsx,COMPLETED,680d4b9
