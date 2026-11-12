@@ -62,6 +62,7 @@ import {
 import { plural } from '../utils/plural';
 import { withReturnTo } from '../utils/siteNavigation';
 import { hasGeneratedFirstScreen, isInitialEntry } from '../utils/firstScreen';
+import { useIsHydrating } from '../hooks/useIsHydrating';
 import ClientOnly from '../components/ClientOnly';
 
 const Footer = lazy(() => import('../components/Footer'));
@@ -229,19 +230,14 @@ type CaseUrlState = {
   niches: Set<string>;
   sources: Set<string>;
   goals: Set<string>;
+  query: string;
   sort: SortValue;
   entry: string | null;
   origin: string | null;
 };
 
 /**
- * Состояние витрины из адреса. Чистая функция: тот же адрес и тот же список
- * кейсов дают одно состояние и на сборке, и в браузере, поэтому первый рендер
- * без параметров совпадает с серверной разметкой и страница гидратируется, а
- * не строится заново (раньше адрес разбирался эффектом, и до него рисовался
- * пустой список). С параметрами в адресе гидратация не включается (main.tsx):
- * разбор идёт в браузере по встроенному списку, а живой список, если добавит
- * кейсы, применяется заново эффектом ниже.
+ * Состояние витрины из адреса и доступных значений фильтров.
  */
 function readCaseUrlState(search: string, allNiches: string[], allSources: string[], allGoals: string[]): CaseUrlState {
   const params = new URLSearchParams(search);
@@ -265,6 +261,7 @@ function readCaseUrlState(search: string, allNiches: string[], allSources: strin
       ? new Set(preset.sources.filter((source) => allSources.includes(source)))
       : new Set(readSelectedParams(params, 'src', 'source', allSources)),
     goals: usePreset ? new Set() : new Set(readSelectedParams(params, 'result', 'result', allGoals)),
+    query: params.get('q') || '',
     sort: requestedSort === 'roi' || requestedSort === 'budget' || requestedSort === 'fresh' ? requestedSort : 'fresh',
     entry: usePreset ? from : null,
     origin: getCaseBackTarget(from) ? from : null,
@@ -490,18 +487,18 @@ export default function CasesPage() {
   const optionsSignature = `${allNiches.join('\u0000')}\u0001${allSources.join('\u0000')}\u0001${allGoals.join('\u0000')}`;
 
   const internalSearchRef = useRef<string | null>(null);
-  const hydratedSearchRef = useRef(location.search);
+  // Пререндер витрины использует пустой запрос. Фильтры из URL применяет эффект.
+  const initialSearch = useIsHydrating() ? '' : location.search;
+  const hydratedSearchRef = useRef(initialSearch);
   const appliedOptionsRef = useRef(optionsSignature);
   const skipUrlWriteRef = useRef(false);
   const [urlSyncRevision, setUrlSyncRevision] = useState(0);
 
-  // Адрес разбирается в начальном состоянии (useLocation есть и на сборке),
-  // а не эффектом: без параметров первый рендер сервера и браузера совпадает.
-  const [initialUrlState] = useState(() => readCaseUrlState(location.search, allNiches, allSources, allGoals));
+  const [initialUrlState] = useState(() => readCaseUrlState(initialSearch, allNiches, allSources, allGoals));
   const [niches, setNiches] = useState<Set<string>>(initialUrlState.niches);
   const [sources, setSources] = useState<Set<string>>(initialUrlState.sources);
   const [goals, setGoals] = useState<Set<string>>(initialUrlState.goals);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialUrlState.query);
   const [sort, setSort] = useState<SortValue>(initialUrlState.sort);
   const [entry, setEntry] = useState<string | null>(initialUrlState.entry);
   const [origin, setOrigin] = useState<string | null>(initialUrlState.origin);
@@ -528,7 +525,7 @@ export default function CasesPage() {
     setNiches(next.niches);
     setSources(next.sources);
     setGoals(next.goals);
-    if (searchChanged) setQuery('');
+    if (searchChanged) setQuery(next.query);
     setSort(next.sort);
     hydratedSearchRef.current = location.search;
     appliedOptionsRef.current = optionsSignature;
@@ -556,6 +553,7 @@ export default function CasesPage() {
       Array.from(goals).sort().forEach((value) => params.append('result', filterUrlToken('result', value)));
     }
     if (sort !== 'fresh') params.set('sort', sort);
+    if (query.trim()) params.set('q', query.trim());
     if (origin) params.set('from', origin);
     if (origin && !entry && niches.size === 0 && sources.size === 0 && goals.size === 0) {
       params.set('all', '1');
@@ -572,7 +570,7 @@ export default function CasesPage() {
       internalSearchRef.current = nextSearch;
       navigate(nextUrl, { replace: true, preventScrollReset: true, state: location.state });
     }
-  }, [entry, goals, loading, location.pathname, location.search, location.state, navigate, niches, origin, sort, sources, urlSyncRevision]);
+  }, [entry, goals, loading, location.pathname, location.search, location.state, navigate, niches, origin, query, sort, sources, urlSyncRevision]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ru').replace(/ё/g, 'е');
@@ -667,15 +665,21 @@ export default function CasesPage() {
     navigate('/#contact');
   }, [navigate]);
 
+  const caseDetailSearch = useMemo(() => {
+    const params = new URLSearchParams(initialSearch);
+    params.delete('q');
+    const search = params.toString();
+    return search ? `?${search}` : '';
+  }, [initialSearch]);
   const openCase = useCallback((item: CaseView) => {
     if (item.fallback) {
       goToContact();
       return;
     }
-    navigate(`/cases/${item.slug}${window.location.search}`, {
+    navigate(`/cases/${item.slug}${caseDetailSearch}`, {
       state: withReturnTo(location),
     });
-  }, [goToContact, location, navigate]);
+  }, [caseDetailSearch, goToContact, location, navigate]);
 
   const hasFilters = niches.size > 0 || sources.size > 0 || goals.size > 0 || Boolean(query.trim());
   const filterCount = niches.size + sources.size + goals.size;
@@ -848,7 +852,7 @@ export default function CasesPage() {
                           key={item.key}
                           item={item}
                           index={index}
-                          href={item.fallback ? '/#contact' : `/cases/${item.slug}${location.search}`}
+                          href={item.fallback ? '/#contact' : `/cases/${item.slug}${caseDetailSearch}`}
                           onOpen={openCase}
                           settledEntrance={settledEntrance}
                         />

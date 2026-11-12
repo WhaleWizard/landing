@@ -75,10 +75,10 @@ const GLOBALS = ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'N
   'sessionStorage', 'location', 'history', 'matchMedia', 'HTMLCanvasElement', 'HTMLScriptElement', 'HTMLImageElement', 'HTMLAnchorElement',
   'Image', 'DOMRect', 'SVGElement', 'self'];
 
-function installDom(route, html, { head = '', attributes = '', trailingSlash = true, hash = '' } = {}) {
+function installDom(route, html, { head = '', attributes = '', trailingSlash = true, hash = '', search = '' } = {}) {
   const dom = new JSDOM(
     `<!doctype html><html lang="ru" data-ww-first-screen="${route}" data-ww-prehydrate="1"${attributes}><head><title>t</title>${head}</head><body><div id="root">${html}</div><div id="ww-static-shell">seo</div></body></html>`,
-    { url: `https://www.whalewzrd.com${route === '/' ? '' : route}${trailingSlash ? '/' : ''}${hash}`, pretendToBeVisual: true },
+    { url: `https://www.whalewzrd.com${route === '/' ? '' : route}${trailingSlash ? '/' : ''}${search}${hash}`, pretendToBeVisual: true },
   );
   const { window } = dom;
   const media = new Map();
@@ -131,7 +131,12 @@ function installDom(route, html, { head = '', attributes = '', trailingSlash = t
   };
 }
 
-const hydrationCases = [...SSR_ROUTES.map(route => [route, '']), ['/', '#social'], ['/', '#contact'], ['/google-ads', '#contact']];
+const hydrationCases = [
+  ...SSR_ROUTES.map(route => [route, '']),
+  ['/', '#social'], ['/', '#contact'], ['/google-ads', '#contact'],
+  ['/blog', '', '?search=google'],
+  ['/cases', '', '?sort=budget&q=консьерж'],
+];
 
 test('FAQ revalidates an expired revision when remounted in the same tab', async () => {
   const { window, restore } = installDom('/faq', '');
@@ -185,8 +190,8 @@ test('FAQ revalidates an expired revision when remounted in the same tab', async
   }
 });
 
-for (const [route, hash] of hydrationCases) {
-  test(`hydrates ${route}${hash} without rebuilding the generated first screen`, async () => {
+for (const [route, hash, search = ''] of hydrationCases) {
+  test(`hydrates ${route}${search}${hash} without rebuilding the generated first screen`, async () => {
     const isListRoute = route === '/blog' || route === '/cases';
     const listSeed = isListRoute ? ARTICLES.map(toInlineArticleSummary) : null;
     const key = route === '/' ? 'site:home' : route === '/faq' ? 'site:faq' : `service:${route.slice(1)}`;
@@ -195,7 +200,7 @@ for (const [route, hash] of hydrationCases) {
       articleSeed: listSeed,
     });
     const headExtra = listSeed ? `<script type="application/json" id="ww-article-seed">${JSON.stringify(listSeed)}</script>` : '';
-    const { window, restore } = installDom(route, html, { head: headExtra, hash });
+    const { window, restore } = installDom(route, html, { head: headExtra, hash, search });
     const logged = [];
     const originalError = console.error;
     const originalWarn = console.warn;
@@ -209,6 +214,7 @@ for (const [route, hash] of hydrationCases) {
 
       const root = window.document.getElementById('root');
       const heroBefore = root.querySelector('#hero');
+      const headingBefore = root.querySelector('h1');
       const imageBefore = root.querySelector('#hero img');
       const recoverable = [];
       hydrateRoot(root, createElement(AppErrorBoundary, null, createElement(App)), {
@@ -225,6 +231,14 @@ for (const [route, hash] of hydrationCases) {
       if (heroBefore) assert.equal(root.querySelector('#hero'), heroBefore, `${route}: hero element must be adopted, not recreated`);
       if (imageBefore) assert.equal(root.querySelector('#hero img'), imageBefore, `${route}: hero image must survive hydration`);
       assert.equal(root.querySelectorAll('h1').length, 1);
+      if (search) {
+        assert.equal(root.querySelector('h1'), headingBefore, 'query must not rebuild the heading');
+        const queryKey = route === '/blog' ? 'search' : 'q';
+        const query = new URLSearchParams(search).get(queryKey);
+        const field = root.querySelector(route === '/blog' ? 'input[placeholder^="Поиск по теме"]' : 'input[placeholder="Поиск по кейсам"]');
+        assert.equal(field.value, query, 'the visible search field picks up the URL after hydration');
+        assert.equal(new URLSearchParams(window.location.search).get(queryKey), query);
+      }
     } finally {
       console.error = originalError;
       console.warn = originalWarn;

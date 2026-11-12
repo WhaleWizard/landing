@@ -45,6 +45,7 @@ import { useDialogFocus } from '../components/hooks/useDialogFocus';
 import { articleDisplayDate } from '../utils/articleDate';
 import { useIsomorphicLayoutEffect } from '../utils/isomorphicLayoutEffect';
 import { hasGeneratedFirstScreen, isInitialEntry } from '../utils/firstScreen';
+import { useIsHydrating } from '../hooks/useIsHydrating';
 import { preloadable } from '../utils/preloadable';
 import { loadCaseArticleView } from '../utils/caseArticlePreload';
 import ClientOnly from '../components/ClientOnly';
@@ -480,17 +481,19 @@ function BlogPageComponent() {
       article.slug === slug && (isCasesRoute ? isCaseArticle(article) : !isCaseArticle(article))
     )) ?? null;
   }, [allArticles, isCasesRoute, loading, slug]);
+  // The generated list has no filters. Reconcile the actual URL after hydration.
+  const initialSearch = useIsHydrating(!slug) ? '' : location.search;
   // Поддержка /blog?search=… — этот формат заявлен в JSON-LD SearchAction (SEO.tsx)
-  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('search') || '');
-  const [activeTopic, setActiveTopic] = useState(() => normalizeTopicId(new URLSearchParams(location.search).get('topic')));
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(initialSearch).get('search') || '');
+  const [activeTopic, setActiveTopic] = useState(() => normalizeTopicId(new URLSearchParams(initialSearch).get('topic')));
   const [sort, setSort] = useState<BlogSort>(() => {
-    const requested = new URLSearchParams(location.search).get('sort');
+    const requested = new URLSearchParams(initialSearch).get('sort');
     return BLOG_SORTS.some((item) => item.id === requested) ? (requested as BlogSort) : 'new';
   });
   // Номер шага списка привязан к набору фильтров: сменили тему, поиск или
   // порядок — список снова начинается с первого шага, без отдельного эффекта.
   const [pageState, setPageState] = useState(() => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(initialSearch);
     return {
       key: `${normalizeTopicId(params.get('topic'))}|${params.get('sort') || 'new'}|${(params.get('search') || '').trim()}`,
       page: parseBlogPage(params.get('page')),
@@ -498,7 +501,7 @@ function BlogPageComponent() {
   });
   const [showAllTopics, setShowAllTopics] = useState(false);
   const internalSearchRef = useRef<string | null>(null);
-  const hydratedSearchRef = useRef(location.search);
+  const hydratedSearchRef = useRef(initialSearch);
   const skipUrlWriteRef = useRef(false);
   const [urlSyncRevision, setUrlSyncRevision] = useState(0);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
