@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { notify } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
+import { escapeAdminCsvCell } from '../../utils/adminCsv';
 
 export interface AuditRecord {
   id: number;
@@ -163,21 +164,21 @@ export default function AdminAuditTrail({
 
   // Export to CSV
   const handleExportCsv = () => {
-    if (activities.length === 0) return;
+    if (filteredActivities.length === 0) return;
 
     const headers = ['ID', 'Дата', 'Автор', 'Действие', 'Лид ID', 'Имя лида', 'Телефон', 'Было', 'Стало', 'Примечание'];
-    const rows = activities.map((a) => [
+    const rows = filteredActivities.map((a) => [
       a.id,
-      `"${a.created_at}"`,
-      `"${a.actor}"`,
-      `"${a.type}"`,
+      a.created_at,
+      a.actor,
+      a.type,
       a.lead_id,
-      `"${(a.lead_name || '').replace(/"/g, '""')}"`,
-      `"${(a.lead_phone || '').replace(/"/g, '""')}"`,
-      `"${a.from_val}"`,
-      `"${a.to_val}"`,
-      `"${(a.note || '').replace(/"/g, '""')}"`,
-    ]);
+      a.lead_name,
+      a.lead_phone,
+      a.from_val,
+      a.to_val,
+      a.note,
+    ].map(escapeAdminCsvCell));
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
@@ -186,7 +187,7 @@ export default function AdminAuditTrail({
     link.href = url;
     link.download = `audit_log_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     notify.success('Журнал аудита выгружен в CSV');
   };
 
@@ -211,8 +212,8 @@ export default function AdminAuditTrail({
             type="button"
             className="admin-button"
             onClick={handleExportCsv}
-            disabled={activities.length === 0}
-            title="Экспорт журнала действий в файл CSV"
+            disabled={loading || filteredActivities.length === 0}
+            title="Выгрузить записи с текущими фильтрами"
           >
             <Download className="h-4 w-4 mr-1.5" />
             Выгрузить CSV

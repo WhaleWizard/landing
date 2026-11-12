@@ -73,18 +73,18 @@ function loadTurnstileScript(): Promise<TurnstileApi | null> {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
+      script.removeEventListener('load', done);
+      script.removeEventListener('error', failed);
+      if (!api) script.remove();
       resolve(api);
     };
 
     const timer = window.setTimeout(() => finish((window as TurnstileWindow).turnstile || null), SCRIPT_TIMEOUT_MS);
 
     const done = () => finish((window as TurnstileWindow).turnstile || null);
+    const failed = () => finish(null);
     script.addEventListener('load', done, { once: true });
-    script.addEventListener('error', () => {
-      scriptPromise = null;
-      try { script.remove(); } catch { /* ignore */ }
-      finish(null);
-    }, { once: true });
+    script.addEventListener('error', failed, { once: true });
 
     if (!existing) {
       script.src = SCRIPT_SRC;
@@ -106,7 +106,8 @@ function loadTurnstileScript(): Promise<TurnstileApi | null> {
  *
  * `remove` вызывается всегда: иначе на странице копились бы виджеты.
  */
-async function renderAndExecute(api: TurnstileApi, container: HTMLElement): Promise<string | null> {
+async function renderAndExecute(api: TurnstileApi, container: HTMLElement, signal?: AbortSignal): Promise<string | null> {
+  if (signal?.aborted) return null;
   let widgetId: string | null = null;
 
   const token = await new Promise<string | null>((resolve) => {
@@ -115,10 +116,13 @@ async function renderAndExecute(api: TurnstileApi, container: HTMLElement): Prom
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
+      signal?.removeEventListener('abort', cancel);
       resolve(value);
     };
 
     const timer = window.setTimeout(() => finish(null), TOKEN_TIMEOUT_MS);
+    const cancel = () => finish(null);
+    signal?.addEventListener('abort', cancel, { once: true });
 
     try {
       widgetId = api.render(container, {
@@ -140,7 +144,7 @@ async function renderAndExecute(api: TurnstileApi, container: HTMLElement): Prom
     }
   });
 
-  if (widgetId) {
+  if (widgetId !== null) {
     try { api.remove(widgetId); } catch { /* уже удалён */ }
   }
 
@@ -175,7 +179,7 @@ export async function mintDetachedTurnstileToken(): Promise<string | null> {
 
 export function useTurnstile() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const widgetIdRef = useRef<string | null>(null);
+  const requestRef = useRef(null as AbortController | null);
   const [status, setStatus] = useState<TurnstileStatus>('idle');
 
   // Скрипт подтягивается заранее, чтобы отправка не ждала сеть. Если не
@@ -188,67 +192,22 @@ export function useTurnstile() {
     return () => { cancelled = true; };
   }, []);
 
-  const removeWidget = useCallback((api: TurnstileApi) => {
-    if (!widgetIdRef.current) return;
-    try { api.remove(widgetIdRef.current); } catch { /* уже удалён */ }
-    widgetIdRef.current = null;
-  }, []);
+  useEffect(() => () => requestRef.current?.abort(), []);
 
-  // Уход со страницы посреди проверки не должен оставлять виджет висеть.
-  // Контейнер React уже размонтировал, а Turnstile о нём ещё помнит: следующая
-  // отправка создавала бы новый виджет поверх забытого.
-  useEffect(() => () => {
-    const api = (window as TurnstileWindow).turnstile;
-    if (!api || !widgetIdRef.current) return;
-    try { api.remove(widgetIdRef.current); } catch { /* уже удалён */ }
-    widgetIdRef.current = null;
-  }, []);
-
-  /**
-   * Запускает проверку и ждёт токен. `null` означает «проверка недоступна» —
-   * решение, что показать человеку, принимает форма.
-   */
   const getToken = useCallback(async (): Promise<string | null> => {
+    requestRef.current?.abort();
+    const request = new AbortController();
+    requestRef.current = request;
     const api = await loadTurnstileScript();
+    if (request.signal.aborted) return null;
     const container = containerRef.current;
     if (!api || !container) {
       setStatus('unavailable');
       return null;
     }
     setStatus('ready');
-
-    return new Promise<string | null>((resolve) => {
-      let settled = false;
-      const finish = (token: string | null) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        resolve(token);
-      };
-
-      const timer = window.setTimeout(() => finish(null), TOKEN_TIMEOUT_MS);
-
-      try {
-        removeWidget(api);
-        widgetIdRef.current = api.render(container, {
-          sitekey: getSiteKey(),
-          appearance: 'interaction-only',
-          execution: 'execute',
-          size: 'flexible',
-          // Тема берётся из оформления страницы, чтобы галочка не оказалась
-          // белым пятном на тёмном фоне в редком случае показа.
-          theme: 'auto',
-          callback: (token: string) => finish(token || null),
-          'error-callback': () => finish(null),
-          'timeout-callback': () => finish(null),
-          'expired-callback': () => finish(null),
-        });
-        api.execute(widgetIdRef.current);
-      } catch {
-        finish(null);
-      }
-    });
-  }, [removeWidget]);
+    return renderAndExecute(api, container, request.signal);
+  }, []);
 
   return { containerRef, getToken, status };
 }

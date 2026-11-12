@@ -130,20 +130,28 @@ function MigrationCard({ row, password, isNext }: { row: MigrationRow; password:
 /** Состояние миграций базы: что применено, что ждёт и что применять следующим. */
 export default function AdminMigrations({ password }: { password: string }) {
   const [data, setData] = useState<MigrationsResponse | null>(null);
+  const [failure, setFailure] = useState<{ message: string; code?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [onlyPending, setOnlyPending] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setFailure(null);
     try {
       const response = await fetch('/api/admin/migrations', {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
       });
-      setData(await response.json().catch(() => null));
+      const payload = await response.json().catch(() => null) as MigrationsResponse | null;
+      if (!response.ok || !payload?.success || !Array.isArray(payload.migrations)
+        || ![payload.total, payload.applied, payload.pending, payload.partial].every(Number.isInteger)) {
+        setFailure({ message: payload?.error || 'Не удалось прочитать состояние базы', code: payload?.code });
+        return;
+      }
+      setData(payload);
     } catch {
-      setData({ success: false, error: 'Не удалось прочитать состояние базы' });
+      setFailure({ message: 'Не удалось прочитать состояние базы' });
     } finally {
       setLoading(false);
     }
@@ -167,8 +175,8 @@ export default function AdminMigrations({ password }: { password: string }) {
         <AdminSectionHeading title="Миграции" description="Что применено в базе, а что ещё ждёт." />
         <AdminBlank
           icon={<Database />}
-          title={data?.code === 'D1_NOT_BOUND' ? 'Локально состояние не читается' : 'Не удалось прочитать состояние'}
-          text={data?.error || 'Состояние миграций читается из базы и доступно на production.'}
+          title={failure?.code === 'D1_NOT_BOUND' ? 'Локально состояние не читается' : 'Не удалось прочитать состояние'}
+          text={failure?.message || 'Состояние миграций читается из базы и доступно на production.'}
           actions={<AdminButton onClick={() => void load()}><RefreshCw aria-hidden="true" /> Обновить</AdminButton>}
         />
       </div>
@@ -189,6 +197,12 @@ export default function AdminMigrations({ password }: { password: string }) {
         )}
       />
 
+      {failure && (
+        <div className="admin-notice admin-notice--warning" role="alert">
+          {failure.message}. Показан последний успешный результат проверки.
+        </div>
+      )}
+
       <div className="admin-mig-summary">
         <AdminPanel className="admin-mig-stat">
           <span className="admin-mig-stat__value">{data.applied}</span>
@@ -204,7 +218,7 @@ export default function AdminMigrations({ password }: { password: string }) {
         </AdminPanel>
       </div>
 
-      {pendingTotal === 0 ? (
+      {!loading && !failure && (pendingTotal === 0 ? (
         <AdminPanel className="admin-mig-banner admin-mig-banner--ok">
           <CheckCircle2 aria-hidden="true" />
           <div>
@@ -223,7 +237,7 @@ export default function AdminMigrations({ password }: { password: string }) {
             </p>
           </div>
         </AdminPanel>
-      )}
+      ))}
 
       <AdminPanel className="admin-mig-filter">
         <label>
@@ -239,7 +253,7 @@ export default function AdminMigrations({ password }: { password: string }) {
       {rows.length ? (
         <div className="admin-mig-list">
           {rows.map((row) => (
-            <MigrationCard key={row.file} row={row} password={password} isNext={row.file === data.next} />
+            <MigrationCard key={row.file} row={row} password={password} isNext={!loading && !failure && row.file === data.next} />
           ))}
         </div>
       ) : (

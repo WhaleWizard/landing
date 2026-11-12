@@ -76,7 +76,6 @@ export default function AdminAlerts({
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         if (!payload?.migration) setError('Не удалось загрузить уведомления. Попробуйте обновить список.');
-        setAlerts([]);
         return;
       }
       setMigration('');
@@ -84,7 +83,7 @@ export default function AdminAlerts({
       setTelegram(Boolean(payload.telegramConfigured));
     } catch {
       setError('Не удалось связаться с сервером. Попробуйте обновить список.');
-      setAlerts([]);
+      setMigration('');
     } finally {
       setLoading(false);
     }
@@ -125,9 +124,16 @@ export default function AdminAlerts({
     return standalone ? <div>{pageHeading}<AdminSectionSkeleton tiles={0} rows={3} /></div> : null;
   }
 
-  if (error) {
-    return <div>{pageHeading}<div className="admin-notice admin-notice--warning" role="alert">{error}</div></div>;
-  }
+  const loadError = error ? (
+    <div className="admin-notice admin-notice--warning" role="alert">
+      <p>{error}{alerts.length ? ' Показаны последние загруженные уведомления.' : ''}</p>
+      {!standalone && !alerts.length && (
+        <AdminButton onClick={() => void load()} disabled={loading || busy}><RefreshCw aria-hidden="true" /> Повторить</AdminButton>
+      )}
+    </div>
+  ) : null;
+
+  if (error && !alerts.length) return <div>{pageHeading}{loadError}</div>;
 
   if (migration) {
     return (
@@ -154,6 +160,7 @@ export default function AdminAlerts({
   return (
     <div>
     {pageHeading}
+    {loadError}
     <section className={`admin-panel adm-card alerts${critical ? ' has-critical' : ''}`} aria-label="Требует внимания">
       <header className="adm-card__head adm-card__head--row">
         <div>

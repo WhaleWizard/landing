@@ -90,13 +90,14 @@ export default function AdminHealth({ password }: { password: string }) {
         cache: 'no-store',
       });
       const payload = await res.json().catch(() => null) as { success?: boolean; error?: string; checks?: HealthCheck[]; checkedAt?: string } | null;
-      if (!res.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${res.status}`);
-      setChecks(payload.checks || []);
+      if (!res.ok || !payload?.success || !Array.isArray(payload.checks) || !payload.checks.length) {
+        throw new Error(payload?.error || 'Сервер не вернул результаты проверки');
+      }
+      setChecks(payload.checks);
       setCheckedAt(payload.checkedAt || '');
       setBrowserChecks(runBrowserChecks());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Проверка не удалась');
-      setChecks(null);
     } finally {
       setLoading(false);
     }
@@ -217,9 +218,9 @@ export default function AdminHealth({ password }: { password: string }) {
       {tgStatus ? <div className="admin-notice" role="status" aria-live="polite">{tgStatus}</div> : null}
 
       {error && (
-        <section className="admin-card health-error">
+        <section className="admin-card health-error" role="alert">
           <p className="admin-subtitle">{error}</p>
-          <p className="admin-muted">Проверка работает на продакшене (нужны Cloudflare-функции). В локальной разработке — заглушка.</p>
+          <p className="admin-muted">{checks ? 'Показаны результаты последней успешной проверки.' : 'Повторите проверку, чтобы получить состояние сайта.'}</p>
         </section>
       )}
 
