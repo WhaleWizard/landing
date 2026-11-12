@@ -137,6 +137,7 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     useCallback: (callback) => callback,
     setNotice: (notice) => calls.notices.push(notice),
     agreed: true,
+    submittingRef: { current: false },
     document: { getElementById: () => null, referrer: '' },
     window: {
       location: { pathname: '/meta-ads', href: 'https://www.whalewzrd.com/meta-ads' },
@@ -195,6 +196,25 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
 
 for (const form of ['ContactForm', 'LandingForm']) {
   const file = `src/app/components/${form}.tsx`;
+
+  test(`${form}: concurrent submits start one verification and one request`, async () => {
+    let checks = 0;
+    let posts = 0;
+    let release;
+    const verification = new Promise((resolve) => { release = resolve; });
+    const { submit, calls } = await makeBrowserFormSubmit(file, {
+      getTurnstileToken: () => { checks++; return verification; },
+      fetch: async () => { posts++; return new Response('{}'); },
+    });
+    const event = { preventDefault() {} };
+    const first = submit(event);
+    const second = submit(event);
+    release('test-token');
+    await Promise.all([first, second]);
+    assert.equal(checks, 1);
+    assert.equal(posts, 1);
+    assert.deepEqual(calls.submitting, [true, false]);
+  });
 
   test(`${form}: preparation failure unlocks submission and preserves entered fields`, async () => {
     const { submit, calls } = await makeBrowserFormSubmit(file, {

@@ -129,6 +129,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   const [telegramUsername, setTelegramUsername] = useState('');
   const [hpTrap, setHpTrap] = useState(''); // honeypot
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -217,6 +218,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (submittingRef.current) return;
       // Прошлое сообщение убираем: человек уже что-то исправил и пробует снова.
       setNotice(null);
       if (!agreed) {
@@ -230,6 +232,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         document.getElementById('consent')?.focus();
         return;
       }
+      submittingRef.current = true;
       setIsSubmitting(true);
 
       let leadPayload: Record<string, unknown> | undefined;
@@ -397,6 +400,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           });
         }
       } finally {
+        submittingRef.current = false;
         setIsSubmitting(false);
       }
     },
@@ -522,7 +526,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                     <p className="text-sm md:text-base text-muted-foreground">Спасибо. Посмотрю вводные и свяжусь по указанному контакту.</p>
                   </m.div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                  <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="space-y-5">
                     {/* Honeypot – невидимое поле для ботов */}
                     <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
                       <label htmlFor="hp_trap">Оставьте пустым</label>

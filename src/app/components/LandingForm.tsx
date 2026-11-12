@@ -126,6 +126,7 @@ function LandingForm({
   const [contactMethod, setContactMethod] = useState<ContactMethod>('telegram');
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE_CODE);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -215,6 +216,7 @@ function LandingForm({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (submittingRef.current) return;
       // Прошлое сообщение убираем: человек уже что-то исправил и пробует снова.
       setNotice(null);
       if (!agreed) {
@@ -228,6 +230,7 @@ function LandingForm({
         document.getElementById('landing-form-consent')?.focus();
         return;
       }
+      submittingRef.current = true;
       setIsSubmitting(true);
 
       let leadPayload: Record<string, unknown> | undefined;
@@ -396,6 +399,7 @@ function LandingForm({
           });
         }
       } finally {
+        submittingRef.current = false;
         setIsSubmitting(false);
       }
     },
