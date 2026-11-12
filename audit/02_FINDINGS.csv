@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-16,P1,ADMIN,/admin/,AdminSecurity.tsx,One-time backup codes could be hidden immediately after enabling 2FA,Enabled status rendered before the one-time codes,FIXED,AdminSecurity.tsx,Isolated browser matrix
+ADMIN-20261112-17,P2,ADMIN,/admin/,AdminSecurity.tsx,Network errors blocked status and logout,Authentication request rejection was unhandled,FIXED,AdminSecurity.tsx,Isolated browser matrix
+ADMIN-20261112-18,P2,ADMIN,/admin/,AdminPrompt.tsx,Input dialog requests could remain pending,An active request could be replaced or unmounted without resolution,FIXED,AdminPrompt.tsx,Isolated browser matrix
+ADMIN-20261112-19,P2,ADMIN,/admin/,TodayPlan.tsx,Failed task save discarded the draft,Input was cleared before server acknowledgement,FIXED,TodayPlan.tsx,Isolated browser matrix
+ADMIN-20261112-20,P2,ADMIN,/admin/,AdminMedia.tsx,Failed cropped upload was reported as saved,Upload swallowed errors expected by the cropper,FIXED,AdminMedia.tsx,Isolated browser matrix
 ADMIN-20261112-11,P1,DELIVERY,Public HTML,_middleware.ts,HTML could outlive a deployment,Cache key did not include the deployment,FIXED,_middleware.ts,static-page-cache.test.js
 ADMIN-20261112-12,P2,ADMIN,/admin/,AdminReport.tsx,Refresh error discarded the current report,One state held errors and valid data,FIXED,AdminReport.tsx,Isolated browser matrix
 ADMIN-20261112-13,P2,ADMIN,/admin/,AdminCampaignStats.tsx,Range selector could display figures from another range,Unscoped data and captured refresh callback,FIXED,AdminCampaignStats.tsx,Isolated browser matrix

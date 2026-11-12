@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-16,P1,Keep one-time backup codes visible,AdminSecurity.tsx,COMPLETED,
+ADMIN-20261112-17,P2,Recover from status and logout errors,AdminSecurity.tsx,COMPLETED,
+ADMIN-20261112-18,P2,Settle overlapping and unmounted text prompts,AdminPrompt.tsx,COMPLETED,
+ADMIN-20261112-19,P2,Keep the draft task after failed saves,TodayPlan.tsx,COMPLETED,
+ADMIN-20261112-20,P2,Keep cropping open on failed upload and report partial uploads,AdminMedia.tsx,COMPLETED,
 ADMIN-20261112-11,P1,Separate static HTML cache by deployment,_middleware.ts,COMPLETED,
 ADMIN-20261112-12,P2,Keep the monthly report through refresh errors,AdminReport.tsx,COMPLETED,
 ADMIN-20261112-13,P2,Scope UTM data and refresh to the active period,AdminCampaignStats.tsx,COMPLETED,

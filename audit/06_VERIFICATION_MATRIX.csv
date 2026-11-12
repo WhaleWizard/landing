@@ -1,4 +1,7 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Security prompts planning and uploads,output/playwright/admin-recovery-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED
+Security prompts planning and uploads,output/playwright/admin-recovery-2026-11-12/browser.log,WebKit,Mobile 390,5,0,PASSED
+About and FAQ same-document transitions,output/playwright/admin-recovery-2026-11-12/spa-before.log,WebKit,Desktop 1280,12,0,PASSED
 Static HTML cache,scripts/static-page-cache.test.js,Node,Two release namespaces,6,0,PASSED
 Report campaigns clients and preview,output/playwright/release-reliability-2026-11-12/browser.log,Chromium,Mobile 390,4,0,PASSED
 Report campaigns clients and preview,output/playwright/release-reliability-2026-11-12/browser.log,WebKit,Mobile 390,4,0,PASSED

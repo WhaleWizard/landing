@@ -113,6 +113,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const uploadPending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [moveNeedsRefresh, setMoveNeedsRefresh] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
@@ -449,11 +450,17 @@ export default function AdminMedia({ password, articles, target }: { password: s
     }
   };
 
-  const uploadFiles = async (list: FileList | File[] | null) => {
+  const uploadFiles = async (list: FileList | File[] | null, fromCrop = false) => {
     const items = list ? Array.from(list) : [];
     if (!items.length) return;
+    if (uploadPending.current) {
+      if (fromCrop) throw new Error('Дождитесь окончания текущей загрузки');
+      return;
+    }
+    uploadPending.current = true;
     setUploading(true);
     setError('');
+    let uploaded = 0;
     try {
       let saved = 0;
       for (const original of items) {
@@ -475,14 +482,19 @@ export default function AdminMedia({ password, articles, target }: { password: s
           const payload = await res.json().catch(() => ({})) as { error?: string };
           throw new Error(payload?.error || `HTTP ${res.status}`);
         }
+        uploaded++;
       }
       const where = activeFolder ? `Папка «${activeFolder}»` : '';
       const lighter = saved > 0 ? `Сжатие сэкономило ${formatBytes(saved)}` : '';
-      notify.success(`Загружено файлов: ${items.length}`, [where, lighter].filter(Boolean).join(' · ') || undefined);
+      if (!fromCrop) notify.success(`Загружено файлов: ${uploaded}`, [where, lighter].filter(Boolean).join(' · ') || undefined);
       await load();
     } catch (err) {
-      setError('Ошибка загрузки: ' + (err instanceof Error ? err.message : 'ошибка'));
+      const message = err instanceof Error ? err.message : 'Не удалось загрузить файл';
+      if (fromCrop) throw err;
+      if (uploaded > 0) await load();
+      setError(`Загружено ${uploaded} из ${items.length}. ${message}`);
     } finally {
+      uploadPending.current = false;
       setUploading(false);
     }
   };
@@ -941,7 +953,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
         isOpen={Boolean(croppingFile)}
         onClose={() => setCroppingFile(null)}
         onSave={async (croppedFile) => {
-          await uploadFiles([croppedFile]);
+          await uploadFiles([croppedFile], true);
         }}
       />
     </div>

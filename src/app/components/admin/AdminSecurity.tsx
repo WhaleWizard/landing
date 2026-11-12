@@ -35,17 +35,22 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_credentials: 'Неверный пароль',
   setup_required: 'Сначала создайте ключ',
   disable_first: 'Защита уже включена — сначала выключите её кодом из приложения',
+  network: 'Не удалось связаться с сервером. Попробуйте ещё раз.',
 };
 
-async function callAuth(body: Record<string, unknown>): Promise<{ ok: boolean; status: number; payload: Record<string, unknown> | null }> {
-  const res = await fetch('/api/admin/auth', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(body),
-  });
-  const payload = await res.json().catch(() => null) as Record<string, unknown> | null;
-  return { ok: res.ok && payload?.success === true, status: res.status, payload };
+async function callAuth(body: Record<string, unknown>): Promise<{ ok: boolean; payload: Record<string, unknown> | null }> {
+  try {
+    const res = await fetch('/api/admin/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+    const payload = await res.json().catch(() => null) as Record<string, unknown> | null;
+    return { ok: res.ok && payload?.success === true, payload };
+  } catch {
+    return { ok: false, payload: { error: 'network' } };
+  }
 }
 
 function describeError(payload: Record<string, unknown> | null): string {
@@ -62,6 +67,7 @@ export default function AdminSecurity() {
   const [state, setState] = useState<TwoFactorState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [statusError, setStatusError] = useState('');
 
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -70,9 +76,11 @@ export default function AdminSecurity() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { payload } = await callAuth({ action: 'status' });
+    setStatusError('');
+    const { ok, payload } = await callAuth({ action: 'status' });
     const twoFactor = payload?.twoFactor as TwoFactorState | undefined;
-    setState(twoFactor || { configured: false, enabled: false, backupCodesLeft: 0 });
+    if (ok && typeof twoFactor?.enabled === 'boolean') setState(twoFactor);
+    else setStatusError('Не удалось проверить состояние двухфакторной защиты.');
     setLoading(false);
   }, []);
 
@@ -138,8 +146,13 @@ export default function AdminSecurity() {
   };
 
   const logout = async () => {
-    await callAuth({ action: 'logout' });
-    window.location.reload();
+    setBusy(true);
+    const { ok, payload } = await callAuth({ action: 'logout' });
+    if (ok) window.location.reload();
+    else {
+      setBusy(false);
+      notify.error('Не удалось выйти', describeError(payload));
+    }
   };
 
   const copy = async (value: string, what: string) => {
@@ -151,7 +164,7 @@ export default function AdminSecurity() {
     }
   };
 
-  if (loading) {
+  if (loading && !backupCodes) {
     return (
       <AdminPanel className="p-6 admin-stack admin-security-panel">
         <AdminSectionHeading title="Вход в админку" description="Проверяю настройки…" />
@@ -164,10 +177,29 @@ export default function AdminSecurity() {
       <AdminSectionHeading
         title="Вход в админку"
         description="Пароль плюс одноразовый код из приложения на телефоне."
-        action={<AdminButton tone="quiet" onClick={() => { void logout(); }}><LogOut aria-hidden="true" /> Выйти</AdminButton>}
+        action={<AdminButton tone="quiet" disabled={busy} onClick={() => { void logout(); }}><LogOut aria-hidden="true" /> Выйти</AdminButton>}
       />
 
-      {state?.migrationRequired ? (
+      {statusError && <div className="admin-notice admin-notice--warning" role="alert">
+        <p>{statusError}</p>
+        <AdminButton compact disabled={loading || busy} onClick={() => void refresh()}>Повторить проверку</AdminButton>
+      </div>}
+
+      {backupCodes ? (
+        <div className="admin-stack">
+          <p className="admin-meta">
+            <ShieldCheck aria-hidden="true" /> Готово. <b>Сохраните резервные коды в менеджер паролей прямо сейчас</b> — второй раз
+            они не показываются. Каждый работает один раз и заменяет код из приложения, если телефон потерян.
+          </p>
+          <p className="admin-secret">{backupCodes.join('   ')}</p>
+          <div className="admin-row-actions">
+            <AdminButton tone="quiet" onClick={() => { void copy(backupCodes.join('\n'), 'Резервные коды'); }}>
+              <Copy aria-hidden="true" /> Скопировать коды
+            </AdminButton>
+            <AdminButton tone="primary" onClick={() => setBackupCodes(null)}>Я сохранил</AdminButton>
+          </div>
+        </div>
+      ) : statusError || !state ? null : state.migrationRequired ? (
         <p className="admin-meta">
           Двухфакторная защита требует миграции <code>0036_admin_2fa.sql</code>. Примените её в консоли D1 — вход по паролю
           продолжает работать.
@@ -211,20 +243,6 @@ export default function AdminSecurity() {
           <div className="admin-row-actions">
             <AdminButton tone="primary" disabled={busy} onClick={() => { void confirmSetup(); }}>Включить защиту</AdminButton>
             <AdminButton tone="quiet" disabled={busy} onClick={() => { setSetup(null); setCode(''); }}>Отмена</AdminButton>
-          </div>
-        </div>
-      ) : backupCodes ? (
-        <div className="admin-stack">
-          <p className="admin-meta">
-            <ShieldCheck aria-hidden="true" /> Готово. <b>Сохраните резервные коды в менеджер паролей прямо сейчас</b> — второй раз
-            они не показываются. Каждый работает один раз и заменяет код из приложения, если телефон потерян.
-          </p>
-          <p className="admin-secret">{backupCodes.join('   ')}</p>
-          <div className="admin-row-actions">
-            <AdminButton tone="quiet" onClick={() => { void copy(backupCodes.join('\n'), 'Резервные коды'); }}>
-              <Copy aria-hidden="true" /> Скопировать коды
-            </AdminButton>
-            <AdminButton tone="primary" onClick={() => setBackupCodes(null)}>Я сохранил</AdminButton>
           </div>
         </div>
       ) : (

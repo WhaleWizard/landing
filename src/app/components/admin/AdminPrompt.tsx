@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { PenLine } from 'lucide-react';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
+import AdminOverlay from './AdminOverlay';
 
 /**
  * Окно с полем ввода — замена системному `prompt()`.
@@ -47,6 +48,7 @@ export function promptAsk(options: PromptOptions): Promise<string | null> {
 
 export function AdminPromptProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PromptRequest | null>(null);
+  const pending = useRef<PromptRequest | null>(null);
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,18 +57,27 @@ export function AdminPromptProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     openPrompt = (request) => {
+      if (pending.current) {
+        request.resolve(null);
+        return;
+      }
+      pending.current = request;
       setValue(request.options.initialValue || '');
       setError('');
       setState(request);
     };
-    return () => { openPrompt = null; };
+    return () => {
+      openPrompt = null;
+      pending.current?.resolve(null);
+      pending.current = null;
+    };
   }, []);
 
   const close = useCallback((result: string | null) => {
-    setState((current) => {
-      current?.resolve(result);
-      return null;
-    });
+    const request = pending.current;
+    pending.current = null;
+    setState(null);
+    request?.resolve(result);
   }, []);
 
   useEffect(() => {
@@ -84,6 +95,7 @@ export function AdminPromptProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
+      <AdminOverlay>
       <div
         className="admin-confirm"
         role="dialog"
@@ -135,6 +147,7 @@ export function AdminPromptProvider({ children }: { children: ReactNode }) {
           </div>
         </form>
       </div>
+      </AdminOverlay>
     </>
   );
 }

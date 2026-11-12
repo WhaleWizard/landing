@@ -78,12 +78,14 @@ export default function TodayPlan({
   const [items, setItems] = useState<PlanTask[]>(tasks);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setItems(tasks); }, [tasks]);
 
   const persist = useCallback(async (op: PlanTaskOp, previous: PlanTask[]) => {
+    savePending.current = true;
     setSaving(true);
     setError('');
     try {
@@ -116,23 +118,27 @@ export default function TodayPlan({
         // На экране — то, что легло в базу: вместе с задачами, добавленными в другом месте.
         setItems(next);
       });
+      if (op.type === 'add') setDraft('');
       onSaved();
     } catch (saveError) {
       // Откат: на экране не должно остаться отметки, которой нет в базе.
       setItems(previous);
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить план');
     } finally {
+      savePending.current = false;
       setSaving(false);
     }
   }, [dayIndex, onSaved, password, queue, weekStart]);
 
   const toggle = (id: string) => {
+    if (savePending.current) return;
     const previous = items;
     setItems(applyPlanTaskOp(items, { type: 'toggle', id }));
     void persist({ type: 'toggle', id }, previous);
   };
 
   const remove = (id: string) => {
+    if (savePending.current) return;
     const previous = items;
     setItems(applyPlanTaskOp(items, { type: 'remove', id }));
     void persist({ type: 'remove', id }, previous);
@@ -141,11 +147,10 @@ export default function TodayPlan({
   const add = (event: React.FormEvent) => {
     event.preventDefault();
     const text = draft.trim().slice(0, MAX_TEXT);
-    if (!text || items.length >= MAX_TASKS) return;
+    if (savePending.current || !text || items.length >= MAX_TASKS) return;
     const previous = items;
     const task = { id: createId('task'), text, done: false };
     setItems(applyPlanTaskOp(items, { type: 'add', task }));
-    setDraft('');
     void persist({ type: 'add', task }, previous);
     inputRef.current?.focus();
   };
