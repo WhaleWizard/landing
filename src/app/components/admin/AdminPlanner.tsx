@@ -39,6 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { useAutosizeTextarea } from '../hooks/useAutosizeTextarea';
 import { confirmAsk, notify } from './AdminFeedback';
 import { editPlannerWeek, PlannerConflictError, readPlannerWeek, savePlannerWeek } from './plannerApi';
+import { findPlannerDraft, plannerDraftKey, removePlannerDraft, storePlannerDraft, type PlannerDraft } from './plannerDrafts';
 import { AdminSelect } from './AdminUI';
 import { ProgressBar, ProgressRing, WeekProgressChart } from './AdminPlannerCharts';
 import {
@@ -750,6 +751,8 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     return index === -1 ? 0 : index;
   });
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [editorId] = useState(() => createId('editor'));
+  const [offeredDraft, setOfferedDraft] = useState<PlannerDraft | null>(null);
 
   const pendingRef = useRef(new Map<string, { data: PlannerWeekData; local: boolean }>());
   const activeSave = useRef<{ week: string; data: PlannerWeekData } | null>(null);
@@ -802,6 +805,10 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       } else {
         const version = await savePlannerWeek(passwordRef.current, week, pending.data, revisions.current.get(week) ?? null);
         revisions.current.set(week, version);
+        const key = plannerDraftKey(week, editorId);
+        const newer = pendingRef.current.get(week);
+        if (newer) storePlannerDraft(key, newer.data, version);
+        else removePlannerDraft(key);
       }
       if (dataWeekRef.current === week) setSavedAt(new Date().toISOString());
       setSaveState([...pendingRef.current.keys()].some((key) => !blockedWeeks.current.has(key)) ? 'pending' : 'saved');
@@ -823,17 +830,25 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         timerRef.current = window.setTimeout(() => { void flushRef.current(); }, retry ? SAVE_RETRY_MS : 0);
       }
     }
-  }, []);
+  }, [editorId]);
 
   flushRef.current = flush;
 
+  const queueWeekDraft = useCallback((week: string, next: PlannerWeekData, local: boolean) => {
+    pendingRef.current.set(week, { data: next, local });
+    if (local) return false;
+    return storePlannerDraft(plannerDraftKey(week, editorId), next, revisions.current.get(week) ?? null);
+  }, [editorId]);
+
   const scheduleSave = useCallback((week: string, next: PlannerWeekData) => {
-    pendingRef.current.set(week, { data: next, local: localModeRef.current });
-    if (blockedWeeks.current.has(week)) return;
+    if (week === weekStartRef.current) setOfferedDraft(null);
+    const backedUp = queueWeekDraft(week, next, localModeRef.current);
+    if (blockedWeeks.current.has(week)) return backedUp;
     setSaveState('pending');
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => { void flush(); }, SAVE_DEBOUNCE_MS);
-  }, [flush]);
+    return backedUp;
+  }, [flush, queueWeekDraft]);
 
   const update = useCallback((updater: (current: PlannerWeekData) => PlannerWeekData) => {
     const next = updater(dataRef.current);
@@ -1007,7 +1022,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         update(withoutCarriedWeek);
       } else if (pendingRef.current.has(sourceWeek)) {
         const pending = pendingRef.current.get(sourceWeek)!;
-        pendingRef.current.set(sourceWeek, { ...pending, data: withoutCarriedWeek(pending.data) });
+        queueWeekDraft(sourceWeek, withoutCarriedWeek(pending.data), pending.local);
       } else {
         await rewriteWeek(sourceWeek, withoutCarriedWeek);
       }
@@ -1026,7 +1041,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         update(withCarriedWeek);
       } else if (pendingRef.current.has(nextWeek)) {
         const pending = pendingRef.current.get(nextWeek)!;
-        pendingRef.current.set(nextWeek, { ...pending, data: withCarriedWeek(pending.data) });
+        queueWeekDraft(nextWeek, withCarriedWeek(pending.data), pending.local);
       } else if (weekStartRef.current === nextWeek) {
         void loadRef.current(nextWeek);
       }
@@ -1036,7 +1051,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     } finally {
       setCarryingDay(null);
     }
-  }, [carryingDay, rewriteWeek, update]);
+  }, [carryingDay, queueWeekDraft, rewriteWeek, update]);
 
   const saveWeekAsTemplate = useCallback(async () => {
     const next = templateFromWeek(dataRef.current);
@@ -1068,6 +1083,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     const draftAtRequest = readDraft();
     setLoading(true);
     setLoadError('');
+    setOfferedDraft(null);
     setTemplateApplied(false);
     // Автоподстановку шаблона не сохраняли, поэтому при возврате на неделю её
     // нужно повторить; до ответа данные принадлежат ещё прошлой неделе.
@@ -1111,11 +1127,15 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       const draft = discardConflict ? undefined : readDraft() || draftAtRequest;
       if (discardConflict) {
         pendingRef.current.delete(week);
+        removePlannerDraft(plannerDraftKey(week, editorId));
         blockedWeeks.current.delete(week);
         setConflictWeeks([...blockedWeeks.current]);
       }
       if (!draft) revisions.current.set(week, payload.updatedAt ?? null);
       dataRef.current = draft || normalizeWeekData(payload.data);
+      if (!draft) {
+        setOfferedDraft(findPlannerDraft(week, dataRef.current, plannerDraftKey(week, editorId)));
+      }
       dataWeekRef.current = week;
       loadedWeekRef.current = week;
       setData(dataRef.current);
@@ -1127,7 +1147,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     } finally {
       if (requestId === loadSequenceRef.current) setLoading(false);
     }
-  }, []);
+  }, [editorId]);
 
   loadRef.current = load;
 
@@ -1196,6 +1216,18 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     setActiveDay(index === -1 ? 0 : index);
   }, [flush]);
 
+  const restoreDraft = () => {
+    if (!offeredDraft || loadedWeekRef.current !== weekStart) return;
+    if (offeredDraft.version !== revisions.current.get(weekStart)) {
+      revisions.current.set(weekStart, offeredDraft.version);
+      blockedWeeks.current.add(weekStart);
+      setConflictWeeks([...blockedWeeks.current]);
+    }
+    dataRef.current = offeredDraft.data;
+    setData(offeredDraft.data);
+    if (scheduleSave(weekStart, offeredDraft.data)) removePlannerDraft(offeredDraft.key, offeredDraft.savedAt);
+  };
+
   const addGoal = () => {
     const goal: PlannerCheckItem = { id: createId('goal'), text: '', done: false };
     update((current) => (
@@ -1251,7 +1283,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
             </p>
           </div>
           <div className="planner-hero__state">
-            <span className={saveBadge.className}>
+            <span className={saveBadge.className} role="status" aria-atomic="true">
               <SaveIcon aria-hidden="true" className={saveBadge.spin ? 'animate-spin' : ''} />
               {saveBadge.text}
             </span>
@@ -1358,6 +1390,14 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         </div>
       )}
 
+      {!loading && !loadError && offeredDraft && (
+        <div className="admin-notice admin-stack items-start">
+          <p>В этом браузере есть несохранённый черновик недели.</p>
+          <button type="button" className="admin-button admin-button--compact" onClick={restoreDraft}>
+            Восстановить черновик
+          </button>
+        </div>
+      )}
       {!loading && !loadError && (
         <>
           <div className="planner-overview">

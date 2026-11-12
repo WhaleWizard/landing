@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 import WhaleMark from '../brand/WhaleMark';
@@ -72,8 +72,12 @@ export function useConfirm(): ConfirmFn {
 export function AdminConfirmProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ConfirmRequest | null>(null);
   const pending = useRef<ConfirmRequest | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useDialogFocus<HTMLDivElement>(Boolean(state), () => close(false), confirmButtonRef);
+  const initialFocus = state?.options.tone === 'danger' ? cancelButtonRef : confirmButtonRef;
+  const dialogRef = useDialogFocus<HTMLDivElement>(Boolean(state), () => close(false), initialFocus);
   useDialogScrollLock(Boolean(state));
 
   useEffect(() => {
@@ -107,7 +111,8 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
           className={`admin-confirm${state.options.tone === 'danger' ? ' admin-confirm--danger' : ''}`}
           role="alertdialog"
           aria-modal="true"
-          aria-label={state.options.title}
+          aria-labelledby={titleId}
+          aria-describedby={state.options.description ? descriptionId : undefined}
           onClick={(event) => { if (event.target === event.currentTarget) close(false); }}
         >
           <div ref={dialogRef} tabIndex={-1} className="admin-confirm__card">
@@ -116,12 +121,12 @@ export function AdminConfirmProvider({ children }: { children: ReactNode }) {
                 {state.options.tone === 'danger' ? <AlertTriangle /> : <HelpCircle />}
               </span>
               <div>
-                <h2 className="admin-confirm__title">{state.options.title}</h2>
-                {state.options.description ? <p className="admin-confirm__text">{state.options.description}</p> : null}
+                <h2 id={titleId} className="admin-confirm__title">{state.options.title}</h2>
+                {state.options.description ? <p id={descriptionId} className="admin-confirm__text">{state.options.description}</p> : null}
               </div>
             </div>
             <div className="admin-confirm__actions">
-              <button type="button" className="admin-button admin-button--quiet" onClick={() => close(false)}>
+              <button ref={cancelButtonRef} type="button" className="admin-button admin-button--quiet" onClick={() => close(false)}>
                 {state.options.cancelLabel || 'Отмена'}
               </button>
               <button

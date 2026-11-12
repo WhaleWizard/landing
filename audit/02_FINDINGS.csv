@@ -1,4 +1,8 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-06,P1,DATA,/admin/,AdminPlanner,Offline edits disappear on tab close,The pending snapshot lives only in memory,FIXED,AdminPlanner.tsx and plannerDrafts.ts,Chromium and WebKit close and restore
+ADMIN-20261113-07,P2,ACCESSIBILITY,/admin/,AdminFeedback,Destructive confirmation focuses destructive action,Same initial focus for every tone,FIXED,AdminFeedback.tsx,Keyboard initial focus and restoration
+ADMIN-20261113-08,P2,ACCESSIBILITY,/admin/,AdminFeedback,Alert dialog lacks an accessible description,Visible paragraph is not associated with dialog,FIXED,AdminFeedback.tsx,Accessible tree and description reference
+ADMIN-20261113-09,P2,ACCESSIBILITY,/admin/,AdminPlanner,Changes in save status have no live region,Save badge is plain text,FIXED,AdminPlanner.tsx,Role status during save and failure
 ADMIN-20261113-01,P2,LAYOUT,/admin/,AdminFeedback,Toast covers retry on a narrow screen,Bottom toast anchor overlaps the form action,FIXED,AdminFeedback.tsx and admin-ui.css,Playwright 320 and 390 px
 ADMIN-20261113-02,P2,LAYOUT,/admin/,AdminUI,Long select option exceeds viewport,Radix viewport and text minimum sizes,FIXED,AdminUI.tsx and admin-ui.css,Playwright menu 296 px at 320 px
 ADMIN-20261113-03,P2,LAYOUT,/admin/,AdminConfirmDialog,Long title exceeds the dialog,Unbroken text sets flex minimum size,FIXED,admin-ui.css,Playwright dialog client and scroll widths both 286 px

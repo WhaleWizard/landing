@@ -1,4 +1,8 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-06,P1,Recover unsent planner edits after tab close,AdminPlanner,COMPLETED,
+ADMIN-20261113-07,P2,Focus the cancel action in dangerous confirmations,AdminFeedback,COMPLETED,
+ADMIN-20261113-08,P2,Associate confirmation title and description,AdminFeedback,COMPLETED,
+ADMIN-20261113-09,P2,Announce planner save status,AdminPlanner,COMPLETED,
 ADMIN-20261113-01,P2,Keep retry accessible with toast open,AdminFeedback,COMPLETED,
 ADMIN-20261113-02,P2,Contain long select options,AdminUI,COMPLETED,
 ADMIN-20261113-03,P2,Wrap long confirmation titles,AdminConfirmDialog,COMPLETED,

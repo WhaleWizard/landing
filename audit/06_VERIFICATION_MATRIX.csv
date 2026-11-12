@@ -1,4 +1,6 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Planner draft recovery and confirmation accessibility,output/playwright/admin-continuity-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
+Public first screens,output/playwright/admin-continuity-2026-11-13/webkit.log,WebKit,393 px,13,0,PASSED
 Mobile admin details,output/playwright/admin-mobile-details-2026-11-13/matrix.mjs,Chromium and WebKit,320 and 390 px,20,0,PASSED
 Admin fields topbar and trend,output/playwright/admin-geometry-2026-11-12/after.log,Chromium,320 390 768 1280,5,0,PASSED
 Admin fields topbar and trend,output/playwright/admin-geometry-2026-11-12/after.log,WebKit,320 390 768 1280,5,0,PASSED

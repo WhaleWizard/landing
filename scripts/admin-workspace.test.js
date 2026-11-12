@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { build } from "esbuild";
+import { JSDOM } from "jsdom";
 
 globalThis.caches = { default: { async match(){return undefined;}, async put(){} } };
 
@@ -116,6 +117,41 @@ test('planner rejects stale creation, update and clear against the current week'
     sqlite.close();
   }
 });
+
+test('planner draft storage keeps independent edits and only removes the selected snapshot', async () => {
+  const { findPlannerDraft, plannerDraftKey, removePlannerDraft, storePlannerDraft } =
+    await load('src/app/components/admin/plannerDrafts.ts');
+  const { emptyWeek } = await load('src/app/components/admin/plannerModel.ts');
+  const { window } = new JSDOM('', { url: 'https://example.test' });
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: window.localStorage });
+  try {
+    const week = '2026-11-09';
+    const first = plannerDraftKey(week, 'first');
+    const second = plannerDraftKey(week, 'second');
+    const data = { ...emptyWeek(), goals: [{ id: 'goal', text: 'Черновик', done: false }] };
+    const revision = '2026-11-13T00:00:00.000Z';
+    assert.equal(storePlannerDraft(first, data, revision), true);
+    assert.equal(storePlannerDraft(second, { ...data, goals: [{ id: 'other', text: 'Другая вкладка', done: false }] }, null), true);
+    const draft = findPlannerDraft(week, emptyWeek(), second);
+    assert.deepEqual(draft.data, data);
+    assert.equal(draft.version, revision);
+    removePlannerDraft(first, draft.savedAt - 1);
+    assert.ok(window.localStorage.getItem(first));
+    assert.equal(findPlannerDraft(week, data, second), null);
+    assert.equal(window.localStorage.getItem(first), null);
+    assert.ok(window.localStorage.getItem(second));
+    const expired = JSON.parse(window.localStorage.getItem(second));
+    window.localStorage.setItem(second, JSON.stringify({ ...expired, savedAt: 1 }));
+    assert.equal(findPlannerDraft(week, emptyWeek(), first), null);
+    assert.equal(window.localStorage.getItem(second), null);
+  } finally {
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+    window.close();
+  }
+});
+
 function client(s, name = "Антон") {
   return Number(
     s.prepare("INSERT INTO clients(name) VALUES(?)").run(name).lastInsertRowid,
