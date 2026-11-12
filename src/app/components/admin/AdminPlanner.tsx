@@ -2,7 +2,6 @@ import { WorkspaceFocus } from './workspace/WorkspacePayments';
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +36,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { useAutosizeTextarea } from '../hooks/useAutosizeTextarea';
 import { confirmAsk, notify } from './AdminFeedback';
 import { editPlannerWeek, PlannerConflictError, readPlannerWeek, savePlannerWeek } from './plannerApi';
 import { AdminSelect } from './AdminUI';
@@ -160,32 +160,7 @@ function AutoTextarea({
   focusOnMount?: boolean;
   rows?: number;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const lastWidthRef = useRef(0);
-
-  // Поле растёт под текст: длинная задача переносится, а не обрезается.
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.style.height = 'auto';
-    element.style.height = `${element.scrollHeight}px`;
-  }, [value, rows]);
-
-  // Ширина колонки меняется при ресайзе, смене раскладки и подгрузке шрифта —
-  // без пересчёта вторая строка задачи оказывалась бы обрезанной.
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      if (Math.abs(width - lastWidthRef.current) < 0.5) return;
-      lastWidthRef.current = width;
-      element.style.height = 'auto';
-      element.style.height = `${element.scrollHeight}px`;
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const ref = useAutosizeTextarea(value, rows);
 
   useEffect(() => {
     if (!focusOnMount) return;
@@ -193,7 +168,7 @@ function AutoTextarea({
     if (!element) return;
     element.focus();
     element.setSelectionRange(element.value.length, element.value.length);
-  }, [focusOnMount]);
+  }, [focusOnMount, ref]);
 
   return (
     <textarea

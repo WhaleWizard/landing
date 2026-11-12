@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAutosizeTextarea } from '../hooks/useAutosizeTextarea';
 import AdminOverlay from './AdminOverlay';
 import { withPlural } from '../../utils/plural';
 import {
@@ -470,25 +471,20 @@ function setAtPath(content: EditableContent, path: Array<string | number>, value
  * Текстовое поле, которое растёт под содержимое: длинные блоки вроде разбора
  * «как я работаю» больше не редактируются в окошке на четыре строки.
  */
-function AutoTextarea({ id, value, maxLength, rows, onChange }: {
-  id: string;
+function AutoTextarea({ id, ariaLabel, value, maxLength, rows, onChange }: {
+  id?: string;
+  ariaLabel?: string;
   value: string;
   maxLength: number;
   rows: number;
   onChange: (value: string) => void;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.style.height = 'auto';
-    element.style.height = `${Math.min(element.scrollHeight, 640)}px`;
-  }, [value]);
+  const ref = useAutosizeTextarea(value, rows, 640);
 
   return (
     <textarea
       id={id}
+      aria-label={ariaLabel}
       ref={ref}
       rows={rows}
       className="admin-input"
@@ -559,13 +555,12 @@ function StringListEditor({ label, singular, values, maxItems, maxLength, minIte
                 <button type="button" className="admin-icon-button admin-icon-button--danger" onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} disabled={values.length <= minItems} aria-label={`Удалить ${singular.toLowerCase()} ${index + 1}`}><Trash2 aria-hidden="true" /></button>
               </div>
             </div>
-            <textarea
-              className="admin-input"
+            <AutoTextarea
               rows={singular === 'Абзац' ? 4 : 2}
               maxLength={maxLength}
               value={value}
-              aria-label={`${singular} ${index + 1}`}
-              onChange={(event) => onChange(values.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}
+              ariaLabel={`${singular} ${index + 1}`}
+              onChange={(text) => onChange(values.map((item, itemIndex) => itemIndex === index ? text : item))}
             />
             <span className="admin-char-count admin-char-count--below">{value.length}/{maxLength}</span>
           </div>

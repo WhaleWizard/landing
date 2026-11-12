@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-41,P2,ADMIN,/admin/,AdminPlanner.tsx,Textarea resizing triggered a WebKit observer warning and could clip text,ResizeObserver wrote the observed height during delivery,FIXED,useAutosizeTextarea.ts,Before and after browser geometry
+ADMIN-20261112-42,P2,ADMIN,/admin/,AdminContentControl.tsx,Long CMS paragraphs were cropped after shrinking the viewport,List textareas kept a fixed row count,FIXED,AdminContentControl.tsx,Before and after browser geometry
+ADMIN-20261112-43,P2,ADMIN,/admin/,Admin.tsx,Sticky offset used a height smaller than the topbar,Initial border box was overwritten by content box measurement,FIXED,Admin.tsx and admin-theme.css,Before and after browser geometry
+ADMIN-20261112-44,P2,ADMIN,/admin/,AttributionCharts.tsx,Two-day charts omitted the last date,Axis used only the first index for short series,FIXED,AttributionCharts.tsx,Before and after browser geometry
+ADMIN-20261112-45,P2,ADMIN,/admin/,AttributionCharts.tsx,Keyboard changes were absent from the accessible readout,Active value was only rendered in hidden content,FIXED,AttributionCharts.tsx,Browser accessible status inspection
 ADMIN-20261112-36,P1,ADMIN,/admin/,planner.ts,An old tab could overwrite or clear a current week,Week writes had no version precondition,FIXED,planner.ts,SQLite contract and isolated browser matrix
 ADMIN-20261112-37,P1,ADMIN,/admin/,TodayPlan.tsx,Updating a task could overwrite concurrent weekly edits,Task write replaced the week without conflict handling,FIXED,TodayPlan.tsx,Isolated browser matrix
 ADMIN-20261112-38,P1,ADMIN,/admin/,TodayNote.tsx,Updating a note could overwrite concurrent weekly edits,Note write replaced the week without conflict handling,FIXED,TodayNote.tsx,Isolated browser matrix

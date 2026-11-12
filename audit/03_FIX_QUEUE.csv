@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-41,P2,Defer planner textarea resize and measure fonts,useAutosizeTextarea.ts,COMPLETED,
+ADMIN-20261112-42,P2,Fit CMS paragraphs across widths,AdminContentControl.tsx,COMPLETED,
+ADMIN-20261112-43,P2,Measure the full topbar height,Admin.tsx,COMPLETED,
+ADMIN-20261112-44,P2,Show both dates on two-day charts,AttributionCharts.tsx,COMPLETED,
+ADMIN-20261112-45,P2,Expose the active keyboard value on charts,AttributionCharts.tsx,COMPLETED,
 ADMIN-20261112-36,P1,Reject stale week writes and preserve a conflicting draft,planner.ts and AdminPlanner.tsx,COMPLETED,
 ADMIN-20261112-37,P1,Reapply daily task changes on conflict,TodayPlan.tsx,COMPLETED,
 ADMIN-20261112-38,P1,Reapply daily note changes on conflict,TodayNote.tsx,COMPLETED,

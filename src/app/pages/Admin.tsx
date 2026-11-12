@@ -714,16 +714,29 @@ function useTopbarHeight() {
     // шапке min-height: записав в неё измеренную высоту, наблюдатель получал
     // петлю — шапка запоминала свой самый высокий размер и уже не могла стать
     // ниже при возврате на широкий экран.
-    const apply = (height: number) => {
-      if (height > 0) scope.style.setProperty('--adm-topbar-measured', `${Math.round(height)}px`);
+    let frame = 0;
+    let previousHeight = 0;
+    const apply = () => {
+      const height = Math.round(node.getBoundingClientRect().height);
+      if (height <= 0 || height === previousHeight) return;
+      previousHeight = height;
+      scope.style.setProperty('--adm-topbar-measured', `${height}px`);
     };
-    apply(node.getBoundingClientRect().height);
-
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver((entries) => apply(entries[0]?.contentRect.height || 0));
-    observer.observe(node);
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        apply();
+      });
+    };
+    apply();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    observer?.observe(node);
+    if (!observer) window.addEventListener('resize', schedule);
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
+      if (!observer) window.removeEventListener('resize', schedule);
+      if (frame) cancelAnimationFrame(frame);
       scope.style.removeProperty('--adm-topbar-measured');
     };
   }, [node]);

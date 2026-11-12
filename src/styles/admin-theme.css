@@ -181,6 +181,7 @@ body[data-admin-theme] .planner-weekpick {
 
 .admin-root .admin-sidebar {
   top: calc(var(--adm-topbar-offset) + 16px);
+  max-height: calc(100dvh - var(--adm-topbar-offset) - 32px);
 }
 
 .admin-root .admin-crm-list {

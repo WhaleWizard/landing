@@ -1,4 +1,6 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Admin fields topbar and trend,output/playwright/admin-geometry-2026-11-12/after.log,Chromium,320 390 768 1280,5,0,PASSED
+Admin fields topbar and trend,output/playwright/admin-geometry-2026-11-12/after.log,WebKit,320 390 768 1280,5,0,PASSED
 Planner revisions daily edits transfers and unload,output/playwright/planner-versions-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED
 Planner revisions daily edits transfers and unload,output/playwright/planner-versions-2026-11-12/browser.log,WebKit,Mobile 390,5,0,PASSED
 Planner save and clear preconditions,scripts/admin-workspace.test.js,SQLite,Isolated D1 schema,1,0,PASSED

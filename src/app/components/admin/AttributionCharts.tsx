@@ -372,7 +372,7 @@ function TrendChart({
   const active = activeIndex !== null && activeIndex >= 0 && activeIndex < values.length ? activeIndex : null;
   const gradientId = `adm-trend-${String(metric)}`;
   // Подписи только по краям и в середине: четырнадцать дат подряд — это шум.
-  const axisLabels = points.length > 2 ? [0, Math.floor((points.length - 1) / 2), points.length - 1] : [0];
+  const axisLabels = points.length > 2 ? [0, Math.floor((points.length - 1) / 2), points.length - 1] : points.map((_, index) => index);
 
   return (
     <figure className="adm-trend" style={{ ['--adm-trend-color' as string]: `var(--adm-viz-${slot})` }} ref={wrapRef}>
@@ -384,6 +384,9 @@ function TrendChart({
           {active === null ? `${label} · всего за период` : `${label} · ${formatDayLabel(points[active].day)}`}
         </span>
       </div>
+      <span className="sr-only" role="status">
+        {active === null ? '' : `${label}, ${formatDayLabel(points[active].day)}: ${formatNumber(points[active][metric])}`}
+      </span>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width={width}
