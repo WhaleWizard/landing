@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-11,P1,Separate static HTML cache by deployment,_middleware.ts,COMPLETED,
+ADMIN-20261112-12,P2,Keep the monthly report through refresh errors,AdminReport.tsx,COMPLETED,
+ADMIN-20261112-13,P2,Scope UTM data and refresh to the active period,AdminCampaignStats.tsx,COMPLETED,
+ADMIN-20261112-14,P2,Isolate async updates to the active client,AdminClients.tsx,COMPLETED,
+ADMIN-20261112-15,P2,Expose a preview link if popup and clipboard are blocked,AdminPageLocks.tsx,COMPLETED,
 ADMIN-20261112-06,P2,Preserve the acknowledged FAQ baseline,AdminFaqControl.tsx,COMPLETED,
 ADMIN-20261112-07,P2,Resolve confirmation requests during overlap and teardown,AdminFeedback.tsx,COMPLETED,
 ADMIN-20261112-08,P2,Keep note input on save failure,TodayNote.tsx,COMPLETED,

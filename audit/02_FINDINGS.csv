@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-11,P1,DELIVERY,Public HTML,_middleware.ts,HTML could outlive a deployment,Cache key did not include the deployment,FIXED,_middleware.ts,static-page-cache.test.js
+ADMIN-20261112-12,P2,ADMIN,/admin/,AdminReport.tsx,Refresh error discarded the current report,One state held errors and valid data,FIXED,AdminReport.tsx,Isolated browser matrix
+ADMIN-20261112-13,P2,ADMIN,/admin/,AdminCampaignStats.tsx,Range selector could display figures from another range,Unscoped data and captured refresh callback,FIXED,AdminCampaignStats.tsx,Isolated browser matrix
+ADMIN-20261112-14,P2,ADMIN,/admin/,AdminClients.tsx,Late save could load notes from a different client,Refresh request did not validate the active client,FIXED,AdminClients.tsx,Isolated browser matrix
+ADMIN-20261112-15,P2,ADMIN,/admin/,AdminPageLocks.tsx,Preview claimed copy success when blocked,Clipboard errors were swallowed with no visible link,FIXED,AdminPageLocks.tsx,Isolated browser matrix
 ADMIN-20261112-06,P2,ADMIN,/admin/,AdminFaqControl.tsx,Discard could restore the previous version after an acknowledged save,Saved baseline depended on a successful refresh,FIXED,AdminFaqControl.tsx,Isolated browser matrix
 ADMIN-20261112-07,P2,ADMIN,/admin/,AdminFeedback.tsx,A confirmation promise could remain pending,New requests replaced the current request and unmount left it pending,FIXED,AdminFeedback.tsx,Isolated browser matrix
 ADMIN-20261112-08,P2,ADMIN,/admin/,TodayNote.tsx,Failed note save discarded the input,Input cleared before server acknowledgement,FIXED,TodayNote.tsx,Isolated browser matrix

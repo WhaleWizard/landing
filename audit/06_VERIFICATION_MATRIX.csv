@@ -1,4 +1,7 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Static HTML cache,scripts/static-page-cache.test.js,Node,Two release namespaces,6,0,PASSED
+Report campaigns clients and preview,output/playwright/release-reliability-2026-11-12/browser.log,Chromium,Mobile 390,4,0,PASSED
+Report campaigns clients and preview,output/playwright/release-reliability-2026-11-12/browser.log,WebKit,Mobile 390,4,0,PASSED
 FAQ confirmations notes and goals,output/playwright/admin-interactions-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED
 FAQ confirmations notes and goals,output/playwright/admin-interactions-2026-11-12/browser.log,WebKit,Mobile 390,5,0,PASSED
 Queued verification and four admin flows,output/playwright/five-flows-2026-11-12/deployed-browser.log,Chromium,Desktop 1440 and mobile 360,5,0,PASSED

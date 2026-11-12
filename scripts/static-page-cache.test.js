@@ -26,6 +26,35 @@ const mod = await import(`data:text/javascript;base64,${Buffer.from(result.outpu
 const html = (body, headers = {}) => new Response(body, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=0, must-revalidate', ...headers } });
 const call = (url, nextImpl, method = 'GET') => mod.onRequest({ request: new Request(url, { method }), env: {}, next: nextImpl, waitUntil: (p) => p });
 
+test('deployments use distinct HTML cache entries on the same production domain', async () => {
+  store.clear();
+  const url = 'https://www.whalewzrd.com/faq/';
+  const makeDeployment = async (release) => {
+    const result = await build({
+      entryPoints: ['functions/_middleware.ts'], bundle: true, format: 'esm', platform: 'node', write: false,
+      plugins: [{ name: 'release', setup(context) {
+        context.onLoad({ filter: /static-cache-release\.generated\.ts$/ }, () => ({
+          contents: `export const STATIC_CACHE_RELEASE = ${JSON.stringify(release)};`,
+        }));
+      } }],
+    });
+    return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
+  };
+  const [oldDeploy, newDeploy] = await Promise.all(['old.pages.dev', 'new.pages.dev'].map(makeDeployment));
+  const page = (deployment, body, path = url) => deployment.onRequest({
+    request: new Request(path), env: {}, next: async () => html(body), waitUntil: (promise) => promise,
+  });
+
+  assert.equal(await (await page(oldDeploy, 'old HTML')).text(), 'old HTML');
+  const firstNew = await page(newDeploy, 'new HTML');
+  assert.equal(firstNew.headers.get('X-WW-Static-Cache'), 'miss');
+  assert.equal(await firstNew.text(), 'new HTML');
+  const hit = await page(newDeploy, 'unexpected', `${url}?utm_source=test&__ww_release=old.pages.dev`);
+  assert.equal(hit.headers.get('X-WW-Static-Cache'), 'hit');
+  assert.equal(await hit.text(), 'new HTML');
+  assert.equal(store.size, 2);
+});
+
 test('статическая страница: первый запрос мимо кэша, второй — из кэша, параметры не плодят копии', async () => {
   let hits = 0;
   const next = async () => { hits += 1; return html('<html><head></head><body>v1</body></html>'); };

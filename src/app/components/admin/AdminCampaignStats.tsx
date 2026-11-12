@@ -100,7 +100,8 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [data, setData] = useState<CampaignStatsResponse | null>(null);
+  const [snapshot, setSnapshot] = useState<{ days: number; data: CampaignStatsResponse } | null>(null);
+  const data = snapshot?.days === days ? snapshot.data : null;
   const loadVersion = useRef(0);
   const savePending = useRef(false);
   const recordId = useRef('');
@@ -144,7 +145,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
       if (!res.ok || !payload?.success) {
         throw new Error(payload?.error || `HTTP ${res.status}`);
       }
-      if (version === loadVersion.current) setData(payload);
+      if (version === loadVersion.current) setSnapshot({ days, data: payload });
     } catch (err) {
       if (version === loadVersion.current) {
         setError(err instanceof Error ? err.message : 'Не удалось загрузить сквозную аналитику кампаний');
@@ -157,6 +158,8 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+  const currentLoad = useRef(load);
+  useEffect(() => { currentLoad.current = load; }, [load]);
 
   // Handle record creation
   const handleSaveRecord = async (e: React.FormEvent) => {
@@ -204,7 +207,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
       setFormClicks('');
       setFormSpend('');
       setFormNotes('');
-      await load();
+      await currentLoad.current();
     } catch (err) {
       notify.error('Ошибка сохранения', err instanceof Error ? err.message : undefined);
     } finally {

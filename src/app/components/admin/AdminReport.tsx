@@ -67,6 +67,7 @@ function change(current: number | null, previous: number | null): string {
 export default function AdminReport({ password }: { password: string }) {
   const [period, setPeriod] = useState(currentPeriod);
   const [data, setData] = useState<ReportResponse | null>(null);
+  const [failure, setFailure] = useState<{ period: string; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const requestSequence = useRef(0);
 
@@ -76,6 +77,7 @@ export default function AdminReport({ password }: { password: string }) {
     // оказывались цифры одного месяца под заголовком другого.
     const requestId = ++requestSequence.current;
     setLoading(true);
+    setFailure(null);
     try {
       const response = await fetch(`/api/admin/report?period=${period}&timezone_offset=${new Date().getTimezoneOffset()}`, {
         headers: { 'X-Admin-Password': password },
@@ -84,12 +86,13 @@ export default function AdminReport({ password }: { password: string }) {
       });
       const payload = await response.json().catch(() => null);
       if (requestId !== requestSequence.current) return;
-      setData(response.ok && payload?.success
-        ? { ...payload, period }
-        : { success: false, period, error: payload?.error || 'Не удалось собрать отчёт' });
-    } catch {
+      if (!response.ok || !payload?.success || !payload.current) {
+        throw new Error(payload?.error || 'Не удалось собрать отчёт');
+      }
+      setData({ ...payload, period });
+    } catch (error) {
       if (requestId !== requestSequence.current) return;
-      setData({ success: false, period, error: 'Не удалось собрать отчёт' });
+      setFailure({ period, message: error instanceof Error ? error.message : 'Не удалось собрать отчёт' });
     } finally {
       if (requestId === requestSequence.current) setLoading(false);
     }
@@ -98,6 +101,7 @@ export default function AdminReport({ password }: { password: string }) {
   useEffect(() => { void load(); }, [load]);
 
   const report = data?.period === period ? data : null;
+  const error = failure?.period === period ? failure.message : '';
   const currency = report?.currency || 'USD';
   const current = report?.current;
   const openMonth = report?.isCurrentMonth ?? period >= currentPeriod();
@@ -162,13 +166,14 @@ export default function AdminReport({ password }: { password: string }) {
         </div>
       </div>
 
-      {!report ? <AdminSectionSkeleton tiles={4} rows={3} /> : !report.success ? (
+      {!report ? (error ? (
         <AdminBlank
           title="Отчёт пока не собрать"
-          text={report.error || 'Не удалось загрузить выбранный месяц.'}
+          text={error}
         />
-      ) : (
+      ) : <AdminSectionSkeleton tiles={4} rows={3} />) : (
         <>
+          {error && <div className="admin-notice admin-notice--warning" role="alert">{error}. Показаны последние полученные данные за этот месяц.</div>}
           {openMonth && (
             <div className="admin-notice" role="status">
               <strong>{through ? `Данные по ${through}.` : 'Месяц ещё идёт.'}</strong> Сравнение появится после закрытия месяца.

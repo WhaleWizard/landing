@@ -146,6 +146,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [savingPath, setSavingPath] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
+  const [previewLink, setPreviewLink] = useState('');
   const [showJournal, setShowJournal] = useState(false);
 
   const load = useCallback(async () => {
@@ -262,6 +263,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
   }, [data?.trafficDays, saveRoute]);
 
   const openPreviewTab = useCallback(async (route: RouteState) => {
+    setPreviewLink('');
     // Вкладка открывается сразу по клику: если ждать ответа сервера, браузер
     // посчитает её всплывающим окном и заблокирует.
     //
@@ -273,11 +275,16 @@ export default function AdminPageLocks({ password }: { password: string }) {
     try {
       const payload = await post({ action: 'preview_token', path: route.path });
       if (!payload.url) throw new Error('Сервер не вернул ссылку');
-      if (tab) {
+      if (tab && !tab.closed) {
         tab.location.href = payload.url;
       } else {
-        await navigator.clipboard?.writeText(payload.url).catch(() => undefined);
-        notify.info('Ссылка скопирована', 'Вкладку заблокировал браузер — вставьте ссылку вручную');
+        setPreviewLink(payload.url);
+        try {
+          await navigator.clipboard.writeText(payload.url);
+          notify.info('Ссылка скопирована', 'Откройте её в новой вкладке');
+        } catch {
+          // The link remains available in the section when the clipboard is blocked.
+        }
       }
     } catch (previewError) {
       tab?.close();
@@ -389,6 +396,10 @@ export default function AdminPageLocks({ password }: { password: string }) {
           <AdminButton tone="primary" onClick={() => void unlockAll()}>Открыть все</AdminButton>
         ) : null}
       />
+
+      {previewLink && <div className="admin-notice" role="status">
+        <a className="admin-button admin-button--secondary" href={previewLink} target="_blank" rel="noreferrer">Открыть предпросмотр</a>
+      </div>}
 
       <div className={`plock-summary${locked.length ? ' is-active' : ''}`}>
         <span className="plock-summary__icon" aria-hidden="true">

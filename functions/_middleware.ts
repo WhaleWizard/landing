@@ -9,6 +9,7 @@ import {
   type PageLockSnapshot,
 } from './_lib/page-locks';
 import type { Env } from './_lib/types';
+import { STATIC_CACHE_RELEASE } from './_lib/static-cache-release.generated';
 import { CHUNK_RECOVERY_QUERY, isRecentChunkRecovery } from '../shared/chunk-recovery';
 
 const CANONICAL_HOST = 'www.whalewzrd.com';
@@ -207,14 +208,15 @@ async function ensureApiNotFound(url: URL, response: Response): Promise<Response
  * как у бот-версии статей. Ключ — адрес без параметров: ?utm и прочие хвосты
  * не плодят копии. Кэшируется только ответ 200 статики (заголовок из
  * public/_headers, без Vary) — статьи, 404, редиректы и служебные ответы
- * проходят мимо. Срок — 5 минут: Pages при новой сборке кэш не чистит, и 5 минут
- * ограничивает окно устаревшей страницы после выкладки; закрытие страницы
- * применяется впрыском списка уже поверх кэшированного HTML.
+ * проходят мимо. Ключ включает идентификатор выкладки, а закрытие страницы
+ * применяется поверх кэшированного HTML.
  */
 const STATIC_PAGE_CACHE_SECONDS = 300;
 
 function staticPageCacheKey(url: URL): Request {
-  return new Request(new URL(url.pathname, url.origin).toString(), { method: 'GET' });
+  const key = new URL(url.pathname, url.origin);
+  if (STATIC_CACHE_RELEASE) key.searchParams.set('__ww_release', STATIC_CACHE_RELEASE);
+  return new Request(key, { method: 'GET' });
 }
 
 async function staticPage(

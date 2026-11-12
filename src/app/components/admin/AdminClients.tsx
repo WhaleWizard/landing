@@ -210,7 +210,10 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [filter, setFilter] = useState<'all' | ClientStatus | 'attention'>('all');
 
   const [caseBuilderOpen, setCaseBuilderOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedClient] = useState<number | null>(null);
+  const activeClient = useRef<number | null>(null);
+  const clientRequest = useRef(0);
+  const detailRefresh = useRef(0);
   const [draft, setDraft] = useState<Client | null>(null);
   const [savedDraft, setSavedDraft] = useState<Client | null>(null);
   const [months, setMonths] = useState<ClientMonth[]>([]);
@@ -218,6 +221,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [accessDraft, setAccessDraft] = useState('');
   const [monthDraft, setMonthDraft] = useState<ClientMonth | null>(null);
@@ -322,11 +326,17 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     return payload;
   }, [password]);
 
-  const clientRequest = useRef(0);
+  const setSelectedId = useCallback((id: number | null) => {
+    clientRequest.current++;
+    activeClient.current = id;
+    setSelectedClient(id);
+    setDetailLoading(false);
+  }, []);
+
   const openClient = useCallback(async (id: number) => {
-    const requestId = ++clientRequest.current;
-    setWorkspaceOverview(true);
     setSelectedId(id);
+    const requestId = clientRequest.current;
+    setWorkspaceOverview(true);
     setDraft(null);
     setSavedDraft(null);
     setCaseBuilderOpen(false);
@@ -350,7 +360,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     } finally {
       if (requestId === clientRequest.current) setDetailLoading(false);
     }
-  }, [fetchDetails]);
+  }, [fetchDetails, setSelectedId]);
 
   const targetClientId = target?.section === 'clients'
     ? target.clientId || (target.leadId ? clients.find((client) => client.lead_id === target.leadId)?.id : undefined)
@@ -370,10 +380,13 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
    * светофор: отправленный отчёт за месяц гасит красный прямо сейчас.
    */
   const refreshDetails = useCallback(async (id: number) => {
+    if (activeClient.current !== id) return;
     const requestId = clientRequest.current;
+    const refreshId = ++detailRefresh.current;
+    const isCurrent = () => requestId === clientRequest.current && refreshId === detailRefresh.current;
     try {
       const payload = await fetchDetails(id);
-      if (requestId !== clientRequest.current) return;
+      if (!isCurrent()) return;
       setMonths(payload.months || []);
       setAccess(payload.access || []);
       setNotes(payload.notes || []);
@@ -382,32 +395,35 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
         ? { ...current, health: fresh.health, healthReasons: fresh.healthReasons, lastReportMonth: fresh.lastReportMonth }
         : current));
     } catch (refreshError) {
-      notify.error('Не удалось обновить карточку', refreshError instanceof Error ? refreshError.message : undefined);
+      if (isCurrent()) notify.error('Не удалось обновить карточку', refreshError instanceof Error ? refreshError.message : undefined);
     }
   }, [fetchDetails]);
 
   const saveClient = async () => {
-    if (!draft) return;
+    if (!draft || savePending.current) return;
     if (!draft.name.trim()) {
       notify.error('Нужно имя клиента', 'Без него карточку не найти в списке.');
       return;
     }
+    savePending.current = true;
+    const requestId = clientRequest.current;
     setSaving(true);
     try {
       if (draft.id) {
         await request({ ...draft, action: 'update' });
-        setSavedDraft(draft);
+        if (requestId === clientRequest.current) setSavedDraft(draft);
         notify.success('Сохранено');
       } else {
         const created = await request({ ...draft, action: 'create' });
         const newId = Number(created?.id || 0);
         notify.success('Клиент заведён');
-        if (newId) await openClient(newId);
+        if (newId && requestId === clientRequest.current) await openClient(newId);
       }
       await load();
     } catch (saveError) {
       notify.error('Не удалось сохранить', saveError instanceof Error ? saveError.message : undefined);
     } finally {
+      savePending.current = false;
       setSaving(false);
     }
   };
