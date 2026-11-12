@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-06,P2,Preserve the acknowledged FAQ baseline,AdminFaqControl.tsx,COMPLETED,
+ADMIN-20261112-07,P2,Resolve confirmation requests during overlap and teardown,AdminFeedback.tsx,COMPLETED,
+ADMIN-20261112-08,P2,Keep note input on save failure,TodayNote.tsx,COMPLETED,
+ADMIN-20261112-09,P2,Show unavailable revenue without a percent,TodayGoal.tsx,COMPLETED,
+ADMIN-20261112-10,P2,Protect the goal form during save,AdminGoals.tsx,COMPLETED,
 ADMIN-20261112-01,P1,Show interactive verification for queued leads,useTurnstile.ts,COMPLETED,20552b8
 ADMIN-20261112-02,P2,Cancel obsolete preview requests,AdminPageLocks.tsx,COMPLETED,20552b8
 ADMIN-20261112-03,P2,Keep the report for the active period on refresh failure,AdminSearchConsole.tsx,COMPLETED,20552b8

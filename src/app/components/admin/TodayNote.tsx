@@ -48,12 +48,14 @@ export default function TodayNote({
   const [items, setItems] = useState<DayNote[]>(notes);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setItems(notes); }, [notes]);
 
   const persist = useCallback(async (op: DayNoteOp, previous: DayNote[]) => {
+    savePending.current = true;
     setSaving(true);
     setError('');
     try {
@@ -85,12 +87,14 @@ export default function TodayNote({
         // На экране — то, что легло в базу: вместе с заметками, добавленными в планере.
         setItems(next);
       });
+      if (op.type === 'add') setDraft('');
       onSaved();
     } catch (saveError) {
       // Откат: на экране не должно остаться записи, которой нет в базе.
       setItems(previous);
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить заметку');
     } finally {
+      savePending.current = false;
       setSaving(false);
     }
   }, [dayIndex, onSaved, password, queue, weekStart]);
@@ -98,16 +102,16 @@ export default function TodayNote({
   const add = (event: React.FormEvent) => {
     event.preventDefault();
     const text = draft.trim().slice(0, MAX_TEXT);
-    if (!text || items.length >= MAX_NOTES) return;
+    if (savePending.current || !text || items.length >= MAX_NOTES) return;
     const previous = items;
     const note = { id: createId('note'), text };
     setItems(applyDayNoteOp(items, { type: 'add', note }));
-    setDraft('');
     void persist({ type: 'add', note }, previous);
     inputRef.current?.focus();
   };
 
   const remove = (id: string) => {
+    if (savePending.current) return;
     const previous = items;
     setItems(applyDayNoteOp(items, { type: 'remove', id }));
     void persist({ type: 'remove', id }, previous);

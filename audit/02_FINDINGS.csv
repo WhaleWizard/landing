@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-06,P2,ADMIN,/admin/,AdminFaqControl.tsx,Discard could restore the previous version after an acknowledged save,Saved baseline depended on a successful refresh,FIXED,AdminFaqControl.tsx,Isolated browser matrix
+ADMIN-20261112-07,P2,ADMIN,/admin/,AdminFeedback.tsx,A confirmation promise could remain pending,New requests replaced the current request and unmount left it pending,FIXED,AdminFeedback.tsx,Isolated browser matrix
+ADMIN-20261112-08,P2,ADMIN,/admin/,TodayNote.tsx,Failed note save discarded the input,Input cleared before server acknowledgement,FIXED,TodayNote.tsx,Isolated browser matrix
+ADMIN-20261112-09,P2,ADMIN,/admin/,TodayGoal.tsx,Unknown revenue appeared as zero percent,Null fact was coerced to zero,FIXED,TodayGoal.tsx,Isolated browser matrix
+ADMIN-20261112-10,P2,ADMIN,/admin/,AdminGoals.tsx,Saving a goal could discard later input or submit twice,Fields remained editable and the submit lock depended on a render,FIXED,AdminGoals.tsx,Isolated browser matrix
 ADMIN-20261112-01,P1,FORMS,Public forms,useTurnstile.ts,Manual verification of a queued lead was hidden,Detached widget had no visible interactive state,FIXED,20552b8,Published build browser matrix
 ADMIN-20261112-02,P2,ADMIN,/admin/,AdminPageLocks.tsx,Older preview could replace the current draft,Older requests were left running,FIXED,20552b8,Published build browser matrix
 ADMIN-20261112-03,P2,ADMIN,/admin/,AdminSearchConsole.tsx,Report could disappear after a failed refresh,Snapshot was cleared or did not match the selected period,FIXED,20552b8,Published build browser matrix

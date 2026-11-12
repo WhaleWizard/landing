@@ -193,6 +193,7 @@ export default function AdminGoals({ password }: { password: string }) {
   const [loading, setLoading] = useState(true);
   const requestSequence = useRef(0);
   const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
   const [error, setError] = useState('');
   const [migration, setMigration] = useState('');
   const [draft, setDraft] = useState<Goal | null>(null);
@@ -237,7 +238,8 @@ export default function AdminGoals({ password }: { password: string }) {
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!draft || draft.period !== period || data?.period !== period || loading || saving) return;
+    if (!draft || draft.period !== period || data?.period !== period || loading || savePending.current) return;
+    savePending.current = true;
     setSaving(true);
     setError('');
     try {
@@ -259,6 +261,7 @@ export default function AdminGoals({ password }: { password: string }) {
       setError(message);
       notify.error('Цель не сохранилась', message);
     } finally {
+      savePending.current = false;
       setSaving(false);
     }
   };
@@ -410,14 +413,14 @@ export default function AdminGoals({ password }: { password: string }) {
               <label className="admin-field">
                 <span className="admin-label">Заявки</span>
                 <input
-                  type="text" inputMode="numeric" value={draft?.leads_target ?? 0}
+                  type="text" inputMode="numeric" value={draft?.leads_target ?? 0} disabled={saving || loading}
                   onChange={(event) => setDraft((current) => current && { ...current, leads_target: Number(event.target.value.replace(/\D/g, '')) || 0 })}
                 />
               </label>
               <label className="admin-field">
                 <span className="admin-label">Целевые заявки</span>
                 <input
-                  type="text" inputMode="numeric" value={draft?.qualified_target ?? 0}
+                  type="text" inputMode="numeric" value={draft?.qualified_target ?? 0} disabled={saving || loading}
                   onChange={(event) => setDraft((current) => current && { ...current, qualified_target: Number(event.target.value.replace(/\D/g, '')) || 0 })}
                 />
               </label>
@@ -431,6 +434,7 @@ export default function AdminGoals({ password }: { password: string }) {
                 <span className="admin-label">Выручка, $</span>
                 <AdminDecimalInput
                   inputMode="decimal"
+                  disabled={saving || loading}
                   value={draft?.revenue_target ?? 0}
                   onValueChange={(value) => setDraft((current) => current && { ...current, revenue_target: value ?? 0 })}
                 />
@@ -439,6 +443,7 @@ export default function AdminGoals({ password }: { password: string }) {
                 <span className="admin-label">Потолок расхода, $</span>
                 <AdminDecimalInput
                   inputMode="decimal"
+                  disabled={saving || loading}
                   value={draft?.spend_cap ?? 0}
                   onValueChange={(value) => setDraft((current) => current && { ...current, spend_cap: value ?? 0 })}
                 />

@@ -66,20 +66,32 @@ export function useConfirm(): ConfirmFn {
 
 export function AdminConfirmProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ConfirmRequest | null>(null);
+  const pending = useRef<ConfirmRequest | null>(null);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useDialogFocus<HTMLDivElement>(Boolean(state), () => close(false), confirmButtonRef);
   useDialogScrollLock(Boolean(state));
 
   useEffect(() => {
-    openConfirm = (request) => setState(request);
-    return () => { openConfirm = null; };
+    openConfirm = (request) => {
+      if (pending.current) {
+        request.resolve(false);
+        return;
+      }
+      pending.current = request;
+      setState(request);
+    };
+    return () => {
+      openConfirm = null;
+      pending.current?.resolve(false);
+      pending.current = null;
+    };
   }, []);
 
   const close = useCallback((value: boolean) => {
-    setState((current) => {
-      current?.resolve(value);
-      return null;
-    });
+    const request = pending.current;
+    pending.current = null;
+    setState(null);
+    request?.resolve(value);
   }, []);
 
   return (

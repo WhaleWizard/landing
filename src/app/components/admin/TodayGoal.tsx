@@ -17,15 +17,14 @@ function Bar({ label, fact, target, format }: {
   target: number;
   format: (value: number | null) => string;
 }) {
-  const value = fact === null ? 0 : fact;
-  const percent = target > 0 ? Math.min(Math.round((value / target) * 100), 100) : 0;
+  const percent = fact === null ? null : Math.max(0, Math.min(Math.round((fact / target) * 100), 100));
   return (
     <div className="today-goal__row">
       <div className="today-goal__head">
         <span>{label}</span>
-        <strong>{format(fact)}<em> из {format(target)}</em></strong>
+        <strong>{fact === null ? <>Нет данных<em> · план {format(target)}</em></> : <>{format(fact)}<em> из {format(target)}</em></>}</strong>
       </div>
-      <div
+      {percent !== null && <div
         className="today-goal__bar"
         role="progressbar"
         aria-valuemin={0}
@@ -34,7 +33,7 @@ function Bar({ label, fact, target, format }: {
         aria-label={`${label}: выполнено ${percent}%`}
       >
         <span style={{ width: `${percent}%` }} />
-      </div>
+      </div>}
     </div>
   );
 }

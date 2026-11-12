@@ -82,7 +82,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
   };
 
   const load = useCallback(async (preserveNotice = false): Promise<boolean> => {
-    const itemsAtRequest = JSON.stringify(itemsRef.current);
+    const draftAtRequest = faqSignature(itemsRef.current, seoRef.current);
     setLoading(true);
     if (!preserveNotice) setNotice('');
     try {
@@ -103,7 +103,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
         versions?: VersionRow[];
       } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-      if (JSON.stringify(itemsRef.current) !== itemsAtRequest) {
+      if (faqSignature(itemsRef.current, seoRef.current) !== draftAtRequest) {
         setNotice('Данные получены, но не применены: пока шёл запрос, появились новые несохранённые изменения.');
         return false;
       }
@@ -195,8 +195,12 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
       const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; version?: number; seoBuild?: { configured?: boolean; triggered?: boolean; error?: string } } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       if (typeof payload.version === 'number') setVersion(payload.version);
+      setStatus(action === 'publish' ? 'published' : 'draft');
+      if (action === 'publish') setHasPublishedVersion(true);
       setPublishArmed(false);
-      if (faqSignature(itemsRef.current, seoRef.current) !== faqSignature(savedItems, seo)) {
+      const savedSignature = faqSignature(savedItems, seo);
+      setBaseline(savedSignature);
+      if (faqSignature(itemsRef.current, seoRef.current) !== savedSignature) {
         setNotice(action === 'publish'
           ? 'Версия на момент нажатия опубликована. Более новые изменения остались в редакторе и ещё не сохранены.'
           : 'Версия на момент нажатия сохранена. Более новые изменения остались в редакторе и ещё не сохранены.');
