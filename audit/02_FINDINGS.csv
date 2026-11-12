@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-36,P1,ADMIN,/admin/,planner.ts,An old tab could overwrite or clear a current week,Week writes had no version precondition,FIXED,planner.ts,SQLite contract and isolated browser matrix
+ADMIN-20261112-37,P1,ADMIN,/admin/,TodayPlan.tsx,Updating a task could overwrite concurrent weekly edits,Task write replaced the week without conflict handling,FIXED,TodayPlan.tsx,Isolated browser matrix
+ADMIN-20261112-38,P1,ADMIN,/admin/,TodayNote.tsx,Updating a note could overwrite concurrent weekly edits,Note write replaced the week without conflict handling,FIXED,TodayNote.tsx,Isolated browser matrix
+ADMIN-20261112-39,P2,ADMIN,/admin/,AdminPlanner.tsx,Retry could duplicate a task moved to the next week,Destination writes did not exclude known task IDs,FIXED,AdminPlanner.tsx,Isolated browser matrix
+ADMIN-20261112-40,P2,ADMIN,/admin/,AdminPlanner.tsx,Leaving a tab could send an unversioned snapshot,Unload bypassed the save precondition,FIXED,AdminPlanner.tsx,Simulated unload browser matrix
 ADMIN-20261112-31,P1,ADMIN,/admin/,AdminPlanner.tsx,Older planner saves could overwrite newer edits,Full snapshots could run concurrently,FIXED,AdminPlanner.tsx,Isolated browser matrix
 ADMIN-20261112-32,P1,ADMIN,/admin/,AdminPlanner.tsx,A failed save could be lost after changing weeks,One pending slot was shared by all weeks,FIXED,AdminPlanner.tsx,Isolated browser matrix
 ADMIN-20261112-33,P2,ADMIN,/admin/,AdminPlanner.tsx,Local planner could claim a failed write succeeded,Storage exceptions were swallowed,FIXED,AdminPlanner.tsx,Isolated browser matrix

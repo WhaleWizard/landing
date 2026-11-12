@@ -37,7 +37,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { notify } from './AdminFeedback';
+import { confirmAsk, notify } from './AdminFeedback';
+import { editPlannerWeek, PlannerConflictError, readPlannerWeek, savePlannerWeek } from './plannerApi';
 import { AdminSelect } from './AdminUI';
 import { ProgressBar, ProgressRing, WeekProgressChart } from './AdminPlannerCharts';
 import {
@@ -777,6 +778,9 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
   const pendingRef = useRef(new Map<string, { data: PlannerWeekData; local: boolean }>());
   const activeSave = useRef<{ week: string; data: PlannerWeekData } | null>(null);
+  const revisions = useRef(new Map<string, string | null>());
+  const blockedWeeks = useRef(new Set<string>());
+  const [conflictWeeks, setConflictWeeks] = useState<string[]>([]);
   const timerRef = useRef<number | null>(null);
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const localModeRef = useRef(false);
@@ -793,7 +797,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
   const loadSequenceRef = useRef(0);
   // Неделя, чьи данные сейчас загружены, — для автоподстановки шаблона.
   const loadedWeekRef = useRef<string | null>(null);
-  const loadRef = useRef<(week: string) => Promise<void>>(async () => {});
+  const loadRef = useRef<(week: string, discardConflict?: boolean) => Promise<void>>(async () => {});
   passwordRef.current = password;
   localModeRef.current = localMode;
   dataRef.current = data;
@@ -809,7 +813,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       timerRef.current = null;
     }
     if (activeSave.current) return;
-    const first = pendingRef.current.entries().next().value;
+    const first = [...pendingRef.current].find(([week]) => !blockedWeeks.current.has(week));
     if (!first) return;
     const [week, pending] = first;
     pendingRef.current.delete(week);
@@ -821,26 +825,26 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       if (pending.local) {
         writeLocalWeek(week, pending.data);
       } else {
-        const response = await fetch('/api/admin/planner', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
-          credentials: 'same-origin',
-          body: JSON.stringify({ password: passwordRef.current, week, data: pending.data }),
-        });
-        const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
-        if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+        const version = await savePlannerWeek(passwordRef.current, week, pending.data, revisions.current.get(week) ?? null);
+        revisions.current.set(week, version);
       }
       if (dataWeekRef.current === week) setSavedAt(new Date().toISOString());
-      setSaveState(pendingRef.current.size ? 'pending' : 'saved');
-    } catch {
+      setSaveState([...pendingRef.current.keys()].some((key) => !blockedWeeks.current.has(key)) ? 'pending' : 'saved');
+    } catch (error) {
       // Возвращаем изменения в очередь и пробуем сами: сеть моргнула или сервер
       // притормозил — пользователю не нужно ничего нажимать.
       if (!pendingRef.current.has(week)) pendingRef.current.set(week, pending);
-      retry = true;
-      setSaveState('error');
+      if (error instanceof PlannerConflictError) {
+        blockedWeeks.current.add(week);
+        setConflictWeeks([...blockedWeeks.current]);
+        setSaveState('idle');
+      } else {
+        retry = true;
+        setSaveState('error');
+      }
     } finally {
       activeSave.current = null;
-      if (pendingRef.current.size && !timerRef.current) {
+      if ([...pendingRef.current.keys()].some((key) => !blockedWeeks.current.has(key)) && !timerRef.current) {
         timerRef.current = window.setTimeout(() => { void flushRef.current(); }, retry ? SAVE_RETRY_MS : 0);
       }
     }
@@ -850,6 +854,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
   const scheduleSave = useCallback((week: string, next: PlannerWeekData) => {
     pendingRef.current.set(week, { data: next, local: localModeRef.current });
+    if (blockedWeeks.current.has(week)) return;
     setSaveState('pending');
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => { void flush(); }, SAVE_DEBOUNCE_MS);
@@ -872,21 +877,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       writeLocalWeek(week, apply(normalizeWeekData(readLocalWeeks()[week])));
       return;
     }
-    const response = await fetch(`/api/admin/planner?week=${encodeURIComponent(week)}`, {
-      headers: { 'X-Admin-Password': passwordRef.current },
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
-    const payload = await response.json().catch(() => null) as { success?: boolean; data?: unknown; error?: string } | null;
-    if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-    const saved = await fetch('/api/admin/planner', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
-      credentials: 'same-origin',
-      body: JSON.stringify({ password: passwordRef.current, week, data: apply(normalizeWeekData(payload.data)) }),
-    });
-    const savedPayload = await saved.json().catch(() => null) as { success?: boolean; error?: string } | null;
-    if (!saved.ok || !savedPayload?.success) throw new Error(savedPayload?.error || `HTTP ${saved.status}`);
+    await editPlannerWeek(passwordRef.current, week, apply);
   }, []);
 
   const [template, setTemplate] = useState<PlannerTemplate | null>(null);
@@ -974,7 +965,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
     const withoutCarried = (day: PlannerDay, carried: PlannerCheckItem[]): PlannerDay => ({
       ...day,
-      tasks: day.tasks.filter((task) => !carried.some((item) => item.id === task.id)),
+      tasks: day.tasks.filter((task) => !carried.some((item) => item.id === task.id && item.text === task.text && item.done === task.done)),
     });
 
     if (index < DAYS_IN_WEEK - 1) {
@@ -1002,42 +993,30 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     const nextWeek = shiftWeek(sourceWeek, 1);
     setCarryingDay(index);
     try {
-      let targetData: PlannerWeekData;
-      if (localModeRef.current) {
-        targetData = normalizeWeekData(readLocalWeeks()[nextWeek]);
-      } else {
-        const response = await fetch(`/api/admin/planner?week=${encodeURIComponent(nextWeek)}`, {
-          headers: { 'X-Admin-Password': passwordRef.current },
-          credentials: 'same-origin',
-          cache: 'no-store',
-        });
-        const payload = await response.json().catch(() => null) as { success?: boolean; data?: unknown; error?: string } | null;
-        if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-        targetData = normalizeWeekData(payload.data);
-      }
+      const local = localModeRef.current;
+      const target = local
+        ? { data: normalizeWeekData(readLocalWeeks()[nextWeek]), updatedAt: null }
+        : await readPlannerWeek(passwordRef.current, nextWeek);
+      const targetData = target.data;
 
       const capacity = Math.max(0, PLANNER_LIMITS.tasksPerDay - targetData.days[0].tasks.length);
-      const carried = moving.slice(0, capacity);
+      const knownIds = new Set(targetData.days[0].tasks.map((task) => task.id));
+      const added = moving.filter((task) => !knownIds.has(task.id)).slice(0, capacity);
+      const carried = [...moving.filter((task) => knownIds.has(task.id)), ...added];
       if (!carried.length) throw new Error(`В понедельнике следующей недели уже ${PLANNER_LIMITS.tasksPerDay} задач`);
 
       const merged: PlannerWeekData = {
         ...targetData,
         days: targetData.days.map((day, dayIndex) => (
-          dayIndex === 0 ? { ...day, tasks: [...day.tasks, ...carried] } : day
+          dayIndex === 0 ? { ...day, tasks: [...day.tasks, ...added] } : day
         )),
       };
 
-      if (localModeRef.current) {
+      if (local) {
         writeLocalWeek(nextWeek, merged);
-      } else {
-        const response = await fetch('/api/admin/planner', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Admin-Password': passwordRef.current },
-          credentials: 'same-origin',
-          body: JSON.stringify({ password: passwordRef.current, week: nextWeek, data: merged }),
-        });
-        const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
-        if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      } else if (added.length) {
+        const version = await savePlannerWeek(passwordRef.current, nextWeek, merged, target.updatedAt);
+        if (revisions.current.get(nextWeek) === target.updatedAt) revisions.current.set(nextWeek, version);
       }
 
       // Пока шли запросы, владелец мог нажать «›»: на экране уже следующая
@@ -1108,7 +1087,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     if (await persistTemplate(null)) notify.success('Шаблон забыт');
   }, [persistTemplate]);
 
-  const load = useCallback(async (week: string) => {
+  const load = useCallback(async (week: string, discardConflict = false) => {
     const requestId = ++loadSequenceRef.current;
     const readDraft = () => pendingRef.current.get(week)?.data || (activeSave.current?.week === week ? activeSave.current.data : undefined);
     const draftAtRequest = readDraft();
@@ -1154,7 +1133,14 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
       setLocalMode(false);
       localModeRef.current = false;
-      dataRef.current = readDraft() || draftAtRequest || normalizeWeekData(payload.data);
+      const draft = discardConflict ? undefined : readDraft() || draftAtRequest;
+      if (discardConflict) {
+        pendingRef.current.delete(week);
+        blockedWeeks.current.delete(week);
+        setConflictWeeks([...blockedWeeks.current]);
+      }
+      if (!draft) revisions.current.set(week, payload.updatedAt ?? null);
+      dataRef.current = draft || normalizeWeekData(payload.data);
       dataWeekRef.current = week;
       loadedWeekRef.current = week;
       setData(dataRef.current);
@@ -1190,22 +1176,22 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     setTemplateApplied(true);
   }, [loading, template, weekStart]);
 
-  // Закрытие вкладки не отменяет последнюю правку: обычный fetch на выгрузке
-  // страницы браузер может оборвать, поэтому недосохранённое уходит sendBeacon.
-  //
-  // Одного `beforeunload` мало. На телефоне вкладку почти всегда закрывают не
-  // явно, а переключением приложения, и Safari на iOS в этом случае события не
-  // присылает вовсе — доезжают только `pagehide` и переход в скрытое состояние.
-  // Пока документ остаётся открытым, обычный запрос подтверждает сохранение.
-  // При выгрузке не отправляем поверх ещё выполняющейся записи той же недели.
+  // При закрытии вкладки браузер может оборвать запрос. По возможности
+  // предупреждаем об этом и отправляем только снимки с известной версией.
   useEffect(() => {
-    const handler = () => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!pendingRef.current.size && !activeSave.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    const handler = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
       for (const [week, pending] of pendingRef.current) {
-        if (activeSave.current?.week === week) continue;
+        if (activeSave.current?.week === week || blockedWeeks.current.has(week)) continue;
         try {
           if (pending.local) writeLocalWeek(week, pending.data);
           else {
-            const body = new Blob([JSON.stringify({ password: passwordRef.current, week, data: pending.data })], { type: 'application/json' });
+            const body = new Blob([JSON.stringify({ password: passwordRef.current, week, data: pending.data, expectedUpdatedAt: revisions.current.get(week) ?? null })], { type: 'application/json' });
             if (!navigator.sendBeacon?.('/api/admin/planner', body)) continue;
           }
           pendingRef.current.delete(week);
@@ -1217,9 +1203,11 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     const onHidden = () => {
       if (document.visibilityState === 'hidden') void flush();
     };
+    window.addEventListener('beforeunload', warnBeforeUnload);
     window.addEventListener('pagehide', handler);
     document.addEventListener('visibilitychange', onHidden);
     return () => {
+      window.removeEventListener('beforeunload', warnBeforeUnload);
       window.removeEventListener('pagehide', handler);
       document.removeEventListener('visibilitychange', onHidden);
       void flush();
@@ -1254,6 +1242,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
   };
 
   const saveBadge = (() => {
+    if (conflictWeeks.includes(weekStart)) return { icon: AlertTriangle, text: 'Конфликт версий', className: 'admin-state admin-state--danger', spin: false };
     if (saveState === 'saving') return { icon: Loader2, text: 'Сохраняю…', className: 'admin-state', spin: true };
     if (saveState === 'pending') return { icon: Loader2, text: 'Есть изменения', className: 'admin-state', spin: false };
     if (saveState === 'error') return { icon: AlertTriangle, text: 'Не сохранено', className: 'admin-state admin-state--danger', spin: false };
@@ -1266,6 +1255,17 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
   return (
     <div className="admin-stack admin-stack--lg planner">
+      {conflictWeeks.length > 0 && <div className="admin-notice admin-notice--warning" role="alert">
+        <p>{conflictWeeks.includes(weekStart)
+          ? 'Неделя уже изменена в другой вкладке. Этот черновик остался на экране. Скопируйте нужные правки перед загрузкой версии из базы.'
+          : 'В другой неделе есть несохранённый черновик из-за конфликта версий.'}</p>
+        {conflictWeeks.includes(weekStart) ? (
+          <button type="button" className="admin-button admin-button--compact" disabled={loading} onClick={async () => {
+            const confirmed = await confirmAsk({ title: 'Загрузить версию из базы?', description: 'Несохранённые изменения этой недели будут отменены после загрузки.', confirmLabel: 'Загрузить', tone: 'danger' });
+            if (confirmed && weekStartRef.current === weekStart) await load(weekStart, true);
+          }}>Загрузить версию из базы</button>
+        ) : <button type="button" className="admin-button admin-button--compact" onClick={() => goToWeek(conflictWeeks[0])}>Открыть неделю с конфликтом</button>}
+      </div>}
       <section className="admin-card admin-card--hero planner-hero" aria-labelledby="planner-title">
         <div className="planner-hero__top">
           <div>

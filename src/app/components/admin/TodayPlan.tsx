@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { ArrowRight, Check, Flame, ListChecks, Plus, Sparkles, X } from 'lucide-react';
-import { createId, normalizeWeekData, type PlannerWeekData } from './plannerModel';
+import { createId } from './plannerModel';
+import { editPlannerWeek } from './plannerApi';
 import { withPlural } from '../../utils/plural';
 
 export interface PlanTask {
@@ -28,14 +29,14 @@ export async function enqueueSave(queue: PlannerSaveQueue | undefined, task: () 
 
 /** Правка списка задач дня как операция — применяется к свежепрочитанному списку, а не к снимку экрана. */
 export type PlanTaskOp =
-  | { type: 'toggle'; id: string }
+  | { type: 'toggle'; id: string; done: boolean }
   | { type: 'remove'; id: string }
   | { type: 'add'; task: PlanTask };
 
 export function applyPlanTaskOp(tasks: PlanTask[], op: PlanTaskOp): PlanTask[] {
   switch (op.type) {
     case 'toggle':
-      return tasks.map((task) => (task.id === op.id ? { ...task, done: !task.done } : task));
+      return tasks.map((task) => (task.id === op.id ? { ...task, done: op.done } : task));
     case 'remove':
       return tasks.filter((task) => task.id !== op.id);
     case 'add':
@@ -90,33 +91,13 @@ export default function TodayPlan({
     setError('');
     try {
       await enqueueSave(queue, async () => {
-        const headers = { 'Content-Type': 'application/json', 'X-Admin-Password': password };
-        const readResponse = await fetch(`/api/admin/planner?week=${encodeURIComponent(weekStart)}`, {
-          headers: { 'X-Admin-Password': password },
-          credentials: 'same-origin',
-          cache: 'no-store',
+        const saved = await editPlannerWeek(password, weekStart, (week) => {
+          const tasks = applyPlanTaskOp(week.days[dayIndex].tasks, op);
+          if (tasks.length > MAX_TASKS) throw new Error(`В плане уже ${MAX_TASKS} задач — новая не поместится`);
+          week.days[dayIndex] = { ...week.days[dayIndex], tasks };
+          return week;
         });
-        const readPayload = await readResponse.json().catch(() => null) as { success?: boolean; error?: string; data?: unknown } | null;
-        if (!readResponse.ok || !readPayload?.success) throw new Error(readPayload?.error || `HTTP ${readResponse.status}`);
-
-        const week: PlannerWeekData = normalizeWeekData(readPayload.data);
-        const next = applyPlanTaskOp(week.days[dayIndex].tasks, op);
-        if (next.length > MAX_TASKS) throw new Error(`В плане уже ${MAX_TASKS} задач — новая не поместится`);
-        week.days[dayIndex] = {
-          ...week.days[dayIndex],
-          tasks: next.map((task) => ({ id: task.id, text: task.text, done: task.done })),
-        };
-
-        const saveResponse = await fetch('/api/admin/planner', {
-          method: 'POST',
-          headers,
-          credentials: 'same-origin',
-          body: JSON.stringify({ week: weekStart, data: week }),
-        });
-        const savePayload = await saveResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
-        if (!saveResponse.ok || !savePayload?.success) throw new Error(savePayload?.error || `HTTP ${saveResponse.status}`);
-        // На экране — то, что легло в базу: вместе с задачами, добавленными в другом месте.
-        setItems(next);
+        setItems(saved.days[dayIndex].tasks);
       });
       if (op.type === 'add') setDraft('');
       onSaved();
@@ -133,8 +114,11 @@ export default function TodayPlan({
   const toggle = (id: string) => {
     if (savePending.current) return;
     const previous = items;
-    setItems(applyPlanTaskOp(items, { type: 'toggle', id }));
-    void persist({ type: 'toggle', id }, previous);
+    const task = items.find((item) => item.id === id);
+    if (!task) return;
+    const op = { type: 'toggle', id, done: !task.done } as const;
+    setItems(applyPlanTaskOp(items, op));
+    void persist(op, previous);
   };
 
   const remove = (id: string) => {

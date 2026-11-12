@@ -239,7 +239,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, error: 'Слишком большой объём данных' }, { status: 413, headers: noStore });
   }
 
-  let body: { password?: string; week?: string; data?: unknown };
+  let body: { password?: string; week?: string; data?: unknown; expectedUpdatedAt?: string | null };
   try {
     body = raw.text ? JSON.parse(raw.text) : {};
   } catch {
@@ -262,23 +262,36 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const data = normalizeWeekData(body.data);
-  const updatedAt = new Date().toISOString();
+  const expected = body.expectedUpdatedAt;
+  if (expected === undefined) {
+    return json({ success: false, error: 'Обновите админку перед сохранением недели' }, { status: 428, headers: noStore });
+  }
+  if (expected !== null && (typeof expected !== 'string' || !expected || expected.length > 40)) {
+    return json({ success: false, error: 'Некорректная версия недели' }, { status: 400, headers: noStore });
+  }
+  const previousTime = typeof expected === 'string' ? Date.parse(expected) : NaN;
+  const nextTime = Number.isFinite(previousTime) && previousTime < 8.64e15 ? previousTime + 1 : 0;
+  const updatedAt = new Date(Math.max(Date.now(), nextTime)).toISOString();
+  const conflict = () => json({ success: false, code: 'PLANNER_CONFLICT', error: 'Неделя уже изменена в другой вкладке. Обновите данные.' }, { status: 409, headers: noStore });
 
   try {
     // Полностью очищенная неделя удаляется, чтобы база не копила пустые строки
     // и «перенос привычек» брал последнюю реально заполненную неделю.
     if (isBlankWeek(data)) {
-      await env.DB.prepare('DELETE FROM planner_weeks WHERE week_start = ?').bind(weekStart).run();
+      if (expected === null) {
+        if (await env.DB.prepare('SELECT 1 FROM planner_weeks WHERE week_start = ?').bind(weekStart).first()) return conflict();
+      } else {
+        const result = await env.DB.prepare('DELETE FROM planner_weeks WHERE week_start = ? AND updated_at = ?').bind(weekStart, expected).run();
+        if (!result.meta?.changes) return conflict();
+      }
       return json({ success: true, week: weekStart, updatedAt: null, cleared: true }, { headers: noStore });
     }
 
-    await env.DB
-      .prepare(
-        `INSERT INTO planner_weeks (week_start, data_json, updated_at) VALUES (?, ?, ?)
-         ON CONFLICT(week_start) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`,
-      )
-      .bind(weekStart, JSON.stringify(data), updatedAt)
-      .run();
+    const dataJson = JSON.stringify(data);
+    const result = expected === null
+      ? await env.DB.prepare('INSERT INTO planner_weeks (week_start, data_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(week_start) DO NOTHING').bind(weekStart, dataJson, updatedAt).run()
+      : await env.DB.prepare('UPDATE planner_weeks SET data_json = ?, updated_at = ? WHERE week_start = ? AND updated_at = ?').bind(dataJson, updatedAt, weekStart, expected).run();
+    if (!result.meta?.changes) return conflict();
 
     return json({ success: true, week: weekStart, updatedAt }, { headers: noStore });
   } catch (error) {

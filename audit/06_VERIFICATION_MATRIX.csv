@@ -1,4 +1,7 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Planner revisions daily edits transfers and unload,output/playwright/planner-versions-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED
+Planner revisions daily edits transfers and unload,output/playwright/planner-versions-2026-11-12/browser.log,WebKit,Mobile 390,5,0,PASSED
+Planner save and clear preconditions,scripts/admin-workspace.test.js,SQLite,Isolated D1 schema,1,0,PASSED
 Planner finance and migration SQL,output/playwright/planner-reliability-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED
 Planner finance and migration SQL,output/playwright/planner-reliability-2026-11-12/browser.log,WebKit,Mobile 390,5,0,PASSED
 Client drafts goals page locks and Meta,output/playwright/admin-drafts-2026-11-12/browser.log,Chromium,Mobile 390,5,0,PASSED

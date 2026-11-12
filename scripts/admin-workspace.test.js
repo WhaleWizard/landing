@@ -82,7 +82,40 @@ function create(before = false) {
 }
 const logic = await load("functions/_lib/admin-workspace.ts");
 const shared = await load("shared/admin-workspace.ts");
+const planner = await load("functions/api/admin/planner.ts");
 const today = "2026-10-31";
+
+test('planner rejects stale creation, update and clear against the current week', async () => {
+  const { sqlite, db } = create();
+  try {
+    const week = '2026-11-09';
+    const env = { DB: db, ADMIN_PASSWORD: 'fixture-only' };
+    const url = `https://www.whalewzrd.com/api/admin/planner?week=${week}`;
+    const headers = { 'X-Admin-Password': env.ADMIN_PASSWORD, 'Content-Type': 'application/json' };
+    const read = async () => (await planner.onRequestGet({ request: new Request(url, { headers }), env })).json();
+    const write = (expectedUpdatedAt, data) => planner.onRequestPost({
+      request: new Request(url, { method: 'POST', headers, body: JSON.stringify({ week, expectedUpdatedAt, data }) }), env,
+    });
+    const goals = (text) => ({ goals: [{ id: 'goal', text, done: false }] });
+    assert.equal((await read()).updatedAt, null);
+    const first = await (await write(null, goals('first'))).json();
+    assert.equal(first.success, true);
+    assert.equal((await write(undefined, goals('previous application build'))).status, 428);
+    assert.equal((await write(null, goals('other tab'))).status, 409);
+    const latest = await (await write(first.updatedAt, goals('latest'))).json();
+    assert.notEqual(latest.updatedAt, first.updatedAt);
+    assert.equal((await write(first.updatedAt, goals('stale'))).status, 409);
+    const staleClear = await write(first.updatedAt, {});
+    assert.equal(staleClear.status, 409);
+    assert.equal((await staleClear.json()).code, 'PLANNER_CONFLICT');
+    assert.equal((await read()).data.goals[0].text, 'latest');
+    const cleared = await (await write(latest.updatedAt, {})).json();
+    assert.equal(cleared.cleared, true);
+    assert.equal((await read()).updatedAt, null);
+  } finally {
+    sqlite.close();
+  }
+});
 function client(s, name = "Антон") {
   return Number(
     s.prepare("INSERT INTO clients(name) VALUES(?)").run(name).lastInsertRowid,

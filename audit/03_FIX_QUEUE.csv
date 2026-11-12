@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-36,P1,Reject stale week writes and preserve a conflicting draft,planner.ts and AdminPlanner.tsx,COMPLETED,
+ADMIN-20261112-37,P1,Reapply daily task changes on conflict,TodayPlan.tsx,COMPLETED,
+ADMIN-20261112-38,P1,Reapply daily note changes on conflict,TodayNote.tsx,COMPLETED,
+ADMIN-20261112-39,P2,Make cross-week move safe to retry,AdminPlanner.tsx,COMPLETED,
+ADMIN-20261112-40,P2,Guard pending writes during tab unload,AdminPlanner.tsx,COMPLETED,
 ADMIN-20261112-31,P1,Serialize planner autosaves,AdminPlanner.tsx,COMPLETED,
 ADMIN-20261112-32,P1,Keep pending snapshots per week,AdminPlanner.tsx,COMPLETED,
 ADMIN-20261112-33,P2,Report local storage write failure,AdminPlanner.tsx,COMPLETED,

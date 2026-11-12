@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NotebookPen, Plus, X } from 'lucide-react';
-import { createId, normalizeWeekData, type PlannerWeekData } from './plannerModel';
+import { createId } from './plannerModel';
+import { editPlannerWeek } from './plannerApi';
 import { enqueueSave, type PlannerSaveQueue } from './TodayPlan';
 
 export interface DayNote {
@@ -60,32 +61,13 @@ export default function TodayNote({
     setError('');
     try {
       await enqueueSave(queue, async () => {
-        const readResponse = await fetch(`/api/admin/planner?week=${encodeURIComponent(weekStart)}`, {
-          headers: { 'X-Admin-Password': password },
-          credentials: 'same-origin',
-          cache: 'no-store',
+        const saved = await editPlannerWeek(password, weekStart, (week) => {
+          const notes = applyDayNoteOp(week.days[dayIndex].notes, op);
+          if (notes.length > MAX_NOTES) throw new Error(`В дне уже ${MAX_NOTES} заметок — новая не поместится`);
+          week.days[dayIndex] = { ...week.days[dayIndex], notes };
+          return week;
         });
-        const readPayload = await readResponse.json().catch(() => null) as { success?: boolean; error?: string; data?: unknown } | null;
-        if (!readResponse.ok || !readPayload?.success) throw new Error(readPayload?.error || `HTTP ${readResponse.status}`);
-
-        const week: PlannerWeekData = normalizeWeekData(readPayload.data);
-        const next = applyDayNoteOp(week.days[dayIndex].notes, op);
-        if (next.length > MAX_NOTES) throw new Error(`В дне уже ${MAX_NOTES} заметок — новая не поместится`);
-        week.days[dayIndex] = {
-          ...week.days[dayIndex],
-          notes: next.map((note) => ({ id: note.id, text: note.text })),
-        };
-
-        const saveResponse = await fetch('/api/admin/planner', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
-          credentials: 'same-origin',
-          body: JSON.stringify({ week: weekStart, data: week }),
-        });
-        const savePayload = await saveResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
-        if (!saveResponse.ok || !savePayload?.success) throw new Error(savePayload?.error || `HTTP ${saveResponse.status}`);
-        // На экране — то, что легло в базу: вместе с заметками, добавленными в планере.
-        setItems(next);
+        setItems(saved.days[dayIndex].notes);
       });
       if (op.type === 'add') setDraft('');
       onSaved();
