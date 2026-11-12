@@ -4,6 +4,7 @@ import { AlertTriangle, HelpCircle } from 'lucide-react';
 import WhaleMark from '../brand/WhaleMark';
 import AdminOverlay from './AdminOverlay';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
+import { useIsMobile } from '../ui/use-mobile';
 
 /**
  * Общий слой обратной связи админки: тосты вместо системных `alert`,
@@ -19,10 +20,14 @@ export const notify = {
 };
 
 export function AdminToaster({ theme }: { theme: 'light' | 'dark' }) {
+  const mobile = useIsMobile();
+  const top = 'calc(var(--adm-topbar-offset, 0px) + 12px + env(safe-area-inset-top, 0px))';
   return (
     <Toaster
       theme={theme}
-      position="bottom-right"
+      position={mobile ? 'top-right' : 'bottom-right'}
+      offset={mobile ? { top } : undefined}
+      mobileOffset={{ top }}
       closeButton
       richColors
       toastOptions={{ style: { fontFamily: 'inherit' } }}

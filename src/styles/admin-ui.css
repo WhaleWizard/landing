@@ -269,7 +269,7 @@
 
 body[data-admin-theme] .admin-select-content {
   z-index: 10000;
-  min-width: var(--radix-select-trigger-width);
+  min-width: min(var(--radix-select-trigger-width), 420px, calc(100vw - 24px));
   max-width: min(420px, calc(100vw - 24px));
   max-height: min(420px, var(--radix-select-content-available-height));
   padding: 5px;
@@ -281,6 +281,10 @@ body[data-admin-theme] .admin-select-content {
   backdrop-filter: blur(18px);
 }
 
+body[data-admin-theme] .admin-select-content [data-radix-select-viewport] {
+  min-width: 0;
+}
+
 body[data-admin-theme] .admin-select-item {
   min-height: 40px;
   padding: 9px 34px 9px 11px;
@@ -289,6 +293,12 @@ body[data-admin-theme] .admin-select-item {
   background: transparent;
   font: 600 14px/1.3 var(--ww-font-text, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif);
   cursor: default;
+}
+
+body[data-admin-theme] .admin-select-item > span:last-child {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 body[data-admin-theme] .admin-select-item[data-highlighted] {
@@ -10773,6 +10783,11 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
   gap: var(--adm-space-3);
 }
 
+.admin-root .admin-confirm__head > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .admin-root .admin-confirm__icon {
   display: grid;
   place-items: center;
@@ -10852,8 +10867,17 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 }
 
 @media (max-width: 767px) {
-  .admin-root:has(.admin-editor-actions) [data-sonner-toaster][data-y-position="bottom"] {
-    bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+  .admin-root [data-sonner-toast] [data-close-button] {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  .admin-root [data-sonner-toast] [data-close-button]::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
   }
 }
 
@@ -18113,8 +18137,11 @@ body[data-admin-theme] .planner-weekpick {
 }
 
 .admin-root .admin-gsc-chart-tooltip {
+  --gsc-tooltip-half: 78px;
   position: absolute;
   top: 10px;
+  left: clamp(min(var(--gsc-tooltip-half), 50%), var(--gsc-tooltip-x), max(50%, calc(100% - var(--gsc-tooltip-half))));
+  width: min(100%, calc(2 * var(--gsc-tooltip-half)));
   transform: translateX(-50%);
   padding: 8px 12px;
   background: var(--adm-card);
@@ -18127,7 +18154,7 @@ body[data-admin-theme] .planner-weekpick {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .admin-root .admin-gsc-tooltip-date {
@@ -18310,8 +18337,18 @@ body[data-admin-theme] .planner-weekpick {
   transition: all 0.15s ease;
 }
 
-.admin-root tr:hover .admin-gsc-copy-btn {
+.admin-root tr:hover .admin-gsc-copy-btn,
+.admin-root .admin-gsc-copy-btn:focus {
   opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .admin-root .admin-gsc-copy-btn {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+  }
 }
 
 .admin-root .admin-gsc-copy-btn:hover {

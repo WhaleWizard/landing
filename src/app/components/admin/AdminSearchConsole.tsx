@@ -444,6 +444,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                                 type="button"
                                 onClick={() => void copyToClipboard(item.query, 'Запрос')}
                                 className="admin-gsc-copy-btn"
+                                aria-label="Скопировать поисковый запрос"
                                 title="Скопировать поисковый запрос"
                               >
                                 <Copy size={12} aria-hidden="true" />
@@ -839,7 +840,7 @@ function GscSvgChart({
         <div
           className="admin-gsc-chart-tooltip"
           style={{
-            left: `${Math.min(85, Math.max(15, (getX(hoveredIndex) / width) * 100))}%`,
+            ['--gsc-tooltip-x' as string]: `${(getX(hoveredIndex) / width) * 100}%`,
           }}
         >
           <div className="admin-gsc-tooltip-date">{hoveredPoint.date}</div>

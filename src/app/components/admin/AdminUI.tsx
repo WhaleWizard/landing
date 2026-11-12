@@ -121,7 +121,7 @@ export function AdminSelect({
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent className="admin-select-content" position="popper">
+      <SelectContent className="admin-select-content" position="popper" collisionPadding={12}>
         {options.map((option) => (
           <SelectItem
             key={option.value}

@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-01,P2,Keep retry accessible with toast open,AdminFeedback,COMPLETED,
+ADMIN-20261113-02,P2,Contain long select options,AdminUI,COMPLETED,
+ADMIN-20261113-03,P2,Wrap long confirmation titles,AdminConfirmDialog,COMPLETED,
+ADMIN-20261113-04,P2,Contain chart tooltips,AdminSearchConsole,COMPLETED,
+ADMIN-20261113-05,P2,Expose copy action for touch and keyboard,AdminSearchConsole,COMPLETED,
 ADMIN-20261112-41,P2,Defer planner textarea resize and measure fonts,useAutosizeTextarea.ts,COMPLETED,
 ADMIN-20261112-42,P2,Fit CMS paragraphs across widths,AdminContentControl.tsx,COMPLETED,
 ADMIN-20261112-43,P2,Measure the full topbar height,Admin.tsx,COMPLETED,
