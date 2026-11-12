@@ -209,7 +209,7 @@ export default function AdminAttribution({ password }: { password: string }) {
       const payload = await response.json().catch(() => null) as AttributionResponse | null;
       if (requestId !== requestSequence.current) return;
       if (!response.ok || !payload?.success) {
-        setData(payload);
+        setData((current) => current?.success ? current : payload?.success ? null : payload);
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       setData(payload);
@@ -449,7 +449,7 @@ export default function AdminAttribution({ password }: { password: string }) {
 
       {error && (
         <div className="admin-notice admin-notice--warning" role="alert">
-          <strong>Данные этого окружения недоступны</strong>
+          <strong>{data?.success ? 'Показаны последние данные за этот период' : 'Данные этого периода недоступны'}</strong>
           <p>{error}</p>
           {data?.code === 'D1_NOT_BOUND' && <p>Проверьте этот раздел на production, где подключён Cloudflare D1.</p>}
         </div>

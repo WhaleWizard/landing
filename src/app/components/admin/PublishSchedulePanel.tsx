@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import type { Article } from '../hooks/useArticlesApi';
 import { AdminButton, AdminSelect } from './AdminUI';
 import { notify, useConfirm } from './AdminFeedback';
@@ -62,6 +62,7 @@ function PublishSchedulePanel({
   const [plan, setPlan] = useState<ScheduledItem[] | null>(null);
   const [overflow, setOverflow] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
 
   const selected = candidates.filter((article) => !unchecked.has(article.slug));
   const titleBySlug = useMemo(() => new Map(articles.map((article) => [article.slug, article.title])), [articles]);
@@ -90,25 +91,28 @@ function PublishSchedulePanel({
   };
 
   const savePlan = async () => {
-    if (!plan || plan.length === 0) return;
+    if (!plan || plan.length === 0 || savePending.current) return;
+    savePending.current = true;
     const first = plan.reduce((a, b) => (a.publishedAt < b.publishedAt ? a : b));
     const last = plan.reduce((a, b) => (a.publishedAt > b.publishedAt ? a : b));
-    const confirmed = await confirmDialog({
-      title: `Запланировать ${withPlural(plan.length, ['статью', 'статьи', 'статей'])}?`,
-      description: `Первая выйдет ${formatLocal(first)}, последняя — ${formatLocal(last)} (время ташкентское). До своей даты статья на сайте не видна. Текст статей не меняется.`,
-      confirmLabel: 'Запланировать',
-    });
-    if (!confirmed) return;
-
     setSaving(true);
+    let processed = 0;
+    const scheduled: string[] = [];
+    const skipped: string[] = [];
     try {
-      const scheduled: string[] = [];
-      const skipped: string[] = [];
+      const confirmed = await confirmDialog({
+        title: `Запланировать ${withPlural(plan.length, ['статью', 'статьи', 'статей'])}?`,
+        description: `Первая выйдет ${formatLocal(first)}, последняя — ${formatLocal(last)} (время ташкентское). До своей даты статья на сайте не видна. Текст статей не меняется.`,
+        confirmLabel: 'Запланировать',
+      });
+      if (!confirmed) return;
       // Сервер принимает до двухсот за раз — больше за одну раскладку обычно не бывает.
-      for (let offset = 0; offset < plan.length; offset += 200) {
-        const result = await onSchedule(plan.slice(offset, offset + 200).map(({ slug, publishedAt }) => ({ slug, publishedAt })));
+      while (processed < plan.length) {
+        const batch = plan.slice(processed, processed + 200).map(({ slug, publishedAt }) => ({ slug, publishedAt }));
+        const result = await onSchedule(batch);
         scheduled.push(...result.scheduled);
         skipped.push(...result.skipped);
+        processed += batch.length;
       }
       if (skipped.length > 0) {
         notify.error(
@@ -120,8 +124,11 @@ function PublishSchedulePanel({
       }
       resetPlan();
     } catch (error) {
-      notify.error('Расписание не сохранилось', error instanceof Error ? error.message : 'Неизвестная ошибка');
+      setPlan(plan.slice(processed));
+      const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      notify.error(processed ? `Запланировано: ${scheduled.length}, пропущено: ${skipped.length}, осталось подтвердить: ${plan.length - processed}` : 'Не удалось подтвердить сохранение расписания', message);
     } finally {
+      savePending.current = false;
       setSaving(false);
     }
   };
@@ -147,14 +154,14 @@ function PublishSchedulePanel({
       <div className="flex items-center justify-between gap-2 text-xs">
         <span>Выбрано {selected.length} из {candidates.length}</span>
         <span className="flex gap-3">
-          <button type="button" className="text-[var(--adm-primary)]" onClick={() => { setUnchecked(new Set()); resetPlan(); }}>Все</button>
-          <button type="button" className="text-[var(--adm-primary)]" onClick={() => { setUnchecked(new Set(candidates.map((a) => a.slug))); resetPlan(); }}>Ни одной</button>
+          <button type="button" className="text-[var(--adm-primary)]" disabled={saving} onClick={() => { setUnchecked(new Set()); resetPlan(); }}>Все</button>
+          <button type="button" className="text-[var(--adm-primary)]" disabled={saving} onClick={() => { setUnchecked(new Set(candidates.map((a) => a.slug))); resetPlan(); }}>Ни одной</button>
         </span>
       </div>
       <div className="max-h-48 space-y-1 overflow-y-auto scrollbar-brand">
         {candidates.map((article) => (
           <label key={article.slug} className="admin-field admin-field--check">
-            <input type="checkbox" checked={!unchecked.has(article.slug)} onChange={() => toggle(article.slug)} />
+            <input type="checkbox" checked={!unchecked.has(article.slug)} disabled={saving} onChange={() => toggle(article.slug)} />
             <span className="min-w-0">
               <span className="block truncate">{article.title || article.slug}</span>
               <span className="admin-meta">{describeState(article)}</span>
@@ -163,7 +170,7 @@ function PublishSchedulePanel({
         ))}
       </div>
 
-      <div className="admin-form-grid">
+      <fieldset className="admin-form-grid" disabled={saving}>
         <label className="admin-field">
           <span className="admin-label">Начать с</span>
           <input className="admin-input" type="date" min={ownerToday()} value={startDate} onChange={(event) => { setStartDate(event.target.value); resetPlan(); }} />
@@ -182,7 +189,7 @@ function PublishSchedulePanel({
           <input type="checkbox" checked={shuffle} onChange={(event) => { setShuffle(event.target.checked); resetPlan(); }} />
           <span>Случайный порядок статей</span>
         </label>
-      </div>
+      </fieldset>
 
       <div className="flex flex-wrap gap-2">
         <AdminButton onClick={buildPlan} disabled={selected.length === 0 || saving}>Разложить</AdminButton>

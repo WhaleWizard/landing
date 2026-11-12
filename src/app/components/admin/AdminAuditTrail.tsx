@@ -243,9 +243,9 @@ export default function AdminAuditTrail({
 
       {/* Error Box */}
       {error && (
-        <div className="admin-audit-error-box">
+        <div className="admin-audit-error-box" role="alert">
           <Shield className="h-4 w-4 text-red-400 flex-shrink-0" />
-          <span>{error}</span>
+          <span>{error}{activities.length ? ' Показаны последние загруженные записи.' : ''}</span>
         </div>
       )}
 

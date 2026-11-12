@@ -187,6 +187,9 @@ export default function AdminToday({
   const [data, setData] = useState<TodayResponse | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [todayError, setTodayError] = useState('');
+  const [statsError, setStatsError] = useState('');
+  const loadSequence = useRef(0);
   const [showAllFocus, setShowAllFocus] = useState(false);
   const { articles } = useArticles();
   // План и заметка дня пишут одну и ту же неделю планера — по очереди, иначе
@@ -194,26 +197,30 @@ export default function AdminToday({
   const plannerQueue = useRef<Promise<void>>(Promise.resolve());
 
   const load = useCallback(async () => {
+    const requestId = ++loadSequence.current;
     setLoading(true);
+    setTodayError('');
+    setStatsError('');
     const headers = { 'X-Admin-Password': password };
     const options = { headers, credentials: 'same-origin' as const, cache: 'no-store' as const };
-    try {
-      const [todayResponse, statsResponse] = await Promise.all([
-        // Часовой пояс нужен, чтобы «план на сегодня» совпадал с тем днём,
-        // который показывает планер: он считает дни местным календарём.
-        fetch(`/api/admin/today?timezone_offset=${new Date().getTimezoneOffset()}`, options),
-        fetch(`/api/admin/stats?timezone_offset=${new Date().getTimezoneOffset()}`, options),
-      ]);
-      const todayPayload = await todayResponse.json().catch(() => null) as TodayResponse | null;
-      const statsPayload = await statsResponse.json().catch(() => null) as StatsResponse | null;
-      setData(todayPayload || { success: false, error: `HTTP ${todayResponse.status}` });
-      setStats(statsPayload?.success ? statsPayload : null);
-    } catch (error) {
-      setData({ success: false, error: error instanceof Error ? error.message : 'Не удалось загрузить сводку' });
-      setStats(null);
-    } finally {
-      setLoading(false);
+    const offset = new Date().getTimezoneOffset();
+    const read = async <T extends { success?: boolean; error?: string }>(section: 'today' | 'stats') => {
+      const response = await fetch(`/api/admin/${section}?timezone_offset=${offset}`, options);
+      const payload = await response.json().catch(() => null) as T | null;
+      if (!payload || (!response.ok && payload.success)) throw new Error(payload?.error || `HTTP ${response.status}`);
+      return payload;
+    };
+    const [today, statistics] = await Promise.allSettled([read<TodayResponse>('today'), read<StatsResponse>('stats')]);
+    if (requestId !== loadSequence.current) return;
+    if (today.status === 'fulfilled' && today.value.success) setData(today.value);
+    else {
+      const message = today.status === 'fulfilled' ? today.value.error : today.reason?.message;
+      setTodayError(message || 'Не удалось загрузить рабочую сводку');
+      if (today.status === 'fulfilled') setData((current) => current?.success ? current : today.value);
     }
+    if (statistics.status === 'fulfilled' && statistics.value.success) setStats(statistics.value);
+    else setStatsError('Не удалось обновить статистику сайта.');
+    setLoading(false);
   }, [password]);
 
   useEffect(() => { void load(); }, [load]);
@@ -333,12 +340,15 @@ export default function AdminToday({
         )}
       </section>
 
+      {todayError && data?.success && <div className="admin-notice admin-notice--warning" role="alert">{todayError} Показана последняя рабочая сводка.</div>}
+      {statsError && <div className="admin-notice admin-notice--warning" role="alert">{statsError}{stats ? ' Показаны последние полученные цифры.' : ''}</div>}
+
       {!data?.success && !loading && (
         <div className="admin-empty">
           <CircleDot aria-hidden="true" />
           <div>
             <strong>{data?.localOnly ? 'Рабочая сводка доступна на production' : 'Не удалось загрузить рабочую сводку'}</strong>
-            <p>{data?.error || 'Для этого экрана требуется подключённая Cloudflare D1.'}</p>
+            <p>{todayError || data?.error || 'Для этого экрана требуется подключённая Cloudflare D1.'}</p>
           </div>
         </div>
       )}
@@ -380,8 +390,8 @@ export default function AdminToday({
           <StatTile
             icon={<ListChecks aria-hidden="true" />}
             title="Задачи в работе"
-            value={<CountUpValue value={Number(data?.summary?.tasksOpen ?? 0)} />}
-            detail={Number(data?.summary?.tasksOverdue || 0) > 0
+            value={<CountUpValue value={data?.summary?.tasksOpen ?? null} />}
+            detail={data?.summary?.tasksOverdue === undefined ? 'Данные о задачах недоступны.' : data.summary.tasksOverdue > 0
               ? `${formatNumber(data?.summary?.tasksOverdue)} просрочено.`
               : 'Просроченных задач нет.'}
             spark={series.map((point) => Math.max(0, (point.leads || 0) + (Number(point.visitors || 0) > 0 ? 1 : 0)))}

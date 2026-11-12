@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261112-21,P2,Keep available dashboard data during partial failures,AdminToday.tsx,COMPLETED,
+ADMIN-20261112-22,P2,Retain attribution for the active period after refresh failure,AdminAttribution.tsx,COMPLETED,
+ADMIN-20261112-23,P2,Label retained audit records,AdminAuditTrail.tsx,COMPLETED,
+ADMIN-20261112-24,P2,Ignore migration status from obsolete responses,AdminContentControl.tsx,COMPLETED,
+ADMIN-20261112-25,P2,Retry unconfirmed schedule batches,PublishSchedulePanel.tsx,COMPLETED,
 ADMIN-20261112-16,P1,Keep one-time backup codes visible,AdminSecurity.tsx,COMPLETED,
 ADMIN-20261112-17,P2,Recover from status and logout errors,AdminSecurity.tsx,COMPLETED,
 ADMIN-20261112-18,P2,Settle overlapping and unmounted text prompts,AdminPrompt.tsx,COMPLETED,

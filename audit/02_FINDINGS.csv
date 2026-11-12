@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261112-21,P2,ADMIN,/admin/,AdminToday.tsx,One failed request hid valid data from another,Dashboard requests shared an all-or-nothing error path,FIXED,AdminToday.tsx,Isolated browser matrix
+ADMIN-20261112-22,P2,ADMIN,/admin/,AdminAttribution.tsx,HTTP failure replaced an existing report,Failure payload overwrote the successful result,FIXED,AdminAttribution.tsx,Isolated browser matrix
+ADMIN-20261112-23,P2,ADMIN,/admin/,AdminAuditTrail.tsx,Stale records were not identified after refresh failure,Error omitted the state of visible records,FIXED,AdminAuditTrail.tsx,Isolated browser matrix
+ADMIN-20261112-24,P2,ADMIN,/admin/,AdminContentControl.tsx,An obsolete response could change the migration notice,Migration state was updated before the request guard,FIXED,AdminContentControl.tsx,Isolated browser matrix
+ADMIN-20261112-25,P2,ADMIN,/admin/,PublishSchedulePanel.tsx,Partial schedule failure offered to retry confirmed batches,Panel did not track completed batches,FIXED,PublishSchedulePanel.tsx,Isolated browser matrix
 ADMIN-20261112-16,P1,ADMIN,/admin/,AdminSecurity.tsx,One-time backup codes could be hidden immediately after enabling 2FA,Enabled status rendered before the one-time codes,FIXED,AdminSecurity.tsx,Isolated browser matrix
 ADMIN-20261112-17,P2,ADMIN,/admin/,AdminSecurity.tsx,Network errors blocked status and logout,Authentication request rejection was unhandled,FIXED,AdminSecurity.tsx,Isolated browser matrix
 ADMIN-20261112-18,P2,ADMIN,/admin/,AdminPrompt.tsx,Input dialog requests could remain pending,An active request could be replaced or unmounted without resolution,FIXED,AdminPrompt.tsx,Isolated browser matrix

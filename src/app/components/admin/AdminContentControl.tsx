@@ -1619,12 +1619,12 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         success?: boolean; error?: string; code?: string; migration?: string;
         section?: SectionPayload | null; versions?: VersionRow[];
       } | null;
+      if (requestId !== loadSequence.current) return false;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.code === 'MIGRATION_REQUIRED' ? String(payload.migration || '') : '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       setMigration('');
-      if (requestId !== loadSequence.current) return false;
       if (JSON.stringify(contentRef.current) !== contentAtRequest) {
         setNotice('Ответ получен, но не применён: в редакторе уже есть более новые несохранённые изменения.');
         return false;
