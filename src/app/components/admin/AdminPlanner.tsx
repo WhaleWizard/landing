@@ -751,7 +751,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     return index === -1 ? 0 : index;
   });
   const [focusId, setFocusId] = useState<string | null>(null);
-  const [editorId] = useState(() => createId('editor'));
+  const [editorId] = useState(() => Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-'));
   const [offeredDraft, setOfferedDraft] = useState<PlannerDraft | null>(null);
 
   const pendingRef = useRef(new Map<string, { data: PlannerWeekData; local: boolean }>());
