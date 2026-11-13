@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-25,P2,STATE,/admin/,AdminFinance,Old invoice save closes the next form,Save completion clears any current draft,FIXED,AdminFinance.tsx,Reopen invoice during delayed write
+ADMIN-20261113-26,P2,STATE,/admin/,AdminFinance,Old expense save closes the next form,Save completion clears any current draft,FIXED,AdminFinance.tsx,Reopen expense during delayed write
+ADMIN-20261113-27,P2,STATE,/admin/,AdminFinance,Old time save closes the next form,Save completion clears any current draft,FIXED,AdminFinance.tsx,Reopen time entry during delayed write
+ADMIN-20261113-28,P2,STATE,/admin/,AdminAlerts,Old response can replace current notifications,No active read guard,FIXED,AdminAlerts.tsx,Out-of-order alert responses
+ADMIN-20261113-29,P2,STATE,/admin/,AdminAlerts,Two synchronous clicks can send duplicate actions,Only the rendered busy flag guards actions,FIXED,AdminAlerts.tsx,Double click during dismissal
 ADMIN-20261113-20,P2,STATE,/admin/,AdminClients,Late deletion closes a different client,Success clears current selection regardless of identity,FIXED,AdminClients.tsx,Switch clients while deletion is pending
 ADMIN-20261113-21,P1,DATA,/admin/,AdminClients,Late contract upload can attach to a different client or overwrite a manual edit,Upload completion is not tied to the original editor,FIXED,AdminClients.tsx,Switch clients and edit the contract link during upload
 ADMIN-20261113-22,P2,STATE,/admin/,AdminClients,Old client list replaces current data,No request sequence guard,FIXED,AdminClients.tsx,Delayed old response

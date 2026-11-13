@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowRight, BellRing, CircleAlert, RefreshCw, Send, X } from 'lucide-react';
 import { notify } from './AdminFeedback';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
@@ -62,8 +62,13 @@ export default function AdminAlerts({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const listRequest = useRef(null as AbortController | null);
+  const actionRequest = useRef(null as AbortController | null);
 
   const load = useCallback(async () => {
+    listRequest.current?.abort();
+    const request = new AbortController();
+    listRequest.current = request;
     setLoading(true);
     setError('');
     try {
@@ -71,8 +76,10 @@ export default function AdminAlerts({
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
+        signal: request.signal,
       });
       const payload = await response.json().catch(() => null) as AlertsResponse | null;
+      if (request.signal.aborted) return;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         if (!payload?.migration) setError('Не удалось загрузить уведомления. Попробуйте обновить список.');
@@ -82,33 +89,55 @@ export default function AdminAlerts({
       setAlerts(payload.alerts || []);
       setTelegram(Boolean(payload.telegramConfigured));
     } catch {
+      if (request.signal.aborted) return;
       setError('Не удалось связаться с сервером. Попробуйте обновить список.');
       setMigration('');
     } finally {
-      setLoading(false);
+      if (listRequest.current === request) {
+        listRequest.current = null;
+        setLoading(false);
+      }
     }
   }, [password]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    setBusy(false);
+    void load();
+    return () => {
+      listRequest.current?.abort();
+      listRequest.current = null;
+      actionRequest.current?.abort();
+      actionRequest.current = null;
+    };
+  }, [load]);
 
   const post = async (body: Record<string, unknown>): Promise<AlertsResponse | null> => {
+    if (actionRequest.current || listRequest.current) return null;
+    const request = new AbortController();
+    actionRequest.current = request;
     setBusy(true);
     try {
       const response = await fetch(`/api/admin/alerts?timezone_offset=${new Date().getTimezoneOffset()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
+        signal: request.signal,
         body: JSON.stringify(body),
       });
       const payload = await response.json().catch(() => null) as AlertsResponse | null;
+      if (request.signal.aborted) return null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       setAlerts(payload.alerts || []);
+      setError('');
       return payload;
     } catch (error) {
-      notify.error('Не получилось', error instanceof Error ? error.message : undefined);
+      if (!request.signal.aborted) notify.error('Не получилось', error instanceof Error ? error.message : undefined);
       return null;
     } finally {
-      setBusy(false);
+      if (actionRequest.current === request) {
+        actionRequest.current = null;
+        setBusy(false);
+      }
     }
   };
 
@@ -188,7 +217,7 @@ export default function AdminAlerts({
             <button
               type="button"
               className="admin-button admin-button--compact"
-              disabled={busy}
+              disabled={loading || busy}
               title="Отправить непоказанные поводы в Telegram"
               onClick={async () => {
                 const payload = await post({ action: 'notify' });
@@ -230,7 +259,7 @@ export default function AdminAlerts({
                 className="admin-icon-button"
                 aria-label={`Скрыть: ${alert.title}`}
                 title="Скрыть. Повод вернётся, если ситуация повторится"
-                disabled={busy}
+                disabled={loading || busy}
                 onClick={() => void post({ action: 'dismiss', id: alert.id })}
               >
                 <X aria-hidden="true" />

@@ -693,7 +693,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
 
           {invoiceDraft && (
             <div className="finance__form">
-              <div className="admin-crm-form-grid">
+              <fieldset className="admin-crm-form-grid min-w-0" disabled={busy}>
                 {oneOffSales && (
                 <AdminSelect label="За что" value={invoiceDraft.kind || 'retainer'} options={KIND_OPTIONS}
                     onValueChange={(value) => setInvoiceDraft({ ...invoiceDraft, kind: value as InvoiceKind })} />
@@ -729,11 +729,11 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                 <label className="admin-field"><span className="admin-label">Номер</span>
                   <input className="admin-input" maxLength={60} value={invoiceDraft.number} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, number: e.target.value })} />
                 </label>
-              </div>
+              </fieldset>
               <div className="finance__form-actions">
                 <button type="button" className="admin-button admin-button--primary" disabled={busy} onClick={async () => {
                   const saved = await request({ ...invoiceDraft, action: 'save_invoice' }, 'Счёт сохранён');
-                  if (saved) setInvoiceDraft(null);
+                  if (saved) setInvoiceDraft((current) => current === invoiceDraft ? null : current);
                 }}>
                   <Save aria-hidden="true" /> Сохранить
                 </button>
@@ -836,7 +836,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
 
             {expenseDraft && (
               <div className="finance__form">
-                <div className="admin-crm-form-grid">
+                <fieldset className="admin-crm-form-grid min-w-0" disabled={busy}>
                   <label className="admin-field"><span className="admin-label">Дата</span>
                     <input className="admin-input" type="date" value={expenseDraft.day} onChange={(e) => setExpenseDraft({ ...expenseDraft, day: e.target.value })} />
                   </label>
@@ -849,11 +849,11 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                   <label className="admin-field admin-field--wide"><span className="admin-label">Комментарий</span>
                     <input className="admin-input" maxLength={300} value={expenseDraft.note} onChange={(e) => setExpenseDraft({ ...expenseDraft, note: e.target.value })} />
                   </label>
-                </div>
+                </fieldset>
                 <div className="finance__form-actions">
                   <button type="button" className="admin-button admin-button--primary" disabled={busy} onClick={async () => {
                     const saved = await request({ ...expenseDraft, action: 'save_expense' }, 'Расход записан');
-                    if (saved) setExpenseDraft(null);
+                    if (saved) setExpenseDraft((current) => current === expenseDraft ? null : current);
                   }}>Сохранить</button>
                   <button type="button" className="admin-button admin-button--quiet" onClick={() => setExpenseDraft(null)}>Отмена</button>
                 </div>
@@ -946,7 +946,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
 
             {timeDraft && (
               <div className="finance__form">
-                <div className="admin-crm-form-grid">
+                <fieldset className="admin-crm-form-grid min-w-0" disabled={busy}>
                   <AdminSelect label="Клиент" value={String(timeDraft.client_id || 0)} options={clientOptions}
                     onValueChange={(value) => setTimeDraft({ ...timeDraft, client_id: Number(value) || null, work_id:null })} />
                   {connectedWorkspace && <AdminSelect label="Проект или услуга" value={String(timeDraft.work_id||0)} options={[{value:'0',label:'Общее по клиенту'},...work.filter(w=>w.client_id===timeDraft.client_id).map(w=>({value:String(w.id),label:w.title}))]} onValueChange={v=>setTimeDraft({...timeDraft,work_id:Number(v)||null})}/>}
@@ -959,11 +959,11 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                   <label className="admin-field admin-field--wide"><span className="admin-label">Что делали</span>
                     <input className="admin-input" maxLength={300} value={timeDraft.note} onChange={(e) => setTimeDraft({ ...timeDraft, note: e.target.value })} />
                   </label>
-                </div>
+                </fieldset>
                 <div className="finance__form-actions">
                   <button type="button" className="admin-button admin-button--primary" disabled={busy} onClick={async () => {
                     const saved = await request({ ...timeDraft, action: 'save_time' }, 'Часы записаны');
-                    if (saved) setTimeDraft(null);
+                    if (saved) setTimeDraft((current) => current === timeDraft ? null : current);
                   }}>Сохранить</button>
                   <button type="button" className="admin-button admin-button--quiet" onClick={() => setTimeDraft(null)}>Отмена</button>
                 </div>

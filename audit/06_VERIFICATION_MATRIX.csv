@@ -1,4 +1,5 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Finance forms and alerts request order,output/playwright/admin-finance-alerts-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Client cards and list isolation plus migration status,output/playwright/admin-client-isolation-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Spend period and edits CSV audit and client clipboard,output/playwright/admin-five-input-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Health UTM copy campaign sort and media pagination,output/playwright/admin-five-followup-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED

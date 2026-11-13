@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-25,P2,Keep the next invoice form open,AdminFinance,COMPLETED,
+ADMIN-20261113-26,P2,Keep the next expense form open,AdminFinance,COMPLETED,
+ADMIN-20261113-27,P2,Keep the next time entry open,AdminFinance,COMPLETED,
+ADMIN-20261113-28,P2,Cancel obsolete notification reads,AdminAlerts,COMPLETED,
+ADMIN-20261113-29,P2,Prevent duplicate notification actions,AdminAlerts,COMPLETED,
 ADMIN-20261113-20,P2,Keep another client open after deletion,AdminClients,COMPLETED,
 ADMIN-20261113-21,P1,Bind a contract upload to its original editor,AdminClients,COMPLETED,
 ADMIN-20261113-22,P2,Discard obsolete client list responses,AdminClients,COMPLETED,
