@@ -12,6 +12,11 @@
 
 ## 2. Где мы сейчас
 
+**13.11 — SEO/AEO, Bing & IndexNow, флагманские статьи.** Подтверждён Bing Webmaster Tools (BingSiteAuth.xml + meta tag), настроен протокол IndexNow, развёрнут скрипт разведки поисковых интентов Google/Bing/Yandex (scripts/scout-intents.mjs, 396 интентов в docs/seo/intents/), расширен граф сущностей Schema.org (ProfessionalService, Person, knowsAbout, глобальный охват Worldwide). Написаны и опубликованы в production D1 две статьи по приоритетам владельца:
+1. /blog/targetolog-dlya-onlayn-shkol-i-infobiza-kak-okupat-trafik-v-meta-ads — воронки для онлайн-образования, Telegram/Direct боты, правило стоп-лоссов 1.5 CPL, Cost Cap и связка CAPI с CRM.
+2. /blog/reklama-mobilnyh-prilozheniy-v-meta-ads-ot-trekinga-do-okupaemyh-podpisok — мобильный маркетинг, отказ от оптимизации на инсталлы в пользу App Events (триалы, подписки), задержки SKAdNetwork 4.0, трекеры AppsFlyer/Adjust, юнит-экономика подписных приложений.
+Для обеих статей созданы уникальные 16:9 иллюстрации, оптимизированы через sharp в WebP-варианты (480–1376px) и зарегистрированы в манифесте. Пререндер успешно генерирует 30 статических маршрутов.
+
 **13.11 — Search Console.** Проверены график за один день, обновление ряда, навигация по графику, сортировка и фильтры поисковых запросов. [Результаты и открытые задачи](ADMIN_AUDIT_2026-11-09.md#search-console-с-клавиатуры-и-на-сенсорном-экране).
 
 **13.11 — Точность юнит-экономики.** Проверены округление воронки, пороги CPC/CPL, переполнение, вывод об окупаемости и ручное копирование. [Результаты и открытые задачи](ADMIN_AUDIT_2026-11-09.md#точность-юнит-экономики).
