@@ -7,7 +7,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const INDEXNOW_KEY = process.env.INDEXNOW_KEY || 'cf36e6767e3b180da717b912b2b9ea84';
+const INDEXNOW_KEY = process.env.INDEXNOW_KEY || '61487b66d6dc49dabfbd628839b66215';
 const HOST = 'www.whalewzrd.com';
 const SITE_URL = `https://${HOST}`;
 

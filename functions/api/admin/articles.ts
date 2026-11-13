@@ -50,7 +50,7 @@ function getSiteUrl(env: Env, request: Request): string {
   return origin.replace(/\/$/, '');
 }
 
-const DEFAULT_INDEXNOW_KEY = 'cf36e6767e3b180da717b912b2b9ea84';
+const DEFAULT_INDEXNOW_KEY = '61487b66d6dc49dabfbd628839b66215';
 
 async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Article[]): Promise<void> {
   const key = env.INDEXNOW_KEY || DEFAULT_INDEXNOW_KEY;
