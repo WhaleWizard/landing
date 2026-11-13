@@ -42,7 +42,17 @@ export const ABOUT_PROFILE = {
     alternateName: 'Whale Wizard',
     jobTitle: 'Таргетолог и performance-маркетолог',
     url: aboutUrl,
-    knowsAbout: ['Meta Ads', 'Google Ads', 'Продвижение мобильных приложений'],
+    knowsAbout: [
+      'Meta Ads',
+      'Instagram Ads',
+      'Facebook Ads',
+      'Google Ads',
+      'Meta Conversions API (CAPI)',
+      'SKAdNetwork',
+      'Продвижение мобильных приложений',
+      'Лидогенерация для онлайн-школ и инфобизнеса',
+      'Performance-маркетинг и юнит-экономика',
+    ],
     sameAs: ['https://t.me/white_rsh', 'https://instagram.com/whalewzrd'],
   },
 } as const;

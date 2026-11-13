@@ -317,7 +317,7 @@ function buildArticleStructuredData(article: Article, routeBase: '/blog' | '/cas
     ...(publishedDate ? { datePublished: publishedDate } : {}),
     ...(modifiedDate ? { dateModified: modifiedDate } : {}),
     mainEntityOfPage: canonical,
-    author: { '@type': 'Person', name: 'Руслан (Whale Wizard)', url: `${SITE_URL}/about/` },
+    author: { '@type': 'Person', name: 'Руслан (Whale Wizard)', url: `${SITE_URL}/about/`, sameAs: ['https://t.me/white_rsh', 'https://instagram.com/whalewzrd'] },
     publisher: {
       '@type': 'Organization',
       name: 'Whale Wizard',

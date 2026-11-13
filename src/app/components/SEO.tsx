@@ -138,7 +138,31 @@ export default function SEO({
       image: absoluteImage,
       description: 'Таргетолог Meta Ads и специалист по Google Ads: настройка и ведение рекламы в Instagram, Facebook и Google под заявки, продажи и установки приложений.',
       alternateName: ['WhaleWzrd', 'whalewzrd.com'],
-      knowsAbout: ['Meta Ads', 'Instagram Ads', 'Facebook Ads', 'Google Ads', 'Performance Max', 'Google Shopping', 'Meta Conversions API', 'Google Analytics 4', 'Google Tag Manager', 'Продвижение мобильных приложений', 'AppsFlyer', 'Adjust'],
+      knowsAbout: [
+        'Meta Ads',
+        'Instagram Ads',
+        'Facebook Ads',
+        'Google Ads',
+        'Performance Max',
+        'Google Shopping',
+        'Meta Conversions API (CAPI)',
+        'SKAdNetwork',
+        'Google Analytics 4',
+        'Google Tag Manager',
+        'Продвижение мобильных приложений',
+        'AppsFlyer',
+        'Adjust',
+        'Лидогенерация для инфобизнеса и онлайн-школ',
+        'Юнит-экономика и расчет ROMI',
+      ],
+      founder: {
+        '@type': 'Person',
+        '@id': `${SITE_URL}/about/#ruslan`,
+        name: 'Руслан',
+        alternateName: 'Whale Wizard',
+        jobTitle: 'Таргетолог и performance-маркетолог',
+        url: `${SITE_URL}/about/`,
+      },
       email: 'white@whalewzrd.com',
       // Услуга удалённая и на русском — это единственное, что здесь правда.
       // Прежний список RU/US/AE/TR/EU заявлял охват, которого нечем подтвердить:
@@ -147,7 +171,7 @@ export default function SEO({
       areaServed: 'Worldwide',
       availableLanguage: 'ru',
       serviceType: ['Таргетированная реклама в Instagram и Facebook', 'Настройка и ведение Google Ads', 'Продвижение мобильных приложений', 'Performance-маркетинг', 'Лидогенерация'],
-      sameAs: ['https://t.me/white_rsh'],
+      sameAs: ['https://t.me/white_rsh', 'https://instagram.com/whalewzrd'],
     });
 
     upsertJsonLd('ld-website', {

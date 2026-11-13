@@ -165,7 +165,7 @@ function articleJsonLd(siteUrl: string, article: Article, sectionPath = getArtic
         '@type': 'Person',
         name: 'Руслан (Whale Wizard)',
         url: `${siteUrl}/about/`,
-        sameAs: ['https://t.me/white_rsh'],
+        sameAs: ['https://t.me/white_rsh', 'https://instagram.com/whalewzrd'],
       },
       publisher: {
         '@type': 'Organization',
