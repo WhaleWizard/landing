@@ -67,5 +67,5 @@ test('F-130: article date formatting uses Asia/Tashkent timezone', () => {
   assert.match(genCode, /timeZone: 'Asia\/Tashkent'/);
 
   const calCode = readFileSync('src/app/components/admin/ArticleCalendar.tsx', 'utf8');
-  assert.match(calCode, /timeZone: 'Asia\/Tashkent'/);
+  assert.match(calCode, /ownerToday\(Date\.parse/);
 });

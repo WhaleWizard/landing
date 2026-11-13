@@ -358,6 +358,8 @@ export default function AdminPerformance({ password }: { password: string }) {
   const [rows, setRows] = useState<PageRow[]>([]);
   const [loadingPages, setLoadingPages] = useState(true);
   const [running, setRunning] = useState(false);
+  const runPending = useRef(false);
+  const pagesRequest = useRef(null as AbortController | null);
   const [notice, setNotice] = useState('');
   const [sitemapUrl, setSitemapUrl] = useState('');
   const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
@@ -442,6 +444,9 @@ export default function AdminPerformance({ password }: { password: string }) {
   const totalRuns = rows.length * 2;
 
   const loadPages = useCallback(async () => {
+    pagesRequest.current?.abort();
+    const request = new AbortController();
+    pagesRequest.current = request;
     setLoadingPages(true);
     setNotice('');
     try {
@@ -449,8 +454,10 @@ export default function AdminPerformance({ password }: { password: string }) {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
+        signal: request.signal,
       });
       const payload = await response.json().catch(() => ({})) as PagesPayload;
+      if (request.signal.aborted) return;
       if (!response.ok || !payload.success || !Array.isArray(payload.pages)) {
         throw new PerformanceApiError(payload.error || `HTTP ${response.status}`, payload.code);
       }
@@ -472,16 +479,24 @@ export default function AdminPerformance({ password }: { password: string }) {
       setApiBlocked(null);
       if (payload.truncated) setNotice(`В sitemap ${payload.total} страниц; показаны первые ${payload.pages.length}.`);
     } catch (error) {
+      if (request.signal.aborted) return;
       setApiKeyConfigured(null);
       if (isFatalError(error)) applyFatalBlock(error.code);
       setNotice(error instanceof Error ? error.message : 'Не удалось загрузить sitemap.xml');
     } finally {
-      setLoadingPages(false);
+      if (pagesRequest.current === request) {
+        pagesRequest.current = null;
+        setLoadingPages(false);
+      }
     }
   }, [applyFatalBlock, password]);
 
   useEffect(() => {
     void loadPages();
+    return () => {
+      pagesRequest.current?.abort();
+      pagesRequest.current = null;
+    };
   }, [loadPages]);
 
   useEffect(() => {
@@ -559,7 +574,8 @@ export default function AdminPerformance({ password }: { password: string }) {
   }, [applyFatalBlock, audit, updateRow]);
 
   const runAll = async () => {
-    if (running || rows.length === 0) return;
+    if (runPending.current || pagesRequest.current || rows.length === 0) return;
+    runPending.current = true;
     stopRequested.current = false;
     setRunning(true);
     setNotice('Проверка идёт по очереди: Mobile, затем Desktop для каждой страницы.');
@@ -594,12 +610,14 @@ export default function AdminPerformance({ password }: { password: string }) {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Проверка неожиданно прервалась.');
     } finally {
+      runPending.current = false;
       setRunning(false);
     }
   };
 
   const runOne = async (url: string) => {
-    if (running) return;
+    if (runPending.current || pagesRequest.current) return;
+    runPending.current = true;
     stopRequested.current = false;
     setRunning(true);
     setNotice('Перепроверяю страницу без использования кэша…');
@@ -607,12 +625,15 @@ export default function AdminPerformance({ password }: { password: string }) {
       const summary = await runPage(url, true);
       if (summary.fatal) {
         setNotice(`Перепроверка остановлена: ${fatalNotice(summary.fatal.code)}. Успешно: ${summary.successCount}, ошибок: ${summary.errorCount}.`);
+      } else if (stopRequested.current) {
+        setNotice(`Перепроверка остановлена вручную. Успешно: ${summary.successCount}, ошибок: ${summary.errorCount}.`);
       } else {
         setNotice(`Перепроверка завершена. Успешно: ${summary.successCount}, ошибок: ${summary.errorCount}.`);
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Перепроверка неожиданно прервалась.');
     } finally {
+      runPending.current = false;
       setRunning(false);
     }
   };

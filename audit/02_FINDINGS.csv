@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-40,P2,DATA,/admin/,ArticleCalendar,Grid date and initial month can differ from Tashkent,Browser local month and formatted owner date are mixed,FIXED,ArticleCalendar.tsx,Los Angeles browser at Tashkent month boundary
+ADMIN-20261113-41,P2,UX,/admin/,ArticleCalendar,Publications after the tenth cannot be opened from the day list,List only renders the first ten,FIXED,ArticleCalendar.tsx,Open publication twelve
+ADMIN-20261113-42,P2,STATE,/admin/,AdminPerformance,Old sitemap response replaces current rows and key state,No request cancellation,FIXED,AdminPerformance.tsx,Old response arrives after current response
+ADMIN-20261113-43,P2,STATE,/admin/,AdminPerformance,Repeated audit click starts overlapping requests,Busy state is only updated after render,FIXED,AdminPerformance.tsx,Two synchronous clicks
+ADMIN-20261113-44,P2,STATE,/admin/,AdminPerformance,Stopped page audit reports completion,Single page path ignores manual stop flag,FIXED,AdminPerformance.tsx,Stop during mobile request and skip desktop
 ADMIN-20261113-35,P2,DATA,/admin/,AdminMedia,Open preview shows obsolete alt after save,Only the grid is updated,FIXED,AdminMedia.tsx,New caption and pending draft
 ADMIN-20261113-36,P2,STATE,/admin/,AdminMedia,Repeated Enter sends duplicate alt writes,Keyboard bypasses button busy state,FIXED,AdminMedia.tsx,Two Enter events during a pending write
 ADMIN-20261113-37,P2,STATE,/admin/,AdminMedia,Earlier timer hides a later copy indicator,Timeout is not replaced,FIXED,AdminMedia.tsx,Two sequential clipboard writes

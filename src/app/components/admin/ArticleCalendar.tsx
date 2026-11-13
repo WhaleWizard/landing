@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import type { Article } from '../hooks/useArticlesApi';
+import { ownerToday } from '../../utils/publishSchedule';
 
 /**
  * Календарь публикаций: когда что вышло и что стоит в очереди.
@@ -18,24 +19,14 @@ import type { Article } from '../hooks/useArticlesApi';
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
 
-const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' });
+const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+function currentMonth(): Date {
+  return new Date(`${ownerToday().slice(0, 7)}-01T00:00:00Z`);
 }
 
 function shiftMonth(date: Date, months: number): Date {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1);
-}
-
-function localDayKey(date: Date): string {
-  try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(date);
-  } catch {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${date.getFullYear()}-${month}-${day}`;
-  }
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
 }
 
 function hasExactDate(article: Article): boolean {
@@ -49,15 +40,16 @@ function ArticleCalendar({
   articles: Article[];
   onOpen: (article: Article) => void;
 }) {
-  const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [month, setMonth] = useState(currentMonth);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const byDay = useMemo(() => {
     const map = new Map<string, Article[]>();
     articles.forEach((article) => {
       // Черновик с датой — это не публикация в этот день, а заготовка.
       if (article.status === 'draft' || !hasExactDate(article)) return;
-      const key = localDayKey(new Date(article.publishedAt || ''));
+      const key = ownerToday(Date.parse(article.publishedAt || ''));
       const list = map.get(key);
       if (list) list.push(article);
       else map.set(key, [article]);
@@ -78,16 +70,14 @@ function ArticleCalendar({
 
   // Сетка начинается с понедельника той недели, в которую попало первое число.
   const cells = useMemo(() => {
-    const first = startOfMonth(month);
-    const weekday = first.getDay();
+    const weekday = month.getUTCDay();
     const lead = weekday === 0 ? 6 : weekday - 1;
-    const start = new Date(first.getFullYear(), first.getMonth(), 1 - lead);
     return Array.from({ length: 42 }, (_, index) => (
-      new Date(start.getFullYear(), start.getMonth(), start.getDate() + index)
+      new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1 - lead + index))
     ));
   }, [month]);
 
-  const todayKey = localDayKey(new Date());
+  const todayKey = ownerToday();
   const now = Date.now();
   const selected = selectedDay ? byDay.get(selectedDay) || [] : [];
 
@@ -119,9 +109,10 @@ function ArticleCalendar({
 
       <div className="article-calendar__grid">
         {cells.map((date) => {
-          const key = localDayKey(date);
+          const key = date.toISOString().slice(0, 10);
+          const day = date.getUTCDate();
           const items = byDay.get(key) || [];
-          const outside = date.getMonth() !== month.getMonth();
+          const outside = date.getUTCMonth() !== month.getUTCMonth();
           const planned = items.length > 0 && items.every((article) => new Date(article.publishedAt || 0).getTime() > now);
           const title = items.length
             ? items.map((article) => article.title || article.slug).join('\n')
@@ -137,10 +128,14 @@ function ArticleCalendar({
               data-selected={selectedDay === key || undefined}
               disabled={items.length === 0}
               title={title}
-              aria-label={items.length ? `${date.getDate()}: публикаций — ${items.length}` : String(date.getDate())}
-              onClick={() => setSelectedDay((current) => (current === key ? null : key))}
+              aria-label={items.length ? `${day}: публикаций — ${items.length}` : String(day)}
+              aria-pressed={items.length ? selectedDay === key : undefined}
+              onClick={() => {
+                setVisibleCount(10);
+                setSelectedDay((current) => (current === key ? null : key));
+              }}
             >
-              <span className="article-calendar__num">{date.getDate()}</span>
+              <span className="article-calendar__num">{day}</span>
               {items.length > 0 && <span className="article-calendar__dot">{items.length > 1 ? items.length : ''}</span>}
             </button>
           );
@@ -149,17 +144,17 @@ function ArticleCalendar({
 
       {selected.length > 0 && (
         <ul className="article-calendar__list">
-          {/* Разовый импорт кладёт десятки материалов на одну дату — весь
-              список раздул бы колонку, поэтому показываем первые десять. */}
-          {selected.slice(0, 10).map((article) => (
+          {selected.slice(0, visibleCount).map((article) => (
             <li key={article.slug}>
               <button type="button" onClick={() => onOpen(article)}>
                 {article.title || article.slug}
               </button>
             </li>
           ))}
-          {selected.length > 10 && (
-            <li className="article-calendar__more">и ещё {selected.length - 10} в этот день</li>
+          {selected.length > visibleCount && (
+            <li><button type="button" onClick={() => setVisibleCount((count) => count + 10)}>
+              Показать ещё {Math.min(10, selected.length - visibleCount)}
+            </button></li>
           )}
         </ul>
       )}
