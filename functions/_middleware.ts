@@ -263,6 +263,18 @@ async function staticPage(
 export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUntil }) => {
   const url = new URL(request.url);
 
+  if (url.pathname === '/BingSiteAuth.xml') {
+    return new Response(
+      '<?xml version="1.0"?>\n<users>\n\t<user>CF36E6767E3B180DA717B912B2B9EA84</user>\n</users>',
+      {
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      },
+    );
+  }
+
   if (LEGACY_HOSTS.has(url.hostname)) {
     const redirectUrl = new URL(request.url);
     redirectUrl.hostname = CANONICAL_HOST;
