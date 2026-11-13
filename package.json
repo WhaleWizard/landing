@@ -70,6 +70,7 @@
     "audit:mcp": "node scripts/audit/smoke-test-mcp.mjs",
     "audit:madge": "madge --circular --extensions ts,tsx --ts-config tsconfig.app.json src/main.tsx",
     "lint": "eslint src/",
+    "ping:indexnow": "node scripts/ping-indexnow.mjs",
     "test:admin-workspace": "node --test scripts/admin-workspace.test.js"
   },
   "dependencies": {

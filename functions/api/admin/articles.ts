@@ -50,8 +50,11 @@ function getSiteUrl(env: Env, request: Request): string {
   return origin.replace(/\/$/, '');
 }
 
+const DEFAULT_INDEXNOW_KEY = 'cf36e6767e3b180da717b912b2b9ea84';
+
 async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Article[]): Promise<void> {
-  if (!env.INDEXNOW_KEY) return;
+  const key = env.INDEXNOW_KEY || DEFAULT_INDEXNOW_KEY;
+  if (!key) return;
 
   const endpoint = env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow';
   let parsedEndpoint: URL;
@@ -79,8 +82,8 @@ async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Articl
     },
     body: JSON.stringify({
       host,
-      key: env.INDEXNOW_KEY,
-      keyLocation: `${siteUrl}/${env.INDEXNOW_KEY}.txt`,
+      key,
+      keyLocation: `${siteUrl}/${key}.txt`,
       urlList: urls.slice(0, 10000),
     }),
     cf: {
