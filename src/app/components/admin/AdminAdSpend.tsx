@@ -54,8 +54,10 @@ export default function AdminAdSpend({
   onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [entries, setEntries] = useState<SpendEntry[]>([]);
-  const [totals, setTotals] = useState<Array<{ currency: string; amount: number }>>([]);
+  const [snapshot, setSnapshot] = useState<{ days: number; data: SpendResponse } | null>(null);
+  const activeData = snapshot?.days === days ? snapshot.data : null;
+  const entries = activeData?.entries;
+  const totals = activeData?.totals;
   const [knownSources, setKnownSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +68,7 @@ export default function AdminAdSpend({
   const [csvOpen, setCsvOpen] = useState(false);
   const [csv, setCsv] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const csvRevision = useRef(0);
   const loadSequence = useRef(0);
   const savingRef = useRef(false);
 
@@ -86,8 +89,7 @@ export default function AdminAdSpend({
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       setMigration('');
-      setEntries(payload.entries || []);
-      setTotals(payload.totals || []);
+      setSnapshot({ days, data: payload });
       setKnownSources(payload.knownSources || []);
     } catch (loadError) {
       if (requestId === loadSequence.current) setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить расходы');
@@ -145,32 +147,49 @@ export default function AdminAdSpend({
     if (!draft.source.trim()) { setError('Укажите источник — он должен совпадать с utm_source заявок'); return; }
     if (!draft.amount.trim()) { setError('Укажите сумму расхода'); return; }
     const ok = await post({ action: 'upsert', entries: [draft] }, () => `Расход за ${formatDay(draft.day)} сохранён`);
-    if (ok) setDraft((current) => ({ ...current, amount: '', note: '' }));
+    if (ok) setDraft((current) => current === draft ? { ...current, amount: '', note: '' } : current);
+  };
+
+  const changeCsv = (text: string) => {
+    csvRevision.current++;
+    setCsv(text);
   };
 
   const importCsv = async () => {
     if (!csv.trim()) { setError('Вставьте содержимое CSV или выберите файл'); return; }
+    const revision = csvRevision.current;
     const ok = await post({ action: 'import_csv', csv }, (payload) => (
       `Загружено строк: ${payload.saved || 0}`
       + `${payload.skipped ? `, пропущено: ${payload.skipped}` : ''}`
       + `${payload.merged ? `, объединено: ${payload.merged}` : ''}`
     ));
-    if (ok) {
-      setCsv('');
+    if (ok && revision === csvRevision.current) {
+      changeCsv('');
       setCsvOpen(false);
     }
   };
 
   const readFile = async (file: File | null | undefined) => {
     if (!file) return;
+    const revision = ++csvRevision.current;
     if (file.size > 512 * 1024) { setError('Файл больше 512 КБ — загрузите выгрузку меньшего периода'); return; }
-    setCsv(await file.text());
-    setCsvOpen(true);
+    setError('');
+    try {
+      const text = await file.text();
+      if (revision === csvRevision.current) setCsv(text);
+    } catch {
+      if (revision === csvRevision.current) setError('Не удалось прочитать CSV. Выберите файл ещё раз или вставьте данные вручную.');
+    }
+  };
+
+  const toggleCsv = () => {
+    csvRevision.current++;
+    setCsvOpen((value) => !value);
   };
 
   const grouped = useMemo(() => {
     const map = new Map<string, SpendEntry[]>();
-    for (const entry of entries) {
+    for (const entry of entries ?? []) {
       const list = map.get(entry.day) || [];
       list.push(entry);
       map.set(entry.day, list);
@@ -186,13 +205,16 @@ export default function AdminAdSpend({
           <p className="admin-hint">
             Единственные данные, которых нет в системе автоматически. Введи их — и воронка покажет цену лида, цену целевого лида и окупаемость.
           </p>
-          {totals.length > 0 && (
+          {Boolean(totals?.length) && (
             <p className="adm-spend__totals">
-              За период: {totals.map((total) => formatMoney(total.amount, total.currency)).join(' · ')}
+              За период: {totals?.map((total) => formatMoney(total.amount, total.currency)).join(' · ')}
             </p>
           )}
         </div>
-        <button type="button" className="admin-button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <button type="button" className="admin-button" onClick={() => {
+          if (open) csvRevision.current++;
+          setOpen((value) => !value);
+        }} aria-expanded={open}>
           <CircleDollarSign aria-hidden="true" /> {open ? 'Свернуть' : 'Ввести расходы'}
         </button>
       </div>
@@ -250,7 +272,7 @@ export default function AdminAdSpend({
               <button type="submit" className="admin-button admin-button--primary" disabled={saving}>
                 <Plus aria-hidden="true" /> {saving ? 'Сохраняю…' : 'Добавить'}
               </button>
-              <button type="button" className="admin-button admin-button--quiet" onClick={() => setCsvOpen((value) => !value)}>
+              <button type="button" className="admin-button admin-button--quiet" onClick={toggleCsv}>
                 <FileUp aria-hidden="true" /> Загрузить CSV
               </button>
             </div>
@@ -276,7 +298,7 @@ export default function AdminAdSpend({
               />
               <textarea
                 value={csv}
-                onChange={(event) => setCsv(event.target.value)}
+                onChange={(event) => changeCsv(event.target.value)}
                 rows={6}
                 spellCheck={false}
                 placeholder={'date,source,campaign,amount,currency\n2026-07-01,facebook,retargeting,120.50,USD'}
@@ -286,20 +308,20 @@ export default function AdminAdSpend({
                 <button type="button" className="admin-button admin-button--primary" onClick={() => void importCsv()} disabled={saving}>
                   <FileUp aria-hidden="true" /> {saving ? 'Загружаю…' : 'Загрузить'}
                 </button>
-                <button type="button" className="admin-button admin-button--quiet" onClick={() => { setCsv(''); setCsvOpen(false); }}>Отмена</button>
+                <button type="button" className="admin-button admin-button--quiet" onClick={() => { changeCsv(''); setCsvOpen(false); }}>Отмена</button>
               </div>
             </div>
           )}
 
           <div className="adm-spend__list-head">
-            <strong>Введено строк: {entries.length}</strong>
+            <strong>{activeData ? `Введено строк: ${entries?.length ?? 0}` : 'Расходы за период'}</strong>
             <button type="button" className="admin-button admin-button--quiet" onClick={() => void load()} disabled={loading}>
               <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить
             </button>
           </div>
 
-          {loading && !entries.length ? <p className="admin-muted" role="status">Загружаю расходы…</p> : null}
-          {!loading && !entries.length && !migration ? (
+          {loading && !activeData ? <p className="admin-muted" role="status">Загружаю расходы…</p> : null}
+          {!loading && activeData && !entries?.length && !migration && !error ? (
             <div className="admin-empty">
               <div>
                 <strong>Расходов пока нет</strong>

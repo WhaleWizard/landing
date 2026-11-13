@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-15,P2,DATA,/admin/,AdminAdSpend,Old totals appear under new period,Snapshot has no period key,FIXED,AdminAdSpend.tsx,Delayed period change
+ADMIN-20261113-16,P2,DATA,/admin/,AdminAdSpend,Successful write clears newer input,Draft clearing ignores later edits,FIXED,AdminAdSpend.tsx,Delayed write with a newer amount
+ADMIN-20261113-17,P2,DATA,/admin/,AdminAdSpend,Late CSV operation overwrites newer text,File read and import are not tied to a draft revision,FIXED,AdminAdSpend.tsx,Delayed reads and import with a newer CSV
+ADMIN-20261113-18,P2,STATE,/admin/,AdminAuditTrail,Old response can replace current journal,Previous requests stay active,FIXED,AdminAuditTrail.tsx,Out-of-order journal responses
+ADMIN-20261113-19,P2,STATE,/admin/,ClientLaunchpad,Missing clipboard API throws on report copy,Synchronous clipboard failure bypasses handler,FIXED,ClientLaunchpad.tsx,Missing clipboard with visible feedback
 ADMIN-20261113-10,P2,STATE,/admin/,AdminHealth,Late diagnostics response can replace current results,Earlier request is not cancelled,FIXED,AdminHealth.tsx,Out of order responses in Chromium and WebKit
 ADMIN-20261113-11,P2,STATE,/admin/,AdminUtmBuilder,Cleared history can reappear,Pending clipboard success records old operation,FIXED,AdminUtmBuilder.tsx,Delayed clipboard resolution
 ADMIN-20261113-12,P2,ACCESSIBILITY,/admin/,AttributionVisualPro,Touch copy action is hidden and copy errors are silent,Hover-only visibility and swallowed rejection,FIXED,AttributionVisualPro.tsx and admin-ui.css,44 px target and denied clipboard

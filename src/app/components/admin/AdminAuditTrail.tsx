@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Bot,
@@ -101,6 +101,7 @@ export default function AdminAuditTrail({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [isDemo, setIsDemo] = useState<boolean>(false);
+  const activeRequest = useRef(null as AbortController | null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -108,6 +109,9 @@ export default function AdminAuditTrail({
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   const fetchAudit = useCallback(async () => {
+    activeRequest.current?.abort();
+    const request = new AbortController();
+    activeRequest.current = request;
     setLoading(true);
     setError('');
     try {
@@ -115,6 +119,7 @@ export default function AdminAuditTrail({
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
+        signal: request.signal,
       });
       const data = await res.json().catch(() => null) as {
         success?: boolean;
@@ -127,17 +132,25 @@ export default function AdminAuditTrail({
         throw new Error(data?.error || `HTTP ${res.status}`);
       }
 
+      if (request.signal.aborted) return;
       setActivities(data.activities || []);
       setIsDemo(Boolean(data.isDemo));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить аудит-лог');
+      if (!request.signal.aborted) setError(err instanceof Error ? err.message : 'Не удалось загрузить аудит-лог');
     } finally {
-      setLoading(false);
+      if (activeRequest.current === request) {
+        activeRequest.current = null;
+        setLoading(false);
+      }
     }
   }, [password]);
 
   useEffect(() => {
     void fetchAudit();
+    return () => {
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+    };
   }, [fetchAudit]);
 
   // Filtered Activities

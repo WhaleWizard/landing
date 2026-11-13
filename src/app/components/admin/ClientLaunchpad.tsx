@@ -97,7 +97,7 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
   }, [allItems, activeChecked]);
 
   // Copy launch preflight report
-  const handleCopyReport = () => {
+  const handleCopyReport = async () => {
     const completedList = allItems.filter((item) => activeChecked[item.id]);
     const pendingList = allItems.filter((item) => !activeChecked[item.id]);
 
@@ -129,11 +129,12 @@ export default function ClientLaunchpad({ clientId, clientName }: ClientLaunchpa
       });
     }
 
-    navigator.clipboard.writeText(text).then(() => {
+    try {
+      await navigator.clipboard.writeText(text);
       notify.success('Отчёт скопирован', 'Готов для отправки клиенту в Telegram/WhatsApp');
-    }).catch(() => {
+    } catch {
       notify.error('Не удалось скопировать в буфер обмена');
-    });
+    }
   };
 
   const handleResetChecklist = async () => {

@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-15,P2,Scope spend rows and totals to their period,AdminAdSpend,COMPLETED,
+ADMIN-20261113-16,P2,Keep newer manual spend input,AdminAdSpend,COMPLETED,
+ADMIN-20261113-17,P2,Keep current CSV across asynchronous operations,AdminAdSpend,COMPLETED,
+ADMIN-20261113-18,P2,Cancel obsolete journal requests,AdminAuditTrail,COMPLETED,
+ADMIN-20261113-19,P2,Report an unavailable clipboard,ClientLaunchpad,COMPLETED,
 ADMIN-20261113-10,P2,Discard stale health responses,AdminHealth,COMPLETED,
 ADMIN-20261113-11,P2,Keep cleared UTM history cleared,AdminUtmBuilder,COMPLETED,
 ADMIN-20261113-12,P2,Expose attribution copy on touch and report failure,AttributionVisualPro,COMPLETED,
