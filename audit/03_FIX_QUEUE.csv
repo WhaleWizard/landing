@@ -1,4 +1,5 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+NAV-20261113-01,P2,Suppress recovery while leaving the failed document,Public routing,COMPLETED,
 ADMIN-20261113-70,P2,Block overlapping pin and reorder actions,Admin.tsx,COMPLETED,
 ADMIN-20261113-71,P2,Validate pin membership atomically,Article CMS,COMPLETED,
 ADMIN-20261113-72,P2,Use ten public slots and preserve legacy pin lists,Article CMS,COMPLETED,

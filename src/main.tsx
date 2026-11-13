@@ -6,6 +6,7 @@ import { initLeadRetryQueue } from './app/utils/leadRetryQueue';
 import { startWebVitals } from './app/utils/webVitals';
 import { prepareRoute } from './app/utils/routePreload';
 import { generatedFirstScreenRoute } from './app/utils/firstScreen';
+import { trackDocumentNavigation } from './app/utils/documentNavigation';
 import { articleVersion, readArticleSeed } from './app/context/ArticlesContext';
 import "./styles/index.css";
 
@@ -13,6 +14,7 @@ import "./styles/index.css";
 // не отправляем из неё RUM и не запускаем параллельную досылку заявок.
 const isAdminRoute = /^\/admin(?:\/|$)/.test(window.location.pathname);
 if (!isAdminRoute) {
+  trackDocumentNavigation();
   initLeadRetryQueue();
   // Реальная скорость у посетителей: без идентификаторов и cookies, отправка
   // один раз при уходе со страницы. Любая ошибка внутри молча выключает сбор.

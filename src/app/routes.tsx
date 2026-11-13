@@ -11,6 +11,7 @@ import { isPathLocked, refreshPageLocks } from './utils/pageLocks';
 import { onUserScrollIntent, readDocumentScrollY, restoreWindowScrollPosition } from './utils/scrollRestoration';
 import { preloadable } from './utils/preloadable';
 import { focusRouteHeading } from './utils/routeFocus';
+import { isLeavingDocument } from './utils/documentNavigation';
 import { useIsomorphicLayoutEffect } from './utils/isomorphicLayoutEffect';
 import { CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery } from '../../shared/chunk-recovery';
 import {
@@ -124,6 +125,9 @@ function RouteErrorBoundary() {
 
     const url = new URL(window.location.href);
     const failedHref = url.href;
+    // WebKit can report cancelled CSS/import requests while the next document
+    // is already loading, before pagehide or a change to location.href.
+    if (isLeavingDocument(failedHref)) return;
     const onceKey = `ww_chunk_reload_once_v1:${url.pathname}`;
     // The URL marker keeps recovery bounded even when sessionStorage is blocked.
     if (isChunkRecoveryMarker(url.searchParams.get(CHUNK_RECOVERY_QUERY))) return;
@@ -132,7 +136,7 @@ function RouteErrorBoundary() {
     } catch { /* storage is optional */ }
 
     const timer = window.setTimeout(() => {
-      if (window.location.href !== failedHref) return;
+      if (window.location.href !== failedHref || isLeavingDocument(failedHref)) return;
       const stamp = String(Date.now());
       try { window.sessionStorage.setItem(onceKey, stamp); } catch { /* the URL still carries the marker */ }
       url.searchParams.set(CHUNK_RECOVERY_QUERY, stamp);

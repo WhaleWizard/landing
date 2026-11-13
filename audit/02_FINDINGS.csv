@@ -1,4 +1,5 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+NAV-20261113-01,P2,RELIABILITY,public,RouteErrorBoundary,WebKit recovery interrupts navigation to a new document,Cancelled module or CSS can fail after beforeunload and before pagehide,FIXED,documentNavigation.ts and routes.tsx,Reproduced on live site and verified with delayed FAQ on local build
 ADMIN-20261113-70,P2,STATE,/admin/,Article pins,Fast pin changes could overwrite each other,Parallel writes replace the complete list,FIXED,Admin.tsx,Delayed response and blocked controls
 ADMIN-20261113-71,P2,DATA,/admin/,Article pins,Missing article or case can replace valid pins,Server did not validate selected articles,FIXED,articles-featured.ts and d1.ts,SQLite preserves prior order on 409
 ADMIN-20261113-72,P2,DATA,/admin/,Article pins,Server accepted more new pins than public slots,Legacy endpoint limit differed from carousel,FIXED,articles-featured.ts and d1.ts,SQLite limit and legacy reorder

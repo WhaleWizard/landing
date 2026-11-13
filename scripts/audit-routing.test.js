@@ -120,8 +120,8 @@ test('F-001: the route boundary retries a failed module or CSS once and cancels 
   t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-11T12:00:00Z') });
   const { CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery } = await bundle('../../shared/chunk-recovery.ts');
   const fixture = await routeFixture('RouteErrorBoundary',
-    'useRouteError, useEffect, React, window, CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery');
-  const recovery = (message, href, { blocked = false, stored = new Map() } = {}) => {
+    'useRouteError, useEffect, React, window, CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery, isLeavingDocument');
+  const recovery = (message, href, { blocked = false, stored = new Map(), leaving = false } = {}) => {
     const changes = [];
     const handlers = new Map();
     let pending;
@@ -137,11 +137,12 @@ test('F-001: the route boundary retries a failed module or CSS once and cancels 
       removeEventListener: (event) => handlers.delete(event),
     };
     const Boundary = fixture(() => new Error(message), (effect) => effect(), React, win,
-      CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery);
+      CHUNK_RECOVERY_QUERY, isChunkRecoveryMarker, isRecentChunkRecovery, () => leaving);
     const ui = Boundary();
     return {
       win, changes,
       leave: () => handlers.get('pagehide')?.(),
+      startNavigation: () => { leaving = true; },
       run: () => pending?.(),
       clickRefresh: () => ui.props.children.props.children[2].props.onClick(),
     };
@@ -189,6 +190,17 @@ test('F-001: the route boundary retries a failed module or CSS once and cancels 
   const generic = recovery('Component crashed', href);
   generic.run();
   assert.equal(generic.changes.length, 0);
+
+  const pendingNavigation = recovery(failure, href, { leaving: true });
+  pendingNavigation.run();
+  assert.equal(pendingNavigation.changes.length, 0);
+  pendingNavigation.clickRefresh();
+  assert.equal(pendingNavigation.changes.length, 1, 'manual refresh still works');
+
+  const racingNavigation = recovery(failure, href);
+  racingNavigation.startNavigation();
+  racingNavigation.run();
+  assert.equal(racingNavigation.changes.length, 0);
 });
 
 test('F-002: blocked storage does not crash the public route layout', async (t) => {
